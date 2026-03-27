@@ -9,10 +9,13 @@ export function renderSymphonyUsage(): string {
     "Symphony command usage:",
     "  /symphony status",
     "  /symphony watch <ISSUE> [--max-events <n>] [--timeout-ms <ms>]",
+    "  /symphony config [WORKFLOW.md]",
     "",
     "Examples:",
     "  /symphony status",
     "  /symphony watch KAT-920",
+    "  /symphony config",
+    "  /symphony config ./apps/symphony/WORKFLOW.md",
   ].join("\n");
 }
 

@@ -166,6 +166,7 @@ budget_ceiling: 50.00
 | `models.*` | Per-phase model selection (Opus for planning, Sonnet for execution, `review` for PR reviewer subagents, etc.) |
 | `pr.*` | PR lifecycle settings (see [PR Mode](#pr-mode)) |
 | `symphony.url` | Base URL for Symphony server (e.g. `http://127.0.0.1:8080`) |
+| `symphony.workflow_path` | Default WORKFLOW.md path used by `/symphony config` |
 | `skill_discovery` | `auto` / `suggest` / `off` — how Kata finds and applies skills |
 | `auto_supervisor.*` | Timeout thresholds for auto-mode supervision |
 | `budget_ceiling` | USD ceiling — auto mode pauses when reached |
@@ -181,15 +182,21 @@ Kata includes a first-class Symphony client surface for live operator workflows.
 
 Set `symphony.url` in `.kata/preferences.md` (preferred) or `KATA_SYMPHONY_URL` / `SYMPHONY_URL` in your environment (`KATA_SYMPHONY_URL` takes precedence when both are set).
 
+You can also set `symphony.workflow_path` so `/symphony config` knows which WORKFLOW.md file to edit by default.
+
 ```yaml
 symphony:
   url: http://127.0.0.1:8080
+  workflow_path: ./apps/symphony/WORKFLOW.md
 ```
 
 ### Operator commands
 
 - `/symphony status` — fetches live worker/queue state from `GET /api/v1/state`
 - `/symphony watch KAT-920` — streams live issue-scoped events from `GET /api/v1/events?issue=KAT-920`
+- `/symphony config [WORKFLOW.md]` — opens a guided config editor for WORKFLOW frontmatter
+
+The config editor groups fields by section (tracker/workspace/agent/kata_agent/notifications/prompts/server/hooks/worker), uses typed controls (text, number, enum pickers, toggles, string-array editor), validates before save, shows a change summary, and writes only frontmatter while preserving the markdown prompt body and YAML comments.
 
 Optional watch flags:
 
