@@ -12,14 +12,15 @@ use serde_json::json;
 use tempfile::{tempdir, NamedTempFile};
 
 use symphony::domain::{
-    AgentConfig, AgentEvent, ApiKey, BlockerRef, Issue, NotificationsConfig, ServiceConfig,
-    SlackConfig, TrackerConfig, WorkspaceIsolation,
+    AgentConfig, AgentEvent, ApiKey, BlockerRef, ContextScope, Issue, NotificationsConfig,
+    ServiceConfig, SlackConfig, TrackerConfig, WorkspaceIsolation,
 };
 use symphony::error::{Result, SymphonyError};
 use symphony::orchestrator::{
     refresh_channel, Orchestrator, OrchestratorPort, RetryContext, RetryKind, RuntimeEvent,
     TurnMetrics, WorkerCompletion, CONTINUATION_RETRY_DELAY_MS,
 };
+use symphony::shared_context::ContextEntryDraft;
 use symphony::workflow_store::WorkflowStore;
 
 #[derive(Default)]
@@ -3789,6 +3790,86 @@ async fn test_execute_worker_attempt_stops_when_issue_changes_to_different_activ
         1,
         "state change from In Progress to Agent Review should stop after turn 1 — \
          the orchestrator needs to re-dispatch with the agent-review prompt"
+    );
+}
+
+#[tokio::test]
+async fn test_execute_worker_attempt_shared_context_is_injected_into_prompt() {
+    let mut server = Server::new_async().await;
+    let issue = issue(
+        "issue-shared-context",
+        "SIM-SHARED",
+        "In Progress",
+        Some(1),
+        0,
+    );
+
+    let _state_lookup = server
+        .mock("POST", "/graphql")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            serde_json::to_string(&state_lookup_response(
+                &issue.id,
+                &issue.identifier,
+                "In Progress",
+                None,
+            ))
+            .expect("state response should serialize"),
+        )
+        .expect(1)
+        .create_async()
+        .await;
+
+    let scripts_dir = tempdir().expect("scripts dir should be created");
+    let workspace_root = tempdir().expect("workspace root should be created");
+    let prompt_log = scripts_dir.path().join("prompts.log");
+    let script = write_script(
+        scripts_dir.path(),
+        "codex.sh",
+        &script_two_successful_turns(&prompt_log),
+    );
+
+    let mut orchestrator = Orchestrator::new(
+        make_worker_config(&server, &script, workspace_root.path(), 2),
+        String::new(),
+    );
+
+    orchestrator
+        .shared_context_store()
+        .write_entry(ContextEntryDraft {
+            author_issue: "KAT-920".to_string(),
+            scope: ContextScope::Project,
+            content: "Decision: using Zod for validation".to_string(),
+            ttl_ms: None,
+        });
+
+    let result = orchestrator
+        .execute_worker_attempt(
+            &issue,
+            "Worker prompt for {{ issue.identifier }}",
+            Some(1),
+            |_query, _vars| async { Ok(serde_json::json!({ "data": {} })) },
+        )
+        .await;
+
+    assert!(
+        result.is_ok(),
+        "worker attempt with shared context should succeed: {result:?}"
+    );
+
+    let prompt_lines: Vec<String> = std::fs::read_to_string(&prompt_log)
+        .expect("prompt log should exist")
+        .lines()
+        .map(|line| line.to_string())
+        .collect();
+
+    assert!(
+        prompt_lines
+            .first()
+            .map(|line| line.contains("Decision: using Zod for validation"))
+            .unwrap_or(false),
+        "first worker prompt should include the shared context decision"
     );
 }
 
