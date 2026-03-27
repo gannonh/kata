@@ -20,8 +20,8 @@ Ask yourself:
 - Are the boundary contracts in the boundary map still accurate given what was actually built?
 - Should any remaining slices be reordered, merged, split, or adjusted based on concrete evidence?
 - Did assumptions in remaining slice descriptions turn out wrong?
-- If `.kata/REQUIREMENTS.md` exists: did this slice validate, invalidate, defer, block, or newly surface requirements?
-- If `.kata/REQUIREMENTS.md` exists: does the remaining roadmap still provide credible coverage for Active requirements, including launchability, primary user loop, continuity, and failure visibility where relevant?
+- If a `REQUIREMENTS` document exists: did this slice validate, invalidate, defer, block, or newly surface requirements?
+- If a `REQUIREMENTS` document exists: does the remaining roadmap still provide credible coverage for Active requirements, including launchability, primary user loop, continuity, and failure visibility where relevant?
 
 ### Success-Criterion Coverage Check
 
