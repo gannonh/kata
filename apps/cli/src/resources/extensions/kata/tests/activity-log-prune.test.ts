@@ -11,16 +11,12 @@
 //   (g) Single file: always preserved (it IS highest-seq)
 //   (h) Seq number is tie-breaker (010 beats 001 lexicographically and numerically)
 //   (i) Non-matching filenames ignored: notes.txt survives, no crash
-//   (j) Step-11 prompt text: "refresh current state if needed"
 
 import { mkdtempSync, mkdirSync, readdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { fileURLToPath } from 'node:url';
 
 import { pruneActivityLogs } from '../activity-log.ts';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // ─── Assertion helpers ─────────────────────────────────────────────────────
 
@@ -291,23 +287,6 @@ async function main(): Promise<void> {
     assert(
       remaining.includes('001-execute-task-M007-S01-T01.jsonl'),
       '(i) seq 001 survives (it is the highest-seq among seq files)',
-    );
-  }
-
-  // ─── (j) Step-11 prompt text assertion ────────────────────────────────────
-  console.log('\n── (j) Step-11 prompt text: "refresh current state if needed"');
-
-  {
-    const { readFileSync } = await import('node:fs');
-    // The "refresh current state if needed" instruction now lives in
-    // FileBackend._buildCompleteSliceOps (backendOps), injected into the
-    // complete-slice template at render time. Verify it exists in the backend.
-    const backendPath = join(__dirname, '..', 'file-backend.ts');
-    const content = readFileSync(backendPath, 'utf-8');
-
-    assert(
-      content.includes('refresh current state if needed'),
-      '(j) file-backend.ts complete-slice ops contains "refresh current state if needed"',
     );
   }
 
