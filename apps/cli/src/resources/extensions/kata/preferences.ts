@@ -75,9 +75,12 @@ export interface KataLinearPreferences {
   projectId?: string;
 }
 
+export type KataSymphonyConsolePosition = "below-output" | "above-status";
+
 export interface KataSymphonyPreferences {
   url?: string;
   workflow_path?: string;
+  console_position?: KataSymphonyConsolePosition;
 }
 
 export interface KataPrPreferences {
@@ -1046,6 +1049,26 @@ function normalizeSymphonyPreferences(value: unknown): {
         errors.push("symphony.workflow_path must not be empty");
       } else {
         normalized.workflow_path = trimmed;
+      }
+    }
+  }
+
+  const rawConsolePosition = (value as Record<string, unknown>).console_position;
+  if (rawConsolePosition !== undefined) {
+    if (typeof rawConsolePosition !== "string") {
+      errors.push("symphony.console_position must be a string");
+    } else {
+      const normalizedPosition = rawConsolePosition.trim().toLowerCase();
+      if (
+        normalizedPosition !== "below-output" &&
+        normalizedPosition !== "above-status"
+      ) {
+        errors.push(
+          'symphony.console_position must be "below-output" or "above-status"',
+        );
+      } else {
+        normalized.console_position =
+          normalizedPosition as KataSymphonyConsolePosition;
       }
     }
   }
