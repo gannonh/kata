@@ -201,6 +201,26 @@ fn test_run_attempt_construction_and_serialization() {
 }
 
 #[test]
+fn test_run_attempt_deserializes_when_issue_url_missing() {
+    let json = r#"{
+        "issue_id":"id-legacy",
+        "issue_identifier":"PROJ-LEGACY",
+        "issue_title":null,
+        "attempt":null,
+        "workspace_path":"/tmp/ws",
+        "started_at":"2026-01-01T00:00:00Z",
+        "status":"running",
+        "error":null,
+        "worker_host":null,
+        "model":null,
+        "linear_state":null
+    }"#;
+    let deser: RunAttempt = serde_json::from_str(json).unwrap();
+    assert_eq!(deser.issue_id, "id-legacy");
+    assert_eq!(deser.issue_url, None);
+}
+
+#[test]
 fn test_live_session_token_defaults() {
     let json = r#"{
         "session_id": "s1",

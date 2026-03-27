@@ -5,7 +5,7 @@ description: Slack webhook notifications for Symphony orchestration events.
 
 # Notifications
 
-Symphony can send webhook notifications to Slack when events need human attention — issues moved to Human Review, agents stalled, agents failed, or issues moved to Rework.
+Symphony can send webhook notifications to Slack for any workflow state transition or runtime event — from issue dispatch through completion, including stalls and failures.
 
 ## Slack App Setup
 
@@ -119,8 +119,8 @@ Each notification includes:
 - Check Symphony logs for `notification_sent` or `notification_failed` events
 
 **"Unknown event" error at startup:**
-- Supported events are: `human_review`, `stalled`, `failed`, `rework`
-- Event names are case-insensitive but must match one of the supported values
+- Supported events: `todo`, `in_progress`, `agent_review`, `human_review`, `merging`, `rework`, `done`, `closed`, `cancelled`, `canceled`, `stalled`, `failed`, and `all`
+- Event names are case-insensitive
 
 **Messages not appearing in Slack:**
 - Test the webhook URL directly: `curl -X POST -H 'Content-type: application/json' --data '{"text":"test"}' $SLACK_WEBHOOK_URL`

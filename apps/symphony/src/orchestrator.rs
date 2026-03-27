@@ -2173,7 +2173,7 @@ impl Orchestrator {
         let _ = self.ensure_worker_session_info(&issue.id);
         self.state.claimed.insert(issue.id.clone());
         self.running_issue_states
-            .insert(issue.id.clone(), normalize_issue_state(&issue.state));
+            .insert(issue.id.clone(), issue.state.clone());
         self.running_session_stats
             .entry(issue.id.clone())
             .or_insert_with(|| RunningSessionStats {
@@ -2668,14 +2668,13 @@ impl Orchestrator {
             visible_issue_ids.insert(issue.id.clone());
 
             let normalized_state = normalize_issue_state(&issue.state);
-            let previous_state = self.running_issue_states.get(&issue.id).cloned();
+            let previous_display = self.running_issue_states.get(&issue.id).cloned();
 
-            if let Some(previous_state) = previous_state.as_deref() {
-                if previous_state != normalized_state.as_str() {
-                    // Convert normalized state (e.g. "human review") to event name
-                    // (e.g. "human_review") by replacing spaces with underscores.
+            if let Some(prev) = previous_display.as_deref() {
+                let prev_normalized = normalize_issue_state(prev);
+                if prev_normalized != normalized_state {
                     let event_name = normalized_state.replace(' ', "_");
-                    let message = format!("Moved to {} (was {}).", issue.state, previous_state,);
+                    let message = format!("Moved to {} (was {}).", issue.state, prev);
                     self.queue_slack_notification(
                         &event_name,
                         &issue.identifier,
@@ -2696,8 +2695,9 @@ impl Orchestrator {
                 continue;
             }
 
+            // Store display-cased state for human-readable notification messages.
             self.running_issue_states
-                .insert(issue.id.clone(), normalized_state);
+                .insert(issue.id.clone(), issue.state.clone());
 
             // Keep dashboard linear_state current with actual Linear state.
             if let Some(attempt) = self.state.running.get_mut(&issue.id) {
@@ -2710,6 +2710,12 @@ impl Orchestrator {
                 self.release_issue(&running_id);
             }
         }
+
+        // Clean up stale running_issue_states entries for issues no longer
+        // in state.running (completed workers whose state was kept for
+        // notification detection on this poll cycle).
+        self.running_issue_states
+            .retain(|id, _| self.state.running.contains_key(id));
 
         Ok(())
     }
@@ -2971,7 +2977,7 @@ impl Orchestrator {
         );
         self.state.retry_attempts.remove(&issue.id);
         self.running_issue_states
-            .insert(issue.id.clone(), normalize_issue_state(&issue.state));
+            .insert(issue.id.clone(), issue.state.clone());
     }
 
     fn process_due_retries(

@@ -15,6 +15,7 @@ pub const SUPPORTED_SLACK_EVENTS: &[&str] = &[
     "done",
     "closed",
     "cancelled",
+    "canceled",
     // Runtime events
     "stalled",
     "failed",
@@ -196,7 +197,7 @@ fn event_icon(event_type: &str) -> &'static str {
         "rework" => "🔁",
         "done" => "✅",
         "closed" => "🔒",
-        "cancelled" => "❌",
+        "cancelled" | "canceled" => "❌",
         "stalled" => "⚠️",
         "failed" => "🚨",
         _ => "🔔",
@@ -218,6 +219,34 @@ mod tests {
         assert!(should_notify(&config, "stalled"));
         assert!(should_notify(&config, "HUMAN_REVIEW"));
         assert!(!should_notify(&config, "failed"));
+    }
+
+    #[test]
+    fn test_should_notify_wildcard_all() {
+        let config = SlackConfig {
+            webhook_url: "https://hooks.slack.test/mock".to_string(),
+            events: vec!["all".to_string()],
+        };
+        assert!(should_notify(&config, "stalled"));
+        assert!(should_notify(&config, "in_progress"));
+        assert!(should_notify(&config, "done"));
+
+        // Capitalised "All" in config should also work
+        let config_upper = SlackConfig {
+            webhook_url: "https://hooks.slack.test/mock".to_string(),
+            events: vec!["All".to_string()],
+        };
+        assert!(should_notify(&config_upper, "failed"));
+    }
+
+    #[test]
+    fn test_should_notify_canceled_alias() {
+        let config = SlackConfig {
+            webhook_url: "https://hooks.slack.test/mock".to_string(),
+            events: vec!["canceled".to_string()],
+        };
+        assert!(should_notify(&config, "canceled"));
+        assert!(should_notify(&config, "Canceled"));
     }
 
     #[test]
