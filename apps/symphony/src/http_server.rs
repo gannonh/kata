@@ -71,6 +71,7 @@ const DEFAULT_EVENT_HUB_CAPACITY: usize = 512;
 const DEFAULT_WS_HEARTBEAT_INTERVAL_MS: u64 = 5_000;
 const DEFAULT_WS_CLIENT_QUEUE_CAPACITY: usize = 64;
 const DEFAULT_WS_BACKPRESSURE_DROP_THRESHOLD: u64 = 1;
+const WS_CLOSE_ENQUEUE_TIMEOUT_MS: u64 = 1_000;
 
 #[derive(Clone)]
 pub struct EventHub {
@@ -390,6 +391,7 @@ impl WsCloseReason {
 
 enum OutboundMessage {
     Envelope(SymphonyEventEnvelope),
+    Pong(Vec<u8>),
     Close(WsCloseReason),
 }
 
@@ -988,6 +990,11 @@ async fn handle_events_socket(socket: WebSocket, state: HttpServerState, filter:
                         break;
                     }
                 }
+                OutboundMessage::Pong(payload) => {
+                    if ws_sender.send(Message::Pong(payload.into())).await.is_err() {
+                        break;
+                    }
+                }
                 OutboundMessage::Close(reason) => {
                     let _ = ws_sender
                         .send(Message::Close(Some(reason.close_frame())))
@@ -1040,17 +1047,17 @@ async fn handle_events_socket(socket: WebSocket, state: HttpServerState, filter:
                         break;
                     }
                     Some(Ok(Message::Ping(payload))) => {
-                        let _ = outbound_tx.try_send(OutboundMessage::Envelope(
-                            SymphonyEventEnvelope::new(
-                                event_hub.next_sequence(),
-                                Utc::now(),
-                                EventKind::Heartbeat,
-                                EventSeverity::Debug,
-                                None,
-                                "heartbeat",
-                                serde_json::json!({ "pong": payload.len() }),
-                            ),
-                        ));
+                        if !enqueue_pong(
+                            &state,
+                            &outbound_tx,
+                            client_id,
+                            payload.to_vec(),
+                            &mut dropped_count,
+                            config.backpressure_drop_threshold,
+                        ) {
+                            close_reason = WsCloseReason::Backpressure;
+                            break;
+                        }
                     }
                     Some(Ok(_)) => {}
                     Some(Err(err)) => {
@@ -1142,7 +1149,24 @@ async fn handle_events_socket(socket: WebSocket, state: HttpServerState, filter:
         }
     }
 
-    let _ = outbound_tx.send(OutboundMessage::Close(close_reason)).await;
+    match tokio::time::timeout(
+        Duration::from_millis(WS_CLOSE_ENQUEUE_TIMEOUT_MS),
+        outbound_tx.send(OutboundMessage::Close(close_reason)),
+    )
+    .await
+    {
+        Ok(Ok(())) | Ok(Err(_)) => {}
+        Err(_) => {
+            tracing::warn!(
+                event = "ws_close_enqueue_timeout",
+                client_id,
+                reason = close_reason.as_str(),
+                timeout_ms = WS_CLOSE_ENQUEUE_TIMEOUT_MS,
+                "timed out enqueueing websocket close frame; aborting writer task"
+            );
+            writer_task.abort();
+        }
+    }
     drop(outbound_tx);
     let _ = writer_task.await;
 
@@ -1166,21 +1190,64 @@ fn enqueue_event(
     dropped_count: &mut u64,
     drop_threshold: u64,
 ) -> bool {
-    match outbound_tx.try_send(OutboundMessage::Envelope(envelope)) {
+    enqueue_outbound(
+        state,
+        outbound_tx,
+        client_id,
+        OutboundMessage::Envelope(envelope),
+        dropped_count,
+        drop_threshold,
+        "queue_full",
+    )
+}
+
+fn enqueue_pong(
+    state: &HttpServerState,
+    outbound_tx: &tokio::sync::mpsc::Sender<OutboundMessage>,
+    client_id: u64,
+    payload: Vec<u8>,
+    dropped_count: &mut u64,
+    drop_threshold: u64,
+) -> bool {
+    enqueue_outbound(
+        state,
+        outbound_tx,
+        client_id,
+        OutboundMessage::Pong(payload),
+        dropped_count,
+        drop_threshold,
+        "queue_full_pong",
+    )
+}
+
+fn enqueue_outbound(
+    state: &HttpServerState,
+    outbound_tx: &tokio::sync::mpsc::Sender<OutboundMessage>,
+    client_id: u64,
+    message: OutboundMessage,
+    dropped_count: &mut u64,
+    drop_threshold: u64,
+    drop_reason: &'static str,
+) -> bool {
+    let effective_drop_threshold = drop_threshold.max(1);
+
+    match outbound_tx.try_send(message) {
         Ok(()) => true,
         Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => {
             *dropped_count = dropped_count.saturating_add(1);
             let global_dropped = state.increment_dropped(1);
+            let should_close = *dropped_count >= effective_drop_threshold;
             tracing::warn!(
                 event = "ws_event_dropped",
                 client_id,
-                reason = "queue_full",
+                reason = drop_reason,
                 dropped_total = *dropped_count,
                 dropped_global = global_dropped,
-                drop_threshold,
+                drop_threshold = effective_drop_threshold,
+                should_close,
                 "websocket client outbound queue reached capacity"
             );
-            false
+            !should_close
         }
         Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => false,
     }

@@ -1900,13 +1900,12 @@ impl Orchestrator {
 
         let _ = self.ensure_worker_session_info(issue_id);
         self.record_worker_activity(issue_id, event_timestamp_ms(event));
-        self.publish_agent_event_to_hub(issue_id, event);
-        let event_time = event_timestamp(event);
-
         if let Some(session_id) = event_session_id(event) {
             self.worker_session_ids
                 .insert(issue_id.to_string(), session_id.to_string());
         }
+        self.publish_agent_event_to_hub(issue_id, event);
+        let event_time = event_timestamp(event);
 
         let (last_event, last_event_message) = event_summary(event);
         let session_stats = self
@@ -3573,11 +3572,7 @@ fn event_kind_for_agent_event(event: &AgentEvent) -> EventKind {
         | AgentEvent::ToolCallFailed { .. }
         | AgentEvent::UnsupportedToolCall { .. }
         | AgentEvent::ToolInputAutoAnswered { .. } => EventKind::Tool,
-        AgentEvent::Notification { message, .. }
-            if message.starts_with("tool_start:")
-                || message.starts_with("tool_end:")
-                || message.starts_with("tool_error:") =>
-        {
+        AgentEvent::Notification { message, .. } if tool_notification_name(message).is_some() => {
             EventKind::Tool
         }
         _ => EventKind::Worker,
@@ -3591,6 +3586,11 @@ fn event_severity_for_agent_event(event: &AgentEvent) -> EventSeverity {
         | AgentEvent::TurnEndedWithError { .. }
         | AgentEvent::ToolCallFailed { .. }
         | AgentEvent::Malformed { .. } => EventSeverity::Error,
+        AgentEvent::Notification { message, .. }
+            if tool_notification_name(message) == Some("tool_error") =>
+        {
+            EventSeverity::Error
+        }
         AgentEvent::TurnCancelled { .. } | AgentEvent::UnsupportedToolCall { .. } => {
             EventSeverity::Warn
         }
@@ -3659,7 +3659,13 @@ fn event_summary(event: &AgentEvent) -> (String, Option<String>) {
             event_name(event).to_string(),
             Some(format!("unsupported tool {tool_name}")),
         ),
-        AgentEvent::Notification { message, .. } => notification_event_summary(message),
+        AgentEvent::Notification { message, .. } => {
+            if let Some(name) = tool_notification_name(message) {
+                (name.to_string(), tool_notification_summary(message))
+            } else {
+                notification_event_summary(message)
+            }
+        }
         AgentEvent::OtherMessage { raw, .. } => other_message_summary(raw),
         AgentEvent::Malformed {
             parse_error,
@@ -3681,6 +3687,28 @@ fn event_summary(event: &AgentEvent) -> (String, Option<String>) {
             .map(|value| truncate_for_display(value, 160))
             .filter(|value| !value.is_empty()),
     )
+}
+
+fn tool_notification_name(message: &str) -> Option<&'static str> {
+    if message.starts_with("tool_start:") {
+        Some("tool_start")
+    } else if message.starts_with("tool_end:") {
+        Some("tool_end")
+    } else if message.starts_with("tool_error:") {
+        Some("tool_error")
+    } else {
+        None
+    }
+}
+
+fn tool_notification_summary(message: &str) -> Option<String> {
+    let (_, rest) = message.split_once(':')?;
+    let summary = normalize_whitespace(rest);
+    if summary.is_empty() {
+        None
+    } else {
+        Some(summary)
+    }
 }
 
 fn notification_event_summary(message: &str) -> (String, Option<String>) {

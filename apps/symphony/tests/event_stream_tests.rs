@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use chrono::Utc;
-use futures_util::StreamExt;
+use futures_util::{SinkExt, StreamExt};
 use serde_json::json;
 use symphony::domain::{
     AgentEvent, CodexTotals, CompletedEntry, EventKind, EventSeverity, OrchestratorSnapshot,
@@ -196,6 +196,48 @@ async fn websocket_upgrade_and_heartbeat() {
 }
 
 #[tokio::test]
+async fn websocket_ping_receives_protocol_pong() {
+    let config = EventStreamConfig {
+        heartbeat_interval: Duration::from_secs(5),
+        ..EventStreamConfig::default()
+    };
+    let (addr, server_task, _state) = spawn_server(config).await;
+
+    let url = format!("ws://{addr}/api/v1/events");
+    let (mut stream, _) = connect_async(url).await.expect("websocket should connect");
+
+    let snapshot = recv_envelope(&mut stream, Duration::from_secs(2)).await;
+    assert_eq!(snapshot.kind, EventKind::Snapshot);
+
+    let ping_payload = vec![1_u8, 2, 3, 4];
+    stream
+        .send(tokio_tungstenite::tungstenite::Message::Ping(
+            ping_payload.clone().into(),
+        ))
+        .await
+        .expect("client ping should send");
+
+    let pong = tokio::time::timeout(Duration::from_secs(2), async {
+        loop {
+            match stream.next().await {
+                Some(Ok(tokio_tungstenite::tungstenite::Message::Pong(payload))) => {
+                    break payload;
+                }
+                Some(Ok(_)) => {}
+                Some(Err(err)) => panic!("unexpected websocket error: {err}"),
+                None => panic!("websocket closed before pong"),
+            }
+        }
+    })
+    .await
+    .expect("server should respond to ping with pong");
+
+    assert_eq!(pong.to_vec(), ping_payload);
+
+    server_task.abort();
+}
+
+#[tokio::test]
 async fn filtered_runtime_event_delivery() {
     let config = EventStreamConfig {
         heartbeat_interval: Duration::from_secs(5),
@@ -314,6 +356,107 @@ async fn orchestrator_event_stream_emits_runtime_and_tool_events() {
 }
 
 #[tokio::test]
+async fn orchestrator_session_started_event_includes_session_id() {
+    let hub = EventHub::new(64);
+    let mut receiver = hub.subscribe();
+
+    let mut orchestrator = Orchestrator::new(Default::default(), "prompt".to_string());
+    orchestrator.attach_event_hub(hub.clone());
+    orchestrator.state_mut().running.insert(
+        "issue-920".to_string(),
+        RunAttempt {
+            issue_id: "issue-920".to_string(),
+            issue_identifier: "KAT-920".to_string(),
+            issue_title: Some("Worker issue".to_string()),
+            attempt: Some(1),
+            workspace_path: "/tmp/symphony/issue-920".to_string(),
+            started_at: Utc::now(),
+            status: "running".to_string(),
+            error: None,
+            worker_host: None,
+            model: None,
+            linear_state: Some("In Progress".to_string()),
+            issue_url: None,
+        },
+    );
+
+    orchestrator.ingest_agent_event(
+        "issue-920",
+        &AgentEvent::SessionStarted {
+            timestamp: Utc::now(),
+            codex_app_server_pid: None,
+            session_id: "session-920".to_string(),
+        },
+    );
+
+    let envelope = tokio::time::timeout(Duration::from_secs(1), receiver.recv())
+        .await
+        .expect("session_started envelope should arrive")
+        .expect("session_started envelope should decode");
+
+    assert_eq!(envelope.event, "session_started");
+    assert_eq!(envelope.issue.as_deref(), Some("KAT-920"));
+    assert_eq!(
+        envelope
+            .payload
+            .get("session_id")
+            .and_then(|value| value.as_str()),
+        Some("session-920")
+    );
+}
+
+#[tokio::test]
+async fn tool_error_notification_maps_to_tool_error_envelope() {
+    let hub = EventHub::new(64);
+    let mut receiver = hub.subscribe();
+
+    let mut orchestrator = Orchestrator::new(Default::default(), "prompt".to_string());
+    orchestrator.attach_event_hub(hub.clone());
+    orchestrator.state_mut().running.insert(
+        "issue-920".to_string(),
+        RunAttempt {
+            issue_id: "issue-920".to_string(),
+            issue_identifier: "KAT-920".to_string(),
+            issue_title: Some("Worker issue".to_string()),
+            attempt: Some(1),
+            workspace_path: "/tmp/symphony/issue-920".to_string(),
+            started_at: Utc::now(),
+            status: "running".to_string(),
+            error: None,
+            worker_host: None,
+            model: None,
+            linear_state: Some("In Progress".to_string()),
+            issue_url: None,
+        },
+    );
+
+    orchestrator.ingest_agent_event(
+        "issue-920",
+        &AgentEvent::Notification {
+            timestamp: Utc::now(),
+            codex_app_server_pid: None,
+            message: "tool_error: bash".to_string(),
+        },
+    );
+
+    let envelope = tokio::time::timeout(Duration::from_secs(1), receiver.recv())
+        .await
+        .expect("tool_error envelope should arrive")
+        .expect("tool_error envelope should decode");
+
+    assert_eq!(envelope.kind, EventKind::Tool);
+    assert_eq!(envelope.severity, EventSeverity::Error);
+    assert_eq!(envelope.event, "tool_error");
+    assert_eq!(
+        envelope
+            .payload
+            .get("summary")
+            .and_then(|value| value.as_str()),
+        Some("bash")
+    );
+}
+
+#[tokio::test]
 async fn slow_consumer_backpressure() {
     let config = EventStreamConfig {
         heartbeat_interval: Duration::from_secs(30),
@@ -361,6 +504,59 @@ async fn slow_consumer_backpressure() {
     assert!(
         counters.dropped >= 1,
         "expected dropped counter to increment"
+    );
+
+    server_task.abort();
+}
+
+#[tokio::test]
+async fn queue_full_honors_backpressure_drop_threshold() {
+    let config = EventStreamConfig {
+        heartbeat_interval: Duration::from_secs(30),
+        client_queue_capacity: 1,
+        backpressure_drop_threshold: 3,
+        writer_send_delay: Some(Duration::from_millis(250)),
+    };
+    let (addr, server_task, state) = spawn_server(config).await;
+
+    let url = format!("ws://{addr}/api/v1/events");
+    let (mut stream, _) = connect_async(url).await.expect("websocket should connect");
+
+    let _snapshot = recv_envelope(&mut stream, Duration::from_secs(2)).await;
+
+    for idx in 0..24 {
+        state.event_hub().publish(
+            EventKind::Worker,
+            EventSeverity::Info,
+            Some("KAT-920".to_string()),
+            "worker_update",
+            json!({ "idx": idx }),
+        );
+    }
+
+    let close_reason = tokio::time::timeout(Duration::from_secs(6), async {
+        loop {
+            match stream.next().await {
+                Some(Ok(tokio_tungstenite::tungstenite::Message::Close(frame))) => {
+                    break frame
+                        .map(|frame| frame.reason.to_string())
+                        .unwrap_or_else(|| "closed".to_string());
+                }
+                Some(Ok(_)) => {}
+                Some(Err(err)) => break format!("error:{err}"),
+                None => break "none".to_string(),
+            }
+        }
+    })
+    .await
+    .expect("stream should close after reaching configured drop threshold");
+
+    assert_eq!(close_reason, "backpressure");
+
+    let counters = state.event_stream_counters();
+    assert!(
+        counters.dropped >= 3,
+        "expected dropped counter to honor configured threshold before disconnect"
     );
 
     server_task.abort();
