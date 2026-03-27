@@ -378,8 +378,9 @@ li { margin-bottom: 4px; }
     <div class="pipeline__arrow">→</div>
     <div class="pipeline__step">
       <strong style="color: var(--shared)">2. Workflow Mode</strong>
-      <code>"mode: linear"</code><br>
-      Appended when entrypoint guard has a notice
+      Dynamic string (not a file).<br>
+      Built by <code>getWorkflowEntrypointGuard("system-prompt")</code>.<br>
+      Always present: <code>"mode: linear — Follow Linear mode instructions in KATA-WORKFLOW.md. Do not fall back to file-backed .kata artifacts."</code>
     </div>
     <div class="pipeline__arrow">→</div>
     <div class="pipeline__step">
