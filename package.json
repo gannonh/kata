@@ -137,7 +137,7 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-markdown": "^10.1.0",
-    "react-resizable-panels": "^4.7.5",
+    "react-resizable-panels": "^4.6.3",
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
     "semver": "^7.7.3",
