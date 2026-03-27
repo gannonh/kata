@@ -125,3 +125,8 @@ coverage/
 
 # ── Kata baseline (auto-generated) ──
 .kata/debug.log
+
+# Local planning artifacts
+apps/symphony/docs/plans/
+apps/symphony/docs/specs/
+apps/cli/docs/superpowers/
