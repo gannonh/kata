@@ -64,6 +64,73 @@ pub struct BlockedIssueEntry {
     pub blocker_identifiers: Vec<String>,
 }
 
+// ── Shared context contract (M002/S06) ──────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[serde(tag = "type", content = "value", rename_all = "snake_case")]
+pub enum ContextScope {
+    Project,
+    Milestone(String),
+    Label(String),
+}
+
+impl ContextScope {
+    pub fn parse(value: &str) -> Option<Self> {
+        let normalized = value.trim();
+        if normalized.eq_ignore_ascii_case("project") {
+            return Some(Self::Project);
+        }
+
+        if let Some(raw) = normalized
+            .strip_prefix("milestone:")
+            .or_else(|| normalized.strip_prefix("Milestone:"))
+        {
+            let id = raw.trim();
+            if !id.is_empty() {
+                return Some(Self::Milestone(id.to_string()));
+            }
+            return None;
+        }
+
+        if let Some(raw) = normalized
+            .strip_prefix("label:")
+            .or_else(|| normalized.strip_prefix("Label:"))
+        {
+            let label = raw.trim();
+            if !label.is_empty() {
+                return Some(Self::Label(label.to_ascii_lowercase()));
+            }
+            return None;
+        }
+
+        None
+    }
+
+    pub fn as_scope_key(&self) -> String {
+        match self {
+            Self::Project => "project".to_string(),
+            Self::Milestone(id) => format!("milestone:{id}"),
+            Self::Label(label) => format!("label:{label}"),
+        }
+    }
+}
+
+impl fmt::Display for ContextScope {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.as_scope_key())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ContextEntry {
+    pub id: String,
+    pub author_issue: String,
+    pub scope: ContextScope,
+    pub content: String,
+    pub created_at: DateTime<Utc>,
+    pub ttl_ms: u64,
+}
+
 // ── Event stream contract (M002/S01) ───────────────────────────────────
 
 pub const SYMPHONY_EVENT_STREAM_VERSION: &str = "v1";
