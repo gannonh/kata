@@ -19,6 +19,10 @@ import {
   type SymphonyEventKind,
   type SymphonyOrchestratorState,
 } from "./types.js";
+import {
+  EscalationResponseRouter,
+  type EscalationRouteResult,
+} from "./console-escalation.js";
 
 export type SymphonyConsoleContext = ExtensionContext | ExtensionCommandContext;
 
@@ -30,6 +34,7 @@ export interface ConsoleManager {
   close(ctx?: SymphonyConsoleContext): void;
   toggle(ctx: SymphonyConsoleContext): Promise<"opened" | "closed">;
   refresh(ctx?: SymphonyConsoleContext): Promise<void>;
+  handleInput(input: string, ctx?: SymphonyConsoleContext): Promise<boolean>;
   dispose(ctx?: SymphonyConsoleContext): void;
 }
 
@@ -212,6 +217,7 @@ class SymphonyConsoleManager implements ConsoleManager {
   private streamAbortController: AbortController | null = null;
   private refreshPromise: Promise<void> | null = null;
   private connectedOnce = false;
+  private readonly escalationRouter: EscalationResponseRouter;
 
   constructor(
     private readonly client: SymphonyClient,
@@ -220,6 +226,7 @@ class SymphonyConsoleManager implements ConsoleManager {
     this.now = options.now ?? Date.now;
     this.panelFactory = options.panelFactory ?? ((ui, panelOptions) => new ConsolePanel(ui, panelOptions));
     this.loadPreferences = options.loadPreferences ?? loadEffectiveKataPreferences;
+    this.escalationRouter = new EscalationResponseRouter(client);
   }
 
   isActive(): boolean {
@@ -310,6 +317,37 @@ class SymphonyConsoleManager implements ConsoleManager {
     return this.refreshPromise;
   }
 
+  async handleInput(
+    input: string,
+    ctx?: SymphonyConsoleContext,
+  ): Promise<boolean> {
+    if (ctx) {
+      this.context = ctx;
+    }
+
+    if (!this.active) {
+      return false;
+    }
+
+    const result = await this.escalationRouter.routeInput(
+      input,
+      this.state.escalations,
+      this.state.connectionStatus === "connected",
+    );
+
+    if (!result.handled) {
+      return false;
+    }
+
+    this.applyEscalationRouteResult(result);
+
+    if (result.status === "sent" || result.status === "rejected") {
+      await this.refresh();
+    }
+
+    return true;
+  }
+
   dispose(ctx?: SymphonyConsoleContext): void {
     this.close(ctx);
   }
@@ -349,13 +387,15 @@ class SymphonyConsoleManager implements ConsoleManager {
   private async performRefresh(): Promise<void> {
     try {
       const snapshot = await this.client.getState();
-      this.state = buildConsolePanelStateFromSnapshot(snapshot, {
-        now: this.now,
-        previous: this.state,
-        connectionStatus: "connected",
-        connectionUrl: this.resolveConnectionUrl(),
-      });
-      this.connectedOnce = true;
+      this.state = {
+        ...buildConsolePanelStateFromSnapshot(snapshot, {
+          now: this.now,
+          previous: this.state,
+          connectionStatus: "connected",
+          connectionUrl: this.resolveConnectionUrl(),
+        }),
+        error: undefined,
+      };
       this.render();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -426,6 +466,57 @@ class SymphonyConsoleManager implements ConsoleManager {
     }
   }
 
+  private applyEscalationRouteResult(result: EscalationRouteResult): void {
+    const nextEscalations =
+      result.requestId && (result.status === "sent" || result.status === "rejected")
+        ? this.state.escalations.filter((entry) => entry.requestId !== result.requestId)
+        : this.state.escalations;
+
+    this.state = {
+      ...this.state,
+      escalations: nextEscalations,
+      message: result.message,
+      lastUpdateAt: this.now(),
+    };
+
+    if (result.status === "sent") {
+      this.notify("console_escalation_responded", "info");
+    }
+
+    if (result.status === "queued") {
+      this.notify(result.message, "warning");
+    } else if (result.status === "rejected") {
+      this.notify(result.message, "warning");
+    } else {
+      this.notify(result.message, "info");
+    }
+
+    this.render();
+  }
+
+  private async flushQueuedResponses(): Promise<void> {
+    if (!this.active || this.escalationRouter.pendingQueueSize() === 0) {
+      return;
+    }
+
+    const results = await this.escalationRouter.flushQueue(
+      this.state.escalations,
+      this.state.connectionStatus === "connected",
+    );
+
+    if (results.length === 0) {
+      return;
+    }
+
+    for (const result of results) {
+      this.applyEscalationRouteResult(result);
+    }
+
+    if (results.some((result) => result.status === "sent" || result.status === "rejected")) {
+      await this.refresh();
+    }
+  }
+
   private handleLifecycleEvent(event: SymphonyClientLifecycleEvent): void {
     if (!this.active) {
       return;
@@ -444,6 +535,7 @@ class SymphonyConsoleManager implements ConsoleManager {
       };
       this.connectedOnce = true;
       this.render();
+      void this.flushQueuedResponses();
 
       if (shouldEmitReconnect) {
         this.notify("console_stream_reconnected", "info");

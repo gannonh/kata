@@ -11,6 +11,7 @@ import {
   applyConsoleEventTransition,
   createConsoleManager,
 } from "../console.js";
+import { EscalationResponseRouter } from "../console-escalation.js";
 import {
   parseSymphonyCommand,
   registerSymphonyCommand,
@@ -337,6 +338,197 @@ describe("symphony console command routing", () => {
   });
 });
 
+describe("EscalationResponseRouter", () => {
+  it("routes single escalation responses without explicit selector", async () => {
+    const respondToEscalation = vi.fn(async () => ({ ok: true, status: 200 }));
+
+    const router = new EscalationResponseRouter(
+      {
+        getConnectionConfig: () => ({
+          url: "http://127.0.0.1:8080",
+          origin: "preferences",
+        }),
+        getState: async () => {
+          throw new Error("unused");
+        },
+        getPendingEscalations: async () => [],
+        respondToEscalation,
+        watchEvents: async function* () {
+          return;
+        },
+      },
+      { now: () => 10_000 },
+    );
+
+    const result = await router.routeInput(
+      "!respond Ship this now",
+      [
+        {
+          requestId: "req-1",
+          issueId: "issue-1",
+          issueIdentifier: "KAT-1304",
+          issueTitle: "Operator Console",
+          questionPreview: "Ship now?",
+          waitingSince: 5_000,
+          timeoutMs: 300_000,
+        },
+      ],
+      true,
+    );
+
+    expect(result.status).toBe("sent");
+    expect(respondToEscalation).toHaveBeenCalledWith(
+      "req-1",
+      {
+        source: "symphony-console",
+        response: "Ship this now",
+      },
+      undefined,
+    );
+  });
+
+  it("requires selector when multiple escalations are pending", async () => {
+    const router = new EscalationResponseRouter({
+      getConnectionConfig: () => ({
+        url: "http://127.0.0.1:8080",
+        origin: "preferences",
+      }),
+      getState: async () => {
+        throw new Error("unused");
+      },
+      getPendingEscalations: async () => [],
+      respondToEscalation: async () => ({ ok: true, status: 200 }),
+      watchEvents: async function* () {
+        return;
+      },
+    });
+
+    const result = await router.routeInput(
+      "!respond approve",
+      [
+        {
+          requestId: "req-a",
+          issueId: "issue-a",
+          issueIdentifier: "KAT-1304",
+          issueTitle: "A",
+          questionPreview: "A",
+          waitingSince: 0,
+          timeoutMs: 10_000,
+        },
+        {
+          requestId: "req-b",
+          issueId: "issue-b",
+          issueIdentifier: "KAT-1305",
+          issueTitle: "B",
+          questionPreview: "B",
+          waitingSince: 0,
+          timeoutMs: 10_000,
+        },
+      ],
+      true,
+    );
+
+    expect(result.status).toBe("rejected");
+    expect(result.message).toContain("Multiple escalations pending");
+  });
+
+  it("queues disconnected responses and flushes on reconnect", async () => {
+    const respondToEscalation = vi.fn(async () => ({ ok: true, status: 200 }));
+
+    const router = new EscalationResponseRouter(
+      {
+        getConnectionConfig: () => ({
+          url: "http://127.0.0.1:8080",
+          origin: "preferences",
+        }),
+        getState: async () => {
+          throw new Error("unused");
+        },
+        getPendingEscalations: async () => [],
+        respondToEscalation,
+        watchEvents: async function* () {
+          return;
+        },
+      },
+      { now: () => 20_000 },
+    );
+
+    const queued = await router.routeInput(
+      "!respond req-1 retry after reconnect",
+      [
+        {
+          requestId: "req-1",
+          issueId: "issue-1",
+          issueIdentifier: "KAT-1304",
+          issueTitle: "Operator Console",
+          questionPreview: "Ship now?",
+          waitingSince: 5_000,
+          timeoutMs: 300_000,
+        },
+      ],
+      false,
+    );
+
+    expect(queued.status).toBe("queued");
+    expect(router.pendingQueueSize()).toBe(1);
+
+    const flushed = await router.flushQueue(
+      [
+        {
+          requestId: "req-1",
+          issueId: "issue-1",
+          issueIdentifier: "KAT-1304",
+          issueTitle: "Operator Console",
+          questionPreview: "Ship now?",
+          waitingSince: 5_000,
+          timeoutMs: 300_000,
+        },
+      ],
+      true,
+    );
+
+    expect(flushed).toHaveLength(1);
+    expect(flushed[0].status).toBe("sent");
+    expect(respondToEscalation).toHaveBeenCalledTimes(1);
+  });
+
+  it("surfaces timeout responses clearly", async () => {
+    const router = new EscalationResponseRouter({
+      getConnectionConfig: () => ({
+        url: "http://127.0.0.1:8080",
+        origin: "preferences",
+      }),
+      getState: async () => {
+        throw new Error("unused");
+      },
+      getPendingEscalations: async () => [],
+      respondToEscalation: async () => ({ ok: false, status: 404 }),
+      watchEvents: async function* () {
+        return;
+      },
+    });
+
+    const result = await router.routeInput(
+      "!respond req-1 ship",
+      [
+        {
+          requestId: "req-1",
+          issueId: "issue-1",
+          issueIdentifier: "KAT-1304",
+          issueTitle: "Operator Console",
+          questionPreview: "Ship now?",
+          waitingSince: 5_000,
+          timeoutMs: 300_000,
+        },
+      ],
+      true,
+    );
+
+    expect(result.status).toBe("rejected");
+    expect(result.message).toContain("timed out");
+  });
+});
+
 describe("ConsoleManager", () => {
   it("handles reconnect lifecycle and refreshes state from server", async () => {
     const notifications: string[] = [];
@@ -435,6 +627,97 @@ describe("ConsoleManager", () => {
     expect(manager.getState().connectionStatus).toBe("connected");
     expect(notifications).toContain("console_panel_opened");
     expect(notifications).toContain("console_stream_reconnected");
+
+    manager.dispose(ctx);
+  });
+
+  it("routes !respond input to pending escalation", async () => {
+    const notifications: string[] = [];
+    const respondToEscalation = vi.fn(async () => ({ ok: true, status: 200 }));
+
+    const stateSnapshot: SymphonyOrchestratorState = {
+      poll_interval_ms: 30_000,
+      max_concurrent_agents: 4,
+      running: {
+        "issue-1": {
+          issue_id: "issue-1",
+          issue_identifier: "KAT-1304",
+          issue_title: "Operator Console",
+          status: "running",
+          started_at: new Date(0).toISOString(),
+        },
+      },
+      retry_queue: [],
+      completed: [],
+      codex_totals: {
+        input_tokens: 0,
+        output_tokens: 0,
+        total_tokens: 0,
+      },
+      polling: {
+        checking: false,
+        next_poll_in_ms: 10_000,
+        poll_interval_ms: 30_000,
+      },
+      pending_escalations: [
+        {
+          request_id: "req-1",
+          issue_id: "issue-1",
+          issue_identifier: "KAT-1304",
+          method: "ask_user_questions",
+          preview: "Ship now?",
+          created_at: new Date(8_000).toISOString(),
+          timeout_ms: 120_000,
+        },
+      ],
+      running_session_info: {
+        "issue-1": {
+          last_activity_ms: 9_000,
+        },
+      },
+    };
+
+    const client: SymphonyClient = {
+      getConnectionConfig: () => ({
+        url: "http://127.0.0.1:8080",
+        origin: "preferences",
+      }),
+      getState: async () => stateSnapshot,
+      getPendingEscalations: async () => stateSnapshot.pending_escalations ?? [],
+      respondToEscalation,
+      watchEvents: async function* (_filter, options) {
+        options?.onLifecycle?.({
+          type: "symphony_client_connected",
+          details: {
+            url: "http://127.0.0.1:8080",
+            origin: "preferences",
+            connected: true,
+          },
+        });
+      },
+    };
+
+    const manager = createConsoleManager(client, {
+      panelFactory: () => ({
+        update: () => undefined,
+        setPosition: () => undefined,
+        close: () => undefined,
+        isOpen: () => true,
+      }),
+    });
+
+    const ctx = {
+      ui: {
+        notify: (message: string) => notifications.push(message),
+      },
+    } as any;
+
+    await manager.open(ctx);
+
+    const handled = await manager.handleInput("!respond Proceed", ctx);
+    expect(handled).toBe(true);
+    expect(respondToEscalation).toHaveBeenCalledTimes(1);
+    expect(notifications).toContain("console_escalation_responded");
 
     manager.dispose(ctx);
   });

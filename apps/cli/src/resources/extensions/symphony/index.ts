@@ -37,6 +37,20 @@ export default function (pi: ExtensionAPI): void {
     },
   });
 
+  pi.on("input", async (event, ctx) => {
+    consoleManager.setContext(ctx as unknown as ExtensionCommandContext);
+    const handled = await consoleManager.handleInput(
+      event.text,
+      ctx as unknown as ExtensionCommandContext,
+    );
+
+    if (handled) {
+      return { action: "handled" as const };
+    }
+
+    return { action: "continue" as const };
+  });
+
   pi.on("session_start", async (_event, ctx) => {
     consoleManager.setContext(ctx as unknown as ExtensionCommandContext);
 
