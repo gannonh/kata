@@ -6,25 +6,20 @@
  *
  * All failure paths return a structured `{ ok: false, phase, error, hint }`
  * object — the runner never throws.
+ *
+ * Orchestration side effects (command execution, temp files, pre-flight checks)
+ * are delegated to an injectable `PrRunnerRuntime`. Production callers use
+ * the default runtime automatically; tests inject a mock runtime for
+ * deterministic assertion coverage.
  */
 
-import { execSync } from "node:child_process";
-import { writeFileSync, unlinkSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
-import { randomUUID } from "node:crypto";
-import {
-  isGhInstalled,
-  isGhAuthenticated,
-  getCurrentBranch,
-  parseBranchToSlice,
-} from "./gh-utils.js";
 import { composePRBody } from "./pr-body-composer.js";
 import {
   shouldCrossLink,
   resolveSliceLinearIdentifier,
   postPrLinkComment,
 } from "../kata/linear-crosslink.js";
+import { defaultRuntime, type PrRunnerRuntime } from "./pr-runner-runtime.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -49,6 +44,8 @@ export interface PrCreateOptions {
   };
   /** Pre-fetched Linear document content for PR body (bypasses disk reads). */
   linearDocuments?: Record<string, string>;
+  /** Injectable runtime for testing. Uses defaultRuntime when omitted. */
+  _runtime?: PrRunnerRuntime;
 }
 
 // ─── Shell escaping ───────────────────────────────────────────────────────────
@@ -142,6 +139,7 @@ async function loadLinearPrDocuments(
 export async function runCreatePr(options: PrCreateOptions): Promise<PrCreateResult> {
   const { title, baseBranch = "main" } = options;
   const cwd = options.cwd ?? process.cwd();
+  const rt = options._runtime ?? defaultRuntime;
 
   if (typeof title !== "string" || title.trim().length === 0) {
     return {
@@ -154,7 +152,7 @@ export async function runCreatePr(options: PrCreateOptions): Promise<PrCreateRes
 
   // ── Pre-flight checks ────────────────────────────────────────────────────────
 
-  if (!isGhInstalled()) {
+  if (!rt.isGhInstalled()) {
     return {
       ok: false,
       phase: "gh-missing",
@@ -163,7 +161,7 @@ export async function runCreatePr(options: PrCreateOptions): Promise<PrCreateRes
     };
   }
 
-  if (!isGhAuthenticated()) {
+  if (!rt.isGhAuthenticated()) {
     return {
       ok: false,
       phase: "gh-unauth",
@@ -178,7 +176,7 @@ export async function runCreatePr(options: PrCreateOptions): Promise<PrCreateRes
   let sliceId = options.sliceId;
 
   if (!milestoneId || !sliceId) {
-    const branch = getCurrentBranch(cwd);
+    const branch = rt.getCurrentBranch(cwd);
     if (!branch) {
       return {
         ok: false,
@@ -187,7 +185,7 @@ export async function runCreatePr(options: PrCreateOptions): Promise<PrCreateRes
         hint: "Run from a git repository, or pass milestoneId and sliceId explicitly.",
       };
     }
-    const parsed = parseBranchToSlice(branch);
+    const parsed = rt.parseBranchToSlice(branch);
     if (!parsed) {
       return {
         ok: false,
@@ -275,31 +273,30 @@ export async function runCreatePr(options: PrCreateOptions): Promise<PrCreateRes
 
   // ── Create PR via gh CLI with body-file ──────────────────────────────────────
 
-  const tmpPath = join(tmpdir(), randomUUID() + ".md");
+  const tmpPath = rt.tempFilePath(".md");
   let prUrl: string;
 
   try {
-    writeFileSync(tmpPath, body, "utf8");
+    rt.writeFile(tmpPath, body);
 
-    const PIPE = { stdio: ["pipe", "pipe", "pipe"] as ["pipe", "pipe", "pipe"] };
     const ghEnv = { ...process.env, GH_PAGER: "" };
 
     // Resolve branch and ensure it's pushed to the remote
-    const head = getCurrentBranch(cwd) ?? "";
+    const head = rt.getCurrentBranch(cwd) ?? "";
 
     if (head) {
       // Check if branch exists on remote; push if not
       try {
-        const remoteRef = execSync(
+        const remoteRef = rt.exec(
           `git ls-remote --heads origin ${head}`,
-          { encoding: "utf8", cwd, ...PIPE },
+          { cwd },
         ).trim();
         if (!remoteRef) {
           // Branch not on remote — push with upstream tracking
           try {
-            execSync(
+            rt.exec(
               `git push -u origin ${head}`,
-              { encoding: "utf8", cwd, ...PIPE },
+              { cwd },
             );
           } catch (pushErr) {
             const pe = pushErr as { stderr?: string; message?: string };
@@ -324,7 +321,7 @@ export async function runCreatePr(options: PrCreateOptions): Promise<PrCreateRes
       : title;
 
     try {
-      execSync(
+      rt.exec(
         [
           "gh", "pr", "create",
           "--title", shellEscape(normalizedTitle),
@@ -332,7 +329,7 @@ export async function runCreatePr(options: PrCreateOptions): Promise<PrCreateRes
           "--head", shellEscape(head),
           "--body-file", shellEscape(tmpPath),
         ].join(" "),
-        { encoding: "utf8", cwd, env: ghEnv, ...PIPE },
+        { cwd, env: ghEnv },
       );
     } catch (err) {
       const e = err as { stderr?: string; message?: string };
@@ -349,20 +346,20 @@ export async function runCreatePr(options: PrCreateOptions): Promise<PrCreateRes
     const expected = normalize(body);
 
     try {
-      const actualBody = execSync(
+      const actualBody = rt.exec(
         "gh pr view --json body --jq .body",
-        { encoding: "utf8", cwd, env: ghEnv, ...PIPE },
+        { cwd, env: ghEnv },
       );
 
       if (normalize(actualBody) !== expected) {
         // Auto-repair via gh pr edit
-        const prNumber = execSync(
+        const prNumber = rt.exec(
           "gh pr view --json number --jq .number",
-          { encoding: "utf8", cwd, env: ghEnv, ...PIPE },
+          { cwd, env: ghEnv },
         ).trim();
-        execSync(
+        rt.exec(
           ["gh", "pr", "edit", prNumber, "--body-file", shellEscape(tmpPath)].join(" "),
-          { encoding: "utf8", cwd, env: ghEnv, ...PIPE },
+          { cwd, env: ghEnv },
         );
       }
     } catch {
@@ -371,15 +368,15 @@ export async function runCreatePr(options: PrCreateOptions): Promise<PrCreateRes
 
     // Get the PR URL
     try {
-      prUrl = execSync(
+      prUrl = rt.exec(
         "gh pr view --json url --jq .url",
-        { encoding: "utf8", cwd, env: ghEnv, ...PIPE },
+        { cwd, env: ghEnv },
       ).trim();
     } catch {
       prUrl = "(PR created but could not retrieve URL)";
     }
   } finally {
-    try { unlinkSync(tmpPath); } catch { /* ignore */ }
+    rt.removeFile(tmpPath);
   }
 
   // ── Post Linear comment (best-effort) ────────────────────────────────────────
