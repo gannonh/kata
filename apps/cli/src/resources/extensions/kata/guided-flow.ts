@@ -29,7 +29,6 @@ import type { KataBackend } from "./backend.js";
 import type {
   KataState,
   RoadmapSliceEntry,
-  SliceRegistryEntry,
 } from "./types.js";
 
 // ─── PR onboarding helpers ─────────────────────────────────────────────────
@@ -444,6 +443,71 @@ export async function showPlan(
     return;
   }
 
+  // State E: all milestones complete (can have no active milestone)
+  if (state.phase === "complete") {
+    const nextId = nextMilestoneId(state);
+    const discussionMilestone =
+      state.activeMilestone ?? state.registry[state.registry.length - 1] ?? null;
+    const discussionMilestoneId = discussionMilestone?.id ?? nextId;
+    const discussionMilestoneTitle =
+      discussionMilestone?.title ?? "Completed milestones";
+
+    const currentState = discussionMilestone
+      ? await buildPlanningContext(state, backend, discussionMilestone.id)
+      : [
+          "All milestones are complete.",
+          `Completed milestones: ${state.registry.length}.`,
+          state.blockers && state.blockers.length > 0
+            ? `Blockers: ${state.blockers.join(", ")}`
+            : "Blockers: none.",
+        ].join("\n");
+
+    const choice = await showNextAction(ctx as any, {
+      title: "Kata — Plan",
+      summary: ["All milestones are complete."],
+      actions: [
+        {
+          id: "plan_new_milestone",
+          label: "Plan new milestone",
+          description: `Create and plan ${nextId}.`,
+          recommended: true,
+        },
+        {
+          id: "discuss_planning",
+          label: "Discuss planning",
+          description: "Freeform planning discussion.",
+        },
+      ],
+      notYetMessage: "Run /kata plan when ready.",
+    });
+
+    if (choice === "plan_new_milestone") {
+      dispatchWorkflow(
+        ctx,
+        pi,
+        backend.buildDiscussPrompt(nextId, `New milestone ${nextId}.`),
+        "kata-plan",
+        "plan",
+      );
+      return;
+    }
+
+    if (choice === "discuss_planning") {
+      dispatchWorkflow(
+        ctx,
+        pi,
+        loadPrompt("guided-discuss-planning", {
+          milestoneId: discussionMilestoneId,
+          milestoneTitle: discussionMilestoneTitle,
+          currentState,
+        }),
+        "kata-plan",
+        "plan",
+      );
+    }
+    return;
+  }
+
   const mid = state.activeMilestone?.id;
   const milestoneTitle = state.activeMilestone?.title;
   if (!mid || !milestoneTitle) {
@@ -511,65 +575,19 @@ export async function showPlan(
   const roadmap = parseRoadmap(roadmapContent);
   const pendingSlices = roadmap.slices.filter((s) => !s.done);
 
-  const unplannedSlices: RoadmapSliceEntry[] = [];
-  for (const slice of pendingSlices) {
-    const scope = backend.resolveSliceScope
-      ? await backend.resolveSliceScope(mid, slice.id)
-      : undefined;
-    const hasPlan = await backend.documentExists(`${slice.id}-PLAN`, scope);
-    if (!hasPlan) unplannedSlices.push(slice);
-  }
+  const unplannedSlices = (
+    await Promise.all(
+      pendingSlices.map(async (slice) => {
+        const scope = backend.resolveSliceScope
+          ? await backend.resolveSliceScope(mid, slice.id)
+          : undefined;
+        const hasPlan = await backend.documentExists(`${slice.id}-PLAN`, scope);
+        return hasPlan ? null : slice;
+      }),
+    )
+  ).filter((slice): slice is RoadmapSliceEntry => slice !== null);
 
   const currentState = await buildPlanningContext(state, backend, mid);
-
-  // State E: all milestones complete
-  if (state.phase === "complete") {
-    const nextId = nextMilestoneId(state);
-    const choice = await showNextAction(ctx as any, {
-      title: "Kata — Plan",
-      summary: ["All milestones are complete."],
-      actions: [
-        {
-          id: "plan_new_milestone",
-          label: "Plan new milestone",
-          description: `Create and plan ${nextId}.`,
-          recommended: true,
-        },
-        {
-          id: "discuss_planning",
-          label: "Discuss planning",
-          description: "Freeform planning discussion.",
-        },
-      ],
-      notYetMessage: "Run /kata plan when ready.",
-    });
-
-    if (choice === "plan_new_milestone") {
-      dispatchWorkflow(
-        ctx,
-        pi,
-        backend.buildDiscussPrompt(nextId, `New milestone ${nextId}.`),
-        "kata-plan",
-        "plan",
-      );
-      return;
-    }
-
-    if (choice === "discuss_planning") {
-      dispatchWorkflow(
-        ctx,
-        pi,
-        loadPrompt("guided-discuss-planning", {
-          milestoneId: mid,
-          milestoneTitle,
-          currentState,
-        }),
-        "kata-plan",
-        "plan",
-      );
-    }
-    return;
-  }
 
   // State D: all slices complete in active milestone
   if (pendingSlices.length === 0) {
@@ -912,7 +930,7 @@ export async function showSmartEntry(
   }
 
   if (!state.activeMilestone) {
-    if (pendingAutoStart) {
+    if (pendingAutoStart?.basePath === basePath) {
       ctx.ui.notify(
         "Discussion already in progress — answer the question above to continue.",
         "info",
