@@ -58,6 +58,22 @@ import type {
 const TITLE_PREFIX_RE = /^\[([A-Z0-9]+)\]\s+(.+)$/;
 
 /**
+ * Normalize markdown content that may contain literal escape sequences.
+ *
+ * LLMs sometimes emit `\\n` (escaped backslash-n) in JSON tool-call parameters
+ * instead of actual `\n`. After JSON.parse this becomes the two-character literal
+ * string `\n` which Linear renders as flat text. This helper restores real
+ * whitespace characters so descriptions and comments render correctly.
+ */
+export function normalizeMarkdownContent(text: string): string {
+  // Replace literal two-char sequences with real whitespace.
+  // Order matters: \\n before \n to avoid double-replacement.
+  return text
+    .replace(/\\n/g, "\n")
+    .replace(/\\t/g, "\t");
+}
+
+/**
  * Format a Kata entity title for storage in Linear.
  *
  * @example
@@ -420,7 +436,7 @@ export async function createKataSlice(
     labelIds: [config.labelSet.slice.id],
   };
 
-  if (opts.description !== undefined) input.description = opts.description;
+  if (opts.description !== undefined) input.description = normalizeMarkdownContent(opts.description);
   if (opts.milestoneId !== undefined) input.projectMilestoneId = opts.milestoneId;
   if (stateId !== undefined) input.stateId = stateId;
 
@@ -486,7 +502,7 @@ export async function createKataTask(
     labelIds: [config.labelSet.task.id],
   };
 
-  if (opts.description !== undefined) input.description = opts.description;
+  if (opts.description !== undefined) input.description = normalizeMarkdownContent(opts.description);
   if (stateId !== undefined) input.stateId = stateId;
 
   return client.createIssue(input);

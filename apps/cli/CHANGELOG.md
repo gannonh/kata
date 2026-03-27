@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.10.0
+
+### Features
+
+- **Symphony extension** — New bundled extension providing `/symphony` command and `symphony_status`, `symphony_watch` tools for operator-facing interaction with the Symphony orchestration server. Includes config editor model, YAML parser, WebSocket streaming client, and connection management. 26 Vitest tests.
+- **Coverage enforcement in CI** — Vitest coverage thresholds enforced at Lines ≥90%, Branches ≥80%, Functions ≥90%. The `test` script now runs `npx vitest run --coverage`, so Turborepo CI and the pre-push hook both gate on coverage. Any PR dropping below thresholds fails the build.
+
+### Fixes
+
+- **Literal `\n` in Linear markdown fields** — LLM tool calls sometimes emit escaped `\\n` instead of real newlines. Added `normalizeMarkdownContent()` to all markdown entry points (`kata_create_slice`, `kata_create_task`, `linear_update_issue`, `linear_add_comment`, `kata_write_document`) so descriptions and comments render correctly in Linear.
+- **Integration tests no longer pollute real projects** — `entity-hierarchy`, `linear-state`, and `document-storage` integration tests now create ephemeral test projects in `beforeAll` and delete them in `afterAll` instead of using the first real project.
+
+### Tests
+
+- **pr-runner orchestration coverage** — 27 Vitest tests covering happy path, push-failed, parse-failed, explicit-ID bypass, body-integrity repair, Linear config integration, cross-linking, and error edge cases. pr-runner.ts moved from 60%/41%/38% to 89%/72%/88% (lines/branches/functions).
+- **pr-body-composer edge cases** — Tests for plans with no title, no must-haves, and Linear references section inclusion. Coverage moved from 75%/50%/100% to 96%/79%/100%.
+
+### Infrastructure
+
+- **Node 22 pinned** — Added `.node-version` file and pre-push hook resolves Node 22 from nvm. Native addons (better-sqlite3, tree-sitter) don't compile on Node 23.
+- **`@typescript-eslint` aligned to 8.57.1** — Parser and plugin were pinned to 8.52.0 while `typescript-eslint` was at 8.57.1, causing `scopeManager.addGlobals` crash in eslint 10.
+- **`LINEAR_API_KEY` in Turborepo `globalEnv`** — Integration tests now receive the API key when run via `turbo run test`.
+- **`react-resizable-panels` API updated** — Desktop app updated to v4.6+ API names (`PanelGroup` → `Group`, `PanelResizeHandle` → `Separator`).
+
 ## 0.9.0
 
 ### Breaking Changes

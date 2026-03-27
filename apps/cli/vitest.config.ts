@@ -24,9 +24,9 @@ export default defineConfig({
       ],
       exclude: ['src/**/*.test.ts', 'src/**/*.vitest.test.ts', 'src/**/*.d.ts', 'dist/**'],
       thresholds: {
-        lines: 55,
-        branches: 55,
-        functions: 55,
+        lines: 90,
+        branches: 80,
+        functions: 90,
       },
     },
   },

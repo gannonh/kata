@@ -63,6 +63,27 @@ macOS-specific utilities for controlling native applications via Accessibility A
 
 Meta-commands for creating new slash commands, extensions, and auditing existing ones.
 
+### symphony
+
+Client extension for interacting with a running [Symphony](/docs/symphony) orchestration server. Provides operator-facing commands and agent tools for monitoring worker state and streaming live events.
+
+Key modules:
+- **client.ts** — HTTP/SSE client for Symphony's REST API (`/api/v1/state`, `/api/v1/events`)
+- **command.ts** — `/symphony` slash command with `status` and `watch` subcommands
+- **config.ts** — Connection URL resolution from preferences (`symphony.url`), `KATA_SYMPHONY_URL`, or `SYMPHONY_URL` env vars
+- **stream.ts** — Server-Sent Events streaming with reconnection and timeout handling
+- **tools.ts** — Agent-facing tools: `symphony_status`, `symphony_watch`, `symphony_logs` (placeholder), `symphony_steer` (placeholder)
+
+### pr-lifecycle
+
+PR creation, review, merge, and comment workflows via the `gh` CLI.
+
+Key modules:
+- **pr-runner.ts** — Shared PR creation orchestration with injectable runtime for testability
+- **pr-body-composer.ts** — Composes markdown PR body from Linear slice artifacts
+- **pr-review-utils.ts** — Parallel multi-agent PR review dispatch
+- **pr-merge-utils.ts** — CI check validation and squash-merge with roadmap updates
+
 ### shared
 
 Shared UI components used by multiple extensions. Not an entry point — imported by other extensions.

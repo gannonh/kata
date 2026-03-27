@@ -53,14 +53,17 @@ describe(
     beforeAll(async () => {
       client = new LinearClient(API_KEY!);
 
-      // Resolve team and project — same pattern as S01 integration test
+      // Resolve team
       const teams = await client.listTeams();
       assert.ok(teams.length > 0, "workspace has at least one team");
       teamId = teams[0].id;
 
-      const projects = await client.listProjects({ teamId });
-      assert.ok(projects.length > 0, "team has at least one project");
-      projectId = projects[0].id;
+      // Create an ephemeral test project — never pollute real projects
+      const project = await client.createProject({
+        name: `Test Entity Hierarchy ${testTag}`,
+        teamIds: [teamId],
+      });
+      projectId = project.id;
     });
 
     // =========================================================================
@@ -240,7 +243,7 @@ describe(
     // =========================================================================
 
     afterAll(async () => {
-      // Cleanup order: task → slice → milestone
+      // Cleanup order: task → slice → milestone → project
       // Labels are NOT deleted — they are idempotent and shared across runs
       const cleanupSteps: Array<[string, () => Promise<unknown>]> = [
         [
@@ -254,6 +257,10 @@ describe(
         [
           "milestone",
           () => (milestone ? client.deleteMilestone(milestone.id) : Promise.resolve()),
+        ],
+        [
+          "test project",
+          () => (projectId ? client.deleteProject(projectId) : Promise.resolve()),
         ],
       ];
 

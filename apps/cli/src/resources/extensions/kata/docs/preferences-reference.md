@@ -51,6 +51,9 @@ Full documentation for `~/.kata-cli/preferences.md` (global) and `.kata/preferen
   - `suggest` — (default) skills are identified during research but not installed automatically.
   - `off` — skill discovery is disabled entirely.
 
+- `symphony`: Symphony orchestration server configuration.
+  - `symphony.url`: base URL for the Symphony server (e.g. `http://localhost:8080`). Required for `/symphony` commands and `symphony_*` tools. Can also be set via `KATA_SYMPHONY_URL` or `SYMPHONY_URL` environment variables (`KATA_SYMPHONY_URL` takes precedence). The preferences field takes priority over environment variables.
+
 - `auto_supervisor`: configures the auto-mode supervisor that monitors agent progress and enforces timeouts. Keys:
   - `model`: model ID to use for the supervisor process (defaults to the currently active model).
   - `soft_timeout_minutes`: minutes before the supervisor issues a soft warning (default: 20).
@@ -162,6 +165,18 @@ pr:
 ```
 
 Set `auto_create: true` for fully automated PR creation after each slice in auto-mode. Set `review_on_create: true` to chain into a parallel review immediately after creation.
+
+**Symphony — connect to a local or remote Symphony server:**
+
+```yaml
+---
+version: 1
+symphony:
+  url: http://localhost:8080
+---
+```
+
+This enables `/symphony status` and `/symphony watch <issue>`. Alternatively set `KATA_SYMPHONY_URL=http://localhost:8080` in your environment.
 
 **Skill routing — always load a UAT skill and route Clerk tasks:**
 

@@ -17,6 +17,7 @@ custom_instructions: []
 models: {}
 skill_discovery: suggest
 auto_supervisor: {}
+symphony: {}
 ---
 
 # Kata Preferences
@@ -54,6 +55,13 @@ pr:
   base_branch: main      # target branch for PRs
   review_on_create: false # auto-run parallel review after PR is created
   linear_link: false      # add Linear issue references to PR body (requires linear mode)
+```
+
+## Symphony example
+
+```yaml
+symphony:
+  url: http://localhost:8080  # Symphony server URL (or set KATA_SYMPHONY_URL env var)
 ```
 
 ## Linear example
