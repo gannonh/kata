@@ -15,7 +15,6 @@ import { runCreatePr } from "../pr-runner.js";
 import {
   createMockRuntime,
   PLAN_CONTENT,
-  SUMMARY_CONTENT,
 } from "./pr-runner-fixtures.js";
 
 // ─── Happy path ───────────────────────────────────────────────────────────────
@@ -178,6 +177,235 @@ describe("runCreatePr — push-failed", () => {
       expect(result.phase).toBe("push-failed");
       expect(result.error).toContain("push failed");
     }
+  });
+});
+
+// ─── Parse-failed ─────────────────────────────────────────────────────────────
+
+describe("runCreatePr — branch-parse-failed", () => {
+  it("returns branch-parse-failed when branch is not a kata format and IDs are omitted", async () => {
+    const rt = createMockRuntime({
+      branch: "feature/random-work",
+      parsedBranch: null,
+    });
+
+    const result = await runCreatePr({
+      title: "Non-kata branch",
+      cwd: "/tmp/test-repo",
+      linearDocuments: { PLAN: PLAN_CONTENT },
+      _runtime: rt,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.phase).toBe("branch-parse-failed");
+      expect(result.error).toContain("feature/random-work");
+      expect(result.error).toContain("does not match supported Kata slice branch formats");
+      expect(result.hint).toContain("milestoneId and sliceId explicitly");
+    }
+  });
+
+  it("returns branch-parse-failed when getCurrentBranch returns null", async () => {
+    const rt = createMockRuntime({
+      branch: null,
+    });
+
+    const result = await runCreatePr({
+      title: "No branch",
+      cwd: "/tmp/test-repo",
+      linearDocuments: { PLAN: PLAN_CONTENT },
+      _runtime: rt,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.phase).toBe("branch-parse-failed");
+      expect(result.error).toContain("Could not determine current git branch");
+    }
+  });
+});
+
+// ─── Explicit-ID bypass ───────────────────────────────────────────────────────
+
+describe("runCreatePr — explicit milestoneId + sliceId", () => {
+  it("skips branch parsing when milestoneId and sliceId are provided explicitly", async () => {
+    const rt = createMockRuntime({
+      // Non-kata branch — would fail parsing normally
+      branch: "feature/unrelated",
+      parsedBranch: null,
+      commands: [
+        { match: "git ls-remote --heads origin", response: "abc\trefs/heads/feature/unrelated\n" },
+        { match: "gh pr create", response: "" },
+        { match: "gh pr view --json body", response: "" },
+        { match: "gh pr view --json url", response: "https://github.com/test/repo/pull/99\n" },
+      ],
+    });
+
+    const result = await runCreatePr({
+      title: "Explicit ID test",
+      milestoneId: "M005",
+      sliceId: "S03",
+      cwd: "/tmp/test-repo",
+      linearDocuments: { PLAN: PLAN_CONTENT },
+      _runtime: rt,
+    });
+
+    // Should succeed because explicit IDs bypass branch parsing
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.url).toBe("https://github.com/test/repo/pull/99");
+    }
+
+    // Verify PR was actually created (not short-circuited)
+    const createCmd = rt.execLog.find((e) => e.command.includes("gh pr create"));
+    expect(createCmd).toBeDefined();
+  });
+
+  it("uses explicit IDs even when branch is a valid kata format", async () => {
+    const rt = createMockRuntime({
+      branch: "kata/apps-cli/M001/S01",
+      commands: [
+        { match: "git ls-remote --heads origin", response: "abc\trefs/heads/kata/apps-cli/M001/S01\n" },
+        { match: "gh pr create", response: "" },
+        { match: "gh pr view --json body", response: "" },
+        { match: "gh pr view --json url", response: "https://github.com/test/repo/pull/100\n" },
+      ],
+    });
+
+    const result = await runCreatePr({
+      title: "Override IDs test",
+      milestoneId: "M099",
+      sliceId: "S99",
+      cwd: "/tmp/test-repo",
+      linearDocuments: { PLAN: PLAN_CONTENT },
+      _runtime: rt,
+    });
+
+    // Should succeed — explicit IDs take priority
+    expect(result.ok).toBe(true);
+  });
+});
+
+// ─── Body-integrity ───────────────────────────────────────────────────────────
+
+describe("runCreatePr — body-integrity", () => {
+  it("triggers body repair via gh pr edit when body does not match", async () => {
+    const rt = createMockRuntime({
+      branch: "kata/apps-cli/M001/S01",
+      commands: [
+        { match: "git ls-remote --heads origin", response: "abc\trefs/heads/kata/apps-cli/M001/S01\n" },
+        { match: "gh pr create", response: "" },
+        // Body view returns mangled content (different from expected)
+        { match: "gh pr view --json body", response: "Mangled body content that does not match\n" },
+        // PR number for repair
+        { match: "gh pr view --json number", response: "42\n" },
+        // Edit command succeeds
+        { match: "gh pr edit", response: "" },
+        // URL retrieval
+        { match: "gh pr view --json url", response: "https://github.com/test/repo/pull/42\n" },
+      ],
+    });
+
+    const result = await runCreatePr({
+      title: "Body repair test",
+      cwd: "/tmp/test-repo",
+      linearDocuments: { PLAN: PLAN_CONTENT },
+      _runtime: rt,
+    });
+
+    expect(result.ok).toBe(true);
+
+    // Verify the repair sequence: view body → get number → edit
+    const editCmd = rt.execLog.find((e) => e.command.includes("gh pr edit"));
+    expect(editCmd).toBeDefined();
+    expect(editCmd!.command).toContain("42");
+    expect(editCmd!.command).toContain("--body-file");
+  });
+
+  it("does not trigger body repair when body matches expected", async () => {
+    // We need the actual body content that composePRBody generates
+    // The mock runtime captures what was written to the temp file
+    let capturedBody = "";
+
+    const rt = createMockRuntime({
+      branch: "kata/apps-cli/M001/S01",
+      commands: [
+        { match: "git ls-remote --heads origin", response: "abc\trefs/heads/kata/apps-cli/M001/S01\n" },
+        { match: "gh pr create", response: "" },
+        // Body view returns the exact content (matched dynamically below)
+        {
+          match: "gh pr view --json body",
+          // Will be set after we capture the body
+          response: "",
+        },
+        { match: "gh pr view --json url", response: "https://github.com/test/repo/pull/50\n" },
+      ],
+    });
+
+    // Override exec to capture body from writeFile and return it in view
+    const originalExec = rt.exec.bind(rt);
+    rt.exec = (command: string, options: { cwd: string; env?: Record<string, string | undefined> }) => {
+      if (command.includes("gh pr view --json body")) {
+        // Return exactly what was written to the body file
+        return capturedBody;
+      }
+      return originalExec(command, options);
+    };
+
+    // Override writeFile to capture the body
+    const originalWrite = rt.writeFile.bind(rt);
+    rt.writeFile = (path: string, content: string) => {
+      if (path.endsWith(".md")) {
+        capturedBody = content;
+      }
+      originalWrite(path, content);
+    };
+
+    const result = await runCreatePr({
+      title: "No repair needed",
+      cwd: "/tmp/test-repo",
+      linearDocuments: { PLAN: PLAN_CONTENT },
+      _runtime: rt,
+    });
+
+    expect(result.ok).toBe(true);
+
+    // Verify NO gh pr edit was called (body matched)
+    const editCmd = rt.execLog.find((e) => e.command.includes("gh pr edit"));
+    expect(editCmd).toBeUndefined();
+  });
+});
+
+// ─── Create-failed ────────────────────────────────────────────────────────────
+
+describe("runCreatePr — create-failed", () => {
+  it("returns create-failed when gh pr create throws", async () => {
+    const ghError = new Error("gh pr create failed") as Error & { stderr: string };
+    ghError.stderr = "GraphQL: Resource not accessible by integration";
+
+    const rt = createMockRuntime({
+      branch: "kata/apps-cli/M001/S01",
+      commands: [
+        { match: "git ls-remote --heads origin", response: "abc\trefs/heads/kata/apps-cli/M001/S01\n" },
+        { match: "gh pr create", response: ghError },
+      ],
+    });
+
+    const result = await runCreatePr({
+      title: "Create failure",
+      cwd: "/tmp/test-repo",
+      linearDocuments: { PLAN: PLAN_CONTENT },
+      _runtime: rt,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.phase).toBe("create-failed");
+      expect(result.error).toContain("Resource not accessible");
+    }
+
+    // Verify temp file cleanup still happened
+    expect(rt.removeLog).toContain("/tmp/mock-pr-body.md");
   });
 });
 
