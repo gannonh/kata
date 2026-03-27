@@ -721,4 +721,60 @@ describe("ConsoleManager", () => {
 
     manager.dispose(ctx);
   });
+
+  it("closes panel resources on dispose", async () => {
+    const closePanel = vi.fn();
+
+    const client: SymphonyClient = {
+      getConnectionConfig: () => ({
+        url: "http://127.0.0.1:8080",
+        origin: "preferences",
+      }),
+      getState: async () => ({
+        poll_interval_ms: 30_000,
+        max_concurrent_agents: 4,
+        running: {},
+        retry_queue: [],
+        completed: [],
+        codex_totals: {
+          input_tokens: 0,
+          output_tokens: 0,
+          total_tokens: 0,
+        },
+        polling: {
+          checking: false,
+          next_poll_in_ms: 10_000,
+          poll_interval_ms: 30_000,
+        },
+      }),
+      getPendingEscalations: async () => [],
+      respondToEscalation: async () => ({ ok: true, status: 200 }),
+      watchEvents: async function* (_filter, options) {
+        while (!options?.signal?.aborted) {
+          await new Promise((resolve) => setTimeout(resolve, 1));
+        }
+      },
+    };
+
+    const manager = createConsoleManager(client, {
+      panelFactory: () => ({
+        update: () => undefined,
+        setPosition: () => undefined,
+        close: closePanel,
+        isOpen: () => true,
+      }),
+    });
+
+    const ctx = {
+      ui: {
+        notify: () => undefined,
+      },
+    } as any;
+
+    await manager.open(ctx);
+    manager.dispose(ctx);
+
+    expect(closePanel).toHaveBeenCalledTimes(1);
+    expect(manager.isActive()).toBe(false);
+  });
 });
