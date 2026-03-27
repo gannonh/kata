@@ -1,9 +1,8 @@
 /**
  * KataBackend — Unified interface for Kata workflow state and artifact I/O.
  *
- * Two implementations: FileBackend (disk-based .kata/ files) and
- * LinearBackend (Linear API). The dispatch loop and all consumers
- * call backend methods — no isLinearMode() forks.
+ * Implemented by LinearBackend (Linear API). The dispatch loop and all
+ * consumers call backend methods directly.
  */
 
 import type { KataState, Phase } from "./types.js";
@@ -81,7 +80,7 @@ export interface KataBackend {
    */
   resolveSliceScope?(milestoneId: string, sliceId: string): Promise<DocumentScope | undefined>;
 
-  /** Async — FileBackend reads files to inline, LinearBackend may need API lookups. */
+  /** Async — LinearBackend may need API lookups to inline context. */
   buildPrompt(phase: Phase, state: KataState, options?: PromptOptions): Promise<string>;
   buildDiscussPrompt(nextId: string, preamble: string): string;
 
