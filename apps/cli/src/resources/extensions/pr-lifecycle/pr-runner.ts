@@ -58,6 +58,74 @@ function shellEscape(arg: string): string {
   return "'" + arg.replace(/'/g, "'\\''") + "'";
 }
 
+type PrLinearDocument = { title: string; content: string; updatedAt?: string };
+type PrLinearClient = {
+  graphql: (query: string, variables?: Record<string, unknown>) => Promise<unknown>;
+  listDocuments: (opts?: {
+    projectId?: string;
+    issueId?: string;
+    title?: string;
+    first?: number;
+  }) => Promise<PrLinearDocument[]>;
+};
+
+function pickNewestDocument(docs: PrLinearDocument[]): PrLinearDocument | null {
+  if (docs.length === 0) return null;
+  return [...docs].sort((a, b) => {
+    const aTs = a.updatedAt ? Date.parse(a.updatedAt) : 0;
+    const bTs = b.updatedAt ? Date.parse(b.updatedAt) : 0;
+    return bTs - aTs;
+  })[0] ?? null;
+}
+
+async function loadLinearPrDocuments(
+  client: PrLinearClient,
+  projectId: string,
+  sliceId: string,
+  issueId: string | undefined,
+  seed?: Record<string, string>,
+): Promise<Record<string, string> | undefined> {
+  const out: Record<string, string> = { ...(seed ?? {}) };
+
+  try {
+    if (issueId && (!out.PLAN || !out.SUMMARY)) {
+      const docs = await client.listDocuments({ issueId, first: 100 });
+      if (!out.PLAN) {
+        const planDoc = pickNewestDocument(docs.filter((d) => d.title === `${sliceId}-PLAN`));
+        if (planDoc?.content) out.PLAN = planDoc.content;
+      }
+      if (!out.SUMMARY) {
+        const summaryDoc = pickNewestDocument(docs.filter((d) => d.title === `${sliceId}-SUMMARY`));
+        if (summaryDoc?.content) out.SUMMARY = summaryDoc.content;
+      }
+    }
+
+    if (!out.PLAN) {
+      const docs = await client.listDocuments({
+        projectId,
+        title: `${sliceId}-PLAN`,
+        first: 20,
+      });
+      const planDoc = pickNewestDocument(docs);
+      if (planDoc?.content) out.PLAN = planDoc.content;
+    }
+
+    if (!out.SUMMARY) {
+      const docs = await client.listDocuments({
+        projectId,
+        title: `${sliceId}-SUMMARY`,
+        first: 20,
+      });
+      const summaryDoc = pickNewestDocument(docs);
+      if (summaryDoc?.content) out.SUMMARY = summaryDoc.content;
+    }
+  } catch {
+    // Best-effort loader — caller will fall back to placeholder PR body.
+  }
+
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
 // ─── Runner ───────────────────────────────────────────────────────────────────
 
 /**
@@ -135,19 +203,22 @@ export async function runCreatePr(options: PrCreateOptions): Promise<PrCreateRes
     sliceId = parsed.sliceId;
   }
 
-  // ── Resolve Linear cross-linking (best-effort) ───────────────────────────────
+  // ── Resolve Linear metadata and artifacts (best-effort) ─────────────────────
 
   let linearReferences: string[] | undefined;
   let linearIssueId: string | undefined;
-  let linearClient: { graphql: (query: string, variables?: Record<string, unknown>) => Promise<unknown> } | undefined;
-  const lc = options.linearConfig;
-  const crossLinkActive = lc && shouldCrossLink(lc.prPrefs, lc.workflowMode);
+  let linearClient: PrLinearClient | undefined;
+  let linearDocuments = options.linearDocuments;
 
-  if (crossLinkActive && lc) {
+  const lc = options.linearConfig;
+  const crossLinkActive = lc ? shouldCrossLink(lc.prPrefs, lc.workflowMode) : false;
+
+  if (lc) {
     try {
       // Dynamically import LinearClient to avoid hard dependency when not in Linear mode
       const { LinearClient } = await import("../linear/linear-client.js");
-      linearClient = new LinearClient(lc.apiKey);
+      linearClient = new LinearClient(lc.apiKey) as PrLinearClient;
+
       const resolved = await resolveSliceLinearIdentifier(
         linearClient,
         lc.projectId,
@@ -155,11 +226,23 @@ export async function runCreatePr(options: PrCreateOptions): Promise<PrCreateRes
         lc.sliceLabelId,
       );
       if (resolved) {
-        linearReferences = [resolved.identifier];
         linearIssueId = resolved.issueId;
+        if (crossLinkActive) {
+          linearReferences = [resolved.identifier];
+        }
+      }
+
+      if (!linearDocuments?.PLAN || !linearDocuments?.SUMMARY) {
+        linearDocuments = await loadLinearPrDocuments(
+          linearClient,
+          lc.projectId,
+          sliceId!,
+          linearIssueId,
+          linearDocuments,
+        );
       }
     } catch {
-      // Best-effort — proceed without Linear references
+      // Best-effort — proceed without Linear references/documents
     }
   }
 
@@ -169,14 +252,14 @@ export async function runCreatePr(options: PrCreateOptions): Promise<PrCreateRes
   try {
     body = await composePRBody(milestoneId, sliceId, cwd, {
       linearReferences,
-      linearDocuments: options.linearDocuments,
+      linearDocuments,
     });
   } catch (err) {
     return {
       ok: false,
       phase: "artifact-error",
       error: `Failed to compose PR body: ${err instanceof Error ? err.message : String(err)}`,
-      hint: `Ensure .kata/milestones/${milestoneId}/slices/${sliceId}/ exists and contains a slice plan.`,
+      hint: `Ensure slice artifacts exist for ${sliceId} (expected: ${sliceId}-PLAN and optional ${sliceId}-SUMMARY).`,
     };
   }
 

@@ -63,6 +63,7 @@ import { unitVerb, unitPhaseLabel } from "./unit-display.js";
 import { formatDuration } from "./markdown-utils.js";
 import {
   autoCommitCurrentBranch,
+  ensureSliceBranch,
   switchToMain,
   mergeSliceToMain,
 } from "./worktree.ts";
@@ -729,6 +730,26 @@ function getRoadmapSlicesSync(): {
   return cachedSliceProgress;
 }
 
+const SLICE_SCOPED_UNIT_TYPES = new Set([
+  "research-slice",
+  "plan-slice",
+  "execute-task",
+  "complete-slice",
+  "replan-slice",
+  "reassess-roadmap",
+  "run-uat",
+]);
+
+function getSliceBranchTarget(
+  unitType: string,
+  unitId: string,
+): { milestoneId: string; sliceId: string } | null {
+  if (!SLICE_SCOPED_UNIT_TYPES.has(unitType)) return null;
+  const [milestoneId, sliceId] = unitId.split("/");
+  if (!milestoneId || !sliceId) return null;
+  return { milestoneId, sliceId };
+}
+
 // ─── Dispatch Helpers ─────────────────────────────────────────────────────────
 
 async function resolveDispatchOptions(
@@ -1099,6 +1120,32 @@ async function dispatchNextUnit(
   // 6. Derive unit type and ID
   const unitType = deriveUnitType(state, dispatchOptions);
   const unitId = deriveUnitId(state, dispatchOptions);
+
+  // Ensure slice-scoped units always execute on the correct slice branch.
+  const sliceBranchTarget = getSliceBranchTarget(unitType, unitId);
+  if (sliceBranchTarget) {
+    try {
+      const created = ensureSliceBranch(
+        basePath,
+        sliceBranchTarget.milestoneId,
+        sliceBranchTarget.sliceId,
+      );
+      dlog("ensure-slice-branch", {
+        unit: unitType,
+        id: unitId,
+        milestone: sliceBranchTarget.milestoneId,
+        slice: sliceBranchTarget.sliceId,
+        created,
+      });
+    } catch (error) {
+      await stopAuto(ctx, pi);
+      ctx.ui.notify(
+        `Failed to prepare slice branch for ${unitId}: ${error instanceof Error ? error.message : String(error)}`,
+        "error",
+      );
+      return;
+    }
+  }
 
   dlog("dispatch", {
     unit: unitType,
