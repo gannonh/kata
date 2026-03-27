@@ -7,7 +7,7 @@ use axum::extract::ws::{close_code, CloseFrame, Message, WebSocket, WebSocketUpg
 use axum::extract::{Path, Query, State};
 use axum::http::{Method, StatusCode, Uri};
 use axum::response::{Html, IntoResponse};
-use axum::routing::{get, post};
+use axum::routing::{delete, get, post};
 use axum::{Json, Router};
 use chrono::Utc;
 use futures_util::{SinkExt, StreamExt};
@@ -15,12 +15,15 @@ use serde::{Deserialize, Serialize};
 use tokio::net::TcpListener;
 
 use crate::domain::{
-    CodexTotals, EventFilter, EventKind, EventSeverity, OrchestratorSnapshot, PollingSnapshot,
-    RefreshRequestOutcome, RetrySnapshotEntry, RunAttempt, RunningSessionSnapshot,
-    SymphonyEventEnvelope, WorkerSessionInfo,
+    CodexTotals, ContextEntry, ContextScope, EventFilter, EventKind, EventSeverity,
+    OrchestratorSnapshot, PollingSnapshot, RefreshRequestOutcome, RetrySnapshotEntry, RunAttempt,
+    RunningSessionSnapshot, SharedContextSummary, SymphonyEventEnvelope, WorkerSessionInfo,
 };
 use crate::event_stream::EventHub;
 use crate::orchestrator::{RefreshSender, SnapshotHandle};
+use crate::shared_context::{
+    ContextEntryDraft, SharedContextStore, MAX_SHARED_CONTEXT_CONTENT_CHARS,
+};
 
 pub const HTTP_PORT_RETRY_LIMIT: u16 = 10;
 
@@ -114,6 +117,7 @@ pub struct HttpServerState {
     snapshot_source: Arc<dyn SnapshotSource>,
     refresh_control: Arc<dyn RefreshControl>,
     event_hub: EventHub,
+    shared_context_store: SharedContextStore,
     event_stream_config: EventStreamConfig,
     event_stream_counters: Arc<EventStreamCounters>,
     next_client_id: Arc<AtomicU64>,
@@ -142,10 +146,16 @@ impl HttpServerState {
             snapshot_source,
             refresh_control,
             event_hub,
+            shared_context_store: SharedContextStore::default(),
             event_stream_config,
             event_stream_counters: Arc::new(EventStreamCounters::default()),
             next_client_id: Arc::new(AtomicU64::new(0)),
         }
+    }
+
+    pub fn with_shared_context_store(mut self, shared_context_store: SharedContextStore) -> Self {
+        self.shared_context_store = shared_context_store;
+        self
     }
 
     pub fn snapshot(&self) -> OrchestratorSnapshot {
@@ -158,6 +168,10 @@ impl HttpServerState {
 
     pub fn event_hub(&self) -> EventHub {
         self.event_hub.clone()
+    }
+
+    pub fn shared_context_store(&self) -> SharedContextStore {
+        self.shared_context_store.clone()
     }
 
     pub fn event_stream_config(&self) -> EventStreamConfig {
@@ -237,6 +251,7 @@ struct StateResponse {
     retry_queue: Vec<RetrySnapshotEntry>,
     blocked: Vec<crate::domain::BlockedIssueEntry>,
     completed: Vec<crate::domain::CompletedEntry>,
+    shared_context: SharedContextSummary,
     codex_totals: CodexTotals,
     codex_rate_limits: Option<serde_json::Value>,
     polling: PollingSnapshot,
@@ -263,6 +278,36 @@ struct RefreshResponse {
     queued: bool,
     coalesced: bool,
     pending_requests: u64,
+}
+
+#[derive(Debug, Deserialize)]
+struct SharedContextWriteRequest {
+    author_issue: String,
+    scope: String,
+    content: String,
+    ttl_ms: Option<u64>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+struct SharedContextQuery {
+    scope: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct SharedContextListResponse {
+    entries: Vec<ContextEntry>,
+    summary: SharedContextSummary,
+}
+
+#[derive(Debug, Serialize)]
+struct SharedContextWriteResponse {
+    id: String,
+    created_at: chrono::DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize)]
+struct SharedContextDeleteResponse {
+    deleted: usize,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -348,6 +393,11 @@ pub fn build_router(state: HttpServerState) -> Router {
     Router::new()
         .route("/", get(get_dashboard))
         .route("/api/v1/state", get(get_state))
+        .route(
+            "/api/v1/context",
+            get(get_context).post(post_context).delete(delete_context),
+        )
+        .route("/api/v1/context/{entry_id}", delete(delete_context_entry))
         .route("/api/v1/events", get(get_events))
         .route("/api/v1/{issue_identifier}", get(get_issue))
         .route("/api/v1/refresh", post(post_refresh))
@@ -591,6 +641,28 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
   </section>
 
   <section class="card section">
+    <details id="shared-context-details" open>
+      <summary>Shared Context (<span id="context-count">0</span>)</summary>
+      <div class="table-wrap" style="margin-top: 10px;">
+        <table>
+          <thead>
+            <tr>
+              <th>Author</th>
+              <th>Scope</th>
+              <th>Content Preview</th>
+              <th>Age</th>
+              <th>TTL Remaining</th>
+            </tr>
+          </thead>
+          <tbody id="context-table-body">
+            <tr><td class="muted" colspan="5">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+  </section>
+
+  <section class="card section">
     <h2>Completed issues</h2>
     <ul id="completed-list" class="list">
       <li class="muted">Loading...</li>
@@ -770,6 +842,67 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
       }}).join('');
     }}
 
+    function formatContextScope(scope) {{
+      if (!scope || typeof scope !== 'object') return '-';
+      const type = scope.type || '';
+      if (type === 'project') return 'project';
+      if (type === 'milestone') return 'milestone:' + (scope.value || '-');
+      if (type === 'label') return 'label:' + (scope.value || '-');
+      return '-';
+    }}
+
+    function contextAgeAndTtl(entry, nowMs) {{
+      const createdAtMs = Date.parse(entry.created_at || '');
+      if (!Number.isFinite(createdAtMs)) {{
+        return {{ age: 'n/a', ttlRemaining: 'n/a' }};
+      }}
+
+      const ageMs = Math.max(0, nowMs - createdAtMs);
+      const ttlMs = Number(entry.ttl_ms || 0);
+      const ttlRemainingMs = Number.isFinite(ttlMs) && ttlMs > 0
+        ? Math.max(0, ttlMs - ageMs)
+        : NaN;
+
+      return {{
+        age: formatTimeAgo(ageMs),
+        ttlRemaining: Number.isFinite(ttlRemainingMs) ? formatDuration(ttlRemainingMs) : 'n/a',
+      }};
+    }}
+
+    function renderSharedContext(entries) {{
+      const list = Array.isArray(entries) ? entries.slice() : [];
+      list.sort(function(a, b) {{
+        return Date.parse(b.created_at || '') - Date.parse(a.created_at || '');
+      }});
+
+      if (list.length === 0) {{
+        return '<tr><td class="muted" colspan="5">No active shared context entries.</td></tr>';
+      }}
+
+      const nowMs = Date.now();
+      return list.map(function(entry) {{
+        const timing = contextAgeAndTtl(entry, nowMs);
+        return '<tr>' +
+          '<td class="mono">' + escapeHtml(entry.author_issue || '-') + '</td>' +
+          '<td class="mono">' + escapeHtml(formatContextScope(entry.scope)) + '</td>' +
+          '<td>' + escapeHtml(entry.content || '-') + '</td>' +
+          '<td class="mono">' + escapeHtml(timing.age) + '</td>' +
+          '<td class="mono">' + escapeHtml(timing.ttlRemaining) + '</td>' +
+          '</tr>';
+      }}).join('');
+    }}
+
+    function updateSharedContextSection(entries) {{
+      const list = Array.isArray(entries) ? entries : [];
+      document.getElementById('context-count').textContent = String(list.length);
+      document.getElementById('context-table-body').innerHTML = renderSharedContext(list);
+
+      const details = document.getElementById('shared-context-details');
+      if (details) {{
+        details.open = list.length <= 5;
+      }}
+    }}
+
     function renderLinearProjectCard(url) {{
       if (!url) {{
         return '<section class="card"><div class="label">linear project</div><div class="mono muted">n/a</div></section>';
@@ -806,12 +939,19 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
 
     async function refreshState() {{
       try {{
-        const response = await fetch('/api/v1/state');
-        if (!response.ok) throw new Error('state fetch failed: ' + response.status);
-        const state = await response.json();
+        const [stateResponse, contextResponse] = await Promise.all([
+          fetch('/api/v1/state'),
+          fetch('/api/v1/context'),
+        ]);
+        if (!stateResponse.ok) throw new Error('state fetch failed: ' + stateResponse.status);
+        if (!contextResponse.ok) throw new Error('context fetch failed: ' + contextResponse.status);
+
+        const state = await stateResponse.json();
+        const contextPayload = await contextResponse.json();
         const running = state.running || {{}};
         const retryQueue = state.retry_queue || [];
         const completed = state.completed || [];
+        const sharedContextEntries = contextPayload.entries || [];
 
         document.getElementById('running-count').textContent = Object.keys(running).length;
         document.getElementById('retry-count').textContent = retryQueue.length;
@@ -840,6 +980,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
         }}
 
         document.getElementById('completed-list').innerHTML = renderCompleted(completed);
+        updateSharedContextSection(sharedContextEntries);
         document.getElementById('token-input').textContent = state.codex_totals?.input_tokens ?? 0;
         document.getElementById('token-output').textContent = state.codex_totals?.output_tokens ?? 0;
         document.getElementById('token-total').textContent = state.codex_totals?.total_tokens ?? 0;
@@ -874,10 +1015,241 @@ async fn get_state(State(state): State<HttpServerState>) -> impl IntoResponse {
         retry_queue: snapshot.retry_queue,
         blocked: snapshot.blocked,
         completed: snapshot.completed,
+        shared_context: snapshot.shared_context,
         codex_totals: snapshot.codex_totals,
         codex_rate_limits: snapshot.codex_rate_limits.map(|r| r.data),
         polling: snapshot.polling,
     })
+}
+
+fn parse_shared_context_scopes(
+    raw: Option<&str>,
+) -> std::result::Result<Vec<ContextScope>, ApiErrorEnvelope> {
+    let Some(raw) = raw else {
+        return Ok(Vec::new());
+    };
+
+    let mut scopes = Vec::new();
+    for token in raw.split(',') {
+        let trimmed = token.trim();
+        if trimmed.is_empty() {
+            return Err(ApiErrorEnvelope {
+                error: ApiError {
+                    code: "invalid_scope",
+                    message: "shared context scope filter cannot contain empty values".to_string(),
+                    status: StatusCode::BAD_REQUEST.as_u16(),
+                    details: Some(serde_json::json!({
+                        "allowed": ["project", "milestone:<id>", "label:<name>"],
+                    })),
+                },
+            });
+        }
+
+        let Some(scope) = ContextScope::parse(trimmed) else {
+            return Err(ApiErrorEnvelope {
+                error: ApiError {
+                    code: "invalid_scope",
+                    message: format!(
+                        "invalid shared context scope '{trimmed}'. Use project, milestone:<id>, or label:<name>"
+                    ),
+                    status: StatusCode::BAD_REQUEST.as_u16(),
+                    details: Some(serde_json::json!({
+                        "scope": trimmed,
+                        "allowed": ["project", "milestone:<id>", "label:<name>"],
+                    })),
+                },
+            });
+        };
+
+        scopes.push(scope);
+    }
+
+    scopes.sort();
+    scopes.dedup();
+    Ok(scopes)
+}
+
+fn shared_context_preview(value: &str) -> String {
+    const MAX_PREVIEW_CHARS: usize = 120;
+    value.chars().take(MAX_PREVIEW_CHARS).collect()
+}
+
+async fn get_context(
+    Query(query): Query<SharedContextQuery>,
+    State(state): State<HttpServerState>,
+) -> impl IntoResponse {
+    let scopes = match parse_shared_context_scopes(query.scope.as_deref()) {
+        Ok(scopes) => scopes,
+        Err(err) => return (StatusCode::BAD_REQUEST, Json(err)).into_response(),
+    };
+
+    let store = state.shared_context_store();
+    let entries = if scopes.is_empty() {
+        store.list()
+    } else {
+        store.read(&scopes)
+    };
+
+    Json(SharedContextListResponse {
+        entries,
+        summary: store.summary(),
+    })
+    .into_response()
+}
+
+async fn post_context(
+    State(state): State<HttpServerState>,
+    Json(payload): Json<SharedContextWriteRequest>,
+) -> impl IntoResponse {
+    let content_len = payload.content.chars().count();
+    if content_len == 0 || payload.content.trim().is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ApiErrorEnvelope {
+                error: ApiError {
+                    code: "invalid_content",
+                    message: "shared context content must be non-empty".to_string(),
+                    status: StatusCode::BAD_REQUEST.as_u16(),
+                    details: None,
+                },
+            }),
+        )
+            .into_response();
+    }
+
+    if content_len > MAX_SHARED_CONTEXT_CONTENT_CHARS {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ApiErrorEnvelope {
+                error: ApiError {
+                    code: "invalid_content",
+                    message: format!(
+                        "shared context content must be {} characters or fewer",
+                        MAX_SHARED_CONTEXT_CONTENT_CHARS
+                    ),
+                    status: StatusCode::BAD_REQUEST.as_u16(),
+                    details: Some(serde_json::json!({
+                        "max_chars": MAX_SHARED_CONTEXT_CONTENT_CHARS,
+                        "actual_chars": content_len,
+                    })),
+                },
+            }),
+        )
+            .into_response();
+    }
+
+    let scope = match ContextScope::parse(&payload.scope) {
+        Some(scope) => scope,
+        None => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ApiErrorEnvelope {
+                    error: ApiError {
+                        code: "invalid_scope",
+                        message: format!(
+                            "invalid shared context scope '{}'. Use project, milestone:<id>, or label:<name>",
+                            payload.scope
+                        ),
+                        status: StatusCode::BAD_REQUEST.as_u16(),
+                        details: Some(serde_json::json!({
+                            "scope": payload.scope,
+                            "allowed": ["project", "milestone:<id>", "label:<name>"],
+                        })),
+                    },
+                }),
+            )
+                .into_response();
+        }
+    };
+
+    if payload.ttl_ms == Some(0) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ApiErrorEnvelope {
+                error: ApiError {
+                    code: "invalid_ttl",
+                    message: "ttl_ms must be greater than 0 when provided".to_string(),
+                    status: StatusCode::BAD_REQUEST.as_u16(),
+                    details: Some(serde_json::json!({
+                        "ttl_ms": 0,
+                    })),
+                },
+            }),
+        )
+            .into_response();
+    }
+
+    let store = state.shared_context_store();
+    let entry = store.write_entry(ContextEntryDraft {
+        author_issue: payload.author_issue,
+        scope,
+        content: payload.content,
+        ttl_ms: payload.ttl_ms,
+    });
+
+    state.event_hub().publish_with_timestamp(
+        EventKind::SharedContextWritten,
+        EventSeverity::Info,
+        Some(entry.author_issue.clone()),
+        "shared_context_written",
+        serde_json::json!({
+            "entry_id": entry.id,
+            "author_issue": entry.author_issue,
+            "scope": entry.scope.as_scope_key(),
+            "preview": shared_context_preview(&entry.content),
+        }),
+        entry.created_at,
+    );
+
+    (
+        StatusCode::CREATED,
+        Json(SharedContextWriteResponse {
+            id: entry.id,
+            created_at: entry.created_at,
+        }),
+    )
+        .into_response()
+}
+
+async fn delete_context(
+    Query(query): Query<SharedContextQuery>,
+    State(state): State<HttpServerState>,
+) -> impl IntoResponse {
+    let scopes = match parse_shared_context_scopes(query.scope.as_deref()) {
+        Ok(scopes) => scopes,
+        Err(err) => return (StatusCode::BAD_REQUEST, Json(err)).into_response(),
+    };
+
+    let deleted = if scopes.is_empty() {
+        state.shared_context_store().clear(None)
+    } else {
+        state.shared_context_store().clear(Some(&scopes))
+    };
+
+    Json(SharedContextDeleteResponse { deleted }).into_response()
+}
+
+async fn delete_context_entry(
+    Path(entry_id): Path<String>,
+    State(state): State<HttpServerState>,
+) -> impl IntoResponse {
+    let store = state.shared_context_store();
+    if store.remove_entry(&entry_id).is_none() {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(ApiErrorEnvelope {
+                error: ApiError {
+                    code: "context_not_found",
+                    message: format!("shared context entry '{}' was not found", entry_id),
+                    status: StatusCode::NOT_FOUND.as_u16(),
+                    details: None,
+                },
+            }),
+        )
+            .into_response();
+    }
+
+    Json(SharedContextDeleteResponse { deleted: 1 }).into_response()
 }
 
 async fn get_events(
@@ -1651,7 +2023,9 @@ mod tests {
         assert_eq!(err.value, "wat");
         assert!(
             err.message
-                .contains("Allowed values: snapshot,runtime,worker,tool,heartbeat"),
+                .contains(
+                    "Allowed values: snapshot,runtime,worker,tool,heartbeat,shared_context_written,shared_context_expired",
+                ),
             "error should list deterministic allowed values"
         );
     }
