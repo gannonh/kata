@@ -148,6 +148,26 @@ test("loader sets all 4 KATA_ env vars and PI_PACKAGE_DIR", async () => {
   rmSync(tmp, { recursive: true, force: true });
 });
 
+test("symphony command registers the config subcommand", () => {
+  const commandSrc = readFileSync(
+    join(projectRoot, "src", "resources", "extensions", "symphony", "command.ts"),
+    "utf-8",
+  );
+
+  assert.ok(
+    commandSrc.includes('type: "config"'),
+    "symphony command parser includes config action",
+  );
+  assert.ok(
+    commandSrc.includes('/symphony config <path>'),
+    "error guidance mentions /symphony config <path>",
+  );
+  assert.ok(
+    commandSrc.includes('description: "Symphony operator workflows: status, watch, config"'),
+    "symphony command description includes config",
+  );
+});
+
 // ═══════════════════════════════════════════════════════════════════════════
 // 3. resource-loader syncs bundled resources
 // ═══════════════════════════════════════════════════════════════════════════
