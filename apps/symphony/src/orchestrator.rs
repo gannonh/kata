@@ -14,8 +14,8 @@ use crate::domain::{
     EscalationRequest, EscalationResponse, EventKind, EventSeverity, HooksConfig, Issue,
     OrchestratorSnapshot, OrchestratorState, PendingEscalation, PiAgentConfig, PollingSnapshot,
     RateLimitInfo, RefreshRequestOutcome, RetryEntry, RetrySnapshotEntry, RunAttempt,
-    RunningSessionSnapshot, ServiceConfig, SessionTokenUsage, TrackerConfig, WorkerSessionInfo,
-    WorkspaceConfig, WorkspaceIsolation,
+    RunningSessionSnapshot, ServiceConfig, SessionTokenUsage, SupervisorSnapshot, TrackerConfig,
+    WorkerSessionInfo, WorkspaceConfig, WorkspaceIsolation,
 };
 use crate::error::{Result, SymphonyError};
 use crate::event_stream::EventHub;
@@ -3140,6 +3140,14 @@ impl Orchestrator {
         self.shared_context_store.clone()
     }
 
+    fn supervisor_snapshot(&self) -> SupervisorSnapshot {
+        if self.config.supervisor.enabled {
+            SupervisorSnapshot::idle(self.config.supervisor.model.clone())
+        } else {
+            SupervisorSnapshot::disabled(self.config.supervisor.model.clone())
+        }
+    }
+
     fn shared_context_scopes_for_issue(issue: &Issue) -> Vec<ContextScope> {
         let mut scopes = vec![ContextScope::Project];
 
@@ -3428,6 +3436,7 @@ impl Orchestrator {
             blocked: self.blocked_issues.clone(),
             pending_escalations: self.escalation_registry.pending_snapshot(),
             shared_context: self.shared_context_store.summary(),
+            supervisor: self.supervisor_snapshot(),
             running_session_info,
             claimed,
             retry_queue,

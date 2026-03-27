@@ -172,6 +172,10 @@ pub enum EventKind {
     EscalationCancelled,
     SharedContextWritten,
     SharedContextExpired,
+    SupervisorSteer,
+    SupervisorConflictDetected,
+    SupervisorEscalated,
+    SupervisorPatternDetected,
 }
 
 impl EventKind {
@@ -188,6 +192,10 @@ impl EventKind {
             "escalation_cancelled" => Some(Self::EscalationCancelled),
             "shared_context_written" => Some(Self::SharedContextWritten),
             "shared_context_expired" => Some(Self::SharedContextExpired),
+            "supervisor_steer" => Some(Self::SupervisorSteer),
+            "supervisor_conflict_detected" => Some(Self::SupervisorConflictDetected),
+            "supervisor_escalated" => Some(Self::SupervisorEscalated),
+            "supervisor_pattern_detected" => Some(Self::SupervisorPatternDetected),
             _ => None,
         }
     }
@@ -205,6 +213,10 @@ impl EventKind {
             Self::EscalationCancelled => "escalation_cancelled",
             Self::SharedContextWritten => "shared_context_written",
             Self::SharedContextExpired => "shared_context_expired",
+            Self::SupervisorSteer => "supervisor_steer",
+            Self::SupervisorConflictDetected => "supervisor_conflict_detected",
+            Self::SupervisorEscalated => "supervisor_escalated",
+            Self::SupervisorPatternDetected => "supervisor_pattern_detected",
         }
     }
 
@@ -221,6 +233,10 @@ impl EventKind {
             "escalation_cancelled",
             "shared_context_written",
             "shared_context_expired",
+            "supervisor_steer",
+            "supervisor_conflict_detected",
+            "supervisor_escalated",
+            "supervisor_pattern_detected",
         ]
     }
 }
@@ -449,6 +465,7 @@ pub struct ServiceConfig {
     pub prompts: Option<PromptsConfig>,
     pub notifications: Option<NotificationsConfig>,
     pub shared_context: SharedContextConfig,
+    pub supervisor: SupervisorConfig,
 }
 
 /// Tracker configuration (spec §5.3.1).
@@ -541,6 +558,97 @@ impl Default for SharedContextConfig {
         Self {
             ttl_ms: 86_400_000,
             max_entries: 100,
+        }
+    }
+}
+
+/// Supervisor orchestration settings (M002/S07).
+#[derive(Debug, Clone)]
+pub struct SupervisorConfig {
+    /// Enable the supervisor task.
+    pub enabled: bool,
+    /// Optional model override for future model-backed supervisor decisions.
+    pub model: Option<String>,
+    /// Minimum milliseconds between steers sent to the same issue.
+    pub steer_cooldown_ms: u64,
+}
+
+impl Default for SupervisorConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            model: None,
+            steer_cooldown_ms: 120_000,
+        }
+    }
+}
+
+/// Runtime supervisor status for snapshot consumers.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum SupervisorStatus {
+    #[default]
+    Disabled,
+    Starting,
+    Active,
+    Stopped,
+    Failed,
+}
+
+/// Read-only supervisor metrics included in orchestrator snapshots.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SupervisorSnapshot {
+    pub status: SupervisorStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    #[serde(default)]
+    pub steers_issued: u64,
+    #[serde(default)]
+    pub conflicts_detected: u64,
+    #[serde(default)]
+    pub patterns_detected: u64,
+    #[serde(default)]
+    pub escalations_created: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_decision: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_action_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_error: Option<String>,
+}
+
+impl Default for SupervisorSnapshot {
+    fn default() -> Self {
+        Self::disabled(None)
+    }
+}
+
+impl SupervisorSnapshot {
+    pub fn disabled(model: Option<String>) -> Self {
+        Self {
+            status: SupervisorStatus::Disabled,
+            model,
+            steers_issued: 0,
+            conflicts_detected: 0,
+            patterns_detected: 0,
+            escalations_created: 0,
+            last_decision: None,
+            last_action_at: None,
+            last_error: None,
+        }
+    }
+
+    pub fn idle(model: Option<String>) -> Self {
+        Self {
+            status: SupervisorStatus::Stopped,
+            model,
+            steers_issued: 0,
+            conflicts_detected: 0,
+            patterns_detected: 0,
+            escalations_created: 0,
+            last_decision: None,
+            last_action_at: None,
+            last_error: None,
         }
     }
 }
@@ -1046,6 +1154,8 @@ pub struct OrchestratorSnapshot {
     pub pending_escalations: Vec<PendingEscalation>,
     #[serde(default)]
     pub shared_context: SharedContextSummary,
+    #[serde(default)]
+    pub supervisor: SupervisorSnapshot,
     pub codex_totals: CodexTotals,
     pub codex_rate_limits: Option<RateLimitInfo>,
     pub polling: PollingSnapshot,

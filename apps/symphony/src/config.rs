@@ -13,8 +13,8 @@ use serde_yaml::{Mapping, Value};
 use crate::domain::{
     AgentBackend, AgentConfig, ApiKey, CodexConfig, DockerCodexAuth, DockerConfig, HooksConfig,
     NotificationsConfig, PiAgentConfig, PollingConfig, PromptsConfig, ServerConfig, ServiceConfig,
-    SharedContextConfig, SlackConfig, TrackerConfig, WorkerConfig, WorkspaceConfig,
-    WorkspaceIsolation, WorkspaceRepoStrategy,
+    SharedContextConfig, SlackConfig, SupervisorConfig, TrackerConfig, WorkerConfig,
+    WorkspaceConfig, WorkspaceIsolation, WorkspaceRepoStrategy,
 };
 use crate::error::{Result, SymphonyError};
 use crate::notifications;
@@ -316,6 +316,14 @@ struct RawSharedContextConfig {
 
 #[derive(Deserialize, Default)]
 #[serde(default)]
+struct RawSupervisorConfig {
+    enabled: Option<bool>,
+    model: Option<String>,
+    steer_cooldown_ms: Option<u64>,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
 struct RawSlackConfig {
     webhook_url: Option<String>,
     events: Option<Vec<String>>,
@@ -502,6 +510,7 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
     let raw_notifications: RawNotificationsConfig = extract_section(&normalized, "notifications")?;
     let raw_shared_context: RawSharedContextConfig =
         extract_section(&normalized, "shared_context")?;
+    let raw_supervisor: RawSupervisorConfig = extract_section(&normalized, "supervisor")?;
 
     let defaults = ServiceConfig::default();
     let has_kata_agent_section = normalized.get("kata_agent").is_some();
@@ -991,6 +1000,18 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
             .unwrap_or(defaults.shared_context.max_entries),
     };
 
+    let supervisor = SupervisorConfig {
+        enabled: raw_supervisor.enabled.unwrap_or(defaults.supervisor.enabled),
+        model: raw_supervisor
+            .model
+            .map(|value| resolve_env(&value))
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty()),
+        steer_cooldown_ms: raw_supervisor
+            .steer_cooldown_ms
+            .unwrap_or(defaults.supervisor.steer_cooldown_ms),
+    };
+
     Ok(ServiceConfig {
         tracker,
         polling,
@@ -1005,6 +1026,7 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         prompts,
         notifications,
         shared_context,
+        supervisor,
     })
 }
 
