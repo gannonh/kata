@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import type {
   ExtensionAPI,
@@ -399,5 +400,10 @@ export function resolveWorkflowPath(
 }
 
 function toAbsolutePath(target: string, cwd: string): string {
-  return isAbsolute(target) ? target : resolve(cwd, target);
+  const expanded =
+    target === "~" || target.startsWith("~/")
+      ? join(homedir(), target === "~" ? "" : target.slice(2))
+      : target;
+
+  return isAbsolute(expanded) ? expanded : resolve(cwd, expanded);
 }

@@ -71,7 +71,6 @@ export function formatConfigFieldValue(
 export function normalizeStringArrayInput(input: string): string[] {
   return input
     .split(/\r?\n/)
-    .flatMap((line) => line.split(","))
     .map((entry) => entry.trim())
     .filter(Boolean);
 }

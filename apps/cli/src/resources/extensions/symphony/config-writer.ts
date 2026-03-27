@@ -86,6 +86,10 @@ function patchYamlPath(lines: string[], path: string[], value: unknown): void {
     let keyLine = findKeyLine(lines, rangeStart, rangeEnd, indent, segment);
 
     if (keyLine === -1) {
+      if (value === undefined) {
+        return;
+      }
+
       keyLine = rangeEnd;
       lines.splice(keyLine, 0, `${spaces(indent)}${segment}:`);
       rangeEnd += 1;

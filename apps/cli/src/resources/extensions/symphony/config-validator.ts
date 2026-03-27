@@ -41,14 +41,11 @@ export function validateConfigModel(
   const issues: ConfigValidationIssue[] = [];
   const config = applyModelToConfig(model);
 
-  assertRequired(config, ["tracker", "kind"], issues);
-  assertRequired(config, ["tracker", "api_key"], issues);
-  assertRequired(config, ["tracker", "project_slug"], issues);
+  for (const field of CONFIG_FIELD_DEFINITIONS) {
+    if (!field.required) continue;
+    assertRequired(config, field.path, issues);
+  }
 
-  assertNumber(config, ["polling", "interval_ms"], (value) => value > 0, issues, {
-    message: "polling.interval_ms must be greater than 0",
-    optional: true,
-  });
   assertNumber(
     config,
     ["agent", "max_concurrent_agents"],

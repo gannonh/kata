@@ -20,6 +20,7 @@ import {
 } from "../config-parser.js";
 import {
   formatConfigFieldValue,
+  normalizeStringArrayInput,
   renderFieldChoice,
   renderSectionChoice,
 } from "../config-render.js";
@@ -61,6 +62,22 @@ describe("parseWorkflowConfig", () => {
 
     expect(applyModelToConfig(secondPass)).toEqual(applyModelToConfig(firstPass));
     expect(secondPass.workflow.body).toEqual(firstPass.workflow.body);
+  });
+
+  it("preserves blank lines immediately after frontmatter", () => {
+    const fixture = [
+      "---",
+      "tracker:",
+      "  kind: linear",
+      "  api_key: $LINEAR_API_KEY",
+      "  project_slug: demo",
+      "---",
+      "",
+      "# prompt body",
+    ].join("\n");
+
+    const model = parseWorkflowConfig(fixture);
+    expect(model.workflow.body.startsWith("\n# prompt body")).toBe(true);
   });
 
   it("does not materialize optional booleans that were absent in source yaml", () => {
@@ -176,6 +193,11 @@ describe("config-render", () => {
     expect(fieldLabel).toContain("API Key");
     expect(fieldLabel).toContain("***");
   });
+
+  it("keeps comma-containing string[] entries intact", () => {
+    const normalized = normalizeStringArrayInput("FOO=a,b\nBAR=c");
+    expect(normalized).toEqual(["FOO=a,b", "BAR=c"]);
+  });
 });
 
 describe("ConfigEditor", () => {
@@ -214,6 +236,52 @@ describe("ConfigEditor", () => {
     );
     expect(result.changes.some((line) => line.includes("agent.max_concurrent_agents"))).toBe(
       true,
+    );
+  });
+
+  it("allows clearing optional enum and boolean fields", async () => {
+    const fixture = [
+      "---",
+      "tracker:",
+      "  kind: linear",
+      "  api_key: $LINEAR_API_KEY",
+      "  project_slug: demo",
+      "workspace:",
+      "  root: /tmp/workspaces",
+      "  repo: /tmp/repo",
+      "  git_strategy: auto",
+      "  cleanup_on_done: true",
+      "agent:",
+      "  backend: codex",
+      "---",
+      "prompt body",
+    ].join("\n");
+
+    const model = parseWorkflowConfig(fixture);
+
+    const script = [
+      { type: "select", contains: "Workspace (" },
+      { type: "select", contains: "Git Strategy" },
+      { type: "select", value: "(unset)" },
+      { type: "select", contains: "Cleanup On Done" },
+      { type: "select", value: "(unset)" },
+      { type: "select", value: "← Back" },
+      { type: "select", contains: "Save changes" },
+      { type: "confirm", value: true },
+    ] as const;
+
+    const ui = createScriptedUi(script);
+    const result = await runConfigEditor(model, ui);
+
+    expect(result.type).toBe("saved");
+    if (result.type !== "saved") return;
+
+    const workspace = result.model.sections.find((section) => section.key === "workspace");
+    expect(workspace).toBeDefined();
+
+    expect(workspace!.fields.find((field) => field.key === "git_strategy")?.value).toBe("");
+    expect(workspace!.fields.find((field) => field.key === "cleanup_on_done")?.value).toBe(
+      null,
     );
   });
 });
@@ -291,6 +359,16 @@ describe("config-validator", () => {
     );
   });
 
+  it("requires workspace.repo because it is an editor-owned required field", () => {
+    const source = readFileSync(workflowReferencePath, "utf-8");
+    const model = parseWorkflowConfig(source);
+
+    setField(model, "workspace", "repo", "");
+
+    const issues = validateConfigModel(model);
+    expect(issues.some((issue) => issue.path === "workspace.repo")).toBe(true);
+  });
+
   it("accepts valid configs", () => {
     const source = readFileSync(workflowReferencePath, "utf-8");
     const model = parseWorkflowConfig(source);
@@ -335,6 +413,29 @@ describe("config-writer", () => {
     expect(updated).toContain("api_key: $LINEAR_API_KEY # keep me");
     expect(updated).toContain("max_concurrent_agents: 5");
     expect(updated).toContain("# Prompt body\nYou are an agent.");
+  });
+
+  it("does not create missing parent blocks when optional leaf values are unset", () => {
+    const fixture = [
+      "---",
+      "tracker:",
+      "  kind: linear",
+      "  api_key: $LINEAR_API_KEY",
+      "  project_slug: demo",
+      "workspace:",
+      "  root: /tmp/workspaces",
+      "  repo: /tmp/repo",
+      "---",
+      "prompt body",
+    ].join("\n");
+
+    const model = parseWorkflowConfig(fixture);
+    const updated = renderUpdatedWorkflowContent(fixture, model).content;
+
+    expect(updated).not.toContain("prompts:");
+    expect(updated).not.toContain("notifications:");
+    expect(updated).not.toContain("hooks:");
+    expect(updated).not.toContain("worker:");
   });
 
   it("updates nested keys in 4-space-indented yaml without duplicating fields", () => {
@@ -391,6 +492,30 @@ describe("resolveWorkflowPath", () => {
       expect(fromCwd).toEqual({ ok: true, path: cwdPath });
     } finally {
       rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("expands tilde paths from preferences", () => {
+    const tempHome = mkdtempSync(join(tmpdir(), "symphony-path-home-"));
+    const workflowDir = join(tempHome, "workflow-home");
+    const workflowPath = join(workflowDir, "WORKFLOW.md");
+
+    const originalHome = process.env.HOME;
+
+    try {
+      mkdirSync(workflowDir, { recursive: true });
+      writeFileSync(workflowPath, "---\ntracker:\n  kind: linear\n---\n", "utf-8");
+
+      process.env.HOME = tempHome;
+
+      const resolved = resolveWorkflowPath(undefined, "/tmp", {
+        symphony: { workflow_path: "~/workflow-home/WORKFLOW.md" },
+      });
+
+      expect(resolved).toEqual({ ok: true, path: workflowPath });
+    } finally {
+      process.env.HOME = originalHome;
+      rmSync(tempHome, { recursive: true, force: true });
     }
   });
 });

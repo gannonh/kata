@@ -75,7 +75,7 @@ export function parseWorkflowConfig(
 
 export function extractWorkflowSegments(content: string): ParsedWorkflowSegments {
   const normalized = content.startsWith("\uFEFF") ? content.slice(1) : content;
-  const match = normalized.match(/^---\s*\r?\n([\s\S]*?)\r?\n---\s*(\r?\n|$)/);
+  const match = normalized.match(/^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(\r?\n|$)/);
   if (!match) {
     throw new WorkflowConfigParseError(
       "WORKFLOW.md must begin with YAML frontmatter delimited by ---",
@@ -292,7 +292,7 @@ function normalizeFieldValueForWrite(field: ConfigField): unknown {
       ? field.value
       : typeof field.value === "string"
         ? field.value
-            .split(/\r?\n|,/)
+            .split(/\r?\n/)
             .map((entry) => entry.trim())
             .filter(Boolean)
         : [];

@@ -129,12 +129,24 @@ export class ConfigEditor {
 
   private async editField(field: ConfigField): Promise<ConfigField | null> {
     if (field.type === "enum") {
-      const options = field.enumValues ?? [];
+      const options = field.enumValues ? [...field.enumValues] : [];
+      if (!field.required) {
+        options.push("(unset)");
+      }
+
       const selected = await this.ui.select(
         this.renderFieldPrompt(field),
         options.length > 0 ? options : [String(field.value ?? "")],
       );
       if (!selected) return null;
+
+      if (selected === "(unset)") {
+        return {
+          ...field,
+          value: "",
+        };
+      }
+
       return {
         ...field,
         value: selected,
