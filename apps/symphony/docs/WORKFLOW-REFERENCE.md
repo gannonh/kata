@@ -280,6 +280,50 @@ server:
   # Bind address. Use "0.0.0.0" to expose on all interfaces.
   host: "127.0.0.1"
 
+# ─── Event Stream WebSocket Contract (S01) ───────────────────────────────────
+# Endpoint: GET /api/v1/events
+#
+# Query params (all optional):
+#   issue=KAT-920,KAT-921
+#   type=worker,tool
+#   severity=info,error
+#
+# Filter semantics are deterministic:
+#   - OR within each field (issue list, type list, severity list)
+#   - AND across fields
+#
+# Invalid filters return HTTP 400 with machine-readable payload:
+# {
+#   "error": {
+#     "code": "invalid_filter",
+#     "status": 400,
+#     "message": "...",
+#     "details": { "field": "type", "value": "wat" }
+#   }
+# }
+#
+# Stream payload: one JSON envelope per message.
+#
+# {
+#   "version": "v1",
+#   "sequence": 42,
+#   "timestamp": "2026-03-27T02:00:00Z",
+#   "kind": "worker",            # snapshot | runtime | worker | tool | heartbeat
+#   "severity": "info",          # debug | info | warn | error
+#   "issue": "KAT-920",          # optional issue identifier
+#   "event": "worker_completed", # stable event name
+#   "payload": { ... }             # sanitized summary payload (no secrets/raw prompts)
+# }
+#
+# Connection lifecycle:
+#   1) First envelope is always `kind=snapshot` (bootstrap state)
+#   2) Periodic `kind=heartbeat` envelopes keep the stream healthy
+#   3) Slow consumers are disconnected with close reason `backpressure`
+#   4) Graceful shutdown uses close reason `server_shutdown`
+#
+# Example:
+#   websocat "ws://127.0.0.1:8080/api/v1/events?issue=KAT-920&type=worker,tool&severity=info"
+
 # ─── Notifications ─────────────────────────────────────────────────────────────
 # Optional webhook notifications for issue state transitions and runtime events.
 # Messages include a clickable link to the Linear issue.

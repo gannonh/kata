@@ -64,6 +64,151 @@ pub struct BlockedIssueEntry {
     pub blocker_identifiers: Vec<String>,
 }
 
+// ── Event stream contract (M002/S01) ───────────────────────────────────
+
+pub const SYMPHONY_EVENT_STREAM_VERSION: &str = "v1";
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum EventKind {
+    Snapshot,
+    Runtime,
+    Worker,
+    Tool,
+    Heartbeat,
+}
+
+impl EventKind {
+    pub fn parse(value: &str) -> Option<Self> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "snapshot" => Some(Self::Snapshot),
+            "runtime" => Some(Self::Runtime),
+            "worker" => Some(Self::Worker),
+            "tool" => Some(Self::Tool),
+            "heartbeat" => Some(Self::Heartbeat),
+            _ => None,
+        }
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Snapshot => "snapshot",
+            Self::Runtime => "runtime",
+            Self::Worker => "worker",
+            Self::Tool => "tool",
+            Self::Heartbeat => "heartbeat",
+        }
+    }
+
+    pub fn variants() -> &'static [&'static str] {
+        &["snapshot", "runtime", "worker", "tool", "heartbeat"]
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum EventSeverity {
+    Debug,
+    Info,
+    Warn,
+    Error,
+}
+
+impl EventSeverity {
+    pub fn parse(value: &str) -> Option<Self> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "debug" => Some(Self::Debug),
+            "info" => Some(Self::Info),
+            "warn" | "warning" => Some(Self::Warn),
+            "error" => Some(Self::Error),
+            _ => None,
+        }
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Debug => "debug",
+            Self::Info => "info",
+            Self::Warn => "warn",
+            Self::Error => "error",
+        }
+    }
+
+    pub fn variants() -> &'static [&'static str] {
+        &["debug", "info", "warn", "error"]
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SymphonyEventEnvelope {
+    pub version: String,
+    pub sequence: u64,
+    pub timestamp: DateTime<Utc>,
+    pub kind: EventKind,
+    pub severity: EventSeverity,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub issue: Option<String>,
+    pub event: String,
+    pub payload: serde_json::Value,
+}
+
+impl SymphonyEventEnvelope {
+    pub fn new(
+        sequence: u64,
+        timestamp: DateTime<Utc>,
+        kind: EventKind,
+        severity: EventSeverity,
+        issue: Option<String>,
+        event: impl Into<String>,
+        payload: serde_json::Value,
+    ) -> Self {
+        Self {
+            version: SYMPHONY_EVENT_STREAM_VERSION.to_string(),
+            sequence,
+            timestamp,
+            kind,
+            severity,
+            issue,
+            event: event.into(),
+            payload,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct EventFilter {
+    #[serde(default)]
+    pub issues: BTreeSet<String>,
+    #[serde(default)]
+    pub kinds: BTreeSet<EventKind>,
+    #[serde(default)]
+    pub severities: BTreeSet<EventSeverity>,
+}
+
+impl EventFilter {
+    pub fn matches(&self, event: &SymphonyEventEnvelope) -> bool {
+        let issue_matches = if self.issues.is_empty() {
+            true
+        } else {
+            event
+                .issue
+                .as_ref()
+                .map(|issue| self.issues.contains(issue))
+                .unwrap_or(false)
+        };
+
+        let kind_matches = self.kinds.is_empty() || self.kinds.contains(&event.kind);
+        let severity_matches =
+            self.severities.is_empty() || self.severities.contains(&event.severity);
+
+        issue_matches && kind_matches && severity_matches
+    }
+
+    pub fn has_any_constraints(&self) -> bool {
+        !(self.issues.is_empty() && self.kinds.is_empty() && self.severities.is_empty())
+    }
+}
+
 // ── ApiKey ─────────────────────────────────────────────────────────────
 
 /// A redacted API-key value.

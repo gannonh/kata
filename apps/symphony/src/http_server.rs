@@ -1,17 +1,25 @@
+use std::collections::BTreeSet;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::time::Duration;
 
-use axum::extract::{Path, State};
+use axum::extract::ws::{close_code, CloseFrame, Message, WebSocket, WebSocketUpgrade};
+use axum::extract::{Path, Query, State};
 use axum::http::{Method, StatusCode, Uri};
 use axum::response::{Html, IntoResponse};
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use serde::Serialize;
+use chrono::Utc;
+use futures_util::{SinkExt, StreamExt};
+use serde::{Deserialize, Serialize};
 use tokio::net::TcpListener;
 
 use crate::domain::{
-    CodexTotals, OrchestratorSnapshot, PollingSnapshot, RefreshRequestOutcome, RetrySnapshotEntry,
-    RunAttempt, RunningSessionSnapshot, WorkerSessionInfo,
+    CodexTotals, EventFilter, EventKind, EventSeverity, OrchestratorSnapshot, PollingSnapshot,
+    RefreshRequestOutcome, RetrySnapshotEntry, RunAttempt, RunningSessionSnapshot,
+    SymphonyEventEnvelope, WorkerSessionInfo,
 };
+use crate::event_stream::EventHub;
 use crate::orchestrator::{RefreshSender, SnapshotHandle};
 
 pub const HTTP_PORT_RETRY_LIMIT: u16 = 10;
@@ -58,12 +66,57 @@ impl RefreshControl for RefreshSender {
     }
 }
 
-// ── HTTP Server State ──────────────────────────────────────────────────
+// ── Event hub + HTTP server state ──────────────────────────────────────
+
+const DEFAULT_WS_HEARTBEAT_INTERVAL_MS: u64 = 5_000;
+const DEFAULT_WS_CLIENT_QUEUE_CAPACITY: usize = 64;
+const DEFAULT_WS_BACKPRESSURE_DROP_THRESHOLD: u64 = 1;
+const WS_CLOSE_ENQUEUE_TIMEOUT_MS: u64 = 1_000;
+
+#[derive(Debug, Clone)]
+pub struct EventStreamConfig {
+    pub heartbeat_interval: Duration,
+    pub client_queue_capacity: usize,
+    pub backpressure_drop_threshold: u64,
+    /// Test-only seam to make slow-consumer behavior deterministic.
+    pub writer_send_delay: Option<Duration>,
+}
+
+impl Default for EventStreamConfig {
+    fn default() -> Self {
+        Self {
+            heartbeat_interval: Duration::from_millis(DEFAULT_WS_HEARTBEAT_INTERVAL_MS),
+            client_queue_capacity: DEFAULT_WS_CLIENT_QUEUE_CAPACITY,
+            backpressure_drop_threshold: DEFAULT_WS_BACKPRESSURE_DROP_THRESHOLD,
+            writer_send_delay: None,
+        }
+    }
+}
+
+#[derive(Default)]
+struct EventStreamCounters {
+    connected: AtomicU64,
+    disconnected: AtomicU64,
+    dropped: AtomicU64,
+    heartbeat: AtomicU64,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+pub struct EventStreamCounterSnapshot {
+    pub connected: u64,
+    pub disconnected: u64,
+    pub dropped: u64,
+    pub heartbeat: u64,
+}
 
 #[derive(Clone)]
 pub struct HttpServerState {
     snapshot_source: Arc<dyn SnapshotSource>,
     refresh_control: Arc<dyn RefreshControl>,
+    event_hub: EventHub,
+    event_stream_config: EventStreamConfig,
+    event_stream_counters: Arc<EventStreamCounters>,
+    next_client_id: Arc<AtomicU64>,
 }
 
 impl HttpServerState {
@@ -71,9 +124,27 @@ impl HttpServerState {
         snapshot_source: Arc<dyn SnapshotSource>,
         refresh_control: Arc<dyn RefreshControl>,
     ) -> Self {
+        Self::with_event_stream(
+            snapshot_source,
+            refresh_control,
+            EventHub::default_hub(),
+            EventStreamConfig::default(),
+        )
+    }
+
+    pub fn with_event_stream(
+        snapshot_source: Arc<dyn SnapshotSource>,
+        refresh_control: Arc<dyn RefreshControl>,
+        event_hub: EventHub,
+        event_stream_config: EventStreamConfig,
+    ) -> Self {
         Self {
             snapshot_source,
             refresh_control,
+            event_hub,
+            event_stream_config,
+            event_stream_counters: Arc::new(EventStreamCounters::default()),
+            next_client_id: Arc::new(AtomicU64::new(0)),
         }
     }
 
@@ -83,6 +154,58 @@ impl HttpServerState {
 
     pub fn request_refresh(&self) -> RefreshRequestOutcome {
         self.refresh_control.request_refresh()
+    }
+
+    pub fn event_hub(&self) -> EventHub {
+        self.event_hub.clone()
+    }
+
+    pub fn event_stream_config(&self) -> EventStreamConfig {
+        self.event_stream_config.clone()
+    }
+
+    pub fn next_client_id(&self) -> u64 {
+        self.next_client_id.fetch_add(1, Ordering::SeqCst) + 1
+    }
+
+    pub fn increment_connected(&self) -> u64 {
+        self.event_stream_counters
+            .connected
+            .fetch_add(1, Ordering::SeqCst)
+            + 1
+    }
+
+    pub fn increment_disconnected(&self) -> u64 {
+        self.event_stream_counters
+            .disconnected
+            .fetch_add(1, Ordering::SeqCst)
+            + 1
+    }
+
+    pub fn increment_dropped(&self, delta: u64) -> u64 {
+        self.event_stream_counters
+            .dropped
+            .fetch_add(delta, Ordering::SeqCst)
+            + delta
+    }
+
+    pub fn increment_heartbeat(&self) -> u64 {
+        self.event_stream_counters
+            .heartbeat
+            .fetch_add(1, Ordering::SeqCst)
+            + 1
+    }
+
+    pub fn event_stream_counters(&self) -> EventStreamCounterSnapshot {
+        EventStreamCounterSnapshot {
+            connected: self.event_stream_counters.connected.load(Ordering::SeqCst),
+            disconnected: self
+                .event_stream_counters
+                .disconnected
+                .load(Ordering::SeqCst),
+            dropped: self.event_stream_counters.dropped.load(Ordering::SeqCst),
+            heartbeat: self.event_stream_counters.heartbeat.load(Ordering::SeqCst),
+        }
     }
 }
 
@@ -98,6 +221,8 @@ struct ApiError {
     code: &'static str,
     message: String,
     status: u16,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    details: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Serialize)]
@@ -140,12 +265,90 @@ struct RefreshResponse {
     pending_requests: u64,
 }
 
+#[derive(Debug, Deserialize, Default)]
+struct EventFilterQuery {
+    issue: Option<String>,
+    #[serde(rename = "type")]
+    event_type: Option<String>,
+    severity: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EventFilterError {
+    pub field: &'static str,
+    pub value: String,
+    pub message: String,
+}
+
+impl EventFilterError {
+    fn to_api_error(&self) -> ApiErrorEnvelope {
+        ApiErrorEnvelope {
+            error: ApiError {
+                code: "invalid_filter",
+                message: self.message.clone(),
+                status: StatusCode::BAD_REQUEST.as_u16(),
+                details: Some(serde_json::json!({
+                    "field": self.field,
+                    "value": self.value,
+                })),
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum WsCloseReason {
+    ClientClosed,
+    Backpressure,
+    ServerShutdown,
+    ProtocolError,
+}
+
+impl WsCloseReason {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::ClientClosed => "client_closed",
+            Self::Backpressure => "backpressure",
+            Self::ServerShutdown => "server_shutdown",
+            Self::ProtocolError => "protocol_error",
+        }
+    }
+
+    fn close_frame(self) -> CloseFrame {
+        match self {
+            Self::ClientClosed => CloseFrame {
+                code: close_code::NORMAL,
+                reason: "client_closed".into(),
+            },
+            Self::Backpressure => CloseFrame {
+                code: close_code::POLICY,
+                reason: "backpressure".into(),
+            },
+            Self::ServerShutdown => CloseFrame {
+                code: close_code::RESTART,
+                reason: "server_shutdown".into(),
+            },
+            Self::ProtocolError => CloseFrame {
+                code: close_code::PROTOCOL,
+                reason: "protocol_error".into(),
+            },
+        }
+    }
+}
+
+enum OutboundMessage {
+    Envelope(SymphonyEventEnvelope),
+    Pong(Vec<u8>),
+    Close(WsCloseReason),
+}
+
 // ── Router ─────────────────────────────────────────────────────────────
 
 pub fn build_router(state: HttpServerState) -> Router {
     Router::new()
         .route("/", get(get_dashboard))
         .route("/api/v1/state", get(get_state))
+        .route("/api/v1/events", get(get_events))
         .route("/api/v1/{issue_identifier}", get(get_issue))
         .route("/api/v1/refresh", post(post_refresh))
         .fallback(api_not_found)
@@ -677,6 +880,453 @@ async fn get_state(State(state): State<HttpServerState>) -> impl IntoResponse {
     })
 }
 
+async fn get_events(
+    ws: WebSocketUpgrade,
+    Query(query): Query<EventFilterQuery>,
+    State(state): State<HttpServerState>,
+) -> impl IntoResponse {
+    let filter = match parse_event_filter(&query) {
+        Ok(filter) => filter,
+        Err(err) => {
+            return (StatusCode::BAD_REQUEST, Json(err.to_api_error())).into_response();
+        }
+    };
+
+    ws.on_upgrade(move |socket| handle_events_socket(socket, state, filter))
+}
+
+async fn handle_events_socket(socket: WebSocket, state: HttpServerState, filter: EventFilter) {
+    let client_id = state.next_client_id();
+    let connected_count = state.increment_connected();
+    tracing::info!(
+        event = "ws_client_connected",
+        client_id,
+        connected = connected_count,
+        filter = ?filter,
+        "event stream websocket client connected"
+    );
+
+    let event_hub = state.event_hub();
+    let config = state.event_stream_config();
+    let mut broadcast_rx = event_hub.subscribe();
+
+    let (mut ws_sender, mut ws_receiver) = socket.split();
+    let (outbound_tx, mut outbound_rx) =
+        tokio::sync::mpsc::channel::<OutboundMessage>(config.client_queue_capacity.max(1));
+
+    let writer_send_delay = config.writer_send_delay;
+    let writer_task = tokio::spawn(async move {
+        while let Some(message) = outbound_rx.recv().await {
+            match message {
+                OutboundMessage::Envelope(envelope) => {
+                    if let Some(delay) = writer_send_delay {
+                        tokio::time::sleep(delay).await;
+                    }
+                    let payload = match serde_json::to_string(&envelope) {
+                        Ok(payload) => payload,
+                        Err(err) => {
+                            tracing::warn!(
+                                event = "ws_serialize_failed",
+                                error = %err,
+                                "failed to serialize websocket event envelope"
+                            );
+                            continue;
+                        }
+                    };
+                    if ws_sender.send(Message::Text(payload.into())).await.is_err() {
+                        break;
+                    }
+                }
+                OutboundMessage::Pong(payload) => {
+                    if ws_sender.send(Message::Pong(payload.into())).await.is_err() {
+                        break;
+                    }
+                }
+                OutboundMessage::Close(reason) => {
+                    let _ = ws_sender
+                        .send(Message::Close(Some(reason.close_frame())))
+                        .await;
+                    break;
+                }
+            }
+        }
+    });
+
+    let snapshot = state.snapshot();
+    let snapshot_payload = serde_json::to_value(snapshot)
+        .unwrap_or_else(|_| serde_json::json!({ "error": "snapshot_serialization_failed" }));
+    let snapshot_envelope = SymphonyEventEnvelope::new(
+        event_hub.next_sequence(),
+        Utc::now(),
+        EventKind::Snapshot,
+        EventSeverity::Info,
+        None,
+        "snapshot",
+        snapshot_payload,
+    );
+
+    let mut sent_count: u64 = 0;
+    let mut dropped_count: u64 = 0;
+    let mut close_reason = WsCloseReason::ClientClosed;
+
+    if enqueue_event(
+        &state,
+        &outbound_tx,
+        client_id,
+        snapshot_envelope,
+        &mut dropped_count,
+        config.backpressure_drop_threshold,
+    ) {
+        sent_count = sent_count.saturating_add(1);
+    } else {
+        close_reason = WsCloseReason::Backpressure;
+    }
+
+    let mut heartbeat = tokio::time::interval(config.heartbeat_interval);
+    heartbeat.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+
+    while close_reason == WsCloseReason::ClientClosed {
+        tokio::select! {
+            incoming = ws_receiver.next() => {
+                match incoming {
+                    Some(Ok(Message::Close(_))) | None => {
+                        close_reason = WsCloseReason::ClientClosed;
+                        break;
+                    }
+                    Some(Ok(Message::Ping(payload))) => {
+                        if !enqueue_pong(
+                            &state,
+                            &outbound_tx,
+                            client_id,
+                            payload.to_vec(),
+                            &mut dropped_count,
+                        ) {
+                            close_reason = WsCloseReason::Backpressure;
+                            break;
+                        }
+                    }
+                    Some(Ok(_)) => {}
+                    Some(Err(err)) => {
+                        tracing::warn!(
+                            event = "ws_client_protocol_error",
+                            client_id,
+                            error = %err,
+                            "websocket receive error"
+                        );
+                        close_reason = WsCloseReason::ProtocolError;
+                        break;
+                    }
+                }
+            }
+            broadcast = broadcast_rx.recv() => {
+                match broadcast {
+                    Ok(envelope) => {
+                        if filter.matches(&envelope) {
+                            if enqueue_event(
+                                &state,
+                                &outbound_tx,
+                                client_id,
+                                envelope,
+                                &mut dropped_count,
+                                config.backpressure_drop_threshold,
+                            ) {
+                                sent_count = sent_count.saturating_add(1);
+                            } else {
+                                close_reason = WsCloseReason::Backpressure;
+                                break;
+                            }
+                        }
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
+                        dropped_count = dropped_count.saturating_add(skipped);
+                        let total_dropped = state.increment_dropped(skipped);
+                        tracing::warn!(
+                            event = "ws_event_dropped",
+                            client_id,
+                            reason = "lagged",
+                            dropped = skipped,
+                            dropped_total = dropped_count,
+                            dropped_global = total_dropped,
+                            "client lagged behind websocket event hub"
+                        );
+                        if dropped_count >= config.backpressure_drop_threshold {
+                            close_reason = WsCloseReason::Backpressure;
+                            break;
+                        }
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                        close_reason = WsCloseReason::ServerShutdown;
+                        break;
+                    }
+                }
+            }
+            _ = heartbeat.tick() => {
+                let heartbeat_envelope = SymphonyEventEnvelope::new(
+                    event_hub.next_sequence(),
+                    Utc::now(),
+                    EventKind::Heartbeat,
+                    EventSeverity::Debug,
+                    None,
+                    "heartbeat",
+                    serde_json::json!({ "client_id": client_id }),
+                );
+
+                if enqueue_event(
+                    &state,
+                    &outbound_tx,
+                    client_id,
+                    heartbeat_envelope,
+                    &mut dropped_count,
+                    config.backpressure_drop_threshold,
+                ) {
+                    sent_count = sent_count.saturating_add(1);
+                    let heartbeat_count = state.increment_heartbeat();
+                    tracing::debug!(
+                        event = "ws_heartbeat_sent",
+                        client_id,
+                        heartbeat = heartbeat_count,
+                        "websocket heartbeat sent"
+                    );
+                } else {
+                    close_reason = WsCloseReason::Backpressure;
+                    break;
+                }
+            }
+        }
+    }
+
+    match tokio::time::timeout(
+        Duration::from_millis(WS_CLOSE_ENQUEUE_TIMEOUT_MS),
+        outbound_tx.send(OutboundMessage::Close(close_reason)),
+    )
+    .await
+    {
+        Ok(Ok(())) | Ok(Err(_)) => {}
+        Err(_) => {
+            tracing::warn!(
+                event = "ws_close_enqueue_timeout",
+                client_id,
+                reason = close_reason.as_str(),
+                timeout_ms = WS_CLOSE_ENQUEUE_TIMEOUT_MS,
+                "timed out enqueueing websocket close frame; aborting writer task"
+            );
+            writer_task.abort();
+        }
+    }
+    drop(outbound_tx);
+    let _ = writer_task.await;
+
+    let disconnected_count = state.increment_disconnected();
+    tracing::info!(
+        event = "ws_client_disconnected",
+        client_id,
+        reason = close_reason.as_str(),
+        sent = sent_count,
+        dropped = dropped_count,
+        disconnected = disconnected_count,
+        "event stream websocket client disconnected"
+    );
+}
+
+fn enqueue_event(
+    state: &HttpServerState,
+    outbound_tx: &tokio::sync::mpsc::Sender<OutboundMessage>,
+    client_id: u64,
+    envelope: SymphonyEventEnvelope,
+    dropped_count: &mut u64,
+    drop_threshold: u64,
+) -> bool {
+    enqueue_outbound(
+        state,
+        outbound_tx,
+        client_id,
+        OutboundMessage::Envelope(envelope),
+        dropped_count,
+        drop_threshold,
+        "queue_full",
+    )
+}
+
+fn enqueue_pong(
+    state: &HttpServerState,
+    outbound_tx: &tokio::sync::mpsc::Sender<OutboundMessage>,
+    client_id: u64,
+    payload: Vec<u8>,
+    dropped_count: &mut u64,
+) -> bool {
+    match outbound_tx.try_send(OutboundMessage::Pong(payload)) {
+        Ok(()) => true,
+        Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => {
+            *dropped_count = dropped_count.saturating_add(1);
+            let global_dropped = state.increment_dropped(1);
+            tracing::warn!(
+                event = "ws_event_dropped",
+                client_id,
+                reason = "queue_full_pong",
+                dropped_total = *dropped_count,
+                dropped_global = global_dropped,
+                should_close = true,
+                "websocket pong frame dropped; closing connection"
+            );
+            false
+        }
+        Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => false,
+    }
+}
+
+fn enqueue_outbound(
+    state: &HttpServerState,
+    outbound_tx: &tokio::sync::mpsc::Sender<OutboundMessage>,
+    client_id: u64,
+    message: OutboundMessage,
+    dropped_count: &mut u64,
+    drop_threshold: u64,
+    drop_reason: &'static str,
+) -> bool {
+    let effective_drop_threshold = drop_threshold.max(1);
+
+    match outbound_tx.try_send(message) {
+        Ok(()) => true,
+        Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => {
+            *dropped_count = dropped_count.saturating_add(1);
+            let global_dropped = state.increment_dropped(1);
+            let should_close = *dropped_count >= effective_drop_threshold;
+            tracing::warn!(
+                event = "ws_event_dropped",
+                client_id,
+                reason = drop_reason,
+                dropped_total = *dropped_count,
+                dropped_global = global_dropped,
+                drop_threshold = effective_drop_threshold,
+                should_close,
+                "websocket client outbound queue reached capacity"
+            );
+            !should_close
+        }
+        Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => false,
+    }
+}
+
+pub fn parse_event_filter_contract(
+    issue: Option<&str>,
+    event_type: Option<&str>,
+    severity: Option<&str>,
+) -> Result<EventFilter, EventFilterError> {
+    parse_event_filter(&EventFilterQuery {
+        issue: issue.map(str::to_string),
+        event_type: event_type.map(str::to_string),
+        severity: severity.map(str::to_string),
+    })
+}
+
+fn parse_event_filter(query: &EventFilterQuery) -> Result<EventFilter, EventFilterError> {
+    let issues = parse_issue_filter(query.issue.as_deref())?;
+    let kinds = parse_kind_filter(query.event_type.as_deref())?;
+    let severities = parse_severity_filter(query.severity.as_deref())?;
+
+    Ok(EventFilter {
+        issues,
+        kinds,
+        severities,
+    })
+}
+
+fn parse_issue_filter(raw: Option<&str>) -> Result<BTreeSet<String>, EventFilterError> {
+    let Some(raw) = raw else {
+        return Ok(BTreeSet::new());
+    };
+
+    let mut issues = BTreeSet::new();
+    for token in raw.split(',') {
+        let trimmed = token.trim();
+        if trimmed.is_empty() {
+            return Err(EventFilterError {
+                field: "issue",
+                value: token.to_string(),
+                message: "invalid issue filter: empty issue value".to_string(),
+            });
+        }
+
+        let normalized = trimmed.to_ascii_uppercase();
+        if !looks_like_issue_identifier(&normalized) {
+            return Err(EventFilterError {
+                field: "issue",
+                value: token.to_string(),
+                message: format!(
+                    "invalid issue filter value '{trimmed}': expected TEAM-123 style identifier"
+                ),
+            });
+        }
+        issues.insert(normalized);
+    }
+
+    Ok(issues)
+}
+
+fn parse_kind_filter(raw: Option<&str>) -> Result<BTreeSet<EventKind>, EventFilterError> {
+    let Some(raw) = raw else {
+        return Ok(BTreeSet::new());
+    };
+
+    let mut kinds = BTreeSet::new();
+    for token in raw.split(',') {
+        let trimmed = token.trim();
+        if trimmed.is_empty() {
+            return Err(EventFilterError {
+                field: "type",
+                value: token.to_string(),
+                message: "invalid type filter: empty event kind".to_string(),
+            });
+        }
+
+        let Some(kind) = EventKind::parse(trimmed) else {
+            return Err(EventFilterError {
+                field: "type",
+                value: trimmed.to_string(),
+                message: format!(
+                    "invalid type filter value '{trimmed}'. Allowed values: {}",
+                    EventKind::variants().join(",")
+                ),
+            });
+        };
+        kinds.insert(kind);
+    }
+
+    Ok(kinds)
+}
+
+fn parse_severity_filter(raw: Option<&str>) -> Result<BTreeSet<EventSeverity>, EventFilterError> {
+    let Some(raw) = raw else {
+        return Ok(BTreeSet::new());
+    };
+
+    let mut severities = BTreeSet::new();
+    for token in raw.split(',') {
+        let trimmed = token.trim();
+        if trimmed.is_empty() {
+            return Err(EventFilterError {
+                field: "severity",
+                value: token.to_string(),
+                message: "invalid severity filter: empty severity".to_string(),
+            });
+        }
+
+        let Some(severity) = EventSeverity::parse(trimmed) else {
+            return Err(EventFilterError {
+                field: "severity",
+                value: trimmed.to_string(),
+                message: format!(
+                    "invalid severity filter value '{trimmed}'. Allowed values: {}",
+                    EventSeverity::variants().join(",")
+                ),
+            });
+        };
+        severities.insert(severity);
+    }
+
+    Ok(severities)
+}
+
 async fn get_issue(
     State(state): State<HttpServerState>,
     Path(issue_identifier): Path<String>,
@@ -739,6 +1389,7 @@ async fn get_issue(
                 code: "issue_not_found",
                 message: format!("Issue identifier '{}' was not found", issue_identifier),
                 status: StatusCode::NOT_FOUND.as_u16(),
+                details: None,
             },
         }),
     )
@@ -780,6 +1431,7 @@ async fn api_not_found(uri: Uri) -> impl IntoResponse {
                 code: "not_found",
                 message: format!("No route found for {}", uri.path()),
                 status: StatusCode::NOT_FOUND.as_u16(),
+                details: None,
             },
         }),
     )
@@ -793,6 +1445,7 @@ async fn api_method_not_allowed(method: Method, uri: Uri) -> impl IntoResponse {
                 code: "method_not_allowed",
                 message: format!("Method {} is not allowed for {}", method, uri.path()),
                 status: StatusCode::METHOD_NOT_ALLOWED.as_u16(),
+                details: None,
             },
         }),
     )
@@ -916,5 +1569,90 @@ mod tests {
         assert_eq!(err.kind(), std::io::ErrorKind::AddrInUse);
 
         drop(listeners);
+    }
+
+    #[test]
+    fn event_filter_parsing_accepts_or_within_fields_and_and_across_fields() {
+        let query = EventFilterQuery {
+            issue: Some("KAT-1,kAt-2".to_string()),
+            event_type: Some("worker,tool".to_string()),
+            severity: Some("info,error".to_string()),
+        };
+
+        let filter = parse_event_filter(&query).expect("filter parsing should succeed");
+        assert_eq!(
+            filter.issues,
+            BTreeSet::from(["KAT-1".to_string(), "KAT-2".to_string()])
+        );
+        assert_eq!(
+            filter.kinds,
+            BTreeSet::from([EventKind::Worker, EventKind::Tool])
+        );
+        assert_eq!(
+            filter.severities,
+            BTreeSet::from([EventSeverity::Info, EventSeverity::Error])
+        );
+
+        let matching = SymphonyEventEnvelope::new(
+            1,
+            Utc::now(),
+            EventKind::Tool,
+            EventSeverity::Info,
+            Some("KAT-2".to_string()),
+            "tool_call_completed",
+            serde_json::json!({}),
+        );
+        assert!(filter.matches(&matching));
+
+        let wrong_issue = SymphonyEventEnvelope::new(
+            2,
+            Utc::now(),
+            EventKind::Tool,
+            EventSeverity::Info,
+            Some("KAT-9".to_string()),
+            "tool_call_completed",
+            serde_json::json!({}),
+        );
+        assert!(!filter.matches(&wrong_issue));
+
+        let wrong_type = SymphonyEventEnvelope::new(
+            3,
+            Utc::now(),
+            EventKind::Runtime,
+            EventSeverity::Info,
+            Some("KAT-2".to_string()),
+            "dispatch",
+            serde_json::json!({}),
+        );
+        assert!(!filter.matches(&wrong_type));
+
+        let wrong_severity = SymphonyEventEnvelope::new(
+            4,
+            Utc::now(),
+            EventKind::Worker,
+            EventSeverity::Warn,
+            Some("KAT-2".to_string()),
+            "worker_stalled",
+            serde_json::json!({}),
+        );
+        assert!(!filter.matches(&wrong_severity));
+    }
+
+    #[test]
+    fn event_filter_parsing_rejects_unknown_type_with_deterministic_error() {
+        let query = EventFilterQuery {
+            issue: None,
+            event_type: Some("worker,wat".to_string()),
+            severity: None,
+        };
+
+        let err = parse_event_filter(&query).expect_err("unknown event type should fail");
+        assert_eq!(err.field, "type");
+        assert_eq!(err.value, "wat");
+        assert!(
+            err.message
+                .contains("Allowed values: snapshot,runtime,worker,tool,heartbeat"),
+            "error should list deterministic allowed values"
+        );
     }
 }
