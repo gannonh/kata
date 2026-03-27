@@ -4,20 +4,29 @@ use chrono::Utc;
 use serde_json::json;
 use symphony::config::from_workflow;
 use symphony::domain::{
-    EventKind, EventSeverity, SupervisorConfig, SupervisorStatus, SymphonyEventEnvelope,
-    SYMPHONY_EVENT_STREAM_VERSION,
+    ContextScope, EventKind, EventSeverity, SupervisorConfig, SupervisorStatus,
+    SymphonyEventEnvelope, SYMPHONY_EVENT_STREAM_VERSION,
 };
 use symphony::event_stream::EventHub;
 use symphony::orchestrator::EscalationRegistry;
-use symphony::shared_context::SharedContextStore;
+use symphony::shared_context::{ContextEntryDraft, SharedContextStore};
 use symphony::supervisor::{SupervisorAgent, SupervisorDependencies};
 
 fn envelope(issue: &str, event: &str, summary: &str) -> SymphonyEventEnvelope {
+    envelope_with_kind(issue, event, summary, EventKind::Worker)
+}
+
+fn envelope_with_kind(
+    issue: &str,
+    event: &str,
+    summary: &str,
+    kind: EventKind,
+) -> SymphonyEventEnvelope {
     SymphonyEventEnvelope {
         version: SYMPHONY_EVENT_STREAM_VERSION.to_string(),
         sequence: 1,
         timestamp: Utc::now(),
-        kind: EventKind::Worker,
+        kind,
         severity: EventSeverity::Info,
         issue: Some(issue.to_string()),
         event: event.to_string(),
@@ -25,14 +34,28 @@ fn envelope(issue: &str, event: &str, summary: &str) -> SymphonyEventEnvelope {
     }
 }
 
-fn make_supervisor(config: SupervisorConfig) -> (SupervisorAgent, EventHub) {
+fn make_supervisor(
+    config: SupervisorConfig,
+) -> (
+    SupervisorAgent,
+    EventHub,
+    SharedContextStore,
+    EscalationRegistry,
+) {
     let hub = EventHub::new(64);
+    let shared_context_store = SharedContextStore::default();
+    let escalation_registry = EscalationRegistry::default();
     let deps = SupervisorDependencies::new(
         hub.clone(),
-        SharedContextStore::default(),
-        EscalationRegistry::default(),
+        shared_context_store.clone(),
+        escalation_registry.clone(),
     );
-    (SupervisorAgent::new(config, deps), hub)
+    (
+        SupervisorAgent::new(config, deps),
+        hub,
+        shared_context_store,
+        escalation_registry,
+    )
 }
 
 async fn wait_for_active(supervisor: &SupervisorAgent) {
@@ -82,7 +105,7 @@ mod lifecycle {
 
     #[tokio::test]
     async fn supervisor_starts_processes_event_and_stops() {
-        let (mut supervisor, hub) = make_supervisor(SupervisorConfig {
+        let (mut supervisor, hub, _store, _registry) = make_supervisor(SupervisorConfig {
             enabled: true,
             model: Some("anthropic/claude-sonnet-4-6".to_string()),
             steer_cooldown_ms: 120_000,
@@ -114,7 +137,7 @@ mod lifecycle {
 
     #[test]
     fn disabled_supervisor_start_is_noop() {
-        let (mut supervisor, _hub) = make_supervisor(SupervisorConfig::default());
+        let (mut supervisor, _hub, _store, _registry) = make_supervisor(SupervisorConfig::default());
 
         supervisor
             .start()
@@ -129,9 +152,11 @@ mod lifecycle {
 mod stuck_worker {
     use super::*;
 
+    const NO_PROGRESS_EVENT_THRESHOLD_FOR_TEST: usize = 5;
+
     #[tokio::test]
     async fn repeated_tool_error_triggers_supervisor_steer() {
-        let (mut supervisor, hub) = make_supervisor(SupervisorConfig {
+        let (mut supervisor, hub, _store, _registry) = make_supervisor(SupervisorConfig {
             enabled: true,
             model: None,
             steer_cooldown_ms: 120_000,
@@ -159,7 +184,7 @@ mod stuck_worker {
 
     #[tokio::test]
     async fn no_progress_triggers_supervisor_steer() {
-        let (mut supervisor, hub) = make_supervisor(SupervisorConfig {
+        let (mut supervisor, hub, _store, _registry) = make_supervisor(SupervisorConfig {
             enabled: true,
             model: None,
             steer_cooldown_ms: 120_000,
@@ -182,7 +207,7 @@ mod stuck_worker {
 
     #[tokio::test]
     async fn repeated_test_failure_triggers_supervisor_steer() {
-        let (mut supervisor, hub) = make_supervisor(SupervisorConfig {
+        let (mut supervisor, hub, _store, _registry) = make_supervisor(SupervisorConfig {
             enabled: true,
             model: None,
             steer_cooldown_ms: 120_000,
@@ -212,7 +237,7 @@ mod stuck_worker {
 
     #[tokio::test]
     async fn cooldown_prevents_rapid_resteer() {
-        let (mut supervisor, hub) = make_supervisor(SupervisorConfig {
+        let (mut supervisor, hub, _store, _registry) = make_supervisor(SupervisorConfig {
             enabled: true,
             model: None,
             steer_cooldown_ms: 300_000,
@@ -226,7 +251,8 @@ mod stuck_worker {
             hub.send(envelope("KAT-2004", "tool_error", "bash cargo test"));
         }
 
-        let _first = recv_event_with_name(&mut rx, "supervisor_steer", Duration::from_secs(1)).await;
+        let _first =
+            recv_event_with_name(&mut rx, "supervisor_steer", Duration::from_secs(1)).await;
 
         for _ in 0..3 {
             hub.send(envelope("KAT-2004", "tool_error", "bash cargo test"));
@@ -254,7 +280,7 @@ mod stuck_worker {
 
     #[tokio::test]
     async fn mixed_non_stuck_events_do_not_trigger_steer() {
-        let (mut supervisor, hub) = make_supervisor(SupervisorConfig {
+        let (mut supervisor, hub, _store, _registry) = make_supervisor(SupervisorConfig {
             enabled: true,
             model: None,
             steer_cooldown_ms: 120_000,
@@ -288,6 +314,142 @@ mod stuck_worker {
 
         supervisor.stop().await;
     }
+}
 
-    const NO_PROGRESS_EVENT_THRESHOLD_FOR_TEST: usize = 5;
+mod conflict_detection {
+    use super::*;
+
+    #[tokio::test]
+    async fn overlapping_file_edits_emit_conflict_and_context_entry() {
+        let (mut supervisor, hub, store, _registry) = make_supervisor(SupervisorConfig {
+            enabled: true,
+            model: None,
+            steer_cooldown_ms: 120_000,
+        });
+        let mut rx = hub.subscribe();
+
+        supervisor.start().expect("supervisor should start");
+        wait_for_active(&supervisor).await;
+
+        hub.send(envelope(
+            "KAT-3001",
+            "tool_start",
+            "edit {\"path\":\"src/auth.rs\"}",
+        ));
+        hub.send(envelope(
+            "KAT-3002",
+            "tool_start",
+            "edit {\"path\":\"src/auth.rs\"}",
+        ));
+
+        let conflict_event = recv_event_with_name(
+            &mut rx,
+            "supervisor_conflict_detected",
+            Duration::from_secs(1),
+        )
+        .await;
+
+        assert_eq!(conflict_event.kind, EventKind::SupervisorConflictDetected);
+        assert_eq!(conflict_event.payload["conflict_type"], "file_overlap");
+
+        let context_entries = store.list();
+        assert!(
+            context_entries
+                .iter()
+                .any(|entry| entry.author_issue == "SUPERVISOR"
+                    && entry.content.contains("src/auth.rs")
+                    && entry.content.contains("KAT-3001")
+                    && entry.content.contains("KAT-3002")),
+            "expected supervisor coordination context entry, got {context_entries:?}"
+        );
+
+        supervisor.stop().await;
+    }
+
+    #[tokio::test]
+    async fn contradictory_context_entries_trigger_escalation() {
+        let (mut supervisor, hub, store, registry) = make_supervisor(SupervisorConfig {
+            enabled: true,
+            model: None,
+            steer_cooldown_ms: 120_000,
+        });
+        let mut rx = hub.subscribe();
+
+        store.write_entry(ContextEntryDraft {
+            author_issue: "KAT-3101".to_string(),
+            scope: ContextScope::Project,
+            content: "Decision: use jsonwebtoken for auth".to_string(),
+            ttl_ms: Some(60_000),
+        });
+        store.write_entry(ContextEntryDraft {
+            author_issue: "KAT-3102".to_string(),
+            scope: ContextScope::Project,
+            content: "Decision: use paseto for auth".to_string(),
+            ttl_ms: Some(60_000),
+        });
+
+        supervisor.start().expect("supervisor should start");
+        wait_for_active(&supervisor).await;
+
+        hub.send(envelope_with_kind(
+            "KAT-3102",
+            "shared_context_written",
+            "shared context updated",
+            EventKind::SharedContextWritten,
+        ));
+
+        let escalated =
+            recv_event_with_name(&mut rx, "supervisor_escalated", Duration::from_secs(1)).await;
+        assert_eq!(escalated.kind, EventKind::SupervisorEscalated);
+
+        let pending = registry.pending_snapshot();
+        assert_eq!(pending.len(), 1, "expected one pending escalation");
+        assert!(
+            pending[0].issue_identifier == "KAT-3101"
+                || pending[0].issue_identifier == "KAT-3102",
+            "expected escalation to reference one of the conflicting issues, got {:?}",
+            pending[0].issue_identifier
+        );
+
+        supervisor.stop().await;
+    }
+
+    #[tokio::test]
+    async fn non_overlapping_file_edits_do_not_emit_conflict() {
+        let (mut supervisor, hub, _store, _registry) = make_supervisor(SupervisorConfig {
+            enabled: true,
+            model: None,
+            steer_cooldown_ms: 120_000,
+        });
+        let mut rx = hub.subscribe();
+
+        supervisor.start().expect("supervisor should start");
+        wait_for_active(&supervisor).await;
+
+        hub.send(envelope(
+            "KAT-3201",
+            "tool_start",
+            "edit {\"path\":\"src/a.rs\"}",
+        ));
+        hub.send(envelope(
+            "KAT-3202",
+            "tool_start",
+            "edit {\"path\":\"src/b.rs\"}",
+        ));
+
+        let conflict = tokio::time::timeout(Duration::from_millis(300), async {
+            loop {
+                let envelope = rx.recv().await.expect("event should be readable");
+                if envelope.event == "supervisor_conflict_detected" {
+                    return envelope;
+                }
+            }
+        })
+        .await;
+
+        assert!(conflict.is_err(), "unexpected conflict event: {conflict:?}");
+        assert_eq!(supervisor.snapshot().conflicts_detected, 0);
+
+        supervisor.stop().await;
+    }
 }

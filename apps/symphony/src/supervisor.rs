@@ -1,25 +1,35 @@
 use std::collections::{HashMap, VecDeque};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, LazyLock, RwLock};
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
+use regex::Regex;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
+use uuid::Uuid;
 
 use crate::domain::{
-    EventKind, EventSeverity, SupervisorConfig, SupervisorSnapshot, SupervisorStatus,
-    SymphonyEventEnvelope,
+    ContextScope, EscalationRequest, EventKind, EventSeverity, SupervisorConfig, SupervisorSnapshot,
+    SupervisorStatus, SymphonyEventEnvelope,
 };
 use crate::error::{Result, SymphonyError};
 use crate::event_stream::EventHub;
 use crate::orchestrator::EscalationRegistry;
 use crate::session_summary::{normalize_whitespace, truncate_for_display};
-use crate::shared_context::SharedContextStore;
+use crate::shared_context::{ContextEntryDraft, SharedContextStore};
 
 const RECENT_EVENT_BUFFER: usize = 20;
 const REPEATED_TOOL_ERROR_THRESHOLD: u32 = 3;
 const NO_PROGRESS_EVENT_THRESHOLD: u32 = 5;
 const REPEATED_TEST_FAILURE_THRESHOLD: u32 = 2;
+const FILE_CONFLICT_WINDOW_MS: i64 = 300_000;
+const CONFLICT_DEDUP_WINDOW_MS: i64 = 120_000;
+const SUPERVISOR_ESCALATION_TIMEOUT_MS: u64 = 300_000;
+
+static FILE_PATH_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?P<path>[A-Za-z0-9_./-]+\.(rs|toml|json|ya?ml|md|ts|tsx|js|jsx|py|go|java|swift))")
+        .expect("file path regex must compile")
+});
 
 /// Runtime dependencies used by the supervisor background task.
 #[derive(Clone)]
@@ -47,6 +57,8 @@ impl SupervisorDependencies {
 struct SupervisorRuntimeState {
     snapshot: SupervisorSnapshot,
     workers: HashMap<String, WorkerModel>,
+    recent_conflicts: HashMap<String, DateTime<Utc>>,
+    escalated_context_conflicts: HashMap<String, DateTime<Utc>>,
 }
 
 #[derive(Debug, Default)]
@@ -58,11 +70,12 @@ struct WorkerModel {
     last_tool_error_signature: Option<String>,
     consecutive_tool_error_count: u32,
     repeated_test_failures: HashMap<String, u32>,
+    recent_file_edits: HashMap<String, DateTime<Utc>>,
     last_steer_at: Option<DateTime<Utc>>,
 }
 
 impl WorkerModel {
-    fn observe_event(&mut self, envelope: &SymphonyEventEnvelope) {
+    fn observe_event(&mut self, envelope: &SymphonyEventEnvelope) -> Option<String> {
         self.push_recent_event(envelope.event.clone());
 
         if envelope.event == "turn_completed" {
@@ -70,9 +83,10 @@ impl WorkerModel {
         }
 
         let summary = event_summary_text(envelope);
-        let is_file_edit = is_file_edit_event(envelope, summary.as_deref());
-        if is_file_edit {
+        let edited_path = file_edit_path(envelope, summary.as_deref());
+        if let Some(path) = edited_path.clone() {
             self.events_since_file_edit = 0;
+            self.record_file_edit(path, envelope.timestamp);
         } else {
             self.events_since_file_edit = self.events_since_file_edit.saturating_add(1);
         }
@@ -84,7 +98,9 @@ impl WorkerModel {
         if envelope.event == "tool_error" {
             let signature = tool_error_signature(summary.as_deref());
             if self.last_tool_error_signature.as_deref() == Some(signature.as_str()) {
-                self.consecutive_tool_error_count = self.consecutive_tool_error_count.saturating_add(1);
+                self.consecutive_tool_error_count = self
+                    .consecutive_tool_error_count
+                    .saturating_add(1);
             } else {
                 self.last_tool_error_signature = Some(signature);
                 self.consecutive_tool_error_count = 1;
@@ -98,6 +114,8 @@ impl WorkerModel {
             let counter = self.repeated_test_failures.entry(test_signature).or_insert(0);
             *counter = counter.saturating_add(1);
         }
+
+        edited_path
     }
 
     fn detect_stuck_reason(&self) -> Option<StuckReason> {
@@ -130,6 +148,18 @@ impl WorkerModel {
         }
 
         top_failure.map(|(signature, count)| StuckReason::RepeatedTestFailure { signature, count })
+    }
+
+    fn record_file_edit(&mut self, path: String, at: DateTime<Utc>) {
+        self.recent_file_edits.insert(path, at);
+    }
+
+    fn has_recent_file_edit(&self, path: &str, now: DateTime<Utc>) -> bool {
+        let Some(last_edit) = self.recent_file_edits.get(path) else {
+            return false;
+        };
+
+        now.signed_duration_since(*last_edit).num_milliseconds() <= FILE_CONFLICT_WINDOW_MS
     }
 
     fn can_steer(&self, now: DateTime<Utc>, cooldown_ms: u64) -> bool {
@@ -229,6 +259,8 @@ impl SupervisorAgent {
             state: Arc::new(RwLock::new(SupervisorRuntimeState {
                 snapshot: initial_snapshot,
                 workers: HashMap::new(),
+                recent_conflicts: HashMap::new(),
+                escalated_context_conflicts: HashMap::new(),
             })),
             shutdown_tx: None,
             task: None,
@@ -414,14 +446,48 @@ fn process_envelope(
     guard.snapshot.last_decision = Some(format!("observed:{}", envelope.event));
     guard.snapshot.last_action_at = Some(Utc::now());
 
-    let Some(issue_identifier) = envelope.issue.clone() else {
+    if let Some(issue_identifier) = envelope.issue.clone() {
+        let edited_path = {
+            let worker = guard.workers.entry(issue_identifier.clone()).or_default();
+            worker.observe_event(&envelope)
+        };
+
+        maybe_emit_stuck_steer(&mut guard, config, deps, &issue_identifier, now);
+
+        if let Some(path) = edited_path {
+            maybe_handle_file_conflict(
+                &mut guard,
+                config,
+                deps,
+                &issue_identifier,
+                &path,
+                now,
+            );
+        }
+    }
+
+    if envelope.kind == EventKind::SharedContextWritten || envelope.event == "shared_context_written"
+    {
+        maybe_handle_context_conflict(&mut guard, deps, now);
+    }
+}
+
+fn maybe_emit_stuck_steer(
+    state: &mut SupervisorRuntimeState,
+    config: &SupervisorConfig,
+    deps: &SupervisorDependencies,
+    issue_identifier: &str,
+    now: DateTime<Utc>,
+) {
+    let Some(stuck_reason) = state
+        .workers
+        .get(issue_identifier)
+        .and_then(WorkerModel::detect_stuck_reason)
+    else {
         return;
     };
 
-    let worker = guard.workers.entry(issue_identifier.clone()).or_default();
-    worker.observe_event(&envelope);
-
-    let Some(stuck_reason) = worker.detect_stuck_reason() else {
+    let Some(worker) = state.workers.get_mut(issue_identifier) else {
         return;
     };
 
@@ -430,30 +496,303 @@ fn process_envelope(
     }
 
     worker.mark_steer(now);
-    let guidance = stuck_reason.guidance();
-    let guidance_preview = truncate_for_display(&guidance, 140);
-
-    guard.snapshot.steers_issued = guard.snapshot.steers_issued.saturating_add(1);
-    guard.snapshot.last_decision = Some(format!(
-        "steered {} ({})",
+    emit_supervisor_steer(
+        state,
+        deps,
         issue_identifier,
-        stuck_reason.code()
+        stuck_reason.code(),
+        &stuck_reason.brief(),
+        &stuck_reason.guidance(),
+        config.steer_cooldown_ms,
+    );
+}
+
+fn maybe_handle_file_conflict(
+    state: &mut SupervisorRuntimeState,
+    config: &SupervisorConfig,
+    deps: &SupervisorDependencies,
+    issue_identifier: &str,
+    file_path: &str,
+    now: DateTime<Utc>,
+) {
+    let conflicting_issue = state
+        .workers
+        .iter()
+        .find_map(|(other_issue, worker)| {
+            if other_issue == issue_identifier {
+                return None;
+            }
+            if worker.has_recent_file_edit(file_path, now) {
+                Some(other_issue.clone())
+            } else {
+                None
+            }
+        });
+
+    let Some(other_issue) = conflicting_issue else {
+        return;
+    };
+
+    let key = conflict_key(issue_identifier, &other_issue, file_path);
+    if !should_emit_conflict(&mut state.recent_conflicts, &key, now) {
+        return;
+    }
+
+    state.snapshot.conflicts_detected = state.snapshot.conflicts_detected.saturating_add(1);
+    state.snapshot.last_decision = Some(format!(
+        "conflict detected: {} vs {} on {}",
+        issue_identifier, other_issue, file_path
     ));
-    guard.snapshot.last_action_at = Some(Utc::now());
+    state.snapshot.last_action_at = Some(Utc::now());
+
+    deps.shared_context_store.write_entry(ContextEntryDraft {
+        author_issue: "SUPERVISOR".to_string(),
+        scope: ContextScope::Project,
+        content: format!(
+            "⚠️ Potential overlap detected: {issue_identifier} and {other_issue} are both editing `{file_path}`. Coordinate before additional changes."
+        ),
+        ttl_ms: Some(30 * 60 * 1000),
+    });
+
+    deps.event_hub.publish(
+        EventKind::SupervisorConflictDetected,
+        EventSeverity::Warn,
+        Some(issue_identifier.to_string()),
+        "supervisor_conflict_detected",
+        serde_json::json!({
+            "issues": [issue_identifier, other_issue],
+            "conflict_type": "file_overlap",
+            "file_path": file_path,
+        }),
+    );
+
+    if let Some(worker) = state.workers.get_mut(issue_identifier) {
+        if worker.can_steer(now, config.steer_cooldown_ms) {
+            worker.mark_steer(now);
+            emit_supervisor_steer(
+                state,
+                deps,
+                issue_identifier,
+                "file_conflict",
+                &format!("overlap with {other_issue} on {file_path}"),
+                &format!(
+                    "Another worker ({other_issue}) is editing `{file_path}`. Align with shared context before proceeding."
+                ),
+                config.steer_cooldown_ms,
+            );
+        }
+    }
+}
+
+fn maybe_handle_context_conflict(
+    state: &mut SupervisorRuntimeState,
+    deps: &SupervisorDependencies,
+    now: DateTime<Utc>,
+) {
+    let entries = deps.shared_context_store.list();
+    let Some(conflict) = detect_context_conflict(&entries) else {
+        return;
+    };
+
+    let key = format!(
+        "{}:{}:{}",
+        conflict.scope_key, conflict.decision_a, conflict.decision_b
+    );
+
+    if !should_emit_conflict(&mut state.escalated_context_conflicts, &key, now) {
+        return;
+    }
+
+    state.snapshot.conflicts_detected = state.snapshot.conflicts_detected.saturating_add(1);
+    state.snapshot.escalations_created = state.snapshot.escalations_created.saturating_add(1);
+    state.snapshot.last_decision = Some(format!(
+        "context conflict escalated: {} vs {} ({})",
+        conflict.issue_a, conflict.issue_b, conflict.scope_key
+    ));
+    state.snapshot.last_action_at = Some(Utc::now());
+
+    deps.event_hub.publish(
+        EventKind::SupervisorConflictDetected,
+        EventSeverity::Warn,
+        Some(conflict.issue_a.clone()),
+        "supervisor_conflict_detected",
+        serde_json::json!({
+            "issues": [conflict.issue_a, conflict.issue_b],
+            "conflict_type": "context_decision_conflict",
+            "scope": conflict.scope_key,
+            "decisions": [conflict.decision_a, conflict.decision_b],
+        }),
+    );
+
+    emit_supervisor_escalation(
+        deps,
+        &conflict.issue_a,
+        "context_decision_conflict",
+        serde_json::json!({
+            "scope": conflict.scope_key,
+            "issue_a": conflict.issue_a,
+            "issue_b": conflict.issue_b,
+            "decision_a": conflict.decision_a,
+            "decision_b": conflict.decision_b,
+        }),
+    );
+}
+
+fn emit_supervisor_steer(
+    state: &mut SupervisorRuntimeState,
+    deps: &SupervisorDependencies,
+    issue_identifier: &str,
+    reason: &str,
+    detail: &str,
+    guidance: &str,
+    cooldown_ms: u64,
+) {
+    let guidance_preview = truncate_for_display(guidance, 140);
+
+    state.snapshot.steers_issued = state.snapshot.steers_issued.saturating_add(1);
+    state.snapshot.last_decision = Some(format!("steered {} ({reason})", issue_identifier));
+    state.snapshot.last_action_at = Some(Utc::now());
 
     deps.event_hub.publish(
         EventKind::SupervisorSteer,
         EventSeverity::Warn,
-        Some(issue_identifier.clone()),
+        Some(issue_identifier.to_string()),
         "supervisor_steer",
         serde_json::json!({
             "target_issue": issue_identifier,
-            "reason": stuck_reason.code(),
-            "detail": stuck_reason.brief(),
+            "reason": reason,
+            "detail": truncate_for_display(detail, 120),
             "guidance_preview": guidance_preview,
-            "steer_cooldown_ms": config.steer_cooldown_ms,
+            "steer_cooldown_ms": cooldown_ms,
         }),
     );
+}
+
+fn emit_supervisor_escalation(
+    deps: &SupervisorDependencies,
+    issue_identifier: &str,
+    reason: &str,
+    context: serde_json::Value,
+) {
+    let request = EscalationRequest {
+        id: format!("supervisor-{}", Uuid::new_v4()),
+        issue_id: issue_identifier.to_string(),
+        issue_identifier: issue_identifier.to_string(),
+        method: "supervisor_escalation".to_string(),
+        payload: serde_json::json!({
+            "question": format!(
+                "Supervisor escalation for {issue_identifier}: {reason}. Please resolve the conflicting worker decisions."
+            ),
+            "reason": reason,
+            "context": context,
+        }),
+        created_at: Utc::now(),
+        timeout_ms: SUPERVISOR_ESCALATION_TIMEOUT_MS,
+    };
+
+    let (response_tx, response_rx) = tokio::sync::oneshot::channel();
+    deps.escalation_registry.register(request.clone(), response_tx);
+    tokio::spawn(async move {
+        let _ = response_rx.await;
+    });
+
+    deps.event_hub.publish(
+        EventKind::SupervisorEscalated,
+        EventSeverity::Warn,
+        Some(issue_identifier.to_string()),
+        "supervisor_escalated",
+        serde_json::json!({
+            "issue": issue_identifier,
+            "reason": reason,
+            "context": truncate_for_display(&request.payload.to_string(), 160),
+            "request_id": request.id,
+        }),
+    );
+}
+
+#[derive(Debug, Clone)]
+struct ContextConflict {
+    scope_key: String,
+    issue_a: String,
+    issue_b: String,
+    decision_a: String,
+    decision_b: String,
+}
+
+fn detect_context_conflict(entries: &[crate::domain::ContextEntry]) -> Option<ContextConflict> {
+    for left in entries {
+        if left.author_issue.eq_ignore_ascii_case("supervisor") {
+            continue;
+        }
+        let decision_a = decision_token(&left.content)?;
+        for right in entries {
+            if left.id == right.id || left.scope != right.scope {
+                continue;
+            }
+            if right.author_issue.eq_ignore_ascii_case("supervisor") {
+                continue;
+            }
+            let decision_b = decision_token(&right.content)?;
+            if decision_a == decision_b {
+                continue;
+            }
+
+            return Some(ContextConflict {
+                scope_key: left.scope.as_scope_key(),
+                issue_a: left.author_issue.clone(),
+                issue_b: right.author_issue.clone(),
+                decision_a,
+                decision_b,
+            });
+        }
+    }
+
+    None
+}
+
+fn decision_token(content: &str) -> Option<String> {
+    let normalized = normalize_whitespace(content).to_ascii_lowercase();
+
+    for marker in ["use ", "using ", "library ", "framework "] {
+        let Some(index) = normalized.find(marker) else {
+            continue;
+        };
+
+        let tail = &normalized[index + marker.len()..];
+        let token: String = tail
+            .chars()
+            .take_while(|ch| ch.is_ascii_alphanumeric() || *ch == '-' || *ch == '_')
+            .collect();
+
+        if !token.is_empty() {
+            return Some(token);
+        }
+    }
+
+    None
+}
+
+fn conflict_key(issue_a: &str, issue_b: &str, resource: &str) -> String {
+    if issue_a <= issue_b {
+        format!("{issue_a}|{issue_b}|{resource}")
+    } else {
+        format!("{issue_b}|{issue_a}|{resource}")
+    }
+}
+
+fn should_emit_conflict(
+    recent: &mut HashMap<String, DateTime<Utc>>,
+    key: &str,
+    now: DateTime<Utc>,
+) -> bool {
+    recent.retain(|_, at| now.signed_duration_since(*at).num_milliseconds() < CONFLICT_DEDUP_WINDOW_MS);
+
+    if recent.contains_key(key) {
+        return false;
+    }
+
+    recent.insert(key.to_string(), now);
+    true
 }
 
 fn should_ignore_event(envelope: &SymphonyEventEnvelope) -> bool {
@@ -498,22 +837,47 @@ fn tool_error_signature(summary: Option<&str>) -> String {
     truncate_for_display(&normalized, 80)
 }
 
-fn is_file_edit_event(envelope: &SymphonyEventEnvelope, summary: Option<&str>) -> bool {
+fn file_edit_path(envelope: &SymphonyEventEnvelope, summary: Option<&str>) -> Option<String> {
     if envelope.event != "tool_start" {
-        return false;
+        return None;
     }
 
-    let Some(summary) = summary else {
-        return false;
-    };
-
-    let tool_name = summary
-        .split_whitespace()
+    let summary = summary?;
+    let mut parts = summary.splitn(2, char::is_whitespace);
+    let tool_name = parts
         .next()
         .unwrap_or_default()
+        .trim()
         .to_ascii_lowercase();
+    let args_raw = parts.next().unwrap_or_default().trim();
 
-    matches!(tool_name.as_str(), "edit" | "write" | "append")
+    if matches!(tool_name.as_str(), "edit" | "write" | "append" | "read") {
+        if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(args_raw) {
+            let path = parsed
+                .get("path")
+                .and_then(|value| value.as_str())
+                .or_else(|| parsed.get("filePath").and_then(|value| value.as_str()))
+                .or_else(|| parsed.get("requestFilePath").and_then(|value| value.as_str()))
+                .or_else(|| parsed.get("responseFilePath").and_then(|value| value.as_str()));
+            if let Some(path) = path {
+                return Some(path.to_string());
+            }
+        }
+    }
+
+    if tool_name == "bash" {
+        if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(args_raw) {
+            if let Some(command) = parsed.get("command").and_then(|value| value.as_str()) {
+                return FILE_PATH_RE.captures(command).and_then(|captures| {
+                    captures
+                        .name("path")
+                        .map(|value| value.as_str().to_string())
+                });
+            }
+        }
+    }
+
+    None
 }
 
 fn repeated_test_failure_signature(summary: Option<&str>) -> Option<String> {
