@@ -35,16 +35,16 @@ function makeDeps(
     }),
     validateLinearProjectConfig: async () => ({
       ok: true,
-      status: "skipped",
-      mode: "file",
-      isLinearMode: false,
+      status: "valid",
+      mode: "linear",
+      isLinearMode: true,
       path: null,
-      apiKeyPresent: false,
+      apiKeyPresent: true,
       config: {
         path: null,
         scope: null,
-        workflowMode: "file",
-        isLinearMode: false,
+        workflowMode: "linear",
+        isLinearMode: true,
         linear: {
           teamId: null,
           teamKey: null,
@@ -61,9 +61,9 @@ function makeDeps(
   };
 }
 
-test("buildPrefsStatusReport reports file mode with resolved preference path", async () => {
+test("buildPrefsStatusReport reports linear mode with resolved preference path", async () => {
   const projectPrefs = makeLoadedPreferences({
-    preferences: { workflow: { mode: "file" } },
+    preferences: { workflow: { mode: "linear" } },
   });
 
   const report = await buildPrefsStatusReport(
@@ -75,13 +75,13 @@ test("buildPrefsStatusReport reports file mode with resolved preference path", a
 
   assert.equal(report.level, "info");
   assert.match(report.message, /^Kata prefs status/m);
-  assert.match(report.message, /^mode: file$/m);
+  assert.match(report.message, /^mode: linear$/m);
   assert.match(
     report.message,
     /^effective preferences: \/tmp\/project\/.kata\/preferences.md \(project\)$/m,
   );
-  assert.match(report.message, /^linear: inactive \(file mode\)$/m);
-  assert.doesNotMatch(report.message, /validation: invalid/);
+  assert.match(report.message, /^LINEAR_API_KEY: present$/m);
+  assert.match(report.message, /^validation: valid$/m);
 });
 
 test("buildPrefsStatusReport reports Linear mode identifiers and validation summary", async () => {
@@ -217,7 +217,7 @@ test("buildPrefsStatusReport redacts failures while keeping them actionable", as
 test("buildPrefsStatusReport includes pr.enabled line when PR lifecycle is configured", async () => {
   const projectPrefs = makeLoadedPreferences({
     preferences: {
-      workflow: { mode: "file" },
+      workflow: { mode: "linear" },
       pr: { enabled: true, auto_create: true, base_branch: "main" },
     },
   });
@@ -249,7 +249,7 @@ test("buildPrefsStatusReport includes pr.enabled line when PR lifecycle is confi
 
 test("buildPrefsStatusReport includes pr: disabled when PR lifecycle is not configured", async () => {
   const projectPrefs = makeLoadedPreferences({
-    preferences: { workflow: { mode: "file" } },
+    preferences: { workflow: { mode: "linear" } },
   });
 
   const report = await buildPrefsStatusReport(
@@ -270,7 +270,7 @@ test("buildPrefsStatusReport includes pr: disabled when PR lifecycle is not conf
 test("buildPrefsStatusReport includes pr: disabled when pr.enabled is explicitly false", async () => {
   const projectPrefs = makeLoadedPreferences({
     preferences: {
-      workflow: { mode: "file" },
+      workflow: { mode: "linear" },
       pr: { enabled: false },
     },
   });

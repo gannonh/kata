@@ -80,8 +80,6 @@ export type WorkflowEntrypoint =
   | "status"
   | "dashboard"
   | "auto"
-  | "doctor"
-  | "doctor-heal"
   | "system-prompt";
 
 export interface WorkflowProtocolResolution {
@@ -101,9 +99,26 @@ export interface WorkflowEntrypointGuard {
 }
 
 export function normalizeWorkflowMode(mode: unknown): WorkflowMode {
-  if (typeof mode !== "string") return "file";
+  if (mode === "file") {
+    throw new Error(
+      'File mode has been removed. Set workflow.mode to "linear" in your Kata preferences.',
+    );
+  }
+
+  if (mode === undefined || mode === null) return "linear";
+
+  if (typeof mode !== "string") {
+    throw new Error('Invalid workflow.mode value. Set workflow.mode to "linear".');
+  }
+
   const normalized = mode.trim().toLowerCase();
-  return normalized === "linear" ? "linear" : "file";
+  if (normalized !== "linear") {
+    throw new Error(
+      `Unsupported workflow.mode "${normalized}". Set workflow.mode to "linear".`,
+    );
+  }
+
+  return "linear";
 }
 
 export function loadEffectiveLinearProjectConfig(
@@ -212,8 +227,7 @@ export function resolveWorkflowProtocol(
 ): WorkflowProtocolResolution {
   const mode = getWorkflowMode(loadedPreferences);
 
-  // Both modes use the same unified workflow document.
-  // KATA-WORKFLOW.md contains mode-conditional blocks for Linear vs file mode.
+  // Linear mode uses the unified workflow document.
   const kataPath =
     process.env.KATA_WORKFLOW_PATH ??
     join(process.env.HOME ?? homedir(), ".kata-cli", "agent", "KATA-WORKFLOW.md");
@@ -230,20 +244,7 @@ export function getWorkflowEntrypointGuard(
   entrypoint: WorkflowEntrypoint,
   loadedPreferences: LoadedKataPreferences | null = loadEffectiveKataPreferences(),
 ): WorkflowEntrypointGuard {
-  const mode = getWorkflowMode(loadedPreferences);
   const protocol = resolveWorkflowProtocol(loadedPreferences);
-
-  if (mode !== "linear") {
-    return {
-      mode,
-      isLinearMode: false,
-      allow: true,
-      noticeLevel: "info",
-      notice: null,
-      protocol,
-    };
-  }
-
   return buildLinearEntrypointGuard(entrypoint, protocol);
 }
 
@@ -257,20 +258,6 @@ export async function validateLinearProjectConfig(
     team: null,
     project: null,
   };
-
-  if (!config.isLinearMode) {
-    return {
-      ok: true,
-      status: "skipped",
-      mode: config.workflowMode,
-      isLinearMode: false,
-      path: config.path,
-      apiKeyPresent,
-      config,
-      diagnostics: [],
-      resolved,
-    };
-  }
 
   if (!apiKeyPresent) {
     return invalidResult(config, apiKeyPresent, [
@@ -424,16 +411,6 @@ function buildLinearEntrypointGuard(
         notice: "Running in Linear mode. State derived from Linear API.",
         protocol,
       };
-    case "doctor":
-      return blockedLinearEntrypoint(
-        protocol,
-        "This project is configured for Linear mode. /kata doctor still audits file-backed .kata artifacts and is blocked until Linear workflow storage and state derivation land.",
-      );
-    case "doctor-heal":
-      return blockedLinearEntrypoint(
-        protocol,
-        "This project is configured for Linear mode. /kata doctor heal still dispatches the file-backed Kata workflow and is blocked until a Linear workflow prompt exists.",
-      );
     case "system-prompt":
       return {
         mode: "linear",
@@ -513,13 +490,6 @@ function summarizeProject(
 export function formatLinearConfigStatus(
   result: LinearConfigValidationResult,
 ): LinearConfigStatusReport {
-  if (!result.isLinearMode) {
-    return {
-      level: "info",
-      lines: ["linear: inactive (file mode)"],
-    };
-  }
-
   const lines: string[] = [
     `LINEAR_API_KEY: ${result.apiKeyPresent ? "present" : "missing"}`,
   ];

@@ -1,7 +1,7 @@
 ---
 version: 1
 workflow:
-  mode: file
+  mode: linear
 linear: {}
 pr:
   enabled: false
@@ -27,8 +27,8 @@ See `~/.kata-cli/agent/extensions/kata/docs/preferences-reference.md` for full f
 
 ## Quick start
 
-- Leave `workflow.mode: file` for the default file-backed Kata workflow.
-- Set `workflow.mode: linear` and fill in the `linear` block to opt this project into Linear-backed workflow mode.
+- `workflow.mode` is Linear-only. Keep `workflow.mode: linear`.
+- Fill in the `linear` block to bind this project to a Linear team/project.
 - Keep secrets like `LINEAR_API_KEY` in environment variables, not in this file.
 - Set `pr.enabled: true` to activate the PR lifecycle (create, review, address, merge via `gh` CLI).
 

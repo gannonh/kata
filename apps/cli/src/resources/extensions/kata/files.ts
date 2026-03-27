@@ -1,11 +1,7 @@
-// Kata Extension — File Parsing and I/O
-// Parsers for roadmap, plan, summary, and continue files.
-// Used by state derivation and the status widget.
-// Pure functions, zero Pi dependencies — uses only Node built-ins.
+// Kata Extension — Markdown parsers
+// Parsers for roadmap, plan, summary, continue, and related markdown artifacts.
+// Pure functions, zero Pi dependencies.
 
-import { promises as fs, readdirSync } from 'node:fs';
-import { dirname } from 'node:path';
-import { milestonesDir, resolveMilestoneFile, relMilestoneFile } from './paths.js';
 
 import type {
   Roadmap, RoadmapSliceEntry, BoundaryMapEntry, RiskLevel,
@@ -499,33 +495,6 @@ export function formatContinue(cont: Continue): string {
   return lines.join('\n');
 }
 
-// ─── File I/O ──────────────────────────────────────────────────────────────
-
-/**
- * Load a file from disk. Returns content string or null if file doesn't exist.
- */
-export async function loadFile(path: string): Promise<string | null> {
-  try {
-    return await fs.readFile(path, 'utf-8');
-  } catch (err: unknown) {
-    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
-    throw err;
-  }
-}
-
-/**
- * Save content to a file atomically (write to temp, then rename).
- * Creates parent directories if needed.
- */
-export async function saveFile(path: string, content: string): Promise<void> {
-  const dir = dirname(path);
-  await fs.mkdir(dir, { recursive: true });
-
-  const tmpPath = path + '.tmp';
-  await fs.writeFile(tmpPath, content, 'utf-8');
-  await fs.rename(tmpPath, path);
-}
-
 export function parseRequirementCounts(content: string | null): RequirementCounts {
   const counts: RequirementCounts = {
     active: 0,
@@ -698,33 +667,3 @@ export function parseContextDependsOn(content: string | null): string[] {
   return (raw as string[]).map(s => String(s).toUpperCase().trim()).filter(Boolean);
 }
 
-/**
- * Inline the prior milestone's SUMMARY.md as context for the current milestone's planning prompt.
- * Returns null when: (1) `mid` is the first milestone, (2) prior milestone has no SUMMARY file.
- *
- * Scans the milestones directory using the same readdirSync + sort + M\d+ match pattern
- * as findMilestoneIds in state.ts.
- */
-export async function inlinePriorMilestoneSummary(mid: string, base: string): Promise<string | null> {
-  const dir = milestonesDir(base);
-  let sorted: string[];
-  try {
-    sorted = readdirSync(dir, { withFileTypes: true })
-      .filter(d => d.isDirectory())
-      .map(d => {
-        const match = d.name.match(/^(M\d+)/);
-        return match ? match[1] : d.name;
-      })
-      .sort();
-  } catch {
-    return null;
-  }
-  const idx = sorted.indexOf(mid);
-  if (idx <= 0) return null;
-  const prevMid = sorted[idx - 1];
-  const absPath = resolveMilestoneFile(base, prevMid, "SUMMARY");
-  const relPath = relMilestoneFile(base, prevMid, "SUMMARY");
-  const content = absPath ? await loadFile(absPath) : null;
-  if (!content) return null;
-  return `### Prior Milestone Summary\nSource: \`${relPath}\`\n\n${content.trim()}`;
-}
