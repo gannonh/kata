@@ -199,17 +199,22 @@ Optional. When configured, the orchestrator selects a prompt template based on t
 
 | Field              | Type              | Default    | Description                                                                                              |
 | ------------------ | ----------------- | ---------- | -------------------------------------------------------------------------------------------------------- |
-| `prompts.shared`   | string            | _(none)_   | Path to shared context file, prepended to every state-specific prompt. Relative to WORKFLOW.md directory. |
+| `prompts.system`   | string            | _(none)_   | Path to system-level preamble (agent identity, tool guidance). Injected every turn. Relative to WORKFLOW.md directory. |
+| `prompts.repo`     | string            | _(none)_   | Path to repository-specific context (build commands, layout). Injected every turn. Relative to WORKFLOW.md directory. |
+| `prompts.shared`   | string            | _(none)_   | Legacy single-file preamble. Superseded by `system` + `repo` but still honoured for backward compatibility. |
 | `prompts.by_state` | map<string,string> | `{}`      | Map of Linear state name → prompt file path. State matching is case-insensitive.                         |
 | `prompts.default`  | string            | _(none)_   | Fallback prompt file for states not listed in `by_state`.                                                |
 
 When `prompts` is absent, the markdown body after `---` is used as the prompt for all states (backward compatible).
 
+Prompt files are concatenated in order: `system` + `repo` + `shared` (legacy) + state-specific, separated by `---`.
+
 Example:
 
 ```yaml
 prompts:
-  shared: prompts/shared-symphony.md
+  system: prompts/system.md
+  repo: prompts/repo.md
   by_state:
     Todo: prompts/in-progress.md
     In Progress: prompts/in-progress.md

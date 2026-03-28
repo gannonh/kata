@@ -41,7 +41,8 @@ kata_agent:
     Merging: anthropic/claude-sonnet-4-6
   stall_timeout_ms: 900000
 prompts:
-  shared: prompts/shared-symphony.md
+  system: prompts/system.md
+  repo: prompts/repo-sym.md
   by_state:
     Todo: prompts/in-progress.md
     In Progress: prompts/in-progress.md

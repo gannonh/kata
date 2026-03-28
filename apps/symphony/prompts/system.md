@@ -31,20 +31,6 @@ No description provided.
 4. Work only in the provided repository copy. Do not touch any other path.
 5. When meaningful out-of-scope improvements are discovered during execution, file a separate Linear issue instead of expanding scope. The follow-up issue must include a clear title, description, and acceptance criteria, be placed in `Backlog`, be assigned to the same project as the current issue, and link the current issue as `related`.
 
-## Repository context
-
-This is the **kata-mono** monorepo. The Kata CLI app lives at `apps/cli/`.
-
-- Build: `cd apps/cli && npx tsc`
-- Test: `cd apps/cli && node --import ./src/resources/extensions/kata/tests/resolve-ts.mjs --experimental-strip-types --test 'src/resources/extensions/kata/tests/*.test.ts' 'src/tests/*.test.ts'`
-- Lint: `bun run lint`
-- Typecheck: `bun run typecheck`
-- Validate all: `bun run validate`
-- Base branch: `{{ workspace.base_branch }}`. All merges, rebases, and PR base targets use this branch.
-
-Read `apps/cli/AGENTS.md` and `apps/cli/README.md` for full architecture reference, directory structure, and development conventions.
-Read the root `AGENTS.md` for monorepo-level build, test, and CI commands.
-
 ## Linear tools
 
 Use the built-in Linear tools (`linear_get_issue`, `linear_list_workflow_states`, `linear_update_issue`, `linear_add_comment`, etc.) for all Linear operations. Do NOT use MCP Linear tools — they consume excessive context and return raw GraphQL payloads.
@@ -66,17 +52,19 @@ Use the built-in Linear tools (`linear_get_issue`, `linear_list_workflow_states`
 
 ## Workpad protocol
 
+**Do not create a new Agent Workpad if an active workpad exists.**
+
 Maintain a single persistent `## Agent Workpad` comment on the issue as the source of truth for progress.
 
-- **Load all context BEFORE creating or updating the workpad.** Read the issue description, child tasks, attached plan documents, and AGENTS.md first.
-- List comments before creating; reuse the most recently updated active/unresolved candidate.
-- Do not create a new workpad if any active candidate exists.
+- **Load all context BEFORE creating or updating the workpad.** Read the issue description, comments, child tasks, attached plan documents, and AGENTS.md first.
 - **Write the workpad with FULL content — never placeholder content.** Include:
-  - Environment stamp (`<host>:<abs-workdir>@<short-sha>`)
-  - Task Progress section listing all child tasks with status (if slice)
-  - Detailed Plan section with numbered steps derived from loaded plan documents
-  - Acceptance Criteria with specific, measurable conditions
-  - Validation section with exact commands
+  - `Environment` stamp (`<host>:<abs-workdir>@<short-sha>`)
+  - `Task Progress` section listing all child tasks with status (if slice)
+  - `Detailed Plan` section with numbered steps derived from loaded plan documents
+  - `Acceptance Criteria` with specific, measurable conditions
+  - `Validation` section with exact commands
+  - `Issues/Blockers` section with specific blockers or "None" if no blockers`Need
+  - `Needs Clarification` section with specific questions for the user or "None" if no questions
 - Do NOT use "TBD", "placeholder", or empty sections.
 - Update the workpad immediately after each meaningful milestone.
 - Never leave completed work unchecked in the plan.

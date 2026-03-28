@@ -402,7 +402,14 @@ server:
 # When this section is absent, the entire markdown body after --- is used as
 # the prompt for all states (backward compatible with existing workflows).
 #
-# The shared file is prepended to every state-specific prompt, separated by ---.
+# Prompt files are concatenated in order: system + repo + shared (legacy) + state.
+# Each pair is separated by `---`.
+#
+# `system` — repo-agnostic agent identity and tool guidance, injected every turn.
+# `repo`   — repository-specific context (build commands, layout), injected every turn.
+# `shared` — legacy single-file preamble. Superseded by `system` + `repo` but
+#            still honoured for backward compatibility.
+#
 # State keys are matched case-insensitively.
 #
 # Template variables available in per-state prompts:
@@ -418,7 +425,8 @@ server:
 #   {{ workspace.base_branch }}   — configured base branch (default: "main")
 #
 # prompts:
-#   shared: prompts/shared.md
+#   system: prompts/system.md
+#   repo: prompts/repo.md
 #   by_state:
 #     Todo: prompts/in-progress.md
 #     In Progress: prompts/in-progress.md
@@ -442,9 +450,8 @@ server:
   rendered for every agent session regardless of issue state.
 
   See the `prompts/` directory for the per-state prompt files:
-    prompts/shared.md          — repo context, tools, workpad protocol
-    prompts/shared-symphony.md — Symphony project variant
-    prompts/shared-cli.md      — Kata CLI project variant
+    prompts/system.md          — agent identity, tool guidance (repo-agnostic)
+    prompts/repo.md            — repo-specific context (build, layout, conventions)
     prompts/in-progress.md     — implement, test, push, open PR
     prompts/agent-review.md    — address PR feedback
     prompts/merging.md         — land the PR

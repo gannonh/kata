@@ -296,6 +296,9 @@ struct RawServerConfig {
 #[derive(Deserialize, Default)]
 #[serde(default)]
 struct RawPromptsConfig {
+    system: Option<String>,
+    repo: Option<String>,
+    /// Legacy single-file preamble. Superseded by `system` + `repo`.
     shared: Option<String>,
     by_state: Option<HashMap<String, String>>,
     default: Option<String>,
@@ -921,6 +924,8 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
     let trim_path = |v: Option<String>| -> Option<String> {
         v.map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
     };
+    let system = trim_path(raw_prompts.system);
+    let repo = trim_path(raw_prompts.repo);
     let shared = trim_path(raw_prompts.shared);
     let default = trim_path(raw_prompts.default);
     let by_state: HashMap<String, String> = raw_prompts
@@ -933,8 +938,15 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
             (!key.is_empty() && !path.is_empty()).then_some((key, path))
         })
         .collect();
-    let prompts = if shared.is_some() || !by_state.is_empty() || default.is_some() {
+    let prompts = if system.is_some()
+        || repo.is_some()
+        || shared.is_some()
+        || !by_state.is_empty()
+        || default.is_some()
+    {
         Some(PromptsConfig {
+            system,
+            repo,
             shared,
             by_state,
             default,
