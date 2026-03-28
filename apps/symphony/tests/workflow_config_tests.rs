@@ -156,7 +156,8 @@ fn test_repo_workflow_example_uses_per_state_prompts() {
         "example WORKFLOW-symphony.md should use per-state prompts config"
     );
     let prompts = config.prompts.unwrap();
-    assert!(prompts.shared.is_some(), "should have shared prompt");
+    assert!(prompts.system.is_some(), "should have system prompt");
+    assert!(prompts.repo.is_some(), "should have repo prompt");
     assert!(
         !prompts.by_state.is_empty(),
         "should have by_state mappings"
@@ -1474,6 +1475,54 @@ prompts:
         prompts.by_state.get("merging").map(String::as_str),
         Some("prompts/merging.md")
     );
+}
+
+#[test]
+fn test_prompts_config_parses_system_and_repo_fields() {
+    let yaml = r#"
+tracker:
+  kind: linear
+  api_key: test-key
+  project_slug: test-slug
+prompts:
+  system: prompts/system.md
+  repo: prompts/repo.md
+  default: prompts/in-progress.md
+  by_state:
+    In Progress: prompts/in-progress.md
+"#;
+    let config = parse_yaml_config(yaml);
+    let prompts = config.prompts.expect("prompts should be Some");
+    assert_eq!(prompts.system.as_deref(), Some("prompts/system.md"));
+    assert_eq!(prompts.repo.as_deref(), Some("prompts/repo.md"));
+    assert!(
+        prompts.shared.is_none(),
+        "shared should be None when not configured"
+    );
+    assert_eq!(prompts.default.as_deref(), Some("prompts/in-progress.md"));
+}
+
+#[test]
+fn test_prompts_config_system_alone_triggers_some() {
+    let yaml = r#"
+tracker:
+  kind: linear
+  api_key: test-key
+  project_slug: test-slug
+prompts:
+  system: prompts/system.md
+"#;
+    let config = parse_yaml_config(yaml);
+    assert!(
+        config.prompts.is_some(),
+        "system-only prompts should produce Some"
+    );
+    let prompts = config.prompts.unwrap();
+    assert_eq!(prompts.system.as_deref(), Some("prompts/system.md"));
+    assert!(prompts.repo.is_none());
+    assert!(prompts.shared.is_none());
+    assert!(prompts.by_state.is_empty());
+    assert!(prompts.default.is_none());
 }
 
 #[test]

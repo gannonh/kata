@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Symphony — Orchestrator &amp; Agent Lifecycle</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ═══ THEME — Blueprint ═══ */
+:root {
+  --font-body: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'SF Mono', Consolas, monospace;
+
+  --bg: #f4f6f9;
+  --surface: #ffffff;
+  --surface-elevated: #ffffff;
+  --surface2: #eef1f6;
+  --border: rgba(0, 0, 0, 0.08);
+  --border-bright: rgba(0, 0, 0, 0.15);
+  --text: #1a2332;
+  --text-dim: #5c6b7f;
+
+  --blue: #1e3a5f;
+  --blue-dim: rgba(30, 58, 95, 0.08);
+  --teal: #0e7490;
+  --teal-dim: rgba(14, 116, 144, 0.08);
+  --amber: #b45309;
+  --amber-dim: rgba(180, 83, 9, 0.08);
+  --green: #15803d;
+  --green-dim: rgba(21, 128, 61, 0.08);
+  --red: #b91c1c;
+  --red-dim: rgba(185, 28, 28, 0.08);
+  --slate: #475569;
+  --slate-dim: rgba(71, 85, 105, 0.08);
+  --gold: #92400e;
+  --gold-dim: rgba(146, 64, 14, 0.06);
+
+  --accent: var(--blue);
+  --accent-dim: var(--blue-dim);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1923;
+    --surface: #172030;
+    --surface-elevated: #1c2840;
+    --surface2: #1a2538;
+    --border: rgba(255, 255, 255, 0.07);
+    --border-bright: rgba(255, 255, 255, 0.13);
+    --text: #d4dde8;
+    --text-dim: #7e8fa3;
+
+    --blue: #5b9bd5;
+    --blue-dim: rgba(91, 155, 213, 0.12);
+    --teal: #22d3ee;
+    --teal-dim: rgba(34, 211, 238, 0.1);
+    --amber: #fbbf24;
+    --amber-dim: rgba(251, 191, 36, 0.1);
+    --green: #34d399;
+    --green-dim: rgba(52, 211, 153, 0.1);
+    --red: #f87171;
+    --red-dim: rgba(248, 113, 113, 0.1);
+    --slate: #94a3b8;
+    --slate-dim: rgba(148, 163, 184, 0.1);
+    --gold: #fbbf24;
+    --gold-dim: rgba(251, 191, 36, 0.08);
+
+    --accent: var(--blue);
+    --accent-dim: var(--blue-dim);
+  }
+}
+
+/* ═══ RESET ═══ */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 40px 40px;
+  color: var(--text);
+  font-family: var(--font-body);
+  padding: 40px;
+  min-height: 100vh;
+  overflow-wrap: break-word;
+}
+
+/* ═══ NAV ═══ */
+.wrap {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 170px 1fr;
+  gap: 0 40px;
+}
+.main { min-width: 0; }
+
+.toc {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  padding: 14px 0;
+  grid-row: 1 / -1;
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+}
+.toc::-webkit-scrollbar { width: 3px; }
+.toc::-webkit-scrollbar-thumb { background: var(--surface-elevated); border-radius: 2px; }
+
+.toc-title {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  padding: 0 0 10px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.toc a {
+  display: block;
+  font-size: 11px;
+  color: var(--text-dim);
+  text-decoration: none;
+  padding: 4px 8px;
+  border-radius: 5px;
+  border-left: 2px solid transparent;
+  transition: all 0.15s;
+  line-height: 1.4;
+  margin-bottom: 1px;
+}
+.toc a:hover { color: var(--text); background: var(--surface2); }
+.toc a.active { color: var(--text); border-left-color: var(--blue); }
+
+@media (max-width: 1000px) {
+  .wrap { grid-template-columns: 1fr; padding-top: 0; }
+  body { padding-top: 0; }
+  .toc {
+    position: sticky; top: 0; z-index: 200;
+    max-height: none; display: flex; gap: 4px; align-items: center;
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    background: var(--bg); border-bottom: 1px solid var(--border);
+    padding: 10px 0; margin: 0 -40px; padding-left: 40px; padding-right: 40px;
+    grid-row: auto;
+  }
+  .toc::-webkit-scrollbar { display: none; }
+  .toc-title { display: none; }
+  .toc a {
+    white-space: nowrap; flex-shrink: 0;
+    border-left: none; border-bottom: 2px solid transparent;
+    border-radius: 4px 4px 0 0; padding: 6px 10px; font-size: 10px;
+  }
+  .toc a.active { border-left: none; border-bottom-color: var(--blue); background: var(--surface); }
+  .main { padding-top: 20px; }
+  .sec-head { scroll-margin-top: 52px; }
+}
+
+/* ═══ ANIMATION ═══ */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.anim {
+  animation: fadeUp 0.4s ease-out both;
+  animation-delay: calc(var(--i, 0) * 0.05s);
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ═══ TYPOGRAPHY ═══ */
+h1 {
+  font-size: 38px;
+  font-weight: 700;
+  letter-spacing: -1.2px;
+  line-height: 1.1;
+  margin-bottom: 6px;
+  text-wrap: balance;
+}
+.subtitle {
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  margin-bottom: 32px;
+  letter-spacing: 0.3px;
+}
+.sec-head {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 48px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.sec-head .dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.sec-desc {
+  font-size: 14px;
+  color: var(--text-dim);
+  line-height: 1.65;
+  margin-bottom: 20px;
+  max-width: 740px;
+}
+.sec-desc code {
+  font-family: var(--font-mono); font-size: 12px;
+  background: var(--accent-dim); color: var(--accent);
+  padding: 1px 5px; border-radius: 3px;
+}
+
+/* ═══ CARDS ═══ */
+.ve-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px 20px;
+  position: relative;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.ve-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.06);
+}
+.ve-card--hero {
+  background: color-mix(in srgb, var(--surface) 92%, var(--blue) 8%);
+  box-shadow: 0 3px 16px rgba(0,0,0,0.06);
+  border-color: color-mix(in srgb, var(--border) 50%, var(--blue) 50%);
+}
+.ve-card--recessed {
+  background: color-mix(in srgb, var(--bg) 70%, var(--surface) 30%);
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.04);
+}
+.ve-card__label {
+  font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 1.5px;
+  margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
+}
+.ve-card__label::before {
+  content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor;
+}
+
+/* ═══ KPI ═══ */
+.kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; }
+.kpi-card {
+  background: var(--surface-elevated);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px 20px;
+}
+.kpi-card__value {
+  font-size: 32px; font-weight: 700; letter-spacing: -1px;
+  font-variant-numeric: tabular-nums; line-height: 1.1;
+}
+.kpi-card__label {
+  font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-dim);
+  margin-top: 5px;
+}
+
+/* ═══ PROMPT ASSEMBLY ═══ */
+.prompt-stack { display: flex; flex-direction: column; gap: 0; max-width: 680px; }
+.prompt-layer {
+  border: 1px solid var(--border);
+  padding: 14px 18px;
+  position: relative;
+}
+.prompt-layer:first-child { border-radius: 10px 10px 0 0; }
+.prompt-layer:last-child { border-radius: 0 0 10px 10px; }
+.prompt-layer + .prompt-layer { border-top: none; }
+.prompt-layer__tag {
+  font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 1.5px;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.prompt-layer__tag::before {
+  content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor;
+}
+.prompt-layer__path {
+  font-family: var(--font-mono); font-size: 12px; color: var(--text-dim);
+  margin-top: 4px;
+}
+.prompt-layer__desc {
+  font-size: 13px; color: var(--text-dim); margin-top: 4px; line-height: 1.5;
+}
+.prompt-sep {
+  text-align: center; font-family: var(--font-mono); font-size: 10px;
+  color: var(--text-dim); padding: 2px 0; letter-spacing: 4px;
+  background: var(--surface2);
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+}
+
+/* ═══ FLOW ARROW ═══ */
+.flow-arrow {
+  display: flex; justify-content: center; align-items: center; gap: 8px;
+  color: var(--text-dim); font-family: var(--font-mono); font-size: 11px;
+  padding: 4px 0;
+}
+.flow-arrow svg { width: 18px; height: 18px; fill: none; stroke: var(--border-bright); stroke-width: 2; stroke-linecap: round; }
+
+/* ═══ GRID LAYOUTS ═══ */
+.card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+.card-grid > * { min-width: 0; }
+
+/* ═══ LEGEND ═══ */
+.legend { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 12px; }
+.legend-item {
+  display: flex; align-items: center; gap: 5px;
+  font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);
+}
+.legend-swatch { width: 10px; height: 10px; border-radius: 3px; }
+
+/* ═══ CALLOUT ═══ */
+.callout {
+  background: var(--surface); border: 1px solid var(--border);
+  border-left: 3px solid var(--blue); border-radius: 0 10px 10px 0;
+  padding: 14px 18px; font-size: 13px; line-height: 1.55;
+  color: var(--text-dim); margin-top: 16px;
+}
+.callout strong { color: var(--text); }
+.callout code {
+  font-family: var(--font-mono); font-size: 11px;
+  background: var(--accent-dim); color: var(--accent);
+  padding: 1px 5px; border-radius: 3px;
+}
+
+/* ═══ BADGE ═══ */
+.tag {
+  font-family: var(--font-mono); font-size: 10px; font-weight: 500;
+  padding: 2px 7px; border-radius: 4px; display: inline-block;
+}
+
+/* ═══ MERMAID ═══ */
+.diagram-shell { position: relative; }
+.diagram-shell__hint {
+  font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);
+  margin-bottom: 8px; opacity: 0.7;
+}
+.mermaid-wrap {
+  position: relative; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 32px 24px; overflow: auto;
+  display: flex; justify-content: center; align-items: center; min-height: 400px;
+  cursor: grab;
+}
+.mermaid-wrap.is-panning { cursor: grabbing; user-select: none; }
+.zoom-controls {
+  position: absolute; top: 8px; right: 8px;
+  display: flex; gap: 2px; z-index: 10;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 6px; padding: 2px;
+}
+.zoom-controls button {
+  width: 28px; height: 28px; border: none; background: transparent;
+  color: var(--text-dim); font-family: var(--font-mono); font-size: 14px;
+  cursor: pointer; border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+.zoom-controls button:hover { background: var(--border); color: var(--text); }
+.mermaid-viewport { position: relative; overflow: hidden; width: 100%; height: 100%; min-height: 300px; }
+.mermaid-canvas { position: absolute; top: 0; left: 0; }
+.zoom-label {
+  font-family: var(--font-mono); font-size: 10px; color: var(--text-dim);
+  padding: 0 6px; white-space: nowrap;
+}
+.mermaid .nodeLabel { font-family: var(--font-body) !important; font-size: 15px !important; }
+.mermaid .edgeLabel { font-family: var(--font-mono) !important; font-size: 12px !important; }
+.mermaid .node rect, .mermaid .node circle, .mermaid .node polygon { stroke-width: 1.5px !important; }
+
+/* ═══ TIMELINE ═══ */
+.timeline { position: relative; padding-left: 28px; margin-top: 8px; }
+.timeline::before {
+  content: ''; position: absolute; left: 6px; top: 0; bottom: 0;
+  width: 2px; background: var(--border-bright);
+}
+.tl-item { position: relative; padding-bottom: 18px; }
+.tl-item:last-child { padding-bottom: 0; }
+.tl-item::before {
+  content: ''; position: absolute; left: -24px; top: 6px;
+  width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--blue);
+  background: var(--surface);
+}
+.tl-item--amber::before { border-color: var(--amber); }
+.tl-item--green::before { border-color: var(--green); }
+.tl-item--red::before { border-color: var(--red); }
+.tl-item--teal::before { border-color: var(--teal); }
+.tl-label {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  margin-bottom: 2px;
+}
+.tl-desc { font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+.tl-desc code {
+  font-family: var(--font-mono); font-size: 11px;
+  background: var(--accent-dim); color: var(--accent);
+  padding: 1px 4px; border-radius: 3px;
+}
+
+/* ═══ RESPONSIVE ═══ */
+@media (max-width: 768px) {
+  body { padding: 16px; }
+  h1 { font-size: 26px; }
+  .mermaid-wrap { padding: 16px 12px; min-height: 300px; }
+  .prompt-stack { max-width: 100%; }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+<nav class="toc" id="toc">
+  <div class="toc-title">Sections</div>
+  <a href="#s1">1. Overview</a>
+  <a href="#s2">2. Orchestrator Tick</a>
+  <a href="#s3">3. Worker Lifecycle</a>
+  <a href="#s4">4. Prompt Assembly</a>
+  <a href="#s5">5. Multi-Turn Sessions</a>
+  <a href="#s6">6. Retry &amp; Continuation</a>
+  <a href="#s7">7. Issue State Machine</a>
+</nav>
+
+<div class="main">
+
+<!-- ═══════════ HERO ═══════════ -->
+<h1 class="anim" style="--i:0">Symphony Orchestrator<br>Lifecycle</h1>
+<p class="subtitle anim" style="--i:1">polling loop · agent sessions · prompt injection · state transitions</p>
+
+<p class="sec-desc anim" style="--i:2">
+  Symphony is a headless orchestrator that polls a Linear project, dispatches issues to isolated agent sessions,
+  manages multi-turn conversations, retries with exponential back-off, and reconciles issue state each cycle.
+  This document maps the full lifecycle — from poll tick to prompt delivery to completion.
+</p>
+
+
+<!-- ═══════════ 1. OVERVIEW KPIs ═══════════ -->
+<div id="s1" class="sec-head anim" style="--i:3"><span class="dot" style="background:var(--blue)"></span> 1 — Overview</div>
+
+<div class="kpi-row anim" style="--i:4">
+  <div class="kpi-card">
+    <div class="kpi-card__value" style="color:var(--blue)">30s</div>
+    <div class="kpi-card__label">Default Poll Interval</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-card__value" style="color:var(--teal)">10</div>
+    <div class="kpi-card__label">Max Concurrent Agents</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-card__value" style="color:var(--amber)">20</div>
+    <div class="kpi-card__label">Max Turns / Session</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-card__value" style="color:var(--green)">2</div>
+    <div class="kpi-card__label">Agent Backends</div>
+  </div>
+</div>
+
+<div class="card-grid anim" style="--i:5; margin-top: 14px;">
+  <div class="ve-card">
+    <div class="ve-card__label" style="color:var(--teal)">Codex Backend</div>
+    <p style="font-size:13px; color:var(--text-dim); line-height:1.5">
+      Uses <code style="font-family:var(--font-mono); font-size:11px; background:var(--teal-dim); color:var(--teal); padding:1px 5px; border-radius:3px">codex app-server</code> subprocess.
+      JSON-RPC protocol. Session-based turns with tool execution approval.
+    </p>
+  </div>
+  <div class="ve-card">
+    <div class="ve-card__label" style="color:var(--blue)">Kata CLI Backend</div>
+    <p style="font-size:13px; color:var(--text-dim); line-height:1.5">
+      Uses <code style="font-family:var(--font-mono); font-size:11px; background:var(--blue-dim); color:var(--blue); padding:1px 5px; border-radius:3px">kata --mode rpc</code> subprocess.
+      Supports per-state model overrides. Escalation support.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════ 2. ORCHESTRATOR TICK ═══════════ -->
+<div id="s2" class="sec-head anim" style="--i:6"><span class="dot" style="background:var(--teal)"></span> 2 — Orchestrator Tick Cycle</div>
+
+<p class="sec-desc anim" style="--i:7">
+  Every <code>polling.interval_ms</code> (default 30s), the orchestrator runs a three-phase <strong>tick</strong>.
+  An on-demand <code>POST /api/v1/refresh</code> can also trigger an immediate tick (coalesced if concurrent).
+</p>
+
+<section class="diagram-shell anim" style="--i:8">
+  <p class="diagram-shell__hint">Ctrl/Cmd + wheel to zoom · Drag to pan · Double-click to fit</p>
+  <div class="mermaid-wrap">
+    <div class="zoom-controls">
+      <button type="button" data-action="zoom-in" title="Zoom in">+</button>
+      <button type="button" data-action="zoom-out" title="Zoom out">&minus;</button>
+      <button type="button" data-action="zoom-fit" title="Smart fit">&#8634;</button>
+      <button type="button" data-action="zoom-one" title="1:1 zoom">1:1</button>
+      <button type="button" data-action="zoom-expand" title="Open full size">&#x26F6;</button>
+      <span class="zoom-label">Loading...</span>
+    </div>
+    <div class="mermaid-viewport">
+      <div class="mermaid mermaid-canvas"></div>
+    </div>
+  </div>
+  <script type="text/plain" class="diagram-source">
+    graph TD
+      TIMER["⏱ Poll Timer / Refresh Request"] --> TICK["tick()"]
+      TICK --> RELOAD["Reload WORKFLOW.md<br/>(hot-reload config)"]
+      RELOAD --> PRUNE["Prune expired<br/>shared context"]
+      PRUNE --> RECON["Phase 1: Reconcile<br/>Running Issues"]
+      RECON --> CHECK["Fetch current states<br/>from Linear API"]
+      CHECK --> TERMINAL{Terminal<br/>state?}
+      TERMINAL -->|Yes| CLEANUP["Cleanup workspace<br/>+ remove from running"]
+      TERMINAL -->|No| VAL
+      CLEANUP --> VAL
+      VAL["Phase 2: Validate<br/>Config preflight"]
+      VAL --> VALID{Config<br/>valid?}
+      VALID -->|No| SKIP["Skip dispatch<br/>(log warning)"]
+      VALID -->|Yes| DISP["Phase 3: Dispatch<br/>Fetch candidates"]
+      DISP --> SORT["Sort by priority<br/>(retries first)"]
+      SORT --> SLOTS{Slots<br/>available?}
+      SLOTS -->|No| WAIT["Candidate queued<br/>until next tick"]
+      SLOTS -->|Yes| BLOCKED{Blocked by<br/>dependency?}
+      BLOCKED -->|Yes| BLIST["Add to<br/>blocked list"]
+      BLOCKED -->|No| SPAWN["Spawn worker task<br/>(tokio::spawn)"]
+      SPAWN --> PUB["Publish snapshot<br/>to dashboard"]
+  </script>
+</section>
+
+<div class="legend anim" style="--i:9">
+  <div class="legend-item"><div class="legend-swatch" style="background:var(--teal)"></div> Happy path</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:var(--amber)"></div> Decision gate</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:var(--red)"></div> Skip / block</div>
+</div>
+
+<div class="callout anim" style="--i:10">
+  <strong>Hot-reload.</strong> The WORKFLOW.md file is re-read from disk every tick via <code>WorkflowStore</code>.
+  Changes to polling intervals, max concurrency, prompt files, and hooks take effect without restart.
+</div>
+
+
+<!-- ═══════════ 3. WORKER LIFECYCLE ═══════════ -->
+<div id="s3" class="sec-head anim" style="--i:11"><span class="dot" style="background:var(--amber)"></span> 3 — Worker Task Lifecycle</div>
+
+<p class="sec-desc anim" style="--i:12">
+  Each dispatched issue runs as an isolated <code>tokio::spawn</code> task.
+  The worker ensures a workspace, runs hooks, starts an agent session, and loops through turns
+  until the issue reaches a terminal state or max turns is hit.
+</p>
+
+<div class="timeline anim" style="--i:13">
+  <div class="tl-item">
+    <div class="tl-label" style="color:var(--blue)">1. Resolve Prompt</div>
+    <div class="tl-desc">
+      Call <code>resolve_prompt_for_state()</code> — selects per-state prompt file or falls back to monolith template.
+      Inject <code>{{ shared_context }}</code> placeholder.
+    </div>
+  </div>
+  <div class="tl-item tl-item--amber">
+    <div class="tl-label" style="color:var(--amber)">2. Ensure Workspace</div>
+    <div class="tl-desc">
+      Clone, worktree, or reuse existing workspace directory. Create branch <code>&lt;prefix&gt;/&lt;identifier&gt;</code>.
+      Docker mode: start container, bootstrap repo inside it.
+    </div>
+  </div>
+  <div class="tl-item tl-item--green">
+    <div class="tl-label" style="color:var(--green)">3. Run Hooks</div>
+    <div class="tl-desc">
+      Execute <code>hooks.after_create</code> (first workspace use), then <code>hooks.before_run</code> (every attempt).
+      Hook failure on <code>before_run</code> is fatal — the worker exits.
+    </div>
+  </div>
+  <div class="tl-item tl-item--teal">
+    <div class="tl-label" style="color:var(--teal)">4. Render Prompt</div>
+    <div class="tl-desc">
+      Run Liquid template engine: inject <code>{{ issue.* }}</code>, <code>{{ attempt }}</code>,
+      <code>{{ workspace.base_branch }}</code>, <code>{{ shared_context }}</code>.
+    </div>
+  </div>
+  <div class="tl-item">
+    <div class="tl-label" style="color:var(--blue)">5. Start Session</div>
+    <div class="tl-desc">
+      Launch agent subprocess — <code>codex app-server</code> or <code>kata --mode rpc</code>.
+      SSH remote: executes via <code>ssh -T host bash -lc '...'</code>.
+    </div>
+  </div>
+  <div class="tl-item tl-item--amber">
+    <div class="tl-label" style="color:var(--amber)">6. Turn Loop</div>
+    <div class="tl-desc">
+      Turn 1 sends the rendered prompt. Turns 2+ send a continuation prompt.
+      Between each turn: re-check issue state from Linear.
+      Exits when: terminal state, different active state, max turns, or unassigned.
+    </div>
+  </div>
+  <div class="tl-item tl-item--green">
+    <div class="tl-label" style="color:var(--green)">7. After-Run Hook</div>
+    <div class="tl-desc">
+      Execute <code>hooks.after_run</code> (non-fatal on failure). Stop agent session. Report result to orchestrator.
+    </div>
+  </div>
+  <div class="tl-item tl-item--red">
+    <div class="tl-label" style="color:var(--red)">8. Completion</div>
+    <div class="tl-desc">
+      Orchestrator receives <code>WorkerResult</code>. Routes to continuation retry, failure retry, or completed.
+      If <code>cleanup_on_done</code>: remove workspace directory.
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════ 4. PROMPT ASSEMBLY ═══════════ -->
+<div id="s4" class="sec-head anim" style="--i:14"><span class="dot" style="background:var(--green)"></span> 4 — Prompt Assembly</div>
+
+<p class="sec-desc anim" style="--i:15">
+  Per-state prompts are built by concatenating up to four files, separated by <code>---</code>.
+  The <code>system</code> and <code>repo</code> preambles are injected every turn.
+  The <strong>state-specific</strong> file changes based on the issue's Linear state at dispatch.
+</p>
+
+<div class="prompt-stack anim" style="--i:16">
+  <div class="prompt-layer" style="background: var(--blue-dim);">
+    <div class="prompt-layer__tag" style="color:var(--blue)">System</div>
+    <div class="prompt-layer__path">prompts/system.md</div>
+    <div class="prompt-layer__desc">
+      Agent identity, issue context template (<code>{{ issue.identifier }}</code>, <code>{{ issue.title }}</code>,
+      <code>{{ issue.description }}</code>), retry/continuation awareness, Liquid variables.
+      <strong>Repo-agnostic — same across all projects.</strong>
+    </div>
+  </div>
+  <div class="prompt-sep">— — —</div>
+  <div class="prompt-layer" style="background: var(--teal-dim);">
+    <div class="prompt-layer__tag" style="color:var(--teal)">Repo</div>
+    <div class="prompt-layer__path">prompts/repo-sym.md <span style="color:var(--text-dim)">(or repo-cli.md)</span></div>
+    <div class="prompt-layer__desc">
+      Build commands, test commands, directory layout, base branch, AGENTS.md reference.
+      <strong>Repo-specific — varies per project.</strong>
+    </div>
+  </div>
+  <div class="prompt-sep">— — —</div>
+  <div class="prompt-layer" style="background: var(--slate-dim);">
+    <div class="prompt-layer__tag" style="color:var(--slate)">Shared (legacy)</div>
+    <div class="prompt-layer__path">prompts/shared.md <span style="color:var(--text-dim)">(optional, backward compat)</span></div>
+    <div class="prompt-layer__desc">
+      Single-file preamble from before the system/repo split.
+      Still honoured if configured — slots between repo and state.
+    </div>
+  </div>
+  <div class="prompt-sep">— — —</div>
+  <div class="prompt-layer" style="background: var(--amber-dim);">
+    <div class="prompt-layer__tag" style="color:var(--amber)">State-Specific</div>
+    <div class="prompt-layer__path">Resolved from <code>prompts.by_state</code> or <code>prompts.default</code></div>
+    <div class="prompt-layer__desc">
+      The workflow instructions for this Linear state.
+      <strong>In Progress</strong> → implement, test, push, open PR.
+      <strong>Agent Review</strong> → address PR feedback.
+      <strong>Merging</strong> → land the PR.
+      <strong>Rework</strong> → close PR, fresh start.
+    </div>
+  </div>
+</div>
+
+<div class="flow-arrow anim" style="--i:17">
+  <svg viewBox="0 0 20 20"><path d="M10 4 L10 16 M6 12 L10 16 L14 12"/></svg>
+  Liquid template engine
+</div>
+
+<div class="ve-card ve-card--hero anim" style="--i:18; max-width: 680px;">
+  <div class="ve-card__label" style="color:var(--green)">Rendered Prompt (Turn 1)</div>
+  <p style="font-size:13px; color:var(--text-dim); line-height:1.5">
+    All <code style="font-family:var(--font-mono); font-size:11px; background:var(--green-dim); color:var(--green); padding:1px 5px; border-radius:3px">{{ issue.* }}</code>
+    and <code style="font-family:var(--font-mono); font-size:11px; background:var(--green-dim); color:var(--green); padding:1px 5px; border-radius:3px">{{ workspace.base_branch }}</code>
+    variables are resolved. The <code style="font-family:var(--font-mono); font-size:11px; background:var(--green-dim); color:var(--green); padding:1px 5px; border-radius:3px">{{ shared_context }}</code>
+    placeholder is replaced with cross-session context entries. This becomes the first user message to the agent.
+  </p>
+</div>
+
+<div class="callout anim" style="--i:19">
+  <strong>State key normalization.</strong> State names from Linear (e.g. <code>"In Progress"</code>)
+  are lowercased and trimmed before matching against <code>prompts.by_state</code> keys.
+  If no match and no <code>prompts.default</code>, falls back to the monolith template body from WORKFLOW.md.
+</div>
+
+
+<!-- ═══════════ 5. MULTI-TURN SESSIONS ═══════════ -->
+<div id="s5" class="sec-head anim" style="--i:20"><span class="dot" style="background:var(--gold)"></span> 5 — Multi-Turn Sessions</div>
+
+<p class="sec-desc anim" style="--i:21">
+  A single worker attempt can run multiple turns within one agent session.
+  Turn 1 receives the full rendered prompt. Turns 2+ receive a short continuation prompt.
+  Between turns, the orchestrator checks if the issue is still in an active state.
+</p>
+
+<section class="diagram-shell anim" style="--i:22">
+  <p class="diagram-shell__hint">Ctrl/Cmd + wheel to zoom · Drag to pan · Double-click to fit</p>
+  <div class="mermaid-wrap">
+    <div class="zoom-controls">
+      <button type="button" data-action="zoom-in" title="Zoom in">+</button>
+      <button type="button" data-action="zoom-out" title="Zoom out">&minus;</button>
+      <button type="button" data-action="zoom-fit" title="Smart fit">&#8634;</button>
+      <button type="button" data-action="zoom-one" title="1:1 zoom">1:1</button>
+      <button type="button" data-action="zoom-expand" title="Open full size">&#x26F6;</button>
+      <span class="zoom-label">Loading...</span>
+    </div>
+    <div class="mermaid-viewport">
+      <div class="mermaid mermaid-canvas"></div>
+    </div>
+  </div>
+  <script type="text/plain" class="diagram-source">
+    graph TD
+      START["Start Session<br/>(agent subprocess)"] --> T1["Turn 1:<br/>Full rendered prompt"]
+      T1 --> EXEC1["Agent executes<br/>(tools, code, tests)"]
+      EXEC1 --> MAXT{Max turns<br/>reached?}
+      MAXT -->|Yes| DONE["End session<br/>(schedule continuation)"]
+      MAXT -->|No| POLL["Re-check issue<br/>state from Linear"]
+      POLL --> STILL{Still in<br/>active state?}
+      STILL -->|Terminal| DONE2["End session<br/>(issue complete)"]
+      STILL -->|Different active| DONE3["End session<br/>(state changed)"]
+      STILL -->|Unassigned| DONE4["End session<br/>(removed)"]
+      STILL -->|Same state| T2["Turn N:<br/>Continuation prompt"]
+      T2 --> EXEC2["Agent continues<br/>(resume from state)"]
+      EXEC2 --> MAXT
+  </script>
+</section>
+
+<div class="card-grid anim" style="--i:23">
+  <div class="ve-card">
+    <div class="ve-card__label" style="color:var(--blue)">Turn 1 Prompt</div>
+    <p style="font-size:13px; color:var(--text-dim); line-height:1.5">
+      Full concatenated prompt: system + repo + state-specific.
+      Contains issue description, labels, URL, attempt number, workspace context.
+    </p>
+  </div>
+  <div class="ve-card">
+    <div class="ve-card__label" style="color:var(--amber)">Turn 2+ Prompt</div>
+    <p style="font-size:13px; color:var(--text-dim); line-height:1.5">
+      Short continuation: <em>"This is continuation turn #N of M. Resume from current workspace state.
+      Focus on remaining ticket work."</em> The agent still has the full Turn 1 context in its
+      conversation history — the session subprocess persists across turns.
+    </p>
+  </div>
+</div>
+
+<div class="callout anim" style="--i:24" style="border-left-color: var(--amber)">
+  <strong>Stall detection.</strong> If no agent events are received within <code>stall_timeout_ms</code>
+  (default 5 min), the session is force-terminated and the issue is retried with exponential backoff.
+</div>
+
+
+<!-- ═══════════ 6. RETRY & CONTINUATION ═══════════ -->
+<div id="s6" class="sec-head anim" style="--i:25"><span class="dot" style="background:var(--red)"></span> 6 — Retry &amp; Continuation</div>
+
+<p class="sec-desc anim" style="--i:26">
+  After a worker completes, the orchestrator decides the next step based on the outcome and issue state.
+  Continuations re-dispatch quickly. Failures use exponential backoff up to <code>max_retry_backoff_ms</code>.
+</p>
+
+<section class="diagram-shell anim" style="--i:27">
+  <p class="diagram-shell__hint">Ctrl/Cmd + wheel to zoom · Drag to pan · Double-click to fit</p>
+  <div class="mermaid-wrap">
+    <div class="zoom-controls">
+      <button type="button" data-action="zoom-in" title="Zoom in">+</button>
+      <button type="button" data-action="zoom-out" title="Zoom out">&minus;</button>
+      <button type="button" data-action="zoom-fit" title="Smart fit">&#8634;</button>
+      <button type="button" data-action="zoom-one" title="1:1 zoom">1:1</button>
+      <button type="button" data-action="zoom-expand" title="Open full size">&#x26F6;</button>
+      <span class="zoom-label">Loading...</span>
+    </div>
+    <div class="mermaid-viewport">
+      <div class="mermaid mermaid-canvas"></div>
+    </div>
+  </div>
+  <script type="text/plain" class="diagram-source">
+    graph TD
+      RESULT["Worker exits"] --> TYPE{Completion<br/>type?}
+      TYPE -->|Completed| CONT{Schedule<br/>continuation?}
+      TYPE -->|Failed| RETRY["Schedule failure retry<br/>(exponential backoff)"]
+      CONT -->|Yes| SCHED["Schedule continuation retry<br/>(minimal delay)"]
+      CONT -->|No| COMP["Mark completed<br/>(issue in terminal state)"]
+      SCHED --> QUEUE["Add to retry queue<br/>(preserves workspace + host)"]
+      RETRY --> QUEUE
+      QUEUE --> DUE["Wait until due_at_ms"]
+      DUE --> REFETCH["Re-fetch issue<br/>from Linear"]
+      REFETCH --> FRESH{Still<br/>active?}
+      FRESH -->|Terminal| COMP2["Mark completed<br/>(cleanup workspace)"]
+      FRESH -->|Active| REDISPATCH["Re-dispatch with<br/>fresh prompt for new state"]
+      FRESH -->|Not in candidates| COMP2
+  </script>
+</section>
+
+<div class="card-grid anim" style="--i:28">
+  <div class="ve-card">
+    <div class="ve-card__label" style="color:var(--green)">Continuation</div>
+    <p style="font-size:13px; color:var(--text-dim); line-height:1.5">
+      Issue still active after max turns. Re-dispatched quickly with the same workspace.
+      Attempt counter does <strong>not</strong> increment. Fresh prompt is re-resolved for the current state.
+    </p>
+  </div>
+  <div class="ve-card">
+    <div class="ve-card__label" style="color:var(--red)">Failure Retry</div>
+    <p style="font-size:13px; color:var(--text-dim); line-height:1.5">
+      Session crashed, stalled, or errored. Exponential backoff: attempt × base delay, capped at
+      <code style="font-family:var(--font-mono); font-size:11px; background:var(--red-dim); color:var(--red); padding:1px 5px; border-radius:3px">max_retry_backoff_ms</code> (default 5 min).
+    </p>
+  </div>
+</div>
+
+
+<!-- ═══════════ 7. ISSUE STATE MACHINE ═══════════ -->
+<div id="s7" class="sec-head anim" style="--i:29"><span class="dot" style="background:var(--slate)"></span> 7 — Issue State Machine</div>
+
+<p class="sec-desc anim" style="--i:30">
+  Linear issue states drive the entire lifecycle. <strong>Active states</strong> make issues eligible for dispatch.
+  <strong>Terminal states</strong> signal completion and trigger workspace cleanup.
+  The agent itself transitions issues between states via the prompt instructions.
+</p>
+
+<section class="diagram-shell anim" style="--i:31">
+  <p class="diagram-shell__hint">Ctrl/Cmd + wheel to zoom · Drag to pan · Double-click to fit</p>
+  <div class="mermaid-wrap" style="min-height: 360px;">
+    <div class="zoom-controls">
+      <button type="button" data-action="zoom-in" title="Zoom in">+</button>
+      <button type="button" data-action="zoom-out" title="Zoom out">&minus;</button>
+      <button type="button" data-action="zoom-fit" title="Smart fit">&#8634;</button>
+      <button type="button" data-action="zoom-one" title="1:1 zoom">1:1</button>
+      <button type="button" data-action="zoom-expand" title="Open full size">&#x26F6;</button>
+      <span class="zoom-label">Loading...</span>
+    </div>
+    <div class="mermaid-viewport">
+      <div class="mermaid mermaid-canvas"></div>
+    </div>
+  </div>
+  <script type="text/plain" class="diagram-source">
+    graph TD
+      TODO["Todo"] -->|"Agent dispatched<br/>(auto-transition)"| IP["In Progress"]
+      IP -->|"Agent pushes + opens PR"| AR["Agent Review"]
+      AR -->|"PR approved"| MERGE["Merging"]
+      AR -->|"Changes requested"| REWORK["Rework"]
+      REWORK -->|"Agent closes PR,<br/>fresh branch"| IP
+      MERGE -->|"Agent merges PR"| DONE["Done"]
+      IP -->|"Blocked / manual"| HR["Human Review"]
+
+      style TODO fill:#dbeafe44,stroke:#3b82f6
+      style IP fill:#d1fae544,stroke:#22c55e
+      style AR fill:#fef3c744,stroke:#f59e0b
+      style MERGE fill:#fef3c744,stroke:#f59e0b
+      style REWORK fill:#fee2e244,stroke:#ef4444
+      style HR fill:#f3e8ff44,stroke:#a855f7
+      style DONE fill:#dcfce744,stroke:#16a34a
+  </script>
+</section>
+
+<div class="card-grid anim" style="--i:32">
+  <div class="ve-card">
+    <div class="ve-card__label" style="color:var(--blue)">Active States (dispatch-eligible)</div>
+    <p style="font-size:13px; line-height:1.7">
+      <span class="tag" style="background:var(--blue-dim); color:var(--blue)">Todo</span>
+      <span class="tag" style="background:var(--green-dim); color:var(--green)">In Progress</span>
+      <span class="tag" style="background:var(--amber-dim); color:var(--amber)">Agent Review</span>
+      <span class="tag" style="background:var(--amber-dim); color:var(--amber)">Merging</span>
+      <span class="tag" style="background:var(--red-dim); color:var(--red)">Rework</span>
+    </p>
+    <p style="font-size:12px; color:var(--text-dim); margin-top:6px">
+      Each state maps to a different prompt file, giving the agent state-specific instructions.
+    </p>
+  </div>
+  <div class="ve-card">
+    <div class="ve-card__label" style="color:var(--slate)">Terminal States (session ends)</div>
+    <p style="font-size:13px; line-height:1.7">
+      <span class="tag" style="background:var(--green-dim); color:var(--green)">Done</span>
+      <span class="tag" style="background:var(--slate-dim); color:var(--slate)">Closed</span>
+      <span class="tag" style="background:var(--slate-dim); color:var(--slate)">Cancelled</span>
+      <span class="tag" style="background:var(--slate-dim); color:var(--slate)">Duplicate</span>
+    </p>
+    <p style="font-size:12px; color:var(--text-dim); margin-top:6px">
+      Worker stops. No continuation scheduled. Workspace cleaned up if <code style="font-family:var(--font-mono); font-size:10px; background:var(--accent-dim); color:var(--accent); padding:1px 4px; border-radius:3px">cleanup_on_done: true</code>.
+    </p>
+  </div>
+</div>
+
+<div class="callout anim" style="--i:33">
+  <strong>Prompt-per-state.</strong> The same issue can cycle through multiple states and get different prompts each time.
+  A <code>Todo</code> issue gets the <code>in-progress.md</code> prompt. After it pushes a PR and moves to <code>Agent Review</code>,
+  the next dispatch (continuation retry) resolves <code>agent-review.md</code> — giving the agent entirely different instructions
+  for addressing review feedback.
+</div>
+
+
+</div><!-- /main -->
+</div><!-- /wrap -->
+
+<script type="module">
+import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+import elkLayouts from 'https://cdn.jsdelivr.net/npm/@mermaid-js/layout-elk/dist/mermaid-layout-elk.esm.min.mjs';
+
+const isDark = matchMedia('(prefers-color-scheme: dark)').matches;
+const config = {
+  fitPadding: 28, minHeight: 360, maxHeightPx: 960, maxHeightVh: 0.84,
+  maxInitialZoom: 1.8, minZoom: 0.08, maxZoom: 6.5, zoomStep: 0.14, readabilityFloor: 0.58
+};
+const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+let activeDrag = null;
+addEventListener('mousemove', e => activeDrag?.onMove(e));
+addEventListener('mouseup', () => { activeDrag?.onEnd(); activeDrag = null; });
+
+mermaid.registerLayoutLoaders(elkLayouts);
+mermaid.initialize({
+  startOnLoad: false, theme: 'base', look: 'classic', layout: 'elk',
+  themeVariables: {
+    fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
+    fontSize: '15px',
+    primaryColor: isDark ? '#1c2840' : '#e0ecf7',
+    primaryBorderColor: isDark ? '#5b9bd5' : '#1e3a5f',
+    primaryTextColor: isDark ? '#d4dde8' : '#1a2332',
+    secondaryColor: isDark ? '#1a3a3a' : '#e0f5f0',
+    secondaryBorderColor: isDark ? '#22d3ee' : '#0e7490',
+    secondaryTextColor: isDark ? '#d4dde8' : '#1a2332',
+    tertiaryColor: isDark ? '#2e2618' : '#fef3e0',
+    tertiaryBorderColor: isDark ? '#fbbf24' : '#b45309',
+    tertiaryTextColor: isDark ? '#d4dde8' : '#1a2332',
+    lineColor: isDark ? '#5b7ea0' : '#7a94ad',
+    noteBkgColor: isDark ? '#1c2840' : '#fefce8',
+    noteTextColor: isDark ? '#d4dde8' : '#1a2332',
+    noteBorderColor: isDark ? '#fbbf24' : '#b45309',
+  }
+});
+
+function initDiagram(shell) {
+  const wrap = shell.querySelector('.mermaid-wrap');
+  const viewport = shell.querySelector('.mermaid-viewport');
+  const canvas = shell.querySelector('.mermaid-canvas');
+  const source = shell.querySelector('.diagram-source');
+  const label = shell.querySelector('.zoom-label');
+  if (!wrap || !viewport || !canvas || !source || !label) return;
+
+  let zoom = 1, fitMode = 'contain', panX = 0, panY = 0, svgW = 0, svgH = 0;
+  let sx = 0, sy = 0, spx = 0, spy = 0, touchDist = 0, touchCx = 0, touchCy = 0;
+
+  function constrainPan() {
+    const vpW = viewport.clientWidth, vpH = viewport.clientHeight;
+    const rW = svgW * zoom, rH = svgH * zoom, pad = config.fitPadding;
+    panX = (rW + pad * 2 <= vpW) ? (vpW - rW) / 2 : clamp(panX, vpW - rW - pad, pad);
+    panY = (rH + pad * 2 <= vpH) ? (vpH - rH) / 2 : clamp(panY, vpH - rH - pad, pad);
+  }
+  function applyTransform() {
+    const svg = canvas.querySelector('svg');
+    if (!svg || !svgW) return;
+    constrainPan();
+    svg.style.width = (svgW * zoom) + 'px';
+    svg.style.height = (svgH * zoom) + 'px';
+    canvas.style.transform = `translate(${panX}px, ${panY}px)`;
+    label.textContent = Math.round(zoom * 100) + '% — ' + fitMode;
+  }
+  function canPan() {
+    return svgW * zoom + config.fitPadding * 2 > viewport.clientWidth
+        || svgH * zoom + config.fitPadding * 2 > viewport.clientHeight;
+  }
+  function computeSmartFit() {
+    const vpW = viewport.clientWidth, vpH = viewport.clientHeight;
+    const aW = Math.max(80, vpW - config.fitPadding * 2);
+    const aH = Math.max(80, vpH - config.fitPadding * 2);
+    const contain = Math.min(aW / svgW, aH / svgH);
+    let z = contain, mode = 'contain';
+    if (contain < config.readabilityFloor) {
+      const chartR = svgH / svgW, vpR = vpH / Math.max(vpW, 1);
+      if (chartR >= vpR) { z = aW / svgW; mode = 'width-priority'; }
+      else { z = aH / svgH; mode = 'height-priority'; }
+    }
+    return { zoom: clamp(z, config.minZoom, config.maxInitialZoom), mode };
+  }
+  function fitDiagram() {
+    if (!svgW) return;
+    const fit = computeSmartFit();
+    zoom = fit.zoom; fitMode = fit.mode;
+    panX = (viewport.clientWidth - svgW * zoom) / 2;
+    panY = (viewport.clientHeight - svgH * zoom) / 2;
+    applyTransform();
+  }
+  function setOneToOne() {
+    zoom = clamp(1, config.minZoom, config.maxZoom); fitMode = '1:1';
+    panX = (viewport.clientWidth - svgW * zoom) / 2;
+    panY = (viewport.clientHeight - svgH * zoom) / 2;
+    applyTransform();
+  }
+  function zoomAround(factor, cx, cy) {
+    const next = clamp(zoom * factor, config.minZoom, config.maxZoom);
+    const ratio = next / zoom;
+    panX = cx - ratio * (cx - panX); panY = cy - ratio * (cy - panY);
+    zoom = next; fitMode = 'custom'; applyTransform();
+  }
+  function readSvgNaturalSize(svg) {
+    let w = 0, h = 0;
+    if (svg.viewBox?.baseVal?.width > 0) { w = svg.viewBox.baseVal.width; h = svg.viewBox.baseVal.height; }
+    if (!w) { w = parseFloat(svg.getAttribute('width')) || 0; h = parseFloat(svg.getAttribute('height')) || 0; }
+    if (!w) { const b = svg.getBBox(); w = b.width; h = b.height; }
+    if (!w) { const r = svg.getBoundingClientRect(); w = r.width || 1000; h = r.height || 700; }
+    if (!svg.getAttribute('viewBox')) svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+    return { w, h };
+  }
+  function setAdaptiveHeight() {
+    if (!svgW) return;
+    const usableW = Math.max(280, wrap.getBoundingClientRect().width - 2);
+    const idealH = (svgH / svgW) * usableW + config.fitPadding * 2;
+    const maxVp = Math.floor(innerHeight * config.maxHeightVh);
+    const hardMax = Math.min(config.maxHeightPx, Math.max(config.minHeight + 40, maxVp));
+    wrap.style.height = Math.round(clamp(idealH, config.minHeight, hardMax)) + 'px';
+  }
+  function openInNewTab() {
+    const svg = canvas.querySelector('svg');
+    if (!svg) return;
+    const clone = svg.cloneNode(true); clone.style.width = ''; clone.style.height = '';
+    const bg = isDark ? '#0f1923' : '#f4f6f9';
+    const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Diagram</title><style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:${bg};padding:40px;box-sizing:border-box}svg{max-width:100%;max-height:90vh;height:auto}</style></head><body>${clone.outerHTML}</body></html>`;
+    open(URL.createObjectURL(new Blob([html], { type: 'text/html' })), '_blank');
+  }
+
+  async function render() {
+    try {
+      const code = source.textContent.trim();
+      if (!code) { label.textContent = 'Error: Empty source'; return; }
+      const id = 'diagram-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+      const { svg } = await mermaid.render(id, code);
+      canvas.innerHTML = svg;
+      const svgNode = canvas.querySelector('svg');
+      if (!svgNode) { label.textContent = 'Error: No SVG'; return; }
+      const size = readSvgNaturalSize(svgNode);
+      svgW = size.w; svgH = size.h;
+      svgNode.removeAttribute('width'); svgNode.removeAttribute('height');
+      svgNode.style.maxWidth = 'none'; svgNode.style.display = 'block';
+      setAdaptiveHeight(); fitDiagram();
+    } catch (err) {
+      console.error('Mermaid render failed:', err);
+      label.textContent = 'Error: ' + (err.message || 'Render failed');
+    }
+  }
+
+  const actions = {
+    'zoom-in': () => zoomAround(1 + config.zoomStep, viewport.clientWidth / 2, viewport.clientHeight / 2),
+    'zoom-out': () => zoomAround(1 / (1 + config.zoomStep), viewport.clientWidth / 2, viewport.clientHeight / 2),
+    'zoom-fit': fitDiagram, 'zoom-one': setOneToOne, 'zoom-expand': openInNewTab
+  };
+  Object.entries(actions).forEach(([a, h]) => wrap.querySelector(`[data-action="${a}"]`)?.addEventListener('click', h));
+  viewport.addEventListener('dblclick', fitDiagram);
+  viewport.addEventListener('wheel', e => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const rect = viewport.getBoundingClientRect();
+      zoomAround(e.deltaY < 0 ? 1 + config.zoomStep : 1 / (1 + config.zoomStep), e.clientX - rect.left, e.clientY - rect.top);
+      return;
+    }
+    if (canPan()) { e.preventDefault(); panX -= e.deltaX; panY -= e.deltaY; applyTransform(); }
+  }, { passive: false });
+  viewport.addEventListener('mousedown', e => {
+    if (e.target.closest('.zoom-controls') || !canPan()) return;
+    wrap.classList.add('is-panning'); sx = e.clientX; sy = e.clientY; spx = panX; spy = panY;
+    e.preventDefault();
+    activeDrag = {
+      onMove: ev => { panX = spx + (ev.clientX - sx); panY = spy + (ev.clientY - sy); applyTransform(); },
+      onEnd: () => wrap.classList.remove('is-panning')
+    };
+  });
+  viewport.addEventListener('touchstart', e => {
+    if (e.touches.length === 1) { sx = e.touches[0].clientX; sy = e.touches[0].clientY; spx = panX; spy = panY; }
+    else if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX, dy = e.touches[0].clientY - e.touches[1].clientY;
+      touchDist = Math.sqrt(dx * dx + dy * dy);
+      const r = viewport.getBoundingClientRect();
+      touchCx = (e.touches[0].clientX + e.touches[1].clientX) / 2 - r.left;
+      touchCy = (e.touches[0].clientY + e.touches[1].clientY) / 2 - r.top;
+    }
+  }, { passive: true });
+  viewport.addEventListener('touchmove', e => {
+    if (e.touches.length === 1 && canPan()) {
+      if (touchDist > 0) { sx = e.touches[0].clientX; sy = e.touches[0].clientY; spx = panX; spy = panY; touchDist = 0; }
+      e.preventDefault();
+      panX = spx + (e.touches[0].clientX - sx); panY = spy + (e.touches[0].clientY - sy);
+      applyTransform();
+    } else if (e.touches.length === 2 && touchDist > 0) {
+      e.preventDefault();
+      const dx = e.touches[0].clientX - e.touches[1].clientX, dy = e.touches[0].clientY - e.touches[1].clientY;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      zoomAround(d / touchDist, touchCx, touchCy); touchDist = d;
+    }
+  }, { passive: false });
+  new ResizeObserver(() => { if (svgW) { setAdaptiveHeight(); fitDiagram(); } }).observe(wrap);
+  render();
+}
+
+document.querySelectorAll('.diagram-shell').forEach(initDiagram);
+</script>
+
+<script>
+(function() {
+  const toc = document.getElementById('toc');
+  const links = toc.querySelectorAll('a');
+  const sections = [];
+  links.forEach(link => {
+    const id = link.getAttribute('href').slice(1);
+    const el = document.getElementById(id);
+    if (el) sections.push({ id, el, link });
+  });
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const match = sections.find(s => s.el === entry.target);
+        if (match) {
+          match.link.classList.add('active');
+          if (window.innerWidth <= 1000) {
+            match.link.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+          }
+        }
+      }
+    });
+  }, { rootMargin: '-10% 0px -80% 0px' });
+  sections.forEach(s => observer.observe(s.el));
+  links.forEach(link => {
+    link.addEventListener('click', e => {
+      e.preventDefault();
+      const id = link.getAttribute('href').slice(1);
+      const el = document.getElementById(id);
+      if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); history.replaceState(null, '', '#' + id); }
+    });
+  });
+})();
+</script>
+
+</body>
+</html>

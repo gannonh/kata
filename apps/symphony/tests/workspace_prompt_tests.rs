@@ -1236,6 +1236,8 @@ fn test_resolve_per_state_prompt_reads_and_concatenates_files() {
     std::fs::write(dir_path.join("in-progress.md"), "DO THE WORK").unwrap();
 
     let config = PromptsConfig {
+        system: None,
+        repo: None,
         shared: Some("shared.md".to_string()),
         by_state: HashMap::from([("in progress".to_string(), "in-progress.md".to_string())]),
         default: None,
@@ -1271,6 +1273,8 @@ fn test_resolve_per_state_prompt_uses_default_for_unmapped_state() {
     std::fs::write(dir_path.join("default.md"), "DEFAULT PROMPT").unwrap();
 
     let config = PromptsConfig {
+        system: None,
+        repo: None,
         shared: None,
         by_state: HashMap::new(),
         default: Some("default.md".to_string()),
@@ -1290,6 +1294,8 @@ fn test_resolve_per_state_prompt_returns_none_when_no_mapping_and_no_default() {
     use symphony::prompt_builder::resolve_per_state_prompt;
 
     let config = PromptsConfig {
+        system: None,
+        repo: None,
         shared: None,
         by_state: HashMap::new(),
         default: None,
@@ -1312,6 +1318,8 @@ fn test_resolve_per_state_prompt_without_shared_returns_state_only() {
     std::fs::write(dir_path.join("review.md"), "REVIEW ONLY").unwrap();
 
     let config = PromptsConfig {
+        system: None,
+        repo: None,
         shared: None,
         by_state: HashMap::from([("agent review".to_string(), "review.md".to_string())]),
         default: None,
@@ -1340,6 +1348,8 @@ fn test_resolve_per_state_prompt_state_matching_is_case_insensitive() {
     std::fs::write(dir_path.join("merge.md"), "MERGE IT").unwrap();
 
     let config = PromptsConfig {
+        system: None,
+        repo: None,
         shared: None,
         by_state: HashMap::from([("merging".to_string(), "merge.md".to_string())]),
         default: None,
@@ -1367,6 +1377,8 @@ fn test_resolve_per_state_prompt_rejects_path_traversal() {
     std::fs::write(parent.join("secret.md"), "SHOULD NOT READ").unwrap();
 
     let config = PromptsConfig {
+        system: None,
+        repo: None,
         shared: None,
         by_state: HashMap::from([("in progress".to_string(), "../secret.md".to_string())]),
         default: None,
@@ -1395,6 +1407,8 @@ fn test_resolve_per_state_prompt_rejects_absolute_path() {
     let dir_path = dir.path();
 
     let config = PromptsConfig {
+        system: None,
+        repo: None,
         shared: None,
         by_state: HashMap::from([("in progress".to_string(), "/etc/passwd".to_string())]),
         default: None,
@@ -1402,4 +1416,112 @@ fn test_resolve_per_state_prompt_rejects_absolute_path() {
 
     let result = resolve_per_state_prompt(&config, "In Progress", dir_path);
     assert!(result.is_err(), "absolute path should be rejected");
+}
+
+#[test]
+fn test_resolve_per_state_prompt_system_and_repo_concatenation() {
+    use std::collections::HashMap;
+    use symphony::domain::PromptsConfig;
+    use symphony::prompt_builder::resolve_per_state_prompt;
+
+    let dir = tempfile::tempdir().unwrap();
+    let dir_path = dir.path();
+
+    std::fs::write(dir_path.join("system.md"), "SYSTEM PROMPT").unwrap();
+    std::fs::write(dir_path.join("repo.md"), "REPO CONTEXT").unwrap();
+    std::fs::write(dir_path.join("in-progress.md"), "DO THE WORK").unwrap();
+
+    let config = PromptsConfig {
+        system: Some("system.md".to_string()),
+        repo: Some("repo.md".to_string()),
+        shared: None,
+        by_state: HashMap::from([("in progress".to_string(), "in-progress.md".to_string())]),
+        default: None,
+    };
+
+    let result = resolve_per_state_prompt(&config, "In Progress", dir_path)
+        .expect("should resolve")
+        .expect("should find state mapping");
+
+    // Verify order: system, then repo, then state
+    let sys_pos = result.find("SYSTEM PROMPT").expect("should contain system");
+    let repo_pos = result.find("REPO CONTEXT").expect("should contain repo");
+    let state_pos = result.find("DO THE WORK").expect("should contain state");
+    assert!(sys_pos < repo_pos, "system should come before repo");
+    assert!(repo_pos < state_pos, "repo should come before state");
+
+    // Verify separators between parts
+    let parts: Vec<&str> = result.split("\n\n---\n\n").collect();
+    assert_eq!(parts.len(), 3, "should have 3 parts separated by ---");
+    assert_eq!(parts[0], "SYSTEM PROMPT");
+    assert_eq!(parts[1], "REPO CONTEXT");
+    assert_eq!(parts[2], "DO THE WORK");
+}
+
+#[test]
+fn test_resolve_per_state_prompt_system_repo_and_shared_all_concatenated() {
+    use std::collections::HashMap;
+    use symphony::domain::PromptsConfig;
+    use symphony::prompt_builder::resolve_per_state_prompt;
+
+    let dir = tempfile::tempdir().unwrap();
+    let dir_path = dir.path();
+
+    std::fs::write(dir_path.join("system.md"), "SYSTEM").unwrap();
+    std::fs::write(dir_path.join("repo.md"), "REPO").unwrap();
+    std::fs::write(dir_path.join("shared.md"), "SHARED").unwrap();
+    std::fs::write(dir_path.join("state.md"), "STATE").unwrap();
+
+    let config = PromptsConfig {
+        system: Some("system.md".to_string()),
+        repo: Some("repo.md".to_string()),
+        shared: Some("shared.md".to_string()),
+        by_state: HashMap::from([("todo".to_string(), "state.md".to_string())]),
+        default: None,
+    };
+
+    let result = resolve_per_state_prompt(&config, "Todo", dir_path)
+        .expect("should resolve")
+        .expect("should find state mapping");
+
+    let parts: Vec<&str> = result.split("\n\n---\n\n").collect();
+    assert_eq!(
+        parts.len(),
+        4,
+        "should have 4 parts: system + repo + shared + state"
+    );
+    assert_eq!(parts[0], "SYSTEM");
+    assert_eq!(parts[1], "REPO");
+    assert_eq!(parts[2], "SHARED");
+    assert_eq!(parts[3], "STATE");
+}
+
+#[test]
+fn test_resolve_per_state_prompt_system_only_no_repo() {
+    use std::collections::HashMap;
+    use symphony::domain::PromptsConfig;
+    use symphony::prompt_builder::resolve_per_state_prompt;
+
+    let dir = tempfile::tempdir().unwrap();
+    let dir_path = dir.path();
+
+    std::fs::write(dir_path.join("system.md"), "SYSTEM").unwrap();
+    std::fs::write(dir_path.join("state.md"), "STATE").unwrap();
+
+    let config = PromptsConfig {
+        system: Some("system.md".to_string()),
+        repo: None,
+        shared: None,
+        by_state: HashMap::from([("todo".to_string(), "state.md".to_string())]),
+        default: None,
+    };
+
+    let result = resolve_per_state_prompt(&config, "Todo", dir_path)
+        .expect("should resolve")
+        .expect("should find state mapping");
+
+    let parts: Vec<&str> = result.split("\n\n---\n\n").collect();
+    assert_eq!(parts.len(), 2, "should have 2 parts: system + state");
+    assert_eq!(parts[0], "SYSTEM");
+    assert_eq!(parts[1], "STATE");
 }

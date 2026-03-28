@@ -2,6 +2,16 @@
 
 Bun monorepo (bun 1.3.8) with Turborepo orchestration. Rust app (Symphony) included.
 
+## App Context
+
+This mono-repo is comprised of the following primary applications:
+
+- Kata Symphony: `apps/symphony` - @kata/symphony — Rust binary (Cargo scripts via package.json)
+- Kata CLI: `apps/cli` - @kata-sh/cli — published NPM CLI agent
+- Kata Desktop: `apps/electron` - Electron app (primary UI)
+- Context Indexer: `apps/context` - @kata/context — context indexing tool (Vitest, native Node addon)
+- Orchestrator: `apps/orchestrator` - @kata-sh/orc — meta-prompting system
+
 ## Commands
 
 ```bash
@@ -59,17 +69,18 @@ Inputs include `.ts`, `.tsx`, `.js`, `.cjs`, `.mjs`, `.rs`, and `Cargo.toml` so 
 
 Turborepo orchestrates all test runners via `turbo run test`. Each package owns its runner:
 
-| Package | Runner | Why |
-|---------|--------|-----|
-| context | Vitest | Uses better-sqlite3 (native Node addon, incompatible with Bun) |
-| symphony | cargo test | Rust binary, runs through package.json shim |
-| all others | Bun test | Default for JS/TS packages |
+| Package    | Runner     | Why                                                            |
+| ---------- | ---------- | -------------------------------------------------------------- |
+| context    | Vitest     | Uses better-sqlite3 (native Node addon, incompatible with Bun) |
+| symphony   | cargo test | Rust binary, runs through package.json shim                    |
+| all others | Bun test   | Default for JS/TS packages                                     |
 
 Pre-push hook runs `turbo run lint typecheck test --affected` — same command as CI.
 
 ## CI
 
 `ci.yml` on pull_request to main:
+
 - `validate`: `turbo run lint typecheck test --affected` (JS/TS + Rust via Turborepo)
 - `e2e-mocked`: Playwright desktop E2E (only on electron version bump)
 - `gate`: aggregates results, sole required branch protection check

@@ -419,7 +419,14 @@ pub struct WorkflowDefinition {
 /// `prompt_template` body.
 #[derive(Debug, Clone, Default)]
 pub struct PromptsConfig {
-    /// Shared context prepended to every state-specific prompt.
+    /// System-level preamble injected every turn (agent identity, tool
+    /// guidance, repo-agnostic instructions).
+    pub system: Option<String>,
+    /// Repository-specific context injected every turn (build commands,
+    /// conventions, directory layout).
+    pub repo: Option<String>,
+    /// Legacy single-file preamble. Superseded by `system` + `repo` but
+    /// still honoured for backward compatibility.
     pub shared: Option<String>,
     /// Map of normalized state name → prompt template content.
     pub by_state: HashMap<String, String>,

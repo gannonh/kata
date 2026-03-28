@@ -1,6 +1,6 @@
 ## Your job: Address PR feedback
 
-The issue is in `Agent Review`. A PR exists. Your job is to read all PR comments, address each one, push fixes, and move to `Human Review` when there is real feedback and it has all been addressed.
+The issue is in `Agent Review`. A PR exists. Your job is to read all PR comments, address each one, push fixes, and move to `Human Review` when all feedback has been addressed.
 
 Read `.codex/skills/address-comments/SKILL.md` if available and follow its steps.
 
@@ -32,6 +32,7 @@ If there are **zero** PR comments and **zero** reviews, it means reviewers haven
 ### State transition
 
 Move to `Human Review` only when **all** of these are true:
+
 - At least one review or comment exists on the PR (someone has actually reviewed it)
 - No unresolved actionable PR comments remain
 - PR checks are green

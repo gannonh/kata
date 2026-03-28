@@ -142,18 +142,38 @@ pub fn resolve_per_state_prompt(
     // Read the state-specific prompt file (path-confined to workflow dir)
     let state_content = read_prompt_file(workflow_dir, state_path, "state")?;
 
-    // Read shared prompt if configured
-    let shared_content = if let Some(shared_path) = &prompts_config.shared {
-        Some(read_prompt_file(workflow_dir, shared_path, "shared")?)
-    } else {
-        None
-    };
+    // Read preamble files: system, repo (new), and shared (legacy).
+    // All are optional; when present they are prepended in order before the
+    // state-specific content, separated by `---`.
+    let system_content = prompts_config
+        .system
+        .as_deref()
+        .map(|p| read_prompt_file(workflow_dir, p, "system"))
+        .transpose()?;
+    let repo_content = prompts_config
+        .repo
+        .as_deref()
+        .map(|p| read_prompt_file(workflow_dir, p, "repo"))
+        .transpose()?;
+    let shared_content = prompts_config
+        .shared
+        .as_deref()
+        .map(|p| read_prompt_file(workflow_dir, p, "shared"))
+        .transpose()?;
 
-    // Concatenate: shared + separator + state-specific
-    let template = match shared_content {
-        Some(shared) => format!("{shared}\n\n---\n\n{state_content}"),
-        None => state_content,
-    };
+    // Concatenate: system + repo + shared (legacy) + state-specific
+    let mut parts: Vec<&str> = Vec::new();
+    if let Some(ref s) = system_content {
+        parts.push(s);
+    }
+    if let Some(ref r) = repo_content {
+        parts.push(r);
+    }
+    if let Some(ref sh) = shared_content {
+        parts.push(sh);
+    }
+    parts.push(&state_content);
+    let template = parts.join("\n\n---\n\n");
 
     Ok(Some(template))
 }
