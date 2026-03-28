@@ -455,7 +455,9 @@ function asEventKind(value: unknown): SymphonyEventKind | null {
     value === "escalation_created" ||
     value === "escalation_responded" ||
     value === "escalation_timed_out" ||
-    value === "escalation_cancelled"
+    value === "escalation_cancelled" ||
+    value === "shared_context_written" ||
+    value === "shared_context_expired"
   ) {
     return value;
   }

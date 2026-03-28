@@ -148,7 +148,7 @@ test("loader sets all 4 KATA_ env vars and PI_PACKAGE_DIR", async () => {
   rmSync(tmp, { recursive: true, force: true });
 });
 
-test("symphony command registers the config subcommand", () => {
+test("symphony command registers config + console subcommands", () => {
   const commandSrc = readFileSync(
     join(projectRoot, "src", "resources", "extensions", "symphony", "command.ts"),
     "utf-8",
@@ -159,12 +159,20 @@ test("symphony command registers the config subcommand", () => {
     "symphony command parser includes config action",
   );
   assert.ok(
+    commandSrc.includes('type: "console"'),
+    "symphony command parser includes console action",
+  );
+  assert.ok(
     commandSrc.includes('/symphony config <path>'),
     "error guidance mentions /symphony config <path>",
   );
   assert.ok(
-    commandSrc.includes('description: "Symphony operator workflows: status, watch, config"'),
-    "symphony command description includes config",
+    commandSrc.includes('value: "console off"'),
+    "console completions include console off",
+  );
+  assert.ok(
+    commandSrc.includes('description: "Symphony operator workflows: status, watch, config, console"'),
+    "symphony command description includes console",
   );
 });
 

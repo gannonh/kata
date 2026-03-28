@@ -146,6 +146,48 @@ describe("SymphonyHttpClient", () => {
     });
   });
 
+  it("sanitizes malformed running_session_info fields", async () => {
+    const payload = makeStatePayload() as Record<string, unknown>;
+    payload.running_session_info = {
+      "issue-1": {
+        last_activity_ms: "oops",
+        current_tool_name: 123,
+        current_tool_args_preview: false,
+        turn_count: "bad",
+        max_turns: 10,
+      },
+      "issue-2": {
+        last_activity_ms: null,
+        current_tool_name: "bash",
+        current_tool_args_preview: null,
+        turn_count: 1,
+        max_turns: 2,
+      },
+      "issue-3": "not-an-object",
+    };
+
+    const fetchImpl = (async () =>
+      new Response(JSON.stringify(payload), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      })) as typeof fetch;
+
+    const client = makeClient({ fetchImpl });
+    const state = await client.getState();
+
+    expect(state.running_session_info?.["issue-1"]).toEqual({
+      max_turns: 10,
+    });
+    expect(state.running_session_info?.["issue-2"]).toEqual({
+      last_activity_ms: null,
+      current_tool_name: "bash",
+      current_tool_args_preview: null,
+      turn_count: 1,
+      max_turns: 2,
+    });
+    expect(state.running_session_info?.["issue-3"]).toBeUndefined();
+  });
+
   it("builds filter query params and streams websocket events", async () => {
     MockWebSocket.openedUrls = [];
     MockWebSocket.scripts = [
@@ -194,6 +236,31 @@ describe("SymphonyHttpClient", () => {
     await collectEvents(client.watchEvents({ issue: "KAT-920" }, { timeoutMs: 2_000 }));
 
     expect(MockWebSocket.openedUrls[0]).toContain("/symphony/api/v1/events");
+  });
+
+  it("decodes shared context event kinds without dropping the stream", async () => {
+    MockWebSocket.openedUrls = [];
+    MockWebSocket.scripts = [
+      (socket) => {
+        socket.emitOpen();
+        socket.emitMessage(
+          JSON.stringify(
+            makeEnvelope({
+              sequence: 55,
+              kind: "shared_context_written",
+              event: "shared_context_written",
+            }),
+          ),
+        );
+        socket.emitClose(1000, "done", true);
+      },
+    ];
+
+    const client = makeClient();
+    const events = await collectEvents(client.watchEvents({}, { timeoutMs: 2_000 }));
+
+    expect(events).toHaveLength(1);
+    expect(events[0].kind).toBe("shared_context_written");
   });
 
   it("reconnects on retryable close codes", async () => {

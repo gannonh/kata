@@ -131,7 +131,7 @@ Kata workflow state is Linear-backed: milestones, slices, tasks, plans, and summ
 |---------|-------------|
 | `/mcp` | Show MCP server status and tools |
 | `/gh` | GitHub helper — issues, PRs, labels, milestones, status |
-| `/symphony` | Symphony operator workflows (`status`, `watch <issue>`) |
+| `/symphony` | Symphony operator workflows (`status`, `watch`, `console`, `config`) |
 | `/subagent` | List available subagents |
 | `/export` | Export session to HTML file |
 | `/share` | Share session as a secret GitHub gist |
@@ -167,6 +167,7 @@ budget_ceiling: 50.00
 | `pr.*` | PR lifecycle settings (see [PR Mode](#pr-mode)) |
 | `symphony.url` | Base URL for Symphony server (e.g. `http://127.0.0.1:8080`) |
 | `symphony.workflow_path` | Default WORKFLOW.md path used by `/symphony config` |
+| `symphony.console_position` | Console panel placement: `below-output` (default) or `above-status` |
 | `skill_discovery` | `auto` / `suggest` / `off` — how Kata finds and applies skills |
 | `auto_supervisor.*` | Timeout thresholds for auto-mode supervision |
 | `budget_ceiling` | USD ceiling — auto mode pauses when reached |
@@ -188,13 +189,22 @@ You can also set `symphony.workflow_path` so `/symphony config` knows which WORK
 symphony:
   url: http://127.0.0.1:8080
   workflow_path: ./apps/symphony/WORKFLOW.md
+  console_position: below-output
 ```
 
 ### Operator commands
 
 - `/symphony status` — fetches live worker/queue state from `GET /api/v1/state`
 - `/symphony watch KAT-920` — streams live issue-scoped events from `GET /api/v1/events?issue=KAT-920`
+- `/symphony console` — toggles the live in-chat operator dashboard panel (workers, escalations, queue/completed summary)
+- `/symphony console off` — closes the panel and disconnects the live stream
+- `/symphony console refresh` — forces a manual snapshot refresh (shortcut: `Ctrl+Alt+S`)
 - `/symphony config [WORKFLOW.md]` — opens a guided config editor for WORKFLOW frontmatter
+
+When escalations are visible in the panel, respond inline from chat input with:
+
+- `!respond <answer>` (auto-targets when exactly one escalation is pending)
+- `!respond <request-id|index> <answer>` (required when multiple escalations are pending)
 
 The config editor groups fields by section (tracker/workspace/agent/kata_agent/notifications/prompts/server/hooks/worker), uses typed controls (text, number, enum pickers, toggles, string-array editor), validates before save, shows a change summary, and writes only frontmatter while preserving the markdown prompt body and YAML comments.
 

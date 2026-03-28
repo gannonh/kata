@@ -76,6 +76,9 @@ Kata CLI ships a built-in Symphony client extension. When `symphony.url` is conf
 | `/symphony watch KAT-920` | Stream live events for an issue from `GET /api/v1/events` |
 | `/symphony watch KAT-920 --max-events 10` | Stop after 10 events |
 | `/symphony watch KAT-920 --timeout-ms 60000` | Watch for up to 60 seconds |
+| `/symphony console` | Toggle the live in-chat operator dashboard panel |
+| `/symphony console off` | Close the panel and stop live stream updates |
+| `/symphony console refresh` | Force a manual snapshot refresh (`Ctrl+Alt+S`) |
 
 ### Agent Tools
 
@@ -90,14 +93,20 @@ The extension also exposes tools the agent can call programmatically:
 
 ### Configuration
 
-Set the Symphony URL in `.kata/preferences.md`:
+Set Symphony preferences in `.kata/preferences.md`:
 
 ```yaml
 symphony:
   url: http://localhost:8080
+  console_position: below-output # or above-status
 ```
 
-Or via environment variables: `KATA_SYMPHONY_URL` or `SYMPHONY_URL`.
+Or via environment variables for URL fallback: `KATA_SYMPHONY_URL` or `SYMPHONY_URL`.
+
+When the console panel shows pending escalations, respond directly in chat input:
+
+- `!respond <answer>` (auto-target if exactly one escalation is pending)
+- `!respond <request-id|index> <answer>` (required for multiple pending escalations)
 
 ## Ticket Lifecycle
 

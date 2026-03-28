@@ -9,7 +9,9 @@ export type SymphonyEventKind =
   | "escalation_created"
   | "escalation_responded"
   | "escalation_timed_out"
-  | "escalation_cancelled";
+  | "escalation_cancelled"
+  | "shared_context_written"
+  | "shared_context_expired";
 
 export type SymphonyEventSeverity = "debug" | "info" | "warn" | "error";
 
@@ -123,6 +125,8 @@ export interface SymphonyRunAttempt {
   workspace_path?: string;
   started_at?: string;
   linear_state?: string | null;
+  model?: string | null;
+  issue_url?: string | null;
 }
 
 export interface SymphonyRetryQueueEntry {
@@ -148,6 +152,14 @@ export interface SymphonyPollingSnapshot {
   poll_interval_ms: number;
   last_poll_at?: string | null;
   poll_count?: number;
+}
+
+export interface SymphonyWorkerSessionInfo {
+  turn_count?: number;
+  max_turns?: number;
+  last_activity_ms?: number | null;
+  current_tool_name?: string | null;
+  current_tool_args_preview?: string | null;
 }
 
 export interface SymphonyTokenTotals {
@@ -177,7 +189,7 @@ export interface SymphonyOrchestratorState {
   completed: SymphonyCompletedEntry[];
   codex_totals: SymphonyTokenTotals;
   polling: SymphonyPollingSnapshot;
-  running_session_info?: Record<string, unknown>;
+  running_session_info?: Record<string, SymphonyWorkerSessionInfo>;
   blocked?: Array<Record<string, unknown>>;
 }
 
@@ -231,3 +243,11 @@ export type SymphonyClientLifecycleEvent =
       type: "symphony_watch_event_dropped";
       details: { reason: string; sequence?: number };
     };
+
+export type {
+  ConsoleConnectionStatus,
+  ConsolePanelPosition,
+  ConsolePanelState,
+  EscalationDisplayItem,
+  WorkerRow,
+} from "./console-state.js";
