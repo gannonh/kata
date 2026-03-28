@@ -63,7 +63,7 @@ Maintain a single persistent `## Agent Workpad` comment on the issue as the sour
   - `Detailed Plan` section with numbered steps derived from loaded plan documents
   - `Acceptance Criteria` with specific, measurable conditions
   - `Validation` section with exact commands
-  - `Issues/Blockers` section with specific blockers or "None" if no blockers`Need
+  - `Issues/Blockers` section with specific blockers or "None" if no blockers
   - `Needs Clarification` section with specific questions for the user or "None" if no questions
 - Do NOT use "TBD", "placeholder", or empty sections.
 - Update the workpad immediately after each meaningful milestone.
