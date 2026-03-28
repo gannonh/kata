@@ -28,6 +28,8 @@ auto_supervisor:
   hard_timeout_minutes: 25
 symphony:
   url: http://localhost:8080
+  workflow_path: WORKFLOW-symph.md
+  console_position: below-output
 ---
 
 # Kata Preferences
