@@ -9,8 +9,8 @@ use tokio::task::JoinHandle;
 use uuid::Uuid;
 
 use crate::domain::{
-    ContextScope, EscalationRequest, EventKind, EventSeverity, SupervisorConfig, SupervisorSnapshot,
-    SupervisorStatus, SymphonyEventEnvelope,
+    ContextScope, EscalationRequest, EventKind, EventSeverity, SupervisorConfig,
+    SupervisorSnapshot, SupervisorStatus, SymphonyEventEnvelope,
 };
 use crate::error::{Result, SymphonyError};
 use crate::event_stream::EventHub;
@@ -29,8 +29,10 @@ const SYSTEMIC_PATTERN_PERSISTENCE_THRESHOLD: u32 = 2;
 const SUPERVISOR_ESCALATION_TIMEOUT_MS: u64 = 300_000;
 
 static FILE_PATH_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?P<path>[A-Za-z0-9_./-]+\.(rs|toml|json|ya?ml|md|ts|tsx|js|jsx|py|go|java|swift))")
-        .expect("file path regex must compile")
+    Regex::new(
+        r"(?P<path>[A-Za-z0-9_./-]+\.(rs|toml|json|ya?ml|md|ts|tsx|js|jsx|py|go|java|swift))",
+    )
+    .expect("file path regex must compile")
 });
 
 /// Runtime dependencies used by the supervisor background task.
@@ -108,9 +110,8 @@ impl WorkerModel {
         if envelope.event == "tool_error" {
             let signature = tool_error_signature(summary.as_deref());
             if self.last_tool_error_signature.as_deref() == Some(signature.as_str()) {
-                self.consecutive_tool_error_count = self
-                    .consecutive_tool_error_count
-                    .saturating_add(1);
+                self.consecutive_tool_error_count =
+                    self.consecutive_tool_error_count.saturating_add(1);
             } else {
                 self.last_tool_error_signature = Some(signature);
                 self.consecutive_tool_error_count = 1;
@@ -121,7 +122,10 @@ impl WorkerModel {
         }
 
         if let Some(test_signature) = repeated_test_failure_signature(summary.as_deref()) {
-            let counter = self.repeated_test_failures.entry(test_signature).or_insert(0);
+            let counter = self
+                .repeated_test_failures
+                .entry(test_signature)
+                .or_insert(0);
             *counter = counter.saturating_add(1);
         }
 
@@ -476,18 +480,12 @@ fn process_envelope(
         maybe_emit_stuck_steer(&mut guard, config, deps, &issue_identifier, now);
 
         if let Some(path) = edited_path {
-            maybe_handle_file_conflict(
-                &mut guard,
-                config,
-                deps,
-                &issue_identifier,
-                &path,
-                now,
-            );
+            maybe_handle_file_conflict(&mut guard, config, deps, &issue_identifier, &path, now);
         }
     }
 
-    if envelope.kind == EventKind::SharedContextWritten || envelope.event == "shared_context_written"
+    if envelope.kind == EventKind::SharedContextWritten
+        || envelope.event == "shared_context_written"
     {
         maybe_handle_context_conflict(&mut guard, deps, now);
     }
@@ -536,19 +534,16 @@ fn maybe_handle_file_conflict(
     file_path: &str,
     now: DateTime<Utc>,
 ) {
-    let conflicting_issue = state
-        .workers
-        .iter()
-        .find_map(|(other_issue, worker)| {
-            if other_issue == issue_identifier {
-                return None;
-            }
-            if worker.has_recent_file_edit(file_path, now) {
-                Some(other_issue.clone())
-            } else {
-                None
-            }
-        });
+    let conflicting_issue = state.workers.iter().find_map(|(other_issue, worker)| {
+        if other_issue == issue_identifier {
+            return None;
+        }
+        if worker.has_recent_file_edit(file_path, now) {
+            Some(other_issue.clone())
+        } else {
+            None
+        }
+    });
 
     let Some(other_issue) = conflicting_issue else {
         return;
@@ -624,9 +619,9 @@ fn maybe_handle_failure_pattern(
         tracker
             .affected_issues
             .insert(issue_identifier.to_string(), now);
-        tracker
-            .affected_issues
-            .retain(|_, seen_at| now.signed_duration_since(*seen_at).num_milliseconds() < SYSTEMIC_PATTERN_WINDOW_MS);
+        tracker.affected_issues.retain(|_, seen_at| {
+            now.signed_duration_since(*seen_at).num_milliseconds() < SYSTEMIC_PATTERN_WINDOW_MS
+        });
 
         if tracker.affected_issues.len() >= 2 {
             tracker.detections = tracker.detections.saturating_add(1);
@@ -813,7 +808,8 @@ fn emit_supervisor_escalation(
     };
 
     let (response_tx, response_rx) = tokio::sync::oneshot::channel();
-    deps.escalation_registry.register(request.clone(), response_tx);
+    deps.escalation_registry
+        .register(request.clone(), response_tx);
     tokio::spawn(async move {
         let _ = response_rx.await;
     });
@@ -907,7 +903,9 @@ fn should_emit_conflict(
     key: &str,
     now: DateTime<Utc>,
 ) -> bool {
-    recent.retain(|_, at| now.signed_duration_since(*at).num_milliseconds() < CONFLICT_DEDUP_WINDOW_MS);
+    recent.retain(|_, at| {
+        now.signed_duration_since(*at).num_milliseconds() < CONFLICT_DEDUP_WINDOW_MS
+    });
 
     if recent.contains_key(key) {
         return false;
@@ -980,11 +978,7 @@ fn file_edit_path(envelope: &SymphonyEventEnvelope, summary: Option<&str>) -> Op
 
     let summary = summary?;
     let mut parts = summary.splitn(2, char::is_whitespace);
-    let tool_name = parts
-        .next()
-        .unwrap_or_default()
-        .trim()
-        .to_ascii_lowercase();
+    let tool_name = parts.next().unwrap_or_default().trim().to_ascii_lowercase();
     let args_raw = parts.next().unwrap_or_default().trim();
 
     if matches!(tool_name.as_str(), "edit" | "write" | "append" | "read") {
@@ -993,8 +987,16 @@ fn file_edit_path(envelope: &SymphonyEventEnvelope, summary: Option<&str>) -> Op
                 .get("path")
                 .and_then(|value| value.as_str())
                 .or_else(|| parsed.get("filePath").and_then(|value| value.as_str()))
-                .or_else(|| parsed.get("requestFilePath").and_then(|value| value.as_str()))
-                .or_else(|| parsed.get("responseFilePath").and_then(|value| value.as_str()));
+                .or_else(|| {
+                    parsed
+                        .get("requestFilePath")
+                        .and_then(|value| value.as_str())
+                })
+                .or_else(|| {
+                    parsed
+                        .get("responseFilePath")
+                        .and_then(|value| value.as_str())
+                });
             if let Some(path) = path {
                 return Some(path.to_string());
             }

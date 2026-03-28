@@ -417,6 +417,7 @@ All configuration lives in the YAML front-matter of your WORKFLOW.md. See [`docs
 | `tracker`                 | Linear connection, project, assignee filter, state mappings       |
 | `polling`                 | How often to check for new/changed issues                         |
 | `shared_context`          | Ephemeral cross-worker context retention (TTL + max entries)      |
+| `supervisor`              | Autonomous supervisor loop (steering, conflict detection, escalation fallback) |
 | `workspace`               | Where and how workspaces are created, Docker config               |
 | `agent`                   | Backend selection, concurrency limits, max turns, retry backoff   |
 | `kata_agent` / `pi_agent` | Kata CLI backend config: command, model, timeouts                 |
@@ -465,6 +466,39 @@ Events emitted on `/api/v1/events`:
 - `event=shared_context_written`
 - `event=shared_context_read`
 - `event=shared_context_expired`
+
+## Supervisor Agent
+
+Symphony can run an autonomous supervisor loop that watches all worker events and intervenes when workers get stuck or diverge.
+
+Enable it in `WORKFLOW.md`:
+
+```yaml
+supervisor:
+  enabled: true
+  model: anthropic/claude-sonnet-4-6   # optional; defaults to kata_agent.model when omitted
+  steer_cooldown_ms: 120000            # minimum delay between steers to the same issue
+```
+
+When enabled, the supervisor:
+
+- Detects stuck workers (repeated tool errors, no-progress streaks, repeated test failures) and emits `supervisor_steer`
+- Detects cross-worker conflicts (shared file overlap, contradictory context decisions) and emits `supervisor_conflict_detected`
+- Detects systemic multi-worker failures and emits `supervisor_pattern_detected`
+- Escalates unresolved situations to humans via the escalation registry and emits `supervisor_escalated`
+
+Safety defaults:
+
+- Disabled by default (`supervisor.enabled: false`)
+- Cooldown enforced per worker (`steer_cooldown_ms`)
+- Coordination prefers shared context writes before steering
+- Escalates when conflict/pattern resolution is uncertain
+
+Runtime visibility:
+
+- `GET /api/v1/state` includes a `supervisor` section (status + counters + last decision)
+- Web dashboard shows a dedicated **Supervisor** section
+- TUI summary line shows supervisor status and action counters
 
 ## Lifecycle Hooks
 
@@ -541,13 +575,13 @@ Each host must have the agent backend (Kata CLI or Codex) installed and on PATH.
 
 Available at `http://localhost:<port>`. Auto-refreshes every 2 seconds.
 
-Shows: running sessions (with turn count, token usage, last activity), retry queue, shared context table (author/scope/preview/age/TTL), completed issues, polling stats, rate limits, and a link to the Linear project.
+Shows: running sessions (with turn count, token usage, last activity), retry queue, shared context table (author/scope/preview/age/TTL), supervisor status/counters, completed issues, polling stats, rate limits, and a link to the Linear project.
 
 HTTP surfaces:
 
 | Endpoint | Purpose |
 | --- | --- |
-| `GET /api/v1/state` | Full orchestrator snapshot JSON (includes `pending_escalations` and `shared_context` summary) |
+| `GET /api/v1/state` | Full orchestrator snapshot JSON (includes `pending_escalations`, `shared_context`, and `supervisor` summary) |
 | `GET /api/v1/context` | List active shared context entries (optional `scope` filter) |
 | `POST /api/v1/context` | Write a shared context entry |
 | `DELETE /api/v1/context/{id}` | Delete a specific shared context entry |

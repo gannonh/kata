@@ -1001,7 +1001,9 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
     };
 
     let supervisor = SupervisorConfig {
-        enabled: raw_supervisor.enabled.unwrap_or(defaults.supervisor.enabled),
+        enabled: raw_supervisor
+            .enabled
+            .unwrap_or(defaults.supervisor.enabled),
         model: raw_supervisor
             .model
             .map(|value| resolve_env(&value))

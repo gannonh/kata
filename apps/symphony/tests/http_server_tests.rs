@@ -256,6 +256,14 @@ async fn test_get_root_returns_html_dashboard_shell_with_structured_sections() {
         "dashboard shell should include shared context section"
     );
     assert!(
+        body.contains("Supervisor"),
+        "dashboard shell should include supervisor section"
+    );
+    assert!(
+        body.contains(r#"id="supervisor-status-detail""#),
+        "dashboard shell should include supervisor status detail field"
+    );
+    assert!(
         body.contains("Completed issues"),
         "dashboard shell should include completed issue list section"
     );
@@ -338,6 +346,7 @@ async fn test_get_api_state_returns_snapshot_projection() {
     );
     assert_eq!(payload["retry_queue"][0]["identifier"], "SIM-777");
     assert_eq!(payload["shared_context"]["total_entries"], 1);
+    assert_eq!(payload["supervisor"]["status"], "disabled");
     assert_eq!(payload["codex_totals"]["total_tokens"], 200);
     assert_eq!(payload["codex_rate_limits"]["remaining"], 88);
     assert_eq!(

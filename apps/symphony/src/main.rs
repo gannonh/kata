@@ -606,7 +606,7 @@ fn run_runtime_until_shutdown(
                 }
             };
 
-            tokio::select! {
+            let runtime_result = tokio::select! {
                 run_result = orchestrator.run(port) => {
                     run_result.map_err(|err| format!("orchestrator runtime failed: {err}"))?;
                     tracing::info!(
@@ -661,7 +661,10 @@ fn run_runtime_until_shutdown(
                         tui::TuiExitReason::DrawError => Err("tui failed while drawing dashboard".to_string()),
                     }
                 }
-            }
+            };
+
+            orchestrator.shutdown_supervisor().await;
+            runtime_result
         })
     })
 }

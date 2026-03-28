@@ -568,6 +568,7 @@ Core Rust modules:
 | --- | --- | --- |
 | CLI/runtime entrypoint | `src/main.rs` | CLI parsing, startup validation, tracing setup, runtime wiring |
 | Orchestrator loop | `src/orchestrator.rs` | Poll/dispatch loop, retries, worker lifecycle, state snapshots |
+| Supervisor runtime | `src/supervisor.rs` | Background supervisor lifecycle, stuck/conflict/pattern detection, steering + escalation decisions |
 | HTTP dashboard/API | `src/http_server.rs` | `/`, `/api/v1/state`, `/api/v1/events` websocket stream, `/api/v1/escalations`, `/api/v1/escalations/:request_id/respond`, `/api/v1/:issue_identifier`, refresh endpoint, dashboard Linear project link card |
 | Terminal dashboard | `src/tui.rs` | Ratatui renderer with throughput sparkline, color-coded status dots, keyboard handling, and live snapshot display |
 | Workflow/config parser | `src/workflow.rs`, `src/config.rs` | Front-matter parsing, env/tilde resolution, typed config defaults |

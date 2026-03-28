@@ -24,6 +24,7 @@ use crate::pi_agent::rpc_bridge;
 use crate::session_summary::{compact_session_id, normalize_whitespace, truncate_for_display};
 use crate::shared_context::SharedContextStore;
 use crate::ssh::{self, WorkerHostSelection};
+use crate::supervisor::{SupervisorAgent, SupervisorDependencies};
 use crate::workflow_store::WorkflowStore;
 use crate::{docker, path_safety, prompt_builder, workspace};
 
@@ -1426,6 +1427,8 @@ pub struct Orchestrator {
     escalation_registry: EscalationRegistry,
     /// Shared ephemeral cross-worker context store.
     shared_context_store: SharedContextStore,
+    /// Optional supervisor lifecycle controller.
+    supervisor_agent: Option<SupervisorAgent>,
     /// The prompt template from the WORKFLOW.md body, used to render per-issue prompts.
     prompt_template: String,
 }
@@ -1506,6 +1509,7 @@ impl Orchestrator {
                 shared_context_ttl_ms,
                 shared_context_max_entries,
             ),
+            supervisor_agent: None,
             prompt_template,
         }
     }
@@ -1602,6 +1606,7 @@ impl Orchestrator {
 
     pub async fn run(&mut self, port: &mut dyn OrchestratorPort) -> Result<()> {
         self.startup_cleanup(port)?;
+        self.sync_supervisor_lifecycle().await;
         self.publish_snapshot();
         let mut next_poll_due = tokio::time::Instant::now();
         let mut tick_requested = true;
@@ -1610,6 +1615,7 @@ impl Orchestrator {
             let now = tokio::time::Instant::now();
             if tick_requested || now >= next_poll_due {
                 self.refresh_runtime_config();
+                self.sync_supervisor_lifecycle().await;
 
                 let now_ms = Utc::now().timestamp_millis();
                 let stall_timeout_ms =
@@ -3141,10 +3147,73 @@ impl Orchestrator {
     }
 
     fn supervisor_snapshot(&self) -> SupervisorSnapshot {
+        if let Some(supervisor) = &self.supervisor_agent {
+            return supervisor.snapshot();
+        }
+
         if self.config.supervisor.enabled {
             SupervisorSnapshot::idle(self.config.supervisor.model.clone())
         } else {
             SupervisorSnapshot::disabled(self.config.supervisor.model.clone())
+        }
+    }
+
+    pub fn supervisor_is_running(&self) -> bool {
+        self.supervisor_agent
+            .as_ref()
+            .is_some_and(SupervisorAgent::is_running)
+    }
+
+    pub fn ensure_supervisor_running(&mut self) -> Result<()> {
+        if !self.config.supervisor.enabled {
+            return Ok(());
+        }
+
+        if self.supervisor_agent.is_some() {
+            return Ok(());
+        }
+
+        let event_hub = self.create_event_hub();
+        let deps = SupervisorDependencies::new(
+            event_hub,
+            self.shared_context_store.clone(),
+            self.escalation_registry.clone(),
+        );
+
+        let mut supervisor = SupervisorAgent::new(self.config.supervisor.clone(), deps);
+        supervisor.start()?;
+
+        tracing::info!(
+            event = "supervisor_started",
+            cooldown_ms = self.config.supervisor.steer_cooldown_ms,
+            "supervisor started from orchestrator lifecycle"
+        );
+
+        self.supervisor_agent = Some(supervisor);
+        Ok(())
+    }
+
+    pub async fn shutdown_supervisor(&mut self) {
+        if let Some(mut supervisor) = self.supervisor_agent.take() {
+            supervisor.stop().await;
+            tracing::info!(
+                event = "supervisor_stopped",
+                "supervisor stopped from orchestrator lifecycle"
+            );
+        }
+    }
+
+    async fn sync_supervisor_lifecycle(&mut self) {
+        if self.config.supervisor.enabled {
+            if let Err(err) = self.ensure_supervisor_running() {
+                tracing::warn!(
+                    event = "supervisor_start_failed",
+                    error = %err,
+                    "failed to start supervisor"
+                );
+            }
+        } else {
+            self.shutdown_supervisor().await;
         }
     }
 
@@ -4134,6 +4203,14 @@ impl Orchestrator {
 
 fn event_timestamp_ms(event: &AgentEvent) -> i64 {
     event_timestamp(event).timestamp_millis()
+}
+
+impl Drop for Orchestrator {
+    fn drop(&mut self) {
+        if let Some(supervisor) = self.supervisor_agent.as_mut() {
+            supervisor.abort();
+        }
+    }
 }
 
 fn event_timestamp(event: &AgentEvent) -> DateTime<Utc> {

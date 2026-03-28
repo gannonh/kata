@@ -137,7 +137,8 @@ mod lifecycle {
 
     #[test]
     fn disabled_supervisor_start_is_noop() {
-        let (mut supervisor, _hub, _store, _registry) = make_supervisor(SupervisorConfig::default());
+        let (mut supervisor, _hub, _store, _registry) =
+            make_supervisor(SupervisorConfig::default());
 
         supervisor
             .start()
@@ -405,8 +406,7 @@ mod conflict_detection {
         let pending = registry.pending_snapshot();
         assert_eq!(pending.len(), 1, "expected one pending escalation");
         assert!(
-            pending[0].issue_identifier == "KAT-3101"
-                || pending[0].issue_identifier == "KAT-3102",
+            pending[0].issue_identifier == "KAT-3101" || pending[0].issue_identifier == "KAT-3102",
             "expected escalation to reference one of the conflicting issues, got {:?}",
             pending[0].issue_identifier
         );
@@ -488,7 +488,10 @@ mod failure_pattern {
         .await;
 
         assert_eq!(pattern_event.kind, EventKind::SupervisorPatternDetected);
-        assert_eq!(pattern_event.payload["pattern_type"], "shared_error_signature");
+        assert_eq!(
+            pattern_event.payload["pattern_type"],
+            "shared_error_signature"
+        );
 
         let warnings = store
             .list()
@@ -583,5 +586,80 @@ mod failure_pattern {
         assert!(pattern.is_err(), "unexpected pattern event: {pattern:?}");
 
         supervisor.stop().await;
+    }
+}
+
+mod integration {
+    use super::*;
+    use symphony::domain::ServiceConfig;
+    use symphony::orchestrator::Orchestrator;
+
+    async fn wait_for_status(orchestrator: &Orchestrator, expected: SupervisorStatus) {
+        for _ in 0..50 {
+            if orchestrator
+                .snapshot(Utc::now().timestamp_millis())
+                .supervisor
+                .status
+                == expected
+            {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+
+        panic!(
+            "supervisor did not reach status {:?}, last snapshot={:?}",
+            expected,
+            orchestrator
+                .snapshot(Utc::now().timestamp_millis())
+                .supervisor
+        );
+    }
+
+    #[tokio::test]
+    async fn orchestrator_lifecycle_starts_supervisor_and_exposes_snapshot_stats() {
+        let mut config = ServiceConfig::default();
+        config.supervisor = SupervisorConfig {
+            enabled: true,
+            model: Some("anthropic/claude-sonnet-4-6".to_string()),
+            steer_cooldown_ms: 120_000,
+        };
+
+        let mut orchestrator = Orchestrator::new(config, "prompt".to_string());
+        let hub = orchestrator.create_event_hub();
+        let mut rx = hub.subscribe();
+
+        orchestrator
+            .ensure_supervisor_running()
+            .expect("orchestrator should start supervisor");
+        assert!(
+            orchestrator.supervisor_is_running(),
+            "supervisor should report running after start"
+        );
+
+        wait_for_status(&orchestrator, SupervisorStatus::Active).await;
+
+        hub.send(envelope("KAT-5001", "tool_error", "bash cargo test --all"));
+        hub.send(envelope("KAT-5001", "tool_error", "bash cargo test --all"));
+        hub.send(envelope("KAT-5001", "tool_error", "bash cargo test --all"));
+
+        let steer = recv_event_with_name(&mut rx, "supervisor_steer", Duration::from_secs(1)).await;
+        assert_eq!(steer.kind, EventKind::SupervisorSteer);
+
+        let live_snapshot = orchestrator.snapshot(Utc::now().timestamp_millis());
+        assert_eq!(live_snapshot.supervisor.status, SupervisorStatus::Active);
+        assert_eq!(live_snapshot.supervisor.steers_issued, 1);
+
+        orchestrator.shutdown_supervisor().await;
+        assert!(
+            !orchestrator.supervisor_is_running(),
+            "supervisor should stop after orchestrator shutdown hook"
+        );
+
+        let stopped_snapshot = orchestrator.snapshot(Utc::now().timestamp_millis());
+        assert_eq!(
+            stopped_snapshot.supervisor.status,
+            SupervisorStatus::Stopped
+        );
     }
 }

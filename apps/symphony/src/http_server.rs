@@ -18,7 +18,7 @@ use crate::domain::{
     CodexTotals, ContextEntry, ContextScope, EventFilter, EventKind, EventSeverity,
     OrchestratorSnapshot, PendingEscalation, PollingSnapshot, RefreshRequestOutcome,
     RetrySnapshotEntry, RunAttempt, RunningSessionSnapshot, SharedContextSummary,
-    SymphonyEventEnvelope, WorkerSessionInfo,
+    SupervisorSnapshot, SymphonyEventEnvelope, WorkerSessionInfo,
 };
 use crate::event_stream::EventHub;
 use crate::orchestrator::{
@@ -282,6 +282,7 @@ struct StateResponse {
     pending_escalations: Vec<PendingEscalation>,
     completed: Vec<crate::domain::CompletedEntry>,
     shared_context: SharedContextSummary,
+    supervisor: SupervisorSnapshot,
     codex_totals: CodexTotals,
     codex_rate_limits: Option<serde_json::Value>,
     polling: PollingSnapshot,
@@ -545,6 +546,13 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
     } else {
         "no"
     };
+    let supervisor_status_label = match snapshot.supervisor.status {
+        crate::domain::SupervisorStatus::Disabled => "⚪ disabled",
+        crate::domain::SupervisorStatus::Starting => "🟡 starting",
+        crate::domain::SupervisorStatus::Active => "🟢 active",
+        crate::domain::SupervisorStatus::Stopped => "⚫ stopped",
+        crate::domain::SupervisorStatus::Failed => "🔴 failed",
+    };
     let linear_project_card = snapshot
         .linear_project_url
         .as_deref()
@@ -613,6 +621,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
     <section class="card"><div class="label">retry</div><div class="value" id="retry-count">{retry_count}</div></section>
     <section class="card"><div class="label">claimed</div><div class="value" id="claimed-count">{claimed_count}</div></section>
     <section class="card"><div class="label">completed</div><div class="value" id="completed-count">{completed_count}</div></section>
+    <section class="card"><div class="label">supervisor</div><div class="mono" id="supervisor-status">{supervisor_status_label}</div></section>
     <div id="linear-project-card">{linear_project_card}</div>
   </div>
 
@@ -729,6 +738,19 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
         </table>
       </div>
     </details>
+  </section>
+
+  <section class="card section">
+    <h2>Supervisor</h2>
+    <div class="polling-grid">
+      <div><div class="label">status</div><div class="mono" id="supervisor-status-detail">{supervisor_status_label}</div></div>
+      <div><div class="label">steers</div><div class="mono" id="supervisor-steers">0</div></div>
+      <div><div class="label">conflicts</div><div class="mono" id="supervisor-conflicts">0</div></div>
+      <div><div class="label">patterns</div><div class="mono" id="supervisor-patterns">0</div></div>
+      <div><div class="label">escalations</div><div class="mono" id="supervisor-escalations">0</div></div>
+      <div><div class="label">last decision</div><div class="mono" id="supervisor-last-decision">n/a</div></div>
+      <div><div class="label">last action</div><div class="mono" id="supervisor-last-action">n/a</div></div>
+    </div>
   </section>
 
   <section class="card section">
@@ -1024,6 +1046,28 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
         '</a></div></section>';
     }}
 
+    function formatSupervisorStatus(supervisor) {{
+      const status = (supervisor && supervisor.status) || 'disabled';
+      if (status === 'active') return '🟢 active';
+      if (status === 'starting') return '🟡 starting';
+      if (status === 'failed') return '🔴 failed';
+      if (status === 'stopped') return '⚫ stopped';
+      return '⚪ disabled';
+    }}
+
+    function updateSupervisor(supervisor) {{
+      const data = supervisor || {{}};
+      const status = formatSupervisorStatus(data);
+      document.getElementById('supervisor-status').textContent = status;
+      document.getElementById('supervisor-status-detail').textContent = status;
+      document.getElementById('supervisor-steers').textContent = String(data.steers_issued || 0);
+      document.getElementById('supervisor-conflicts').textContent = String(data.conflicts_detected || 0);
+      document.getElementById('supervisor-patterns').textContent = String(data.patterns_detected || 0);
+      document.getElementById('supervisor-escalations').textContent = String(data.escalations_created || 0);
+      document.getElementById('supervisor-last-decision').textContent = data.last_decision || 'n/a';
+      document.getElementById('supervisor-last-action').textContent = data.last_action_at ? formatDate(data.last_action_at) : 'n/a';
+    }}
+
     function updatePolling(polling) {{
       const poll = polling || {{}};
       document.getElementById('polling-last-poll').textContent = formatDate(poll.last_poll_at);
@@ -1093,6 +1137,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
 
         document.getElementById('completed-list').innerHTML = renderCompleted(completed);
         updateSharedContextSection(sharedContextEntries);
+        updateSupervisor(state.supervisor || {{}});
         document.getElementById('token-input').textContent = state.codex_totals?.input_tokens ?? 0;
         document.getElementById('token-output').textContent = state.codex_totals?.output_tokens ?? 0;
         document.getElementById('token-total').textContent = state.codex_totals?.total_tokens ?? 0;
@@ -1129,6 +1174,7 @@ async fn get_state(State(state): State<HttpServerState>) -> impl IntoResponse {
         pending_escalations: snapshot.pending_escalations,
         completed: snapshot.completed,
         shared_context: snapshot.shared_context,
+        supervisor: snapshot.supervisor,
         codex_totals: snapshot.codex_totals,
         codex_rate_limits: snapshot.codex_rate_limits.map(|r| r.data),
         polling: snapshot.polling,

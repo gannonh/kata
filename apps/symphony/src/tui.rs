@@ -17,7 +17,7 @@ use ratatui::{Frame, Terminal};
 use tokio::sync::watch;
 use tokio::time::MissedTickBehavior;
 
-use crate::domain::OrchestratorSnapshot;
+use crate::domain::{OrchestratorSnapshot, SupervisorStatus};
 use crate::orchestrator::SnapshotHandle;
 use crate::session_summary::{
     compact_session_id as compact_session_id_value, truncate_for_display,
@@ -425,12 +425,35 @@ fn build_summary_lines(snapshot: &OrchestratorSnapshot, throughput_line: &str) -
     }
 
     let mut lines = vec![counts.join("  |  "), throughput_line.to_string()];
+    lines.push(supervisor_summary_line(snapshot));
 
     if let Some(project_url) = snapshot.linear_project_url.as_deref() {
         lines.push(format!("Linear Project: {project_url}"));
     }
 
     lines
+}
+
+fn supervisor_summary_line(snapshot: &OrchestratorSnapshot) -> String {
+    let label = match snapshot.supervisor.status {
+        SupervisorStatus::Disabled => "⚪ disabled",
+        SupervisorStatus::Starting => "🟡 starting",
+        SupervisorStatus::Active => "🟢 active",
+        SupervisorStatus::Stopped => "⚫ stopped",
+        SupervisorStatus::Failed => "🔴 failed",
+    };
+
+    if snapshot.supervisor.status == SupervisorStatus::Disabled {
+        return format!("Supervisor: {label}");
+    }
+
+    format!(
+        "Supervisor: {label} | {} steers | {} conflicts | {} patterns | {} escalations",
+        snapshot.supervisor.steers_issued,
+        snapshot.supervisor.conflicts_detected,
+        snapshot.supervisor.patterns_detected,
+        snapshot.supervisor.escalations_created,
+    )
 }
 
 fn draw_dashboard(
@@ -1270,6 +1293,36 @@ mod tests {
                 .map(|line| line.contains("Context: 5 entries"))
                 .unwrap_or(false),
             "summary line should include shared context count when entries exist"
+        );
+    }
+
+    #[test]
+    fn build_summary_lines_includes_disabled_supervisor_status() {
+        let snapshot = snapshot_fixture(42, None);
+        let lines = build_summary_lines(&snapshot, "Throughput: 0.0 tps ▁▁▁▁▁▁▁▁");
+
+        assert!(
+            lines.iter().any(|line| line == "Supervisor: ⚪ disabled"),
+            "expected supervisor disabled status line in summary"
+        );
+    }
+
+    #[test]
+    fn build_summary_lines_includes_active_supervisor_counters() {
+        let mut snapshot = snapshot_fixture(42, None);
+        snapshot.supervisor.status = crate::domain::SupervisorStatus::Active;
+        snapshot.supervisor.steers_issued = 3;
+        snapshot.supervisor.conflicts_detected = 1;
+        snapshot.supervisor.patterns_detected = 2;
+        snapshot.supervisor.escalations_created = 1;
+
+        let lines = build_summary_lines(&snapshot, "Throughput: 0.0 tps ▁▁▁▁▁▁▁▁");
+        let expected =
+            "Supervisor: 🟢 active | 3 steers | 1 conflicts | 2 patterns | 1 escalations";
+
+        assert!(
+            lines.iter().any(|line| line == expected),
+            "expected active supervisor counters in summary, got {lines:?}"
         );
     }
 
