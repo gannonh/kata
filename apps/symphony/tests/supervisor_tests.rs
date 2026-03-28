@@ -453,3 +453,135 @@ mod conflict_detection {
         supervisor.stop().await;
     }
 }
+
+mod failure_pattern {
+    use super::*;
+
+    #[tokio::test]
+    async fn shared_error_across_workers_emits_pattern_event_and_warning() {
+        let (mut supervisor, hub, store, _registry) = make_supervisor(SupervisorConfig {
+            enabled: true,
+            model: None,
+            steer_cooldown_ms: 120_000,
+        });
+        let mut rx = hub.subscribe();
+
+        supervisor.start().expect("supervisor should start");
+        wait_for_active(&supervisor).await;
+
+        hub.send(envelope(
+            "KAT-4001",
+            "turn_failed",
+            "cargo test failed: unresolved import crate::auth",
+        ));
+        hub.send(envelope(
+            "KAT-4002",
+            "turn_failed",
+            "cargo test failed: unresolved import crate::auth",
+        ));
+
+        let pattern_event = recv_event_with_name(
+            &mut rx,
+            "supervisor_pattern_detected",
+            Duration::from_secs(1),
+        )
+        .await;
+
+        assert_eq!(pattern_event.kind, EventKind::SupervisorPatternDetected);
+        assert_eq!(pattern_event.payload["pattern_type"], "shared_error_signature");
+
+        let warnings = store
+            .list()
+            .into_iter()
+            .filter(|entry| entry.author_issue == "SUPERVISOR")
+            .filter(|entry| entry.content.contains("Systemic failure pattern"))
+            .count();
+        assert!(warnings >= 1, "expected supervisor systemic warning entry");
+
+        supervisor.stop().await;
+    }
+
+    #[tokio::test]
+    async fn persistent_pattern_escalates_after_repeat_signal() {
+        let (mut supervisor, hub, _store, registry) = make_supervisor(SupervisorConfig {
+            enabled: true,
+            model: None,
+            steer_cooldown_ms: 120_000,
+        });
+        let mut rx = hub.subscribe();
+
+        supervisor.start().expect("supervisor should start");
+        wait_for_active(&supervisor).await;
+
+        hub.send(envelope(
+            "KAT-4101",
+            "turn_failed",
+            "cargo test failed: missing dependency serde_json",
+        ));
+        hub.send(envelope(
+            "KAT-4102",
+            "turn_failed",
+            "cargo test failed: missing dependency serde_json",
+        ));
+
+        let _pattern_event = recv_event_with_name(
+            &mut rx,
+            "supervisor_pattern_detected",
+            Duration::from_secs(1),
+        )
+        .await;
+
+        hub.send(envelope(
+            "KAT-4101",
+            "turn_failed",
+            "cargo test failed: missing dependency serde_json",
+        ));
+
+        let escalated =
+            recv_event_with_name(&mut rx, "supervisor_escalated", Duration::from_secs(1)).await;
+        assert_eq!(escalated.kind, EventKind::SupervisorEscalated);
+
+        let pending = registry.pending_snapshot();
+        assert_eq!(pending.len(), 1, "expected one pending escalation");
+
+        supervisor.stop().await;
+    }
+
+    #[tokio::test]
+    async fn distinct_errors_do_not_emit_pattern_event() {
+        let (mut supervisor, hub, _store, _registry) = make_supervisor(SupervisorConfig {
+            enabled: true,
+            model: None,
+            steer_cooldown_ms: 120_000,
+        });
+        let mut rx = hub.subscribe();
+
+        supervisor.start().expect("supervisor should start");
+        wait_for_active(&supervisor).await;
+
+        hub.send(envelope(
+            "KAT-4201",
+            "turn_failed",
+            "cargo test failed: unresolved import crate::alpha",
+        ));
+        hub.send(envelope(
+            "KAT-4202",
+            "turn_failed",
+            "cargo test failed: unresolved import crate::beta",
+        ));
+
+        let pattern = tokio::time::timeout(Duration::from_millis(300), async {
+            loop {
+                let envelope = rx.recv().await.expect("event should be readable");
+                if envelope.event == "supervisor_pattern_detected" {
+                    return envelope;
+                }
+            }
+        })
+        .await;
+
+        assert!(pattern.is_err(), "unexpected pattern event: {pattern:?}");
+
+        supervisor.stop().await;
+    }
+}

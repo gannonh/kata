@@ -24,6 +24,8 @@ const NO_PROGRESS_EVENT_THRESHOLD: u32 = 5;
 const REPEATED_TEST_FAILURE_THRESHOLD: u32 = 2;
 const FILE_CONFLICT_WINDOW_MS: i64 = 300_000;
 const CONFLICT_DEDUP_WINDOW_MS: i64 = 120_000;
+const SYSTEMIC_PATTERN_WINDOW_MS: i64 = 300_000;
+const SYSTEMIC_PATTERN_PERSISTENCE_THRESHOLD: u32 = 2;
 const SUPERVISOR_ESCALATION_TIMEOUT_MS: u64 = 300_000;
 
 static FILE_PATH_RE: LazyLock<Regex> = LazyLock::new(|| {
@@ -59,6 +61,14 @@ struct SupervisorRuntimeState {
     workers: HashMap<String, WorkerModel>,
     recent_conflicts: HashMap<String, DateTime<Utc>>,
     escalated_context_conflicts: HashMap<String, DateTime<Utc>>,
+    error_patterns: HashMap<String, ErrorPatternTracker>,
+}
+
+#[derive(Debug, Default)]
+struct ErrorPatternTracker {
+    affected_issues: HashMap<String, DateTime<Utc>>,
+    detections: u32,
+    escalated: bool,
 }
 
 #[derive(Debug, Default)]
@@ -261,6 +271,7 @@ impl SupervisorAgent {
                 workers: HashMap::new(),
                 recent_conflicts: HashMap::new(),
                 escalated_context_conflicts: HashMap::new(),
+                error_patterns: HashMap::new(),
             })),
             shutdown_tx: None,
             task: None,
@@ -452,6 +463,16 @@ fn process_envelope(
             worker.observe_event(&envelope)
         };
 
+        if let Some(pattern_signature) = systemic_error_signature(&envelope) {
+            maybe_handle_failure_pattern(
+                &mut guard,
+                deps,
+                &issue_identifier,
+                &pattern_signature,
+                now,
+            );
+        }
+
         maybe_emit_stuck_steer(&mut guard, config, deps, &issue_identifier, now);
 
         if let Some(path) = edited_path {
@@ -584,6 +605,101 @@ fn maybe_handle_file_conflict(
     }
 }
 
+fn maybe_handle_failure_pattern(
+    state: &mut SupervisorRuntimeState,
+    deps: &SupervisorDependencies,
+    issue_identifier: &str,
+    signature: &str,
+    now: DateTime<Utc>,
+) {
+    let mut affected_issues: Vec<String> = Vec::new();
+    let mut should_emit_pattern = false;
+    let mut should_escalate = false;
+
+    {
+        let tracker = state
+            .error_patterns
+            .entry(signature.to_string())
+            .or_default();
+        tracker
+            .affected_issues
+            .insert(issue_identifier.to_string(), now);
+        tracker
+            .affected_issues
+            .retain(|_, seen_at| now.signed_duration_since(*seen_at).num_milliseconds() < SYSTEMIC_PATTERN_WINDOW_MS);
+
+        if tracker.affected_issues.len() >= 2 {
+            tracker.detections = tracker.detections.saturating_add(1);
+            affected_issues = tracker.affected_issues.keys().cloned().collect();
+            affected_issues.sort();
+
+            if tracker.detections == 1 {
+                should_emit_pattern = true;
+            } else if tracker.detections >= SYSTEMIC_PATTERN_PERSISTENCE_THRESHOLD
+                && !tracker.escalated
+            {
+                should_escalate = true;
+                tracker.escalated = true;
+            }
+        }
+    }
+
+    if !should_emit_pattern && !should_escalate {
+        return;
+    }
+
+    if should_emit_pattern {
+        state.snapshot.patterns_detected = state.snapshot.patterns_detected.saturating_add(1);
+        state.snapshot.last_decision = Some(format!(
+            "systemic pattern detected across {} workers",
+            affected_issues.len()
+        ));
+        state.snapshot.last_action_at = Some(Utc::now());
+
+        deps.shared_context_store.write_entry(ContextEntryDraft {
+            author_issue: "SUPERVISOR".to_string(),
+            scope: ContextScope::Project,
+            content: format!(
+                "⚠️ Systemic failure pattern detected across workers [{}]: {}",
+                affected_issues.join(", "),
+                signature
+            ),
+            ttl_ms: Some(30 * 60 * 1000),
+        });
+
+        deps.event_hub.publish(
+            EventKind::SupervisorPatternDetected,
+            EventSeverity::Warn,
+            Some(issue_identifier.to_string()),
+            "supervisor_pattern_detected",
+            serde_json::json!({
+                "pattern_type": "shared_error_signature",
+                "signature": signature,
+                "affected_issues": affected_issues,
+            }),
+        );
+    }
+
+    if should_escalate {
+        state.snapshot.escalations_created = state.snapshot.escalations_created.saturating_add(1);
+        state.snapshot.last_decision = Some(format!(
+            "systemic pattern escalated: {}",
+            truncate_for_display(signature, 80)
+        ));
+        state.snapshot.last_action_at = Some(Utc::now());
+
+        emit_supervisor_escalation(
+            deps,
+            issue_identifier,
+            "systemic_failure_pattern",
+            serde_json::json!({
+                "signature": signature,
+                "affected_issues": affected_issues,
+            }),
+        );
+    }
+}
+
 fn maybe_handle_context_conflict(
     state: &mut SupervisorRuntimeState,
     deps: &SupervisorDependencies,
@@ -603,37 +719,43 @@ fn maybe_handle_context_conflict(
         return;
     }
 
+    let issue_a = conflict.issue_a.clone();
+    let issue_b = conflict.issue_b.clone();
+    let scope_key = conflict.scope_key.clone();
+    let decision_a = conflict.decision_a.clone();
+    let decision_b = conflict.decision_b.clone();
+
     state.snapshot.conflicts_detected = state.snapshot.conflicts_detected.saturating_add(1);
     state.snapshot.escalations_created = state.snapshot.escalations_created.saturating_add(1);
     state.snapshot.last_decision = Some(format!(
         "context conflict escalated: {} vs {} ({})",
-        conflict.issue_a, conflict.issue_b, conflict.scope_key
+        issue_a, issue_b, scope_key
     ));
     state.snapshot.last_action_at = Some(Utc::now());
 
     deps.event_hub.publish(
         EventKind::SupervisorConflictDetected,
         EventSeverity::Warn,
-        Some(conflict.issue_a.clone()),
+        Some(issue_a.clone()),
         "supervisor_conflict_detected",
         serde_json::json!({
-            "issues": [conflict.issue_a, conflict.issue_b],
+            "issues": [issue_a.clone(), issue_b.clone()],
             "conflict_type": "context_decision_conflict",
-            "scope": conflict.scope_key,
-            "decisions": [conflict.decision_a, conflict.decision_b],
+            "scope": scope_key.clone(),
+            "decisions": [decision_a.clone(), decision_b.clone()],
         }),
     );
 
     emit_supervisor_escalation(
         deps,
-        &conflict.issue_a,
+        &issue_a,
         "context_decision_conflict",
         serde_json::json!({
-            "scope": conflict.scope_key,
-            "issue_a": conflict.issue_a,
-            "issue_b": conflict.issue_b,
-            "decision_a": conflict.decision_a,
-            "decision_b": conflict.decision_b,
+            "scope": scope_key,
+            "issue_a": issue_a,
+            "issue_b": issue_b,
+            "decision_a": decision_a,
+            "decision_b": decision_b,
         }),
     );
 }
@@ -835,6 +957,20 @@ fn tool_error_signature(summary: Option<&str>) -> String {
         .map(normalize_whitespace)
         .unwrap_or_else(|| "tool_error".to_string());
     truncate_for_display(&normalized, 80)
+}
+
+fn systemic_error_signature(envelope: &SymphonyEventEnvelope) -> Option<String> {
+    if !is_error_event(&envelope.event) {
+        return None;
+    }
+
+    let summary = event_summary_text(envelope)?;
+    let normalized = summary.to_ascii_lowercase();
+    if normalized.len() < 6 {
+        return None;
+    }
+
+    Some(truncate_for_display(&normalized, 120))
 }
 
 fn file_edit_path(envelope: &SymphonyEventEnvelope, summary: Option<&str>) -> Option<String> {
