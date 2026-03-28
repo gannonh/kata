@@ -35,12 +35,12 @@ symphony [WORKFLOW.md] [--port PORT] [--logs-root PATH] [--no-tui]
 
 ### CLI Flag Reference
 
-| Flag                                                                    | Type | Default       | Description                                                                                                                          |
-| ----------------------------------------------------------------------- | ---- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `WORKFLOW.md` (positional)                                              | path | `WORKFLOW.md` | Path to the WORKFLOW.md configuration file                                                                                           |
-| `--port PORT`                                                           | u16  | `8080`        | Bind the HTTP dashboard and API on this port. Overrides `server.port` in the workflow file.                                         |
-| `--logs-root PATH`                                                      | path | _(none)_      | Directory root for agent log files.                                                                                                  |
-| `--no-tui`                                                              | flag | `false`       | Disable the Ratatui terminal dashboard. Without this flag, TUI is enabled by default and stdout logs are suppressed unless logs write to files. |
+| Flag                       | Type | Default       | Description                                                                                                                                     |
+| -------------------------- | ---- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `WORKFLOW.md` (positional) | path | `WORKFLOW.md` | Path to the WORKFLOW.md configuration file                                                                                                      |
+| `--port PORT`              | u16  | `8080`        | Bind the HTTP dashboard and API on this port. Overrides `server.port` in the workflow file.                                                     |
+| `--logs-root PATH`         | path | _(none)_      | Directory root for agent log files.                                                                                                             |
+| `--no-tui`                 | flag | `false`       | Disable the Ratatui terminal dashboard. Without this flag, TUI is enabled by default and stdout logs are suppressed unless logs write to files. |
 
 ### Exit Codes
 
@@ -82,16 +82,16 @@ is at `docs/WORKFLOW-REFERENCE.md`. Copy it to your project root as
 
 #### `tracker` section
 
-| Field                     | Type     | Default                                                    | Description                                                                                          |
-| ------------------------- | -------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `tracker.kind`            | string   | _(required)_                                               | Must be `"linear"`.                                                                                  |
-| `tracker.api_key`         | string   | _(required)_                                               | Linear personal API key. Supports `$VAR` env-var indirection (e.g. `$LINEAR_API_KEY`). Never logged. |
-| `tracker.project_slug`    | string   | _(required)_                                               | Linear project URL slug (the identifier shown in project URLs). Supports `$VAR` indirection.         |
+| Field                     | Type     | Default                                                    | Description                                                                                                                                      |
+| ------------------------- | -------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `tracker.kind`            | string   | _(required)_                                               | Must be `"linear"`.                                                                                                                              |
+| `tracker.api_key`         | string   | _(required)_                                               | Linear personal API key. Supports `$VAR` env-var indirection (e.g. `$LINEAR_API_KEY`). Never logged.                                             |
+| `tracker.project_slug`    | string   | _(required)_                                               | Linear project URL slug (the identifier shown in project URLs). Supports `$VAR` indirection.                                                     |
 | `tracker.workspace_slug`  | string   | `"kata-sh"`                                                | Linear workspace slug used when building dashboard project links (`https://linear.app/<workspace>/project/<slug>`). Supports `$VAR` indirection. |
-| `tracker.endpoint`        | string   | `https://api.linear.app/graphql`                           | Linear GraphQL endpoint. Override for self-hosted Linear.                                            |
-| `tracker.assignee`        | string   | _(none)_                                                   | Filter candidate issues to this Linear username. Supports `$VAR` indirection.                        |
-| `tracker.active_states`   | string[] | `["Todo", "In Progress"]`                                  | Issue states that are eligible for dispatch.                                                         |
-| `tracker.terminal_states` | string[] | `["Closed", "Cancelled", "Canceled", "Duplicate", "Done"]` | Issue states that mark an agent run as complete.                                                     |
+| `tracker.endpoint`        | string   | `https://api.linear.app/graphql`                           | Linear GraphQL endpoint. Override for self-hosted Linear.                                                                                        |
+| `tracker.assignee`        | string   | _(none)_                                                   | Filter candidate issues to this Linear username. Supports `$VAR` indirection.                                                                    |
+| `tracker.active_states`   | string[] | `["Todo", "In Progress"]`                                  | Issue states that are eligible for dispatch.                                                                                                     |
+| `tracker.terminal_states` | string[] | `["Closed", "Cancelled", "Canceled", "Duplicate", "Done"]` | Issue states that mark an agent run as complete.                                                                                                 |
 
 #### `polling` section
 
@@ -101,33 +101,32 @@ is at `docs/WORKFLOW-REFERENCE.md`. Copy it to your project root as
 
 #### `workspace` section
 
-| Field                       | Type   | Default                       | Description                                                                                                                          |
-| --------------------------- | ------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `workspace.root`            | string | `$TMPDIR/symphony_workspaces` | Root directory for per-issue agent workspaces. Supports `~` tilde expansion.                                                         |
-| `workspace.repo`            | string | _(none)_                      | Repository URL or local path to bootstrap into each newly-created workspace.                                                         |
-| `workspace.git_strategy`    | string | `"auto"`                      | Git bootstrap strategy: `"clone-local"`, `"clone-remote"`, `"worktree"`, or `"auto"` (detect local path vs remote URL).            |
-| `workspace.strategy`        | string | _(deprecated)_                | Legacy alias accepted for backward compatibility: `"clone"` maps to `git_strategy: auto`, `"worktree"` maps to `git_strategy: worktree`. |
-| `workspace.isolation`       | string | `"local"`                     | Workspace runtime isolation model: `"local"` or `"docker"` (ephemeral per-issue worker containers).                                    |
-| `workspace.branch_prefix`   | string | `"symphony"`                  | Branch prefix used for auto-created issue branches (`<prefix>/<issue-identifier>`).                                                 |
-| `workspace.clone_branch`    | string | _(none)_                      | Optional source branch for clone-based bootstraps (`clone-local`, `clone-remote`, or `auto` when clone is selected).                |
-| `workspace.base_branch`     | string | `"main"`                      | Base branch used by workflow instructions for merge/rebase/pull targets (for example `origin/{{ workspace.base_branch }}`).          |
-| `workspace.cleanup_on_done` | bool   | `false`                       | Remove the issue workspace when the issue reaches a terminal state. Runs `hooks.before_remove` and ignores cleanup failures.         |
-| `workspace.docker.image`    | string | `"symphony-worker:latest"`    | Base worker image used by Docker isolation mode.                                                                                    |
-| `workspace.docker.setup`    | string | _(none)_                      | Optional setup script path used to build/cache a derived worker image layer.                                                        |
-| `workspace.docker.codex_auth` | string | `"auto"`                    | Docker Codex auth mode: `auto`, `mount`, or `env`.                                                                                 |
-| `workspace.docker.env`      | string[] | `[]`                        | Additional `KEY=value` env entries passed to `docker run`.                                                                          |
-| `workspace.docker.volumes`  | string[] | `[]`                        | Additional bind mounts passed to `docker run`.                                                                                      |
+| Field                         | Type     | Default                       | Description                                                                                                                              |
+| ----------------------------- | -------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `workspace.root`              | string   | `$TMPDIR/symphony_workspaces` | Root directory for per-issue agent workspaces. Supports `~` tilde expansion.                                                             |
+| `workspace.repo`              | string   | _(none)_                      | Repository URL or local path to bootstrap into each newly-created workspace.                                                             |
+| `workspace.git_strategy`      | string   | `"auto"`                      | Git bootstrap strategy: `"clone-local"`, `"clone-remote"`, `"worktree"`, or `"auto"` (detect local path vs remote URL).                  |
+| `workspace.strategy`          | string   | _(deprecated)_                | Legacy alias accepted for backward compatibility: `"clone"` maps to `git_strategy: auto`, `"worktree"` maps to `git_strategy: worktree`. |
+| `workspace.isolation`         | string   | `"local"`                     | Workspace runtime isolation model: `"local"` or `"docker"` (ephemeral per-issue worker containers).                                      |
+| `workspace.branch_prefix`     | string   | `"symphony"`                  | Branch prefix used for auto-created issue branches (`<prefix>/<issue-identifier>`).                                                      |
+| `workspace.clone_branch`      | string   | _(none)_                      | Optional source branch for clone-based bootstraps (`clone-local`, `clone-remote`, or `auto` when clone is selected).                     |
+| `workspace.base_branch`       | string   | `"main"`                      | Base branch used by workflow instructions for merge/rebase/pull targets (for example `origin/{{ workspace.base_branch }}`).              |
+| `workspace.cleanup_on_done`   | bool     | `false`                       | Remove the issue workspace when the issue reaches a terminal state. Runs `hooks.before_remove` and ignores cleanup failures.             |
+| `workspace.docker.image`      | string   | `"symphony-worker:latest"`    | Base worker image used by Docker isolation mode.                                                                                         |
+| `workspace.docker.setup`      | string   | _(none)_                      | Optional setup script path used to build/cache a derived worker image layer.                                                             |
+| `workspace.docker.codex_auth` | string   | `"auto"`                      | Docker Codex auth mode: `auto`, `mount`, or `env`.                                                                                       |
+| `workspace.docker.env`        | string[] | `[]`                          | Additional `KEY=value` env entries passed to `docker run`.                                                                               |
+| `workspace.docker.volumes`    | string[] | `[]`                          | Additional bind mounts passed to `docker run`.                                                                                           |
 
 #### `agent` section
 
-| Field                                  | Type               | Default  | Description                                                                                                                    |
-| -------------------------------------- | ------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `agent.max_concurrent_agents`          | u32                | `10`     | Global cap on simultaneously running agent sessions.                                                                           |
-| `agent.max_turns`                      | u32                | `20`     | Maximum prompt turns per session attempt before the worker run ends.                                                           |
-| `agent.max_retry_backoff_ms`           | u64                | `300000` | Maximum exponential back-off delay (ms) between retries.                                                                       |
-| `agent.escalation_timeout_ms`          | u64                | `300000` | Timeout (ms) to wait for a human escalation response before falling back to auto-cancel/reject behavior.                      |
-| `agent.backend`                        | string             | `"codex"`| Runtime backend: `"codex"` (Codex app-server) or `"kata-cli"` (alias: `"kata"`) for Kata RPC.                             |
-
+| Field                         | Type   | Default   | Description                                                                                              |
+| ----------------------------- | ------ | --------- | -------------------------------------------------------------------------------------------------------- |
+| `agent.max_concurrent_agents` | u32    | `10`      | Global cap on simultaneously running agent sessions.                                                     |
+| `agent.max_turns`             | u32    | `20`      | Maximum prompt turns per session attempt before the worker run ends.                                     |
+| `agent.max_retry_backoff_ms`  | u64    | `300000`  | Maximum exponential back-off delay (ms) between retries.                                                 |
+| `agent.escalation_timeout_ms` | u64    | `300000`  | Timeout (ms) to wait for a human escalation response before falling back to auto-cancel/reject behavior. |
+| `agent.backend`               | string | `"codex"` | Runtime backend: `"codex"` (Codex app-server) or `"kata-cli"` (alias: `"kata"`) for Kata RPC.            |
 
 #### `codex` section
 
@@ -143,15 +142,15 @@ is at `docs/WORKFLOW-REFERENCE.md`. Copy it to your project root as
 
 #### `kata_agent` section (`pi_agent` alias)
 
-| Field                             | Type               | Default  | Description                                                                                               |
-| --------------------------------- | ------------------ | -------- | --------------------------------------------------------------------------------------------------------- |
-| `kata_agent.command` (`pi_agent.command`)              | string or string[] | `["kata"]` | Kata CLI executable and base args. Symphony appends `--mode rpc --cwd <workspace>`.                    |
-| `kata_agent.model` (`pi_agent.model`)                  | string             | _(none)_ | Optional default model override passed as `--model`.                                                     |
-| `kata_agent.model_by_state` (`pi_agent.model_by_state`) | map<string, string> | `{}`    | Optional per-Linear-state model overrides. Keys are lowercased state names; falls back to `model`.      |
-| `kata_agent.no_session` (`pi_agent.no_session`)        | bool               | `true`   | Pass `--no-session` to disable persistent session storage.                                               |
-| `kata_agent.append_system_prompt` (`pi_agent.append_system_prompt`) | string             | _(none)_ | Optional path passed via `--append-system-prompt`.                                                       |
-| `kata_agent.read_timeout_ms` (`pi_agent.read_timeout_ms`)      | u64                | `5000`   | Timeout waiting for Kata CLI process output (ms).                                                        |
-| `kata_agent.stall_timeout_ms` (`pi_agent.stall_timeout_ms`)     | u64                | `300000` | Time before a non-progressing Kata CLI session is considered stalled (5 min default).                   |
+| Field                                                               | Type                | Default    | Description                                                                                        |
+| ------------------------------------------------------------------- | ------------------- | ---------- | -------------------------------------------------------------------------------------------------- |
+| `kata_agent.command` (`pi_agent.command`)                           | string or string[]  | `["kata"]` | Kata CLI executable and base args. Symphony appends `--mode rpc --cwd <workspace>`.                |
+| `kata_agent.model` (`pi_agent.model`)                               | string              | _(none)_   | Optional default model override passed as `--model`.                                               |
+| `kata_agent.model_by_state` (`pi_agent.model_by_state`)             | map<string, string> | `{}`       | Optional per-Linear-state model overrides. Keys are lowercased state names; falls back to `model`. |
+| `kata_agent.no_session` (`pi_agent.no_session`)                     | bool                | `true`     | Pass `--no-session` to disable persistent session storage.                                         |
+| `kata_agent.append_system_prompt` (`pi_agent.append_system_prompt`) | string              | _(none)_   | Optional path passed via `--append-system-prompt`.                                                 |
+| `kata_agent.read_timeout_ms` (`pi_agent.read_timeout_ms`)           | u64                 | `5000`     | Timeout waiting for Kata CLI process output (ms).                                                  |
+| `kata_agent.stall_timeout_ms` (`pi_agent.stall_timeout_ms`)         | u64                 | `300000`   | Time before a non-progressing Kata CLI session is considered stalled (5 min default).              |
 
 #### `hooks` section
 
@@ -186,10 +185,10 @@ All hooks receive these environment variables:
 
 Optional. Configure outbound webhook notifications for events requiring human attention.
 
-| Field                              | Type     | Default   | Description                                                                                     |
-| ---------------------------------- | -------- | --------- | ----------------------------------------------------------------------------------------------- |
-| `notifications.slack.webhook_url`  | string   | _(none)_  | Slack incoming webhook URL. Supports `$VAR` env-var indirection.                               |
-| `notifications.slack.events`       | string[] | `[]`      | Event filters. State transitions: `todo`, `in_progress`, `agent_review`, `human_review`, `merging`, `rework`, `done`, `closed`, `cancelled`. Runtime events: `stalled`, `failed`. Use `all` for everything. Case-insensitive. Empty list means no notifications. |
+| Field                             | Type     | Default  | Description                                                                                                                                                                                                                                                      |
+| --------------------------------- | -------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `notifications.slack.webhook_url` | string   | _(none)_ | Slack incoming webhook URL. Supports `$VAR` env-var indirection.                                                                                                                                                                                                 |
+| `notifications.slack.events`      | string[] | `[]`     | Event filters. State transitions: `todo`, `in_progress`, `agent_review`, `human_review`, `merging`, `rework`, `done`, `closed`, `cancelled`. Runtime events: `stalled`, `failed`. Use `all` for everything. Case-insensitive. Empty list means no notifications. |
 
 When omitted, notifications are disabled. Messages include a clickable link to the Linear issue.
 
@@ -197,13 +196,13 @@ When omitted, notifications are disabled. Messages include a clickable link to t
 
 Optional. When configured, the orchestrator selects a prompt template based on the issue's Linear state instead of using the monolithic markdown body after `---`.
 
-| Field              | Type              | Default    | Description                                                                                              |
-| ------------------ | ----------------- | ---------- | -------------------------------------------------------------------------------------------------------- |
-| `prompts.system`   | string            | _(none)_   | Path to system-level preamble (agent identity, tool guidance). Injected every turn. Relative to WORKFLOW.md directory. |
-| `prompts.repo`     | string            | _(none)_   | Path to repository-specific context (build commands, layout). Injected every turn. Relative to WORKFLOW.md directory. |
-| `prompts.shared`   | string            | _(none)_   | Legacy single-file preamble. Superseded by `system` + `repo` but still honoured for backward compatibility. |
-| `prompts.by_state` | map<string,string> | `{}`      | Map of Linear state name → prompt file path. State matching is case-insensitive.                         |
-| `prompts.default`  | string            | _(none)_   | Fallback prompt file for states not listed in `by_state`.                                                |
+| Field              | Type               | Default  | Description                                                                                                            |
+| ------------------ | ------------------ | -------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `prompts.system`   | string             | _(none)_ | Path to system-level preamble (agent identity, tool guidance). Injected every turn. Relative to WORKFLOW.md directory. |
+| `prompts.repo`     | string             | _(none)_ | Path to repository-specific context (build commands, layout). Injected every turn. Relative to WORKFLOW.md directory.  |
+| `prompts.shared`   | string             | _(none)_ | Legacy single-file preamble. Superseded by `system` + `repo` but still honoured for backward compatibility.            |
+| `prompts.by_state` | map<string,string> | `{}`     | Map of Linear state name → prompt file path. State matching is case-insensitive.                                       |
+| `prompts.default`  | string             | _(none)_ | Fallback prompt file for states not listed in `by_state`.                                                              |
 
 When `prompts` is absent, the markdown body after `---` is used as the prompt for all states (backward compatible).
 
@@ -214,7 +213,7 @@ Example:
 ```yaml
 prompts:
   system: prompts/system.md
-  repo: prompts/repo.md
+  repo: prompts/repo-sym.md
   by_state:
     Todo: prompts/in-progress.md
     In Progress: prompts/in-progress.md
@@ -329,12 +328,12 @@ server:
 
 The following variables are injected for every lifecycle hook invocation:
 
-| Variable                      | Description                                   |
-| ----------------------------- | --------------------------------------------- |
-| `SYMPHONY_ISSUE_ID`           | Linear issue UUID.                            |
-| `SYMPHONY_ISSUE_IDENTIFIER`   | Human-readable issue identifier (for example, `KAT-800`). |
-| `SYMPHONY_ISSUE_TITLE`        | Linear issue title.                           |
-| `SYMPHONY_WORKSPACE_PATH`     | Absolute path to the workspace directory.     |
+| Variable                    | Description                                               |
+| --------------------------- | --------------------------------------------------------- |
+| `SYMPHONY_ISSUE_ID`         | Linear issue UUID.                                        |
+| `SYMPHONY_ISSUE_IDENTIFIER` | Human-readable issue identifier (for example, `KAT-800`). |
+| `SYMPHONY_ISSUE_TITLE`      | Linear issue title.                                       |
+| `SYMPHONY_WORKSPACE_PATH`   | Absolute path to the workspace directory.                 |
 
 ### `$VAR` Indirection Pattern
 
@@ -368,15 +367,15 @@ workflow file (e.g. `0.0.0.0` to bind all interfaces).
 
 ### Endpoint Reference
 
-| Method | Path                        | Description                                                                                                                                                                      |
-| ------ | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET`  | `/`                         | HTML dashboard — auto-refreshes every 2 seconds. Shows summary cards, running sessions table (including turn/max-turns, last activity age, and per-session tokens), retry queue table, completed issue list, token breakdown, polling diagnostics, and collapsible rate-limit JSON. |
-| `GET`  | `/api/v1/state`             | Full orchestrator state as JSON.                                                                                                                                                 |
-| `GET`  | `/api/v1/events`            | WebSocket event stream of `SymphonyEventEnvelope` values. Supports server-side query filters (`issue`, `type`, `severity`), emits snapshot bootstrap + heartbeat envelopes, and enforces backpressure close policy. |
-| `GET`  | `/api/v1/escalations`       | Returns pending escalation requests (`pending_escalations`) for polling clients.                                                                                                |
-| `POST` | `/api/v1/escalations/:request_id/respond` | Resolves a pending escalation. Body: `{ "response": <json>, "responder_id"?: "..." }`. Returns `200`, `404` (missing/expired), or `409` (already resolved). |
-| `GET`  | `/api/v1/:issue_identifier` | Per-issue projection. `:issue_identifier` must match the pattern `TEAM-NNN` (uppercase prefix, hyphen, digits). Returns 404 when the issue is not running or in the retry queue. |
-| `POST` | `/api/v1/refresh`           | Request an immediate Linear poll. Requests are coalesced — multiple concurrent POSTs result in one actual refresh. Returns 202.                                                  |
+| Method | Path                                      | Description                                                                                                                                                                                                                                                                         |
+| ------ | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET`  | `/`                                       | HTML dashboard — auto-refreshes every 2 seconds. Shows summary cards, running sessions table (including turn/max-turns, last activity age, and per-session tokens), retry queue table, completed issue list, token breakdown, polling diagnostics, and collapsible rate-limit JSON. |
+| `GET`  | `/api/v1/state`                           | Full orchestrator state as JSON.                                                                                                                                                                                                                                                    |
+| `GET`  | `/api/v1/events`                          | WebSocket event stream of `SymphonyEventEnvelope` values. Supports server-side query filters (`issue`, `type`, `severity`), emits snapshot bootstrap + heartbeat envelopes, and enforces backpressure close policy.                                                                 |
+| `GET`  | `/api/v1/escalations`                     | Returns pending escalation requests (`pending_escalations`) for polling clients.                                                                                                                                                                                                    |
+| `POST` | `/api/v1/escalations/:request_id/respond` | Resolves a pending escalation. Body: `{ "response": <json>, "responder_id"?: "..." }`. Returns `200`, `404` (missing/expired), or `409` (already resolved).                                                                                                                         |
+| `GET`  | `/api/v1/:issue_identifier`               | Per-issue projection. `:issue_identifier` must match the pattern `TEAM-NNN` (uppercase prefix, hyphen, digits). Returns 404 when the issue is not running or in the retry queue.                                                                                                    |
+| `POST` | `/api/v1/refresh`                         | Request an immediate Linear poll. Requests are coalesced — multiple concurrent POSTs result in one actual refresh. Returns 202.                                                                                                                                                     |
 
 ### Sample JSON — `GET /api/v1/state`
 
@@ -569,24 +568,24 @@ When `workspace.isolation: docker` is selected:
 
 Core Rust modules:
 
-| Module | Source file | Responsibility |
-| --- | --- | --- |
-| CLI/runtime entrypoint | `src/main.rs` | CLI parsing, startup validation, tracing setup, runtime wiring |
-| Orchestrator loop | `src/orchestrator.rs` | Poll/dispatch loop, retries, worker lifecycle, state snapshots |
-| Supervisor runtime | `src/supervisor.rs` | Background supervisor lifecycle, stuck/conflict/pattern detection, steering + escalation decisions |
-| HTTP dashboard/API | `src/http_server.rs` | `/`, `/api/v1/state`, `/api/v1/events` websocket stream, `/api/v1/escalations`, `/api/v1/escalations/:request_id/respond`, `/api/v1/:issue_identifier`, refresh endpoint, dashboard Linear project link card |
-| Terminal dashboard | `src/tui.rs` | Ratatui renderer with throughput sparkline, color-coded status dots, keyboard handling, and live snapshot display |
-| Workflow/config parser | `src/workflow.rs`, `src/config.rs` | Front-matter parsing, env/tilde resolution, typed config defaults |
-| Domain model | `src/domain.rs` | Shared runtime/config structs (`RunAttempt`, snapshots, worker/session info) |
-| Tracker adapter/client | `src/linear/adapter.rs`, `src/linear/client.rs` | Linear GraphQL fetch/update operations and issue normalization |
-| Docker runtime helpers | `src/docker.rs` | Docker availability checks, image resolution/build cache, container lifecycle, auth resolution |
-| Workspace + git bootstrap | `src/workspace.rs` | clone/worktree bootstrapping, branch naming, hooks |
-| Codex app-server bridge | `src/codex/app_server.rs` | Session subprocess lifecycle, turn streaming, tool execution |
-| Pi RPC bridge | `src/pi_agent/rpc_bridge.rs` | Kata RPC subprocess lifecycle, turn streaming, token stats integration |
-| Pi protocol types | `src/pi_agent/protocol.rs` | Pi RPC command/response/event serde models |
-| Pi token accounting | `src/pi_agent/token_accounting.rs` | Cumulative token stats to per-turn delta tracking |
-| Prompt builder | `src/prompt_builder.rs` | Liquid template rendering, per-state prompt resolution from files |
-| SSH helpers | `src/ssh.rs` | Remote target parsing, command escaping, host selection helpers |
+| Module                    | Source file                                     | Responsibility                                                                                                                                                                                               |
+| ------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| CLI/runtime entrypoint    | `src/main.rs`                                   | CLI parsing, startup validation, tracing setup, runtime wiring                                                                                                                                               |
+| Orchestrator loop         | `src/orchestrator.rs`                           | Poll/dispatch loop, retries, worker lifecycle, state snapshots                                                                                                                                               |
+| Supervisor runtime        | `src/supervisor.rs`                             | Background supervisor lifecycle, stuck/conflict/pattern detection, steering + escalation decisions                                                                                                           |
+| HTTP dashboard/API        | `src/http_server.rs`                            | `/`, `/api/v1/state`, `/api/v1/events` websocket stream, `/api/v1/escalations`, `/api/v1/escalations/:request_id/respond`, `/api/v1/:issue_identifier`, refresh endpoint, dashboard Linear project link card |
+| Terminal dashboard        | `src/tui.rs`                                    | Ratatui renderer with throughput sparkline, color-coded status dots, keyboard handling, and live snapshot display                                                                                            |
+| Workflow/config parser    | `src/workflow.rs`, `src/config.rs`              | Front-matter parsing, env/tilde resolution, typed config defaults                                                                                                                                            |
+| Domain model              | `src/domain.rs`                                 | Shared runtime/config structs (`RunAttempt`, snapshots, worker/session info)                                                                                                                                 |
+| Tracker adapter/client    | `src/linear/adapter.rs`, `src/linear/client.rs` | Linear GraphQL fetch/update operations and issue normalization                                                                                                                                               |
+| Docker runtime helpers    | `src/docker.rs`                                 | Docker availability checks, image resolution/build cache, container lifecycle, auth resolution                                                                                                               |
+| Workspace + git bootstrap | `src/workspace.rs`                              | clone/worktree bootstrapping, branch naming, hooks                                                                                                                                                           |
+| Codex app-server bridge   | `src/codex/app_server.rs`                       | Session subprocess lifecycle, turn streaming, tool execution                                                                                                                                                 |
+| Pi RPC bridge             | `src/pi_agent/rpc_bridge.rs`                    | Kata RPC subprocess lifecycle, turn streaming, token stats integration                                                                                                                                       |
+| Pi protocol types         | `src/pi_agent/protocol.rs`                      | Pi RPC command/response/event serde models                                                                                                                                                                   |
+| Pi token accounting       | `src/pi_agent/token_accounting.rs`              | Cumulative token stats to per-turn delta tracking                                                                                                                                                            |
+| Prompt builder            | `src/prompt_builder.rs`                         | Liquid template rendering, per-state prompt resolution from files                                                                                                                                            |
+| SSH helpers               | `src/ssh.rs`                                    | Remote target parsing, command escaping, host selection helpers                                                                                                                                              |
 
 ---
 
@@ -649,11 +648,11 @@ grep -l "KAT-1317" ~/.kata-cli/sessions/*.jsonl
 
 Each line is a JSON object with a `type` field. The most useful:
 
-| Type | What to look for |
-|------|-----------------|
-| `session` | First line — contains `id`, `cwd` (workspace path) |
-| `message` (role=user) | Prompts sent to the model — check if the initial prompt and continuations are correct |
-| `message` (role=assistant) | Model responses — check `content` (empty = problem), `stopReason`, `errorMessage` |
+| Type                       | What to look for                                                                      |
+| -------------------------- | ------------------------------------------------------------------------------------- |
+| `session`                  | First line — contains `id`, `cwd` (workspace path)                                    |
+| `message` (role=user)      | Prompts sent to the model — check if the initial prompt and continuations are correct |
+| `message` (role=assistant) | Model responses — check `content` (empty = problem), `stopReason`, `errorMessage`     |
 
 ### Common problems
 
