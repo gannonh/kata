@@ -305,12 +305,12 @@ export async function executeSymphonyConfigCommand(
     ({ runConfigEditor } = await import("./config-editor.js"));
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
-    ctx.ui.notify(
-      "Symphony config editor requires the js-yaml package which could not be loaded. " +
-      "Install it globally (npm i -g js-yaml) or run kata from the project directory where it is a dependency. " +
-      `(${detail})`,
-      "error",
-    );
+    const isJsYaml = detail.toLowerCase().includes("js-yaml") || detail.toLowerCase().includes("cannot find module");
+    const message = isJsYaml
+      ? "Symphony config editor requires the js-yaml package which could not be resolved. " +
+        "Install js-yaml in your project directory (npm install js-yaml) and run kata from there."
+      : "Failed to load Symphony config editor modules.";
+    ctx.ui.notify(`${message} (${detail})`, "error");
     return;
   }
 

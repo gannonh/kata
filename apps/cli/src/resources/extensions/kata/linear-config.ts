@@ -279,7 +279,7 @@ export async function resolveConfiguredLinearProjectId(
     return {
       projectId: null,
       projectLookup: rawProjectId,
-      error: `Linear project not found for slug "${rawProjectId}". Check linear.projectSlug in preferences.`,
+      error: `Linear project not found for "${rawProjectId}". Check linear.projectSlug (or linear.projectId) in preferences.`,
     };
   }
 
