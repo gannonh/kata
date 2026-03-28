@@ -1,3 +1,12 @@
+//! Supervisor agent runtime for Symphony orchestrator.
+//!
+//! This module runs a background supervisor task that consumes [`SymphonyEventEnvelope`]
+//! updates, tracks worker progress, emits `supervisor_*` events, and coordinates
+//! mitigations through shared context, steering, and human escalation. The runtime
+//! collaborates with [`EscalationRegistry`] and produces snapshot state via
+//! [`SupervisorSnapshot`] and [`SupervisorStatus`] configured by [`SupervisorConfig`].
+//! Escalation actions ultimately materialize as [`EscalationRequest`] records.
+
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, LazyLock, RwLock};
 use std::time::Duration;
@@ -426,7 +435,7 @@ impl SupervisorAgent {
     }
 
     pub fn is_running(&self) -> bool {
-        self.task.is_some()
+        self.task.as_ref().is_some_and(|task| !task.is_finished())
     }
 
     pub fn snapshot(&self) -> SupervisorSnapshot {
@@ -456,130 +465,224 @@ fn process_envelope(
     envelope: SymphonyEventEnvelope,
 ) {
     let now = envelope.timestamp;
-    let mut guard = state
-        .write()
-        .expect("supervisor state lock poisoned while processing event");
+    let issue_identifier = envelope.issue.clone();
+    let mut issue_id: Option<String> = None;
+    let mut edited_path: Option<String> = None;
+    let mut pattern_signature: Option<String> = None;
 
-    guard.snapshot.last_decision = Some(format!("observed:{}", envelope.event));
-    guard.snapshot.last_action_at = Some(Utc::now());
+    {
+        let mut guard = state
+            .write()
+            .expect("supervisor state lock poisoned while processing event");
 
-    if let Some(issue_identifier) = envelope.issue.clone() {
-        if let Some(issue_id) = issue_id_from_payload(&envelope) {
-            guard
-                .issue_ids_by_identifier
-                .insert(issue_identifier.clone(), issue_id);
-        }
+        guard.snapshot.last_decision = Some(format!("observed:{}", envelope.event));
+        guard.snapshot.last_action_at = Some(Utc::now());
 
-        let edited_path = {
+        if let Some(ref issue_identifier) = issue_identifier {
+            if let Some(parsed_issue_id) = issue_id_from_payload(&envelope) {
+                guard
+                    .issue_ids_by_identifier
+                    .insert(issue_identifier.clone(), parsed_issue_id);
+            }
+
             let worker = guard.workers.entry(issue_identifier.clone()).or_default();
-            worker.observe_event(&envelope)
-        };
+            edited_path = worker.observe_event(&envelope);
+            issue_id = guard.issue_ids_by_identifier.get(issue_identifier).cloned();
+            pattern_signature = systemic_error_signature(&envelope);
+        }
+    }
 
-        let issue_id = guard
-            .issue_ids_by_identifier
-            .get(&issue_identifier)
-            .cloned();
-
-        if let Some(pattern_signature) = systemic_error_signature(&envelope) {
+    if let Some(issue_identifier) = issue_identifier.as_deref() {
+        if let Some(pattern_signature) = pattern_signature.as_deref() {
             maybe_handle_failure_pattern(
-                &mut guard,
+                state,
                 deps,
-                &issue_identifier,
+                issue_identifier,
                 issue_id.as_deref(),
-                &pattern_signature,
+                pattern_signature,
                 now,
             );
         }
 
-        maybe_emit_stuck_steer(&mut guard, config, deps, &issue_identifier, now);
+        maybe_emit_stuck_steer(state, config, deps, issue_identifier, now);
 
-        if let Some(path) = edited_path {
-            maybe_handle_file_conflict(&mut guard, config, deps, &issue_identifier, &path, now);
+        if let Some(path) = edited_path.as_deref() {
+            maybe_handle_file_conflict(state, config, deps, issue_identifier, path, now);
         }
     }
 
     if envelope.kind == EventKind::SharedContextWritten
         || envelope.event == "shared_context_written"
     {
-        maybe_handle_context_conflict(&mut guard, deps, now);
+        maybe_handle_context_conflict(state, deps, now);
     }
 }
 
+#[derive(Debug, Clone)]
+struct SteerDirective {
+    reason: String,
+    detail: String,
+    guidance: String,
+}
+
+#[derive(Debug, Clone)]
+struct FileConflictDirective {
+    other_issue: String,
+    file_path: String,
+    steer: Option<SteerDirective>,
+}
+
+#[derive(Debug, Clone)]
+struct FailurePatternDirective {
+    issue_id: String,
+    signature: String,
+    affected_issues: Vec<String>,
+    emit_pattern: bool,
+    escalate: bool,
+}
+
+#[derive(Debug, Clone)]
+struct ContextConflictDirective {
+    conflict: ContextConflict,
+    issue_a_id: String,
+}
+
 fn maybe_emit_stuck_steer(
-    state: &mut SupervisorRuntimeState,
+    state: &Arc<RwLock<SupervisorRuntimeState>>,
     config: &SupervisorConfig,
     deps: &SupervisorDependencies,
     issue_identifier: &str,
     now: DateTime<Utc>,
 ) {
-    let Some(stuck_reason) = state
-        .workers
-        .get(issue_identifier)
-        .and_then(WorkerModel::detect_stuck_reason)
-    else {
-        return;
+    let steer = {
+        let mut guard = state
+            .write()
+            .expect("supervisor state lock poisoned while evaluating stuck worker");
+
+        let Some(stuck_reason) = guard
+            .workers
+            .get(issue_identifier)
+            .and_then(WorkerModel::detect_stuck_reason)
+        else {
+            return;
+        };
+
+        let Some(worker) = guard.workers.get_mut(issue_identifier) else {
+            return;
+        };
+
+        if !worker.can_steer(now, config.steer_cooldown_ms) {
+            return;
+        }
+
+        worker.mark_steer(now);
+
+        let steer = SteerDirective {
+            reason: stuck_reason.code().to_string(),
+            detail: stuck_reason.brief(),
+            guidance: stuck_reason.guidance(),
+        };
+
+        record_supervisor_steer_snapshot(&mut guard, issue_identifier, &steer.reason);
+        Some(steer)
     };
 
-    let Some(worker) = state.workers.get_mut(issue_identifier) else {
-        return;
-    };
-
-    if !worker.can_steer(now, config.steer_cooldown_ms) {
-        return;
+    if let Some(steer) = steer {
+        emit_supervisor_steer(
+            deps,
+            issue_identifier,
+            &steer.reason,
+            &steer.detail,
+            &steer.guidance,
+            config.steer_cooldown_ms,
+        );
     }
-
-    worker.mark_steer(now);
-    emit_supervisor_steer(
-        state,
-        deps,
-        issue_identifier,
-        stuck_reason.code(),
-        &stuck_reason.brief(),
-        &stuck_reason.guidance(),
-        config.steer_cooldown_ms,
-    );
 }
 
 fn maybe_handle_file_conflict(
-    state: &mut SupervisorRuntimeState,
+    state: &Arc<RwLock<SupervisorRuntimeState>>,
     config: &SupervisorConfig,
     deps: &SupervisorDependencies,
     issue_identifier: &str,
     file_path: &str,
     now: DateTime<Utc>,
 ) {
-    let conflicting_issue = state.workers.iter().find_map(|(other_issue, worker)| {
-        if other_issue == issue_identifier {
-            return None;
+    let directive = {
+        let mut guard = state
+            .write()
+            .expect("supervisor state lock poisoned while evaluating file conflict");
+
+        let conflicting_issue = guard.workers.iter().find_map(|(other_issue, worker)| {
+            if other_issue == issue_identifier {
+                return None;
+            }
+            if worker.has_recent_file_edit(file_path, now) {
+                Some(other_issue.clone())
+            } else {
+                None
+            }
+        });
+
+        let Some(other_issue) = conflicting_issue else {
+            return;
+        };
+
+        let key = conflict_key(issue_identifier, &other_issue, file_path);
+        if !should_emit_conflict(&mut guard.recent_conflicts, &key, now) {
+            return;
         }
-        if worker.has_recent_file_edit(file_path, now) {
-            Some(other_issue.clone())
+
+        guard.snapshot.conflicts_detected = guard.snapshot.conflicts_detected.saturating_add(1);
+        guard.snapshot.last_decision = Some(format!(
+            "conflict detected: {} vs {} on {}",
+            issue_identifier, other_issue, file_path
+        ));
+        guard.snapshot.last_action_at = Some(Utc::now());
+
+        let should_steer = if let Some(worker) = guard.workers.get_mut(issue_identifier) {
+            if worker.can_steer(now, config.steer_cooldown_ms) {
+                worker.mark_steer(now);
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
+        let steer = if should_steer {
+            let steer = SteerDirective {
+                reason: "file_conflict".to_string(),
+                detail: format!("overlap with {other_issue} on {file_path}"),
+                guidance: format!(
+                    "Another worker ({other_issue}) is editing `{file_path}`. Align with shared context before proceeding."
+                ),
+            };
+            record_supervisor_steer_snapshot(&mut guard, issue_identifier, &steer.reason);
+            Some(steer)
         } else {
             None
-        }
-    });
+        };
 
-    let Some(other_issue) = conflicting_issue else {
+        Some(FileConflictDirective {
+            other_issue,
+            file_path: file_path.to_string(),
+            steer,
+        })
+    };
+
+    let Some(directive) = directive else {
         return;
     };
 
-    let key = conflict_key(issue_identifier, &other_issue, file_path);
-    if !should_emit_conflict(&mut state.recent_conflicts, &key, now) {
-        return;
-    }
-
-    state.snapshot.conflicts_detected = state.snapshot.conflicts_detected.saturating_add(1);
-    state.snapshot.last_decision = Some(format!(
-        "conflict detected: {} vs {} on {}",
-        issue_identifier, other_issue, file_path
-    ));
-    state.snapshot.last_action_at = Some(Utc::now());
+    let other_issue = directive.other_issue.clone();
+    let conflict_file_path = directive.file_path.clone();
 
     deps.shared_context_store.write_entry(ContextEntryDraft {
         author_issue: "SUPERVISOR".to_string(),
         scope: ContextScope::Project,
         content: format!(
-            "⚠️ Potential overlap detected: {issue_identifier} and {other_issue} are both editing `{file_path}`. Coordinate before additional changes."
+            "⚠️ Potential overlap detected: {issue_identifier} and {other_issue} are both editing `{conflict_file_path}`. Coordinate before additional changes."
         ),
         ttl_ms: Some(30 * 60 * 1000),
     });
@@ -592,80 +695,109 @@ fn maybe_handle_file_conflict(
         serde_json::json!({
             "issues": [issue_identifier, other_issue],
             "conflict_type": "file_overlap",
-            "file_path": file_path,
+            "file_path": conflict_file_path,
         }),
     );
 
-    if let Some(worker) = state.workers.get_mut(issue_identifier) {
-        if worker.can_steer(now, config.steer_cooldown_ms) {
-            worker.mark_steer(now);
-            emit_supervisor_steer(
-                state,
-                deps,
-                issue_identifier,
-                "file_conflict",
-                &format!("overlap with {other_issue} on {file_path}"),
-                &format!(
-                    "Another worker ({other_issue}) is editing `{file_path}`. Align with shared context before proceeding."
-                ),
-                config.steer_cooldown_ms,
-            );
-        }
+    if let Some(steer) = directive.steer {
+        emit_supervisor_steer(
+            deps,
+            issue_identifier,
+            &steer.reason,
+            &steer.detail,
+            &steer.guidance,
+            config.steer_cooldown_ms,
+        );
     }
 }
 
 fn maybe_handle_failure_pattern(
-    state: &mut SupervisorRuntimeState,
+    state: &Arc<RwLock<SupervisorRuntimeState>>,
     deps: &SupervisorDependencies,
     issue_identifier: &str,
     issue_id: Option<&str>,
     signature: &str,
     now: DateTime<Utc>,
 ) {
-    let mut affected_issues: Vec<String> = Vec::new();
-    let mut should_emit_pattern = false;
-    let mut should_escalate = false;
+    let directive = {
+        let mut guard = state
+            .write()
+            .expect("supervisor state lock poisoned while evaluating failure pattern");
 
-    {
-        let tracker = state
-            .error_patterns
-            .entry(signature.to_string())
-            .or_default();
-        tracker
-            .affected_issues
-            .insert(issue_identifier.to_string(), now);
-        tracker.affected_issues.retain(|_, seen_at| {
-            now.signed_duration_since(*seen_at).num_milliseconds() < SYSTEMIC_PATTERN_WINDOW_MS
-        });
+        let mut affected_issues: Vec<String> = Vec::new();
+        let mut should_emit_pattern = false;
+        let mut should_escalate = false;
 
-        if tracker.affected_issues.len() >= 2 {
-            tracker.detections = tracker.detections.saturating_add(1);
-            affected_issues = tracker.affected_issues.keys().cloned().collect();
-            affected_issues.sort();
+        {
+            let tracker = guard
+                .error_patterns
+                .entry(signature.to_string())
+                .or_default();
+            tracker
+                .affected_issues
+                .insert(issue_identifier.to_string(), now);
+            tracker.affected_issues.retain(|_, seen_at| {
+                now.signed_duration_since(*seen_at).num_milliseconds() < SYSTEMIC_PATTERN_WINDOW_MS
+            });
 
-            if tracker.detections == 1 {
-                should_emit_pattern = true;
-            } else if tracker.detections >= SYSTEMIC_PATTERN_PERSISTENCE_THRESHOLD
-                && !tracker.escalated
-            {
-                should_escalate = true;
-                tracker.escalated = true;
+            if tracker.affected_issues.len() >= 2 {
+                tracker.detections = tracker.detections.saturating_add(1);
+                affected_issues = tracker.affected_issues.keys().cloned().collect();
+                affected_issues.sort();
+
+                if tracker.detections == 1 {
+                    should_emit_pattern = true;
+                } else if tracker.detections >= SYSTEMIC_PATTERN_PERSISTENCE_THRESHOLD
+                    && !tracker.escalated
+                {
+                    should_escalate = true;
+                    tracker.escalated = true;
+                }
             }
         }
-    }
 
-    if !should_emit_pattern && !should_escalate {
+        if !should_emit_pattern && !should_escalate {
+            None
+        } else {
+            if should_emit_pattern {
+                guard.snapshot.patterns_detected =
+                    guard.snapshot.patterns_detected.saturating_add(1);
+                guard.snapshot.last_decision = Some(format!(
+                    "systemic pattern detected across {} workers",
+                    affected_issues.len()
+                ));
+                guard.snapshot.last_action_at = Some(Utc::now());
+            }
+
+            if should_escalate {
+                guard.snapshot.escalations_created =
+                    guard.snapshot.escalations_created.saturating_add(1);
+                guard.snapshot.last_decision = Some(format!(
+                    "systemic pattern escalated: {}",
+                    truncate_for_display(signature, 80)
+                ));
+                guard.snapshot.last_action_at = Some(Utc::now());
+            }
+
+            Some(FailurePatternDirective {
+                issue_id: issue_id.unwrap_or(issue_identifier).to_string(),
+                signature: signature.to_string(),
+                affected_issues,
+                emit_pattern: should_emit_pattern,
+                escalate: should_escalate,
+            })
+        }
+    };
+
+    let Some(directive) = directive else {
         return;
-    }
+    };
 
-    if should_emit_pattern {
-        state.snapshot.patterns_detected = state.snapshot.patterns_detected.saturating_add(1);
-        state.snapshot.last_decision = Some(format!(
-            "systemic pattern detected across {} workers",
-            affected_issues.len()
-        ));
-        state.snapshot.last_action_at = Some(Utc::now());
+    let issue_id = directive.issue_id;
+    let signature = directive.signature;
+    let affected_issues = directive.affected_issues;
 
+    if directive.emit_pattern {
         deps.shared_context_store.write_entry(ContextEntryDraft {
             author_issue: "SUPERVISOR".to_string(),
             scope: ContextScope::Project,
@@ -684,23 +816,16 @@ fn maybe_handle_failure_pattern(
             "supervisor_pattern_detected",
             serde_json::json!({
                 "pattern_type": "shared_error_signature",
-                "signature": signature,
-                "affected_issues": affected_issues,
+                "signature": signature.clone(),
+                "affected_issues": affected_issues.clone(),
             }),
         );
     }
 
-    if should_escalate {
-        state.snapshot.escalations_created = state.snapshot.escalations_created.saturating_add(1);
-        state.snapshot.last_decision = Some(format!(
-            "systemic pattern escalated: {}",
-            truncate_for_display(signature, 80)
-        ));
-        state.snapshot.last_action_at = Some(Utc::now());
-
+    if directive.escalate {
         emit_supervisor_escalation(
             deps,
-            issue_id.unwrap_or(issue_identifier),
+            &issue_id,
             issue_identifier,
             "systemic_failure_pattern",
             serde_json::json!({
@@ -712,7 +837,7 @@ fn maybe_handle_failure_pattern(
 }
 
 fn maybe_handle_context_conflict(
-    state: &mut SupervisorRuntimeState,
+    state: &Arc<RwLock<SupervisorRuntimeState>>,
     deps: &SupervisorDependencies,
     now: DateTime<Utc>,
 ) {
@@ -721,65 +846,84 @@ fn maybe_handle_context_conflict(
         return;
     };
 
-    let key = format!(
-        "{}:{}:{}",
-        conflict.scope_key, conflict.decision_a, conflict.decision_b
-    );
+    let directive = {
+        let mut guard = state
+            .write()
+            .expect("supervisor state lock poisoned while evaluating context conflict");
 
-    if !should_emit_conflict(&mut state.escalated_context_conflicts, &key, now) {
+        let key = format!(
+            "{}:{}:{}",
+            conflict.scope_key, conflict.decision_a, conflict.decision_b
+        );
+
+        if !should_emit_conflict(&mut guard.escalated_context_conflicts, &key, now) {
+            None
+        } else {
+            guard.snapshot.conflicts_detected = guard.snapshot.conflicts_detected.saturating_add(1);
+            guard.snapshot.escalations_created =
+                guard.snapshot.escalations_created.saturating_add(1);
+            guard.snapshot.last_decision = Some(format!(
+                "context conflict escalated: {} vs {} ({})",
+                conflict.issue_a, conflict.issue_b, conflict.scope_key
+            ));
+            guard.snapshot.last_action_at = Some(Utc::now());
+
+            let issue_a_id = guard
+                .issue_ids_by_identifier
+                .get(&conflict.issue_a)
+                .cloned()
+                .unwrap_or_else(|| conflict.issue_a.clone());
+
+            Some(ContextConflictDirective {
+                conflict,
+                issue_a_id,
+            })
+        }
+    };
+
+    let Some(directive) = directive else {
         return;
-    }
-
-    let issue_a = conflict.issue_a.clone();
-    let issue_b = conflict.issue_b.clone();
-    let scope_key = conflict.scope_key.clone();
-    let decision_a = conflict.decision_a.clone();
-    let decision_b = conflict.decision_b.clone();
-
-    state.snapshot.conflicts_detected = state.snapshot.conflicts_detected.saturating_add(1);
-    state.snapshot.escalations_created = state.snapshot.escalations_created.saturating_add(1);
-    state.snapshot.last_decision = Some(format!(
-        "context conflict escalated: {} vs {} ({})",
-        issue_a, issue_b, scope_key
-    ));
-    state.snapshot.last_action_at = Some(Utc::now());
+    };
 
     deps.event_hub.publish(
         EventKind::SupervisorConflictDetected,
         EventSeverity::Warn,
-        Some(issue_a.clone()),
+        Some(directive.conflict.issue_a.clone()),
         "supervisor_conflict_detected",
         serde_json::json!({
-            "issues": [issue_a.clone(), issue_b.clone()],
+            "issues": [directive.conflict.issue_a.clone(), directive.conflict.issue_b.clone()],
             "conflict_type": "context_decision_conflict",
-            "scope": scope_key.clone(),
-            "decisions": [decision_a.clone(), decision_b.clone()],
+            "scope": directive.conflict.scope_key.clone(),
+            "decisions": [directive.conflict.decision_a.clone(), directive.conflict.decision_b.clone()],
         }),
     );
 
-    let issue_a_id = state
-        .issue_ids_by_identifier
-        .get(&issue_a)
-        .cloned()
-        .unwrap_or_else(|| issue_a.clone());
-
     emit_supervisor_escalation(
         deps,
-        &issue_a_id,
-        &issue_a,
+        &directive.issue_a_id,
+        &directive.conflict.issue_a,
         "context_decision_conflict",
         serde_json::json!({
-            "scope": scope_key,
-            "issue_a": issue_a,
-            "issue_b": issue_b,
-            "decision_a": decision_a,
-            "decision_b": decision_b,
+            "scope": directive.conflict.scope_key,
+            "issue_a": directive.conflict.issue_a,
+            "issue_b": directive.conflict.issue_b,
+            "decision_a": directive.conflict.decision_a,
+            "decision_b": directive.conflict.decision_b,
         }),
     );
 }
 
-fn emit_supervisor_steer(
+fn record_supervisor_steer_snapshot(
     state: &mut SupervisorRuntimeState,
+    issue_identifier: &str,
+    reason: &str,
+) {
+    state.snapshot.steers_issued = state.snapshot.steers_issued.saturating_add(1);
+    state.snapshot.last_decision = Some(format!("steered {} ({reason})", issue_identifier));
+    state.snapshot.last_action_at = Some(Utc::now());
+}
+
+fn emit_supervisor_steer(
     deps: &SupervisorDependencies,
     issue_identifier: &str,
     reason: &str,
@@ -788,10 +932,6 @@ fn emit_supervisor_steer(
     cooldown_ms: u64,
 ) {
     let guidance_preview = truncate_for_display(guidance, 140);
-
-    state.snapshot.steers_issued = state.snapshot.steers_issued.saturating_add(1);
-    state.snapshot.last_decision = Some(format!("steered {} ({reason})", issue_identifier));
-    state.snapshot.last_action_at = Some(Utc::now());
 
     deps.event_hub.publish(
         EventKind::SupervisorSteer,
@@ -1076,4 +1216,133 @@ fn repeated_test_failure_signature(summary: Option<&str>) -> Option<String> {
     }
 
     Some(truncate_for_display(&summary, 90))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn tool_envelope(event: &str, summary: &str) -> SymphonyEventEnvelope {
+        SymphonyEventEnvelope::new(
+            1,
+            Utc::now(),
+            EventKind::Tool,
+            EventSeverity::Info,
+            Some("KAT-1327".to_string()),
+            event,
+            serde_json::json!({ "summary": summary }),
+        )
+    }
+
+    #[test]
+    fn decision_token_extracts_expected_markers() {
+        assert_eq!(
+            decision_token("Decision: use jsonwebtoken for auth"),
+            Some("jsonwebtoken".to_string())
+        );
+        assert_eq!(
+            decision_token("We are USING serde_json, pending follow-up."),
+            Some("serde_json".to_string())
+        );
+        assert_eq!(
+            decision_token("Library reqwest selected for retries"),
+            Some("reqwest".to_string())
+        );
+    }
+
+    #[test]
+    fn decision_token_returns_none_without_extractable_token() {
+        assert_eq!(decision_token("No architectural decision captured"), None);
+        assert_eq!(decision_token("use !!!"), None);
+        assert_eq!(decision_token("framework: ###"), None);
+    }
+
+    #[test]
+    fn conflict_key_is_order_independent() {
+        let left = conflict_key("KAT-1", "KAT-2", "src/lib.rs");
+        let right = conflict_key("KAT-2", "KAT-1", "src/lib.rs");
+        assert_eq!(left, right);
+    }
+
+    #[test]
+    fn file_edit_path_extracts_mutating_tool_paths() {
+        let edit = tool_envelope("tool_start", "edit {\"path\":\"src/lib.rs\"}");
+        assert_eq!(
+            file_edit_path(&edit, event_summary_text(&edit).as_deref()),
+            Some("src/lib.rs".to_string())
+        );
+
+        let write = tool_envelope("tool_start", "write {\"filePath\":\"src/main.ts\"}");
+        assert_eq!(
+            file_edit_path(&write, event_summary_text(&write).as_deref()),
+            Some("src/main.ts".to_string())
+        );
+
+        let bash = tool_envelope(
+            "tool_start",
+            "bash {\"command\":\"cargo test --manifest-path apps/symphony/Cargo.toml\"}",
+        );
+        assert_eq!(
+            file_edit_path(&bash, event_summary_text(&bash).as_deref()),
+            Some("apps/symphony/Cargo.toml".to_string())
+        );
+    }
+
+    #[test]
+    fn file_edit_path_skips_read_only_or_non_tool_start_events() {
+        let read = tool_envelope("tool_start", "read {\"path\":\"src/lib.rs\"}");
+        assert_eq!(
+            file_edit_path(&read, event_summary_text(&read).as_deref()),
+            None
+        );
+
+        let tool_end = tool_envelope("tool_end", "edit {\"path\":\"src/lib.rs\"}");
+        assert_eq!(
+            file_edit_path(&tool_end, event_summary_text(&tool_end).as_deref()),
+            None
+        );
+
+        let malformed = tool_envelope("tool_start", "edit not-json");
+        assert_eq!(
+            file_edit_path(&malformed, event_summary_text(&malformed).as_deref()),
+            None
+        );
+    }
+
+    #[test]
+    fn systemic_error_signature_requires_error_event_and_substantive_summary() {
+        let error_event = tool_envelope("tool_error", "Request FAILED due to API outage");
+        assert_eq!(
+            systemic_error_signature(&error_event),
+            Some("request failed due to api outage".to_string())
+        );
+
+        let non_error_event = tool_envelope("worker_progress", "Request failed due to API outage");
+        assert_eq!(systemic_error_signature(&non_error_event), None);
+
+        let short_error = tool_envelope("tool_error", "oops");
+        assert_eq!(systemic_error_signature(&short_error), None);
+    }
+
+    #[test]
+    fn repeated_test_failure_signature_detects_expected_patterns() {
+        assert_eq!(
+            repeated_test_failure_signature(Some("Test auth::login FAILED: expected 200")),
+            Some("Test auth::login FAILED: expected 200".to_string())
+        );
+        assert_eq!(
+            repeated_test_failure_signature(Some("suite test timeout error after retry")),
+            Some("suite test timeout error after retry".to_string())
+        );
+
+        assert_eq!(
+            repeated_test_failure_signature(Some("build failed in compile step")),
+            None
+        );
+        assert_eq!(
+            repeated_test_failure_signature(Some("test run passed")),
+            None
+        );
+        assert_eq!(repeated_test_failure_signature(None), None);
+    }
 }

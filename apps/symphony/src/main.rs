@@ -641,24 +641,24 @@ fn run_runtime_until_shutdown(
                     Ok(())
                 }
                 tui_reason = tui_exit_future => {
-                    let Some(tui_reason) = tui_reason else {
-                        return Ok(());
-                    };
                     match tui_reason {
-                        tui::TuiExitReason::CtrlC | tui::TuiExitReason::ShutdownSignal => {
-                            tracing::info!(
-                                phase = "runtime",
-                                stage = "stopped",
-                                reason = "tui_exit",
-                                workflow_path = %workflow_path.display(),
-                                tui_reason = ?tui_reason,
-                                "tui requested runtime shutdown"
-                            );
-                            Ok(())
-                        }
-                        tui::TuiExitReason::SetupFailed => Err("tui failed to initialize terminal".to_string()),
-                        tui::TuiExitReason::InputError => Err("tui failed while reading terminal input".to_string()),
-                        tui::TuiExitReason::DrawError => Err("tui failed while drawing dashboard".to_string()),
+                        Some(tui_reason) => match tui_reason {
+                            tui::TuiExitReason::CtrlC | tui::TuiExitReason::ShutdownSignal => {
+                                tracing::info!(
+                                    phase = "runtime",
+                                    stage = "stopped",
+                                    reason = "tui_exit",
+                                    workflow_path = %workflow_path.display(),
+                                    tui_reason = ?tui_reason,
+                                    "tui requested runtime shutdown"
+                                );
+                                Ok(())
+                            }
+                            tui::TuiExitReason::SetupFailed => Err("tui failed to initialize terminal".to_string()),
+                            tui::TuiExitReason::InputError => Err("tui failed while reading terminal input".to_string()),
+                            tui::TuiExitReason::DrawError => Err("tui failed while drawing dashboard".to_string()),
+                        },
+                        None => Ok(()),
                     }
                 }
             };

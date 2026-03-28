@@ -1251,6 +1251,48 @@ mod tests {
     }
 
     #[test]
+    fn raw_supervisor_config_defaults_when_section_omitted() {
+        let yaml: Value =
+            serde_yaml::from_str("tracker: { kind: linear }").expect("yaml fixture should parse");
+        let normalized = normalize_keys(yaml);
+        let raw: RawSupervisorConfig =
+            extract_section(&normalized, "supervisor").expect("section should parse");
+
+        assert_eq!(raw.enabled, None);
+        assert_eq!(raw.model, None);
+        assert_eq!(raw.steer_cooldown_ms, None);
+    }
+
+    #[test]
+    fn raw_supervisor_config_honors_explicit_cooldown() {
+        let yaml: Value = serde_yaml::from_str(
+            "tracker: { kind: linear }\nsupervisor:\n  steer_cooldown_ms: 45000",
+        )
+        .expect("yaml fixture should parse");
+        let normalized = normalize_keys(yaml);
+        let raw: RawSupervisorConfig =
+            extract_section(&normalized, "supervisor").expect("section should parse");
+
+        assert_eq!(raw.steer_cooldown_ms, Some(45_000));
+    }
+
+    #[test]
+    fn supervisor_model_env_and_empty_values_resolve_to_none() {
+        let env_yaml: Value = serde_yaml::from_str(
+            "tracker: { kind: linear }\nsupervisor:\n  model: $SYMPHONY_TEST_UNSET_SUPERVISOR_MODEL",
+        )
+        .expect("yaml fixture should parse");
+        let env_config = from_workflow(&env_yaml).expect("workflow should parse");
+        assert_eq!(env_config.supervisor.model, None);
+
+        let empty_yaml: Value =
+            serde_yaml::from_str("tracker: { kind: linear }\nsupervisor:\n  model: \"\"")
+                .expect("yaml fixture should parse");
+        let empty_config = from_workflow(&empty_yaml).expect("workflow should parse");
+        assert_eq!(empty_config.supervisor.model, None);
+    }
+
+    #[test]
     fn api_key_debug_is_redacted() {
         let key = ApiKey::new("super-secret-key");
         assert_eq!(format!("{:?}", key), "[REDACTED]");

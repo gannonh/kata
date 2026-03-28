@@ -553,6 +553,22 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
         crate::domain::SupervisorStatus::Stopped => "⚫ stopped",
         crate::domain::SupervisorStatus::Failed => "🔴 failed",
     };
+    let supervisor_steers = snapshot.supervisor.steers_issued;
+    let supervisor_conflicts = snapshot.supervisor.conflicts_detected;
+    let supervisor_patterns = snapshot.supervisor.patterns_detected;
+    let supervisor_escalations = snapshot.supervisor.escalations_created;
+    let supervisor_last_decision = snapshot
+        .supervisor
+        .last_decision
+        .as_deref()
+        .map(escape_html)
+        .unwrap_or_else(|| "n/a".to_string());
+    let supervisor_last_action = snapshot
+        .supervisor
+        .last_action_at
+        .map(|timestamp| timestamp.to_rfc3339())
+        .map(|value| escape_html(&value))
+        .unwrap_or_else(|| "n/a".to_string());
     let linear_project_card = snapshot
         .linear_project_url
         .as_deref()
@@ -744,12 +760,12 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
     <h2>Supervisor</h2>
     <div class="polling-grid">
       <div><div class="label">status</div><div class="mono" id="supervisor-status-detail">{supervisor_status_label}</div></div>
-      <div><div class="label">steers</div><div class="mono" id="supervisor-steers">0</div></div>
-      <div><div class="label">conflicts</div><div class="mono" id="supervisor-conflicts">0</div></div>
-      <div><div class="label">patterns</div><div class="mono" id="supervisor-patterns">0</div></div>
-      <div><div class="label">escalations</div><div class="mono" id="supervisor-escalations">0</div></div>
-      <div><div class="label">last decision</div><div class="mono" id="supervisor-last-decision">n/a</div></div>
-      <div><div class="label">last action</div><div class="mono" id="supervisor-last-action">n/a</div></div>
+      <div><div class="label">steers</div><div class="mono" id="supervisor-steers">{supervisor_steers}</div></div>
+      <div><div class="label">conflicts</div><div class="mono" id="supervisor-conflicts">{supervisor_conflicts}</div></div>
+      <div><div class="label">patterns</div><div class="mono" id="supervisor-patterns">{supervisor_patterns}</div></div>
+      <div><div class="label">escalations</div><div class="mono" id="supervisor-escalations">{supervisor_escalations}</div></div>
+      <div><div class="label">last decision</div><div class="mono" id="supervisor-last-decision">{supervisor_last_decision}</div></div>
+      <div><div class="label">last action</div><div class="mono" id="supervisor-last-action">{supervisor_last_action}</div></div>
     </div>
   </section>
 

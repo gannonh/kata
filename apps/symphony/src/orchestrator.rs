@@ -3169,8 +3169,16 @@ impl Orchestrator {
             return Ok(());
         }
 
-        if self.supervisor_agent.is_some() {
+        if self
+            .supervisor_agent
+            .as_ref()
+            .is_some_and(SupervisorAgent::is_running)
+        {
             return Ok(());
+        }
+
+        if let Some(mut supervisor) = self.supervisor_agent.take() {
+            supervisor.abort();
         }
 
         let event_hub = self.create_event_hub();
