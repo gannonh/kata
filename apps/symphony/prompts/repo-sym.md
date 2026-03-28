@@ -1,4 +1,3 @@
-
 ## Repository context
 
 This is the **kata-mono** monorepo. The Symphony crate lives at `apps/symphony/`.
