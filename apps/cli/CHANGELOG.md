@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.12.1
+
+### Bug Fixes
+
+- **Milestone descriptions missing in Linear** — The KATA-WORKFLOW prompt doc only told the agent to pass a title when creating milestones, slices, and tasks. The `description` parameter was supported but never mentioned. Updated the workflow doc to instruct the agent to always include a description. This caused all M008+ milestones to appear without blurbs in Linear's UI.
+
 ## 0.12.0
 
 ### Features

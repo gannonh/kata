@@ -388,7 +388,7 @@ export class LinearBackend implements KataBackend {
       `### Single Milestone`,
       ``,
       `Once the user is satisfied, in a single pass:`,
-      `1. Call \`kata_create_milestone\` with the milestone title to create \`${nextId}\` in Linear.`,
+      `1. Call \`kata_create_milestone\` with the milestone title and a short description (1-2 sentences summarizing the milestone's intent) to create \`${nextId}\` in Linear.`,
       `2. Call \`kata_write_document\` with title \`PROJECT\` — read the template at \`~/.kata-cli/agent/extensions/kata/templates/project.md\` first. Describe what the project is, its current state, and list the milestone sequence.`,
       `3. Call \`kata_write_document\` with title \`REQUIREMENTS\` — read the template at \`~/.kata-cli/agent/extensions/kata/templates/requirements.md\` first. Confirm requirement states, ownership, and traceability before roadmap creation.`,
       `4. Call \`kata_write_document\` with title \`${nextId}-CONTEXT\` — read the template at \`~/.kata-cli/agent/extensions/kata/templates/context.md\` first. Preserve key risks, unknowns, existing codebase constraints, integration points, and relevant requirements surfaced during discussion.`,
@@ -398,7 +398,7 @@ export class LinearBackend implements KataBackend {
       `### Multi-Milestone`,
       ``,
       `Once the user confirms the milestone split, in a single pass:`,
-      `1. Call \`kata_create_milestone\` for each milestone with its title.`,
+      `1. Call \`kata_create_milestone\` for each milestone with its title and a short description (1-2 sentences summarizing the milestone's intent).`,
       `2. Call \`kata_write_document\` with title \`PROJECT\` — read the template at \`~/.kata-cli/agent/extensions/kata/templates/project.md\` first.`,
       `3. Call \`kata_write_document\` with title \`REQUIREMENTS\` — read the template at \`~/.kata-cli/agent/extensions/kata/templates/requirements.md\` first. Capture Active, Deferred, Out of Scope, and any already Validated requirements. Later milestones may have provisional ownership where slice plans do not exist yet.`,
       `4. Call \`kata_write_document\` with title \`{milestoneId}-CONTEXT\` for **every** milestone — capture the intent, scope, risks, constraints, user-visible outcome, completion class, final integrated acceptance, and relevant requirements for each. Each future milestone's CONTEXT should be rich enough that a planning agent encountering it fresh — with no memory of this conversation — can understand the intent, constraints, dependencies, what this milestone unlocks, and what "done" looks like.`,
@@ -476,6 +476,9 @@ export class LinearBackend implements KataBackend {
       `   - Include checkboxes, risk, depends, demo sentences, proof strategy, verification classes, milestone definition of done, **requirement coverage**, and a boundary map. Write success criteria as observable truths, not implementation tasks.`,
       `8. Create slice issues in Linear for each slice in the roadmap:`,
       `   - Call \`kata_create_slice\` for each slice.`,
+      `9. Materialize slice dependencies as Linear relations:`,
+      `   - For each slice with a non-empty \`depends:[...]\`, call \`linear_create_relation\` with \`type: "blocked_by"\` from that slice to each dependency.`,
+      `   - This enables Symphony to parallelize independent slices and respect ordering constraints.`,
     ].join("\n");
 
     return {
