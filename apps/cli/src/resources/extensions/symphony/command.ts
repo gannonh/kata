@@ -303,10 +303,12 @@ export async function executeSymphonyConfigCommand(
     ({ validateConfigModel } = await import("./config-validator.js"));
     ({ writeWorkflowConfigFile } = await import("./config-writer.js"));
     ({ runConfigEditor } = await import("./config-editor.js"));
-  } catch {
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
     ctx.ui.notify(
       "Symphony config editor requires the js-yaml package which could not be loaded. " +
-      "Install it globally (npm i -g js-yaml) or run kata from the project directory where it is a dependency.",
+      "Install it globally (npm i -g js-yaml) or run kata from the project directory where it is a dependency. " +
+      `(${detail})`,
       "error",
     );
     return;

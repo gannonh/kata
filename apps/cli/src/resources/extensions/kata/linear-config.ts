@@ -229,6 +229,67 @@ export async function resolveConfiguredLinearTeamId(
   };
 }
 
+// =============================================================================
+// Project ID resolution
+// =============================================================================
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export interface ResolveConfiguredLinearProjectIdResult {
+  projectId: string | null;
+  projectLookup: string | null;
+  error: string | null;
+}
+
+/**
+ * Resolve the configured Linear project to a concrete project UUID.
+ *
+ * The preferences may contain a slug ID (e.g. "459f9835e809") via
+ * `linear.projectSlug`, which works for `getProject` / `listMilestones`
+ * but fails in filter expressions (`IssueFilter`, `DocumentFilter`) that
+ * require a real UUID. This helper normalizes to a UUID for all consumers.
+ */
+export async function resolveConfiguredLinearProjectId(
+  client: Pick<LinearConfigValidationClient, "getProject">,
+  loadedPreferences: LoadedKataPreferences | null = loadEffectiveKataPreferences(),
+): Promise<ResolveConfiguredLinearProjectIdResult> {
+  const config = loadEffectiveLinearProjectConfig(loadedPreferences);
+  const rawProjectId = config.linear.projectId;
+
+  if (!rawProjectId) {
+    return {
+      projectId: null,
+      projectLookup: null,
+      error: "Linear project not configured — set linear.projectSlug (or linear.projectId) in kata preferences.",
+    };
+  }
+
+  // Already a UUID — pass through.
+  if (UUID_RE.test(rawProjectId)) {
+    return {
+      projectId: rawProjectId,
+      projectLookup: rawProjectId,
+      error: null,
+    };
+  }
+
+  // Slug — resolve to UUID via getProject.
+  const project = await client.getProject(rawProjectId);
+  if (!project) {
+    return {
+      projectId: null,
+      projectLookup: rawProjectId,
+      error: `Linear project not found for slug "${rawProjectId}". Check linear.projectSlug in preferences.`,
+    };
+  }
+
+  return {
+    projectId: project.id,
+    projectLookup: rawProjectId,
+    error: null,
+  };
+}
+
 export function resolveWorkflowProtocol(
   loadedPreferences: LoadedKataPreferences | null = loadEffectiveKataPreferences(),
 ): WorkflowProtocolResolution {
