@@ -300,8 +300,13 @@ impl SupervisorAgent {
             return Ok(());
         }
 
-        if self.task.is_some() {
+        if self.task.as_ref().is_some_and(|task| !task.is_finished()) {
             return Ok(());
+        }
+
+        if self.task.as_ref().is_some_and(|task| task.is_finished()) {
+            self.task = None;
+            self.shutdown_tx = None;
         }
 
         if tokio::runtime::Handle::try_current().is_err() {
@@ -392,21 +397,36 @@ impl SupervisorAgent {
             let _ = shutdown_tx.send(true);
         }
 
-        if let Some(task) = self.task.take() {
-            match tokio::time::timeout(Duration::from_secs(2), task).await {
-                Ok(Ok(())) => {}
-                Ok(Err(join_err)) => {
-                    tracing::warn!(
-                        event = "supervisor_join_failed",
-                        error = %join_err,
-                        "supervisor task ended with join error"
-                    );
+        if let Some(mut task) = self.task.take() {
+            tokio::select! {
+                join = &mut task => {
+                    match join {
+                        Ok(()) => {}
+                        Err(join_err) => {
+                            tracing::warn!(
+                                event = "supervisor_join_failed",
+                                error = %join_err,
+                                "supervisor task ended with join error"
+                            );
+                        }
+                    }
                 }
-                Err(_) => {
+                _ = tokio::time::sleep(Duration::from_secs(2)) => {
                     tracing::warn!(
                         event = "supervisor_shutdown_timeout",
-                        "supervisor did not stop within timeout"
+                        "supervisor did not stop within timeout; aborting task"
                     );
+
+                    task.abort();
+                    if let Err(join_err) = task.await {
+                        if !join_err.is_cancelled() {
+                            tracing::warn!(
+                                event = "supervisor_join_failed",
+                                error = %join_err,
+                                "supervisor task ended with join error"
+                            );
+                        }
+                    }
                 }
             }
         }
@@ -1008,7 +1028,9 @@ fn detect_context_conflict(entries: &[crate::domain::ContextEntry]) -> Option<Co
         if left.author_issue.eq_ignore_ascii_case("supervisor") {
             continue;
         }
-        let decision_a = decision_token(&left.content)?;
+        let Some(decision_a) = decision_token(&left.content) else {
+            continue;
+        };
         for right in entries {
             if left.id == right.id || left.scope != right.scope {
                 continue;
@@ -1019,7 +1041,9 @@ fn detect_context_conflict(entries: &[crate::domain::ContextEntry]) -> Option<Co
             if left.author_issue.eq_ignore_ascii_case(&right.author_issue) {
                 continue;
             }
-            let decision_b = decision_token(&right.content)?;
+            let Some(decision_b) = decision_token(&right.content) else {
+                continue;
+            };
             if decision_a == decision_b {
                 continue;
             }
@@ -1220,6 +1244,11 @@ fn repeated_test_failure_signature(summary: Option<&str>) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    };
+
     use super::*;
 
     fn tool_envelope(event: &str, summary: &str) -> SymphonyEventEnvelope {
@@ -1232,6 +1261,17 @@ mod tests {
             event,
             serde_json::json!({ "summary": summary }),
         )
+    }
+
+    fn context_entry(id: &str, author_issue: &str, content: &str) -> crate::domain::ContextEntry {
+        crate::domain::ContextEntry {
+            id: id.to_string(),
+            author_issue: author_issue.to_string(),
+            scope: ContextScope::Project,
+            content: content.to_string(),
+            created_at: Utc::now(),
+            ttl_ms: 60_000,
+        }
     }
 
     #[test]
@@ -1262,6 +1302,22 @@ mod tests {
         let left = conflict_key("KAT-1", "KAT-2", "src/lib.rs");
         let right = conflict_key("KAT-2", "KAT-1", "src/lib.rs");
         assert_eq!(left, right);
+    }
+
+    #[test]
+    fn detect_context_conflict_skips_non_decision_entries() {
+        let entries = vec![
+            context_entry("1", "KAT-1", "status update only"),
+            context_entry("2", "KAT-2", "Decision: use jsonwebtoken for auth"),
+            context_entry("3", "KAT-3", "Decision: use paseto for auth"),
+        ];
+
+        let conflict =
+            detect_context_conflict(&entries).expect("expected conflict despite non-decision row");
+
+        assert_eq!(conflict.scope_key, "project");
+        assert_eq!(conflict.decision_a, "jsonwebtoken");
+        assert_eq!(conflict.decision_b, "paseto");
     }
 
     #[test]
@@ -1344,5 +1400,76 @@ mod tests {
             None
         );
         assert_eq!(repeated_test_failure_signature(None), None);
+    }
+
+    #[tokio::test]
+    async fn start_restarts_when_previous_handle_is_finished() {
+        let deps = SupervisorDependencies::new(
+            EventHub::new(8),
+            SharedContextStore::default(),
+            EscalationRegistry::default(),
+        );
+        let mut supervisor = SupervisorAgent::new(
+            SupervisorConfig {
+                enabled: true,
+                model: None,
+                steer_cooldown_ms: 120_000,
+            },
+            deps,
+        );
+
+        let finished = tokio::spawn(async {});
+        tokio::task::yield_now().await;
+        assert!(finished.is_finished());
+
+        supervisor.task = Some(finished);
+        supervisor.shutdown_tx = Some(watch::channel(false).0);
+
+        supervisor
+            .start()
+            .expect("finished handle should not block restart");
+        assert!(supervisor.is_running());
+
+        supervisor.stop().await;
+    }
+
+    #[tokio::test]
+    async fn stop_timeout_aborts_background_task() {
+        struct DropFlag(Arc<AtomicBool>);
+
+        impl Drop for DropFlag {
+            fn drop(&mut self) {
+                self.0.store(true, Ordering::SeqCst);
+            }
+        }
+
+        let deps = SupervisorDependencies::new(
+            EventHub::new(8),
+            SharedContextStore::default(),
+            EscalationRegistry::default(),
+        );
+        let mut supervisor = SupervisorAgent::new(
+            SupervisorConfig {
+                enabled: true,
+                model: None,
+                steer_cooldown_ms: 120_000,
+            },
+            deps,
+        );
+
+        let dropped = Arc::new(AtomicBool::new(false));
+        let drop_flag = DropFlag(Arc::clone(&dropped));
+
+        supervisor.task = Some(tokio::spawn(async move {
+            let _drop_flag = drop_flag;
+            std::future::pending::<()>().await;
+        }));
+
+        supervisor.stop().await;
+
+        assert!(
+            dropped.load(Ordering::SeqCst),
+            "timed-out supervisor task should be aborted and dropped"
+        );
     }
 }
