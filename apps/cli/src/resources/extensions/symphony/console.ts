@@ -219,6 +219,7 @@ class SymphonyConsoleManager implements ConsoleManager {
   private context: SymphonyConsoleContext | null = null;
   private panel: ConsolePanelController | null = null;
   private streamAbortController: AbortController | null = null;
+  private refreshAbortController: AbortController | null = null;
   private refreshPromise: Promise<void> | null = null;
   private connectedOnce = false;
   private readonly escalationRouter: EscalationResponseRouter;
@@ -268,13 +269,8 @@ class SymphonyConsoleManager implements ConsoleManager {
     this.render();
     this.notify("console_panel_opened", "info");
 
-    await this.refresh();
-
-    if (!this.active) {
-      return;
-    }
-
     this.startStreamLoop();
+    await this.refresh();
   }
 
   close(ctx?: SymphonyConsoleContext): void {
@@ -290,6 +286,9 @@ class SymphonyConsoleManager implements ConsoleManager {
     this.connectedOnce = false;
     this.streamAbortController?.abort();
     this.streamAbortController = null;
+    this.refreshAbortController?.abort();
+    this.refreshAbortController = null;
+    this.refreshPromise = null;
 
     this.panel?.close();
     this.panel = null;
@@ -319,11 +318,20 @@ class SymphonyConsoleManager implements ConsoleManager {
       return this.refreshPromise;
     }
 
-    this.refreshPromise = this.performRefresh().finally(() => {
-      this.refreshPromise = null;
+    const controller = new AbortController();
+    this.refreshAbortController = controller;
+
+    const refreshPromise = this.performRefresh(controller.signal).finally(() => {
+      if (this.refreshPromise === refreshPromise) {
+        this.refreshPromise = null;
+      }
+      if (this.refreshAbortController === controller) {
+        this.refreshAbortController = null;
+      }
     });
 
-    return this.refreshPromise;
+    this.refreshPromise = refreshPromise;
+    return refreshPromise;
   }
 
   async handleInput(
@@ -393,9 +401,13 @@ class SymphonyConsoleManager implements ConsoleManager {
     }
   }
 
-  private async performRefresh(): Promise<void> {
+  private async performRefresh(signal?: AbortSignal): Promise<void> {
     try {
-      const snapshot = await this.client.getState();
+      const snapshot = await this.client.getState(signal);
+      if (signal?.aborted || !this.active) {
+        return;
+      }
+
       this.state = {
         ...buildConsolePanelStateFromSnapshot(snapshot, {
           now: this.now,
@@ -407,6 +419,10 @@ class SymphonyConsoleManager implements ConsoleManager {
       };
       this.render();
     } catch (error) {
+      if (isAbortError(error, signal) || !this.active) {
+        return;
+      }
+
       const message = error instanceof Error ? error.message : String(error);
       this.state = {
         ...this.state,
@@ -505,21 +521,37 @@ class SymphonyConsoleManager implements ConsoleManager {
       return;
     }
 
-    const results = await this.escalationRouter.flushQueue(
-      this.state.escalations,
-      this.state.connectionStatus === "connected",
-    );
+    try {
+      const results = await this.escalationRouter.flushQueue(
+        this.state.escalations,
+        this.state.connectionStatus === "connected",
+      );
 
-    if (results.length === 0) {
-      return;
-    }
+      if (results.length === 0) {
+        return;
+      }
 
-    for (const result of results) {
-      this.applyEscalationRouteResult(result);
-    }
+      for (const result of results) {
+        this.applyEscalationRouteResult(result);
+      }
 
-    if (results.some((result) => result.status === "sent" || result.status === "rejected")) {
-      await this.refresh();
+      if (results.some((result) => result.status === "sent" || result.status === "rejected")) {
+        await this.refresh();
+      }
+    } catch (error) {
+      if (!this.active) {
+        return;
+      }
+
+      const message = error instanceof Error ? error.message : String(error);
+      this.state = {
+        ...this.state,
+        error: `Failed to flush queued responses: ${message}`,
+        message: "Queued escalation responses stalled. They will retry on the next reconnect.",
+        lastUpdateAt: this.now(),
+      };
+      this.notify(`Failed to flush queued responses: ${message}`, "warning");
+      this.render();
     }
   }
 
@@ -574,6 +606,19 @@ class SymphonyConsoleManager implements ConsoleManager {
   private notify(message: string, type: "info" | "warning" | "error" = "info"): void {
     this.context?.ui.notify(message, type);
   }
+}
+
+function isAbortError(error: unknown, signal?: AbortSignal): boolean {
+  if (signal?.aborted) {
+    return true;
+  }
+
+  return (
+    !!error &&
+    typeof error === "object" &&
+    "name" in error &&
+    (error as { name?: unknown }).name === "AbortError"
+  );
 }
 
 function extractRequestId(payload: unknown): string | null {

@@ -19,10 +19,10 @@ import {
 import type { SymphonyClient } from "../client.js";
 import {
   SymphonyError,
+  type SymphonyClientLifecycleEvent,
   type SymphonyEventEnvelope,
   type SymphonyOrchestratorState,
 } from "../types.js";
-
 
 describe("console-state", () => {
   it("maps orchestrator snapshots into console panel state", () => {
@@ -1074,7 +1074,7 @@ describe("ConsoleManager", () => {
     manager.dispose(ctx);
   });
 
-  it("does not start stream when closed during initial refresh", async () => {
+  it("starts stream before initial refresh and aborts stale refresh on close", async () => {
     const stateSnapshot: SymphonyOrchestratorState = {
       poll_interval_ms: 30_000,
       max_concurrent_agents: 4,
@@ -1100,18 +1100,26 @@ describe("ConsoleManager", () => {
     });
 
     let watchEventsCalls = 0;
+    let streamAborted = false;
+    let refreshSignal: AbortSignal | undefined;
 
     const client: SymphonyClient = {
       getConnectionConfig: () => ({
         url: "http://127.0.0.1:8080",
         origin: "preferences",
       }),
-      getState: async () => pendingState,
+      getState: async (signal?: AbortSignal) => {
+        refreshSignal = signal;
+        return pendingState;
+      },
       getPendingEscalations: async () => [],
       respondToEscalation: async () => ({ ok: true, status: 200 }),
-      watchEvents: async function* () {
+      watchEvents: async function* (_filter, options) {
         watchEventsCalls += 1;
-        return;
+        while (!options?.signal?.aborted) {
+          await new Promise((resolve) => setTimeout(resolve, 1));
+        }
+        streamAborted = true;
       },
     };
 
@@ -1131,13 +1139,205 @@ describe("ConsoleManager", () => {
     } as any;
 
     const opening = manager.open(ctx);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(watchEventsCalls).toBe(1);
+    expect(refreshSignal).toBeDefined();
+    expect(refreshSignal?.aborted).toBe(false);
+
     manager.close(ctx);
+    expect(refreshSignal?.aborted).toBe(true);
 
     resolveState?.(stateSnapshot);
     await opening;
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(watchEventsCalls).toBe(0);
+    expect(streamAborted).toBe(true);
     expect(manager.isActive()).toBe(false);
+  });
+
+  it("does not reuse an aborted refresh promise across reopen", async () => {
+    const stateSnapshot: SymphonyOrchestratorState = {
+      poll_interval_ms: 30_000,
+      max_concurrent_agents: 4,
+      running: {},
+      retry_queue: [],
+      completed: [],
+      codex_totals: {
+        input_tokens: 0,
+        output_tokens: 0,
+        total_tokens: 0,
+      },
+      polling: {
+        checking: false,
+        next_poll_in_ms: 10_000,
+        poll_interval_ms: 30_000,
+      },
+      pending_escalations: [],
+    };
+
+    let resolveFirstRefresh: ((value: SymphonyOrchestratorState) => void) | null = null;
+    const firstRefresh = new Promise<SymphonyOrchestratorState>((resolve) => {
+      resolveFirstRefresh = resolve;
+    });
+
+    let refreshCalls = 0;
+    const getState = vi.fn(async () => {
+      refreshCalls += 1;
+      if (refreshCalls === 1) {
+        return firstRefresh;
+      }
+
+      return {
+        ...stateSnapshot,
+        polling: {
+          ...stateSnapshot.polling,
+          checking: true,
+        },
+      };
+    });
+
+    const client: SymphonyClient = {
+      getConnectionConfig: () => ({
+        url: "http://127.0.0.1:8080",
+        origin: "preferences",
+      }),
+      getState,
+      getPendingEscalations: async () => [],
+      respondToEscalation: async () => ({ ok: true, status: 200 }),
+      watchEvents: async function* (_filter, options) {
+        while (!options?.signal?.aborted) {
+          await new Promise((resolve) => setTimeout(resolve, 1));
+        }
+      },
+    };
+
+    const manager = createConsoleManager(client, {
+      panelFactory: () => ({
+        update: () => undefined,
+        setPosition: () => undefined,
+        close: () => undefined,
+        isOpen: () => true,
+      }),
+    });
+
+    const ctx = {
+      ui: {
+        notify: () => undefined,
+      },
+    } as any;
+
+    const firstOpen = manager.open(ctx);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    manager.close(ctx);
+
+    const secondOpen = manager.open(ctx);
+    const secondOpenResult = await Promise.race([
+      secondOpen.then(() => "resolved" as const),
+      new Promise<"timeout">((resolve) =>
+        setTimeout(() => resolve("timeout"), 50),
+      ),
+    ]);
+
+    expect(secondOpenResult).toBe("resolved");
+    expect(getState).toHaveBeenCalledTimes(2);
+
+    resolveFirstRefresh?.(stateSnapshot);
+    await firstOpen;
+
+    manager.dispose(ctx);
+  });
+
+  it("surfaces queued-response flush failures on reconnect", async () => {
+    const pendingQueueSpy = vi
+      .spyOn(EscalationResponseRouter.prototype, "pendingQueueSize")
+      .mockReturnValue(1);
+    const flushQueueSpy = vi
+      .spyOn(EscalationResponseRouter.prototype, "flushQueue")
+      .mockRejectedValue(new Error("flush failed"));
+
+    const notifications: Array<{ message: string; type?: "info" | "warning" | "error" }> = [];
+
+    const stateSnapshot: SymphonyOrchestratorState = {
+      poll_interval_ms: 30_000,
+      max_concurrent_agents: 4,
+      running: {},
+      retry_queue: [],
+      completed: [],
+      codex_totals: {
+        input_tokens: 0,
+        output_tokens: 0,
+        total_tokens: 0,
+      },
+      polling: {
+        checking: false,
+        next_poll_in_ms: 10_000,
+        poll_interval_ms: 30_000,
+      },
+      pending_escalations: [],
+    };
+
+    let lifecycle: ((event: SymphonyClientLifecycleEvent) => void) | undefined;
+
+    const client: SymphonyClient = {
+      getConnectionConfig: () => ({
+        url: "http://127.0.0.1:8080",
+        origin: "preferences",
+      }),
+      getState: async () => stateSnapshot,
+      getPendingEscalations: async () => [],
+      respondToEscalation: async () => ({ ok: true, status: 200 }),
+      watchEvents: async function* (_filter, options) {
+        lifecycle = options?.onLifecycle;
+        while (!options?.signal?.aborted) {
+          await new Promise((resolve) => setTimeout(resolve, 1));
+        }
+      },
+    };
+
+    const manager = createConsoleManager(client, {
+      panelFactory: () => ({
+        update: () => undefined,
+        setPosition: () => undefined,
+        close: () => undefined,
+        isOpen: () => true,
+      }),
+    });
+
+    const ctx = {
+      ui: {
+        notify: (message: string, type?: "info" | "warning" | "error") => {
+          notifications.push({ message, type });
+        },
+      },
+    } as any;
+
+    try {
+      await manager.open(ctx);
+      lifecycle?.({
+        type: "symphony_client_connected",
+        details: {
+          url: "http://127.0.0.1:8080",
+          origin: "preferences",
+          connected: true,
+        },
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(manager.getState().error).toContain("Failed to flush queued responses");
+      expect(
+        notifications.some(
+          (entry) =>
+            entry.type === "warning" &&
+            entry.message.includes("Failed to flush queued responses"),
+        ),
+      ).toBe(true);
+    } finally {
+      manager.dispose(ctx);
+      flushQueueSpy.mockRestore();
+      pendingQueueSpy.mockRestore();
+    }
   });
 
   it("routes !respond input to pending escalation", async () => {
