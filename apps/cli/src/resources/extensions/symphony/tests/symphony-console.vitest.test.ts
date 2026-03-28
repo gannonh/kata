@@ -725,6 +725,72 @@ describe("ConsoleManager", () => {
     manager.dispose(ctx);
   });
 
+  it("does not start stream when closed during initial refresh", async () => {
+    const stateSnapshot: SymphonyOrchestratorState = {
+      poll_interval_ms: 30_000,
+      max_concurrent_agents: 4,
+      running: {},
+      retry_queue: [],
+      completed: [],
+      codex_totals: {
+        input_tokens: 0,
+        output_tokens: 0,
+        total_tokens: 0,
+      },
+      polling: {
+        checking: false,
+        next_poll_in_ms: 10_000,
+        poll_interval_ms: 30_000,
+      },
+      pending_escalations: [],
+    };
+
+    let resolveState: ((value: SymphonyOrchestratorState) => void) | null = null;
+    const pendingState = new Promise<SymphonyOrchestratorState>((resolve) => {
+      resolveState = resolve;
+    });
+
+    let watchEventsCalls = 0;
+
+    const client: SymphonyClient = {
+      getConnectionConfig: () => ({
+        url: "http://127.0.0.1:8080",
+        origin: "preferences",
+      }),
+      getState: async () => pendingState,
+      getPendingEscalations: async () => [],
+      respondToEscalation: async () => ({ ok: true, status: 200 }),
+      watchEvents: async function* () {
+        watchEventsCalls += 1;
+        return;
+      },
+    };
+
+    const manager = createConsoleManager(client, {
+      panelFactory: () => ({
+        update: () => undefined,
+        setPosition: () => undefined,
+        close: () => undefined,
+        isOpen: () => true,
+      }),
+    });
+
+    const ctx = {
+      ui: {
+        notify: () => undefined,
+      },
+    } as any;
+
+    const opening = manager.open(ctx);
+    manager.close(ctx);
+
+    resolveState?.(stateSnapshot);
+    await opening;
+
+    expect(watchEventsCalls).toBe(0);
+    expect(manager.isActive()).toBe(false);
+  });
+
   it("routes !respond input to pending escalation", async () => {
     const notifications: string[] = [];
     const respondToEscalation = vi.fn(async () => ({ ok: true, status: 200 }));

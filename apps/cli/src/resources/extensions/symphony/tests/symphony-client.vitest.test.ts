@@ -196,6 +196,31 @@ describe("SymphonyHttpClient", () => {
     expect(MockWebSocket.openedUrls[0]).toContain("/symphony/api/v1/events");
   });
 
+  it("decodes shared context event kinds without dropping the stream", async () => {
+    MockWebSocket.openedUrls = [];
+    MockWebSocket.scripts = [
+      (socket) => {
+        socket.emitOpen();
+        socket.emitMessage(
+          JSON.stringify(
+            makeEnvelope({
+              sequence: 55,
+              kind: "shared_context_written",
+              event: "shared_context_written",
+            }),
+          ),
+        );
+        socket.emitClose(1000, "done", true);
+      },
+    ];
+
+    const client = makeClient();
+    const events = await collectEvents(client.watchEvents({}, { timeoutMs: 2_000 }));
+
+    expect(events).toHaveLength(1);
+    expect(events[0].kind).toBe("shared_context_written");
+  });
+
   it("reconnects on retryable close codes", async () => {
     MockWebSocket.openedUrls = [];
     MockWebSocket.scripts = [

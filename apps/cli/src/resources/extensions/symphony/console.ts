@@ -269,6 +269,11 @@ class SymphonyConsoleManager implements ConsoleManager {
     this.notify("console_panel_opened", "info");
 
     await this.refresh();
+
+    if (!this.active) {
+      return;
+    }
+
     this.startStreamLoop();
   }
 
