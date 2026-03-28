@@ -127,6 +127,13 @@ export function loadEffectiveLinearProjectConfig(
   const preferences = loadedPreferences?.preferences;
   const workflowMode = normalizeWorkflowMode(preferences?.workflow?.mode);
 
+  // Resolve projectId: prefer projectSlug (human-readable, matches Linear URLs
+  // and Symphony's tracker.project_slug), fall back to projectId (UUID, legacy).
+  const projectId =
+    preferences?.linear?.projectSlug ??
+    preferences?.linear?.projectId ??
+    null;
+
   return {
     path: loadedPreferences?.path ?? null,
     scope: loadedPreferences?.scope ?? null,
@@ -135,7 +142,7 @@ export function loadEffectiveLinearProjectConfig(
     linear: {
       teamId: preferences?.linear?.teamId ?? null,
       teamKey: preferences?.linear?.teamKey ?? null,
-      projectId: preferences?.linear?.projectId ?? null,
+      projectId,
     },
   };
 }

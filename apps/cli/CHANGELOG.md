@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.12.0
+
+### Features
+
+- **Operating Modes context block** — The agent system prompt now includes an explicit "Operating Modes" section explaining the three ways to use Kata CLI: Plan (`/kata plan`), Execute (`/kata auto`/`/kata step`), and Supervise (Symphony). This gives the agent a first-class understanding of how Kata CLI and Symphony work together through the shared Linear backbone.
+- **`linear.projectSlug` preference** — New preference field that accepts the short slug ID from Linear project URLs (e.g. `459f9835e809`) instead of the full UUID. Shorter, human-readable, and matches Symphony's `tracker.project_slug`. `linear.projectId` (UUID) remains supported for backward compatibility. When both are set, `projectSlug` takes precedence.
+
+### Bug Fixes
+
+- **Symphony extension fails to load in production** — Fixed `Cannot find module 'js-yaml'` error when running via `npx @kata-sh/cli`. The Symphony config editor modules (`config-parser`, `config-writer`, `config-validator`, `config-editor`) depend on `js-yaml`, which is not in pi-coding-agent's extension loader alias list. These modules are now lazy-imported only when `/symphony config` is invoked, so the rest of the Symphony extension (status, watch, console, escalation) loads without error.
+
 ## 0.11.0
 
 ### Features
