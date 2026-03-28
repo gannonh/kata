@@ -9,7 +9,8 @@ use serde_json::{json, Value};
 use symphony::domain::{
     BlockedIssueEntry, CodexTotals, CompletedEntry, EventKind, OrchestratorSnapshot,
     PollingSnapshot, RateLimitInfo, RefreshRequestOutcome, RetrySnapshotEntry, RunAttempt,
-    RunningSessionSnapshot, SessionTokenUsage, SharedContextSummary, WorkerSessionInfo,
+    RunningSessionSnapshot, SessionTokenUsage, SharedContextSummary, SupervisorSnapshot,
+    SupervisorStatus, WorkerSessionInfo,
 };
 use symphony::http_server::{
     build_router, parse_event_filter_contract, HttpServerState, RefreshControl, SnapshotSource,
@@ -138,6 +139,7 @@ fn fixture_snapshot() -> OrchestratorSnapshot {
             oldest_entry_at: Some(started_at),
             newest_entry_at: Some(started_at),
         },
+        supervisor: symphony::domain::SupervisorSnapshot::default(),
         codex_totals: CodexTotals {
             input_tokens: 120,
             output_tokens: 80,
@@ -255,6 +257,14 @@ async fn test_get_root_returns_html_dashboard_shell_with_structured_sections() {
         "dashboard shell should include shared context section"
     );
     assert!(
+        body.contains("Supervisor"),
+        "dashboard shell should include supervisor section"
+    );
+    assert!(
+        body.contains(r#"id="supervisor-status-detail""#),
+        "dashboard shell should include supervisor status detail field"
+    );
+    assert!(
         body.contains("Completed issues"),
         "dashboard shell should include completed issue list section"
     );
@@ -289,6 +299,71 @@ async fn test_get_root_returns_html_dashboard_shell_with_structured_sections() {
     assert!(
         !body.contains("Live state"),
         "dashboard shell should no longer expose the raw live-state section"
+    );
+}
+
+#[tokio::test]
+async fn test_dashboard_initial_supervisor_metrics_use_snapshot_values() {
+    let mut snapshot = fixture_snapshot();
+    let last_action_at = Utc
+        .with_ymd_and_hms(2026, 3, 22, 9, 15, 0)
+        .single()
+        .expect("fixture timestamp should be valid");
+
+    snapshot.supervisor = SupervisorSnapshot {
+        status: SupervisorStatus::Active,
+        model: Some("anthropic/claude-sonnet-4-6".to_string()),
+        steers_issued: 7,
+        conflicts_detected: 3,
+        patterns_detected: 2,
+        escalations_created: 1,
+        last_decision: Some("steered KAT-1327 (no_progress)".to_string()),
+        last_action_at: Some(last_action_at),
+        last_error: None,
+    };
+
+    let app = build_router(HttpServerState::new(
+        Arc::new(StaticSnapshotSource { snapshot }),
+        Arc::new(FakeRefreshControl::default()),
+        symphony::orchestrator::EscalationRegistry::default(),
+    ));
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/")
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("router should respond");
+
+    let body = body_text(response).await;
+
+    assert!(
+        body.contains(r#"id="supervisor-steers">7"#),
+        "dashboard should server-render supervisor steers"
+    );
+    assert!(
+        body.contains(r#"id="supervisor-conflicts">3"#),
+        "dashboard should server-render supervisor conflicts"
+    );
+    assert!(
+        body.contains(r#"id="supervisor-patterns">2"#),
+        "dashboard should server-render supervisor patterns"
+    );
+    assert!(
+        body.contains(r#"id="supervisor-escalations">1"#),
+        "dashboard should server-render supervisor escalations"
+    );
+    assert!(
+        body.contains(r#"id="supervisor-last-decision">steered KAT-1327 (no_progress)"#),
+        "dashboard should server-render supervisor last decision"
+    );
+    assert!(
+        body.contains(r#"id="supervisor-last-action">2026-03-22T09:15:00+00:00"#),
+        "dashboard should server-render supervisor last action timestamp"
     );
 }
 
@@ -337,6 +412,7 @@ async fn test_get_api_state_returns_snapshot_projection() {
     );
     assert_eq!(payload["retry_queue"][0]["identifier"], "SIM-777");
     assert_eq!(payload["shared_context"]["total_entries"], 1);
+    assert_eq!(payload["supervisor"]["status"], "disabled");
     assert_eq!(payload["codex_totals"]["total_tokens"], 200);
     assert_eq!(payload["codex_rate_limits"]["remaining"], 88);
     assert_eq!(

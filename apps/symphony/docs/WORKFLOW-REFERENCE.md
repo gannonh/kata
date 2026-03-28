@@ -277,6 +277,20 @@ kata_agent:  # alias: pi_agent
   # Default parser value: 300000.
   stall_timeout_ms: 300000
 
+# ─── Supervisor (M002/S07) ────────────────────────────────────────────────────
+# Optional autonomous supervisor loop for cross-worker orchestration.
+supervisor:
+  # Enable supervisor runtime. Default parser value: false.
+  enabled: false
+
+  # Optional model identifier for future model-backed supervisor reasoning.
+  # Defaults to kata_agent.model when omitted.
+  # model: anthropic/claude-sonnet-4-6
+
+  # Minimum milliseconds between steer actions for the same worker issue.
+  # Default parser value: 120000.
+  steer_cooldown_ms: 120000
+
 # ─── Worker (SSH) ─────────────────────────────────────────────────────────────
 # Distribute agent sessions across remote SSH hosts.
 # When ssh_hosts is empty (default), all sessions run locally.

@@ -14,6 +14,7 @@ pub mod ssh;
 pub mod workspace;
 
 pub mod shared_context;
+pub mod supervisor;
 
 pub mod codex;
 pub mod event_stream;

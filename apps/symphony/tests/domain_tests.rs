@@ -119,6 +119,7 @@ fn test_service_config_defaults_match_spec() {
         prompts: None,
         notifications: None,
         shared_context: SharedContextConfig::default(),
+        supervisor: SupervisorConfig::default(),
     };
 
     // Polling §5.3.2
@@ -151,6 +152,11 @@ fn test_service_config_defaults_match_spec() {
     // Shared context defaults
     assert_eq!(cfg.shared_context.ttl_ms, 86_400_000);
     assert_eq!(cfg.shared_context.max_entries, 100);
+
+    // Supervisor defaults
+    assert!(!cfg.supervisor.enabled);
+    assert!(cfg.supervisor.model.is_none());
+    assert_eq!(cfg.supervisor.steer_cooldown_ms, 120_000);
 }
 
 #[test]
@@ -381,6 +387,7 @@ fn test_orchestrator_snapshot_serializes() {
         blocked: vec![],
         pending_escalations: vec![],
         shared_context: symphony::domain::SharedContextSummary::default(),
+        supervisor: symphony::domain::SupervisorSnapshot::default(),
         codex_totals: CodexTotals::default(),
         codex_rate_limits: None,
         polling: PollingSnapshot {

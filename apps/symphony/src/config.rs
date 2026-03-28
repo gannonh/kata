@@ -13,8 +13,8 @@ use serde_yaml::{Mapping, Value};
 use crate::domain::{
     AgentBackend, AgentConfig, ApiKey, CodexConfig, DockerCodexAuth, DockerConfig, HooksConfig,
     NotificationsConfig, PiAgentConfig, PollingConfig, PromptsConfig, ServerConfig, ServiceConfig,
-    SharedContextConfig, SlackConfig, TrackerConfig, WorkerConfig, WorkspaceConfig,
-    WorkspaceIsolation, WorkspaceRepoStrategy,
+    SharedContextConfig, SlackConfig, SupervisorConfig, TrackerConfig, WorkerConfig,
+    WorkspaceConfig, WorkspaceIsolation, WorkspaceRepoStrategy,
 };
 use crate::error::{Result, SymphonyError};
 use crate::notifications;
@@ -316,6 +316,14 @@ struct RawSharedContextConfig {
 
 #[derive(Deserialize, Default)]
 #[serde(default)]
+struct RawSupervisorConfig {
+    enabled: Option<bool>,
+    model: Option<String>,
+    steer_cooldown_ms: Option<u64>,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
 struct RawSlackConfig {
     webhook_url: Option<String>,
     events: Option<Vec<String>>,
@@ -502,6 +510,7 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
     let raw_notifications: RawNotificationsConfig = extract_section(&normalized, "notifications")?;
     let raw_shared_context: RawSharedContextConfig =
         extract_section(&normalized, "shared_context")?;
+    let raw_supervisor: RawSupervisorConfig = extract_section(&normalized, "supervisor")?;
 
     let defaults = ServiceConfig::default();
     let has_kata_agent_section = normalized.get("kata_agent").is_some();
@@ -991,6 +1000,20 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
             .unwrap_or(defaults.shared_context.max_entries),
     };
 
+    let supervisor = SupervisorConfig {
+        enabled: raw_supervisor
+            .enabled
+            .unwrap_or(defaults.supervisor.enabled),
+        model: raw_supervisor
+            .model
+            .map(|value| resolve_env(&value))
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty()),
+        steer_cooldown_ms: raw_supervisor
+            .steer_cooldown_ms
+            .unwrap_or(defaults.supervisor.steer_cooldown_ms),
+    };
+
     Ok(ServiceConfig {
         tracker,
         polling,
@@ -1005,6 +1028,7 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         prompts,
         notifications,
         shared_context,
+        supervisor,
     })
 }
 
@@ -1224,6 +1248,48 @@ mod tests {
         let val: Value = serde_yaml::from_str("- kata\n- --mode\n- rpc").unwrap();
         let cmd = parse_pi_agent_command(val).unwrap();
         assert_eq!(cmd, vec!["kata", "--mode", "rpc"]);
+    }
+
+    #[test]
+    fn raw_supervisor_config_defaults_when_section_omitted() {
+        let yaml: Value =
+            serde_yaml::from_str("tracker: { kind: linear }").expect("yaml fixture should parse");
+        let normalized = normalize_keys(yaml);
+        let raw: RawSupervisorConfig =
+            extract_section(&normalized, "supervisor").expect("section should parse");
+
+        assert_eq!(raw.enabled, None);
+        assert_eq!(raw.model, None);
+        assert_eq!(raw.steer_cooldown_ms, None);
+    }
+
+    #[test]
+    fn raw_supervisor_config_honors_explicit_cooldown() {
+        let yaml: Value = serde_yaml::from_str(
+            "tracker: { kind: linear }\nsupervisor:\n  steer_cooldown_ms: 45000",
+        )
+        .expect("yaml fixture should parse");
+        let normalized = normalize_keys(yaml);
+        let raw: RawSupervisorConfig =
+            extract_section(&normalized, "supervisor").expect("section should parse");
+
+        assert_eq!(raw.steer_cooldown_ms, Some(45_000));
+    }
+
+    #[test]
+    fn supervisor_model_env_and_empty_values_resolve_to_none() {
+        let env_yaml: Value = serde_yaml::from_str(
+            "tracker: { kind: linear }\nsupervisor:\n  model: $SYMPHONY_TEST_UNSET_SUPERVISOR_MODEL",
+        )
+        .expect("yaml fixture should parse");
+        let env_config = from_workflow(&env_yaml).expect("workflow should parse");
+        assert_eq!(env_config.supervisor.model, None);
+
+        let empty_yaml: Value =
+            serde_yaml::from_str("tracker: { kind: linear }\nsupervisor:\n  model: \"\"")
+                .expect("yaml fixture should parse");
+        let empty_config = from_workflow(&empty_yaml).expect("workflow should parse");
+        assert_eq!(empty_config.supervisor.model, None);
     }
 
     #[test]
