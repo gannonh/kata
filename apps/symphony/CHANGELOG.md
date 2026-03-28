@@ -1,5 +1,48 @@
 # Changelog
 
+## 2.0.0 — Symphony ↔ Kata CLI Integration
+
+Server/client architecture — Symphony is the server, Kata CLI is the client. Same planning artifacts, same Linear issues, same agent runtime at every level.
+
+### WebSocket Event Stream API (S01)
+
+- **`/api/v1/events` WebSocket endpoint** — real-time event stream with server-side filtering (`?issue=KAT-920&type=worker,tool&severity=error`). OR within fields, AND across fields.
+- **21 event types** — worker lifecycle, tool execution, escalation, shared context, supervisor decisions.
+- **Bootstrap snapshot** — new subscribers receive current state immediately, then live deltas.
+- **Backpressure protection** — bounded per-client queues with deterministic close codes (`invalid_filter`, `backpressure`, `server_shutdown`).
+- **Heartbeat keepalive** — 5-second heartbeat envelopes for connection health monitoring.
+
+### Worker Escalation Protocol (S03)
+
+- **Real-time human-in-the-loop** — workers can escalate ambiguous decisions instead of guessing or failing. Worker pauses, question routes to connected Kata CLI, human answers, worker resumes. No restart needed.
+- **`POST /api/v1/escalations/:id/respond`** — HTTP endpoint for routing operator responses to waiting workers.
+- **Configurable timeout** — `agent.escalation_timeout_ms` (default 5 min). On timeout, falls back to original cancel behavior.
+- **TUI escalation indicators** — ⚠️ icon + question preview on workers with pending escalations.
+- **Full lifecycle events** — `escalation_created`, `escalation_responded`, `escalation_timed_out`, `escalation_cancelled`.
+
+### Inter-worker Context Sharing (S06)
+
+- **`SharedContextStore`** — in-memory, scope-keyed store (project, milestone, label). Workers share decisions and patterns so parallel agents don't contradict each other.
+- **Automatic prompt injection** — relevant context entries injected into worker prompts via `{{ shared_context }}` Liquid variable. Top 10 newest entries per scope.
+- **HTTP API** — `GET/POST/DELETE /api/v1/context` for programmatic access. Entries have author, scope, content (max 500 chars), and configurable TTL.
+- **Auto-pruning** — expired entries cleaned each poll cycle. Events emitted on write and expiry.
+- **Ephemeral by design** — in-memory only, clears on restart. Linear is the durable store.
+
+### Supervisor Agent (S07)
+
+- **Autonomous orchestration intelligence** — AI agent watches the event stream and makes real-time decisions. Steers stuck workers, detects conflicts between parallel workers, recognizes systemic failure patterns.
+- **Stuck worker detection** — repeated tool errors (3+), no file edits (5+ events), repeated test failures. Targeted steer messages based on the specific pattern.
+- **Conflict detection** — overlapping file edits between concurrent workers, contradictory shared context entries. Coordinates via context writes or escalates to human.
+- **Failure pattern recognition** — 2+ workers hitting the same normalized error triggers systemic alert with shared context warning and optional escalation.
+- **Configurable** — `supervisor.enabled` (default false), `supervisor.model`, `supervisor.steer_cooldown_ms` (default 120s).
+- **Kata CLI as runtime** — supervisor spawns as a Kata CLI agent session with a specialized system prompt, not embedded Rust logic.
+- **Dashboard visibility** — TUI header shows supervisor status and action counts. HTTP dashboard shows full supervisor section.
+
+### Bug Fixes
+
+- **Console "Waiting" message persists after connection** — cleared when WebSocket connects.
+- **Escalation listener stack trace on disconnect** — cleaned up error handling, no raw traces leaked to UI.
+
 ## 1.3.0 — Slack notifications, session state-change fix
 
 ### Slack Webhook Notifications (KAT-925)

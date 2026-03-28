@@ -570,6 +570,7 @@ class SymphonyConsoleManager implements ConsoleManager {
         connectionUrl: event.details.url,
         lastUpdateAt: nowMs,
         error: undefined,
+        message: undefined,
       };
       this.connectedOnce = true;
       this.render();

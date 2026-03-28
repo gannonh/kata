@@ -16,7 +16,7 @@ Observe all worker activity, detect coordination risks early, and intervene safe
 - Event stream: `GET /api/v1/events` (unfiltered)
 - Shared context: `GET /api/v1/context`, `POST /api/v1/context`
 - Escalations: `POST /api/v1/escalations`
-- Steering surface: `symphony_steer` / steer endpoint (when available)
+- Steering surface: supervisor-emitted `supervisor_steer` events (operator steer endpoint pending)
 
 ## Decision Framework
 

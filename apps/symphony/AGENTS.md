@@ -584,14 +584,17 @@ Core Rust modules:
 | Pi RPC bridge             | `src/pi_agent/rpc_bridge.rs`                    | Kata RPC subprocess lifecycle, turn streaming, token stats integration                                                                                                                                       |
 | Pi protocol types         | `src/pi_agent/protocol.rs`                      | Pi RPC command/response/event serde models                                                                                                                                                                   |
 | Pi token accounting       | `src/pi_agent/token_accounting.rs`              | Cumulative token stats to per-turn delta tracking                                                                                                                                                            |
-| Prompt builder            | `src/prompt_builder.rs`                         | Liquid template rendering, per-state prompt resolution from files                                                                                                                                            |
+| Event stream              | `src/event_stream.rs`                           | Broadcast event hub, WebSocket pub/sub, sequence numbering                                                                                                                                                   |
+| Shared context store      | `src/shared_context.rs`                         | In-memory scoped context entries with TTL, pruning, CRUD operations                                                                                                                                          |
+| Notifications             | `src/notifications.rs`                          | Slack webhook sender, event filtering, fire-and-forget dispatch                                                                                                                                              |
+| Prompt builder            | `src/prompt_builder.rs`                         | Liquid template rendering, per-state prompt resolution, shared context injection                                                                                                                             |
 | SSH helpers               | `src/ssh.rs`                                    | Remote target parsing, command escaping, host selection helpers                                                                                                                                              |
 
 ---
 
 ## Testing
 
-Run the full test suite (321 tests):
+Run the full test suite (529 tests):
 
 ```sh
 cargo test

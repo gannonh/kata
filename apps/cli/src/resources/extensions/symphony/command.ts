@@ -201,7 +201,8 @@ export function registerSymphonyCommand(
       }
 
       if (tokens[0] === "watch" && tokens.length <= 2) {
-        return [{ value: "watch KAT-920", label: "watch <ISSUE>" }];
+        const partial = tokens[1] ?? "";
+        return [{ value: `watch ${partial}`, label: "watch <ISSUE>" }];
       }
 
       if (tokens[0] === "watch") {
