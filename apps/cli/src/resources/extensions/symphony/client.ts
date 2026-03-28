@@ -14,6 +14,7 @@ import {
   type SymphonyOrchestratorState,
   type SymphonyPendingEscalation,
   type SymphonyWatchOptions,
+  type SymphonyWorkerSessionInfo,
 } from "./types.js";
 
 export interface SymphonyClient {
@@ -325,7 +326,7 @@ function decodeState(
     codex_totals: obj.codex_totals as SymphonyOrchestratorState["codex_totals"],
     polling: obj.polling as SymphonyOrchestratorState["polling"],
     running_session_info: isRecord(obj.running_session_info)
-      ? (obj.running_session_info as Record<string, unknown>)
+      ? sanitizeRunningSessionInfo(obj.running_session_info)
       : undefined,
     blocked: Array.isArray(obj.blocked)
       ? (obj.blocked as Array<Record<string, unknown>>)
@@ -333,6 +334,61 @@ function decodeState(
     pending_escalations: Array.isArray(obj.pending_escalations)
       ? (obj.pending_escalations as SymphonyPendingEscalation[])
       : undefined,
+  };
+}
+
+function sanitizeRunningSessionInfo(
+  raw: Record<string, unknown>,
+): Record<string, SymphonyWorkerSessionInfo> {
+  const sanitized: Record<string, SymphonyWorkerSessionInfo> = {};
+
+  for (const [issueId, value] of Object.entries(raw)) {
+    if (!isRecord(value)) {
+      continue;
+    }
+
+    const info = sanitizeWorkerSessionInfo(value);
+    sanitized[issueId] = info;
+  }
+
+  return sanitized;
+}
+
+function sanitizeWorkerSessionInfo(value: Record<string, unknown>): SymphonyWorkerSessionInfo {
+  const turnCount =
+    typeof value.turn_count === "number" ? value.turn_count : undefined;
+  const maxTurns =
+    typeof value.max_turns === "number" ? value.max_turns : undefined;
+
+  const lastActivityMs =
+    typeof value.last_activity_ms === "number"
+      ? value.last_activity_ms
+      : value.last_activity_ms === null
+        ? null
+        : undefined;
+
+  const currentToolName =
+    typeof value.current_tool_name === "string"
+      ? value.current_tool_name
+      : value.current_tool_name === null
+        ? null
+        : undefined;
+
+  const currentToolArgsPreview =
+    typeof value.current_tool_args_preview === "string"
+      ? value.current_tool_args_preview
+      : value.current_tool_args_preview === null
+        ? null
+        : undefined;
+
+  return {
+    ...(turnCount !== undefined ? { turn_count: turnCount } : {}),
+    ...(maxTurns !== undefined ? { max_turns: maxTurns } : {}),
+    ...(lastActivityMs !== undefined ? { last_activity_ms: lastActivityMs } : {}),
+    ...(currentToolName !== undefined ? { current_tool_name: currentToolName } : {}),
+    ...(currentToolArgsPreview !== undefined
+      ? { current_tool_args_preview: currentToolArgsPreview }
+      : {}),
   };
 }
 

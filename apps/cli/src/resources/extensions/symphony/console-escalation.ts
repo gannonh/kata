@@ -1,5 +1,6 @@
 import type { SymphonyClient } from "./client.js";
 import type { EscalationDisplayItem } from "./console-state.js";
+import { isSymphonyError } from "./types.js";
 
 export interface EscalationResponseRouterOptions {
   trigger?: string;
@@ -160,6 +161,21 @@ export class EscalationResponseRouter {
         message: `Escalation response failed for ${requestId} (HTTP ${response.status}).`,
       };
     } catch (error) {
+      if (isSymphonyError(error) && error.context.retryable) {
+        this.queue.push({
+          requestId,
+          responseText,
+          queuedAt: this.now(),
+        });
+
+        return {
+          handled: true,
+          status: "queued",
+          requestId,
+          message: `Connection lost — queued response for ${requestId}.`,
+        };
+      }
+
       const message = error instanceof Error ? error.message : String(error);
       return {
         handled: true,
@@ -199,7 +215,7 @@ function parseResponseCommand(
     const tokens = remainder.split(/\s+/);
     const first = tokens[0] ?? "";
 
-    if ((matchesEscalationSelector(first, [single]) || first === "1") && tokens.length > 1) {
+    if ((first === "1" || first === single.requestId) && tokens.length > 1) {
       const responseText = remainder.slice(first.length).trim();
       if (!responseText) {
         return {

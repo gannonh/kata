@@ -17,7 +17,11 @@ import {
   registerSymphonyCommand,
 } from "../command.js";
 import type { SymphonyClient } from "../client.js";
-import type { SymphonyEventEnvelope, SymphonyOrchestratorState } from "../types.js";
+import {
+  SymphonyError,
+  type SymphonyEventEnvelope,
+  type SymphonyOrchestratorState,
+} from "../types.js";
 
 
 describe("console-state", () => {
@@ -324,6 +328,37 @@ describe("symphony console command routing", () => {
     });
   });
 
+  it("shows console subcommand completions after trailing space", () => {
+    const registerCommand = vi.fn();
+    const pi = {
+      registerCommand,
+    } as any;
+
+    const client: SymphonyClient = {
+      getConnectionConfig: () => ({
+        url: "http://127.0.0.1:8080",
+        origin: "preferences",
+      }),
+      getState: async () => {
+        throw new Error("unused");
+      },
+      getPendingEscalations: async () => [],
+      respondToEscalation: async () => ({ ok: true, status: 200 }),
+      watchEvents: async function* () {
+        return;
+      },
+    };
+
+    registerSymphonyCommand(pi, client);
+
+    const commandConfig = registerCommand.mock.calls[0][1];
+    const completions = commandConfig.getArgumentCompletions("console ");
+
+    expect(completions.map((entry: { value: string }) => entry.value)).toEqual(
+      expect.arrayContaining(["console off", "console refresh"]),
+    );
+  });
+
   it("routes console commands through the console manager", async () => {
     const registerCommand = vi.fn();
     const pi = {
@@ -470,6 +505,93 @@ describe("EscalationResponseRouter", () => {
 
     expect(result.status).toBe("rejected");
     expect(result.message).toContain("Multiple escalations pending");
+  });
+
+  it("does not strip first-word prefixes for single-escalation replies", async () => {
+    const respondToEscalation = vi.fn(async () => ({ ok: true, status: 200 }));
+
+    const router = new EscalationResponseRouter({
+      getConnectionConfig: () => ({
+        url: "http://127.0.0.1:8080",
+        origin: "preferences",
+      }),
+      getState: async () => {
+        throw new Error("unused");
+      },
+      getPendingEscalations: async () => [],
+      respondToEscalation,
+      watchEvents: async function* () {
+        return;
+      },
+    });
+
+    const result = await router.routeInput(
+      "!respond req please retry",
+      [
+        {
+          requestId: "req-1",
+          issueId: "issue-1",
+          issueIdentifier: "KAT-1304",
+          issueTitle: "Operator Console",
+          questionPreview: "Ship now?",
+          waitingSince: 5_000,
+          timeoutMs: 300_000,
+        },
+      ],
+      true,
+    );
+
+    expect(result.status).toBe("sent");
+    expect(respondToEscalation).toHaveBeenCalledWith(
+      "req-1",
+      {
+        source: "symphony-console",
+        response: "req please retry",
+      },
+      undefined,
+    );
+  });
+
+  it("queues retryable submission failures for reconnect", async () => {
+    const router = new EscalationResponseRouter({
+      getConnectionConfig: () => ({
+        url: "http://127.0.0.1:8080",
+        origin: "preferences",
+      }),
+      getState: async () => {
+        throw new Error("unused");
+      },
+      getPendingEscalations: async () => [],
+      respondToEscalation: async () => {
+        throw new SymphonyError("network down", {
+          code: "connection_failed",
+          retryable: true,
+        });
+      },
+      watchEvents: async function* () {
+        return;
+      },
+    });
+
+    const result = await router.routeInput(
+      "!respond ship this",
+      [
+        {
+          requestId: "req-1",
+          issueId: "issue-1",
+          issueIdentifier: "KAT-1304",
+          issueTitle: "Operator Console",
+          questionPreview: "Ship now?",
+          waitingSince: 5_000,
+          timeoutMs: 300_000,
+        },
+      ],
+      true,
+    );
+
+    expect(result.status).toBe("queued");
+    expect(result.message).toContain("queued response");
+    expect(router.pendingQueueSize()).toBe(1);
   });
 
   it("queues disconnected responses and flushes on reconnect", async () => {

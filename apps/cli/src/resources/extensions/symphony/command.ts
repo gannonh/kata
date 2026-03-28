@@ -188,6 +188,9 @@ export function registerSymphonyCommand(
     description: "Symphony operator workflows: status, watch, config, console",
     getArgumentCompletions(prefix: string) {
       const tokens = tokenize(prefix);
+      if (prefix.endsWith(" ")) {
+        tokens.push("");
+      }
 
       if (tokens.length <= 1) {
         const options = ["status", "watch", "config", "console"];

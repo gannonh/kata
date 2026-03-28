@@ -74,7 +74,11 @@ export function renderConsolePanel(
       }
       lines.push(`      ${escalation.questionPreview}`);
     }
-    lines.push("  Reply: !respond <answer> or !respond <request-id|index> <answer>");
+    lines.push(
+      state.escalations.length === 1
+        ? "  Reply: !respond <answer>"
+        : "  Reply: !respond <request-id|index> <answer>",
+    );
   } else {
     lines.push("Escalations: none pending");
   }

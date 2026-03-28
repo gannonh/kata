@@ -55,6 +55,36 @@ describe("renderConsolePanel", () => {
     expect(joined).toContain("Reply: !respond <answer>");
   });
 
+  it("uses unambiguous reply hint when multiple escalations are pending", () => {
+    const state = makeState({
+      escalations: [
+        {
+          requestId: "req-1",
+          issueId: "issue-1",
+          issueIdentifier: "KAT-1304",
+          issueTitle: "Operator Console",
+          questionPreview: "Can we deploy this now?",
+          waitingSince: 5_000,
+          timeoutMs: 300_000,
+        },
+        {
+          requestId: "req-2",
+          issueId: "issue-2",
+          issueIdentifier: "KAT-1305",
+          issueTitle: "Follow-up",
+          questionPreview: "Approve rollback?",
+          waitingSince: 7_000,
+          timeoutMs: 300_000,
+        },
+      ],
+    });
+
+    const joined = renderConsolePanel(state, { now: () => 15_000 }).join("\n");
+
+    expect(joined).toContain("Reply: !respond <request-id|index> <answer>");
+    expect(joined).not.toContain("Reply: !respond <answer>");
+  });
+
   it("renders disconnected + stale state messaging", () => {
     const state = makeState({
       connectionStatus: "disconnected",

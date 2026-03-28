@@ -146,6 +146,48 @@ describe("SymphonyHttpClient", () => {
     });
   });
 
+  it("sanitizes malformed running_session_info fields", async () => {
+    const payload = makeStatePayload() as Record<string, unknown>;
+    payload.running_session_info = {
+      "issue-1": {
+        last_activity_ms: "oops",
+        current_tool_name: 123,
+        current_tool_args_preview: false,
+        turn_count: "bad",
+        max_turns: 10,
+      },
+      "issue-2": {
+        last_activity_ms: null,
+        current_tool_name: "bash",
+        current_tool_args_preview: null,
+        turn_count: 1,
+        max_turns: 2,
+      },
+      "issue-3": "not-an-object",
+    };
+
+    const fetchImpl = (async () =>
+      new Response(JSON.stringify(payload), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      })) as typeof fetch;
+
+    const client = makeClient({ fetchImpl });
+    const state = await client.getState();
+
+    expect(state.running_session_info?.["issue-1"]).toEqual({
+      max_turns: 10,
+    });
+    expect(state.running_session_info?.["issue-2"]).toEqual({
+      last_activity_ms: null,
+      current_tool_name: "bash",
+      current_tool_args_preview: null,
+      turn_count: 1,
+      max_turns: 2,
+    });
+    expect(state.running_session_info?.["issue-3"]).toBeUndefined();
+  });
+
   it("builds filter query params and streams websocket events", async () => {
     MockWebSocket.openedUrls = [];
     MockWebSocket.scripts = [
