@@ -308,6 +308,40 @@ describe("console event transitions", () => {
     expect(transition.nextState.connectionStatus).toBe("reconnecting");
     expect(transition.nextState.error).toBeUndefined();
   });
+
+  it("ignores malformed snapshot payloads with null object fields", () => {
+    const base = {
+      ...createEmptyConsolePanelState("http://127.0.0.1:8080"),
+      connectionStatus: "connected" as const,
+      error: undefined,
+      lastUpdateAt: 1_000,
+    };
+
+    const snapshotEvent: SymphonyEventEnvelope = {
+      version: "v1",
+      sequence: 4,
+      timestamp: new Date(3_000).toISOString(),
+      kind: "snapshot",
+      severity: "info",
+      issue: null,
+      event: "snapshot",
+      payload: {
+        poll_interval_ms: 30_000,
+        max_concurrent_agents: 4,
+        running: null,
+        retry_queue: [],
+        completed: [],
+        codex_totals: null,
+        polling: null,
+      },
+    };
+
+    const transition = applyConsoleEventTransition(base, snapshotEvent, () => 3_000);
+    expect(transition.signal).toBeUndefined();
+    expect(transition.refreshFromServer).toBe(false);
+    expect(transition.nextState.connectionStatus).toBe("connected");
+    expect(transition.nextState.lastUpdateAt).toBe(3_000);
+  });
 });
 
 describe("symphony console command routing", () => {
@@ -414,6 +448,28 @@ describe("symphony console command routing", () => {
 });
 
 describe("EscalationResponseRouter", () => {
+  it("requires a trigger token boundary", () => {
+    const router = new EscalationResponseRouter({
+      getConnectionConfig: () => ({
+        url: "http://127.0.0.1:8080",
+        origin: "preferences",
+      }),
+      getState: async () => {
+        throw new Error("unused");
+      },
+      getPendingEscalations: async () => [],
+      respondToEscalation: async () => ({ ok: true, status: 200 }),
+      watchEvents: async function* () {
+        return;
+      },
+    });
+
+    expect(router.matches("!respond")).toBe(true);
+    expect(router.matches("!respond ship it")).toBe(true);
+    expect(router.matches("!respondfoo")).toBe(false);
+    expect(router.matches("  !respond\tship it")).toBe(true);
+  });
+
   it("routes single escalation responses without explicit selector", async () => {
     const respondToEscalation = vi.fn(async () => ({ ok: true, status: 200 }));
 
@@ -552,6 +608,63 @@ describe("EscalationResponseRouter", () => {
     );
   });
 
+  it("rejects selector-only replies for a single pending escalation", async () => {
+    const respondToEscalation = vi.fn(async () => ({ ok: true, status: 200 }));
+
+    const router = new EscalationResponseRouter({
+      getConnectionConfig: () => ({
+        url: "http://127.0.0.1:8080",
+        origin: "preferences",
+      }),
+      getState: async () => {
+        throw new Error("unused");
+      },
+      getPendingEscalations: async () => [],
+      respondToEscalation,
+      watchEvents: async function* () {
+        return;
+      },
+    });
+
+    const byIndex = await router.routeInput(
+      "!respond 1",
+      [
+        {
+          requestId: "req-1",
+          issueId: "issue-1",
+          issueIdentifier: "KAT-1304",
+          issueTitle: "Operator Console",
+          questionPreview: "Ship now?",
+          waitingSince: 5_000,
+          timeoutMs: 300_000,
+        },
+      ],
+      true,
+    );
+
+    const byRequestId = await router.routeInput(
+      "!respond req-1",
+      [
+        {
+          requestId: "req-1",
+          issueId: "issue-1",
+          issueIdentifier: "KAT-1304",
+          issueTitle: "Operator Console",
+          questionPreview: "Ship now?",
+          waitingSince: 5_000,
+          timeoutMs: 300_000,
+        },
+      ],
+      true,
+    );
+
+    expect(byIndex.status).toBe("rejected");
+    expect(byIndex.message).toContain("Response text is required");
+    expect(byRequestId.status).toBe("rejected");
+    expect(byRequestId.message).toContain("Response text is required");
+    expect(respondToEscalation).not.toHaveBeenCalled();
+  });
+
   it("queues retryable submission failures for reconnect", async () => {
     const router = new EscalationResponseRouter({
       getConnectionConfig: () => ({
@@ -589,8 +702,25 @@ describe("EscalationResponseRouter", () => {
       true,
     );
 
+    const retriedResult = await router.routeInput(
+      "!respond updated response",
+      [
+        {
+          requestId: "req-1",
+          issueId: "issue-1",
+          issueIdentifier: "KAT-1304",
+          issueTitle: "Operator Console",
+          questionPreview: "Ship now?",
+          waitingSince: 5_000,
+          timeoutMs: 300_000,
+        },
+      ],
+      true,
+    );
+
     expect(result.status).toBe("queued");
     expect(result.message).toContain("queued response");
+    expect(retriedResult.status).toBe("queued");
     expect(router.pendingQueueSize()).toBe(1);
   });
 
@@ -615,7 +745,7 @@ describe("EscalationResponseRouter", () => {
       { now: () => 20_000 },
     );
 
-    const queued = await router.routeInput(
+    const queuedFirst = await router.routeInput(
       "!respond req-1 retry after reconnect",
       [
         {
@@ -631,7 +761,24 @@ describe("EscalationResponseRouter", () => {
       false,
     );
 
-    expect(queued.status).toBe("queued");
+    const queuedSecond = await router.routeInput(
+      "!respond req-1 latest decision",
+      [
+        {
+          requestId: "req-1",
+          issueId: "issue-1",
+          issueIdentifier: "KAT-1304",
+          issueTitle: "Operator Console",
+          questionPreview: "Ship now?",
+          waitingSince: 5_000,
+          timeoutMs: 300_000,
+        },
+      ],
+      false,
+    );
+
+    expect(queuedFirst.status).toBe("queued");
+    expect(queuedSecond.status).toBe("queued");
     expect(router.pendingQueueSize()).toBe(1);
 
     const flushed = await router.flushQueue(
@@ -652,6 +799,14 @@ describe("EscalationResponseRouter", () => {
     expect(flushed).toHaveLength(1);
     expect(flushed[0].status).toBe("sent");
     expect(respondToEscalation).toHaveBeenCalledTimes(1);
+    expect(respondToEscalation).toHaveBeenCalledWith(
+      "req-1",
+      {
+        source: "symphony-console",
+        response: "latest decision",
+      },
+      undefined,
+    );
   });
 
   it("surfaces timeout responses clearly", async () => {
@@ -843,6 +998,78 @@ describe("ConsoleManager", () => {
 
     await manager.open(ctx);
     expect(manager.getState().connectionStatus).toBe("reconnecting");
+
+    manager.dispose(ctx);
+  });
+
+  it("preserves stream connection status when snapshot refresh fails", async () => {
+    const stateSnapshot: SymphonyOrchestratorState = {
+      poll_interval_ms: 30_000,
+      max_concurrent_agents: 4,
+      running: {},
+      retry_queue: [],
+      completed: [],
+      codex_totals: {
+        input_tokens: 0,
+        output_tokens: 0,
+        total_tokens: 0,
+      },
+      polling: {
+        checking: false,
+        next_poll_in_ms: 10_000,
+        poll_interval_ms: 30_000,
+      },
+      pending_escalations: [],
+    };
+
+    const getState = vi
+      .fn<() => Promise<SymphonyOrchestratorState>>()
+      .mockResolvedValueOnce(stateSnapshot)
+      .mockRejectedValueOnce(new Error("snapshot unavailable"));
+
+    const client: SymphonyClient = {
+      getConnectionConfig: () => ({
+        url: "http://127.0.0.1:8080",
+        origin: "preferences",
+      }),
+      getState,
+      getPendingEscalations: async () => [],
+      respondToEscalation: async () => ({ ok: true, status: 200 }),
+      watchEvents: async function* (_filter, options) {
+        options?.onLifecycle?.({
+          type: "symphony_client_connected",
+          details: {
+            url: "http://127.0.0.1:8080",
+            origin: "preferences",
+            connected: true,
+          },
+        });
+      },
+    };
+
+    const manager = createConsoleManager(client, {
+      panelFactory: () => ({
+        update: () => undefined,
+        setPosition: () => undefined,
+        close: () => undefined,
+        isOpen: () => true,
+      }),
+    });
+
+    const ctx = {
+      ui: {
+        notify: () => undefined,
+      },
+    } as any;
+
+    await manager.open(ctx);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(manager.getState().connectionStatus).toBe("connected");
+
+    await manager.refresh();
+
+    expect(manager.getState().connectionStatus).toBe("connected");
+    expect(manager.getState().error).toContain("Symphony snapshot refresh failed");
 
     manager.dispose(ctx);
   });

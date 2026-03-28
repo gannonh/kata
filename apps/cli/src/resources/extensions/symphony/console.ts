@@ -410,8 +410,7 @@ class SymphonyConsoleManager implements ConsoleManager {
       const message = error instanceof Error ? error.message : String(error);
       this.state = {
         ...this.state,
-        connectionStatus: "disconnected",
-        error: `Symphony connection failed: ${message}`,
+        error: `Symphony snapshot refresh failed: ${message}`,
       };
       this.render();
     }
@@ -616,19 +615,22 @@ function summarizeEscalationPayload(payload: unknown): string {
 }
 
 function looksLikeSnapshot(value: unknown): value is SymphonyOrchestratorState {
-  if (!value || typeof value !== "object") {
+  if (!isRecord(value)) {
     return false;
   }
 
-  const payload = value as Record<string, unknown>;
   return (
-    typeof payload.poll_interval_ms === "number" &&
-    typeof payload.max_concurrent_agents === "number" &&
-    typeof payload.running === "object" &&
-    Array.isArray(payload.retry_queue) &&
-    Array.isArray(payload.completed) &&
-    typeof payload.codex_totals === "object" &&
-    typeof payload.polling === "object"
+    typeof value.poll_interval_ms === "number" &&
+    typeof value.max_concurrent_agents === "number" &&
+    isRecord(value.running) &&
+    Array.isArray(value.retry_queue) &&
+    Array.isArray(value.completed) &&
+    isRecord(value.codex_totals) &&
+    isRecord(value.polling)
   );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 

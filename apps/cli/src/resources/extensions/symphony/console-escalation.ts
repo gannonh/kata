@@ -27,6 +27,22 @@ export class EscalationResponseRouter {
   private readonly now: () => number;
   private readonly queue: QueuedResponse[] = [];
 
+  private enqueueResponse(requestId: string, responseText: string): void {
+    const next: QueuedResponse = {
+      requestId,
+      responseText,
+      queuedAt: this.now(),
+    };
+
+    const existingIndex = this.queue.findIndex((entry) => entry.requestId === requestId);
+    if (existingIndex >= 0) {
+      this.queue[existingIndex] = next;
+      return;
+    }
+
+    this.queue.push(next);
+  }
+
   constructor(
     private readonly client: SymphonyClient,
     options: EscalationResponseRouterOptions = {},
@@ -37,7 +53,13 @@ export class EscalationResponseRouter {
   }
 
   matches(input: string): boolean {
-    return input.trim().startsWith(this.trigger);
+    const trimmed = input.trim();
+    if (!trimmed.startsWith(this.trigger)) {
+      return false;
+    }
+
+    const next = trimmed[this.trigger.length];
+    return next === undefined || /\s/.test(next);
   }
 
   pendingQueueSize(): number {
@@ -67,11 +89,7 @@ export class EscalationResponseRouter {
     }
 
     if (!connected) {
-      this.queue.push({
-        requestId: parsed.requestId,
-        responseText: parsed.responseText,
-        queuedAt: this.now(),
-      });
+      this.enqueueResponse(parsed.requestId, parsed.responseText);
       return {
         handled: true,
         status: "queued",
@@ -162,11 +180,7 @@ export class EscalationResponseRouter {
       };
     } catch (error) {
       if (isSymphonyError(error) && error.context.retryable) {
-        this.queue.push({
-          requestId,
-          responseText,
-          queuedAt: this.now(),
-        });
+        this.enqueueResponse(requestId, responseText);
 
         return {
           handled: true,
@@ -215,7 +229,7 @@ function parseResponseCommand(
     const tokens = remainder.split(/\s+/);
     const first = tokens[0] ?? "";
 
-    if ((first === "1" || first === single.requestId) && tokens.length > 1) {
+    if (first === "1" || first === single.requestId) {
       const responseText = remainder.slice(first.length).trim();
       if (!responseText) {
         return {
