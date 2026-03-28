@@ -740,7 +740,8 @@ h1 {
     <div class="ve-card__label" style="color:var(--amber)">Turn 2+ Prompt</div>
     <p style="font-size:13px; color:var(--text-dim); line-height:1.5">
       Short continuation: <em>"This is continuation turn #N of M. Resume from current workspace state.
-      Focus on remaining ticket work."</em> No re-injection of issue data.
+      Focus on remaining ticket work."</em> The agent still has the full Turn 1 context in its
+      conversation history — the session subprocess persists across turns.
     </p>
   </div>
 </div>
