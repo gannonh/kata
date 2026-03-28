@@ -4,6 +4,7 @@ import type {
   SymphonyRunAttempt,
   SymphonyWorkerSessionInfo,
 } from "./types.js";
+import { truncateText } from "./text-utils.js";
 
 export type ConsoleConnectionStatus = "connected" | "disconnected" | "reconnecting";
 
@@ -127,7 +128,7 @@ export function buildEscalationItems(
         issueIdentifier: item.issue_identifier,
         issueTitle:
           issueTitleByIdentifier.get(item.issue_identifier) ?? item.issue_identifier,
-        questionPreview: truncate(item.preview, 160),
+        questionPreview: truncateText(item.preview, 160),
         waitingSince: Number.isFinite(waitingSince) ? waitingSince : Date.now(),
         timeoutMs: item.timeout_ms,
       };
@@ -185,14 +186,3 @@ function workerRowFromRun(
   };
 }
 
-function truncate(value: string, maxLength: number): string {
-  if (value.length <= maxLength) {
-    return value;
-  }
-
-  if (maxLength <= 1) {
-    return value.slice(0, maxLength);
-  }
-
-  return `${value.slice(0, maxLength - 1)}…`;
-}

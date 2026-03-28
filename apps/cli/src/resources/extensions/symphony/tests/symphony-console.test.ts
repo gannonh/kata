@@ -264,6 +264,46 @@ describe("console event transitions", () => {
     expect(transition.refreshFromServer).toBe(true);
     expect(transition.nextState.lastUpdateAt).toBe(2_000);
   });
+
+  it("clears stale errors when applying snapshot events", () => {
+    const base = {
+      ...createEmptyConsolePanelState("http://127.0.0.1:8080"),
+      connectionStatus: "reconnecting" as const,
+      error: "Console stream disconnected: timeout",
+    };
+
+    const snapshotEvent: SymphonyEventEnvelope = {
+      version: "v1",
+      sequence: 3,
+      timestamp: new Date(2_000).toISOString(),
+      kind: "snapshot",
+      severity: "info",
+      issue: null,
+      event: "snapshot",
+      payload: {
+        poll_interval_ms: 30_000,
+        max_concurrent_agents: 4,
+        running: {},
+        retry_queue: [],
+        completed: [],
+        codex_totals: {
+          input_tokens: 0,
+          output_tokens: 0,
+          total_tokens: 0,
+        },
+        polling: {
+          checking: false,
+          next_poll_in_ms: 10_000,
+          poll_interval_ms: 30_000,
+        },
+      },
+    };
+
+    const transition = applyConsoleEventTransition(base, snapshotEvent, () => 2_500);
+    expect(transition.signal).toBe("console_snapshot_applied");
+    expect(transition.nextState.connectionStatus).toBe("reconnecting");
+    expect(transition.nextState.error).toBeUndefined();
+  });
 });
 
 describe("symphony console command routing", () => {
@@ -627,6 +667,60 @@ describe("ConsoleManager", () => {
     expect(manager.getState().connectionStatus).toBe("connected");
     expect(notifications).toContain("console_panel_opened");
     expect(notifications).toContain("console_stream_reconnected");
+
+    manager.dispose(ctx);
+  });
+
+  it("preserves reconnecting status when refresh succeeds before stream connects", async () => {
+    const stateSnapshot: SymphonyOrchestratorState = {
+      poll_interval_ms: 30_000,
+      max_concurrent_agents: 4,
+      running: {},
+      retry_queue: [],
+      completed: [],
+      codex_totals: {
+        input_tokens: 0,
+        output_tokens: 0,
+        total_tokens: 0,
+      },
+      polling: {
+        checking: false,
+        next_poll_in_ms: 10_000,
+        poll_interval_ms: 30_000,
+      },
+      pending_escalations: [],
+    };
+
+    const client: SymphonyClient = {
+      getConnectionConfig: () => ({
+        url: "http://127.0.0.1:8080",
+        origin: "preferences",
+      }),
+      getState: async () => stateSnapshot,
+      getPendingEscalations: async () => [],
+      respondToEscalation: async () => ({ ok: true, status: 200 }),
+      watchEvents: async function* () {
+        return;
+      },
+    };
+
+    const manager = createConsoleManager(client, {
+      panelFactory: () => ({
+        update: () => undefined,
+        setPosition: () => undefined,
+        close: () => undefined,
+        isOpen: () => true,
+      }),
+    });
+
+    const ctx = {
+      ui: {
+        notify: () => undefined,
+      },
+    } as any;
+
+    await manager.open(ctx);
+    expect(manager.getState().connectionStatus).toBe("reconnecting");
 
     manager.dispose(ctx);
   });

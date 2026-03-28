@@ -23,6 +23,7 @@ import {
   EscalationResponseRouter,
   type EscalationRouteResult,
 } from "./console-escalation.js";
+import { truncateText } from "./text-utils.js";
 
 export type SymphonyConsoleContext = ExtensionContext | ExtensionCommandContext;
 
@@ -100,12 +101,15 @@ export function applyConsoleEventTransition(
 
   if (event.kind === "snapshot" && looksLikeSnapshot(event.payload)) {
     return {
-      nextState: buildConsolePanelStateFromSnapshot(event.payload, {
-        now,
-        previous: state,
-        connectionStatus: state.connectionStatus,
-        connectionUrl: state.connectionUrl,
-      }),
+      nextState: {
+        ...buildConsolePanelStateFromSnapshot(event.payload, {
+          now,
+          previous: state,
+          connectionStatus: state.connectionStatus,
+          connectionUrl: state.connectionUrl,
+        }),
+        error: undefined,
+      },
       refreshFromServer: false,
       signal: "console_snapshot_applied",
     };
@@ -391,7 +395,7 @@ class SymphonyConsoleManager implements ConsoleManager {
         ...buildConsolePanelStateFromSnapshot(snapshot, {
           now: this.now,
           previous: this.state,
-          connectionStatus: "connected",
+          connectionStatus: this.state.connectionStatus,
           connectionUrl: this.resolveConnectionUrl(),
         }),
         error: undefined,
@@ -585,11 +589,11 @@ function extractRequestId(payload: unknown): string | null {
 
 function summarizeEscalationPayload(payload: unknown): string {
   if (typeof payload === "string") {
-    return truncate(payload, 160);
+    return truncateText(payload, 160);
   }
 
   if (Array.isArray(payload)) {
-    return truncate(JSON.stringify(payload), 160);
+    return truncateText(JSON.stringify(payload), 160);
   }
 
   if (payload && typeof payload === "object") {
@@ -602,7 +606,7 @@ function summarizeEscalationPayload(payload: unknown): string {
           : typeof record.preview === "string"
             ? record.preview
             : JSON.stringify(record);
-    return truncate(prompt, 160);
+    return truncateText(prompt, 160);
   }
 
   return "Operator response requested";
@@ -625,14 +629,3 @@ function looksLikeSnapshot(value: unknown): value is SymphonyOrchestratorState {
   );
 }
 
-function truncate(value: string, maxLength: number): string {
-  if (value.length <= maxLength) {
-    return value;
-  }
-
-  if (maxLength <= 1) {
-    return value.slice(0, maxLength);
-  }
-
-  return `${value.slice(0, maxLength - 1)}…`;
-}
