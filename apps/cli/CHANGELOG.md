@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.11.0
+
+### Features
+
+- **Symphony operator console** — `/symphony console` embeds a live dashboard panel inside the Kata CLI chat interface. Shows real-time worker status, tool activity, pending escalations, queue counts. Auto-refreshes from WebSocket stream. Configurable placement via `symphony.console_position` preference.
+- **Symphony config editor** — `/symphony config` opens an interactive TUI for editing Symphony WORKFLOW.md configuration. 9 sections, 45 fields with type-aware inputs (dropdowns for enums, toggles for booleans, masked API keys). Validates before save, preserves prompt body below `---`.
+- **Worker escalation handler** — when a Symphony worker escalates a question, it appears in the connected Kata CLI session. Operator answers inline, response routes back, worker resumes. No restart needed. `symphony_respond` tool for programmatic responses.
+- **Console escalation routing** — with console active, pending escalations are highlighted (⚠️). Operator can respond directly from chat input.
+- **`symphony.workflow_path` preference** — configure the path to WORKFLOW.md for the config editor. Resolves from preference, CLI argument, or cwd.
+- **`symphony.console_position` preference** — `below-output` (default) or `above-status` panel placement.
+
+### Bug Fixes
+
+- **`pi-tui` version mismatch** — bumped `@mariozechner/pi-tui` from `^0.62.0` to `^0.63.1` to match `pi-coding-agent@0.63.1`. Fixes silent extension load failure.
+- **`/symphony watch` autocomplete** — no longer overwrites user input with hardcoded `KAT-920` example.
+- **Console "Waiting" message** — cleared after WebSocket connection established.
+- **Escalation listener stack trace** — no longer dumps raw error stack to TUI when Symphony disconnects.
+
+### Tests
+
+- **89 Vitest tests** across 8 suites for the Symphony extension: config, client, command, tools, console (27 tests), escalation, panel, config-editor (22 tests).
+
 ## 0.10.0
 
 ### Features

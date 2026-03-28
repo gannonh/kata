@@ -53,6 +53,8 @@ Full documentation for `~/.kata-cli/preferences.md` (global) and `.kata/preferen
 
 - `symphony`: Symphony orchestration server configuration.
   - `symphony.url`: base URL for the Symphony server (e.g. `http://localhost:8080`). Required for `/symphony` commands and `symphony_*` tools. Can also be set via `KATA_SYMPHONY_URL` or `SYMPHONY_URL` environment variables (`KATA_SYMPHONY_URL` takes precedence). The preferences field takes priority over environment variables.
+  - `symphony.workflow_path`: absolute path to the Symphony WORKFLOW.md file. Used by `/symphony config` to locate the config file for editing. Falls back to `WORKFLOW.md` in cwd if not set.
+  - `symphony.console_position`: placement of the `/symphony console` panel in the TUI. Values: `below-output` (default), `above-status`.
 
 - `auto_supervisor`: configures the auto-mode supervisor that monitors agent progress and enforces timeouts. Keys:
   - `model`: model ID to use for the supervisor process (defaults to the currently active model).

@@ -26,6 +26,9 @@ auto_supervisor:
   soft_timeout_minutes: 15
   idle_timeout_minutes: 8
   hard_timeout_minutes: 25
+symphony:
+    url: http://localhost:8080
+    workflow_path: /Volumes/EVO/kata/kata-mono.worktrees/wt-symphony/apps/symphony/WORKFLOW-symph.md
 ---
 
 # Kata Preferences

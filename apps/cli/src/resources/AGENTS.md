@@ -90,13 +90,41 @@ The Symphony extension registers `/symphony` with operator-facing subcommands:
 
 - `/symphony status` — Fetch live worker and queue state from Symphony (`/api/v1/state`)
 - `/symphony watch <issue>` — Stream issue-scoped live events (`/api/v1/events?issue=...`)
+- `/symphony console` — Open a live dashboard panel inside the chat interface (toggle on/off)
+- `/symphony config` — Interactive TUI editor for Symphony WORKFLOW.md configuration
 
 The extension also exposes model tools:
 
-- `symphony_status`
-- `symphony_watch`
-- `symphony_logs` (capability placeholder)
-- `symphony_steer` (capability placeholder)
+- `symphony_status` — live overview of workers, queue, completions, supervisor state
+- `symphony_watch` — follow one worker's activity stream in real time
+- `symphony_respond` — respond to a pending worker escalation
+- `symphony_logs` — capability placeholder (future: stream full agent conversation)
+- `symphony_steer` — capability placeholder (future: inject guidance into running worker)
+
+### Symphony Connection
+
+Configure `symphony.url` in `.kata/preferences.md`:
+
+```yaml
+symphony:
+  url: http://localhost:8080
+```
+
+Or set `KATA_SYMPHONY_URL` environment variable. The preference takes priority.
+
+### Worker Escalation
+
+When a Symphony worker hits ambiguity, it escalates to connected Kata CLI sessions. The question appears in the CLI (or console panel if active), the operator answers, and the worker resumes without restarting. Escalations have a configurable timeout (default 5 min).
+
+### Console Panel
+
+`/symphony console` renders a live panel showing:
+- Connection indicator (🟢/🔴/🟡)
+- Worker table (identifier, state, tool activity, model, last activity)
+- Pending escalations (⚠️ highlighted with question preview)
+- Queue and completion counts
+
+Configure placement with `symphony.console_position` preference (`below-output` or `above-status`).
 
 ## Project State
 

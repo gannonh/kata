@@ -217,8 +217,7 @@ Optional watch flags:
 
 - `symphony_status`
 - `symphony_watch`
-- `symphony_logs` (capability-safe placeholder)
-- `symphony_steer` (capability-safe placeholder)
+- `symphony_respond`
 
 Tool responses include connection metadata (`details.connection`) and capability metadata (`details.capabilities`).
 

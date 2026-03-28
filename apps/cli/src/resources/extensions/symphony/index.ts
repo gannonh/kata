@@ -8,7 +8,7 @@ import { registerSymphonyCommand } from "./command.js";
 import { createConsoleManager } from "./console.js";
 import { EscalationQueue } from "./escalation.js";
 import { registerSymphonyTools } from "./tools.js";
-import { isEscalationEvent } from "./types.js";
+import { isEscalationEvent, isSymphonyError } from "./types.js";
 
 export default function (pi: ExtensionAPI): void {
   const client = createSymphonyClient();
@@ -104,8 +104,15 @@ export default function (pi: ExtensionAPI): void {
           return;
         }
 
+        const expectedDisconnect =
+          isSymphonyError(error) &&
+          (error.code === "connection_failed" || error.code === "stream_closed");
+
         const message = error instanceof Error ? error.message : String(error);
-        console.error("[symphony] escalation watch error:", error);
+        if (!expectedDisconnect) {
+          console.warn(`[symphony] escalation watch unexpected failure: ${message}`);
+        }
+
         ctx.ui.notify(`Symphony escalation listener disconnected: ${message}`, "warning");
       }
     })();
