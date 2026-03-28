@@ -490,9 +490,7 @@ class SymphonyConsoleManager implements ConsoleManager {
 
     if (result.status === "sent") {
       this.notify("console_escalation_responded", "info");
-    }
-
-    if (result.status === "queued") {
+    } else if (result.status === "queued") {
       this.notify(result.message, "warning");
     } else if (result.status === "rejected") {
       this.notify(result.message, "warning");

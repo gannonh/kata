@@ -1000,6 +1000,10 @@ describe("ConsoleManager", () => {
     expect(handled).toBe(true);
     expect(respondToEscalation).toHaveBeenCalledTimes(1);
     expect(notifications).toContain("console_escalation_responded");
+    expect(
+      notifications.filter((message) => message === "console_escalation_responded"),
+    ).toHaveLength(1);
+    expect(notifications).not.toContain("Escalation response sent for req-1.");
 
     manager.dispose(ctx);
   });
