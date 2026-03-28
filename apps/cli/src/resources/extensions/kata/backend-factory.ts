@@ -8,6 +8,7 @@
 import type { KataBackend } from "./backend.js";
 import {
   loadEffectiveLinearProjectConfig,
+  resolveConfiguredLinearProjectId,
   resolveConfiguredLinearTeamId,
 } from "./linear-config.js";
 import { loadEffectiveKataPreferences } from "./preferences.js";
@@ -31,12 +32,14 @@ export async function createBackend(basePath: string): Promise<KataBackend> {
     throw new Error("LINEAR_API_KEY is not set. Set it in your environment to use Linear mode (KATA_LINEAR_API_KEY or LINEAR_API_KEY).");
   }
 
-  const { projectId } = config.linear;
-  if (!projectId) {
-    throw new Error("Linear project not configured. Set linear.projectId in .kata/preferences.md.");
-  }
-
   const client = new LinearClient(apiKey);
+
+  // Resolve projectId slug → UUID if needed (filter expressions require UUIDs).
+  const projectResolution = await resolveConfiguredLinearProjectId(client, loadedPreferences);
+  if (!projectResolution.projectId) {
+    throw new Error(projectResolution.error ?? "Linear project not configured. Set linear.projectSlug in .kata/preferences.md.");
+  }
+  const projectId = projectResolution.projectId;
 
   // Retry API calls up to 3 times with backoff — Linear API can be transiently unavailable.
   let lastError: unknown;

@@ -69,6 +69,46 @@ test("workflow helpers read normalized Linear config from effective preferences"
   });
 });
 
+test("projectSlug is used as projectId when set", () => {
+  const loaded = makeLoadedPreferences({
+    workflow: { mode: "linear" },
+    linear: {
+      teamKey: "KAT",
+      projectSlug: "459f9835e809",
+    },
+  });
+
+  const config = loadEffectiveLinearProjectConfig(loaded);
+  assert.equal(config.linear.projectId, "459f9835e809");
+});
+
+test("projectSlug takes precedence over projectId when both are set", () => {
+  const loaded = makeLoadedPreferences({
+    workflow: { mode: "linear" },
+    linear: {
+      teamKey: "KAT",
+      projectSlug: "459f9835e809",
+      projectId: "c7e76979-df58-407a-bf64-09bfccfef9c4",
+    },
+  });
+
+  const config = loadEffectiveLinearProjectConfig(loaded);
+  assert.equal(config.linear.projectId, "459f9835e809");
+});
+
+test("projectId is used when projectSlug is not set", () => {
+  const loaded = makeLoadedPreferences({
+    workflow: { mode: "linear" },
+    linear: {
+      teamKey: "KAT",
+      projectId: "c7e76979-df58-407a-bf64-09bfccfef9c4",
+    },
+  });
+
+  const config = loadEffectiveLinearProjectConfig(loaded);
+  assert.equal(config.linear.projectId, "c7e76979-df58-407a-bf64-09bfccfef9c4");
+});
+
 test("file mode preference is rejected with clear error", () => {
   const loaded = makeLoadedPreferences({ workflow: { mode: "file" as any } });
   assert.throws(

@@ -177,7 +177,11 @@ budget_ceiling: 50.00
 
 ## Symphony Extension
 
-Kata includes a first-class Symphony client surface for live operator workflows.
+Kata CLI is the universal interface for three operating modes: **plan** your project interactively with `/kata plan`, **execute** work directly with `/kata auto` or `/kata step`, or **supervise** parallel execution at scale with Symphony. The shared backbone is Linear — `/kata plan` creates the issues, Symphony picks them up and dispatches parallel agent workers to build them.
+
+[Symphony](../../apps/symphony/README.md) is a separate orchestration server (Rust binary) that polls your Linear project and runs multiple agent sessions concurrently. Install it from [GitHub Releases](https://github.com/gannonh/kata/releases) or build from source — see the [Symphony README](../../apps/symphony/README.md) for setup, configuration, and the full WORKFLOW.md reference.
+
+The Kata CLI includes a built-in operator surface for monitoring and steering Symphony in real time.
 
 ### Configure connection
 

@@ -71,5 +71,5 @@ workflow:
   mode: linear
 linear:
   teamKey: KAT
-  projectId: 12345678-1234-1234-1234-1234567890ab
+  projectSlug: 459f9835e809   # from your Linear project URL (or use projectId for UUID)
 ```

@@ -73,6 +73,7 @@ export interface KataLinearPreferences {
   teamId?: string;
   teamKey?: string;
   projectId?: string;
+  projectSlug?: string;
 }
 
 export type KataSymphonyConsolePosition = "below-output" | "above-status";
@@ -994,7 +995,7 @@ function normalizeLinearPreferences(value: unknown): {
   const normalized: KataLinearPreferences = {};
   const errors: string[] = [];
 
-  for (const key of ["teamId", "teamKey", "projectId"] as const) {
+  for (const key of ["teamId", "teamKey", "projectId", "projectSlug"] as const) {
     const raw = (value as Record<string, unknown>)[key];
     if (raw === undefined) continue;
     if (typeof raw !== "string") {

@@ -24,8 +24,9 @@ Full documentation for `~/.kata-cli/preferences.md` (global) and `.kata/preferen
 - `linear`: Linear binding configuration used when `workflow.mode: linear`.
   - `linear.teamId`: optional Linear team UUID.
   - `linear.teamKey`: optional Linear team key such as `KAT`.
-  - `linear.projectId`: optional Linear project UUID.
-  - These fields identify which Linear team/project Kata should validate and operate against.
+  - `linear.projectSlug`: optional Linear project slug ID (from the project URL, e.g. `459f9835e809`). Preferred over `linear.projectId` — shorter, human-readable, and matches the slug in Linear URLs and Symphony's `tracker.project_slug`.
+  - `linear.projectId`: optional Linear project UUID. Supported for backward compatibility; prefer `linear.projectSlug`.
+  - These fields identify which Linear team/project Kata should validate and operate against. When both `projectSlug` and `projectId` are set, `projectSlug` takes precedence.
 
 - `pr`: PR lifecycle configuration. Controls whether and how Kata manages GitHub pull requests.
   - `pr.enabled`: set to `true` to activate the PR lifecycle. Requires `gh` CLI installed and authenticated.
@@ -75,7 +76,7 @@ Kata prefs status
 mode: linear
 LINEAR_API_KEY: present
 linear.teamKey: KAT
-linear.projectId: 12345678-1234-1234-1234-1234567890ab
+linear.projectSlug: 459f9835e809
 validation: valid
 resolved team: Kata-sh (KAT · a47bcacd-54f3-4472-a4b4-d6933248b605)
 ```
@@ -142,7 +143,7 @@ workflow:
   mode: linear
 linear:
   teamKey: KAT
-  projectId: 12345678-1234-1234-1234-1234567890ab
+  projectSlug: 459f9835e809
 prefer_skills:
   - linear
 custom_instructions:
@@ -150,7 +151,7 @@ custom_instructions:
 ---
 ```
 
-This opts the project into Linear mode without storing `LINEAR_API_KEY` in the preferences file.
+This opts the project into Linear mode without storing `LINEAR_API_KEY` in the preferences file. Use `projectSlug` (the short ID from your Linear project URL) instead of the full UUID.
 
 **PR lifecycle — auto-create PRs after each slice:**
 

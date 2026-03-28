@@ -8,13 +8,11 @@ import type {
 import { loadEffectiveKataPreferences } from "../kata/preferences.js";
 import type { SymphonyClient } from "./client.js";
 import type { ConsoleManager } from "./console.js";
-import { runConfigEditor } from "./config-editor.js";
-import {
-  parseWorkflowConfig,
-  WorkflowConfigParseError,
-} from "./config-parser.js";
-import { validateConfigModel } from "./config-validator.js";
-import { writeWorkflowConfigFile } from "./config-writer.js";
+// config-parser, config-validator, config-writer, and config-editor depend on
+// js-yaml which is NOT in pi-coding-agent's extension alias list. Lazy-import
+// them so the Symphony extension loads successfully even when js-yaml cannot be
+// resolved from ~/.kata-cli/agent/extensions/. Only `/symphony config` needs them.
+import type { ConfigEditorModel } from "./config-model.js";
 import {
   renderSymphonyCommandError,
   renderSymphonyStatus,
@@ -291,6 +289,31 @@ export async function executeSymphonyConfigCommand(
   client: SymphonyClient,
   ctx: ExtensionCommandContext,
 ): Promise<void> {
+  // Lazy-import config modules that depend on js-yaml. These cannot be
+  // top-level imports because js-yaml is not aliased by pi's extension loader
+  // and therefore unresolvable when the extension runs from ~/.kata-cli/agent/.
+  let parseWorkflowConfig: typeof import("./config-parser.js").parseWorkflowConfig;
+  let WorkflowConfigParseError: typeof import("./config-parser.js").WorkflowConfigParseError;
+  let validateConfigModel: typeof import("./config-validator.js").validateConfigModel;
+  let writeWorkflowConfigFile: typeof import("./config-writer.js").writeWorkflowConfigFile;
+  let runConfigEditor: typeof import("./config-editor.js").runConfigEditor;
+
+  try {
+    ({ parseWorkflowConfig, WorkflowConfigParseError } = await import("./config-parser.js"));
+    ({ validateConfigModel } = await import("./config-validator.js"));
+    ({ writeWorkflowConfigFile } = await import("./config-writer.js"));
+    ({ runConfigEditor } = await import("./config-editor.js"));
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    const isJsYaml = detail.toLowerCase().includes("js-yaml") || detail.toLowerCase().includes("cannot find module");
+    const message = isJsYaml
+      ? "Symphony config editor requires the js-yaml package which could not be resolved. " +
+        "Install js-yaml in your project directory (npm install js-yaml) and run kata from there."
+      : "Failed to load Symphony config editor modules.";
+    ctx.ui.notify(`${message} (${detail})`, "error");
+    return;
+  }
+
   const resolvedPath = resolveWorkflowPath(action.workflowPathArg, process.cwd());
 
   if (!resolvedPath.ok) {
@@ -308,7 +331,7 @@ export async function executeSymphonyConfigCommand(
     return;
   }
 
-  let model;
+  let model: ConfigEditorModel;
   try {
     model = parseWorkflowConfig(content, { filePath: workflowPath });
   } catch (error) {

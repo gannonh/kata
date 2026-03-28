@@ -41,7 +41,7 @@ import {
   advanceSliceIssueState,
 } from "../kata/linear-crosslink.js";
 import { loadEffectiveKataPreferences } from "../kata/preferences.js";
-import { loadEffectiveLinearProjectConfig, isLinearMode } from "../kata/linear-config.js";
+import { loadEffectiveLinearProjectConfig, resolveConfiguredLinearProjectId, isLinearMode } from "../kata/linear-config.js";
 
 // ---------------------------------------------------------------------------
 // Shell escaping
@@ -158,12 +158,18 @@ export default function (pi: ExtensionAPI): void {
         const apiKey = process.env.LINEAR_API_KEY;
 
         if (config.workflowMode === "linear" && apiKey && config.linear.projectId) {
-          linearConfig = {
-            prPrefs: prPrefs ?? {},
-            workflowMode: config.workflowMode,
-            projectId: config.linear.projectId,
-            apiKey,
-          };
+          // Resolve slug → UUID for filter expressions
+          const { LinearClient } = await import("../linear/linear-client.js");
+          const client = new LinearClient(apiKey);
+          const projectResolution = await resolveConfiguredLinearProjectId(client, effectivePrefs);
+          if (projectResolution.projectId) {
+            linearConfig = {
+              prPrefs: prPrefs ?? {},
+              workflowMode: config.workflowMode,
+              projectId: projectResolution.projectId,
+              apiKey,
+            };
+          }
         }
       } catch {
         // Best-effort — proceed without Linear config
@@ -692,7 +698,9 @@ export default function (pi: ExtensionAPI): void {
           const { LinearClient } = await import("../linear/linear-client.js");
           const client = new LinearClient(process.env.LINEAR_API_KEY);
           const teamId = config.linear.teamId;
-          const projectId = config.linear.projectId;
+          // Resolve slug → UUID for filter expressions
+          const projectResolution = await resolveConfiguredLinearProjectId(client, effectivePrefs);
+          const projectId = projectResolution.projectId;
 
           if (teamId && projectId) {
             const resolved = await resolveSliceLinearIdentifier(

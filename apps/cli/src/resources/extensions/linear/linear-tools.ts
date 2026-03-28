@@ -31,6 +31,7 @@ import type { KataPhase } from "./linear-types.js";
 import { deriveLinearState } from "./linear-state.js";
 import {
   loadEffectiveLinearProjectConfig,
+  resolveConfiguredLinearProjectId,
   resolveConfiguredLinearTeamId,
 } from "../kata/linear-config.js";
 
@@ -915,7 +916,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
           activeMilestone: null,
           activeSlice: null,
           activeTask: null,
-          blockers: ["Linear project not configured — set linear.projectId in kata preferences"],
+          blockers: ["Linear project not configured — set linear.projectSlug (or linear.projectId) in kata preferences"],
           recentDecisions: [],
           nextAction: "Run /kata prefs to configure the Linear project.",
           registry: [],
@@ -924,6 +925,23 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
 
       return run(async () => {
         const derivationClient = new LinearClient(apiKey);
+
+        // Resolve projectId slug → UUID if needed (filter expressions require UUIDs).
+        const projectResolution = await resolveConfiguredLinearProjectId(derivationClient);
+        if (!projectResolution.projectId) {
+          return {
+            phase: "blocked",
+            activeMilestone: null,
+            activeSlice: null,
+            activeTask: null,
+            blockers: [projectResolution.error ?? "Linear project could not be resolved."],
+            recentDecisions: [],
+            nextAction: "Fix linear.projectSlug in preferences.",
+            registry: [],
+          };
+        }
+        const resolvedProjectId = projectResolution.projectId;
+
         const teamResolution = await resolveConfiguredLinearTeamId(derivationClient);
         if (!teamResolution.teamId) {
           return {
@@ -942,11 +960,11 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
         const labelSet = await ensureKataLabels(derivationClient, teamId);
 
         const state = await deriveLinearState(derivationClient, {
-          projectId,
+          projectId: resolvedProjectId,
           teamId,
           sliceLabelId: labelSet.slice.id,
         });
-        return { ...state, projectId, teamId };
+        return { ...state, projectId: resolvedProjectId, teamId };
       });
     },
   });

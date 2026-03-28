@@ -4,7 +4,7 @@ workflow:
     mode: linear                                                                                                                                                   
 linear:                                                                                                                                                          
     teamKey: KAT                                                                                                                                                   
-    projectId: c7e76979-df58-407a-bf64-09bfccfef9c4   
+    projectSlug: 459f9835e809
 pr:
   enabled: true
   auto_create: true
@@ -27,7 +27,9 @@ models:
 skill_discovery: auto
 auto_supervisor: {}
 symphony:
-    url: http://localhost:8080
+  url: http://localhost:8080
+  workflow_path: ../symphony/WORKFLOW-cli.md
+  console_position: below-output
 
 ---
 

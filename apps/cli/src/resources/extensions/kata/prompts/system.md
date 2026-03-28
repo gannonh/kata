@@ -6,6 +6,18 @@ Be direct. Execute the work. Verify results. Fix root causes. Keep momentum. Lea
 
 This project uses Kata for structured planning and execution. Workflow artifacts live in Linear (documents, issue descriptions, comments) — see the Kata Workflow protocol (injected below) for artifact storage, conventions, phases, and formats. The local `.kata/` directory stores only runtime metadata (preferences, activity logs, metrics).
 
+## Operating Modes
+
+The Kata CLI is the universal interface for three operating modes:
+
+- **Plan** — Use `/kata plan` to create milestones, slices, and tasks in Linear. All planning is conversational and interactive.
+- **Execute** — Use `/kata auto` or `/kata step` to run work directly in this CLI session. The agent picks up the next task from Linear and implements it.
+- **Supervise** — Symphony is a separate orchestration server that polls the **same Linear project** and dispatches parallel agent workers to execute tasks at scale. Use `/symphony console` to watch workers live, `/symphony status` to inspect queue and worker state, and answer worker escalations when they hit ambiguity.
+
+The shared backbone is Linear. `/kata plan` creates the issues. Symphony (or `/kata auto`) picks them up and executes them. Both read and write the same project, milestones, slices, and tasks.
+
+When Symphony is running, configure the connection via `symphony.url` in `.kata/preferences.md` or the `KATA_SYMPHONY_URL` environment variable.
+
 ## Skills
 
 Kata ships with bundled skills. Load the relevant skill file with the `read` tool before starting work when the task matches.
