@@ -22,6 +22,15 @@ fn envelope_with_kind(
     summary: &str,
     kind: EventKind,
 ) -> SymphonyEventEnvelope {
+    envelope_with_payload(issue, event, json!({ "summary": summary }), kind)
+}
+
+fn envelope_with_payload(
+    issue: &str,
+    event: &str,
+    payload: serde_json::Value,
+    kind: EventKind,
+) -> SymphonyEventEnvelope {
     SymphonyEventEnvelope {
         version: SYMPHONY_EVENT_STREAM_VERSION.to_string(),
         sequence: 1,
@@ -30,7 +39,7 @@ fn envelope_with_kind(
         severity: EventSeverity::Info,
         issue: Some(issue.to_string()),
         event: event.to_string(),
-        payload: json!({ "summary": summary }),
+        payload,
     }
 }
 
@@ -207,6 +216,33 @@ mod stuck_worker {
     }
 
     #[tokio::test]
+    async fn read_only_tool_activity_counts_as_no_progress() {
+        let (mut supervisor, hub, _store, _registry) = make_supervisor(SupervisorConfig {
+            enabled: true,
+            model: None,
+            steer_cooldown_ms: 120_000,
+        });
+        let mut rx = hub.subscribe();
+
+        supervisor.start().expect("supervisor should start");
+        wait_for_active(&supervisor).await;
+
+        for _ in 0..NO_PROGRESS_EVENT_THRESHOLD_FOR_TEST {
+            hub.send(envelope(
+                "KAT-2003",
+                "tool_start",
+                "read {\"path\":\"src/auth.rs\"}",
+            ));
+        }
+
+        let steer_event =
+            recv_event_with_name(&mut rx, "supervisor_steer", Duration::from_secs(1)).await;
+        assert_eq!(steer_event.payload["reason"], "no_progress");
+
+        supervisor.stop().await;
+    }
+
+    #[tokio::test]
     async fn repeated_test_failure_triggers_supervisor_steer() {
         let (mut supervisor, hub, _store, _registry) = make_supervisor(SupervisorConfig {
             enabled: true,
@@ -368,6 +404,63 @@ mod conflict_detection {
     }
 
     #[tokio::test]
+    async fn conflicting_entries_from_same_issue_do_not_trigger_conflict() {
+        let (mut supervisor, hub, store, registry) = make_supervisor(SupervisorConfig {
+            enabled: true,
+            model: None,
+            steer_cooldown_ms: 120_000,
+        });
+        let mut rx = hub.subscribe();
+
+        store.write_entry(ContextEntryDraft {
+            author_issue: "KAT-3100".to_string(),
+            scope: ContextScope::Project,
+            content: "Decision: use jsonwebtoken for auth".to_string(),
+            ttl_ms: Some(60_000),
+        });
+        store.write_entry(ContextEntryDraft {
+            author_issue: "KAT-3100".to_string(),
+            scope: ContextScope::Project,
+            content: "Decision: use paseto for auth".to_string(),
+            ttl_ms: Some(60_000),
+        });
+
+        supervisor.start().expect("supervisor should start");
+        wait_for_active(&supervisor).await;
+
+        hub.send(envelope_with_kind(
+            "KAT-3100",
+            "shared_context_written",
+            "shared context updated",
+            EventKind::SharedContextWritten,
+        ));
+
+        let conflict_or_escalation = tokio::time::timeout(Duration::from_millis(300), async {
+            loop {
+                let envelope = rx.recv().await.expect("event should be readable");
+                if matches!(
+                    envelope.event.as_str(),
+                    "supervisor_conflict_detected" | "supervisor_escalated"
+                ) {
+                    return envelope;
+                }
+            }
+        })
+        .await;
+
+        assert!(
+            conflict_or_escalation.is_err(),
+            "unexpected conflict/escalation event: {conflict_or_escalation:?}"
+        );
+        assert!(
+            registry.pending_snapshot().is_empty(),
+            "same-issue revisions should not create escalations"
+        );
+
+        supervisor.stop().await;
+    }
+
+    #[tokio::test]
     async fn contradictory_context_entries_trigger_escalation() {
         let (mut supervisor, hub, store, registry) = make_supervisor(SupervisorConfig {
             enabled: true,
@@ -392,6 +485,25 @@ mod conflict_detection {
         supervisor.start().expect("supervisor should start");
         wait_for_active(&supervisor).await;
 
+        hub.send(envelope_with_payload(
+            "KAT-3101",
+            "worker_failed",
+            json!({
+                "summary": "worker failed",
+                "issue_id": "issue-3101"
+            }),
+            EventKind::Worker,
+        ));
+        hub.send(envelope_with_payload(
+            "KAT-3102",
+            "worker_failed",
+            json!({
+                "summary": "worker failed",
+                "issue_id": "issue-3102"
+            }),
+            EventKind::Worker,
+        ));
+
         hub.send(envelope_with_kind(
             "KAT-3102",
             "shared_context_written",
@@ -410,6 +522,49 @@ mod conflict_detection {
             "expected escalation to reference one of the conflicting issues, got {:?}",
             pending[0].issue_identifier
         );
+        assert!(
+            pending[0].issue_id == "issue-3101" || pending[0].issue_id == "issue-3102",
+            "expected escalation to carry canonical issue id, got {:?}",
+            pending[0].issue_id
+        );
+
+        supervisor.stop().await;
+    }
+
+    #[tokio::test]
+    async fn overlapping_read_only_activity_does_not_emit_conflict() {
+        let (mut supervisor, hub, _store, _registry) = make_supervisor(SupervisorConfig {
+            enabled: true,
+            model: None,
+            steer_cooldown_ms: 120_000,
+        });
+        let mut rx = hub.subscribe();
+
+        supervisor.start().expect("supervisor should start");
+        wait_for_active(&supervisor).await;
+
+        hub.send(envelope(
+            "KAT-3200",
+            "tool_start",
+            "read {\"path\":\"src/shared.rs\"}",
+        ));
+        hub.send(envelope(
+            "KAT-3201",
+            "tool_start",
+            "read {\"path\":\"src/shared.rs\"}",
+        ));
+
+        let conflict = tokio::time::timeout(Duration::from_millis(300), async {
+            loop {
+                let envelope = rx.recv().await.expect("event should be readable");
+                if envelope.event == "supervisor_conflict_detected" {
+                    return envelope;
+                }
+            }
+        })
+        .await;
+
+        assert!(conflict.is_err(), "unexpected conflict event: {conflict:?}");
 
         supervisor.stop().await;
     }

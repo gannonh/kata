@@ -61,6 +61,7 @@ impl SupervisorDependencies {
 struct SupervisorRuntimeState {
     snapshot: SupervisorSnapshot,
     workers: HashMap<String, WorkerModel>,
+    issue_ids_by_identifier: HashMap<String, String>,
     recent_conflicts: HashMap<String, DateTime<Utc>>,
     escalated_context_conflicts: HashMap<String, DateTime<Utc>>,
     error_patterns: HashMap<String, ErrorPatternTracker>,
@@ -273,6 +274,7 @@ impl SupervisorAgent {
             state: Arc::new(RwLock::new(SupervisorRuntimeState {
                 snapshot: initial_snapshot,
                 workers: HashMap::new(),
+                issue_ids_by_identifier: HashMap::new(),
                 recent_conflicts: HashMap::new(),
                 escalated_context_conflicts: HashMap::new(),
                 error_patterns: HashMap::new(),
@@ -462,16 +464,28 @@ fn process_envelope(
     guard.snapshot.last_action_at = Some(Utc::now());
 
     if let Some(issue_identifier) = envelope.issue.clone() {
+        if let Some(issue_id) = issue_id_from_payload(&envelope) {
+            guard
+                .issue_ids_by_identifier
+                .insert(issue_identifier.clone(), issue_id);
+        }
+
         let edited_path = {
             let worker = guard.workers.entry(issue_identifier.clone()).or_default();
             worker.observe_event(&envelope)
         };
+
+        let issue_id = guard
+            .issue_ids_by_identifier
+            .get(&issue_identifier)
+            .cloned();
 
         if let Some(pattern_signature) = systemic_error_signature(&envelope) {
             maybe_handle_failure_pattern(
                 &mut guard,
                 deps,
                 &issue_identifier,
+                issue_id.as_deref(),
                 &pattern_signature,
                 now,
             );
@@ -604,6 +618,7 @@ fn maybe_handle_failure_pattern(
     state: &mut SupervisorRuntimeState,
     deps: &SupervisorDependencies,
     issue_identifier: &str,
+    issue_id: Option<&str>,
     signature: &str,
     now: DateTime<Utc>,
 ) {
@@ -685,6 +700,7 @@ fn maybe_handle_failure_pattern(
 
         emit_supervisor_escalation(
             deps,
+            issue_id.unwrap_or(issue_identifier),
             issue_identifier,
             "systemic_failure_pattern",
             serde_json::json!({
@@ -741,8 +757,15 @@ fn maybe_handle_context_conflict(
         }),
     );
 
+    let issue_a_id = state
+        .issue_ids_by_identifier
+        .get(&issue_a)
+        .cloned()
+        .unwrap_or_else(|| issue_a.clone());
+
     emit_supervisor_escalation(
         deps,
+        &issue_a_id,
         &issue_a,
         "context_decision_conflict",
         serde_json::json!({
@@ -787,13 +810,14 @@ fn emit_supervisor_steer(
 
 fn emit_supervisor_escalation(
     deps: &SupervisorDependencies,
+    issue_id: &str,
     issue_identifier: &str,
     reason: &str,
     context: serde_json::Value,
 ) {
     let request = EscalationRequest {
         id: format!("supervisor-{}", Uuid::new_v4()),
-        issue_id: issue_identifier.to_string(),
+        issue_id: issue_id.to_string(),
         issue_identifier: issue_identifier.to_string(),
         method: "supervisor_escalation".to_string(),
         payload: serde_json::json!({
@@ -821,6 +845,8 @@ fn emit_supervisor_escalation(
         "supervisor_escalated",
         serde_json::json!({
             "issue": issue_identifier,
+            "issue_id": issue_id,
+            "issue_identifier": issue_identifier,
             "reason": reason,
             "context": truncate_for_display(&request.payload.to_string(), 160),
             "request_id": request.id,
@@ -848,6 +874,9 @@ fn detect_context_conflict(entries: &[crate::domain::ContextEntry]) -> Option<Co
                 continue;
             }
             if right.author_issue.eq_ignore_ascii_case("supervisor") {
+                continue;
+            }
+            if left.author_issue.eq_ignore_ascii_case(&right.author_issue) {
                 continue;
             }
             let decision_b = decision_token(&right.content)?;
@@ -971,6 +1000,22 @@ fn systemic_error_signature(envelope: &SymphonyEventEnvelope) -> Option<String> 
     Some(truncate_for_display(&normalized, 120))
 }
 
+fn issue_id_from_payload(envelope: &SymphonyEventEnvelope) -> Option<String> {
+    envelope
+        .payload
+        .get("issue_id")
+        .and_then(|value| value.as_str())
+        .or_else(|| {
+            envelope
+                .payload
+                .get("issueId")
+                .and_then(|value| value.as_str())
+        })
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToString::to_string)
+}
+
 fn file_edit_path(envelope: &SymphonyEventEnvelope, summary: Option<&str>) -> Option<String> {
     if envelope.event != "tool_start" {
         return None;
@@ -981,7 +1026,7 @@ fn file_edit_path(envelope: &SymphonyEventEnvelope, summary: Option<&str>) -> Op
     let tool_name = parts.next().unwrap_or_default().trim().to_ascii_lowercase();
     let args_raw = parts.next().unwrap_or_default().trim();
 
-    if matches!(tool_name.as_str(), "edit" | "write" | "append" | "read") {
+    if matches!(tool_name.as_str(), "edit" | "write" | "append") {
         if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(args_raw) {
             let path = parsed
                 .get("path")
