@@ -564,6 +564,94 @@ When `workspace.isolation: docker` is selected:
 
 ---
 
+## Skills Injection
+
+Symphony automatically injects agent skills into each workspace so that worker
+agents have access to workflow-specific capabilities (committing, landing PRs,
+addressing review comments, etc.) regardless of whether the target repository
+ships its own skills.
+
+### Convention
+
+If a `skills/` directory exists as a sibling of the WORKFLOW.md file, Symphony
+copies its contents into `.agents/skills/` inside each newly created workspace
+during bootstrap — after the git clone/worktree but before the `after_create`
+hook runs.
+
+```
+my-project/
+├── WORKFLOW.md
+├── prompts/
+│   ├── system.md
+│   └── in-progress.md
+└── skills/              ← Symphony auto-injects these
+    ├── sym-land/
+    │   └── SKILL.md
+    ├── sym-commit/
+    │   └── SKILL.md
+    └── sym-fix-ci/
+        ├── SKILL.md
+        └── scripts/
+            └── inspect_pr_checks.py
+```
+
+After injection, the workspace looks like:
+
+```
+<workspace>/
+├── .agents/
+│   └── skills/
+│       ├── sym-land/        ← injected by Symphony
+│       ├── sym-commit/      ← injected by Symphony
+│       ├── repo-custom/     ← already in the target repo (preserved)
+│       └── ...
+├── src/
+└── ...
+```
+
+### Behaviour
+
+- **Zero config** — no WORKFLOW.md setting is needed. If `skills/` exists next
+  to the workflow file, injection happens automatically.
+- **Idempotent** — existing files in `.agents/skills/` from the target repo are
+  preserved. Symphony only writes into its own namespaced skill directories.
+- **`sym-` prefix** — all Symphony-shipped skills use the `sym-` name prefix
+  (e.g. `sym-land`, `sym-commit`, `sym-fix-ci`). This prevents collisions with
+  skills that already exist in the target repository's `.agents/skills/`.
+- **File overwrite** — if a `sym-*` skill directory already exists in the
+  workspace (e.g. from a prior bootstrap), files within it are overwritten with
+  the latest version from the workflow directory.
+- **Docker isolation** — skills injection is currently supported for local
+  workspace isolation only. Docker container injection is planned.
+
+### Bundled Skills
+
+Symphony ships these skills in `apps/symphony/skills/`:
+
+| Skill                  | Purpose                                                      |
+| ---------------------- | ------------------------------------------------------------ |
+| `sym-address-comments` | Address PR review comments (human and bot)                   |
+| `sym-commit`           | Produce clean, well-formed git commits                       |
+| `sym-debug`            | Debug stuck runs and agent execution failures                |
+| `sym-fix-ci`           | Diagnose and fix failing GitHub Actions CI checks            |
+| `sym-land`             | Land a PR: resolve conflicts, wait for CI, squash-merge      |
+| `sym-linear`           | Raw Linear GraphQL operations (comment editing, uploads)     |
+| `sym-pull`             | Pull latest base branch and resolve merge conflicts          |
+| `sym-push`             | Push branch to origin and create/update the PR               |
+
+### Referencing Skills in Prompts
+
+Prompt files should reference skills using the `.agents/skills/sym-*` path:
+
+```markdown
+Read `.agents/skills/sym-land/SKILL.md` and follow its steps.
+```
+
+This path resolves inside the worker's workspace cwd, where the skills have
+been injected.
+
+---
+
 ## Module Map
 
 Core Rust modules:

@@ -2,7 +2,7 @@
 
 The issue is in `Agent Review`. A PR exists. Your job is to read all PR comments, address each one, push fixes, and move to `Human Review` when all feedback has been addressed.
 
-Read `.codex/skills/address-comments/SKILL.md` if available and follow its steps.
+Read `.agents/skills/sym-address-comments/SKILL.md` if available and follow its steps.
 
 ### PR feedback sweep protocol
 
@@ -27,7 +27,7 @@ If there are **zero** PR comments and **zero** reviews, it means reviewers haven
 ### CI check gate
 
 - Confirm PR checks are passing (green) after the latest changes.
-- If CI fails, read `.codex/skills/fix-ci/SKILL.md` and follow its steps to diagnose and fix.
+- If CI fails, read `.agents/skills/sym-fix-ci/SKILL.md` and follow its steps to diagnose and fix.
 
 ### State transition
 

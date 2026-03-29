@@ -1,5 +1,5 @@
 ---
-name: "fix-ci"
+name: sym-fix-ci
 description: "Use when a user asks to debug or fix failing GitHub PR checks that run in GitHub Actions. Trigger words include: 'fix CI', 'debug GitHub Actions', 'gh pr checks', 'CI is red', 'GitHub Actions failed', 'fix the build', and similar phrases indicating a need to investigate and resolve CI failures in a GitHub-hosted repository."
 ---
 

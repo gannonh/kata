@@ -60,6 +60,9 @@ pub enum SymphonyError {
     #[error("workspace hook timeout: {hook} ({timeout_ms}ms)")]
     WorkspaceHookTimeout { hook: String, timeout_ms: u64 },
 
+    #[error("workspace error: {0}")]
+    WorkspaceError(String),
+
     // ── Codex / Agent ──────────────────────────────────────────────────
     #[error("codex not found")]
     CodexNotFound,

@@ -1,5 +1,5 @@
 ---
-name: pull
+name: sym-pull
 description:
   Pull latest origin/<base-branch> into the current local branch and resolve
   merge conflicts (aka update-branch). Use when Codex needs to sync a feature

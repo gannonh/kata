@@ -572,6 +572,56 @@ All hooks receive these environment variables:
 
 Hooks run in the workspace directory. If a hook fails, `after_create` and `before_run` abort the worker attempt (the issue retries). `after_run` failures are logged but don't affect the session result.
 
+## Skills Injection
+
+Symphony automatically injects agent skills into each workspace so worker agents have access to workflow-specific capabilities — committing, landing PRs, addressing review comments, fixing CI — regardless of whether the target repository includes its own skills.
+
+### How it works
+
+If a `skills/` directory exists next to your WORKFLOW.md file, Symphony copies it into `.agents/skills/` inside each workspace during bootstrap. No configuration needed.
+
+```
+my-project/
+├── WORKFLOW.md
+├── prompts/
+└── skills/                    ← auto-injected into each workspace
+    ├── sym-land/SKILL.md
+    ├── sym-commit/SKILL.md
+    └── sym-fix-ci/
+        ├── SKILL.md
+        └── scripts/inspect_pr_checks.py
+```
+
+After workspace creation, the agent finds them at `.agents/skills/sym-*/` — the standard `.agents/` discovery path used by Kata CLI, Codex, and other coding agents.
+
+### Key details
+
+- **Zero config** — if `skills/` exists next to WORKFLOW.md, injection happens automatically
+- **Namespaced with `sym-` prefix** — Symphony skills use a `sym-` prefix to avoid collisions with skills already in the target repo's `.agents/skills/`
+- **Idempotent** — existing repo skills are preserved; only `sym-*` directories are written
+- **File overwrite** — if a `sym-*` directory already exists (from a prior run), its files are updated to the latest version
+
+### Bundled skills
+
+Symphony ships these skills in [`skills/`](skills/):
+
+| Skill | Purpose |
+|---|---|
+| `sym-address-comments` | Address PR review comments |
+| `sym-commit` | Produce clean git commits |
+| `sym-debug` | Debug stuck runs and agent failures |
+| `sym-fix-ci` | Diagnose and fix GitHub Actions CI failures |
+| `sym-land` | Land a PR: conflicts, CI, squash-merge |
+| `sym-linear` | Raw Linear GraphQL operations |
+| `sym-pull` | Pull and merge latest base branch |
+| `sym-push` | Push branch and create/update PR |
+
+Reference them in your prompts using the `.agents/` path:
+
+```markdown
+Read `.agents/skills/sym-land/SKILL.md` and follow its steps.
+```
+
 ## Slack Notifications
 
 Symphony can send webhook notifications to Slack on any issue state transition or runtime event.

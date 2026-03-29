@@ -1,5 +1,5 @@
 ---
-name: land
+name: sym-land
 description:
   Land a PR by monitoring conflicts, resolving them, waiting for checks, and
   squash-merging when green; use when asked to land, merge, or shepherd a PR to
@@ -109,7 +109,7 @@ Preferred: use the asyncio watcher to monitor review comments, CI, and head
 updates in parallel:
 
 ```
-python3 .codex/skills/land/land_watch.py
+python3 .agents/skills/sym-land/land_watch.py
 ```
 
 Exit codes:

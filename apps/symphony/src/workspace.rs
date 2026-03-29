@@ -364,6 +364,100 @@ fn bootstrap_repository(
     }
 }
 
+/// Inject skills from a `skills/` directory (sibling to the WORKFLOW.md file)
+/// into `.agents/skills/` inside the workspace.
+///
+/// This is a convention-based, zero-config mechanism: if `<workflow_dir>/skills/`
+/// exists, its contents are copied into `<workspace>/.agents/skills/`. Each
+/// subdirectory in `skills/` becomes a skill directory in the workspace.
+///
+/// The copy is idempotent — existing files in `.agents/skills/` are preserved.
+/// Only new skill directories (or updated files within them) are written.
+/// This avoids clobbering skills that already exist in the target repo's
+/// `.agents/skills/` directory.
+pub fn inject_skills(workflow_dir: &Path, workspace: &Path) -> Result<()> {
+    let source_skills = workflow_dir.join("skills");
+    if !source_skills.is_dir() {
+        return Ok(());
+    }
+
+    let target_skills = workspace.join(".agents").join("skills");
+
+    let entries = std::fs::read_dir(&source_skills).map_err(|err| {
+        SymphonyError::WorkspaceError(format!(
+            "failed to read skills directory {}: {err}",
+            source_skills.display()
+        ))
+    })?;
+
+    for entry in entries {
+        let entry = entry.map_err(|err| {
+            SymphonyError::WorkspaceError(format!("failed to read skills entry: {err}"))
+        })?;
+
+        let entry_path = entry.path();
+        if !entry_path.is_dir() {
+            continue;
+        }
+
+        let skill_name = entry.file_name();
+        let target_skill_dir = target_skills.join(&skill_name);
+
+        copy_dir_recursive(&entry_path, &target_skill_dir)?;
+    }
+
+    if target_skills.is_dir() {
+        tracing::debug!(
+            source = %source_skills.display(),
+            target = %target_skills.display(),
+            "injected skills into workspace"
+        );
+    }
+
+    Ok(())
+}
+
+/// Recursively copy a directory tree. Creates target dirs as needed.
+/// Overwrites files that already exist (skills may be updated between runs).
+fn copy_dir_recursive(source: &Path, target: &Path) -> Result<()> {
+    std::fs::create_dir_all(target).map_err(|err| {
+        SymphonyError::WorkspaceError(format!(
+            "failed to create directory {}: {err}",
+            target.display()
+        ))
+    })?;
+
+    let entries = std::fs::read_dir(source).map_err(|err| {
+        SymphonyError::WorkspaceError(format!(
+            "failed to read directory {}: {err}",
+            source.display()
+        ))
+    })?;
+
+    for entry in entries {
+        let entry = entry.map_err(|err| {
+            SymphonyError::WorkspaceError(format!("failed to read directory entry: {err}"))
+        })?;
+
+        let src_path = entry.path();
+        let dst_path = target.join(entry.file_name());
+
+        if src_path.is_dir() {
+            copy_dir_recursive(&src_path, &dst_path)?;
+        } else {
+            std::fs::copy(&src_path, &dst_path).map_err(|err| {
+                SymphonyError::WorkspaceError(format!(
+                    "failed to copy {} -> {}: {err}",
+                    src_path.display(),
+                    dst_path.display()
+                ))
+            })?;
+        }
+    }
+
+    Ok(())
+}
+
 /// Bootstrap repository inside a Docker container.
 pub async fn docker_bootstrap_repository(
     container_id: &str,
@@ -805,7 +899,7 @@ fn truncate_output(output: &str, max_bytes: usize) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::scan_workspace_root;
+    use super::{inject_skills, scan_workspace_root};
 
     #[test]
     fn scan_workspace_root_maps_matching_directories() {
@@ -854,5 +948,155 @@ mod tests {
         let discovered = scan_workspace_root(root, "symphony");
         let expected = std::fs::canonicalize(&root_match).expect("canonical path should resolve");
         assert_eq!(discovered.get("KAT-321"), Some(&expected));
+    }
+
+    // ── inject_skills tests ────────────────────────────────────────────
+
+    #[test]
+    fn inject_skills_copies_skill_dirs_into_agents_skills() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let workflow_dir = temp.path().join("workflow");
+        let workspace = temp.path().join("workspace");
+        std::fs::create_dir_all(&workflow_dir).unwrap();
+        std::fs::create_dir_all(&workspace).unwrap();
+
+        // Create source skills
+        let skill_dir = workflow_dir.join("skills").join("sym-land");
+        std::fs::create_dir_all(&skill_dir).unwrap();
+        std::fs::write(skill_dir.join("SKILL.md"), "---\nname: sym-land\n---\n# Land").unwrap();
+
+        inject_skills(&workflow_dir, &workspace).unwrap();
+
+        let target = workspace.join(".agents").join("skills").join("sym-land").join("SKILL.md");
+        assert!(target.exists(), "skill should be copied to .agents/skills/");
+        let content = std::fs::read_to_string(&target).unwrap();
+        assert!(content.contains("sym-land"));
+    }
+
+    #[test]
+    fn inject_skills_copies_nested_scripts() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let workflow_dir = temp.path().join("workflow");
+        let workspace = temp.path().join("workspace");
+        std::fs::create_dir_all(&workflow_dir).unwrap();
+        std::fs::create_dir_all(&workspace).unwrap();
+
+        let skill_dir = workflow_dir.join("skills").join("sym-fix-ci");
+        let scripts_dir = skill_dir.join("scripts");
+        std::fs::create_dir_all(&scripts_dir).unwrap();
+        std::fs::write(skill_dir.join("SKILL.md"), "---\nname: sym-fix-ci\n---").unwrap();
+        std::fs::write(scripts_dir.join("inspect.py"), "#!/usr/bin/env python3").unwrap();
+
+        inject_skills(&workflow_dir, &workspace).unwrap();
+
+        let target_script = workspace
+            .join(".agents")
+            .join("skills")
+            .join("sym-fix-ci")
+            .join("scripts")
+            .join("inspect.py");
+        assert!(target_script.exists(), "nested scripts should be copied");
+    }
+
+    #[test]
+    fn inject_skills_noop_when_no_skills_dir() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let workflow_dir = temp.path().join("workflow");
+        let workspace = temp.path().join("workspace");
+        std::fs::create_dir_all(&workflow_dir).unwrap();
+        std::fs::create_dir_all(&workspace).unwrap();
+
+        // No skills/ directory — should be a no-op
+        inject_skills(&workflow_dir, &workspace).unwrap();
+
+        assert!(!workspace.join(".agents").exists(), ".agents should not be created");
+    }
+
+    #[test]
+    fn inject_skills_preserves_existing_repo_skills() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let workflow_dir = temp.path().join("workflow");
+        let workspace = temp.path().join("workspace");
+        std::fs::create_dir_all(&workflow_dir).unwrap();
+        std::fs::create_dir_all(&workspace).unwrap();
+
+        // Pre-existing skill in the workspace (from the cloned repo)
+        let existing_skill = workspace.join(".agents").join("skills").join("repo-custom");
+        std::fs::create_dir_all(&existing_skill).unwrap();
+        std::fs::write(existing_skill.join("SKILL.md"), "---\nname: repo-custom\n---").unwrap();
+
+        // Symphony skill to inject
+        let sym_skill = workflow_dir.join("skills").join("sym-commit");
+        std::fs::create_dir_all(&sym_skill).unwrap();
+        std::fs::write(sym_skill.join("SKILL.md"), "---\nname: sym-commit\n---").unwrap();
+
+        inject_skills(&workflow_dir, &workspace).unwrap();
+
+        // Both should exist
+        assert!(
+            workspace.join(".agents").join("skills").join("repo-custom").join("SKILL.md").exists(),
+            "existing repo skill should be preserved"
+        );
+        assert!(
+            workspace.join(".agents").join("skills").join("sym-commit").join("SKILL.md").exists(),
+            "symphony skill should be injected"
+        );
+    }
+
+    #[test]
+    fn inject_skills_updates_existing_symphony_skill() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let workflow_dir = temp.path().join("workflow");
+        let workspace = temp.path().join("workspace");
+        std::fs::create_dir_all(&workflow_dir).unwrap();
+        std::fs::create_dir_all(&workspace).unwrap();
+
+        // Pre-existing older version of a symphony skill
+        let existing = workspace.join(".agents").join("skills").join("sym-land");
+        std::fs::create_dir_all(&existing).unwrap();
+        std::fs::write(existing.join("SKILL.md"), "old content").unwrap();
+
+        // Updated version
+        let source = workflow_dir.join("skills").join("sym-land");
+        std::fs::create_dir_all(&source).unwrap();
+        std::fs::write(source.join("SKILL.md"), "new content").unwrap();
+
+        inject_skills(&workflow_dir, &workspace).unwrap();
+
+        let content = std::fs::read_to_string(
+            workspace.join(".agents").join("skills").join("sym-land").join("SKILL.md"),
+        )
+        .unwrap();
+        assert_eq!(content, "new content", "skill files should be overwritten on re-injection");
+    }
+
+    #[test]
+    fn inject_skills_skips_non_directory_entries() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let workflow_dir = temp.path().join("workflow");
+        let workspace = temp.path().join("workspace");
+        std::fs::create_dir_all(&workflow_dir).unwrap();
+        std::fs::create_dir_all(&workspace).unwrap();
+
+        let skills_dir = workflow_dir.join("skills");
+        std::fs::create_dir_all(&skills_dir).unwrap();
+        // A stray file in skills/ (not a skill directory)
+        std::fs::write(skills_dir.join("README.md"), "# skills readme").unwrap();
+
+        // A proper skill
+        let skill = skills_dir.join("sym-pull");
+        std::fs::create_dir_all(&skill).unwrap();
+        std::fs::write(skill.join("SKILL.md"), "---\nname: sym-pull\n---").unwrap();
+
+        inject_skills(&workflow_dir, &workspace).unwrap();
+
+        assert!(
+            workspace.join(".agents").join("skills").join("sym-pull").join("SKILL.md").exists(),
+            "proper skill should be injected"
+        );
+        assert!(
+            !workspace.join(".agents").join("skills").join("README.md").exists(),
+            "non-directory entries should be skipped"
+        );
     }
 }

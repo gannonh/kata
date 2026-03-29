@@ -42,13 +42,15 @@ Use the built-in Linear tools (`linear_get_issue`, `linear_list_workflow_states`
 
 ## Related skills
 
-- `linear`: interact with Linear. **MANDATORY: read `.codex/skills/linear/SKILL.md` before ANY `linear_graphql` tool call.**
-- `commit`: produce clean, logical commits during implementation.
-- `push`: keep remote branch current. Use `origin/{{ workspace.base_branch }}` as the upstream.
-- `pull`: keep branch updated. Use `origin/{{ workspace.base_branch }}` as the upstream.
-- `land`: when merging, use `.codex/skills/land/SKILL.md`.
-- `address-comments`: when in Agent Review, use `.codex/skills/address-comments/SKILL.md`.
-- `fix-ci`: when CI fails, use `.codex/skills/fix-ci/SKILL.md`.
+Skills are injected into `.agents/skills/` in each workspace by Symphony.
+
+- `sym-linear`: interact with Linear. **MANDATORY: read `.agents/skills/sym-linear/SKILL.md` before ANY `linear_graphql` tool call.**
+- `sym-commit`: produce clean, logical commits during implementation.
+- `sym-push`: keep remote branch current. Use `origin/{{ workspace.base_branch }}` as the upstream.
+- `sym-pull`: keep branch updated. Use `origin/{{ workspace.base_branch }}` as the upstream.
+- `sym-land`: when merging, use `.agents/skills/sym-land/SKILL.md`.
+- `sym-address-comments`: when in Agent Review, use `.agents/skills/sym-address-comments/SKILL.md`.
+- `sym-fix-ci`: when CI fails, use `.agents/skills/sym-fix-ci/SKILL.md`.
 
 ## Workpad protocol
 

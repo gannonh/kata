@@ -1,5 +1,5 @@
 ---
-name: debug
+name: sym-debug
 description:
   Investigate stuck runs and execution failures by tracing Symphony and Codex
   logs with issue/session identifiers; use when runs stall, retry repeatedly, or

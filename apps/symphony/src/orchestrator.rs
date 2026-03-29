@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use regex::Regex;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 use std::future::Future;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, LazyLock, Mutex, RwLock};
 use std::time::Duration;
@@ -56,6 +56,9 @@ struct WorkerTaskConfig {
     event_tx: tokio::sync::mpsc::UnboundedSender<(String, AgentEvent)>,
     escalation_tx: tokio::sync::mpsc::UnboundedSender<rpc_bridge::EscalationDispatch>,
     escalation_timeout_ms: u64,
+    /// Directory containing the WORKFLOW.md file. Used to locate sibling
+    /// `skills/` directory for workspace injection.
+    workflow_dir: PathBuf,
 }
 
 enum IssueCheck {
@@ -499,6 +502,9 @@ async fn run_worker_task(
                 .await
                 .map_err(|err| format!("docker workspace bootstrap failed: {err}"))?;
 
+                // TODO: inject skills into Docker container via `docker cp`
+                // For now, skills injection is only supported for local isolation.
+
                 if let Some(hook) = &config.hooks.after_create {
                     workspace::run_hook_in_container(
                         "after_create",
@@ -737,6 +743,18 @@ async fn run_worker_task(
         };
 
     let workspace_path = Path::new(&workspace_info.path);
+
+    // 1b. Inject skills from workflow dir into workspace (convention: skills/ sibling to WORKFLOW.md)
+    if workspace_info.created_now {
+        if let Err(err) = workspace::inject_skills(&config.workflow_dir, workspace_path) {
+            tracing::warn!(
+                event = "worker_skill_injection_failed",
+                issue_id = %issue_id,
+                error = %err,
+                "skill injection failed (non-fatal)"
+            );
+        }
+    }
 
     // 2. Before-run hook
     if let Err(err) = workspace::run_before_run_hook_for_issue(workspace_path, &config.hooks, issue)
@@ -1909,6 +1927,12 @@ impl Orchestrator {
                 run_attempt.model = pi_model_override.clone();
             }
 
+            let workflow_dir = self
+                .workflow_store
+                .as_ref()
+                .map(|ws| ws.workflow_dir().to_path_buf())
+                .unwrap_or_else(|| PathBuf::from("."));
+
             let task_config = WorkerTaskConfig {
                 workspace: self.config.workspace.clone(),
                 hooks: self.config.hooks.clone(),
@@ -1923,6 +1947,7 @@ impl Orchestrator {
                 event_tx: self.worker_event_tx.clone(),
                 escalation_tx: self.worker_escalation_tx.clone(),
                 escalation_timeout_ms: self.config.agent.escalation_timeout_ms,
+                workflow_dir,
             };
 
             tokio::spawn(async move {
@@ -2950,6 +2975,24 @@ impl Orchestrator {
         self.state.retry_attempts.remove(&issue.id);
 
         let workspace_path = Path::new(&workspace_info.path);
+
+        // Inject skills from workflow dir into workspace
+        if workspace_info.created_now {
+            let workflow_dir = self
+                .workflow_store
+                .as_ref()
+                .map(|ws| ws.workflow_dir().to_path_buf())
+                .unwrap_or_else(|| PathBuf::from("."));
+            if let Err(err) = workspace::inject_skills(&workflow_dir, workspace_path) {
+                tracing::warn!(
+                    event = "worker_skill_injection_failed",
+                    issue_id = %issue.id,
+                    error = %err,
+                    "skill injection failed (non-fatal)"
+                );
+            }
+        }
+
         if let Err(err) =
             workspace::run_before_run_hook_for_issue(workspace_path, &self.config.hooks, issue)
         {

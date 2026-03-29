@@ -1,5 +1,5 @@
 ---
-name: linear
+name: sym-linear
 description: |
   Use Symphony's `linear_graphql` client tool for raw Linear GraphQL
   operations such as comment editing and upload flows.

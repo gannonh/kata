@@ -1,5 +1,5 @@
 ---
-name: push
+name: sym-push
 description:
   Push current branch changes to origin and create or update the corresponding
   pull request (with the correct base branch); use when asked to push, publish
