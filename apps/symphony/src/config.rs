@@ -1146,19 +1146,15 @@ pub fn validate(config: &ServiceConfig) -> Result<ValidatedServiceConfig> {
         }
     };
 
-    // tracker.api_key must be present and non-empty
-    match config.tracker.api_key.as_deref() {
-        Some(k) if !k.is_empty() => {}
-        _ => {
-            return if tracker_kind == "github" {
-                Err(SymphonyError::MissingGithubApiToken)
-            } else {
-                Err(SymphonyError::MissingLinearApiToken)
-            };
-        }
-    }
-
     if tracker_kind == "linear" {
+        // tracker.api_key must be present and non-empty
+        match config.tracker.api_key.as_deref() {
+            Some(k) if !k.trim().is_empty() => {}
+            _ => {
+                return Err(SymphonyError::MissingLinearApiToken);
+            }
+        }
+
         // tracker.project_slug must be present and non-empty
         match config.tracker.project_slug.as_deref() {
             Some(slug) if !slug.is_empty() => {}
@@ -1169,6 +1165,25 @@ pub fn validate(config: &ServiceConfig) -> Result<ValidatedServiceConfig> {
     }
 
     if tracker_kind == "github" {
+        let has_config_token = config
+            .tracker
+            .api_key
+            .as_deref()
+            .map(|key| !key.trim().is_empty())
+            .unwrap_or(false);
+        let has_env_token = ["GH_TOKEN", "GITHUB_TOKEN"].iter().any(|name| {
+            std::env::var(name)
+                .ok()
+                .map(|value| !value.trim().is_empty())
+                .unwrap_or(false)
+        });
+
+        if !(has_config_token || has_env_token) {
+            return Err(SymphonyError::InvalidWorkflowConfig(
+                "GH_TOKEN or GITHUB_TOKEN is required when tracker.kind is github".to_string(),
+            ));
+        }
+
         if config
             .tracker
             .repo_owner
@@ -1193,6 +1208,10 @@ pub fn validate(config: &ServiceConfig) -> Result<ValidatedServiceConfig> {
             return Err(SymphonyError::InvalidWorkflowConfig(
                 "tracker.repo_name is required when tracker.kind is github".to_string(),
             ));
+        }
+
+        if let Some(project_number) = config.tracker.github_project_number {
+            tracing::debug!(project_number, "Projects v2 mode active");
         }
     }
 

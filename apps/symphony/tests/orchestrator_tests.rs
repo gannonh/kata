@@ -113,6 +113,26 @@ fn test_config(max_concurrent_agents: u32) -> ServiceConfig {
     config
 }
 
+fn github_test_config(max_concurrent_agents: u32) -> ServiceConfig {
+    let mut config = ServiceConfig::default();
+    config.tracker = TrackerConfig {
+        kind: Some("github".to_string()),
+        api_key: Some("github-test-token".into()),
+        repo_owner: Some("test-owner".to_string()),
+        repo_name: Some("test-repo".to_string()),
+        active_states: vec!["Todo".to_string(), "In Progress".to_string()],
+        terminal_states: vec!["Done".to_string(), "Canceled".to_string()],
+        ..TrackerConfig::default()
+    };
+    config.agent = AgentConfig {
+        max_concurrent_agents,
+        max_turns: 20,
+        max_retry_backoff_ms: 60_000,
+        escalation_timeout_ms: 300_000,
+    };
+    config
+}
+
 fn with_slack_notifications(
     mut config: ServiceConfig,
     webhook_url: String,
@@ -155,6 +175,30 @@ fn issue(
         state: state.to_string(),
         branch_name: None,
         url: None,
+        assignee_id: None,
+        labels: vec![],
+        blocked_by: vec![],
+        assigned_to_worker: true,
+        created_at: Some(Utc::now() + Duration::seconds(created_at_offset_secs)),
+        updated_at: Some(Utc::now()),
+        children_count: 0,
+        parent_identifier: None,
+    }
+}
+
+fn github_issue(id: &str, number: u64, state: &str, created_at_offset_secs: i64) -> Issue {
+    let identifier = format!("#{number}");
+    Issue {
+        id: id.to_string(),
+        identifier: identifier.clone(),
+        title: format!("GitHub issue {identifier}"),
+        description: Some("orchestrator github test issue".to_string()),
+        priority: Some(1),
+        state: state.to_string(),
+        branch_name: None,
+        url: Some(format!(
+            "https://github.com/test-owner/test-repo/issues/{number}"
+        )),
         assignee_id: None,
         labels: vec![],
         blocked_by: vec![],
@@ -4377,6 +4421,73 @@ async fn test_execute_worker_attempt_shared_context_is_injected_into_prompt() {
     assert!(
         first_prompt.contains("Decision: using Zod for validation"),
         "first worker prompt should include the shared context decision"
+    );
+}
+
+#[test]
+fn test_github_port_dispatch_cycle() {
+    let mut orchestrator = Orchestrator::new(github_test_config(2), String::new());
+    let mut port = FakePort {
+        candidate_issues: vec![
+            github_issue("gh-42", 42, "Todo", -30),
+            github_issue("gh-43", 43, "Todo", -20),
+        ],
+        ..FakePort::default()
+    };
+
+    let tick = orchestrator.tick(&mut port).expect("tick should succeed");
+
+    assert_eq!(tick.dispatched_issue_ids.len(), 2);
+    assert!(orchestrator.state().running.contains_key("gh-42"));
+    assert!(orchestrator.state().running.contains_key("gh-43"));
+    assert!(
+        port.call_history()
+            .iter()
+            .any(|call| call == "fetch_candidate_issues"),
+        "github dispatch cycle should fetch candidates from the tracker port"
+    );
+}
+
+#[test]
+fn test_github_port_reconciliation() {
+    let mut orchestrator = Orchestrator::new(github_test_config(1), String::new());
+    let mut dispatch_port = FakePort {
+        candidate_issues: vec![github_issue("gh-42", 42, "Todo", -30)],
+        ..FakePort::default()
+    };
+
+    orchestrator
+        .tick(&mut dispatch_port)
+        .expect("dispatch tick should succeed");
+    assert!(orchestrator.state().running.contains_key("gh-42"));
+
+    let mut reconcile_port = FakePort {
+        reconciled_issues: vec![github_issue("gh-42", 42, "Done", -30)],
+        ..FakePort::default()
+    };
+
+    orchestrator
+        .tick(&mut reconcile_port)
+        .expect("reconcile tick should succeed");
+
+    assert!(
+        !orchestrator.state().running.contains_key("gh-42"),
+        "done issue should be removed from running map"
+    );
+    assert!(
+        orchestrator.state().completed.contains_key("gh-42"),
+        "done issue should be tracked as completed"
+    );
+}
+
+#[test]
+fn test_github_snapshot_contains_tracker_project_url() {
+    let orchestrator = Orchestrator::new(github_test_config(1), String::new());
+
+    let snapshot = orchestrator.snapshot(0);
+    assert_eq!(
+        snapshot.tracker_project_url.as_deref(),
+        Some("https://github.com/test-owner/test-repo/issues")
     );
 }
 

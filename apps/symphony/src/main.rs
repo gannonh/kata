@@ -24,6 +24,10 @@ use std::time::Duration;
 #[cfg(not(test))]
 use symphony::domain::Issue;
 #[cfg(not(test))]
+use symphony::github::adapter::GithubAdapter;
+#[cfg(not(test))]
+use symphony::github::client::GithubClient;
+#[cfg(not(test))]
 use symphony::http_server::{
     bind_http_listener_with_fallback, start_http_server, HttpServerState, HTTP_PORT_RETRY_LIMIT,
 };
@@ -175,6 +179,206 @@ impl OrchestratorPort for LinearOrchestratorPort {
 }
 
 #[cfg(not(test))]
+struct GithubAdapterInputs {
+    token: String,
+    repo_owner: String,
+    repo_name: String,
+    label_prefix: String,
+    endpoint: String,
+}
+
+#[cfg(not(test))]
+fn github_adapter_inputs(
+    tracker: &symphony::domain::TrackerConfig,
+) -> error::Result<GithubAdapterInputs> {
+    let token = tracker
+        .api_key
+        .as_ref()
+        .map(|api_key| api_key.as_str().trim().to_string())
+        .filter(|value| !value.is_empty())
+        .or_else(|| {
+            std::env::var("GH_TOKEN")
+                .ok()
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty())
+        })
+        .or_else(|| {
+            std::env::var("GITHUB_TOKEN")
+                .ok()
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty())
+        })
+        .ok_or_else(|| {
+            error::SymphonyError::InvalidWorkflowConfig(
+                "GH_TOKEN or GITHUB_TOKEN is required when tracker.kind is github".to_string(),
+            )
+        })?;
+
+    let repo_owner = tracker
+        .repo_owner
+        .clone()
+        .map(|owner| owner.trim().to_string())
+        .filter(|owner| !owner.is_empty())
+        .ok_or_else(|| {
+            error::SymphonyError::InvalidWorkflowConfig(
+                "tracker.repo_owner is required when tracker.kind is github".to_string(),
+            )
+        })?;
+
+    let repo_name = tracker
+        .repo_name
+        .clone()
+        .map(|repo| repo.trim().to_string())
+        .filter(|repo| !repo.is_empty())
+        .ok_or_else(|| {
+            error::SymphonyError::InvalidWorkflowConfig(
+                "tracker.repo_name is required when tracker.kind is github".to_string(),
+            )
+        })?;
+
+    let label_prefix = tracker
+        .label_prefix
+        .clone()
+        .map(|prefix| prefix.trim().to_string())
+        .filter(|prefix| !prefix.is_empty())
+        .unwrap_or_else(|| "symphony".to_string());
+
+    let endpoint = tracker.endpoint.trim();
+    let endpoint = if endpoint.is_empty() {
+        "https://api.github.com".to_string()
+    } else {
+        endpoint.to_string()
+    };
+
+    Ok(GithubAdapterInputs {
+        token,
+        repo_owner,
+        repo_name,
+        label_prefix,
+        endpoint,
+    })
+}
+
+#[cfg(not(test))]
+struct GithubOrchestratorPort {
+    workflow_store: Arc<WorkflowStore>,
+    cached_adapter: Option<GithubAdapter>,
+    adapter_cache_key: Option<String>,
+}
+
+#[cfg(not(test))]
+impl GithubOrchestratorPort {
+    fn new(workflow_store: Arc<WorkflowStore>) -> Self {
+        Self {
+            workflow_store,
+            cached_adapter: None,
+            adapter_cache_key: None,
+        }
+    }
+
+    fn block_on<T>(future: impl Future<Output = error::Result<T>>) -> error::Result<T> {
+        tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(future))
+    }
+
+    fn build_adapter_cache_key(
+        tracker: &symphony::domain::TrackerConfig,
+        token: &str,
+        repo_owner: &str,
+        repo_name: &str,
+        label_prefix: &str,
+        endpoint: &str,
+    ) -> String {
+        format!(
+            "{token}\u{1e}{repo_owner}\u{1e}{repo_name}\u{1e}{label_prefix}\u{1e}{endpoint}\u{1e}{project_number}\u{1e}{assignee}\u{1e}{active_states}\u{1e}{terminal_states}\u{1e}{exclude_labels}",
+            project_number = tracker
+                .github_project_number
+                .map(|value| value.to_string())
+                .unwrap_or_default(),
+            assignee = tracker.assignee.as_deref().unwrap_or_default(),
+            active_states = tracker.active_states.join("\u{1f}"),
+            terminal_states = tracker.terminal_states.join("\u{1f}"),
+            exclude_labels = tracker.exclude_labels.join("\u{1f}"),
+        )
+    }
+
+    fn tracker_adapter(&mut self) -> error::Result<&GithubAdapter> {
+        let (_, effective_config) = self.workflow_store.effective_config();
+        let tracker = effective_config.tracker;
+
+        let inputs = github_adapter_inputs(&tracker)?;
+
+        let cache_key = Self::build_adapter_cache_key(
+            &tracker,
+            &inputs.token,
+            &inputs.repo_owner,
+            &inputs.repo_name,
+            &inputs.label_prefix,
+            inputs.endpoint.as_str(),
+        );
+
+        let should_refresh = self.adapter_cache_key.as_deref() != Some(cache_key.as_str());
+        if should_refresh {
+            let client = GithubClient::with_base_url(
+                inputs.token,
+                inputs.repo_owner,
+                inputs.repo_name,
+                inputs.label_prefix,
+                inputs.endpoint.as_str(),
+            );
+            self.cached_adapter = Some(GithubAdapter::new(client, tracker));
+            self.adapter_cache_key = Some(cache_key);
+        }
+
+        self.cached_adapter.as_ref().ok_or_else(|| {
+            error::SymphonyError::InvalidWorkflowConfig(
+                "failed to initialize github tracker adapter".to_string(),
+            )
+        })
+    }
+}
+
+#[cfg(not(test))]
+impl OrchestratorPort for GithubOrchestratorPort {
+    fn startup_terminal_issues(&mut self, terminal_states: &[String]) -> error::Result<Vec<Issue>> {
+        let adapter = self.tracker_adapter()?;
+        Self::block_on(adapter.fetch_issues_by_states(terminal_states))
+    }
+
+    fn reconcile_running_issues(
+        &mut self,
+        running_issue_ids: &[String],
+    ) -> error::Result<Vec<Issue>> {
+        if running_issue_ids.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let adapter = self.tracker_adapter()?;
+        Self::block_on(adapter.fetch_issue_states_by_ids(running_issue_ids))
+    }
+
+    fn validate_dispatch_preflight(&mut self, config: &ServiceConfig) -> error::Result<()> {
+        config::validate(config).map(|_| ())
+    }
+
+    fn fetch_candidate_issues(&mut self) -> error::Result<Vec<Issue>> {
+        let adapter = self.tracker_adapter()?;
+        Self::block_on(adapter.fetch_candidate_issues())
+    }
+
+    fn refresh_issue(&mut self, issue_id: &str) -> error::Result<Option<Issue>> {
+        let adapter = self.tracker_adapter()?;
+        let issue_ids = vec![issue_id.to_string()];
+        let issues = Self::block_on(adapter.fetch_issue_states_by_ids(&issue_ids))?;
+        Ok(issues.into_iter().next())
+    }
+
+    fn update_issue_state(&mut self, issue_id: &str, state_name: &str) -> error::Result<()> {
+        let adapter = self.tracker_adapter()?;
+        Self::block_on(adapter.update_issue_state(issue_id, state_name))
+    }
+}
+
+#[cfg(not(test))]
 #[derive(Default)]
 pub struct RuntimeBootstrapDeps {
     startup_context: Option<StartupContext>,
@@ -260,8 +464,22 @@ impl BootstrapDeps for RuntimeBootstrapDeps {
             );
         }
 
+        let tracker_kind = context
+            .effective_config
+            .tracker
+            .kind
+            .clone()
+            .unwrap_or_else(|| "linear".to_string());
+
         let workflow_store = Arc::new(context.workflow_store);
-        let mut tracker_port = LinearOrchestratorPort::new(Arc::clone(&workflow_store));
+        let mut tracker_port: Box<dyn OrchestratorPort> = if tracker_kind == "github" {
+            Box::new(GithubOrchestratorPort::new(Arc::clone(&workflow_store)))
+        } else {
+            Box::new(LinearOrchestratorPort::new(Arc::clone(&workflow_store)))
+        };
+
+        tracing::info!(tracker_kind = %tracker_kind, "orchestrator port selected");
+
         let server_port_override = prepared_http_server
             .as_ref()
             .map(|server| server.bound_port)
@@ -331,7 +549,7 @@ impl BootstrapDeps for RuntimeBootstrapDeps {
 
         let runtime_result = run_runtime_until_shutdown(
             &mut orchestrator,
-            &mut tracker_port,
+            &mut *tracker_port,
             workflow_path,
             prepared_http_server,
             http_state,
@@ -553,19 +771,60 @@ fn run_doctor(workflow_path: &Path) -> Result<i32, String> {
                 let runtime = tokio::runtime::Handle::try_current()
                     .map_err(|err| format!("missing tokio runtime for doctor checks: {err}"))?;
 
-                let linear_results = tokio::task::block_in_place(|| {
-                    runtime.block_on(doctor::check_linear(&service_config.tracker))
-                });
-                results.extend(linear_results);
+                let tracker_kind = service_config.tracker.kind.as_deref().unwrap_or("linear");
 
-                results.extend(doctor::check_backend(&service_config));
-                results.extend(doctor::check_workspace(&service_config.workspace));
+                if tracker_kind == "github" {
+                    let github_results = tokio::task::block_in_place(|| {
+                        runtime.block_on(doctor::check_github(&service_config.tracker))
+                    });
+                    results.extend(github_results);
 
-                let adapter = LinearAdapter::new(LinearClient::new(service_config.tracker.clone()));
-                let orphan_results = tokio::task::block_in_place(|| {
-                    runtime.block_on(doctor::check_orphans(&service_config, &adapter))
-                });
-                results.extend(orphan_results);
+                    results.extend(doctor::check_backend(&service_config));
+                    results.extend(doctor::check_workspace(&service_config.workspace));
+
+                    match github_adapter_inputs(&service_config.tracker) {
+                        Ok(inputs) => {
+                            let client = GithubClient::with_base_url(
+                                inputs.token,
+                                inputs.repo_owner,
+                                inputs.repo_name,
+                                inputs.label_prefix,
+                                inputs.endpoint.as_str(),
+                            );
+                            let adapter =
+                                GithubAdapter::new(client, service_config.tracker.clone());
+                            let orphan_results = tokio::task::block_in_place(|| {
+                                runtime.block_on(doctor::check_orphans(&service_config, &adapter))
+                            });
+                            results.extend(orphan_results);
+                        }
+                        Err(err) => {
+                            results.push(doctor::DoctorCheckResult {
+                                name: "Orphans".to_string(),
+                                status: doctor::CheckStatus::Error,
+                                message: format!(
+                                    "Failed to initialize GitHub adapter for orphan checks: {err}"
+                                ),
+                                details: None,
+                            });
+                        }
+                    }
+                } else {
+                    let linear_results = tokio::task::block_in_place(|| {
+                        runtime.block_on(doctor::check_linear(&service_config.tracker))
+                    });
+                    results.extend(linear_results);
+
+                    results.extend(doctor::check_backend(&service_config));
+                    results.extend(doctor::check_workspace(&service_config.workspace));
+
+                    let adapter =
+                        LinearAdapter::new(LinearClient::new(service_config.tracker.clone()));
+                    let orphan_results = tokio::task::block_in_place(|| {
+                        runtime.block_on(doctor::check_orphans(&service_config, &adapter))
+                    });
+                    results.extend(orphan_results);
+                }
             }
             Err(err) => results.push(doctor::DoctorCheckResult {
                 name: "Config Parse".to_string(),

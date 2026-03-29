@@ -1393,7 +1393,13 @@ fn test_config_validation_github_valid() {
 }
 
 #[test]
-fn test_config_validation_github_missing_api_key() {
+#[serial]
+fn test_config_validation_github_missing_token_errors() {
+    let previous_gh_token = std::env::var("GH_TOKEN").ok();
+    let previous_github_token = std::env::var("GITHUB_TOKEN").ok();
+    std::env::remove_var("GH_TOKEN");
+    std::env::remove_var("GITHUB_TOKEN");
+
     let config = ServiceConfig {
         tracker: TrackerConfig {
             kind: Some("github".to_string()),
@@ -1406,15 +1412,30 @@ fn test_config_validation_github_missing_api_key() {
     };
 
     let result = validate(&config);
+    let validation_failed_for_missing_token = matches!(
+        result,
+        Err(SymphonyError::InvalidWorkflowConfig(ref msg))
+            if msg == "GH_TOKEN or GITHUB_TOKEN is required when tracker.kind is github"
+    );
+
+    match previous_gh_token {
+        Some(value) => std::env::set_var("GH_TOKEN", value),
+        None => std::env::remove_var("GH_TOKEN"),
+    }
+    match previous_github_token {
+        Some(value) => std::env::set_var("GITHUB_TOKEN", value),
+        None => std::env::remove_var("GITHUB_TOKEN"),
+    }
+
     assert!(
-        matches!(result, Err(SymphonyError::MissingGithubApiToken)),
-        "missing github api_key should return MissingGithubApiToken, got: {:?}",
+        validation_failed_for_missing_token,
+        "missing github token should return descriptive validation error, got: {:?}",
         result
     );
 }
 
 #[test]
-fn test_config_validation_github_missing_repo_owner() {
+fn test_config_validation_github_missing_repo_owner_errors() {
     let config = ServiceConfig {
         tracker: TrackerConfig {
             kind: Some("github".to_string()),
@@ -1430,6 +1451,27 @@ fn test_config_validation_github_missing_repo_owner() {
     assert!(
         matches!(result, Err(SymphonyError::InvalidWorkflowConfig(ref msg)) if msg == "tracker.repo_owner is required when tracker.kind is github"),
         "missing github repo_owner should fail validation, got: {:?}",
+        result
+    );
+}
+
+#[test]
+fn test_config_validation_github_missing_repo_name_errors() {
+    let config = ServiceConfig {
+        tracker: TrackerConfig {
+            kind: Some("github".to_string()),
+            api_key: Some("test-key".into()),
+            repo_owner: Some("kata-sh".to_string()),
+            repo_name: None,
+            ..TrackerConfig::default()
+        },
+        ..ServiceConfig::default()
+    };
+
+    let result = validate(&config);
+    assert!(
+        matches!(result, Err(SymphonyError::InvalidWorkflowConfig(ref msg)) if msg == "tracker.repo_name is required when tracker.kind is github"),
+        "missing github repo_name should fail validation, got: {:?}",
         result
     );
 }

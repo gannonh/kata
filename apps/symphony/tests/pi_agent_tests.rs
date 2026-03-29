@@ -229,6 +229,22 @@ fn write_script(dir: &Path, name: &str, content: &str) -> std::path::PathBuf {
     path
 }
 
+fn make_rpc_test_config(
+    script_path: &Path,
+    read_timeout_ms: u64,
+    stall_timeout_ms: u64,
+) -> PiAgentConfig {
+    PiAgentConfig {
+        command: vec![
+            "bash".to_string(),
+            script_path.to_string_lossy().to_string(),
+        ],
+        read_timeout_ms,
+        stall_timeout_ms,
+        ..PiAgentConfig::default()
+    }
+}
+
 fn make_test_issue() -> Issue {
     Issue {
         id: "issue-test-1".to_string(),
@@ -369,12 +385,7 @@ async fn rpc_bridge_start_turn_stop_smoke() {
     std::fs::create_dir_all(&workspace).expect("workspace");
 
     let script_path = write_script(scripts_dir.path(), "fake-kata.sh", SCRIPT_BASIC_RPC);
-    let config = PiAgentConfig {
-        command: vec![script_path.to_string_lossy().to_string()],
-        read_timeout_ms: 5_000,
-        stall_timeout_ms: 10_000,
-        ..PiAgentConfig::default()
-    };
+    let config = make_rpc_test_config(&script_path, 5_000, 10_000);
 
     let issue = make_test_issue();
 
@@ -428,12 +439,7 @@ async fn rpc_bridge_run_turn_handles_stdin_write_failure() {
         "fake-kata-close-stdin-after-handshake.sh",
         SCRIPT_CLOSE_STDIN_AFTER_HANDSHAKE_RPC,
     );
-    let config = PiAgentConfig {
-        command: vec![script_path.to_string_lossy().to_string()],
-        read_timeout_ms: 5_000,
-        stall_timeout_ms: 10_000,
-        ..PiAgentConfig::default()
-    };
+    let config = make_rpc_test_config(&script_path, 5_000, 10_000);
 
     let issue = make_test_issue();
     let (escalation_tx, _escalation_rx) = tokio::sync::mpsc::unbounded_channel();
@@ -486,12 +492,7 @@ async fn rpc_bridge_run_turn_handles_agent_end_before_message_end() {
         "fake-kata-agent-end-first.sh",
         SCRIPT_AGENT_END_BEFORE_MESSAGE_END_RPC,
     );
-    let config = PiAgentConfig {
-        command: vec![script_path.to_string_lossy().to_string()],
-        read_timeout_ms: 5_000,
-        stall_timeout_ms: 10_000,
-        ..PiAgentConfig::default()
-    };
+    let config = make_rpc_test_config(&script_path, 5_000, 10_000);
 
     let issue = make_test_issue();
     let (escalation_tx, _escalation_rx) = tokio::sync::mpsc::unbounded_channel();
@@ -537,12 +538,7 @@ async fn rpc_bridge_run_turn_surfaces_stall_timeout() {
         "fake-kata-stall.sh",
         SCRIPT_STALL_AFTER_PROMPT_RPC,
     );
-    let config = PiAgentConfig {
-        command: vec![script_path.to_string_lossy().to_string()],
-        read_timeout_ms: 50,
-        stall_timeout_ms: 150,
-        ..PiAgentConfig::default()
-    };
+    let config = make_rpc_test_config(&script_path, 50, 150);
 
     let issue = make_test_issue();
     let (escalation_tx, _escalation_rx) = tokio::sync::mpsc::unbounded_channel();
@@ -593,12 +589,7 @@ async fn rpc_bridge_stop_session_handles_process_already_exited() {
         "fake-kata-stop-after-exit.sh",
         SCRIPT_EXIT_AFTER_HANDSHAKE_RPC,
     );
-    let config = PiAgentConfig {
-        command: vec![script_path.to_string_lossy().to_string()],
-        read_timeout_ms: 5_000,
-        stall_timeout_ms: 10_000,
-        ..PiAgentConfig::default()
-    };
+    let config = make_rpc_test_config(&script_path, 5_000, 10_000);
 
     let issue = make_test_issue();
     let (escalation_tx, _escalation_rx) = tokio::sync::mpsc::unbounded_channel();
@@ -636,12 +627,7 @@ async fn rpc_bridge_turn_fails_on_message_end_error_stop_reason() {
         "fake-kata-error-stop-reason.sh",
         SCRIPT_ERROR_STOP_REASON_RPC,
     );
-    let config = PiAgentConfig {
-        command: vec![script_path.to_string_lossy().to_string()],
-        read_timeout_ms: 5_000,
-        stall_timeout_ms: 10_000,
-        ..PiAgentConfig::default()
-    };
+    let config = make_rpc_test_config(&script_path, 5_000, 10_000);
 
     let issue = make_test_issue();
     let (escalation_tx, _escalation_rx) = tokio::sync::mpsc::unbounded_channel();
@@ -697,12 +683,7 @@ async fn rpc_bridge_escalation_holds_and_resumes_with_response() {
         "fake-kata-escalation.sh",
         SCRIPT_ESCALATION_RPC,
     );
-    let config = PiAgentConfig {
-        command: vec![script_path.to_string_lossy().to_string()],
-        read_timeout_ms: 5_000,
-        stall_timeout_ms: 10_000,
-        ..PiAgentConfig::default()
-    };
+    let config = make_rpc_test_config(&script_path, 5_000, 10_000);
 
     let issue = make_test_issue();
     let (escalation_tx, mut escalation_rx) = tokio::sync::mpsc::unbounded_channel();
@@ -802,12 +783,7 @@ async fn rpc_bridge_escalation_times_out_and_falls_back() {
         "fake-kata-escalation-timeout.sh",
         SCRIPT_ESCALATION_RPC,
     );
-    let config = PiAgentConfig {
-        command: vec![script_path.to_string_lossy().to_string()],
-        read_timeout_ms: 5_000,
-        stall_timeout_ms: 10_000,
-        ..PiAgentConfig::default()
-    };
+    let config = make_rpc_test_config(&script_path, 5_000, 10_000);
 
     let issue = make_test_issue();
     let (escalation_tx, mut escalation_rx) = tokio::sync::mpsc::unbounded_channel();
@@ -863,12 +839,7 @@ async fn rpc_bridge_escalation_channel_close_emits_cancelled() {
         "fake-kata-escalation-channel-closed.sh",
         SCRIPT_ESCALATION_RPC,
     );
-    let config = PiAgentConfig {
-        command: vec![script_path.to_string_lossy().to_string()],
-        read_timeout_ms: 5_000,
-        stall_timeout_ms: 10_000,
-        ..PiAgentConfig::default()
-    };
+    let config = make_rpc_test_config(&script_path, 5_000, 10_000);
 
     let issue = make_test_issue();
     let (escalation_tx, mut escalation_rx) = tokio::sync::mpsc::unbounded_channel();

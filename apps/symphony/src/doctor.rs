@@ -12,6 +12,7 @@ use crate::domain::{
     WorkspaceRepoStrategy,
 };
 use crate::error::SymphonyError;
+use crate::github::client::GithubClient;
 use crate::linear::adapter::TrackerAdapter;
 use crate::linear::client::LinearClient;
 use crate::notifications;
@@ -237,6 +238,109 @@ pub fn check_config(workflow_path: &Path) -> Vec<DoctorCheckResult> {
             results.push(DoctorCheckResult::pass(
                 "Config Prompts",
                 "All configured prompt files exist",
+            ));
+        }
+    }
+
+    results
+}
+
+pub async fn check_github(config: &TrackerConfig) -> Vec<DoctorCheckResult> {
+    let mut results = Vec::new();
+
+    let token = config
+        .api_key
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .or_else(|| {
+            std::env::var("GH_TOKEN")
+                .ok()
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty())
+        })
+        .or_else(|| {
+            std::env::var("GITHUB_TOKEN")
+                .ok()
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty())
+        });
+
+    let Some(token) = token else {
+        results.push(DoctorCheckResult::error(
+            "GitHub Auth",
+            "GH_TOKEN or GITHUB_TOKEN is required when tracker.kind is github",
+        ));
+        return results;
+    };
+
+    let Some(repo_owner) = config
+        .repo_owner
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    else {
+        results.push(DoctorCheckResult::error(
+            "GitHub Repo",
+            "tracker.repo_owner is required when tracker.kind is github",
+        ));
+        return results;
+    };
+
+    let Some(repo_name) = config
+        .repo_name
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    else {
+        results.push(DoctorCheckResult::error(
+            "GitHub Repo",
+            "tracker.repo_name is required when tracker.kind is github",
+        ));
+        return results;
+    };
+
+    let label_prefix = config
+        .label_prefix
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("symphony");
+
+    let endpoint = config.endpoint.trim();
+    let endpoint = if endpoint.is_empty() {
+        "https://api.github.com"
+    } else {
+        endpoint
+    };
+
+    let client = GithubClient::with_base_url(
+        token,
+        repo_owner.to_string(),
+        repo_name.to_string(),
+        label_prefix.to_string(),
+        endpoint,
+    );
+
+    match client.list_labels().await {
+        Ok(labels) => {
+            results.push(DoctorCheckResult::pass(
+                "GitHub Auth",
+                "Authenticated with GitHub API",
+            ));
+            results.push(DoctorCheckResult::pass(
+                "GitHub Repo",
+                format!(
+                    "Resolved repository '{repo_owner}/{repo_name}' ({} labels visible)",
+                    labels.len()
+                ),
+            ));
+        }
+        Err(err) => {
+            results.push(DoctorCheckResult::error(
+                "GitHub Auth",
+                format!("Failed to authenticate with GitHub: {err}"),
             ));
         }
     }
