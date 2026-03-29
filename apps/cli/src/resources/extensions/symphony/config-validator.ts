@@ -155,16 +155,21 @@ function assertNotifications(
   );
 
   if (webhook) {
-    try {
-      const parsed = new URL(webhook);
-      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-        throw new Error("unsupported protocol");
+    // Skip URL validation for $VAR references — they are resolved by Symphony
+    // at startup time and are not resolvable in the config editor context.
+    const isEnvRef = /^\$[A-Z_][A-Z0-9_]*$/.test(webhook.trim());
+    if (!isEnvRef) {
+      try {
+        const parsed = new URL(webhook);
+        if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+          throw new Error("unsupported protocol");
+        }
+      } catch {
+        issues.push({
+          path: "notifications.slack.webhook_url",
+          message: "notifications.slack.webhook_url must be a valid http(s) URL",
+        });
       }
-    } catch {
-      issues.push({
-        path: "notifications.slack.webhook_url",
-        message: "notifications.slack.webhook_url must be a valid http(s) URL",
-      });
     }
   }
 

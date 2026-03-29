@@ -449,6 +449,18 @@ describe("config-validator", () => {
     const issues = validateConfigModel(model);
     expect(issues).toEqual([]);
   });
+
+  it("accepts $VAR env reference for webhook_url without URL validation", () => {
+    const source = readFileSync(workflowReferencePath, "utf-8");
+    const model = parseWorkflowConfig(source);
+
+    setField(model, "workspace", "repo", "/tmp/local-repo");
+    setField(model, "notifications", "slack.webhook_url", "$SLACK_WEBHOOK_URL");
+    setField(model, "notifications", "slack.events", ["all"]);
+
+    const issues = validateConfigModel(model);
+    expect(issues).toEqual([]);
+  });
 });
 
 describe("config-writer", () => {
