@@ -102,6 +102,52 @@ describe("parseSymphonyCommand", () => {
 });
 
 describe("executeSymphonyCommand", () => {
+  it("shows info-level guidance when status is called without config", async () => {
+    const { sink, info, error } = makeSink();
+    const client = createClient({});
+
+    await executeSymphonyCommand({ type: "status" }, client, sink, {
+      checkConfigured: () => false,
+    });
+
+    expect(error).toHaveLength(0);
+    expect(info).toHaveLength(1);
+    expect(info[0]).toContain("Symphony is not configured");
+    expect(info[0]).toContain("symphony.url");
+    expect(info[0]).toContain("SYMPHONY_URL");
+    expect(info[0]).toContain("KATA_SYMPHONY_URL");
+  });
+
+  it("shows info-level guidance when watch is called without config", async () => {
+    const { sink, info, error } = makeSink();
+    const client = createClient({});
+
+    await executeSymphonyCommand(
+      { type: "watch", issue: "KAT-920" },
+      client,
+      sink,
+      { checkConfigured: () => false },
+    );
+
+    expect(error).toHaveLength(0);
+    expect(info).toHaveLength(1);
+    expect(info[0]).toContain("Symphony is not configured");
+    expect(info[0]).toContain("symphony.url");
+  });
+
+  it("does not gate usage action on config", async () => {
+    const { sink, info, error } = makeSink();
+    const client = createClient({});
+
+    await executeSymphonyCommand({ type: "usage" }, client, sink, {
+      checkConfigured: () => false,
+    });
+
+    expect(error).toHaveLength(0);
+    expect(info).toHaveLength(1);
+    expect(info[0]).toContain("Symphony command usage");
+  });
+
   it("renders status output", async () => {
     const { sink, info, error } = makeSink();
     const client = createClient({});

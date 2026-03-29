@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveSymphonyConfig } from "../config.js";
+import { resolveSymphonyConfig, isSymphonyConfigured } from "../config.js";
 import { SymphonyError } from "../types.js";
 
 describe("resolveSymphonyConfig", () => {
@@ -133,5 +133,52 @@ describe("resolveSymphonyConfig", () => {
       expect(symphonyError.code).toBe("config_invalid");
       expect(symphonyError.context.reason).toBe("unsupported_protocol");
     }
+  });
+});
+
+describe("isSymphonyConfigured", () => {
+  it("returns false when no Symphony URL is configured anywhere", () => {
+    // Use explicit env override and a non-existent cwd so no preferences are found
+    expect(
+      isSymphonyConfigured({ env: {}, cwd: "/tmp/__nonexistent_path__" }),
+    ).toBe(false);
+  });
+
+  it("returns true when KATA_SYMPHONY_URL env var is set", () => {
+    expect(
+      isSymphonyConfigured({
+        env: { KATA_SYMPHONY_URL: "http://localhost:8080" },
+        cwd: "/tmp/__nonexistent_path__",
+      }),
+    ).toBe(true);
+  });
+
+  it("returns true when SYMPHONY_URL env var is set", () => {
+    expect(
+      isSymphonyConfigured({
+        env: { SYMPHONY_URL: "http://localhost:8080" },
+        cwd: "/tmp/__nonexistent_path__",
+      }),
+    ).toBe(true);
+  });
+
+  it("returns false when KATA_SYMPHONY_URL env var is a malformed URL (config_invalid)", () => {
+    // A malformed URL should not throw — it should return false so callers like
+    // session_start and command handlers stay silent instead of crashing.
+    expect(
+      isSymphonyConfigured({
+        env: { KATA_SYMPHONY_URL: "not-a-valid-url" },
+        cwd: "/tmp/__nonexistent_path__",
+      }),
+    ).toBe(false);
+  });
+
+  it("returns false when KATA_SYMPHONY_URL has unsupported protocol (config_invalid)", () => {
+    expect(
+      isSymphonyConfigured({
+        env: { KATA_SYMPHONY_URL: "ftp://localhost:8080" },
+        cwd: "/tmp/__nonexistent_path__",
+      }),
+    ).toBe(false);
   });
 });

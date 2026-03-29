@@ -5,6 +5,7 @@ import type {
 import { Key } from "@mariozechner/pi-tui";
 import { createSymphonyClient } from "./client.js";
 import { registerSymphonyCommand } from "./command.js";
+import { isSymphonyConfigured } from "./config.js";
 import { createConsoleManager } from "./console.js";
 import { EscalationQueue } from "./escalation.js";
 import { registerSymphonyTools } from "./tools.js";
@@ -53,6 +54,8 @@ export default function (pi: ExtensionAPI): void {
 
   pi.on("session_start", async (_event, ctx) => {
     consoleManager.setContext(ctx as unknown as ExtensionCommandContext);
+
+    if (!isSymphonyConfigured()) return;
 
     escalationAbortController?.abort();
     const controller = new AbortController();
