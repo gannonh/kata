@@ -1412,10 +1412,10 @@ fn test_config_validation_github_missing_token_errors() {
     };
 
     let result = validate(&config);
-    assert!(
-        matches!(result, Err(SymphonyError::InvalidWorkflowConfig(ref msg)) if msg == "GH_TOKEN or GITHUB_TOKEN is required when tracker.kind is github"),
-        "missing github token should return descriptive validation error, got: {:?}",
-        result
+    let validation_failed_for_missing_token = matches!(
+        result,
+        Err(SymphonyError::InvalidWorkflowConfig(ref msg))
+            if msg == "GH_TOKEN or GITHUB_TOKEN is required when tracker.kind is github"
     );
 
     match previous_gh_token {
@@ -1426,6 +1426,12 @@ fn test_config_validation_github_missing_token_errors() {
         Some(value) => std::env::set_var("GITHUB_TOKEN", value),
         None => std::env::remove_var("GITHUB_TOKEN"),
     }
+
+    assert!(
+        validation_failed_for_missing_token,
+        "missing github token should return descriptive validation error, got: {:?}",
+        result
+    );
 }
 
 #[test]

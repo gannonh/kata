@@ -684,7 +684,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
     <section class="card"><div class="label">claimed</div><div class="value" id="claimed-count">{claimed_count}</div></section>
     <section class="card"><div class="label">completed</div><div class="value" id="completed-count">{completed_count}</div></section>
     <section class="card"><div class="label">supervisor</div><div class="mono" id="supervisor-status">{supervisor_status_label}</div></section>
-    <div id="linear-project-card">{tracker_project_card}</div>
+    <div id="tracker-project-card">{tracker_project_card}</div>
   </div>
 
   <section class="card section">
@@ -1180,7 +1180,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
         document.getElementById('retry-count').textContent = retryQueue.length;
         document.getElementById('claimed-count').textContent = (state.claimed || []).length;
         document.getElementById('completed-count').textContent = completed.length;
-        document.getElementById('linear-project-card').innerHTML =
+        document.getElementById('tracker-project-card').innerHTML =
           renderTrackerProjectCard(state.tracker_project_url);
         document.getElementById('running-table-body').innerHTML = renderRunningTable(
           running,
