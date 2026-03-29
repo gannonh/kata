@@ -7,6 +7,7 @@ use std::{fs, io};
 
 use main_bin::{BootstrapDeps, Cli, CliCommand};
 use mockito::{Matcher, Server};
+use symphony::config::validate;
 use symphony::doctor::{self, CheckStatus};
 use symphony::domain::{
     AgentBackend, ApiKey, ServiceConfig, TrackerConfig, WorkspaceConfig, WorkspaceIsolation,
@@ -114,6 +115,31 @@ fn test_run_subcommand_backward_compat() {
         "default invocation should not select a subcommand"
     );
     assert_eq!(parsed.workflow_path, "WORKFLOW.md");
+}
+
+#[test]
+fn test_github_tracker_kind_accepted() {
+    let temp_dir = tempfile::tempdir().expect("temp dir should be created");
+    let workspace_root = temp_dir.path().join("workspaces");
+    let workflow_path = temp_dir.path().join("WORKFLOW.md");
+
+    fs::write(
+        &workflow_path,
+        format!(
+            "---\ntracker:\n  kind: github\n  api_key: test-token\n  repo_owner: kata-sh\n  repo_name: kata-mono\nworkspace:\n  root: {}\n---\nPrompt\n",
+            workspace_root.display()
+        ),
+    )
+    .expect("workflow fixture should be written");
+
+    let service_config =
+        doctor::load_service_config(&workflow_path).expect("github workflow should parse");
+
+    assert_eq!(service_config.tracker.kind.as_deref(), Some("github"));
+    assert!(
+        validate(&service_config).is_ok(),
+        "github tracker config should validate"
+    );
 }
 
 #[test]

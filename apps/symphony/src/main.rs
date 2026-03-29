@@ -24,6 +24,10 @@ use std::time::Duration;
 #[cfg(not(test))]
 use symphony::domain::Issue;
 #[cfg(not(test))]
+use symphony::github::adapter::GithubAdapter;
+#[cfg(not(test))]
+use symphony::github::client::GithubClient;
+#[cfg(not(test))]
 use symphony::http_server::{
     bind_http_listener_with_fallback, start_http_server, HttpServerState, HTTP_PORT_RETRY_LIMIT,
 };
@@ -175,6 +179,130 @@ impl OrchestratorPort for LinearOrchestratorPort {
 }
 
 #[cfg(not(test))]
+struct GithubOrchestratorPort {
+    workflow_store: Arc<WorkflowStore>,
+}
+
+#[cfg(not(test))]
+impl GithubOrchestratorPort {
+    fn new(workflow_store: Arc<WorkflowStore>) -> Self {
+        Self { workflow_store }
+    }
+
+    fn block_on<T>(&self, future: impl Future<Output = error::Result<T>>) -> error::Result<T> {
+        tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(future))
+    }
+
+    fn tracker_adapter(&self) -> error::Result<GithubAdapter> {
+        let (_, effective_config) = self.workflow_store.effective_config();
+        let tracker = effective_config.tracker;
+
+        let token = tracker
+            .api_key
+            .as_ref()
+            .map(|api_key| api_key.as_str().to_string())
+            .or_else(|| {
+                std::env::var("GH_TOKEN")
+                    .ok()
+                    .map(|value| value.trim().to_string())
+                    .filter(|value| !value.is_empty())
+            })
+            .or_else(|| {
+                std::env::var("GITHUB_TOKEN")
+                    .ok()
+                    .map(|value| value.trim().to_string())
+                    .filter(|value| !value.is_empty())
+            })
+            .ok_or_else(|| {
+                error::SymphonyError::InvalidWorkflowConfig(
+                    "GH_TOKEN or GITHUB_TOKEN is required when tracker.kind is github"
+                        .to_string(),
+                )
+            })?;
+
+        let repo_owner = tracker
+            .repo_owner
+            .clone()
+            .map(|owner| owner.trim().to_string())
+            .filter(|owner| !owner.is_empty())
+            .ok_or_else(|| {
+                error::SymphonyError::InvalidWorkflowConfig(
+                    "tracker.repo_owner is required when tracker.kind is github".to_string(),
+                )
+            })?;
+
+        let repo_name = tracker
+            .repo_name
+            .clone()
+            .map(|repo| repo.trim().to_string())
+            .filter(|repo| !repo.is_empty())
+            .ok_or_else(|| {
+                error::SymphonyError::InvalidWorkflowConfig(
+                    "tracker.repo_name is required when tracker.kind is github".to_string(),
+                )
+            })?;
+
+        let label_prefix = tracker
+            .label_prefix
+            .clone()
+            .map(|prefix| prefix.trim().to_string())
+            .filter(|prefix| !prefix.is_empty())
+            .unwrap_or_else(|| "symphony".to_string());
+
+        let client = GithubClient::with_base_url(
+            token,
+            repo_owner,
+            repo_name,
+            label_prefix,
+            "https://api.github.com",
+        );
+
+        Ok(GithubAdapter::new(client, tracker))
+    }
+}
+
+#[cfg(not(test))]
+impl OrchestratorPort for GithubOrchestratorPort {
+    fn startup_terminal_issues(&mut self, terminal_states: &[String]) -> error::Result<Vec<Issue>> {
+        let adapter = self.tracker_adapter()?;
+        self.block_on(adapter.fetch_issues_by_states(terminal_states))
+    }
+
+    fn reconcile_running_issues(
+        &mut self,
+        running_issue_ids: &[String],
+    ) -> error::Result<Vec<Issue>> {
+        if running_issue_ids.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let adapter = self.tracker_adapter()?;
+        self.block_on(adapter.fetch_issue_states_by_ids(running_issue_ids))
+    }
+
+    fn validate_dispatch_preflight(&mut self, config: &ServiceConfig) -> error::Result<()> {
+        config::validate(config).map(|_| ())
+    }
+
+    fn fetch_candidate_issues(&mut self) -> error::Result<Vec<Issue>> {
+        let adapter = self.tracker_adapter()?;
+        self.block_on(adapter.fetch_candidate_issues())
+    }
+
+    fn refresh_issue(&mut self, issue_id: &str) -> error::Result<Option<Issue>> {
+        let adapter = self.tracker_adapter()?;
+        let issue_ids = vec![issue_id.to_string()];
+        let issues = self.block_on(adapter.fetch_issue_states_by_ids(&issue_ids))?;
+        Ok(issues.into_iter().next())
+    }
+
+    fn update_issue_state(&mut self, issue_id: &str, state_name: &str) -> error::Result<()> {
+        let adapter = self.tracker_adapter()?;
+        self.block_on(adapter.update_issue_state(issue_id, state_name))
+    }
+}
+
+#[cfg(not(test))]
 #[derive(Default)]
 pub struct RuntimeBootstrapDeps {
     startup_context: Option<StartupContext>,
@@ -260,8 +388,22 @@ impl BootstrapDeps for RuntimeBootstrapDeps {
             );
         }
 
+        let tracker_kind = context
+            .effective_config
+            .tracker
+            .kind
+            .clone()
+            .unwrap_or_else(|| "linear".to_string());
+
         let workflow_store = Arc::new(context.workflow_store);
-        let mut tracker_port = LinearOrchestratorPort::new(Arc::clone(&workflow_store));
+        let mut tracker_port: Box<dyn OrchestratorPort> = if tracker_kind == "github" {
+            Box::new(GithubOrchestratorPort::new(Arc::clone(&workflow_store)))
+        } else {
+            Box::new(LinearOrchestratorPort::new(Arc::clone(&workflow_store)))
+        };
+
+        tracing::info!(tracker_kind = %tracker_kind, "orchestrator port selected");
+
         let server_port_override = prepared_http_server
             .as_ref()
             .map(|server| server.bound_port)
@@ -331,7 +473,7 @@ impl BootstrapDeps for RuntimeBootstrapDeps {
 
         let runtime_result = run_runtime_until_shutdown(
             &mut orchestrator,
-            &mut tracker_port,
+            &mut *tracker_port,
             workflow_path,
             prepared_http_server,
             http_state,
