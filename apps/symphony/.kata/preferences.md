@@ -4,7 +4,7 @@ workflow:
   mode: linear
 linear:
   teamKey: KAT
-  projectId: 1e6685a4-c088-491d-b44a-1199ebe2d64c
+  projectSlug: 89d4761fddf0
 pr:
   enabled: true
   auto_create: true
