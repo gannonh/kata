@@ -8,13 +8,12 @@
  */
 
 import type { ConfigEditorModel } from "../symphony/config-model.js";
-import { PREFS_FIELD_DEFINITIONS } from "./prefs-model.js";
+import { PREFS_FIELD_DEFINITIONS, readPath } from "./prefs-model.js";
 import { applyPrefsModelToConfig } from "./prefs-writer.js";
-import { readPath } from "./prefs-model.js";
-
-// Re-export ConfigValidationIssue so consumers don't need a separate import
-export type { ConfigValidationIssue } from "../symphony/config-validator.js";
 import type { ConfigValidationIssue } from "../symphony/config-validator.js";
+
+// Re-export so consumers don't need a separate import
+export type { ConfigValidationIssue };
 
 // ---------------------------------------------------------------------------
 // Enum value set (same pattern as Symphony's ENUM_VALUE_SET)

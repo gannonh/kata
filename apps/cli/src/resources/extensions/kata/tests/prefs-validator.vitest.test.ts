@@ -168,14 +168,25 @@ describe("validatePreferencesModel — rejects invalid numbers", () => {
   });
 
   it("rejects NaN and Infinity in number fields", () => {
-    const model = buildModelFromConfig({
+    // NaN
+    const nanModel = buildModelFromConfig({
       auto_supervisor: { hard_timeout_minutes: NaN },
     });
-    const issues = validatePreferencesModel(model);
-    const issue = issues.find(
+    const nanIssues = validatePreferencesModel(nanModel);
+    const nanIssue = nanIssues.find(
       (i) => i.path === "auto_supervisor.hard_timeout_minutes",
     );
-    expect(issue).toBeDefined();
+    expect(nanIssue).toBeDefined();
+
+    // Infinity
+    const infModel = buildModelFromConfig({
+      auto_supervisor: { hard_timeout_minutes: Infinity },
+    });
+    const infIssues = validatePreferencesModel(infModel);
+    const infIssue = infIssues.find(
+      (i) => i.path === "auto_supervisor.hard_timeout_minutes",
+    );
+    expect(infIssue).toBeDefined();
   });
 });
 
