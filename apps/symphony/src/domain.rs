@@ -982,6 +982,9 @@ pub struct WorkerSessionInfo {
     /// Short preview of the arguments for the currently executing tool.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub current_tool_args_preview: Option<String>,
+    /// Last worker error surfaced for operator visibility.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_error: Option<String>,
 }
 
 // ── LiveSession (spec §4.1.6) ─────────────────────────────────────────
@@ -1116,6 +1119,9 @@ pub struct RunningSessionSnapshot {
     /// Short preview of the arguments for the currently executing tool.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub current_tool_args_preview: Option<String>,
+    /// Last worker error mirrored from `WorkerSessionInfo` for TUI rendering.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_error: Option<String>,
 }
 
 /// Polling state for the snapshot.

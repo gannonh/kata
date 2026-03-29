@@ -97,6 +97,7 @@ fn fixture_snapshot() -> OrchestratorSnapshot {
                     session_id: Some("session-12345678".to_string()),
                     current_tool_name: None,
                     current_tool_args_preview: None,
+                    last_error: None,
                 },
             );
             sessions
@@ -115,6 +116,7 @@ fn fixture_snapshot() -> OrchestratorSnapshot {
                 },
                 current_tool_name: None,
                 current_tool_args_preview: None,
+                last_error: None,
             },
         )]),
         claimed: BTreeSet::from(["issue-123".to_string()]),
@@ -274,8 +276,20 @@ async fn test_get_root_returns_html_dashboard_shell_with_structured_sections() {
         "running table should include the per-session token column header"
     );
     assert!(
+        body.contains("<th>Error</th>"),
+        "running table should include the error column header"
+    );
+    assert!(
         body.contains("stale-activity"),
         "dashboard script should include stale activity highlighting styles/logic"
+    );
+    assert!(
+        body.contains("error-text"),
+        "dashboard script should include error styling styles/logic"
+    );
+    assert!(
+        body.contains("sessionInfo.last_error"),
+        "dashboard script should consume running-session last_error values"
     );
     assert!(
         body.contains("lastActivityValue != null ? Number(lastActivityValue) : NaN"),
@@ -397,6 +411,88 @@ async fn test_dashboard_initial_supervisor_metrics_use_snapshot_values() {
     assert!(
         body.contains(r#"id="supervisor-last-action">2026-03-22T09:15:00+00:00"#),
         "dashboard should server-render supervisor last action timestamp"
+    );
+}
+
+#[tokio::test]
+async fn test_dashboard_html_includes_error_column_rendering_logic() {
+    let mut snapshot = fixture_snapshot();
+    let issue_id = "issue-123".to_string();
+    let session_info = snapshot
+        .running_session_info
+        .get_mut(&issue_id)
+        .expect("fixture running session info should include issue-123");
+    session_info.last_error = Some("You have hit your ChatGPT usage limit".to_string());
+
+    let app = build_router(HttpServerState::new(
+        Arc::new(StaticSnapshotSource { snapshot }),
+        Arc::new(FakeRefreshControl::default()),
+        symphony::orchestrator::EscalationRegistry::default(),
+    ));
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/")
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("router should respond");
+
+    let body = body_text(response).await;
+
+    assert!(
+        body.contains("<th>Error</th>"),
+        "dashboard should expose the error column header"
+    );
+    assert!(
+        body.contains("<td class=\"mono error-text\">"),
+        "dashboard script should render an error-text table cell when last_error is present"
+    );
+    assert!(
+        body.contains("<td class=\"muted\">-</td>"),
+        "dashboard script should render muted fallback when last_error is absent"
+    );
+    assert!(
+        body.contains("colspan=\"13\""),
+        "running empty state should reserve the extra error column"
+    );
+}
+
+#[tokio::test]
+async fn test_get_api_state_includes_worker_last_error_when_present() {
+    let mut snapshot = fixture_snapshot();
+    let issue_id = "issue-123".to_string();
+    let session_info = snapshot
+        .running_session_info
+        .get_mut(&issue_id)
+        .expect("fixture running session info should include issue-123");
+    session_info.last_error = Some("You have hit your ChatGPT usage limit".to_string());
+
+    let app = build_router(HttpServerState::new(
+        Arc::new(StaticSnapshotSource { snapshot }),
+        Arc::new(FakeRefreshControl::default()),
+        symphony::orchestrator::EscalationRegistry::default(),
+    ));
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/api/v1/state")
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("router should respond");
+
+    let payload = body_json(response).await;
+
+    assert_eq!(
+        payload["running_session_info"]["issue-123"]["last_error"],
+        "You have hit your ChatGPT usage limit"
     );
 }
 

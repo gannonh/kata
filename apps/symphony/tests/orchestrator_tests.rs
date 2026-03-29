@@ -1645,6 +1645,280 @@ fn test_event_count_increments_on_ingest() {
 }
 
 #[test]
+fn test_worker_session_info_last_error_set_on_failed_turn_and_exposed_in_snapshot() {
+    let mut orchestrator = Orchestrator::new(test_config(1), String::new());
+    let now_ms = 4_500_000;
+    let issue_id = "issue-last-error";
+
+    orchestrator.state_mut().running.insert(
+        issue_id.to_string(),
+        symphony::domain::RunAttempt {
+            issue_id: issue_id.to_string(),
+            issue_identifier: "SIM-LAST-ERROR".to_string(),
+            issue_title: None,
+            attempt: Some(1),
+            workspace_path: "/tmp/workspace-last-error".to_string(),
+            started_at: utc_ms(now_ms - 300_000),
+            status: "running".to_string(),
+            error: None,
+            worker_host: None,
+            model: None,
+            linear_state: None,
+            issue_url: None,
+        },
+    );
+
+    orchestrator.ingest_agent_event(
+        issue_id,
+        &AgentEvent::TurnFailed {
+            timestamp: utc_ms(now_ms - 1_000),
+            codex_app_server_pid: Some("9999".to_string()),
+            turn_id: "turn-1".to_string(),
+            error: "authentication failed: token expired".to_string(),
+        },
+    );
+
+    let snapshot = orchestrator.snapshot(now_ms);
+    let session_info = snapshot
+        .running_session_info
+        .get(issue_id)
+        .expect("running session info should exist");
+    assert_eq!(
+        session_info.last_error.as_deref(),
+        Some("authentication failed: token expired")
+    );
+
+    let running_session = snapshot
+        .running_sessions
+        .get(issue_id)
+        .expect("running session snapshot should exist");
+    assert_eq!(
+        running_session.last_error.as_deref(),
+        Some("authentication failed: token expired")
+    );
+}
+
+#[test]
+fn test_worker_session_info_last_error_clears_after_zero_token_turn_completed() {
+    let mut orchestrator = Orchestrator::new(test_config(1), String::new());
+    let now_ms = 4_800_000;
+    let issue_id = "issue-last-error-clear";
+
+    orchestrator.state_mut().running.insert(
+        issue_id.to_string(),
+        symphony::domain::RunAttempt {
+            issue_id: issue_id.to_string(),
+            issue_identifier: "SIM-LAST-ERROR-CLEAR".to_string(),
+            issue_title: None,
+            attempt: Some(1),
+            workspace_path: "/tmp/workspace-last-error-clear".to_string(),
+            started_at: utc_ms(now_ms - 300_000),
+            status: "running".to_string(),
+            error: None,
+            worker_host: None,
+            model: None,
+            linear_state: None,
+            issue_url: None,
+        },
+    );
+
+    orchestrator.ingest_agent_event(
+        issue_id,
+        &AgentEvent::TurnFailed {
+            timestamp: utc_ms(now_ms - 3_000),
+            codex_app_server_pid: Some("9999".to_string()),
+            turn_id: "turn-1".to_string(),
+            error: "usage limit reached".to_string(),
+        },
+    );
+
+    orchestrator.ingest_agent_event(
+        issue_id,
+        &AgentEvent::TurnCompleted {
+            timestamp: utc_ms(now_ms - 1_000),
+            codex_app_server_pid: Some("9999".to_string()),
+            turn_id: "turn-2".to_string(),
+            message: Some("completed".to_string()),
+            input_tokens: 0,
+            output_tokens: 0,
+            total_tokens: 0,
+            rate_limits: None,
+        },
+    );
+
+    let snapshot = orchestrator.snapshot(now_ms);
+    let session_info = snapshot
+        .running_session_info
+        .get(issue_id)
+        .expect("running session info should exist");
+    assert_eq!(session_info.last_error, None);
+
+    let running_session = snapshot
+        .running_sessions
+        .get(issue_id)
+        .expect("running session snapshot should exist");
+    assert_eq!(running_session.last_error, None);
+}
+
+#[test]
+fn test_worker_session_info_last_error_formats_rate_limit_retry_window() {
+    let mut orchestrator = Orchestrator::new(test_config(1), String::new());
+    let now_ms = 5_100_000;
+    let issue_id = "issue-last-error-rate-limit";
+
+    orchestrator.state_mut().running.insert(
+        issue_id.to_string(),
+        symphony::domain::RunAttempt {
+            issue_id: issue_id.to_string(),
+            issue_identifier: "SIM-LAST-ERROR-RATE".to_string(),
+            issue_title: None,
+            attempt: Some(1),
+            workspace_path: "/tmp/workspace-last-error-rate".to_string(),
+            started_at: utc_ms(now_ms - 300_000),
+            status: "running".to_string(),
+            error: None,
+            worker_host: None,
+            model: None,
+            linear_state: None,
+            issue_url: None,
+        },
+    );
+
+    orchestrator.ingest_agent_event(
+        issue_id,
+        &AgentEvent::TurnFailed {
+            timestamp: utc_ms(now_ms - 1_000),
+            codex_app_server_pid: Some("9999".to_string()),
+            turn_id: "turn-1".to_string(),
+            error: "You have hit your ChatGPT usage limit. Please retry in 1 hour 20 minutes."
+                .to_string(),
+        },
+    );
+
+    let snapshot = orchestrator.snapshot(now_ms);
+    let session_info = snapshot
+        .running_session_info
+        .get(issue_id)
+        .expect("running session info should exist");
+
+    assert_eq!(
+        session_info.last_error.as_deref(),
+        Some("rate limit: retry in ~80 min")
+    );
+}
+
+#[test]
+fn test_worker_session_info_last_error_does_not_treat_milliseconds_as_minutes() {
+    let mut orchestrator = Orchestrator::new(test_config(1), String::new());
+    let now_ms = 5_250_000;
+    let issue_id = "issue-last-error-rate-limit-ms";
+
+    orchestrator.state_mut().running.insert(
+        issue_id.to_string(),
+        symphony::domain::RunAttempt {
+            issue_id: issue_id.to_string(),
+            issue_identifier: "SIM-LAST-ERROR-RATE-MS".to_string(),
+            issue_title: None,
+            attempt: Some(1),
+            workspace_path: "/tmp/workspace-last-error-rate-ms".to_string(),
+            started_at: utc_ms(now_ms - 300_000),
+            status: "running".to_string(),
+            error: None,
+            worker_host: None,
+            model: None,
+            linear_state: None,
+            issue_url: None,
+        },
+    );
+
+    orchestrator.ingest_agent_event(
+        issue_id,
+        &AgentEvent::TurnFailed {
+            timestamp: utc_ms(now_ms - 1_000),
+            codex_app_server_pid: Some("9999".to_string()),
+            turn_id: "turn-1".to_string(),
+            error: "Rate limit exceeded. Retry in 500ms.".to_string(),
+        },
+    );
+
+    let snapshot = orchestrator.snapshot(now_ms);
+    let session_info = snapshot
+        .running_session_info
+        .get(issue_id)
+        .expect("running session info should exist");
+
+    let last_error = session_info
+        .last_error
+        .as_deref()
+        .expect("last_error should be populated for failed turns");
+
+    assert!(
+        !last_error.contains("~500 min"),
+        "millisecond values should not be interpreted as minutes"
+    );
+    assert_eq!(
+        last_error,
+        "rate limit: Rate limit exceeded. Retry in 500ms."
+    );
+}
+
+#[test]
+fn test_worker_session_info_last_error_rate_limit_fallback_is_truncated_to_display_cap() {
+    let mut orchestrator = Orchestrator::new(test_config(1), String::new());
+    let now_ms = 5_400_000;
+    let issue_id = "issue-last-error-rate-limit-fallback";
+
+    orchestrator.state_mut().running.insert(
+        issue_id.to_string(),
+        symphony::domain::RunAttempt {
+            issue_id: issue_id.to_string(),
+            issue_identifier: "SIM-LAST-ERROR-RATE-FALLBACK".to_string(),
+            issue_title: None,
+            attempt: Some(1),
+            workspace_path: "/tmp/workspace-last-error-rate-fallback".to_string(),
+            started_at: utc_ms(now_ms - 300_000),
+            status: "running".to_string(),
+            error: None,
+            worker_host: None,
+            model: None,
+            linear_state: None,
+            issue_url: None,
+        },
+    );
+
+    let long_tail = "x".repeat(260);
+    orchestrator.ingest_agent_event(
+        issue_id,
+        &AgentEvent::TurnFailed {
+            timestamp: utc_ms(now_ms - 1_000),
+            codex_app_server_pid: Some("9999".to_string()),
+            turn_id: "turn-1".to_string(),
+            error: format!("usage limit reached for account. details: {long_tail}"),
+        },
+    );
+
+    let snapshot = orchestrator.snapshot(now_ms);
+    let session_info = snapshot
+        .running_session_info
+        .get(issue_id)
+        .expect("running session info should exist");
+
+    let last_error = session_info
+        .last_error
+        .as_deref()
+        .expect("last_error should be populated for failed turns");
+
+    assert!(
+        last_error.starts_with("rate limit:"),
+        "rate limit fallback should preserve the rate-limit prefix"
+    );
+    assert!(
+        last_error.chars().count() <= 200,
+        "formatted fallback should obey the 200-char display cap"
+    );
+}
+
+#[test]
 fn test_late_streamed_event_after_completion_is_ignored() {
     let mut orchestrator = Orchestrator::new(test_config(2), String::new());
     let now_ms = 4_000_000;
