@@ -495,6 +495,10 @@ pub struct TrackerConfig {
     pub assignee: Option<String>,
     pub active_states: Vec<String>,
     pub terminal_states: Vec<String>,
+    /// Labels that disqualify an issue from dispatch.  Any issue carrying at
+    /// least one of these labels (case-insensitive) is silently skipped.
+    /// Use `["kata:task"]` to prevent Symphony from dispatching Kata sub-tasks.
+    pub exclude_labels: Vec<String>,
 }
 
 const DEFAULT_LINEAR_WORKSPACE_SLUG: &str = "kata-sh";
@@ -520,6 +524,7 @@ impl Default for TrackerConfig {
                 "Duplicate".to_string(),
                 "Done".to_string(),
             ],
+            exclude_labels: vec![],
         }
     }
 }

@@ -197,6 +197,7 @@ struct RawTrackerConfig {
     assignee: Option<String>,
     active_states: Option<Vec<String>>,
     terminal_states: Option<Vec<String>>,
+    exclude_labels: Option<Vec<String>>,
 }
 
 #[derive(Deserialize, Default)]
@@ -634,6 +635,9 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         terminal_states: raw_tracker
             .terminal_states
             .unwrap_or(defaults.tracker.terminal_states.clone()),
+        exclude_labels: raw_tracker
+            .exclude_labels
+            .unwrap_or(defaults.tracker.exclude_labels.clone()),
     };
 
     // ── PollingConfig ─────────────────────────────────────────────────────

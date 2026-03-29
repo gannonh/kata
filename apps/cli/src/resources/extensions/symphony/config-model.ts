@@ -1,6 +1,6 @@
 export type ConfigFieldType = "string" | "number" | "boolean" | "enum" | "string[]";
 
-export type ConfigSectionKey =
+export type SymphonySectionKey =
   | "tracker"
   | "workspace"
   | "agent"
@@ -10,6 +10,8 @@ export type ConfigSectionKey =
   | "server"
   | "hooks"
   | "worker";
+
+export type ConfigSectionKey = SymphonySectionKey | (string & {});
 
 export interface ConfigField<T = unknown> {
   key: string;
@@ -72,18 +74,20 @@ export interface WorkflowFrontmatter {
   body: string;
 }
 
+export type SymphonySections = [
+  TrackerSection,
+  WorkspaceSection,
+  AgentSection,
+  KataAgentSection,
+  NotificationsSection,
+  PromptsSection,
+  ServerSection,
+  HooksSection,
+  WorkerSection,
+];
+
 export interface ConfigEditorModel {
-  sections: [
-    TrackerSection,
-    WorkspaceSection,
-    AgentSection,
-    KataAgentSection,
-    NotificationsSection,
-    PromptsSection,
-    ServerSection,
-    HooksSection,
-    WorkerSection,
-  ];
+  sections: ConfigSection[];
   workflow: WorkflowFrontmatter;
 }
 
@@ -222,6 +226,15 @@ export const CONFIG_FIELD_DEFINITIONS: readonly ConfigFieldDefinition[] = [
     path: ["tracker", "terminal_states"],
     type: "string[]",
     description: "Issue states that mark a run as completed.",
+  },
+  {
+    section: "tracker",
+    key: "exclude_labels",
+    label: "Exclude Labels",
+    path: ["tracker", "exclude_labels"],
+    type: "string[]",
+    description:
+      "Labels that disqualify an issue from dispatch. Any issue carrying at least one of these labels is skipped (case-insensitive). Use [\"kata:task\"] to prevent sub-tasks from being dispatched as independent workers.",
   },
   {
     section: "workspace",

@@ -1869,3 +1869,36 @@ prompts:
     let config = parse_yaml_config(yaml);
     assert!(config.prompts.is_none(), "all-empty prompts should be None");
 }
+
+#[test]
+fn test_exclude_labels_parses_from_yaml() {
+    let yaml = r#"
+tracker:
+  kind: linear
+  api_key: test-key
+  project_slug: test-slug
+  exclude_labels:
+    - kata:task
+    - wontfix
+"#;
+    let config = parse_yaml_config(yaml);
+    assert_eq!(
+        config.tracker.exclude_labels,
+        vec!["kata:task".to_string(), "wontfix".to_string()]
+    );
+}
+
+#[test]
+fn test_exclude_labels_defaults_to_empty() {
+    let yaml = r#"
+tracker:
+  kind: linear
+  api_key: test-key
+  project_slug: test-slug
+"#;
+    let config = parse_yaml_config(yaml);
+    assert!(
+        config.tracker.exclude_labels.is_empty(),
+        "exclude_labels should default to empty vec"
+    );
+}

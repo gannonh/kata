@@ -749,6 +749,7 @@ async fn test_error_transport_error() {
         assignee: None,
         active_states: vec!["Todo".to_string()],
         terminal_states: vec![],
+        exclude_labels: vec![],
     };
 
     let client = LinearClient::new(config);

@@ -606,6 +606,7 @@ async fn test_check_linear_auth_failure() {
         assignee: None,
         active_states: vec!["Todo".to_string()],
         terminal_states: vec!["Done".to_string()],
+        exclude_labels: vec![],
     };
 
     let results = doctor::check_linear(&config).await;
