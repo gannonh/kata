@@ -23,6 +23,7 @@ fn issue_json(number: u64, label: &str) -> serde_json::Value {
         "body": "body",
         "state": "open",
         "user": { "login": "octocat" },
+        "assignee": { "login": "octocat" },
         "assignees": [{ "login": "octocat" }],
         "labels": [{ "name": label, "color": "ffffff", "description": null }],
         "created_at": "2026-03-29T10:00:00Z",
@@ -144,7 +145,7 @@ async fn test_remove_label_sends_delete() {
     let mock = server
         .mock(
             "DELETE",
-            "/repos/kata-sh/kata-mono/issues/42/labels/symphony:todo",
+            "/repos/kata-sh/kata-mono/issues/42/labels/in%20progress%2Fnow",
         )
         .with_status(200)
         .with_header("content-type", "application/json")
@@ -153,7 +154,7 @@ async fn test_remove_label_sends_delete() {
         .await;
 
     client
-        .remove_label(42, "symphony:todo")
+        .remove_label(42, "in progress/now")
         .await
         .expect("remove_label should succeed");
 
@@ -247,7 +248,7 @@ async fn test_rate_limit_exhausted_delays_request() {
     let mut server = Server::new_async().await;
     let client = test_client(&server);
 
-    let reset_ts = (Utc::now().timestamp() + 2).to_string();
+    let reset_ts = (Utc::now().timestamp() + 5).to_string();
     let first = server
         .mock("GET", "/repos/kata-sh/kata-mono/issues/10")
         .with_status(200)

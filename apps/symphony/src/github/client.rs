@@ -55,6 +55,8 @@ pub struct GithubIssue {
     #[serde(default)]
     pub user: Option<GithubUser>,
     #[serde(default)]
+    pub assignee: Option<GithubUser>,
+    #[serde(default)]
     pub assignees: Vec<GithubUser>,
     #[serde(default)]
     pub labels: Vec<GithubLabel>,
@@ -64,6 +66,8 @@ pub struct GithubIssue {
     pub updated_at: Option<DateTime<Utc>>,
     #[serde(default)]
     pub html_url: Option<String>,
+    #[serde(default)]
+    pub pull_request: Option<Value>,
 }
 
 #[derive(Clone)]
@@ -230,11 +234,23 @@ impl GithubClient {
     }
 
     pub async fn remove_label(&self, number: u64, label: &str) -> Result<()> {
-        let path = format!(
-            "/repos/{}/{}/issues/{number}/labels/{label}",
-            self.repo_owner, self.repo_name
-        );
-        self.request_empty(Method::DELETE, &path, None).await
+        let mut url = reqwest::Url::parse(&format!(
+            "{}/repos/{}/{}/issues/{number}/labels",
+            self.base_url, self.repo_owner, self.repo_name
+        ))
+        .map_err(|err| {
+            SymphonyError::GithubApiRequest(format!("invalid remove-label URL: {err}"))
+        })?;
+
+        url.path_segments_mut()
+            .map_err(|_| {
+                SymphonyError::GithubApiRequest(
+                    "invalid remove-label URL path segments".to_string(),
+                )
+            })?
+            .push(label);
+
+        self.request_empty(Method::DELETE, url.as_ref(), None).await
     }
 
     pub async fn list_labels(&self) -> Result<Vec<GithubLabel>> {

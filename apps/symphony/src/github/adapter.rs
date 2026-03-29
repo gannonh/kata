@@ -41,7 +41,7 @@ impl GithubAdapter {
             .assignees
             .first()
             .map(|assignee| assignee.login.clone())
-            .or_else(|| gh.user.as_ref().map(|u| u.login.clone()));
+            .or_else(|| gh.assignee.as_ref().map(|assignee| assignee.login.clone()));
 
         Issue {
             id: gh.number.to_string(),
@@ -100,6 +100,14 @@ impl TrackerAdapter for GithubAdapter {
         let filtered = issues
             .iter()
             .filter(|issue| {
+                if issue.pull_request.is_some() {
+                    tracing::debug!(
+                        issue_number = issue.number,
+                        "Skipping GitHub pull request from candidate issue set"
+                    );
+                    return false;
+                }
+
                 let Some((normalized_state, _)) =
                     extract_state_from_labels(&issue.labels, self.state_prefix())
                 else {
@@ -140,6 +148,14 @@ impl TrackerAdapter for GithubAdapter {
         let filtered = issues
             .iter()
             .filter(|issue| {
+                if issue.pull_request.is_some() {
+                    tracing::debug!(
+                        issue_number = issue.number,
+                        "Skipping GitHub pull request while filtering by state"
+                    );
+                    return false;
+                }
+
                 extract_state_from_labels(&issue.labels, self.state_prefix())
                     .map(|(normalized, _)| state_filters.contains(&normalized))
                     .unwrap_or(false)
@@ -159,7 +175,17 @@ impl TrackerAdapter for GithubAdapter {
             };
 
             match self.client.get_issue(number).await {
-                Ok(issue) => issues.push(self.issue_to_domain(&issue)),
+                Ok(issue) => {
+                    if issue.pull_request.is_some() {
+                        tracing::debug!(
+                            issue_number = number,
+                            "Skipping GitHub pull request while fetching issue states"
+                        );
+                        continue;
+                    }
+
+                    issues.push(self.issue_to_domain(&issue));
+                }
                 Err(SymphonyError::GithubApiStatus { status: 404, .. }) => {
                     tracing::debug!(
                         issue_number = number,
@@ -193,42 +219,46 @@ impl TrackerAdapter for GithubAdapter {
         let issue = self.client.get_issue(number).await?;
         let prefix = self.state_prefix();
 
-        let old_label = issue.labels.iter().find_map(|label| {
-            let lower = label.name.to_ascii_lowercase();
-            let marker = format!("{}:", prefix.to_ascii_lowercase());
-            if lower.starts_with(&marker) {
-                Some(label.name.clone())
-            } else {
-                None
-            }
-        });
+        let marker = format!("{}:", prefix.to_ascii_lowercase());
+        let old_labels: Vec<String> = issue
+            .labels
+            .iter()
+            .filter_map(|label| {
+                if label.name.to_ascii_lowercase().starts_with(&marker) {
+                    Some(label.name.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
 
         let new_label = format!("{prefix}:{}", normalize_state_for_label(state_name));
 
         tracing::debug!(
             issue_number = number,
-            old_label = ?old_label,
+            old_labels = ?old_labels,
             new_label = %new_label,
             "Updating GitHub issue state via label swap"
         );
 
-        if let Some(ref old) = old_label {
-            if old != &new_label {
-                match self.client.remove_label(number, old).await {
-                    Ok(()) => {}
-                    Err(SymphonyError::GithubApiStatus { status: 404, .. }) => {
-                        tracing::debug!(
-                            issue_number = number,
-                            old_label = %old,
-                            "Old GitHub state label already absent"
-                        );
-                    }
-                    Err(err) => return Err(err),
+        for old in old_labels
+            .iter()
+            .filter(|old| old.as_str() != new_label.as_str())
+        {
+            match self.client.remove_label(number, old).await {
+                Ok(()) => {}
+                Err(SymphonyError::GithubApiStatus { status: 404, .. }) => {
+                    tracing::debug!(
+                        issue_number = number,
+                        old_label = %old,
+                        "Old GitHub state label already absent"
+                    );
                 }
+                Err(err) => return Err(err),
             }
         }
 
-        if old_label.as_deref() != Some(new_label.as_str()) {
+        if !old_labels.iter().any(|label| label == &new_label) {
             self.client.add_label(number, &new_label).await?;
         }
 
@@ -259,18 +289,14 @@ fn extract_state_from_labels(
 }
 
 fn issue_matches_assignee(issue: &GithubIssue, expected: &str) -> bool {
-    if issue
-        .user
-        .as_ref()
-        .is_some_and(|user| user.login.eq_ignore_ascii_case(expected))
-    {
-        return true;
-    }
-
     issue
         .assignees
         .iter()
         .any(|assignee| assignee.login.eq_ignore_ascii_case(expected))
+        || issue
+            .assignee
+            .as_ref()
+            .is_some_and(|assignee| assignee.login.eq_ignore_ascii_case(expected))
 }
 
 fn normalize_state_for_label(state_name: &str) -> String {

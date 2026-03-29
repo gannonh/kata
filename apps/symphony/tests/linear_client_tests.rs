@@ -21,14 +21,10 @@ fn test_config(server: &ServerGuard, assignee: Option<&str>) -> TrackerConfig {
         endpoint: server.url() + "/graphql",
         api_key: Some(ApiKey::new("test-api-key")),
         project_slug: Some("test-proj".to_string()),
-        workspace_slug: None,
-        repo_owner: None,
-        repo_name: None,
-        github_project_number: None,
-        label_prefix: None,
         assignee: assignee.map(String::from),
         active_states: vec!["Todo".to_string(), "In Progress".to_string()],
         terminal_states: vec!["Done".to_string(), "Cancelled".to_string()],
+        ..TrackerConfig::default()
     }
 }
 

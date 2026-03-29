@@ -787,6 +787,36 @@ fn test_config_empty_literal_api_key_does_not_use_linear_api_key_fallback() {
 
 #[test]
 #[serial]
+fn test_github_api_key_env_ref_does_not_fallback_to_linear_api_key() {
+    let previous_linear_api_key = std::env::var("LINEAR_API_KEY").ok();
+    std::env::set_var("LINEAR_API_KEY", "fallback-linear-token");
+
+    std::env::remove_var("SYMPHONY_TEST_GITHUB_TOKEN_MISSING");
+
+    let yaml_str = r#"
+tracker:
+  kind: github
+  api_key: $SYMPHONY_TEST_GITHUB_TOKEN_MISSING
+  repo_owner: kata-sh
+  repo_name: kata
+"#;
+
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let config = from_workflow(&raw).expect("github config should parse");
+
+    assert_eq!(
+        config.tracker.api_key, None,
+        "github api_key should stay missing when explicit env reference is unset"
+    );
+
+    match previous_linear_api_key {
+        Some(value) => std::env::set_var("LINEAR_API_KEY", value),
+        None => std::env::remove_var("LINEAR_API_KEY"),
+    }
+}
+
+#[test]
+#[serial]
 fn test_config_tilde_expansion() {
     let previous_home = std::env::var("HOME").ok();
     std::env::set_var("HOME", "/tmp/symphony-test-home");
@@ -1326,9 +1356,8 @@ fn test_config_validation_missing_project_slug() {
 fn test_config_validation_bad_tracker_kind() {
     let config = ServiceConfig {
         tracker: TrackerConfig {
-            kind: Some("github".to_string()),
+            kind: Some("jira".to_string()),
             api_key: Some("test-key".into()),
-            project_slug: Some("my-project".to_string()),
             ..TrackerConfig::default()
         },
         ..ServiceConfig::default()
@@ -1336,8 +1365,71 @@ fn test_config_validation_bad_tracker_kind() {
 
     let result = validate(&config);
     assert!(
-        matches!(result, Err(SymphonyError::UnsupportedTrackerKind(ref k)) if k == "github"),
-        "unsupported tracker kind 'github' should return UnsupportedTrackerKind, got: {:?}",
+        matches!(result, Err(SymphonyError::UnsupportedTrackerKind(ref k)) if k == "jira"),
+        "unsupported tracker kind 'jira' should return UnsupportedTrackerKind, got: {:?}",
+        result
+    );
+}
+
+#[test]
+fn test_config_validation_github_valid() {
+    let config = ServiceConfig {
+        tracker: TrackerConfig {
+            kind: Some("github".to_string()),
+            api_key: Some("test-key".into()),
+            repo_owner: Some("kata-sh".to_string()),
+            repo_name: Some("kata".to_string()),
+            ..TrackerConfig::default()
+        },
+        ..ServiceConfig::default()
+    };
+
+    let result = validate(&config);
+    assert!(
+        result.is_ok(),
+        "github tracker config should validate successfully, got: {:?}",
+        result
+    );
+}
+
+#[test]
+fn test_config_validation_github_missing_api_key() {
+    let config = ServiceConfig {
+        tracker: TrackerConfig {
+            kind: Some("github".to_string()),
+            api_key: None,
+            repo_owner: Some("kata-sh".to_string()),
+            repo_name: Some("kata".to_string()),
+            ..TrackerConfig::default()
+        },
+        ..ServiceConfig::default()
+    };
+
+    let result = validate(&config);
+    assert!(
+        matches!(result, Err(SymphonyError::MissingGithubApiToken)),
+        "missing github api_key should return MissingGithubApiToken, got: {:?}",
+        result
+    );
+}
+
+#[test]
+fn test_config_validation_github_missing_repo_owner() {
+    let config = ServiceConfig {
+        tracker: TrackerConfig {
+            kind: Some("github".to_string()),
+            api_key: Some("test-key".into()),
+            repo_owner: None,
+            repo_name: Some("kata".to_string()),
+            ..TrackerConfig::default()
+        },
+        ..ServiceConfig::default()
+    };
+
+    let result = validate(&config);
+    assert!(
+        matches!(result, Err(SymphonyError::InvalidWorkflowConfig(ref msg)) if msg == "tracker.repo_owner is required when tracker.kind is github"),
+        "missing github repo_owner should fail validation, got: {:?}",
         result
     );
 }
