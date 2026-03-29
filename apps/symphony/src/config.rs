@@ -26,8 +26,9 @@ use crate::repo_url::repo_is_remote;
 /// - coerce all mapping keys to `Value::String`
 /// - drop mapping entries whose value is `Value::Null`
 ///
-/// Note: only `pi_agent.model_by_state` map keys are lowercased
-/// (done separately in `from_workflow`).  General key casing is NOT changed.
+/// Note: only `pi_agent.model_by_state` and `pi_agent.model_by_label`
+/// map keys are lowercased (done separately in `from_workflow`).
+/// General key casing is NOT changed.
 fn normalize_keys(val: Value) -> Value {
     match val {
         Value::Mapping(map) => {
@@ -268,6 +269,7 @@ struct RawCodexConfig {
 struct RawPiAgentConfig {
     command: Option<Value>,
     model: Option<String>,
+    model_by_label: Option<HashMap<String, String>>,
     model_by_state: Option<HashMap<String, String>>,
     no_session: Option<bool>,
     append_system_prompt: Option<String>,
@@ -847,6 +849,18 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         .map(|value| resolve_env(&value))
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty());
+    let pi_agent_model_by_label: HashMap<String, String> = selected_agent_config
+        .model_by_label
+        .unwrap_or_default()
+        .into_iter()
+        .map(|(label, model)| {
+            (
+                label.trim().to_lowercase(),
+                resolve_env(&model).trim().to_string(),
+            )
+        })
+        .filter(|(label, model)| !label.is_empty() && !model.is_empty())
+        .collect();
     let pi_agent_model_by_state: HashMap<String, String> = selected_agent_config
         .model_by_state
         .unwrap_or_default()
@@ -867,6 +881,7 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
     let pi_agent = PiAgentConfig {
         command: pi_agent_command,
         model: pi_agent_model,
+        model_by_label: pi_agent_model_by_label,
         model_by_state: pi_agent_model_by_state,
         no_session: selected_agent_config
             .no_session

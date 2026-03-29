@@ -32,6 +32,7 @@ function makeClient(overrides: Partial<SymphonyClient> = {}): SymphonyClient {
     }),
     getPendingEscalations: async () => [],
     respondToEscalation: async () => ({ ok: true, status: 200 }),
+    steer: async () => ({ ok: true, status: 200 }),
     watchEvents: async function* () {
       return;
     },

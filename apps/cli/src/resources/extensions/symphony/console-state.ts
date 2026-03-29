@@ -21,6 +21,7 @@ export interface WorkerRow {
   currentTool: string;
   lastActivityAge: string;
   model: string;
+  lastError?: string;
 }
 
 export interface EscalationDisplayItem {
@@ -183,6 +184,7 @@ function workerRowFromRun(
     currentTool: info?.current_tool_name?.trim() || "idle",
     lastActivityAge: formatDurationMs(ageMs),
     model: run.model?.trim() || "default",
+    ...(run.error?.trim() ? { lastError: run.error.trim() } : {}),
   };
 }
 

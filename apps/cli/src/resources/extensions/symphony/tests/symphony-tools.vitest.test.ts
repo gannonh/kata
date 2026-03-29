@@ -35,6 +35,12 @@ function makeClient(overrides: Partial<SymphonyClient> = {}): SymphonyClient {
     }),
     getPendingEscalations: async () => [],
     respondToEscalation: async () => ({ ok: true, status: 200 }),
+    steer: async () => ({
+      ok: true,
+      status: 200,
+      issue_id: "issue-920",
+      issue_identifier: "KAT-920",
+    }),
     watchEvents: async function* () {
       return;
     },
@@ -169,34 +175,104 @@ describe("registerSymphonyTools", () => {
     expect(payload).toMatchObject({ ok: true, request_id: "esc-1", status: 200 });
   });
 
-  it("returns deterministic capability_unavailable payloads for logs and steer", async () => {
+  it("returns deterministic capability_unavailable payload for logs", async () => {
     const tools = registerWithClient(makeClient());
 
     const logsResult = await tools
       .get("symphony_logs")!
       .execute("call-logs", { issue: "KAT-920" }, undefined, undefined, {});
-    const steerResult = await tools
+
+    const logsPayload = JSON.parse(logsResult.content[0].text);
+
+    expect(logsPayload.code).toBe("capability_unavailable");
+    expect(logsPayload.capability).toBe("logs");
+
+    expect(logsResult.isError).toBe(true);
+    expect(logsResult.details.capabilities.logs.available).toBe(false);
+  });
+
+  it("calls symphony_steer and returns success payload for HTTP 200", async () => {
+    const steer = vi
+      .fn<SymphonyClient["steer"]>()
+      .mockResolvedValue({
+        ok: true,
+        status: 200,
+        issue_id: "issue-920",
+        issue_identifier: "KAT-920",
+      });
+
+    const tools = registerWithClient(
+      makeClient({
+        steer,
+      }),
+    );
+
+    const result = await tools
       .get("symphony_steer")!
       .execute(
-        "call-steer",
-        { issue: "KAT-920", instruction: "pause" },
+        "call-steer-success",
+        { issue: "kat-920", instruction: "Use existing auth module" },
         undefined,
         undefined,
         {},
       );
 
-    const logsPayload = JSON.parse(logsResult.content[0].text);
-    const steerPayload = JSON.parse(steerResult.content[0].text);
+    expect(steer).toHaveBeenCalledWith("KAT-920", "Use existing auth module");
+    expect(result.isError).toBeUndefined();
+    const payload = JSON.parse(result.content[0].text);
+    expect(payload).toMatchObject({
+      ok: true,
+      issue_id: "issue-920",
+      issue_identifier: "KAT-920",
+      instruction_preview: "Use existing auth module",
+    });
+    expect(result.details.capabilities.steer.available).toBe(true);
+  });
 
-    expect(logsPayload.code).toBe("capability_unavailable");
-    expect(logsPayload.capability).toBe("logs");
-    expect(steerPayload.code).toBe("capability_unavailable");
-    expect(steerPayload.capability).toBe("steer");
+  it("maps symphony_steer 404 responses to issue_not_running", async () => {
+    const tools = registerWithClient(
+      makeClient({
+        steer: async () => ({ ok: false, status: 404, error: "issue_not_running" }),
+      }),
+    );
 
-    expect(logsResult.isError).toBe(true);
-    expect(steerResult.isError).toBe(true);
-    expect(logsResult.details.capabilities.logs.available).toBe(false);
-    expect(steerResult.details.capabilities.steer.available).toBe(false);
+    const result = await tools
+      .get("symphony_steer")!
+      .execute(
+        "call-steer-404",
+        { issue: "KAT-920", instruction: "hint" },
+        undefined,
+        undefined,
+        {},
+      );
+
+    expect(result.isError).toBe(true);
+    const payload = JSON.parse(result.content[0].text);
+    expect(payload.error).toBe("issue_not_running");
+    expect(payload.status).toBe(404);
+  });
+
+  it("maps symphony_steer 409 responses to no_active_session", async () => {
+    const tools = registerWithClient(
+      makeClient({
+        steer: async () => ({ ok: false, status: 409, error: "no_active_session" }),
+      }),
+    );
+
+    const result = await tools
+      .get("symphony_steer")!
+      .execute(
+        "call-steer-409",
+        { issue: "KAT-920", instruction: "hint" },
+        undefined,
+        undefined,
+        {},
+      );
+
+    expect(result.isError).toBe(true);
+    const payload = JSON.parse(result.content[0].text);
+    expect(payload.error).toBe("no_active_session");
+    expect(payload.status).toBe(409);
   });
 
   it("normalizes status/watch failures into stable tool errors", async () => {

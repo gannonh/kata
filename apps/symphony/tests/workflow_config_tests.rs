@@ -199,6 +199,7 @@ fn test_config_defaults() {
     assert_eq!(config.agent_backend, AgentBackend::Codex);
     assert_eq!(config.pi_agent.command, vec!["kata".to_string()]);
     assert_eq!(config.pi_agent.model, None);
+    assert!(config.pi_agent.model_by_label.is_empty());
     assert!(config.pi_agent.model_by_state.is_empty());
     assert!(config.pi_agent.no_session);
     assert_eq!(config.pi_agent.append_system_prompt, None);
@@ -326,6 +327,7 @@ kata_agent:
         config.pi_agent.model.as_deref(),
         Some("anthropic/claude-sonnet-4-6")
     );
+    assert!(config.pi_agent.model_by_label.is_empty());
     assert!(config.pi_agent.model_by_state.is_empty());
     assert!(!config.pi_agent.no_session);
     assert_eq!(
@@ -334,6 +336,44 @@ kata_agent:
     );
     assert_eq!(config.pi_agent.read_timeout_ms, 1200);
     assert_eq!(config.pi_agent.stall_timeout_ms, 90_000);
+}
+
+#[test]
+fn test_pi_agent_model_by_label_normalizes_keys() {
+    let yaml_str = r#"
+agent:
+  backend: kata-cli
+pi_agent:
+  command: kata
+  model_by_label:
+    Model:Sonnet: anthropic/claude-sonnet-4-6
+    MODEL:OPUS: anthropic/claude-opus-4-6
+    "  ": ignored
+"#;
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let config = from_workflow(&raw).expect("model_by_label config should parse");
+
+    assert_eq!(
+        config
+            .pi_agent
+            .model_by_label
+            .get("model:sonnet")
+            .map(String::as_str),
+        Some("anthropic/claude-sonnet-4-6")
+    );
+    assert_eq!(
+        config
+            .pi_agent
+            .model_by_label
+            .get("model:opus")
+            .map(String::as_str),
+        Some("anthropic/claude-opus-4-6")
+    );
+    assert!(!config.pi_agent.model_by_label.contains_key("Model:Sonnet"));
+    assert!(
+        !config.pi_agent.model_by_label.contains_key(""),
+        "blank label keys should be ignored"
+    );
 }
 
 #[test]

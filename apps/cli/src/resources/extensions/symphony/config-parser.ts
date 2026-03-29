@@ -340,7 +340,12 @@ function normalizeFieldValueForWrite(field: ConfigField): unknown {
   return field.value;
 }
 
-function setPath(root: Record<string, unknown>, path: string[], value: unknown): void {
+export function setPath(root: Record<string, unknown>, path: string[], value: unknown): void {
+  if (path.length === 0) {
+    console.warn("[symphony-config] setPath called with empty path; skipping write");
+    return;
+  }
+
   let current: Record<string, unknown> = root;
 
   for (let index = 0; index < path.length - 1; index += 1) {
@@ -357,7 +362,12 @@ function setPath(root: Record<string, unknown>, path: string[], value: unknown):
   current[path[path.length - 1]] = value;
 }
 
-function deletePath(root: Record<string, unknown>, path: string[]): void {
+export function deletePath(root: Record<string, unknown>, path: string[]): void {
+  if (path.length === 0) {
+    console.warn("[symphony-config] deletePath called with empty path; skipping delete");
+    return;
+  }
+
   const trail: Array<{ node: Record<string, unknown>; key: string }> = [];
   let current: Record<string, unknown> = root;
 

@@ -829,6 +829,8 @@ pub struct PiAgentConfig {
     pub command: Vec<String>,
     /// Optional default model identifier passed via `--model`.
     pub model: Option<String>,
+    /// Optional per-Linear-label model overrides (lowercased label names).
+    pub model_by_label: HashMap<String, String>,
     /// Optional per-Linear-state model overrides (lowercased state names).
     pub model_by_state: HashMap<String, String>,
     /// Whether to pass `--no-session`.
@@ -846,6 +848,7 @@ impl Default for PiAgentConfig {
         Self {
             command: vec!["kata".to_string()],
             model: None,
+            model_by_label: HashMap::new(),
             model_by_state: HashMap::new(),
             no_session: true,
             append_system_prompt: None,

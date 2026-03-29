@@ -11,7 +11,10 @@ use std::time::Duration;
 use chrono::Utc;
 use serde_json::Value;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::sync::{mpsc::UnboundedSender, oneshot};
+use tokio::sync::{
+    mpsc::{error::TryRecvError, UnboundedReceiver, UnboundedSender},
+    oneshot,
+};
 
 use crate::domain::{AgentEvent, EscalationRequest, EscalationResponse, Issue, PiAgentConfig};
 use crate::error::{Result, SymphonyError};
@@ -33,6 +36,12 @@ static COMMAND_COUNTER: AtomicU64 = AtomicU64::new(1);
 pub struct EscalationDispatch {
     pub request: EscalationRequest,
     pub response_tx: oneshot::Sender<EscalationResponse>,
+}
+
+/// Follow-up instruction to inject into an active session.
+pub struct FollowUpRequest {
+    pub instruction: String,
+    pub response_tx: oneshot::Sender<std::result::Result<(), String>>,
 }
 
 /// Opaque handle to a running pi-agent subprocess session.
@@ -74,6 +83,7 @@ fn build_command_parts(
     config: &PiAgentConfig,
     workspace_path: &str,
     issue_state: &str,
+    model_override: Option<&str>,
 ) -> Result<Vec<String>> {
     if config.command.is_empty() {
         return Err(SymphonyError::PiAgentError(
@@ -90,7 +100,13 @@ fn build_command_parts(
     if config.no_session {
         parts.push("--no-session".to_string());
     }
-    if let Some(model) = config.model_for_state(issue_state) {
+    let selected_model = model_override
+        .map(str::trim)
+        .filter(|model| !model.is_empty())
+        .map(ToString::to_string)
+        .or_else(|| config.model_for_state(issue_state));
+
+    if let Some(model) = selected_model {
         parts.push("--model".to_string());
         parts.push(model);
     }
@@ -126,24 +142,23 @@ async fn send_command(stdin: &mut tokio::process::ChildStdin, command: &RpcComma
     Ok(())
 }
 
-async fn read_line(
-    reader: &mut BufReader<tokio::process::ChildStdout>,
-    timeout_ms: u64,
-) -> Result<String> {
-    let mut line = String::new();
-    let read_fut = reader.read_line(&mut line);
-    match tokio::time::timeout(Duration::from_millis(timeout_ms), read_fut).await {
-        Ok(Ok(0)) => Err(SymphonyError::PiAgentError(
-            "pi-agent stdout closed unexpectedly".to_string(),
-        )),
-        Ok(Ok(_)) => Ok(line),
-        Ok(Err(err)) => Err(SymphonyError::PiAgentError(format!(
-            "failed to read pi-agent stdout: {err}"
-        ))),
-        Err(_) => Err(SymphonyError::PiAgentError(format!(
-            "pi-agent read timed out after {timeout_ms}ms"
-        ))),
+/// Send a follow-up instruction to an active pi-agent session.
+pub async fn send_follow_up(handle: &mut SessionHandle, message: &str) -> Result<()> {
+    let trimmed = message.trim();
+    if trimmed.is_empty() {
+        return Err(SymphonyError::PiAgentError(
+            "follow_up message cannot be empty".to_string(),
+        ));
     }
+
+    send_command(
+        &mut handle.stdin,
+        &RpcCommand::FollowUp {
+            id: Some(next_command_id("follow-up")),
+            message: trimmed.to_string(),
+        },
+    )
+    .await
 }
 
 /// Poll for a line with a chunk timeout. Returns:
@@ -537,6 +552,7 @@ pub struct StartSessionOptions {
     pub container_id: Option<String>,
     pub escalation_tx: UnboundedSender<EscalationDispatch>,
     pub escalation_timeout_ms: u64,
+    pub model_override: Option<String>,
 }
 
 /// Start a pi-agent session process for an issue.
@@ -552,16 +568,27 @@ pub async fn start_session(
         container_id,
         escalation_tx,
         escalation_timeout_ms,
+        model_override,
     } = options;
 
     let container_id_ref = container_id.as_deref();
     let worker_host_ref = worker_host.as_deref();
 
     let command_parts = match (container_id_ref, worker_host_ref) {
-        (Some(_), _) => build_command_parts(config, "/workspace", &issue.state)?,
+        (Some(_), _) => build_command_parts(
+            config,
+            "/workspace",
+            &issue.state,
+            model_override.as_deref(),
+        )?,
         _ => {
             let workspace_for_args = workspace_path.to_string_lossy().to_string();
-            build_command_parts(config, &workspace_for_args, &issue.state)?
+            build_command_parts(
+                config,
+                &workspace_for_args,
+                &issue.state,
+                model_override.as_deref(),
+            )?
         }
     };
 
@@ -677,6 +704,15 @@ pub async fn start_session(
 pub async fn run_turn(
     handle: &mut SessionHandle,
     prompt: &str,
+    event_callback: impl FnMut(AgentEvent) + Send,
+) -> Result<TurnResult> {
+    run_turn_with_followups(handle, prompt, None, event_callback).await
+}
+
+pub async fn run_turn_with_followups(
+    handle: &mut SessionHandle,
+    prompt: &str,
+    mut follow_up_rx: Option<&mut UnboundedReceiver<FollowUpRequest>>,
     mut event_callback: impl FnMut(AgentEvent) + Send,
 ) -> Result<TurnResult> {
     let turn_id = next_command_id("prompt");
@@ -698,10 +734,30 @@ pub async fn run_turn(
     let mut events = vec![session_started];
 
     let mut output_text: Option<String> = None;
-    let turn_line_timeout_ms = handle.stall_timeout_ms.max(handle.read_timeout_ms);
+    let turn_line_timeout_ms = handle.stall_timeout_ms.max(handle.read_timeout_ms).max(1);
+    let line_poll_timeout_ms = handle
+        .read_timeout_ms
+        .clamp(50, 500)
+        .min(turn_line_timeout_ms);
+    let mut last_line_at = std::time::Instant::now();
 
     loop {
-        let line = read_line(&mut handle.stdout_reader, turn_line_timeout_ms).await?;
+        if let Some(rx) = follow_up_rx.as_deref_mut() {
+            drain_follow_up_requests(handle, rx).await;
+        }
+
+        let line = read_poll_line(&mut handle.stdout_reader, line_poll_timeout_ms).await?;
+        let Some(line) = line else {
+            if last_line_at.elapsed() >= Duration::from_millis(turn_line_timeout_ms) {
+                return Err(SymphonyError::PiAgentError(format!(
+                    "pi-agent read timed out after {turn_line_timeout_ms}ms"
+                )));
+            }
+            continue;
+        };
+
+        last_line_at = std::time::Instant::now();
+
         let Some(parsed) = parse_output_line(&line) else {
             continue;
         };
@@ -933,6 +989,24 @@ pub async fn run_turn(
     })
 }
 
+async fn drain_follow_up_requests(
+    handle: &mut SessionHandle,
+    follow_up_rx: &mut UnboundedReceiver<FollowUpRequest>,
+) {
+    loop {
+        match follow_up_rx.try_recv() {
+            Ok(request) => {
+                let result = send_follow_up(handle, &request.instruction)
+                    .await
+                    .map_err(|error| error.to_string());
+                let _ = request.response_tx.send(result);
+            }
+            Err(TryRecvError::Empty) => break,
+            Err(TryRecvError::Disconnected) => break,
+        }
+    }
+}
+
 /// Stop a pi-agent session process.
 pub async fn stop_session(mut handle: SessionHandle) -> Result<()> {
     let _ = send_command(&mut handle.stdin, &RpcCommand::Abort { id: None }).await;
@@ -1063,9 +1137,33 @@ mod tests {
             "anthropic/claude-sonnet-4-6".to_string(),
         )]);
 
-        let parts = build_command_parts(&config, "/tmp/workspace", "Merging")
+        let parts = build_command_parts(&config, "/tmp/workspace", "Merging", None)
             .expect("command should build");
         let joined = parts.join(" ");
         assert!(joined.contains("--model anthropic/claude-sonnet-4-6"));
+    }
+
+    #[test]
+    fn build_command_parts_prefers_explicit_model_override() {
+        let mut config = PiAgentConfig {
+            command: vec!["kata".to_string()],
+            model: Some("anthropic/claude-opus-4-6".to_string()),
+            ..PiAgentConfig::default()
+        };
+        config.model_by_state = HashMap::from([(
+            "merging".to_string(),
+            "anthropic/claude-sonnet-4-6".to_string(),
+        )]);
+
+        let parts = build_command_parts(
+            &config,
+            "/tmp/workspace",
+            "Merging",
+            Some("anthropic/claude-haiku-3-5"),
+        )
+        .expect("command should build");
+        let joined = parts.join(" ");
+        assert!(joined.contains("--model anthropic/claude-haiku-3-5"));
+        assert!(!joined.contains("--model anthropic/claude-sonnet-4-6"));
     }
 }

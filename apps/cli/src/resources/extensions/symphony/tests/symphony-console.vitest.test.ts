@@ -378,6 +378,7 @@ describe("symphony console command routing", () => {
       },
       getPendingEscalations: async () => [],
       respondToEscalation: async () => ({ ok: true, status: 200 }),
+      steer: async () => ({ ok: true, status: 200 }),
       watchEvents: async function* () {
         return;
       },
@@ -409,6 +410,7 @@ describe("symphony console command routing", () => {
       },
       getPendingEscalations: async () => [],
       respondToEscalation: async () => ({ ok: true, status: 200 }),
+      steer: async () => ({ ok: true, status: 200 }),
       watchEvents: async function* () {
         return;
       },
@@ -459,6 +461,7 @@ describe("EscalationResponseRouter", () => {
       },
       getPendingEscalations: async () => [],
       respondToEscalation: async () => ({ ok: true, status: 200 }),
+      steer: async () => ({ ok: true, status: 200 }),
       watchEvents: async function* () {
         return;
       },
@@ -529,6 +532,7 @@ describe("EscalationResponseRouter", () => {
       },
       getPendingEscalations: async () => [],
       respondToEscalation: async () => ({ ok: true, status: 200 }),
+      steer: async () => ({ ok: true, status: 200 }),
       watchEvents: async function* () {
         return;
       },
@@ -976,6 +980,7 @@ describe("ConsoleManager", () => {
       getState: async () => stateSnapshot,
       getPendingEscalations: async () => [],
       respondToEscalation: async () => ({ ok: true, status: 200 }),
+      steer: async () => ({ ok: true, status: 200 }),
       watchEvents: async function* () {
         return;
       },

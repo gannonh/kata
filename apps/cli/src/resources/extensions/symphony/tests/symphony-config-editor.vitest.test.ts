@@ -14,8 +14,11 @@ import { resolveWorkflowPath } from "../command.js";
 import { runConfigEditor } from "../config-editor.js";
 import {
   applyModelToConfig,
+  deletePath,
   parseWorkflowConfig,
+  readPath,
   serializeWorkflowConfig,
+  setPath,
   WorkflowConfigParseError,
 } from "../config-parser.js";
 import {
@@ -134,6 +137,46 @@ describe("parseWorkflowConfig", () => {
 
     expect((config.workspace as Record<string, unknown>).cleanup_on_done).toBe("maybe");
     expect((config.agent as Record<string, unknown>).max_turns).toBe("foo");
+  });
+
+  it("setPath with empty path array is a no-op", () => {
+    const config: Record<string, unknown> = {
+      tracker: {
+        kind: "linear",
+      },
+    };
+
+    setPath(config, [], "ignored");
+    expect(config).toEqual({
+      tracker: {
+        kind: "linear",
+      },
+    });
+  });
+
+  it("deletePath with empty path array is a no-op", () => {
+    const config: Record<string, unknown> = {
+      tracker: {
+        kind: "linear",
+      },
+    };
+
+    deletePath(config, []);
+    expect(config).toEqual({
+      tracker: {
+        kind: "linear",
+      },
+    });
+  });
+
+  it("readPath with empty path array returns root object", () => {
+    const config: Record<string, unknown> = {
+      tracker: {
+        kind: "linear",
+      },
+    };
+
+    expect(readPath(config, [])).toBe(config);
   });
 
   it("reports YAML parse errors with line numbers", () => {

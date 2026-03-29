@@ -22,7 +22,8 @@ use crate::domain::{
 };
 use crate::event_stream::EventHub;
 use crate::orchestrator::{
-    EscalationRegistry, EscalationResolveResult, RefreshSender, SnapshotHandle,
+    EscalationRegistry, EscalationResolveResult, RefreshSender, SnapshotHandle, SteerResult,
+    SteerSender,
 };
 use crate::shared_context::{
     ContextEntryDraft, SharedContextStore, MAX_SHARED_CONTEXT_CONTENT_CHARS,
@@ -78,6 +79,7 @@ const DEFAULT_WS_HEARTBEAT_INTERVAL_MS: u64 = 5_000;
 const DEFAULT_WS_CLIENT_QUEUE_CAPACITY: usize = 64;
 const DEFAULT_WS_BACKPRESSURE_DROP_THRESHOLD: u64 = 1;
 const WS_CLOSE_ENQUEUE_TIMEOUT_MS: u64 = 1_000;
+const MAX_STEER_INSTRUCTION_CHARS: usize = 5_000;
 
 #[derive(Debug, Clone)]
 pub struct EventStreamConfig {
@@ -122,6 +124,7 @@ pub struct HttpServerState {
     escalation_registry: EscalationRegistry,
     event_hub: EventHub,
     shared_context_store: SharedContextStore,
+    steer_sender: Option<SteerSender>,
     event_stream_config: EventStreamConfig,
     event_stream_counters: Arc<EventStreamCounters>,
     next_client_id: Arc<AtomicU64>,
@@ -155,6 +158,7 @@ impl HttpServerState {
             escalation_registry,
             event_hub,
             shared_context_store: SharedContextStore::default(),
+            steer_sender: None,
             event_stream_config,
             event_stream_counters: Arc::new(EventStreamCounters::default()),
             next_client_id: Arc::new(AtomicU64::new(0)),
@@ -163,6 +167,11 @@ impl HttpServerState {
 
     pub fn with_shared_context_store(mut self, shared_context_store: SharedContextStore) -> Self {
         self.shared_context_store = shared_context_store;
+        self
+    }
+
+    pub fn with_steer_sender(mut self, steer_sender: SteerSender) -> Self {
+        self.steer_sender = Some(steer_sender);
         self
     }
 
@@ -201,6 +210,22 @@ impl HttpServerState {
 
     pub fn shared_context_store(&self) -> SharedContextStore {
         self.shared_context_store.clone()
+    }
+
+    pub async fn request_steer(
+        &self,
+        issue_identifier: String,
+        instruction: String,
+    ) -> SteerResult {
+        let Some(steer_sender) = &self.steer_sender else {
+            return SteerResult::DeliveryFailed {
+                message: "steer_unavailable".to_string(),
+            };
+        };
+
+        steer_sender
+            .request_steer(issue_identifier, instruction, Duration::from_secs(5))
+            .await
     }
 
     pub fn event_stream_config(&self) -> EventStreamConfig {
@@ -309,6 +334,21 @@ struct EscalationRespondRequest {
     response: serde_json::Value,
     #[serde(default)]
     responder_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SteerRequestBody {
+    issue_identifier: Option<String>,
+    instruction: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct SteerResponseBody {
+    ok: bool,
+    issue_id: String,
+    issue_identifier: String,
+    delivered: bool,
+    instruction_preview: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -447,6 +487,7 @@ pub fn build_router(state: HttpServerState) -> Router {
             "/api/v1/escalations/{request_id}/respond",
             post(post_escalation_respond),
         )
+        .route("/api/v1/steer", post(post_steer))
         .route("/api/v1/{issue_identifier}", get(get_issue))
         .route("/api/v1/refresh", post(post_refresh))
         .fallback(api_not_found)
@@ -528,6 +569,10 @@ fn escape_html(value: &str) -> String {
         .replace('>', "&gt;")
         .replace('"', "&quot;")
         .replace('\'', "&#x27;")
+}
+
+fn truncate_preview(value: &str, max_chars: usize) -> String {
+    value.chars().take(max_chars).collect()
 }
 
 async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoResponse {
@@ -1971,6 +2016,142 @@ async fn get_issue(
         }),
     )
         .into_response()
+}
+
+async fn post_steer(
+    State(state): State<HttpServerState>,
+    Json(payload): Json<SteerRequestBody>,
+) -> impl IntoResponse {
+    let issue_identifier = payload
+        .issue_identifier
+        .as_deref()
+        .unwrap_or_default()
+        .trim()
+        .to_ascii_uppercase();
+    let instruction = payload
+        .instruction
+        .as_deref()
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+
+    if issue_identifier.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ApiErrorEnvelope {
+                error: ApiError {
+                    code: "invalid_request",
+                    message: "issue_identifier must be provided".to_string(),
+                    status: StatusCode::BAD_REQUEST.as_u16(),
+                    details: None,
+                },
+            }),
+        )
+            .into_response();
+    }
+
+    if instruction.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ApiErrorEnvelope {
+                error: ApiError {
+                    code: "invalid_request",
+                    message: "instruction must be a non-empty string".to_string(),
+                    status: StatusCode::BAD_REQUEST.as_u16(),
+                    details: None,
+                },
+            }),
+        )
+            .into_response();
+    }
+
+    if instruction.chars().count() > MAX_STEER_INSTRUCTION_CHARS {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ApiErrorEnvelope {
+                error: ApiError {
+                    code: "instruction_too_long",
+                    message: format!(
+                        "instruction exceeds max length of {} characters",
+                        MAX_STEER_INSTRUCTION_CHARS
+                    ),
+                    status: StatusCode::BAD_REQUEST.as_u16(),
+                    details: None,
+                },
+            }),
+        )
+            .into_response();
+    }
+
+    let instruction_preview = truncate_preview(&instruction, 100);
+
+    match state
+        .request_steer(issue_identifier.clone(), instruction)
+        .await
+    {
+        SteerResult::Delivered {
+            issue_id,
+            issue_identifier,
+        } => (
+            StatusCode::OK,
+            Json(SteerResponseBody {
+                ok: true,
+                issue_id,
+                issue_identifier,
+                delivered: true,
+                instruction_preview,
+            }),
+        )
+            .into_response(),
+        SteerResult::IssueNotRunning => (
+            StatusCode::NOT_FOUND,
+            Json(ApiErrorEnvelope {
+                error: ApiError {
+                    code: "issue_not_running",
+                    message: format!("issue '{}' is not currently running", issue_identifier),
+                    status: StatusCode::NOT_FOUND.as_u16(),
+                    details: None,
+                },
+            }),
+        )
+            .into_response(),
+        SteerResult::NoActiveSession => (
+            StatusCode::CONFLICT,
+            Json(ApiErrorEnvelope {
+                error: ApiError {
+                    code: "no_active_session",
+                    message: format!("issue '{}' has no active RPC session", issue_identifier),
+                    status: StatusCode::CONFLICT.as_u16(),
+                    details: None,
+                },
+            }),
+        )
+            .into_response(),
+        SteerResult::DeliveryFailed { message } if message == "steer_unavailable" => (
+            StatusCode::NOT_IMPLEMENTED,
+            Json(ApiErrorEnvelope {
+                error: ApiError {
+                    code: "capability_unavailable",
+                    message: "steer endpoint is not wired to orchestrator runtime".to_string(),
+                    status: StatusCode::NOT_IMPLEMENTED.as_u16(),
+                    details: None,
+                },
+            }),
+        )
+            .into_response(),
+        SteerResult::DeliveryFailed { message } => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiErrorEnvelope {
+                error: ApiError {
+                    code: "steer_failed",
+                    message,
+                    status: StatusCode::INTERNAL_SERVER_ERROR.as_u16(),
+                    details: None,
+                },
+            }),
+        )
+            .into_response(),
+    }
 }
 
 async fn post_refresh(State(state): State<HttpServerState>) -> impl IntoResponse {

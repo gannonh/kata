@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   executeSymphonyCommand,
   parseSymphonyCommand,
@@ -46,6 +46,12 @@ function createClient(overrides: Partial<SymphonyClient>): SymphonyClient {
     }),
     getPendingEscalations: async () => [],
     respondToEscalation: async () => ({ ok: true, status: 200 }),
+    steer: async () => ({
+      ok: true,
+      status: 200,
+      issue_id: "issue-920",
+      issue_identifier: "KAT-920",
+    }),
     watchEvents: async function* (_filter, _options) {
       return;
     },
@@ -67,7 +73,7 @@ function makeEvent(sequence: number, event: string): SymphonyEventEnvelope {
 }
 
 describe("parseSymphonyCommand", () => {
-  it("parses status, watch, and config commands", () => {
+  it("parses status, watch, steer, and config commands", () => {
     expect(parseSymphonyCommand("status")).toEqual({ type: "status" });
 
     expect(
@@ -77,6 +83,16 @@ describe("parseSymphonyCommand", () => {
       issue: "KAT-920",
       maxEvents: 3,
       timeoutMs: 2000,
+    });
+
+    expect(
+      parseSymphonyCommand(
+        "steer kat-920 Use the existing auth module instead of creating a new one",
+      ),
+    ).toEqual({
+      type: "steer",
+      issue: "KAT-920",
+      instruction: "Use the existing auth module instead of creating a new one",
     });
 
     expect(parseSymphonyCommand("config")).toEqual({ type: "config" });
@@ -97,6 +113,7 @@ describe("parseSymphonyCommand", () => {
     expect(parseSymphonyCommand("watch KAT-1 --timeout-ms nope")).toEqual({
       type: "usage",
     });
+    expect(parseSymphonyCommand("steer KAT-1")).toEqual({ type: "usage" });
     expect(parseSymphonyCommand("unknown")).toEqual({ type: "usage" });
   });
 });
@@ -152,11 +169,54 @@ describe("executeSymphonyCommand", () => {
     const { sink, info, error } = makeSink();
     const client = createClient({});
 
-    await executeSymphonyCommand({ type: "status" }, client, sink);
+    await executeSymphonyCommand({ type: "status" }, client, sink, {
+      checkConfigured: () => true,
+    });
 
     expect(error).toHaveLength(0);
     expect(info[0]).toContain("Symphony Status");
     expect(info[0]).toContain("Running workers:");
+  });
+
+  it("executes steer and renders success confirmation", async () => {
+    const { sink, info, error } = makeSink();
+    const steer = vi
+      .fn<SymphonyClient["steer"]>()
+      .mockResolvedValue({
+        ok: true,
+        status: 200,
+        issue_id: "issue-920",
+        issue_identifier: "KAT-920",
+      });
+
+    const client = createClient({ steer });
+
+    await executeSymphonyCommand(
+      { type: "steer", issue: "KAT-920", instruction: "Use existing auth" },
+      client,
+      sink,
+      { checkConfigured: () => true },
+    );
+
+    expect(error).toHaveLength(0);
+    expect(steer).toHaveBeenCalledWith("KAT-920", "Use existing auth");
+    expect(info[0]).toContain("✓ Steered KAT-920: Use existing auth");
+  });
+
+  it("executes steer and renders actionable failure", async () => {
+    const { sink, error } = makeSink();
+    const client = createClient({
+      steer: async () => ({ ok: false, status: 409, error: "no_active_session" }),
+    });
+
+    await executeSymphonyCommand(
+      { type: "steer", issue: "KAT-920", instruction: "Use existing auth" },
+      client,
+      sink,
+      { checkConfigured: () => true },
+    );
+
+    expect(error).toEqual(["✗ Steer failed: no_active_session"]);
   });
 
   it("streams watch events and emits summary", async () => {
@@ -172,7 +232,7 @@ describe("executeSymphonyCommand", () => {
       { type: "watch", issue: "KAT-920", timeoutMs: 2000, maxEvents: 5 },
       client,
       sink,
-      { now: () => 1_000 },
+      { now: () => 1_000, checkConfigured: () => true },
     );
 
     expect(error).toHaveLength(0);
@@ -195,6 +255,7 @@ describe("executeSymphonyCommand", () => {
       { type: "watch", issue: "KAT-920", timeoutMs: 500, maxEvents: 2 },
       client,
       sink,
+      { checkConfigured: () => true },
     );
 
     expect(error).toHaveLength(0);
@@ -213,7 +274,9 @@ describe("executeSymphonyCommand", () => {
       },
     });
 
-    await executeSymphonyCommand({ type: "status" }, client, sink);
+    await executeSymphonyCommand({ type: "status" }, client, sink, {
+      checkConfigured: () => true,
+    });
 
     expect(error).toHaveLength(1);
     expect(error[0]).toContain("config_missing");

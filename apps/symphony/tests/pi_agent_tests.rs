@@ -338,6 +338,7 @@ async fn rpc_bridge_start_turn_stop_smoke() {
             container_id: None,
             escalation_tx,
             escalation_timeout_ms: 60_000,
+            model_override: None,
         },
     )
     .await
@@ -395,6 +396,7 @@ async fn rpc_bridge_turn_fails_on_message_end_error_stop_reason() {
             container_id: None,
             escalation_tx,
             escalation_timeout_ms: 60_000,
+            model_override: None,
         },
     )
     .await
@@ -456,6 +458,7 @@ async fn rpc_bridge_escalation_holds_and_resumes_with_response() {
             container_id: None,
             escalation_tx,
             escalation_timeout_ms: 5_000,
+            model_override: None,
         },
     )
     .await
@@ -560,6 +563,7 @@ async fn rpc_bridge_escalation_times_out_and_falls_back() {
             container_id: None,
             escalation_tx,
             escalation_timeout_ms: 50,
+            model_override: None,
         },
     )
     .await
@@ -620,6 +624,7 @@ async fn rpc_bridge_escalation_channel_close_emits_cancelled() {
             container_id: None,
             escalation_tx,
             escalation_timeout_ms: 5_000,
+            model_override: None,
         },
     )
     .await

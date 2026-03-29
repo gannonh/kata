@@ -35,9 +35,7 @@ function buildCapabilities(): SymphonyToolCapabilities {
     logs: capabilityUnavailable(
       "logs endpoint is not available yet in Symphony server",
     ),
-    steer: capabilityUnavailable(
-      "steer endpoint is not available yet in Symphony server",
-    ),
+    steer: capabilityAvailable(),
   };
 }
 
@@ -99,7 +97,7 @@ function makeToolDetails(
 }
 
 function capabilityUnavailablePayload(
-  capability: "logs" | "steer",
+  capability: "logs",
   message: string,
 ) {
   return {
@@ -420,7 +418,7 @@ export function registerSymphonyTools(pi: ExtensionAPI, client: SymphonyClient):
     name: "symphony_steer",
     label: "Symphony Steer",
     description:
-      "Capability-safe placeholder for future Symphony steering endpoint.",
+      "Send a live operator steering instruction via POST /api/v1/steer.",
     parameters: Type.Object(
       {
         issue: Type.String({ description: "Issue identifier to steer" }),
@@ -428,30 +426,98 @@ export function registerSymphonyTools(pi: ExtensionAPI, client: SymphonyClient):
       },
       { additionalProperties: false },
     ),
-    async execute() {
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: JSON.stringify(
-              capabilityUnavailablePayload(
-                "steer",
-                "Symphony steer endpoint is unavailable in this server version.",
+    async execute(_toolCallId, params) {
+      try {
+        const issue = params.issue.trim().toUpperCase();
+        const instruction = params.instruction.trim();
+        const localInstructionPreview = instruction.slice(0, 100);
+        const result = await client.steer(issue, instruction);
+
+        if (!result.ok) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify(
+                  {
+                    ok: false,
+                    issue_identifier: issue,
+                    error: result.error ?? "steer_failed",
+                    status: result.status,
+                  },
+                  null,
+                  2,
+                ),
+              },
+            ],
+            details: makeToolDetails(client, { connected: false }),
+            isError: true,
+          };
+        }
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(
+                {
+                  ok: true,
+                  issue_id: result.issue_id,
+                  issue_identifier: result.issue_identifier ?? issue,
+                  delivered: result.delivered ?? true,
+                  instruction_preview:
+                    result.instruction_preview ?? localInstructionPreview,
+                },
+                null,
+                2,
               ),
-              null,
-              2,
-            ),
+            },
+          ],
+          details: makeToolDetails(client, { connected: true }),
+        };
+      } catch (error) {
+        if (isSymphonyError(error)) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: `${error.code}: ${error.message}`,
+              },
+            ],
+            details: makeToolDetails(client, { error, connected: false }),
+            isError: true,
+          };
+        }
+
+        const fallback = new SymphonyError(
+          error instanceof Error ? error.message : String(error),
+          {
+            code: "connection_failed",
+            reason: "steer_execution_failed",
           },
-        ],
-        details: makeToolDetails(client, { connected: false }),
-        isError: true,
-      };
+        );
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `${fallback.code}: ${fallback.message}`,
+            },
+          ],
+          details: makeToolDetails(client, { error: fallback, connected: false }),
+          isError: true,
+        };
+      }
     },
     renderCall(args, theme) {
       const issue = typeof args.issue === "string" ? args.issue : "?";
+      const instruction =
+        typeof args.instruction === "string"
+          ? args.instruction.trim().slice(0, 60)
+          : "";
       return new Text(
         theme.fg("toolTitle", theme.bold("symphony_steer ")) +
-          theme.fg("accent", issue),
+          theme.fg("accent", `${issue} "${instruction}"`),
         0,
         0,
       );
