@@ -1,5 +1,14 @@
+import { createRequire } from "node:module";
+import { join } from "node:path";
 import { readFileSync, writeFileSync } from "node:fs";
-import { dump } from "js-yaml";
+
+// js-yaml must be loaded dynamically via createRequire — see config-parser.ts
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { dump } = (createRequire(
+  process.env.PI_PACKAGE_DIR
+    ? join(process.env.PI_PACKAGE_DIR, "package.json")
+    : import.meta.url,
+))("js-yaml") as typeof import("js-yaml");
 import type { ConfigEditorModel } from "./config-model.js";
 import {
   applyModelToConfig,
