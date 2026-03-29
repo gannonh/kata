@@ -59,6 +59,9 @@ pub enum SymphonyError {
     #[error("GitHub API status error: {status} ({message})")]
     GithubApiStatus { status: u16, message: String },
 
+    #[error("GitHub Projects v2 error: {0}")]
+    GithubProjectsV2Error(String),
+
     // ── Workspace ──────────────────────────────────────────────────────
     #[error("workspace path outside root: {workspace} not under {root}")]
     WorkspaceOutsideRoot { workspace: String, root: String },
