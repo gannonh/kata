@@ -409,6 +409,41 @@ fn test_startup_terminal_cleanup_clears_runtime_bookkeeping_without_completed_in
 }
 
 #[test]
+fn test_startup_terminal_cleanup_removes_orphan_workspace_from_scan() {
+    let workspace_root = tempdir().expect("workspace root should be created");
+    let orphan_workspace = workspace_root.path().join("SIM-10");
+    let untouched_workspace = workspace_root.path().join("SIM-11");
+
+    fs::create_dir_all(&orphan_workspace).expect("orphan workspace should be created");
+    fs::create_dir_all(&untouched_workspace).expect("untouched workspace should be created");
+    fs::write(orphan_workspace.join("artifact.txt"), "orphan")
+        .expect("orphan workspace artifact should be created");
+
+    let mut config = test_config(2);
+    config.workspace.root = workspace_root.path().to_string_lossy().to_string();
+    config.workspace.cleanup_on_done = true;
+
+    let mut orchestrator = Orchestrator::new(config, String::new());
+    let mut port = FakePort {
+        terminal_issues: vec![issue("issue-terminal", "SIM-10", "Done", Some(1), 0)],
+        ..FakePort::default()
+    };
+
+    orchestrator
+        .startup_cleanup(&mut port)
+        .expect("startup cleanup should succeed");
+
+    assert!(
+        !orphan_workspace.exists(),
+        "startup cleanup should remove workspace discovered via scan"
+    );
+    assert!(
+        untouched_workspace.exists(),
+        "startup cleanup should not remove unrelated workspace"
+    );
+}
+
+#[test]
 fn test_reconcile_tick_reconcile_before_validate_before_dispatch() {
     let mut orchestrator = Orchestrator::new(test_config(2), String::new());
     let mut port = FakePort {

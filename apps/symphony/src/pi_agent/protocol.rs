@@ -193,6 +193,42 @@ pub enum RpcOutputLine {
     },
 }
 
+/// Extract a non-terminal stop reason and optional provider error message.
+///
+/// Returns `None` when `stopReason` is missing/empty or equals `end_turn`
+/// (case-insensitive), which is treated as the normal completion signal.
+pub fn extract_stop_reason(message: &Value) -> Option<(String, Option<String>)> {
+    let stop_reason = message
+        .get("stopReason")
+        .or_else(|| message.get("stop_reason"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())?
+        .to_string();
+
+    if stop_reason.eq_ignore_ascii_case("end_turn") {
+        return None;
+    }
+
+    let error_message = message
+        .get("errorMessage")
+        .or_else(|| message.get("error_message"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToString::to_string);
+
+    Some((stop_reason, error_message))
+}
+
+/// Heuristic for provider messages that indicate rate-limit style failures.
+pub fn has_rate_limit_hint(message: &str) -> bool {
+    let normalized = message.to_ascii_lowercase();
+    normalized.contains("rate limit")
+        || normalized.contains("usage limit")
+        || normalized.contains("retry")
+}
+
 /// Response payload for extension UI requests in non-interactive mode.
 #[derive(Debug, Serialize)]
 pub struct ExtensionUIResponse {

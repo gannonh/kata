@@ -23,6 +23,10 @@ const ISSUE_PAGE_SIZE: usize = 50;
 const USER_PAGE_SIZE: usize = 100;
 const REQUEST_TIMEOUT_SECS: u64 = 30;
 const MAX_ERROR_BODY_LOG_BYTES: usize = 1_000;
+#[cfg(not(test))]
+const COMMENT_CREATE_RETRY_DELAY_MS: u64 = 1_000;
+#[cfg(test)]
+const COMMENT_CREATE_RETRY_DELAY_MS: u64 = 1;
 
 // ── GraphQL Queries (match Elixir reference exactly) ───────────────────
 
@@ -391,18 +395,99 @@ impl LinearClient {
     }
 
     /// Create a comment on an issue.
+    ///
+    /// KAT-1231: Linear intermittently returns `Entity not found: Issue` for commentCreate on
+    /// issues that are otherwise mutable. Mitigation: retry once with a short delay *only* for
+    /// that known transient failure mode, and include rich diagnostics on all failures.
     pub async fn create_comment(&self, issue_id: &str, body: &str) -> Result<()> {
-        let resp = self
-            .graphql(
+        match self.create_comment_attempt(issue_id, body, 1).await {
+            Ok(()) => Ok(()),
+            Err(first_err) => {
+                let first_error_text = first_err.to_string();
+                let first_error_preview = truncate_error_body(&first_error_text);
+
+                warn!(
+                    event = "comment_create_failed",
+                    issue_id = issue_id,
+                    retry_attempted = false,
+                    error = %first_error_preview,
+                    "Linear commentCreate failed on first attempt"
+                );
+
+                if !is_retryable_comment_create_failure(&first_error_text) {
+                    warn!(
+                        event = "comment_create_retry_skipped",
+                        issue_id = issue_id,
+                        retry_attempted = false,
+                        reason = "non_retryable_failure",
+                        error = %first_error_preview,
+                        "skipping Linear commentCreate retry to avoid duplicate non-idempotent writes"
+                    );
+
+                    return Err(SymphonyError::Other(format!(
+                        "commentCreate failed without retry (issue_id='{}', retry_attempted=false, error='{}')",
+                        issue_id, first_error_preview
+                    )));
+                }
+
+                warn!(
+                    event = "comment_create_retry",
+                    issue_id = issue_id,
+                    attempt = 2,
+                    error_preview = %first_error_preview,
+                    "retrying Linear commentCreate after retryable first failure"
+                );
+
+                tokio::time::sleep(std::time::Duration::from_millis(
+                    COMMENT_CREATE_RETRY_DELAY_MS,
+                ))
+                .await;
+
+                match self.create_comment_attempt(issue_id, body, 2).await {
+                    Ok(()) => Ok(()),
+                    Err(retry_err) => {
+                        let retry_error_text = retry_err.to_string();
+                        warn!(
+                            event = "comment_create_failed",
+                            issue_id = issue_id,
+                            retry_attempted = true,
+                            error = %truncate_error_body(&retry_error_text),
+                            "Linear commentCreate failed after retry"
+                        );
+
+                        Err(SymphonyError::Other(format!(
+                            "commentCreate failed after retry (issue_id='{}', retry_attempted=true, first_attempt_error='{}', retry_error='{}')",
+                            issue_id,
+                            first_error_preview,
+                            truncate_error_body(&retry_error_text)
+                        )))
+                    }
+                }
+            }
+        }
+    }
+
+    async fn create_comment_attempt(&self, issue_id: &str, body: &str, attempt: u8) -> Result<()> {
+        let response = self
+            .graphql_raw(
                 MUTATION_CREATE_COMMENT,
                 serde_json::json!({
                     "issueId": issue_id,
                     "body": body,
                 }),
             )
-            .await?;
+            .await
+            .map_err(|err| {
+                SymphonyError::Other(format!(
+                    "commentCreate transport failure (issue_id='{}', attempt={}, retry_attempted={}, error='{}')",
+                    issue_id,
+                    attempt,
+                    attempt > 1,
+                    truncate_error_body(&err.to_string())
+                ))
+            })?;
 
-        let success = resp
+        let success = response
             .get("data")
             .and_then(|d| d.get("commentCreate"))
             .and_then(|c| c.get("success"))
@@ -410,13 +495,17 @@ impl LinearClient {
             .unwrap_or(false);
 
         if success {
-            Ok(())
-        } else {
-            Err(SymphonyError::Other(format!(
-                "commentCreate failed for issue '{}'",
-                issue_id
-            )))
+            return Ok(());
         }
+
+        let raw_response = truncate_error_body(&response.to_string());
+        Err(SymphonyError::Other(format!(
+            "commentCreate failed (issue_id='{}', attempt={}, retry_attempted={}, raw_response='{}')",
+            issue_id,
+            attempt,
+            attempt > 1,
+            raw_response
+        )))
     }
 
     // ── GraphQL transport ──────────────────────────────────────────────
@@ -1157,6 +1246,15 @@ fn format_available_assignee_identifiers(users: &[LinearUser]) -> String {
         let total = values.len();
         format!("{}, ... ({} total)", values[..MAX_VALUES].join(", "), total)
     }
+}
+
+/// Return true when a commentCreate failure is the known KAT-1231 transient issue.
+///
+/// We only retry this non-idempotent mutation for "Entity not found: Issue" responses to
+/// reduce duplicate-comment risk when the first request may have succeeded server-side.
+fn is_retryable_comment_create_failure(error_text: &str) -> bool {
+    let normalized = error_text.to_ascii_lowercase();
+    normalized.contains("entity not found") && normalized.contains("issue")
 }
 
 /// Truncate an error body to ≤1000 bytes for logging.

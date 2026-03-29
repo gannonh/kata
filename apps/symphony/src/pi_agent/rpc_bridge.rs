@@ -17,7 +17,8 @@ use crate::domain::{AgentEvent, EscalationRequest, EscalationResponse, Issue, Pi
 use crate::error::{Result, SymphonyError};
 use crate::path_safety;
 use crate::pi_agent::protocol::{
-    ExtensionUIResponse, RpcCommand, RpcOutputLine, RpcResponse, SessionStats,
+    extract_stop_reason, has_rate_limit_hint, ExtensionUIResponse, RpcCommand, RpcOutputLine,
+    RpcResponse, SessionStats,
 };
 use crate::pi_agent::token_accounting::{TokenDelta, TokenTracker};
 use crate::ssh::{self, SshRunner};
@@ -271,6 +272,51 @@ fn maybe_extract_text(message: &Value) -> Option<String> {
         }
     }
     None
+}
+
+fn truncate_for_event(message: &str) -> String {
+    const MAX_EVENT_CHARS: usize = 200;
+    if message.chars().count() <= MAX_EVENT_CHARS {
+        return message.to_string();
+    }
+
+    let truncated: String = message.chars().take(MAX_EVENT_CHARS).collect();
+    format!("{truncated}…")
+}
+
+fn parse_retry_after_ms(message: &str) -> Option<u64> {
+    let normalized = message.to_ascii_lowercase();
+    let anchor = normalized
+        .find("retry-after")
+        .or_else(|| normalized.find("retry after"))?;
+
+    let tail = &normalized[anchor..];
+    let mut digit_start = None;
+    let mut digit_end = None;
+
+    for (idx, ch) in tail.char_indices() {
+        if ch.is_ascii_digit() {
+            if digit_start.is_none() {
+                digit_start = Some(idx);
+            }
+            digit_end = Some(idx + ch.len_utf8());
+        } else if digit_start.is_some() {
+            break;
+        }
+    }
+
+    let start = digit_start?;
+    let end = digit_end?;
+    let amount: u64 = tail[start..end].parse().ok()?;
+    let unit = tail[end..].trim_start();
+
+    if unit.starts_with("ms") {
+        Some(amount)
+    } else if unit.starts_with('m') && !unit.starts_with("ms") {
+        amount.checked_mul(60_000)
+    } else {
+        amount.checked_mul(1_000)
+    }
 }
 
 async fn handle_escalation_ui_request(
@@ -775,9 +821,59 @@ pub async fn run_turn(
                 handle_escalation_ui_request(handle, &mut event_callback, id, method, extra)
                     .await?;
             }
-            RpcOutputLine::MessageUpdate { message } | RpcOutputLine::MessageEnd { message } => {
+            RpcOutputLine::MessageUpdate { message } => {
                 if let Some(text) = maybe_extract_text(&message) {
                     output_text = Some(text);
+                }
+            }
+            RpcOutputLine::MessageEnd { message } => {
+                if let Some(text) = maybe_extract_text(&message) {
+                    output_text = Some(text);
+                }
+
+                if let Some((stop_reason, error_message)) = extract_stop_reason(&message) {
+                    if stop_reason.eq_ignore_ascii_case("error") {
+                        let error_text = error_message.unwrap_or_else(|| {
+                            format!("pi-agent reported stopReason='{}'", stop_reason)
+                        });
+                        let message_preview = truncate_for_event(&error_text);
+                        let retry_after_ms = if has_rate_limit_hint(&error_text) {
+                            parse_retry_after_ms(&error_text)
+                        } else {
+                            None
+                        };
+
+                        tracing::warn!(
+                            event = "turn_error_detected",
+                            issue_id = %handle.issue_id,
+                            issue_identifier = %handle.issue_identifier,
+                            error_type = %stop_reason,
+                            message = %message_preview,
+                            retry_after_ms,
+                            "pi-agent turn ended with stopReason=error"
+                        );
+
+                        if has_rate_limit_hint(&error_text) {
+                            tracing::warn!(
+                                event = "rate_limit_detected",
+                                issue_id = %handle.issue_id,
+                                issue_identifier = %handle.issue_identifier,
+                                message = %message_preview,
+                                retry_after_ms,
+                                "pi-agent provider reported rate-limit style failure"
+                            );
+                        }
+
+                        let failed = AgentEvent::TurnFailed {
+                            timestamp: Utc::now(),
+                            codex_app_server_pid: handle.pid.clone(),
+                            turn_id: turn_id.clone(),
+                            error: error_text.clone(),
+                        };
+                        event_callback(failed.clone());
+                        events.push(failed);
+                        return Err(SymphonyError::TurnFailed(error_text));
+                    }
                 }
             }
             _ => {}
