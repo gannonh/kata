@@ -5,6 +5,7 @@ import {
   applyModelToConfig,
   extractWorkflowSegments,
   parseWorkflowConfig,
+  // Shared readPath helper (KAT-1482): single source of truth between parser/writer.
   readPath,
 } from "./config-parser.js";
 

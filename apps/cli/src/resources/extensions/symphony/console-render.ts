@@ -22,11 +22,15 @@ export function renderConsolePanel(
   const nowMs = now();
   const lines: string[] = [];
 
+  const erroringWorkers = state.workers.filter((worker) => !!worker.lastError).length;
+
   lines.push(renderConnectionHeader(state));
   lines.push(
-    `Queue ${state.queueCount} · Completed ${state.completedCount} · Workers ${state.workers.length}`,
+    `Workers: ${state.workers.length} running · ${erroringWorkers} erroring · ${state.queueCount} queue`,
   );
+  lines.push(`Completed: ${state.completedCount}`);
 
+  lines.push("── Status ─────────────────────────────");
   if (state.lastUpdateAt !== null) {
     lines.push(`Last event ${formatDurationMs(Math.max(0, nowMs - state.lastUpdateAt))} ago`);
   } else {
@@ -35,35 +39,54 @@ export function renderConsolePanel(
 
   if (isConsoleStateStale(state, nowMs)) {
     lines.push(
-      `⚠️ Data is stale (>30s without events) — latest update ${formatDurationMs(
+      `⚠ Data is stale (>30s without events) — latest update ${formatDurationMs(
         nowMs - (state.lastUpdateAt ?? nowMs),
       )} ago`,
     );
   }
 
   if (state.error) {
-    lines.push(`⚠️ ${state.error}`);
+    lines.push(`✗ ${state.error}`);
   }
 
-  lines.push("");
-  lines.push("Workers");
+  if (state.message) {
+    lines.push(`ℹ ${state.message}`);
+  }
+
+  lines.push("── Workers ────────────────────────────");
 
   if (state.workers.length === 0) {
     lines.push("  (no active workers)");
   } else {
+    const escalatedIssues = new Set(
+      state.escalations.map((escalation) => escalation.issueIdentifier),
+    );
+
     for (const worker of state.workers) {
+      const marker = worker.lastError
+        ? "✗"
+        : escalatedIssues.has(worker.identifier)
+          ? "⚠"
+          : "✓";
+
+      const identifier = worker.identifier.padEnd(12, " ");
+      const linearState = worker.linearState.padEnd(14, " ");
+
       lines.push(
-        `  • ${worker.identifier} · ${worker.linearState} · tool:${worker.currentTool} · ${worker.lastActivityAge} · ${worker.model}`,
+        `  ${marker} ${identifier} ${linearState} tool:${worker.currentTool} · ${worker.lastActivityAge} · ${worker.model}`,
       );
       if (worker.issueTitle && worker.issueTitle !== worker.identifier) {
         lines.push(`    ${worker.issueTitle}`);
       }
+      if (worker.lastError) {
+        lines.push(`    error: ${worker.lastError}`);
+      }
     }
   }
 
-  lines.push("");
+  lines.push("── Escalations ────────────────────────");
   if (state.escalations.length > 0) {
-    lines.push(`⚠️ Pending escalations (${state.escalations.length})`);
+    lines.push(`⚠ Pending escalations (${state.escalations.length})`);
     for (const [index, escalation] of state.escalations.entries()) {
       const waitingMs = Math.max(0, nowMs - escalation.waitingSince);
       lines.push(
@@ -83,10 +106,7 @@ export function renderConsolePanel(
     lines.push("Escalations: none pending");
   }
 
-  if (state.message) {
-    lines.push("");
-    lines.push(`ℹ️ ${state.message}`);
-  }
+  lines.push("── End ────────────────────────────────");
 
   return lines;
 }

@@ -49,9 +49,11 @@ describe("renderConsolePanel", () => {
     const joined = lines.join("\n");
 
     expect(joined).toContain("Symphony Console 🟢 connected");
-    expect(joined).toContain("Queue 1 · Completed 3 · Workers 1");
-    expect(joined).toContain("KAT-1304 · In Progress · tool:bash · 4s · claude-sonnet-4-6");
-    expect(joined).toContain("⚠️ Pending escalations (1)");
+    expect(joined).toContain("Workers: 1 running · 0 erroring · 1 queue");
+    expect(joined).toContain("Completed: 3");
+    expect(joined).toContain("── Workers ─");
+    expect(joined).toContain("⚠ KAT-1304");
+    expect(joined).toContain("⚠ Pending escalations (1)");
     expect(joined).toContain("Reply: !respond <answer>");
   });
 
@@ -96,8 +98,8 @@ describe("renderConsolePanel", () => {
     const joined = lines.join("\n");
 
     expect(joined).toContain("Symphony Console 🔴 disconnected");
-    expect(joined).toContain("⚠️ Data is stale (>30s without events)");
-    expect(joined).toContain("⚠️ Symphony is not reachable");
+    expect(joined).toContain("⚠ Data is stale (>30s without events)");
+    expect(joined).toContain("✗ Symphony is not reachable");
     expect(joined).toContain("(no active workers)");
     expect(joined).toContain("Escalations: none pending");
   });
