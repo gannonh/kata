@@ -65,7 +65,7 @@ All Kata entities use a bracket prefix. The regex is `/^\[([A-Z]\d+)\] (.+)$/`.
 | Slice     | `[S01] Title`  | `[S01] JWT Token Foundation`   |
 | Task      | `[T01] Title`  | `[T01] Core types and helpers` |
 
-When calling `kata_create_milestone`, `kata_create_slice`, or `kata_create_task`, pass only the human-readable title (e.g. `"Auth & Session Layer"`) — the tool automatically adds the bracket prefix.
+When calling `kata_create_milestone`, `kata_create_slice`, or `kata_create_task`, pass only the human-readable title (e.g. `"Auth & Session Layer"`) — the tool automatically adds the bracket prefix. Always include a `description` — for milestones and slices, a one-to-two sentence summary of the intent (this appears in Linear's UI and gives context at a glance). For tasks, the `description` is the full task plan (steps, must-haves, verification, inputs, expected output) since `issue.description` is the canonical task plan payload that execution reads.
 
 ---
 
@@ -346,6 +346,7 @@ For milestone planning:
 2. Build 4-10 vertical slices ordered by risk.
 3. Write `M001-ROADMAP` with checkboxes, risk, dependencies, demo lines, and boundary map.
 4. Create slices via `kata_create_slice`.
+5. After all slices are created, materialize `depends:[]` from the roadmap as Linear `blocked_by` relations via `linear_create_relation`. This enables Symphony to parallelize independent slices and respect ordering constraints. Every non-empty `depends:[S01,S02]` tag must produce a corresponding `blocked_by` relation from that slice to each dependency.
 
 For slice planning:
 
@@ -547,7 +548,8 @@ All Kata-specific tools use the `kata_` prefix.
 
 | Tool                    | Description                                                                               |
 | ----------------------- | ----------------------------------------------------------------------------------------- |
-| `kata_create_milestone` | Create a new milestone. Pass human-readable title; bracket prefix is added automatically. |
+| `kata_create_milestone` | Create a new milestone. Pass human-readable title and a short description; bracket prefix is added automatically. |
 | `kata_create_slice`     | Create a new slice issue with the `kata:slice` label and milestone assignment.            |
 | `kata_create_task`      | Create a new task sub-issue under a slice.                                                |
 | `kata_ensure_labels`    | Ensure the required Kata labels exist in the team.                                        |
+| `linear_create_relation` | Create a `blocked_by` relation between slices to materialize `depends:[]` from the roadmap. |
