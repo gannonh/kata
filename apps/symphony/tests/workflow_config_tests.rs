@@ -185,6 +185,10 @@ fn test_config_defaults() {
     assert_eq!(config.tracker.api_key, None);
     assert_eq!(config.tracker.project_slug, None);
     assert_eq!(config.tracker.workspace_slug, None);
+    assert_eq!(config.tracker.repo_owner, None);
+    assert_eq!(config.tracker.repo_name, None);
+    assert_eq!(config.tracker.github_project_number, None);
+    assert_eq!(config.tracker.label_prefix, None);
     assert_eq!(config.polling.interval_ms, 30_000);
     assert_eq!(config.agent.max_concurrent_agents, 10);
     assert_eq!(config.agent.max_turns, 20);
@@ -207,6 +211,85 @@ fn test_config_defaults() {
     assert_eq!(config.pi_agent.stall_timeout_ms, 300_000);
     assert_eq!(config.server.public_url, None);
     assert!(config.notifications.is_none());
+}
+
+#[test]
+fn test_github_tracker_config_parses() {
+    let yaml_str = r#"
+tracker:
+  kind: github
+  api_key: github-test-token
+  repo_owner: kata-sh
+  repo_name: kata-mono
+  github_project_number: 42
+"#;
+
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let config = from_workflow(&raw).expect("github tracker config should parse");
+
+    assert_eq!(config.tracker.kind.as_deref(), Some("github"));
+    assert_eq!(config.tracker.repo_owner.as_deref(), Some("kata-sh"));
+    assert_eq!(config.tracker.repo_name.as_deref(), Some("kata-mono"));
+    assert_eq!(config.tracker.github_project_number, Some(42));
+    assert_eq!(config.tracker.label_prefix.as_deref(), Some("symphony"));
+    assert_eq!(config.tracker.project_slug, None);
+}
+
+#[test]
+fn test_github_tracker_config_missing_repo_owner_errors() {
+    let yaml_str = r#"
+tracker:
+  kind: github
+  api_key: github-test-token
+  repo_name: kata-mono
+"#;
+
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let err = from_workflow(&raw).expect_err("missing repo_owner should fail for github tracker");
+
+    assert!(
+        matches!(err, SymphonyError::InvalidWorkflowConfig(ref msg) if msg == "tracker.repo_owner is required when tracker.kind is github"),
+        "expected github repo_owner validation error, got: {err}"
+    );
+}
+
+#[test]
+fn test_github_tracker_config_with_label_prefix() {
+    let yaml_str = r#"
+tracker:
+  kind: github
+  api_key: github-test-token
+  repo_owner: kata-sh
+  repo_name: kata-mono
+  label_prefix: orchestration
+"#;
+
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let config = from_workflow(&raw).expect("github tracker config with custom label prefix should parse");
+
+    assert_eq!(
+        config.tracker.label_prefix.as_deref(),
+        Some("orchestration")
+    );
+}
+
+#[test]
+fn test_linear_config_unaffected() {
+    let yaml_str = r#"
+tracker:
+  kind: linear
+  api_key: test-key
+  project_slug: my-project
+"#;
+
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let config = from_workflow(&raw).expect("linear config should parse");
+
+    assert_eq!(config.tracker.kind.as_deref(), Some("linear"));
+    assert_eq!(config.tracker.project_slug.as_deref(), Some("my-project"));
+    assert_eq!(config.tracker.repo_owner, None);
+    assert_eq!(config.tracker.repo_name, None);
+    assert_eq!(config.tracker.label_prefix, None);
 }
 
 #[test]

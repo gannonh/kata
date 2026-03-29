@@ -190,6 +190,10 @@ struct RawTrackerConfig {
     api_key: Option<String>,
     project_slug: Option<String>,
     workspace_slug: Option<String>,
+    repo_owner: Option<String>,
+    repo_name: Option<String>,
+    github_project_number: Option<u64>,
+    label_prefix: Option<String>,
     assignee: Option<String>,
     active_states: Option<Vec<String>>,
     terminal_states: Option<Vec<String>>,
@@ -552,6 +556,12 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         .map(|v| resolve_env(&v))
         .filter(|v| !v.is_empty());
 
+    let tracker_kind = raw_tracker
+        .kind
+        .map(|v| resolve_env(&v))
+        .map(|v| v.trim().to_lowercase())
+        .filter(|v| !v.is_empty());
+
     let project_slug = raw_tracker
         .project_slug
         .map(|v| resolve_env(&v))
@@ -561,15 +571,59 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         .map(|v| resolve_env(&v))
         .map(|v| v.trim().to_string())
         .filter(|v| !v.is_empty());
+    let repo_owner = raw_tracker
+        .repo_owner
+        .map(|v| resolve_env(&v))
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty());
+    let repo_name = raw_tracker
+        .repo_name
+        .map(|v| resolve_env(&v))
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty());
+    let github_project_number = raw_tracker.github_project_number;
+
+    let label_prefix = match tracker_kind.as_deref() {
+        Some("github") => Some(
+            raw_tracker
+                .label_prefix
+                .map(|v| resolve_env(&v))
+                .map(|v| v.trim().to_string())
+                .filter(|v| !v.is_empty())
+                .unwrap_or_else(|| "symphony".to_string()),
+        ),
+        _ => None,
+    };
+
+    if matches!(tracker_kind.as_deref(), Some("github")) {
+        if repo_owner.is_none() {
+            return Err(SymphonyError::InvalidWorkflowConfig(
+                "tracker.repo_owner is required when tracker.kind is github".to_string(),
+            ));
+        }
+        if repo_name.is_none() {
+            return Err(SymphonyError::InvalidWorkflowConfig(
+                "tracker.repo_name is required when tracker.kind is github".to_string(),
+            ));
+        }
+    }
+
+    let endpoint_default = if matches!(tracker_kind.as_deref(), Some("github")) {
+        "https://api.github.com".to_string()
+    } else {
+        defaults.tracker.endpoint.clone()
+    };
 
     let tracker = TrackerConfig {
-        kind: raw_tracker.kind,
-        endpoint: raw_tracker
-            .endpoint
-            .unwrap_or(defaults.tracker.endpoint.clone()),
+        kind: tracker_kind,
+        endpoint: raw_tracker.endpoint.unwrap_or(endpoint_default),
         api_key,
         project_slug,
         workspace_slug,
+        repo_owner,
+        repo_name,
+        github_project_number,
+        label_prefix,
         assignee,
         active_states: raw_tracker
             .active_states

@@ -5,6 +5,7 @@ pub mod workflow;
 pub mod workflow_store;
 
 pub mod linear;
+pub mod github;
 
 pub mod docker;
 pub mod path_safety;
