@@ -22,6 +22,8 @@ export interface SymphonySteerResult {
   status: number;
   issue_id?: string;
   issue_identifier?: string;
+  delivered?: boolean;
+  instruction_preview?: string;
   error?: string;
 }
 
@@ -279,6 +281,10 @@ export class SymphonyHttpClient implements SymphonyClient {
         ...(typeof parsed.issue_id === "string" ? { issue_id: parsed.issue_id } : {}),
         ...(typeof parsed.issue_identifier === "string"
           ? { issue_identifier: parsed.issue_identifier }
+          : {}),
+        ...(typeof parsed.delivered === "boolean" ? { delivered: parsed.delivered } : {}),
+        ...(typeof parsed.instruction_preview === "string"
+          ? { instruction_preview: parsed.instruction_preview }
           : {}),
       };
     }

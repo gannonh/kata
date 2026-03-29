@@ -430,7 +430,7 @@ export function registerSymphonyTools(pi: ExtensionAPI, client: SymphonyClient):
       try {
         const issue = params.issue.trim().toUpperCase();
         const instruction = params.instruction.trim();
-        const instructionPreview = instruction.slice(0, 100);
+        const localInstructionPreview = instruction.slice(0, 100);
         const result = await client.steer(issue, instruction);
 
         if (!result.ok) {
@@ -464,7 +464,9 @@ export function registerSymphonyTools(pi: ExtensionAPI, client: SymphonyClient):
                   ok: true,
                   issue_id: result.issue_id,
                   issue_identifier: result.issue_identifier ?? issue,
-                  instruction_preview: instructionPreview,
+                  delivered: result.delivered ?? true,
+                  instruction_preview:
+                    result.instruction_preview ?? localInstructionPreview,
                 },
                 null,
                 2,

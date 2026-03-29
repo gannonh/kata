@@ -83,6 +83,7 @@ fn build_command_parts(
     config: &PiAgentConfig,
     workspace_path: &str,
     issue_state: &str,
+    model_override: Option<&str>,
 ) -> Result<Vec<String>> {
     if config.command.is_empty() {
         return Err(SymphonyError::PiAgentError(
@@ -99,7 +100,13 @@ fn build_command_parts(
     if config.no_session {
         parts.push("--no-session".to_string());
     }
-    if let Some(model) = config.model_for_state(issue_state) {
+    let selected_model = model_override
+        .map(str::trim)
+        .filter(|model| !model.is_empty())
+        .map(ToString::to_string)
+        .or_else(|| config.model_for_state(issue_state));
+
+    if let Some(model) = selected_model {
         parts.push("--model".to_string());
         parts.push(model);
     }
@@ -545,6 +552,7 @@ pub struct StartSessionOptions {
     pub container_id: Option<String>,
     pub escalation_tx: UnboundedSender<EscalationDispatch>,
     pub escalation_timeout_ms: u64,
+    pub model_override: Option<String>,
 }
 
 /// Start a pi-agent session process for an issue.
@@ -560,16 +568,27 @@ pub async fn start_session(
         container_id,
         escalation_tx,
         escalation_timeout_ms,
+        model_override,
     } = options;
 
     let container_id_ref = container_id.as_deref();
     let worker_host_ref = worker_host.as_deref();
 
     let command_parts = match (container_id_ref, worker_host_ref) {
-        (Some(_), _) => build_command_parts(config, "/workspace", &issue.state)?,
+        (Some(_), _) => build_command_parts(
+            config,
+            "/workspace",
+            &issue.state,
+            model_override.as_deref(),
+        )?,
         _ => {
             let workspace_for_args = workspace_path.to_string_lossy().to_string();
-            build_command_parts(config, &workspace_for_args, &issue.state)?
+            build_command_parts(
+                config,
+                &workspace_for_args,
+                &issue.state,
+                model_override.as_deref(),
+            )?
         }
     };
 
@@ -1118,9 +1137,33 @@ mod tests {
             "anthropic/claude-sonnet-4-6".to_string(),
         )]);
 
-        let parts = build_command_parts(&config, "/tmp/workspace", "Merging")
+        let parts = build_command_parts(&config, "/tmp/workspace", "Merging", None)
             .expect("command should build");
         let joined = parts.join(" ");
         assert!(joined.contains("--model anthropic/claude-sonnet-4-6"));
+    }
+
+    #[test]
+    fn build_command_parts_prefers_explicit_model_override() {
+        let mut config = PiAgentConfig {
+            command: vec!["kata".to_string()],
+            model: Some("anthropic/claude-opus-4-6".to_string()),
+            ..PiAgentConfig::default()
+        };
+        config.model_by_state = HashMap::from([(
+            "merging".to_string(),
+            "anthropic/claude-sonnet-4-6".to_string(),
+        )]);
+
+        let parts = build_command_parts(
+            &config,
+            "/tmp/workspace",
+            "Merging",
+            Some("anthropic/claude-haiku-3-5"),
+        )
+        .expect("command should build");
+        let joined = parts.join(" ");
+        assert!(joined.contains("--model anthropic/claude-haiku-3-5"));
+        assert!(!joined.contains("--model anthropic/claude-sonnet-4-6"));
     }
 }

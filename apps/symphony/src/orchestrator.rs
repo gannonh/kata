@@ -42,6 +42,7 @@ struct WorkerTaskConfig {
     hooks: HooksConfig,
     codex: CodexConfig,
     pi_agent: PiAgentConfig,
+    pi_model_override: Option<String>,
     agent_backend: AgentBackend,
     max_turns: u32,
     tracker: TrackerConfig,
@@ -596,6 +597,7 @@ async fn run_worker_task(
                                 container_id: Some(container_id.clone()),
                                 escalation_tx: config.escalation_tx.clone(),
                                 escalation_timeout_ms: config.escalation_timeout_ms,
+                                model_override: config.pi_model_override.clone(),
                             },
                         )
                         .await
@@ -864,6 +866,7 @@ async fn run_worker_task(
                     container_id: None,
                     escalation_tx: config.escalation_tx.clone(),
                     escalation_timeout_ms: config.escalation_timeout_ms,
+                    model_override: config.pi_model_override.clone(),
                 },
             )
             .await
@@ -1135,6 +1138,8 @@ pub const FAILURE_RETRY_BASE_MS: i64 = 10_000;
 /// and `handle_worker_completion` checks for it so stall-induced failures are
 /// not treated as generic `failed` notification events.
 const STALL_FAILURE_MARKER: &str = "without agent activity";
+const MAX_STEER_DISPATCHES_PER_TICK: usize = 4;
+const STEER_FOLLOW_UP_TIMEOUT: Duration = Duration::from_secs(4);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RetryKind {
@@ -1784,10 +1789,18 @@ impl Orchestrator {
                     if let Some(dispatch) = steer {
                         self.handle_steer_dispatch(dispatch).await;
                         self.publish_snapshot();
-                    }
-                    while let Ok(dispatch) = self.steer_rx.try_recv() {
-                        self.handle_steer_dispatch(dispatch).await;
-                        self.publish_snapshot();
+
+                        let mut drained = 1usize;
+                        while drained < MAX_STEER_DISPATCHES_PER_TICK {
+                            match self.steer_rx.try_recv() {
+                                Ok(dispatch) => {
+                                    self.handle_steer_dispatch(dispatch).await;
+                                    self.publish_snapshot();
+                                    drained = drained.saturating_add(1);
+                                }
+                                Err(_) => break,
+                            }
+                        }
                     }
                 },
                 result = self.worker_result_rx.recv() => {
@@ -1881,12 +1894,22 @@ impl Orchestrator {
                 self.resolve_prompt_for_state(&effective_state),
             );
             let shared_context = self.build_shared_context_block_for_issue(&issue);
+            let pi_model_override = if self.config.agent_backend == AgentBackend::KataCli {
+                effective_pi_model_for_issue(&self.config, &issue)
+            } else {
+                None
+            };
+
+            if let Some(run_attempt) = self.state.running.get_mut(&issue.id) {
+                run_attempt.model = pi_model_override.clone();
+            }
 
             let task_config = WorkerTaskConfig {
                 workspace: self.config.workspace.clone(),
                 hooks: self.config.hooks.clone(),
                 codex: self.config.codex.clone(),
                 pi_agent: self.config.pi_agent.clone(),
+                pi_model_override,
                 agent_backend: self.config.agent_backend,
                 max_turns: self.config.agent.max_turns,
                 tracker: self.config.tracker.clone(),
@@ -2024,7 +2047,7 @@ impl Orchestrator {
                             self.worker_steer_tx.remove(&issue_id);
                             SteerResult::NoActiveSession
                         } else {
-                            match tokio::time::timeout(Duration::from_secs(5), response_rx).await {
+                            match tokio::time::timeout(STEER_FOLLOW_UP_TIMEOUT, response_rx).await {
                                 Ok(Ok(Ok(()))) => SteerResult::Delivered {
                                     issue_id,
                                     issue_identifier: canonical_identifier,
@@ -2865,6 +2888,11 @@ impl Orchestrator {
             .running
             .get(&issue.id)
             .and_then(|a| a.worker_host.clone());
+        let pi_model_override = if self.config.agent_backend == AgentBackend::KataCli {
+            effective_pi_model_for_issue(&self.config, issue)
+        } else {
+            None
+        };
 
         self.state.running.insert(
             issue.id.clone(),
@@ -2878,11 +2906,7 @@ impl Orchestrator {
                 status: "running".to_string(),
                 error: None,
                 worker_host: prior_worker_host.clone(),
-                model: if self.config.agent_backend == AgentBackend::KataCli {
-                    effective_pi_model_for_issue(&self.config, issue)
-                } else {
-                    None
-                },
+                model: pi_model_override.clone(),
                 linear_state: Some(issue.state.clone()),
                 issue_url: issue.url.clone(),
             },
@@ -3010,6 +3034,7 @@ impl Orchestrator {
                         container_id: None,
                         escalation_tx: self.worker_escalation_tx.clone(),
                         escalation_timeout_ms: self.config.agent.escalation_timeout_ms,
+                        model_override: pi_model_override.clone(),
                     },
                 )
                 .await
