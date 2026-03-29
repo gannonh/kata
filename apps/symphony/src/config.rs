@@ -1149,7 +1149,7 @@ pub fn validate(config: &ServiceConfig) -> Result<ValidatedServiceConfig> {
     if tracker_kind == "linear" {
         // tracker.api_key must be present and non-empty
         match config.tracker.api_key.as_deref() {
-            Some(k) if !k.is_empty() => {}
+            Some(k) if !k.trim().is_empty() => {}
             _ => {
                 return Err(SymphonyError::MissingLinearApiToken);
             }
@@ -1211,7 +1211,7 @@ pub fn validate(config: &ServiceConfig) -> Result<ValidatedServiceConfig> {
         }
 
         if let Some(project_number) = config.tracker.github_project_number {
-            tracing::info!(project_number, "Projects v2 mode active");
+            tracing::debug!(project_number, "Projects v2 mode active");
         }
     }
 
