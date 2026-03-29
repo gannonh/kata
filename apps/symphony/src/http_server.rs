@@ -620,6 +620,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
     td {{ color: #d7e1ee; }}
     td.mono {{ word-break: break-all; }}
     .stale-activity {{ color: #fca5a5; font-weight: 600; }}
+    .error-text {{ color: #e5484d; font-weight: 600; }}
     .list {{ margin: 0; padding-left: 20px; }}
     .muted {{ color: #94a3b8; }}
     .error {{ margin-top: 12px; color: #fca5a5; }}
@@ -660,6 +661,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
             <th>Linear State</th>
             <th>Status</th>
             <th>Activity</th>
+            <th>Error</th>
             <th>Attempt</th>
             <th>Turn</th>
             <th>Last Activity</th>
@@ -671,7 +673,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
           </tr>
         </thead>
         <tbody id="running-table-body">
-          <tr><td class="muted" colspan="12">Loading...</td></tr>
+          <tr><td class="muted" colspan="13">Loading...</td></tr>
         </tbody>
       </table>
     </div>
@@ -859,7 +861,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
       }});
 
       if (rows.length === 0) {{
-        return '<tr><td class="muted" colspan="12">No running sessions.</td></tr>';
+        return '<tr><td class="muted" colspan="13">No running sessions.</td></tr>';
       }}
 
       return rows.map(function(entry) {{
@@ -889,11 +891,16 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
         const toolName = sessionInfo.current_tool_name || '';
         const toolArgs = sessionInfo.current_tool_args_preview || '';
         const activityLabel = toolName ? 'tool: ' + toolName + (toolArgs ? ' (' + toolArgs + ')' : '') : '-';
+        const errorValue = sessionInfo.last_error;
+        const errorCell = errorValue
+          ? '<td class="mono error-text">' + escapeHtml(errorValue) + '</td>'
+          : '<td class="muted">-</td>';
         return '<tr>' +
           '<td class="mono">' + escapeHtml(run.issue_identifier || '-') + '</td>' +
           '<td>' + escapeHtml(run.linear_state || '-') + '</td>' +
           '<td>' + escapeHtml(run.status || '-') + '</td>' +
           '<td class="mono">' + escapeHtml(activityLabel) + '</td>' +
+          errorCell +
           '<td>' + escapeHtml(attempt) + '</td>' +
           '<td class="mono">' + escapeHtml(turnLabel) + '</td>' +
           '<td class="' + escapeHtml(lastActivityClass) + '">' + escapeHtml(lastActivityLabel) + '</td>' +

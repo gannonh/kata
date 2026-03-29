@@ -642,6 +642,7 @@ fn running_rows(snapshot: &OrchestratorSnapshot, now: DateTime<Utc>) -> Vec<Row<
         let current_tool_name = metrics.and_then(|m| m.current_tool_name.as_deref());
         let current_tool_args = metrics.and_then(|m| m.current_tool_args_preview.as_deref());
         let escalation = pending_by_issue.get(issue_id.as_str()).copied();
+        let last_error = metrics.and_then(|m| m.last_error.as_deref());
         let stale = escalation.is_none() && is_stale_session(last_activity, now);
         let state = if escalation.is_some() {
             format!(
@@ -664,11 +665,20 @@ fn running_rows(snapshot: &OrchestratorSnapshot, now: DateTime<Utc>) -> Vec<Row<
             Cell::from(last_activity_text)
         };
 
-        let activity_message = if let Some(pending) = escalation {
+        let activity_message = if let Some(error) = last_error {
+            format!("🚨 {error}")
+        } else if let Some(pending) = escalation {
             let waiting = format_age(Some(pending.created_at), now);
             format!("⚠ escalation: \"{}\" ({waiting})", pending.preview)
         } else {
             format_activity_message(current_tool_name, current_tool_args, last_event_message)
+        };
+
+        let activity_text = truncate_for_display(&activity_message, MESSAGE_COLUMN_TRUNCATE_WIDTH);
+        let activity_cell = if last_error.is_some() {
+            Cell::from(Span::styled(activity_text, Style::default().fg(Color::Red)))
+        } else {
+            Cell::from(activity_text)
         };
 
         let status_last_activity = if escalation.is_some() {
@@ -678,7 +688,12 @@ fn running_rows(snapshot: &OrchestratorSnapshot, now: DateTime<Utc>) -> Vec<Row<
         };
 
         let mut row = Row::new(vec![
-            Cell::from(status_dot(last_event, status_last_activity, now)),
+            Cell::from(status_dot(
+                last_event,
+                status_last_activity,
+                now,
+                last_error.is_some(),
+            )),
             Cell::from(run.issue_identifier.clone()),
             Cell::from(compact_session_id(session_id)),
             Cell::from(state),
@@ -687,10 +702,7 @@ fn running_rows(snapshot: &OrchestratorSnapshot, now: DateTime<Utc>) -> Vec<Row<
                 last_event.unwrap_or("-"),
                 LAST_EVENT_COLUMN_WIDTH as usize,
             )),
-            Cell::from(truncate_for_display(
-                &activity_message,
-                MESSAGE_COLUMN_TRUNCATE_WIDTH,
-            )),
+            activity_cell,
             last_activity_cell,
             Cell::from(format_tokens(total_tokens)),
             Cell::from(run.model.clone().unwrap_or_else(|| "-".to_string())),
@@ -702,7 +714,7 @@ fn running_rows(snapshot: &OrchestratorSnapshot, now: DateTime<Utc>) -> Vec<Row<
             ),
         ]);
 
-        if escalation.is_some() {
+        if escalation.is_some() && last_error.is_none() {
             row = row.style(Style::default().fg(Color::Yellow));
         }
 
@@ -755,10 +767,11 @@ fn status_dot(
     last_event: Option<&str>,
     last_activity: Option<DateTime<Utc>>,
     now: DateTime<Utc>,
+    has_error: bool,
 ) -> Span<'static> {
     Span::styled(
         "●",
-        Style::default().fg(status_color(last_event, last_activity, now)),
+        Style::default().fg(status_color(last_event, last_activity, now, has_error)),
     )
 }
 
@@ -766,7 +779,12 @@ fn status_color(
     last_event: Option<&str>,
     last_activity: Option<DateTime<Utc>>,
     now: DateTime<Utc>,
+    has_error: bool,
 ) -> Color {
+    if has_error {
+        return Color::Red;
+    }
+
     if is_stale_session(last_activity, now) {
         return Color::Red;
     }
@@ -1196,6 +1214,7 @@ mod tests {
                 session_id: Some("1234567890abcdef".to_string()),
                 current_tool_name: None,
                 current_tool_args_preview: None,
+                last_error: None,
             },
         );
 
@@ -1210,6 +1229,60 @@ mod tests {
         assert!(
             rendered.contains(&expected),
             "expected dashboard output to include truncated last event {expected:?}, got:\n{rendered}"
+        );
+    }
+
+    #[test]
+    fn draw_dashboard_shows_running_error_indicator() {
+        let now = Utc
+            .with_ymd_and_hms(2026, 3, 22, 16, 0, 0)
+            .single()
+            .expect("valid fixture timestamp");
+        let mut snapshot = snapshot_fixture(0, None);
+        let issue_id = "issue-error".to_string();
+
+        snapshot.running.insert(
+            issue_id.clone(),
+            crate::domain::RunAttempt {
+                issue_id: issue_id.clone(),
+                issue_identifier: "KAT-1660".to_string(),
+                issue_title: Some("Worker error visibility".to_string()),
+                attempt: Some(1),
+                workspace_path: "/tmp/workspace".to_string(),
+                started_at: now,
+                status: "running".to_string(),
+                error: None,
+                worker_host: None,
+                model: Some("anthropic/claude-sonnet-4-6".to_string()),
+                linear_state: Some("In Progress".to_string()),
+                issue_url: None,
+            },
+        );
+        snapshot.running_sessions.insert(
+            issue_id,
+            crate::domain::RunningSessionSnapshot {
+                turn_count: 2,
+                last_activity_at: Some(now),
+                total_tokens: 1024,
+                last_event: Some("codex/event/task_started".to_string()),
+                last_event_message: Some("working".to_string()),
+                session_id: Some("session-error".to_string()),
+                current_tool_name: None,
+                current_tool_args_preview: None,
+                last_error: Some("rate limit: retry in ~80 min".to_string()),
+            },
+        );
+
+        let backend = TestBackend::new(200, 30);
+        let mut terminal = Terminal::new(backend).expect("test terminal");
+        terminal
+            .draw(|frame| draw_dashboard(frame, &snapshot, now, "Throughput: 0.0 tps ▁▁▁▁▁▁▁▁"))
+            .expect("dashboard draw should succeed");
+
+        let rendered = render_text(terminal.backend());
+        assert!(
+            rendered.contains("🚨") && rendered.contains("rate limit: retry in ~80 min"),
+            "expected running table to show red error indicator text, got:\n{rendered}"
         );
     }
 
@@ -1229,36 +1302,45 @@ mod tests {
             .expect("valid fixture timestamp");
 
         assert_eq!(
-            status_color(Some("codex/event/task_started"), Some(fresh), now),
+            status_color(Some("codex/event/task_started"), Some(fresh), now, false),
             Color::Green
         );
         assert_eq!(
-            status_color(Some("codex/event/token_count"), Some(fresh), now),
+            status_color(Some("codex/event/token_count"), Some(fresh), now, false),
             Color::Yellow
         );
         assert_eq!(
-            status_color(Some("turn_completed"), Some(fresh), now),
+            status_color(Some("turn_completed"), Some(fresh), now, false),
             Color::Magenta
         );
         assert_eq!(
-            status_color(Some("codex/event/turn/completed"), Some(fresh), now),
+            status_color(Some("codex/event/turn/completed"), Some(fresh), now, false),
             Color::Magenta
         );
         assert_eq!(
-            status_color(Some("codex/event/tool_call_failed"), Some(fresh), now),
+            status_color(
+                Some("codex/event/tool_call_failed"),
+                Some(fresh),
+                now,
+                false
+            ),
             Color::Red
         );
         assert_eq!(
-            status_color(Some("startup_failed"), Some(fresh), now),
+            status_color(Some("startup_failed"), Some(fresh), now, false),
             Color::Red
         );
         assert_eq!(
-            status_color(Some("notification"), Some(fresh), now),
+            status_color(Some("notification"), Some(fresh), now, false),
             Color::Blue
         );
-        assert_eq!(status_color(None, Some(fresh), now), Color::Red);
+        assert_eq!(status_color(None, Some(fresh), now, false), Color::Red);
         assert_eq!(
-            status_color(Some("turn_completed"), Some(stale), now),
+            status_color(Some("turn_completed"), Some(stale), now, false),
+            Color::Red
+        );
+        assert_eq!(
+            status_color(Some("codex/event/task_started"), Some(fresh), now, true),
             Color::Red
         );
     }
