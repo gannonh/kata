@@ -9,7 +9,6 @@
 
 import type { ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
 import type { ConfigEditorModel } from "../symphony/config-model.js";
 import type { ConfigEditorUI } from "../symphony/config-editor.js";
 import { getProjectKataPreferencesPath } from "./preferences.js";
