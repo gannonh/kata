@@ -1869,10 +1869,8 @@ impl Orchestrator {
 
         let terminal_issues = port.startup_terminal_issues(&self.config.tracker.terminal_states)?;
         let workspace_root = Path::new(&self.config.workspace.root);
-        let startup_workspaces = workspace::scan_workspace_root(
-            workspace_root,
-            &self.config.workspace.branch_prefix,
-        );
+        let startup_workspaces =
+            workspace::scan_workspace_root(workspace_root, &self.config.workspace.branch_prefix);
 
         tracing::info!(
             event = "startup_workspace_scan",

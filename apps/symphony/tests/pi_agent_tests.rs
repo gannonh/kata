@@ -208,8 +208,12 @@ fn extract_stop_reason_ignores_end_turn_and_missing_stop_reason() {
 #[test]
 fn has_rate_limit_hint_detects_expected_keywords() {
     assert!(has_rate_limit_hint("Rate limit exceeded. Retry after 12s."));
-    assert!(has_rate_limit_hint("You have hit your usage limit for today."));
-    assert!(has_rate_limit_hint("Please retry this request in a moment."));
+    assert!(has_rate_limit_hint(
+        "You have hit your usage limit for today."
+    ));
+    assert!(has_rate_limit_hint(
+        "Please retry this request in a moment."
+    ));
     assert!(!has_rate_limit_hint("Model returned malformed JSON"));
 }
 

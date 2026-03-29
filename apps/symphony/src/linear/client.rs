@@ -419,8 +419,10 @@ impl LinearClient {
                     "retrying Linear commentCreate after initial failure"
                 );
 
-                tokio::time::sleep(std::time::Duration::from_millis(COMMENT_CREATE_RETRY_DELAY_MS))
-                    .await;
+                tokio::time::sleep(std::time::Duration::from_millis(
+                    COMMENT_CREATE_RETRY_DELAY_MS,
+                ))
+                .await;
 
                 match self.create_comment_attempt(issue_id, body, 2).await {
                     Ok(()) => Ok(()),
