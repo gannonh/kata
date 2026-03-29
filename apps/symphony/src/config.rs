@@ -190,6 +190,10 @@ struct RawTrackerConfig {
     api_key: Option<String>,
     project_slug: Option<String>,
     workspace_slug: Option<String>,
+    repo_owner: Option<String>,
+    repo_name: Option<String>,
+    github_project_number: Option<u64>,
+    label_prefix: Option<String>,
     assignee: Option<String>,
     active_states: Option<Vec<String>>,
     terminal_states: Option<Vec<String>>,
@@ -529,17 +533,26 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
     }
 
     // ── TrackerConfig ─────────────────────────────────────────────────────
+    let tracker_kind = raw_tracker
+        .kind
+        .map(|v| resolve_env(&v))
+        .map(|v| v.trim().to_lowercase())
+        .filter(|v| !v.is_empty());
+
     // Resolve $VAR references in api_key; on empty result try LINEAR_API_KEY
-    // as canonical fallback (spec §5.3.1 note).
+    // as canonical fallback (spec §5.3.1 note), but only for the Linear tracker.
     // NOTE: api_key is intentionally never passed to any tracing call.
     let api_key: Option<ApiKey> = raw_tracker
         .api_key
         .map(|v| {
             let explicit_env_ref = env_reference_name(&v).is_some();
             let resolved = resolve_env(&v);
-            if explicit_env_ref && resolved.is_empty() {
-                // Try canonical fallback only when an explicit $VAR reference was
-                // provided but resolved to nothing.
+            if explicit_env_ref
+                && resolved.is_empty()
+                && matches!(tracker_kind.as_deref(), Some("linear"))
+            {
+                // Try canonical fallback only for Linear when an explicit $VAR
+                // reference was provided but resolved to nothing.
                 std::env::var("LINEAR_API_KEY").unwrap_or_default()
             } else {
                 resolved
@@ -562,15 +575,59 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         .map(|v| resolve_env(&v))
         .map(|v| v.trim().to_string())
         .filter(|v| !v.is_empty());
+    let repo_owner = raw_tracker
+        .repo_owner
+        .map(|v| resolve_env(&v))
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty());
+    let repo_name = raw_tracker
+        .repo_name
+        .map(|v| resolve_env(&v))
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty());
+    let github_project_number = raw_tracker.github_project_number;
+
+    let label_prefix = match tracker_kind.as_deref() {
+        Some("github") => Some(
+            raw_tracker
+                .label_prefix
+                .map(|v| resolve_env(&v))
+                .map(|v| v.trim().to_string())
+                .filter(|v| !v.is_empty())
+                .unwrap_or_else(|| "symphony".to_string()),
+        ),
+        _ => None,
+    };
+
+    if matches!(tracker_kind.as_deref(), Some("github")) {
+        if repo_owner.is_none() {
+            return Err(SymphonyError::InvalidWorkflowConfig(
+                "tracker.repo_owner is required when tracker.kind is github".to_string(),
+            ));
+        }
+        if repo_name.is_none() {
+            return Err(SymphonyError::InvalidWorkflowConfig(
+                "tracker.repo_name is required when tracker.kind is github".to_string(),
+            ));
+        }
+    }
+
+    let endpoint_default = if matches!(tracker_kind.as_deref(), Some("github")) {
+        "https://api.github.com".to_string()
+    } else {
+        defaults.tracker.endpoint.clone()
+    };
 
     let tracker = TrackerConfig {
-        kind: raw_tracker.kind,
-        endpoint: raw_tracker
-            .endpoint
-            .unwrap_or(defaults.tracker.endpoint.clone()),
+        kind: tracker_kind,
+        endpoint: raw_tracker.endpoint.unwrap_or(endpoint_default),
         api_key,
         project_slug,
         workspace_slug,
+        repo_owner,
+        repo_name,
+        github_project_number,
+        label_prefix,
         assignee,
         active_states: raw_tracker
             .active_states
@@ -1078,30 +1135,64 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
 ///
 /// The api_key value is never included in failure messages.
 pub fn validate(config: &ServiceConfig) -> Result<ValidatedServiceConfig> {
-    // tracker.kind must be "linear"
-    match config.tracker.kind.as_deref() {
-        Some("linear") => {}
+    let tracker_kind = match config.tracker.kind.as_deref() {
+        Some("linear") => "linear",
+        Some("github") => "github",
         Some(other) => {
             return Err(SymphonyError::UnsupportedTrackerKind(other.to_string()));
         }
         None => {
             return Err(SymphonyError::MissingTrackerKind);
         }
-    }
+    };
 
     // tracker.api_key must be present and non-empty
     match config.tracker.api_key.as_deref() {
         Some(k) if !k.is_empty() => {}
         _ => {
-            return Err(SymphonyError::MissingLinearApiToken);
+            return if tracker_kind == "github" {
+                Err(SymphonyError::MissingGithubApiToken)
+            } else {
+                Err(SymphonyError::MissingLinearApiToken)
+            };
         }
     }
 
-    // tracker.project_slug must be present and non-empty
-    match config.tracker.project_slug.as_deref() {
-        Some(slug) if !slug.is_empty() => {}
-        _ => {
-            return Err(SymphonyError::MissingLinearProjectSlug);
+    if tracker_kind == "linear" {
+        // tracker.project_slug must be present and non-empty
+        match config.tracker.project_slug.as_deref() {
+            Some(slug) if !slug.is_empty() => {}
+            _ => {
+                return Err(SymphonyError::MissingLinearProjectSlug);
+            }
+        }
+    }
+
+    if tracker_kind == "github" {
+        if config
+            .tracker
+            .repo_owner
+            .as_deref()
+            .map(str::trim)
+            .map(|owner| owner.is_empty())
+            .unwrap_or(true)
+        {
+            return Err(SymphonyError::InvalidWorkflowConfig(
+                "tracker.repo_owner is required when tracker.kind is github".to_string(),
+            ));
+        }
+
+        if config
+            .tracker
+            .repo_name
+            .as_deref()
+            .map(str::trim)
+            .map(|repo| repo.is_empty())
+            .unwrap_or(true)
+        {
+            return Err(SymphonyError::InvalidWorkflowConfig(
+                "tracker.repo_name is required when tracker.kind is github".to_string(),
+            ));
         }
     }
 

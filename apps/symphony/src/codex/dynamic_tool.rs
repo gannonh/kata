@@ -267,9 +267,27 @@ fn tool_error_payload(err: &SymphonyError) -> Value {
                 "reason": reason
             }
         }),
+        SymphonyError::MissingGithubApiToken => json!({
+            "error": {
+                "message": "Symphony is missing GitHub auth. Set `tracker.api_key` in `WORKFLOW.md` or export `GITHUB_TOKEN`/`GH_TOKEN`."
+            }
+        }),
+        SymphonyError::GithubApiStatus { status, message } => json!({
+            "error": {
+                "message": format!("GitHub REST request failed with HTTP {}.", status),
+                "status": status,
+                "reason": message
+            }
+        }),
+        SymphonyError::GithubApiRequest(reason) => json!({
+            "error": {
+                "message": "GitHub REST request failed before receiving a successful response.",
+                "reason": reason
+            }
+        }),
         other => json!({
             "error": {
-                "message": "Linear GraphQL tool execution failed.",
+                "message": "Tracker tool execution failed.",
                 "reason": other.to_string()
             }
         }),

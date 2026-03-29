@@ -185,6 +185,10 @@ fn test_config_defaults() {
     assert_eq!(config.tracker.api_key, None);
     assert_eq!(config.tracker.project_slug, None);
     assert_eq!(config.tracker.workspace_slug, None);
+    assert_eq!(config.tracker.repo_owner, None);
+    assert_eq!(config.tracker.repo_name, None);
+    assert_eq!(config.tracker.github_project_number, None);
+    assert_eq!(config.tracker.label_prefix, None);
     assert_eq!(config.polling.interval_ms, 30_000);
     assert_eq!(config.agent.max_concurrent_agents, 10);
     assert_eq!(config.agent.max_turns, 20);
@@ -207,6 +211,86 @@ fn test_config_defaults() {
     assert_eq!(config.pi_agent.stall_timeout_ms, 300_000);
     assert_eq!(config.server.public_url, None);
     assert!(config.notifications.is_none());
+}
+
+#[test]
+fn test_github_tracker_config_parses() {
+    let yaml_str = r#"
+tracker:
+  kind: github
+  api_key: github-test-token
+  repo_owner: kata-sh
+  repo_name: kata-mono
+  github_project_number: 42
+"#;
+
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let config = from_workflow(&raw).expect("github tracker config should parse");
+
+    assert_eq!(config.tracker.kind.as_deref(), Some("github"));
+    assert_eq!(config.tracker.repo_owner.as_deref(), Some("kata-sh"));
+    assert_eq!(config.tracker.repo_name.as_deref(), Some("kata-mono"));
+    assert_eq!(config.tracker.github_project_number, Some(42));
+    assert_eq!(config.tracker.label_prefix.as_deref(), Some("symphony"));
+    assert_eq!(config.tracker.project_slug, None);
+}
+
+#[test]
+fn test_github_tracker_config_missing_repo_owner_errors() {
+    let yaml_str = r#"
+tracker:
+  kind: github
+  api_key: github-test-token
+  repo_name: kata-mono
+"#;
+
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let err = from_workflow(&raw).expect_err("missing repo_owner should fail for github tracker");
+
+    assert!(
+        matches!(err, SymphonyError::InvalidWorkflowConfig(ref msg) if msg == "tracker.repo_owner is required when tracker.kind is github"),
+        "expected github repo_owner validation error, got: {err}"
+    );
+}
+
+#[test]
+fn test_github_tracker_config_with_label_prefix() {
+    let yaml_str = r#"
+tracker:
+  kind: github
+  api_key: github-test-token
+  repo_owner: kata-sh
+  repo_name: kata-mono
+  label_prefix: orchestration
+"#;
+
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let config =
+        from_workflow(&raw).expect("github tracker config with custom label prefix should parse");
+
+    assert_eq!(
+        config.tracker.label_prefix.as_deref(),
+        Some("orchestration")
+    );
+}
+
+#[test]
+fn test_linear_config_unaffected() {
+    let yaml_str = r#"
+tracker:
+  kind: linear
+  api_key: test-key
+  project_slug: my-project
+"#;
+
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let config = from_workflow(&raw).expect("linear config should parse");
+
+    assert_eq!(config.tracker.kind.as_deref(), Some("linear"));
+    assert_eq!(config.tracker.project_slug.as_deref(), Some("my-project"));
+    assert_eq!(config.tracker.repo_owner, None);
+    assert_eq!(config.tracker.repo_name, None);
+    assert_eq!(config.tracker.label_prefix, None);
 }
 
 #[test]
@@ -693,6 +777,36 @@ fn test_config_empty_literal_api_key_does_not_use_linear_api_key_fallback() {
     assert_eq!(
         config.tracker.api_key, None,
         "literal empty api_key should remain missing instead of using LINEAR_API_KEY fallback"
+    );
+
+    match previous_linear_api_key {
+        Some(value) => std::env::set_var("LINEAR_API_KEY", value),
+        None => std::env::remove_var("LINEAR_API_KEY"),
+    }
+}
+
+#[test]
+#[serial]
+fn test_github_api_key_env_ref_does_not_fallback_to_linear_api_key() {
+    let previous_linear_api_key = std::env::var("LINEAR_API_KEY").ok();
+    std::env::set_var("LINEAR_API_KEY", "fallback-linear-token");
+
+    std::env::remove_var("SYMPHONY_TEST_GITHUB_TOKEN_MISSING");
+
+    let yaml_str = r#"
+tracker:
+  kind: github
+  api_key: $SYMPHONY_TEST_GITHUB_TOKEN_MISSING
+  repo_owner: kata-sh
+  repo_name: kata
+"#;
+
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let config = from_workflow(&raw).expect("github config should parse");
+
+    assert_eq!(
+        config.tracker.api_key, None,
+        "github api_key should stay missing when explicit env reference is unset"
     );
 
     match previous_linear_api_key {
@@ -1242,9 +1356,8 @@ fn test_config_validation_missing_project_slug() {
 fn test_config_validation_bad_tracker_kind() {
     let config = ServiceConfig {
         tracker: TrackerConfig {
-            kind: Some("github".to_string()),
+            kind: Some("jira".to_string()),
             api_key: Some("test-key".into()),
-            project_slug: Some("my-project".to_string()),
             ..TrackerConfig::default()
         },
         ..ServiceConfig::default()
@@ -1252,8 +1365,71 @@ fn test_config_validation_bad_tracker_kind() {
 
     let result = validate(&config);
     assert!(
-        matches!(result, Err(SymphonyError::UnsupportedTrackerKind(ref k)) if k == "github"),
-        "unsupported tracker kind 'github' should return UnsupportedTrackerKind, got: {:?}",
+        matches!(result, Err(SymphonyError::UnsupportedTrackerKind(ref k)) if k == "jira"),
+        "unsupported tracker kind 'jira' should return UnsupportedTrackerKind, got: {:?}",
+        result
+    );
+}
+
+#[test]
+fn test_config_validation_github_valid() {
+    let config = ServiceConfig {
+        tracker: TrackerConfig {
+            kind: Some("github".to_string()),
+            api_key: Some("test-key".into()),
+            repo_owner: Some("kata-sh".to_string()),
+            repo_name: Some("kata".to_string()),
+            ..TrackerConfig::default()
+        },
+        ..ServiceConfig::default()
+    };
+
+    let result = validate(&config);
+    assert!(
+        result.is_ok(),
+        "github tracker config should validate successfully, got: {:?}",
+        result
+    );
+}
+
+#[test]
+fn test_config_validation_github_missing_api_key() {
+    let config = ServiceConfig {
+        tracker: TrackerConfig {
+            kind: Some("github".to_string()),
+            api_key: None,
+            repo_owner: Some("kata-sh".to_string()),
+            repo_name: Some("kata".to_string()),
+            ..TrackerConfig::default()
+        },
+        ..ServiceConfig::default()
+    };
+
+    let result = validate(&config);
+    assert!(
+        matches!(result, Err(SymphonyError::MissingGithubApiToken)),
+        "missing github api_key should return MissingGithubApiToken, got: {:?}",
+        result
+    );
+}
+
+#[test]
+fn test_config_validation_github_missing_repo_owner() {
+    let config = ServiceConfig {
+        tracker: TrackerConfig {
+            kind: Some("github".to_string()),
+            api_key: Some("test-key".into()),
+            repo_owner: None,
+            repo_name: Some("kata".to_string()),
+            ..TrackerConfig::default()
+        },
+        ..ServiceConfig::default()
+    };
+
+    let result = validate(&config);
+    assert!(
+        matches!(result, Err(SymphonyError::InvalidWorkflowConfig(ref msg)) if msg == "tracker.repo_owner is required when tracker.kind is github"),
+        "missing github repo_owner should fail validation, got: {:?}",
         result
     );
 }
