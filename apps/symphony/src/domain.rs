@@ -480,11 +480,18 @@ pub struct ServiceConfig {
 pub struct TrackerConfig {
     pub kind: Option<String>,
     pub endpoint: String,
-    /// The Linear API key.  Stored as [`ApiKey`] so it cannot accidentally
+    /// Tracker API key/token. Stored as [`ApiKey`] so it cannot accidentally
     /// appear in debug/tracing output — `{:?}` on this struct prints `[REDACTED]`.
     pub api_key: Option<ApiKey>,
+    // Linear-specific fields
     pub project_slug: Option<String>,
     pub workspace_slug: Option<String>,
+    // GitHub-specific fields
+    pub repo_owner: Option<String>,
+    pub repo_name: Option<String>,
+    pub github_project_number: Option<u64>,
+    pub label_prefix: Option<String>,
+    // Shared tracker fields
     pub assignee: Option<String>,
     pub active_states: Vec<String>,
     pub terminal_states: Vec<String>,
@@ -504,6 +511,10 @@ impl Default for TrackerConfig {
             api_key: None,
             project_slug: None,
             workspace_slug: None,
+            repo_owner: None,
+            repo_name: None,
+            github_project_number: None,
+            label_prefix: None,
             assignee: None,
             active_states: vec!["Todo".to_string(), "In Progress".to_string()],
             terminal_states: vec![

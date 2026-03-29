@@ -365,7 +365,7 @@ async fn linear_graphql_formats_unexpected_executor_failures() {
     let payload: Value = serde_json::from_str(&result.output).unwrap();
     assert_eq!(
         payload["error"]["message"],
-        "Linear GraphQL tool execution failed."
+        "Tracker tool execution failed."
     );
     assert_eq!(payload["error"]["reason"], ":boom");
 }

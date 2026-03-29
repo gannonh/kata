@@ -4,6 +4,7 @@ pub mod error;
 pub mod workflow;
 pub mod workflow_store;
 
+pub mod github;
 pub mod linear;
 
 pub mod docker;
