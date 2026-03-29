@@ -31,6 +31,12 @@ pub enum RpcCommand {
         #[serde(skip_serializing_if = "Option::is_none")]
         id: Option<String>,
     },
+    #[serde(rename = "follow_up")]
+    FollowUp {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        id: Option<String>,
+        message: String,
+    },
 }
 
 /// A command response emitted by pi RPC on stdout.

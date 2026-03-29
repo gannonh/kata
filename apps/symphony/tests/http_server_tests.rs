@@ -15,6 +15,7 @@ use symphony::domain::{
 use symphony::http_server::{
     build_router, parse_event_filter_contract, HttpServerState, RefreshControl, SnapshotSource,
 };
+use symphony::orchestrator::{steer_channel, SteerResult, SteerSender};
 use tower::ServiceExt;
 
 #[derive(Clone)]
@@ -166,6 +167,10 @@ fn fixture_snapshot() -> OrchestratorSnapshot {
 }
 
 fn test_router() -> axum::Router {
+    test_router_with_steer_sender(None)
+}
+
+fn test_router_with_steer_sender(steer_sender: Option<SteerSender>) -> axum::Router {
     let state = HttpServerState::new(
         Arc::new(StaticSnapshotSource {
             snapshot: fixture_snapshot(),
@@ -174,7 +179,35 @@ fn test_router() -> axum::Router {
         symphony::orchestrator::EscalationRegistry::default(),
     );
 
+    let state = if let Some(steer_sender) = steer_sender {
+        state.with_steer_sender(steer_sender)
+    } else {
+        state
+    };
+
     build_router(state)
+}
+
+fn spawn_steer_response(
+    result: SteerResult,
+) -> (
+    SteerSender,
+    tokio::sync::oneshot::Receiver<(String, String)>,
+) {
+    let (sender, mut receiver) = steer_channel();
+    let (seen_tx, seen_rx) = tokio::sync::oneshot::channel();
+
+    tokio::spawn(async move {
+        if let Some(dispatch) = receiver.recv().await {
+            let _ = seen_tx.send((
+                dispatch.issue_identifier.clone(),
+                dispatch.instruction.clone(),
+            ));
+            let _ = dispatch.response_tx.send(result);
+        }
+    });
+
+    (sender, seen_rx)
 }
 
 async fn body_text(response: axum::response::Response) -> String {
@@ -968,4 +1001,135 @@ async fn test_escalation_endpoints_return_empty_or_not_found_when_unknown() {
     assert_eq!(respond_response.status(), StatusCode::NOT_FOUND);
     let respond_payload = body_json(respond_response).await;
     assert_eq!(respond_payload, json!({"error": "escalation_not_found"}));
+}
+
+#[tokio::test]
+async fn test_steer_endpoint_returns_404_for_unknown_issue() {
+    let (steer_sender, seen_rx) = spawn_steer_response(SteerResult::IssueNotRunning);
+    let app = test_router_with_steer_sender(Some(steer_sender));
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/steer")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({"issue_identifier": "SIM-404", "instruction": "check logs"}).to_string(),
+                ))
+                .expect("request should build"),
+        )
+        .await
+        .expect("router should respond");
+
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    let payload = body_json(response).await;
+    assert_eq!(payload["error"]["code"], "issue_not_running");
+
+    let (issue_identifier, instruction) =
+        tokio::time::timeout(std::time::Duration::from_secs(1), seen_rx)
+            .await
+            .expect("steer dispatch should be observed")
+            .expect("dispatch payload should be captured");
+
+    assert_eq!(issue_identifier, "SIM-404");
+    assert_eq!(instruction, "check logs");
+}
+
+#[tokio::test]
+async fn test_steer_endpoint_returns_200_for_running_issue() {
+    let (steer_sender, seen_rx) = spawn_steer_response(SteerResult::Delivered {
+        issue_id: "issue-123".to_string(),
+        issue_identifier: "SIM-123".to_string(),
+    });
+    let app = test_router_with_steer_sender(Some(steer_sender));
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/steer")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "issue_identifier": "sim-123",
+                        "instruction": "Use the existing auth module"
+                    })
+                    .to_string(),
+                ))
+                .expect("request should build"),
+        )
+        .await
+        .expect("router should respond");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let payload = body_json(response).await;
+    assert_eq!(payload["ok"], true);
+    assert_eq!(payload["issue_id"], "issue-123");
+    assert_eq!(payload["issue_identifier"], "SIM-123");
+    assert_eq!(payload["delivered"], true);
+    assert_eq!(
+        payload["instruction_preview"],
+        "Use the existing auth module"
+    );
+
+    let (issue_identifier, instruction) =
+        tokio::time::timeout(std::time::Duration::from_secs(1), seen_rx)
+            .await
+            .expect("steer dispatch should be observed")
+            .expect("dispatch payload should be captured");
+
+    assert_eq!(issue_identifier, "SIM-123");
+    assert_eq!(instruction, "Use the existing auth module");
+}
+
+#[tokio::test]
+async fn test_steer_endpoint_validates_request_body() {
+    let app = test_router_with_steer_sender(None);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/steer")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({"issue_identifier": "SIM-123"}).to_string(),
+                ))
+                .expect("request should build"),
+        )
+        .await
+        .expect("router should respond");
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let payload = body_json(response).await;
+    assert_eq!(payload["error"]["code"], "invalid_request");
+}
+
+#[tokio::test]
+async fn test_steer_endpoint_instruction_too_long() {
+    let app = test_router_with_steer_sender(None);
+    let instruction = "x".repeat(5_001);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/steer")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "issue_identifier": "SIM-123",
+                        "instruction": instruction
+                    })
+                    .to_string(),
+                ))
+                .expect("request should build"),
+        )
+        .await
+        .expect("router should respond");
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let payload = body_json(response).await;
+    assert_eq!(payload["error"]["code"], "instruction_too_long");
 }

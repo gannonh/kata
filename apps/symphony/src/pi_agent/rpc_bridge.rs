@@ -11,7 +11,10 @@ use std::time::Duration;
 use chrono::Utc;
 use serde_json::Value;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::sync::{mpsc::UnboundedSender, oneshot};
+use tokio::sync::{
+    mpsc::{error::TryRecvError, UnboundedReceiver, UnboundedSender},
+    oneshot,
+};
 
 use crate::domain::{AgentEvent, EscalationRequest, EscalationResponse, Issue, PiAgentConfig};
 use crate::error::{Result, SymphonyError};
@@ -33,6 +36,12 @@ static COMMAND_COUNTER: AtomicU64 = AtomicU64::new(1);
 pub struct EscalationDispatch {
     pub request: EscalationRequest,
     pub response_tx: oneshot::Sender<EscalationResponse>,
+}
+
+/// Follow-up instruction to inject into an active session.
+pub struct FollowUpRequest {
+    pub instruction: String,
+    pub response_tx: oneshot::Sender<std::result::Result<(), String>>,
 }
 
 /// Opaque handle to a running pi-agent subprocess session.
@@ -126,24 +135,23 @@ async fn send_command(stdin: &mut tokio::process::ChildStdin, command: &RpcComma
     Ok(())
 }
 
-async fn read_line(
-    reader: &mut BufReader<tokio::process::ChildStdout>,
-    timeout_ms: u64,
-) -> Result<String> {
-    let mut line = String::new();
-    let read_fut = reader.read_line(&mut line);
-    match tokio::time::timeout(Duration::from_millis(timeout_ms), read_fut).await {
-        Ok(Ok(0)) => Err(SymphonyError::PiAgentError(
-            "pi-agent stdout closed unexpectedly".to_string(),
-        )),
-        Ok(Ok(_)) => Ok(line),
-        Ok(Err(err)) => Err(SymphonyError::PiAgentError(format!(
-            "failed to read pi-agent stdout: {err}"
-        ))),
-        Err(_) => Err(SymphonyError::PiAgentError(format!(
-            "pi-agent read timed out after {timeout_ms}ms"
-        ))),
+/// Send a follow-up instruction to an active pi-agent session.
+pub async fn send_follow_up(handle: &mut SessionHandle, message: &str) -> Result<()> {
+    let trimmed = message.trim();
+    if trimmed.is_empty() {
+        return Err(SymphonyError::PiAgentError(
+            "follow_up message cannot be empty".to_string(),
+        ));
     }
+
+    send_command(
+        &mut handle.stdin,
+        &RpcCommand::FollowUp {
+            id: Some(next_command_id("follow-up")),
+            message: trimmed.to_string(),
+        },
+    )
+    .await
 }
 
 /// Poll for a line with a chunk timeout. Returns:
@@ -677,6 +685,15 @@ pub async fn start_session(
 pub async fn run_turn(
     handle: &mut SessionHandle,
     prompt: &str,
+    event_callback: impl FnMut(AgentEvent) + Send,
+) -> Result<TurnResult> {
+    run_turn_with_followups(handle, prompt, None, event_callback).await
+}
+
+pub async fn run_turn_with_followups(
+    handle: &mut SessionHandle,
+    prompt: &str,
+    mut follow_up_rx: Option<&mut UnboundedReceiver<FollowUpRequest>>,
     mut event_callback: impl FnMut(AgentEvent) + Send,
 ) -> Result<TurnResult> {
     let turn_id = next_command_id("prompt");
@@ -698,10 +715,30 @@ pub async fn run_turn(
     let mut events = vec![session_started];
 
     let mut output_text: Option<String> = None;
-    let turn_line_timeout_ms = handle.stall_timeout_ms.max(handle.read_timeout_ms);
+    let turn_line_timeout_ms = handle.stall_timeout_ms.max(handle.read_timeout_ms).max(1);
+    let line_poll_timeout_ms = handle
+        .read_timeout_ms
+        .clamp(50, 500)
+        .min(turn_line_timeout_ms);
+    let mut last_line_at = std::time::Instant::now();
 
     loop {
-        let line = read_line(&mut handle.stdout_reader, turn_line_timeout_ms).await?;
+        if let Some(rx) = follow_up_rx.as_deref_mut() {
+            drain_follow_up_requests(handle, rx).await;
+        }
+
+        let line = read_poll_line(&mut handle.stdout_reader, line_poll_timeout_ms).await?;
+        let Some(line) = line else {
+            if last_line_at.elapsed() >= Duration::from_millis(turn_line_timeout_ms) {
+                return Err(SymphonyError::PiAgentError(format!(
+                    "pi-agent read timed out after {turn_line_timeout_ms}ms"
+                )));
+            }
+            continue;
+        };
+
+        last_line_at = std::time::Instant::now();
+
         let Some(parsed) = parse_output_line(&line) else {
             continue;
         };
@@ -931,6 +968,24 @@ pub async fn run_turn(
         total_tokens: token_delta.total_tokens,
         rate_limits: None,
     })
+}
+
+async fn drain_follow_up_requests(
+    handle: &mut SessionHandle,
+    follow_up_rx: &mut UnboundedReceiver<FollowUpRequest>,
+) {
+    loop {
+        match follow_up_rx.try_recv() {
+            Ok(request) => {
+                let result = send_follow_up(handle, &request.instruction)
+                    .await
+                    .map_err(|error| error.to_string());
+                let _ = request.response_tx.send(result);
+            }
+            Err(TryRecvError::Empty) => break,
+            Err(TryRecvError::Disconnected) => break,
+        }
+    }
 }
 
 /// Stop a pi-agent session process.

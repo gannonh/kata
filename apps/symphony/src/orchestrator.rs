@@ -294,6 +294,7 @@ async fn run_pi_turns_in_session<EventCallback>(
     initial_prompt: String,
     max_turns: u32,
     tracker_config: &TrackerConfig,
+    steer_rx: &mut Option<tokio::sync::mpsc::UnboundedReceiver<rpc_bridge::FollowUpRequest>>,
     mut stream_event: EventCallback,
 ) -> std::result::Result<SessionTurnLoopSuccess, SessionTurnLoopFailure>
 where
@@ -315,11 +316,12 @@ where
             prompt_builder::render_continuation_prompt(turn_number, capped_max_turns)
         };
 
-        let run_result = rpc_bridge::run_turn(session, &prompt, |event| {
-            stream_event(event.clone());
-            observed_events.push(event);
-        })
-        .await;
+        let run_result =
+            rpc_bridge::run_turn_with_followups(session, &prompt, steer_rx.as_mut(), |event| {
+                stream_event(event.clone());
+                observed_events.push(event);
+            })
+            .await;
 
         match run_result {
             Ok(turn_result) => {
@@ -400,6 +402,7 @@ async fn run_worker_task(
     attempt: Option<u32>,
     worker_host: Option<&str>,
     config: &WorkerTaskConfig,
+    mut steer_rx: Option<tokio::sync::mpsc::UnboundedReceiver<rpc_bridge::FollowUpRequest>>,
 ) -> WorkerResult {
     let issue_id = issue.id.clone();
 
@@ -597,6 +600,7 @@ async fn run_worker_task(
                             prompt,
                             config.max_turns,
                             &config.tracker,
+                            &mut steer_rx,
                             {
                                 let event_tx = config.event_tx.clone();
                                 let issue_id = issue.id.clone();
@@ -882,6 +886,7 @@ async fn run_worker_task(
                 prompt,
                 config.max_turns,
                 &config.tracker,
+                &mut steer_rx,
                 {
                     let event_tx = config.event_tx.clone();
                     let issue_id = issue.id.clone();
@@ -1038,6 +1043,72 @@ pub fn refresh_channel() -> (RefreshSender, RefreshReceiver) {
     )
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SteerResult {
+    Delivered {
+        issue_id: String,
+        issue_identifier: String,
+    },
+    IssueNotRunning,
+    NoActiveSession,
+    DeliveryFailed {
+        message: String,
+    },
+}
+
+pub struct SteerDispatch {
+    pub issue_identifier: String,
+    pub instruction: String,
+    pub response_tx: tokio::sync::oneshot::Sender<SteerResult>,
+}
+
+#[derive(Clone)]
+pub struct SteerSender {
+    tx: tokio::sync::mpsc::UnboundedSender<SteerDispatch>,
+}
+
+impl SteerSender {
+    pub async fn request_steer(
+        &self,
+        issue_identifier: String,
+        instruction: String,
+        timeout: Duration,
+    ) -> SteerResult {
+        let (response_tx, response_rx) = tokio::sync::oneshot::channel();
+        if self
+            .tx
+            .send(SteerDispatch {
+                issue_identifier,
+                instruction,
+                response_tx,
+            })
+            .is_err()
+        {
+            return SteerResult::DeliveryFailed {
+                message: "orchestrator_unavailable".to_string(),
+            };
+        }
+
+        match tokio::time::timeout(timeout, response_rx).await {
+            Ok(Ok(result)) => result,
+            Ok(Err(_)) => SteerResult::DeliveryFailed {
+                message: "orchestrator_dropped_response".to_string(),
+            },
+            Err(_) => SteerResult::DeliveryFailed {
+                message: "steer_timeout".to_string(),
+            },
+        }
+    }
+}
+
+pub fn steer_channel() -> (
+    SteerSender,
+    tokio::sync::mpsc::UnboundedReceiver<SteerDispatch>,
+) {
+    let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+    (SteerSender { tx }, rx)
+}
+
 pub const CONTINUATION_RETRY_DELAY_MS: i64 = 1_000;
 pub const FAILURE_RETRY_BASE_MS: i64 = 10_000;
 /// Marker included in stall-induced failure strings.
@@ -1087,6 +1158,18 @@ pub enum RuntimeEvent {
         issue_identifier: String,
         session_id: Option<String>,
         elapsed_ms: i64,
+    },
+    SteerReceived {
+        issue_identifier: String,
+        instruction_preview: String,
+    },
+    SteerDelivered {
+        issue_id: String,
+        issue_identifier: String,
+    },
+    SteerFailed {
+        issue_identifier: String,
+        error: String,
     },
     /// An HTTP refresh request was received and will trigger an immediate tick.
     RefreshRequested,
@@ -1397,6 +1480,8 @@ pub struct Orchestrator {
     worker_last_activity_ms: HashMap<String, i64>,
     worker_session_info: HashMap<String, WorkerSessionInfo>,
     worker_session_ids: HashMap<String, String>,
+    worker_steer_tx:
+        HashMap<String, tokio::sync::mpsc::UnboundedSender<rpc_bridge::FollowUpRequest>>,
     running_session_stats: HashMap<String, RunningSessionStats>,
     /// Blocked issues from the latest dispatch phase.
     blocked_issues: Vec<crate::domain::BlockedIssueEntry>,
@@ -1424,6 +1509,8 @@ pub struct Orchestrator {
     worker_escalation_rx: tokio::sync::mpsc::UnboundedReceiver<rpc_bridge::EscalationDispatch>,
     /// Sender half cloned into each spawned worker task for escalation registration.
     worker_escalation_tx: tokio::sync::mpsc::UnboundedSender<rpc_bridge::EscalationDispatch>,
+    steer_sender: SteerSender,
+    steer_rx: tokio::sync::mpsc::UnboundedReceiver<SteerDispatch>,
     escalation_registry: EscalationRegistry,
     /// Shared ephemeral cross-worker context store.
     shared_context_store: SharedContextStore,
@@ -1468,6 +1555,7 @@ impl Orchestrator {
         let (worker_result_tx, worker_result_rx) = tokio::sync::mpsc::unbounded_channel();
         let (worker_event_tx, worker_event_rx) = tokio::sync::mpsc::unbounded_channel();
         let (worker_escalation_tx, worker_escalation_rx) = tokio::sync::mpsc::unbounded_channel();
+        let (steer_sender, steer_rx) = steer_channel();
 
         Self {
             workflow_store,
@@ -1488,6 +1576,7 @@ impl Orchestrator {
             worker_last_activity_ms: HashMap::new(),
             worker_session_info: HashMap::new(),
             worker_session_ids: HashMap::new(),
+            worker_steer_tx: HashMap::new(),
             running_session_stats: HashMap::new(),
             blocked_issues: Vec::new(),
             pending_terminal_cleanup: HashMap::new(),
@@ -1504,6 +1593,8 @@ impl Orchestrator {
             worker_event_tx,
             worker_escalation_rx,
             worker_escalation_tx,
+            steer_sender,
+            steer_rx,
             escalation_registry: EscalationRegistry::default(),
             shared_context_store: SharedContextStore::new(
                 shared_context_ttl_ms,
@@ -1671,6 +1762,16 @@ impl Orchestrator {
                         self.publish_snapshot();
                     }
                 },
+                steer = self.steer_rx.recv() => {
+                    if let Some(dispatch) = steer {
+                        self.handle_steer_dispatch(dispatch).await;
+                        self.publish_snapshot();
+                    }
+                    while let Ok(dispatch) = self.steer_rx.try_recv() {
+                        self.handle_steer_dispatch(dispatch).await;
+                        self.publish_snapshot();
+                    }
+                },
                 result = self.worker_result_rx.recv() => {
                     if let Some(result) = result {
                         self.drain_ready_worker_events();
@@ -1740,6 +1841,14 @@ impl Orchestrator {
             let attempt = d.attempt;
             let worker_host = d.worker_host.clone();
             let tx = self.worker_result_tx.clone();
+            self.worker_steer_tx.remove(&issue.id);
+
+            let mut steer_rx = None;
+            if self.config.agent_backend == AgentBackend::KataCli {
+                let (steer_tx, rx) = tokio::sync::mpsc::unbounded_channel();
+                self.worker_steer_tx.insert(issue.id.clone(), steer_tx);
+                steer_rx = Some(rx);
+            }
 
             // Use the post-dispatch state (after Todo→In Progress transition) so
             // the multi-turn loop's between-turn check compares against the actual
@@ -1771,8 +1880,14 @@ impl Orchestrator {
             };
 
             tokio::spawn(async move {
-                let result =
-                    run_worker_task(&issue, attempt, worker_host.as_deref(), &task_config).await;
+                let result = run_worker_task(
+                    &issue,
+                    attempt,
+                    worker_host.as_deref(),
+                    &task_config,
+                    steer_rx,
+                )
+                .await;
 
                 if let Err(err) = tx.send(result) {
                     tracing::error!(
@@ -1837,6 +1952,138 @@ impl Orchestrator {
             method = %dispatch.request.method,
             "registered pending escalation"
         );
+    }
+
+    async fn handle_steer_dispatch(&mut self, dispatch: SteerDispatch) {
+        let issue_identifier = dispatch.issue_identifier.trim().to_ascii_uppercase();
+        let instruction = dispatch.instruction.trim().to_string();
+        let instruction_preview = truncate_for_display(&instruction, 100);
+
+        self.emit_runtime_event(RuntimeEvent::SteerReceived {
+            issue_identifier: issue_identifier.clone(),
+            instruction_preview: instruction_preview.clone(),
+        });
+
+        tracing::info!(
+            event = "steer_received",
+            issue_identifier = %issue_identifier,
+            instruction_preview = %instruction_preview,
+            "received operator steer request"
+        );
+
+        let response = if instruction.is_empty() {
+            SteerResult::DeliveryFailed {
+                message: "instruction_empty".to_string(),
+            }
+        } else {
+            let running_match = self
+                .state
+                .running
+                .iter()
+                .find(|(_, run_attempt)| {
+                    run_attempt
+                        .issue_identifier
+                        .eq_ignore_ascii_case(&issue_identifier)
+                })
+                .map(|(issue_id, run_attempt)| {
+                    (issue_id.clone(), run_attempt.issue_identifier.clone())
+                });
+
+            match running_match {
+                None => SteerResult::IssueNotRunning,
+                Some((issue_id, canonical_identifier)) => {
+                    if !self.worker_session_ids.contains_key(&issue_id) {
+                        SteerResult::NoActiveSession
+                    } else if let Some(steer_tx) = self.worker_steer_tx.get(&issue_id).cloned() {
+                        let (response_tx, response_rx) = tokio::sync::oneshot::channel();
+                        if steer_tx
+                            .send(rpc_bridge::FollowUpRequest {
+                                instruction,
+                                response_tx,
+                            })
+                            .is_err()
+                        {
+                            self.worker_steer_tx.remove(&issue_id);
+                            SteerResult::NoActiveSession
+                        } else {
+                            match tokio::time::timeout(Duration::from_secs(5), response_rx).await {
+                                Ok(Ok(Ok(()))) => SteerResult::Delivered {
+                                    issue_id,
+                                    issue_identifier: canonical_identifier,
+                                },
+                                Ok(Ok(Err(error))) => {
+                                    SteerResult::DeliveryFailed { message: error }
+                                }
+                                Ok(Err(_)) => SteerResult::DeliveryFailed {
+                                    message: "worker_follow_up_response_dropped".to_string(),
+                                },
+                                Err(_) => SteerResult::DeliveryFailed {
+                                    message: "worker_follow_up_timeout".to_string(),
+                                },
+                            }
+                        }
+                    } else {
+                        SteerResult::NoActiveSession
+                    }
+                }
+            }
+        };
+
+        match &response {
+            SteerResult::Delivered {
+                issue_id,
+                issue_identifier,
+            } => {
+                self.emit_runtime_event(RuntimeEvent::SteerDelivered {
+                    issue_id: issue_id.clone(),
+                    issue_identifier: issue_identifier.clone(),
+                });
+                tracing::info!(
+                    event = "steer_delivered",
+                    issue_id = %issue_id,
+                    issue_identifier = %issue_identifier,
+                    "delivered steer instruction to running worker"
+                );
+            }
+            SteerResult::IssueNotRunning => {
+                self.emit_runtime_event(RuntimeEvent::SteerFailed {
+                    issue_identifier: issue_identifier.clone(),
+                    error: "issue_not_running".to_string(),
+                });
+                tracing::warn!(
+                    event = "steer_failed",
+                    issue_identifier = %issue_identifier,
+                    error = "issue_not_running",
+                    "cannot steer issue because it is not running"
+                );
+            }
+            SteerResult::NoActiveSession => {
+                self.emit_runtime_event(RuntimeEvent::SteerFailed {
+                    issue_identifier: issue_identifier.clone(),
+                    error: "no_active_session".to_string(),
+                });
+                tracing::warn!(
+                    event = "steer_failed",
+                    issue_identifier = %issue_identifier,
+                    error = "no_active_session",
+                    "cannot steer issue because no active rpc session is available"
+                );
+            }
+            SteerResult::DeliveryFailed { message } => {
+                self.emit_runtime_event(RuntimeEvent::SteerFailed {
+                    issue_identifier: issue_identifier.clone(),
+                    error: message.clone(),
+                });
+                tracing::warn!(
+                    event = "steer_failed",
+                    issue_identifier = %issue_identifier,
+                    error = %message,
+                    "steer instruction delivery failed"
+                );
+            }
+        }
+
+        let _ = dispatch.response_tx.send(response);
     }
 
     pub fn resolve_escalation(
@@ -2473,6 +2720,7 @@ impl Orchestrator {
 
         let issue_identifier = run_attempt.issue_identifier.clone();
         let session_id = self.worker_session_ids.remove(issue_id);
+        self.worker_steer_tx.remove(issue_id);
         let retry_context = RetryContext {
             worker_host: run_attempt.worker_host.clone(),
             workspace_path: Some(run_attempt.workspace_path.clone()),
@@ -2771,12 +3019,14 @@ impl Orchestrator {
                     "worker attempt started"
                 );
 
+                let mut steer_rx = None;
                 let loop_result = run_pi_turns_in_session(
                     &mut session,
                     issue,
                     prompt,
                     self.config.agent.max_turns,
                     &self.config.tracker,
+                    &mut steer_rx,
                     |_event| {},
                 )
                 .await;
@@ -3052,6 +3302,45 @@ impl Orchestrator {
                     "issue_id": issue_id,
                     "session_id": session_id,
                     "elapsed_ms": elapsed_ms,
+                }),
+            ),
+            RuntimeEvent::SteerReceived {
+                issue_identifier,
+                instruction_preview,
+            } => (
+                EventKind::Runtime,
+                EventSeverity::Info,
+                Some(issue_identifier.clone()),
+                "steer_received",
+                serde_json::json!({
+                    "issue_identifier": issue_identifier,
+                    "instruction_preview": instruction_preview,
+                }),
+            ),
+            RuntimeEvent::SteerDelivered {
+                issue_id,
+                issue_identifier,
+            } => (
+                EventKind::Runtime,
+                EventSeverity::Info,
+                Some(issue_identifier.clone()),
+                "steer_delivered",
+                serde_json::json!({
+                    "issue_id": issue_id,
+                    "issue_identifier": issue_identifier,
+                }),
+            ),
+            RuntimeEvent::SteerFailed {
+                issue_identifier,
+                error,
+            } => (
+                EventKind::Runtime,
+                EventSeverity::Warn,
+                Some(issue_identifier.clone()),
+                "steer_failed",
+                serde_json::json!({
+                    "issue_identifier": issue_identifier,
+                    "error": error,
                 }),
             ),
             RuntimeEvent::RefreshRequested => (
@@ -3414,6 +3703,11 @@ impl Orchestrator {
         let (sender, receiver) = refresh_channel();
         self.refresh_receiver = Some(receiver);
         sender
+    }
+
+    /// Create a steer control sender used by the HTTP API.
+    pub fn create_steer_sender(&self) -> SteerSender {
+        self.steer_sender.clone()
     }
 
     /// Publish the current snapshot to the shared handle (if created).
@@ -4157,6 +4451,7 @@ impl Orchestrator {
         self.worker_last_activity_ms.remove(issue_id);
         self.worker_session_info.remove(issue_id);
         self.worker_session_ids.remove(issue_id);
+        self.worker_steer_tx.remove(issue_id);
         self.running_session_stats.remove(issue_id);
     }
 
@@ -4211,6 +4506,7 @@ impl Orchestrator {
         self.retry_tokens.remove(issue_id);
         self.worker_last_activity_ms.remove(issue_id);
         self.worker_session_ids.remove(issue_id);
+        self.worker_steer_tx.remove(issue_id);
         self.running_session_stats.remove(issue_id);
     }
 

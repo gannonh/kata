@@ -260,6 +260,7 @@ impl BootstrapDeps for RuntimeBootstrapDeps {
         let tui_snapshot_handle = snapshot_handle.clone();
         let refresh_sender = orchestrator.create_refresh_channel();
         let event_hub = orchestrator.create_event_hub();
+        let steer_sender = orchestrator.create_steer_sender();
         let http_state = HttpServerState::with_event_stream(
             Arc::new(snapshot_handle),
             Arc::new(refresh_sender),
@@ -267,7 +268,8 @@ impl BootstrapDeps for RuntimeBootstrapDeps {
             event_hub,
             symphony::http_server::EventStreamConfig::default(),
         )
-        .with_shared_context_store(orchestrator.shared_context_store());
+        .with_shared_context_store(orchestrator.shared_context_store())
+        .with_steer_sender(steer_sender);
 
         let mut tui_shutdown = None;
         let mut tui_exit = None;
