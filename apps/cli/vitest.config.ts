@@ -17,6 +17,7 @@ export default defineConfig({
         'src/resources/extensions/kata/gitignore.ts',
         'src/resources/extensions/kata/prefs-model.ts',
         'src/resources/extensions/kata/prefs-parser.ts',
+        'src/resources/extensions/kata/prefs-validator.ts',
         'src/resources/extensions/kata/prefs-writer.ts',
         'src/resources/extensions/kata/prompt-loader.ts',
         'src/resources/extensions/pr-lifecycle/pr-runner.ts',
