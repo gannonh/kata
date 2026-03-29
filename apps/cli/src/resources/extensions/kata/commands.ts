@@ -94,11 +94,21 @@ async function ensureOnboarding(
 
   if (choice === "setup") {
     const result = await runOnboarding(ctx, basePath);
-    return result === "completed";
+    if (result === "completed") {
+      // API key saved and .kata/ created; isProjectConfigured() still returns
+      // false until S02 adds team/project identifiers. Set the session skip
+      // flag so the wizard doesn't re-trigger on every subsequent /kata call
+      // within this session.
+      setSkipOnboarding(true);
+      return true;
+    }
+    return false;
   }
 
-  // User chose skip or not_yet
-  setSkipOnboarding(true);
+  // Only persist skip for the explicit "skip" action; "not_yet" just returns false
+  if (choice === "skip") {
+    setSkipOnboarding(true);
+  }
   return false;
 }
 
