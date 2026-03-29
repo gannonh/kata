@@ -114,4 +114,50 @@ describe("writeSymphonyUrlToPreferences", () => {
     expect(content).toContain("url: http://localhost:8080");
     expect(content).toContain("workflow_path: ./WORKFLOW.md");
   });
+
+  it("does not corrupt opening frontmatter fence when adding symphony section (P1 bug fix)", () => {
+    const kataDir = join(tmpDir, ".kata");
+    mkdirSync(kataDir, { recursive: true });
+    // A typical preferences.md with an opening and closing ---
+    writeFileSync(
+      join(kataDir, "preferences.md"),
+      "---\nversion: 1\nworkflow:\n  mode: linear\n---\n",
+      "utf-8",
+    );
+
+    const result = writeSymphonyUrlToPreferences(tmpDir, "http://localhost:8080");
+    expect(result).toBe(true);
+
+    const content = readFileSync(join(kataDir, "preferences.md"), "utf-8");
+    // Must start with --- (opening fence must not be consumed)
+    expect(content.startsWith("---\n")).toBe(true);
+    // Must contain the symphony section
+    expect(content).toContain("symphony:");
+    expect(content).toContain("url: http://localhost:8080");
+    // Must still contain original content
+    expect(content).toContain("version: 1");
+    expect(content).toContain("workflow:");
+  });
+
+  it("does not overwrite unrelated url fields when updating symphony url (P1 bug fix)", () => {
+    const kataDir = join(tmpDir, ".kata");
+    mkdirSync(kataDir, { recursive: true });
+    // preferences.md with a url field in another section AND a symphony section
+    writeFileSync(
+      join(kataDir, "preferences.md"),
+      "---\nlinear:\n  url: https://linear.app/team\nsymphony:\n  url: http://old:8080\n---\n",
+      "utf-8",
+    );
+
+    const result = writeSymphonyUrlToPreferences(tmpDir, "http://new:9090");
+    expect(result).toBe(true);
+
+    const content = readFileSync(join(kataDir, "preferences.md"), "utf-8");
+    // symphony url must be updated
+    expect(content).toContain("url: http://new:9090");
+    // unrelated url must NOT be overwritten
+    expect(content).toContain("url: https://linear.app/team");
+    // old symphony url must be gone
+    expect(content).not.toContain("http://old:8080");
+  });
 });

@@ -127,15 +127,26 @@ export function writeSymphonyUrlToPreferences(basePath: string, url: string): bo
       let content = readFileSync(path, 'utf-8')
       // Check if symphony section already exists in frontmatter
       if (/^symphony:/m.test(content)) {
-        // Replace or add url under existing symphony section
-        if (/^\s+url:/m.test(content)) {
-          content = content.replace(/^(\s+url:).*$/m, `$1 ${url}`)
+        // Replace or add url under existing symphony section — scope to symphony block only
+        if (/^(symphony:(?:\n[ \t]+\S[^\n]*)*)(\n[ \t]+url:)/m.test(content)) {
+          // Replace url: within the symphony section (not any other section's url:)
+          content = content.replace(
+            /(^symphony:(?:\n[ \t]+\S[^\n]*)*)(\n[ \t]+url:)[^\n]*/m,
+            `$1$2 ${url}`
+          )
         } else {
           content = content.replace(/^(symphony:.*$)/m, `$1\n  url: ${url}`)
         }
       } else {
-        // Add symphony section before the closing ---
-        content = content.replace(/^---\s*$/m, `symphony:\n  url: ${url}\n---`)
+        // Add symphony section before the closing --- (use lastIndexOf to avoid
+        // accidentally replacing the opening frontmatter fence)
+        const lastFence = content.lastIndexOf('\n---')
+        if (lastFence !== -1) {
+          content = content.slice(0, lastFence) + `\nsymphony:\n  url: ${url}\n---` + content.slice(lastFence + 4)
+        } else {
+          // No closing fence found — append at end
+          content = content.trimEnd() + `\nsymphony:\n  url: ${url}\n---\n`
+        }
       }
       writeFileSync(path, content, 'utf-8')
     } else {
