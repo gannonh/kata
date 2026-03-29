@@ -681,7 +681,9 @@ async fn test_doctor_github_pat_invalid() {
     assert!(results.iter().any(|result| {
         result.status == CheckStatus::Error
             && result.name == "GitHub PAT"
-            && result.message.contains("PAT authentication failed (HTTP 401)")
+            && result
+                .message
+                .contains("PAT authentication failed (HTTP 401)")
     }));
 }
 
@@ -776,7 +778,10 @@ async fn test_doctor_github_labels_missing_warning() {
         .await;
     let _labels_mock = server
         .mock("GET", "/repos/test-owner/test-repo/labels")
-        .match_query(Matcher::UrlEncoded("per_page".to_string(), "100".to_string()))
+        .match_query(Matcher::UrlEncoded(
+            "per_page".to_string(),
+            "100".to_string(),
+        ))
         .with_status(200)
         .with_header("content-type", "application/json")
         .with_body(r#"[{"name":"symphony:todo"}]"#)

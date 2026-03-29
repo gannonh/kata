@@ -175,7 +175,8 @@ fn github_snapshot() -> OrchestratorSnapshot {
         .expect("fixture timestamp should be valid");
 
     let mut snapshot = fixture_snapshot();
-    snapshot.tracker_project_url = Some("https://github.com/test-owner/test-repo/issues".to_string());
+    snapshot.tracker_project_url =
+        Some("https://github.com/test-owner/test-repo/issues".to_string());
     snapshot.running = BTreeMap::from([(
         "gh-42".to_string(),
         RunAttempt {

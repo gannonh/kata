@@ -4610,7 +4610,10 @@ fn test_e2e_github_snapshot_state_json_complete() {
         running_snapshot["tracker_project_url"],
         "https://github.com/test-owner/test-repo/issues"
     );
-    assert_eq!(running_snapshot["running"]["gh-42"]["issue_identifier"], "#42");
+    assert_eq!(
+        running_snapshot["running"]["gh-42"]["issue_identifier"],
+        "#42"
+    );
     assert_eq!(
         running_snapshot["running"]["gh-42"]["issue_url"],
         "https://github.com/test-owner/test-repo/issues/42"
@@ -4632,7 +4635,9 @@ fn test_e2e_github_snapshot_state_json_complete() {
     assert!(
         completed_entries.iter().any(|entry| {
             entry["identifier"] == "#42"
-                && entry["title"].as_str().is_some_and(|title| !title.is_empty())
+                && entry["title"]
+                    .as_str()
+                    .is_some_and(|title| !title.is_empty())
         }),
         "completed snapshot should include github identifier and title"
     );

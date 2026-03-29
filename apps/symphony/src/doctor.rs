@@ -394,18 +394,14 @@ pub async fn check_github(config: &TrackerConfig) -> Vec<DoctorCheckResult> {
             Err(SymphonyError::GithubApiStatus { status, .. }) => {
                 results.push(DoctorCheckResult::warning(
                     "GitHub Repo",
-                    format!(
-                        "Repository {repo_owner}/{repo_name} check returned HTTP {status}"
-                    ),
+                    format!("Repository {repo_owner}/{repo_name} check returned HTTP {status}"),
                 ));
                 false
             }
             Err(err) => {
                 results.push(DoctorCheckResult::warning(
                     "GitHub Repo",
-                    format!(
-                        "Repository {repo_owner}/{repo_name} check failed: {err}"
-                    ),
+                    format!("Repository {repo_owner}/{repo_name} check failed: {err}"),
                 ));
                 false
             }
