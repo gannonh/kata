@@ -78,7 +78,7 @@ export class ConsolePanel {
         };
 
         return {
-          render: () => renderConsolePanel(this.state, { now: this.now }),
+          render: (width: number) => renderConsolePanel(this.state, { now: this.now, width }),
           invalidate: () => undefined,
         };
       },

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { visibleWidth } from "@mariozechner/pi-tui";
 import { ConsolePanel } from "../console-panel.js";
 import { renderConsolePanel } from "../console-render.js";
 import { createEmptyConsolePanelState, type ConsolePanelState } from "../console-state.js";
@@ -51,7 +52,7 @@ describe("renderConsolePanel", () => {
     expect(joined).toContain("Symphony Console 🟢 connected");
     expect(joined).toContain("Workers: 1 running · 0 erroring · 1 queue");
     expect(joined).toContain("Completed: 3");
-    expect(joined).toContain("── Workers ─");
+    expect(joined).toMatch(/── Workers ─+/);
     expect(joined).toContain("⚠ KAT-1304");
     expect(joined).toContain("⚠ Pending escalations (1)");
     expect(joined).toContain("Reply: !respond <answer>");
@@ -85,6 +86,56 @@ describe("renderConsolePanel", () => {
 
     expect(joined).toContain("Reply: !respond <request-id|index> <answer>");
     expect(joined).not.toContain("Reply: !respond <answer>");
+  });
+
+  it("truncates all lines to the given width", () => {
+    const state = makeState({
+      connectionUrl: "http://very-long-hostname.example.com:8080/api/v1/symphony",
+      queueCount: 1,
+      completedCount: 3,
+      workers: [
+        {
+          issueId: "issue-1",
+          identifier: "KAT-1304",
+          issueTitle: "A very long issue title that would exceed a narrow terminal width easily",
+          linearState: "In Progress",
+          currentTool: "bash",
+          lastActivityAge: "4s",
+          model: "anthropic/claude-sonnet-4-6",
+        },
+      ],
+      escalations: [
+        {
+          requestId: "req-1",
+          issueId: "issue-1",
+          issueIdentifier: "KAT-1304",
+          issueTitle: "A very long issue title that would exceed a narrow terminal width easily",
+          questionPreview: "Can we deploy this extremely important feature to production now?",
+          waitingSince: 5_000,
+          timeoutMs: 300_000,
+        },
+      ],
+    });
+
+    const width = 60;
+    const lines = renderConsolePanel(state, { now: () => 15_000, width });
+
+    for (const [index, line] of lines.entries()) {
+      expect(
+        visibleWidth(line),
+        `Line ${index} exceeds width ${width}: "${line}"`,
+      ).toBeLessThanOrEqual(width);
+    }
+  });
+
+  it("adapts separator width to the provided width", () => {
+    const state = makeState();
+    const lines = renderConsolePanel(state, { now: () => 15_000, width: 50 });
+    const separators = lines.filter((line) => line.startsWith("──"));
+    expect(separators.length).toBeGreaterThan(0);
+    for (const sep of separators) {
+      expect(visibleWidth(sep)).toBe(50);
+    }
   });
 
   it("renders disconnected + stale state messaging", () => {

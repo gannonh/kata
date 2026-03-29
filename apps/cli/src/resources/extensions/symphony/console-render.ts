@@ -1,3 +1,4 @@
+import { truncateToWidth } from "@mariozechner/pi-tui";
 import {
   CONSOLE_STALE_AFTER_MS,
   formatDurationMs,
@@ -6,6 +7,7 @@ import {
 
 export interface RenderConsolePanelOptions {
   now?: () => number;
+  width?: number;
 }
 
 const CONNECTION_ICON: Record<ConsolePanelState["connectionStatus"], string> = {
@@ -20,6 +22,7 @@ export function renderConsolePanel(
 ): string[] {
   const now = options.now ?? Date.now;
   const nowMs = now();
+  const width = options.width;
   const lines: string[] = [];
 
   const erroringWorkers = state.workers.filter((worker) => !!worker.lastError).length;
@@ -30,7 +33,7 @@ export function renderConsolePanel(
   );
   lines.push(`Completed: ${state.completedCount}`);
 
-  lines.push("── Status ─────────────────────────────");
+  lines.push(separator("Status", width));
   if (state.lastUpdateAt !== null) {
     lines.push(`Last event ${formatDurationMs(Math.max(0, nowMs - state.lastUpdateAt))} ago`);
   } else {
@@ -53,7 +56,7 @@ export function renderConsolePanel(
     lines.push(`ℹ ${state.message}`);
   }
 
-  lines.push("── Workers ────────────────────────────");
+  lines.push(separator("Workers", width));
 
   if (state.workers.length === 0) {
     lines.push("  (no active workers)");
@@ -84,7 +87,7 @@ export function renderConsolePanel(
     }
   }
 
-  lines.push("── Escalations ────────────────────────");
+  lines.push(separator("Escalations", width));
   if (state.escalations.length > 0) {
     lines.push(`⚠ Pending escalations (${state.escalations.length})`);
     for (const [index, escalation] of state.escalations.entries()) {
@@ -106,7 +109,11 @@ export function renderConsolePanel(
     lines.push("Escalations: none pending");
   }
 
-  lines.push("── End ────────────────────────────────");
+  lines.push(separator("End", width));
+
+  if (width !== undefined && width > 0) {
+    return lines.map((line) => truncateToWidth(line, width));
+  }
 
   return lines;
 }
@@ -120,4 +127,11 @@ function renderConnectionHeader(state: ConsolePanelState): string {
   const label = state.connectionStatus.replace("_", " ");
   const endpoint = state.connectionUrl || "(not configured)";
   return `Symphony Console ${icon} ${label} · ${endpoint}`;
+}
+
+function separator(label: string, width?: number): string {
+  const prefix = `── ${label} `;
+  const totalWidth = width ?? 40;
+  const tailLength = Math.max(0, totalWidth - prefix.length);
+  return `${prefix}${"─".repeat(tailLength)}`;
 }
