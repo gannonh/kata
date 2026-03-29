@@ -1,9 +1,11 @@
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use symphony::domain::ServiceConfig;
 
+#[cfg(not(test))]
+use symphony::doctor;
 #[cfg(not(test))]
 use symphony::orchestrator::OrchestratorPort;
 #[cfg(not(test))]
@@ -42,12 +44,25 @@ use tracing_appender::non_blocking::WorkerGuard;
 #[cfg(not(test))]
 use tracing_subscriber::EnvFilter;
 
+#[derive(Debug, Clone, Subcommand, PartialEq, Eq)]
+pub enum CliCommand {
+    /// Run preflight diagnostics without starting the orchestrator
+    Doctor {
+        /// Path to WORKFLOW.md
+        #[arg(default_value = "WORKFLOW.md")]
+        workflow_path: String,
+    },
+}
+
 #[derive(Parser, Debug, Clone)]
 #[command(
     name = "symphony",
     about = "Symphony orchestrator — polls Linear, dispatches Codex agent sessions"
 )]
 pub struct Cli {
+    #[command(subcommand)]
+    pub command: Option<CliCommand>,
+
     /// Path to WORKFLOW.md
     #[arg(default_value = "WORKFLOW.md")]
     pub workflow_path: String,
@@ -359,7 +374,10 @@ where
 }
 
 pub fn resolve_workflow_path(cli: &Cli) -> PathBuf {
-    PathBuf::from(&cli.workflow_path)
+    match &cli.command {
+        Some(CliCommand::Doctor { workflow_path }) => PathBuf::from(workflow_path),
+        None => PathBuf::from(&cli.workflow_path),
+    }
 }
 
 #[cfg_attr(test, allow(dead_code))]
@@ -521,6 +539,55 @@ pub fn execute_cli(cli: &Cli, deps: &mut dyn BootstrapDeps) -> Result<(), String
             workflow_path.display()
         )
     })
+}
+
+#[cfg(not(test))]
+fn run_doctor(workflow_path: &Path) -> Result<i32, String> {
+    let mut results = doctor::check_config(workflow_path);
+
+    if !doctor::has_errors(&results) {
+        match doctor::load_service_config(workflow_path) {
+            Ok(service_config) => {
+                let runtime = tokio::runtime::Handle::try_current()
+                    .map_err(|err| format!("missing tokio runtime for doctor checks: {err}"))?;
+
+                let linear_results = tokio::task::block_in_place(|| {
+                    runtime.block_on(doctor::check_linear(&service_config.tracker))
+                });
+                results.extend(linear_results);
+
+                results.extend(doctor::check_backend(&service_config));
+                results.extend(doctor::check_workspace(&service_config.workspace));
+
+                let adapter = LinearAdapter::new(LinearClient::new(service_config.tracker.clone()));
+                let orphan_results = tokio::task::block_in_place(|| {
+                    runtime.block_on(doctor::check_orphans(&service_config, &adapter))
+                });
+                results.extend(orphan_results);
+            }
+            Err(err) => results.push(doctor::DoctorCheckResult {
+                name: "Config Parse".to_string(),
+                status: doctor::CheckStatus::Error,
+                message: format!("Failed to load workflow for runtime checks: {err}"),
+                details: None,
+            }),
+        }
+    } else {
+        results.push(doctor::DoctorCheckResult {
+            name: "Runtime Checks".to_string(),
+            status: doctor::CheckStatus::Skipped,
+            message: "Skipped Linear/backend/workspace/orphan checks because config check reported errors".to_string(),
+            details: None,
+        });
+    }
+
+    println!("{}", doctor::format_results(&results));
+
+    if doctor::has_errors(&results) {
+        Ok(1)
+    } else {
+        Ok(0)
+    }
 }
 
 #[cfg(not(test))]
@@ -741,6 +808,16 @@ fn run_entrypoint(args: impl IntoIterator<Item = OsString>) -> i32 {
     };
 
     init_tracing(cli.logs_root.as_deref().map(Path::new), cli.tui);
+
+    if let Some(CliCommand::Doctor { workflow_path }) = &cli.command {
+        match run_doctor(Path::new(workflow_path)) {
+            Ok(code) => return code,
+            Err(err) => {
+                eprintln!("{err}");
+                return 1;
+            }
+        }
+    }
 
     let mut deps = RuntimeBootstrapDeps::default();
 

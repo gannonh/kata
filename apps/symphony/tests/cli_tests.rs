@@ -5,8 +5,15 @@ use std::path::Path;
 use std::process::Command;
 use std::{fs, io};
 
-use main_bin::{BootstrapDeps, Cli};
-use symphony::domain::ServiceConfig;
+use main_bin::{BootstrapDeps, Cli, CliCommand};
+use mockito::{Matcher, Server};
+use symphony::doctor::{self, CheckStatus};
+use symphony::domain::{
+    AgentBackend, ApiKey, ServiceConfig, TrackerConfig, WorkspaceConfig, WorkspaceIsolation,
+    WorkspaceRepoStrategy,
+};
+use symphony::linear::adapter::LinearAdapter;
+use symphony::linear::client::LinearClient;
 
 struct FakeDeps {
     calls: Vec<String>,
@@ -82,6 +89,31 @@ fn test_positional_workflow_override_is_respected() {
         workflow_path, "tmp/custom/WORKFLOW.md",
         "explicit positional workflow path should override default"
     );
+}
+
+#[test]
+fn test_doctor_subcommand_parses() {
+    let parsed = main_bin::parse_cli_from(["symphony", "doctor", "WORKFLOW.md"])
+        .expect("CLI parse should succeed");
+
+    assert_eq!(
+        parsed.command,
+        Some(CliCommand::Doctor {
+            workflow_path: "WORKFLOW.md".to_string()
+        })
+    );
+}
+
+#[test]
+fn test_run_subcommand_backward_compat() {
+    let parsed =
+        main_bin::parse_cli_from(["symphony", "WORKFLOW.md"]).expect("CLI parse should succeed");
+
+    assert!(
+        parsed.command.is_none(),
+        "default invocation should not select a subcommand"
+    );
+    assert_eq!(parsed.workflow_path, "WORKFLOW.md");
 }
 
 #[test]
@@ -459,6 +491,190 @@ fn test_without_logs_root_no_tui_streams_stdout_logs() {
         "no log file should be created when --logs-root is omitted, found {}",
         log_file_path.display()
     );
+}
+
+#[test]
+fn test_doctor_config_check_catches_missing_api_key() {
+    let temp_dir = tempfile::tempdir().expect("temp dir should be created");
+    let workflow_path = temp_dir.path().join("WORKFLOW.md");
+
+    fs::write(
+        &workflow_path,
+        "---\ntracker:\n  kind: linear\n  project_slug: my-project\n---\nPrompt",
+    )
+    .expect("workflow fixture should be written");
+
+    let results = doctor::check_config(&workflow_path);
+    assert!(doctor::has_errors(&results));
+    assert!(results.iter().any(|result| {
+        result.status == CheckStatus::Error
+            && result.name == "Config Validate"
+            && result.message.contains("missing Linear API token")
+    }));
+}
+
+#[test]
+fn test_check_backend_with_nonexistent_command() {
+    let mut config = ServiceConfig::default();
+    config.agent_backend = AgentBackend::Codex;
+    config.codex.command = vec!["definitely-not-a-real-command-symphony".to_string()];
+
+    let results = doctor::check_backend(&config);
+    assert!(results.iter().any(|result| {
+        result.status == CheckStatus::Error
+            && result.name == "Backend"
+            && result.message.contains("not found on PATH")
+    }));
+}
+
+#[test]
+fn test_check_workspace_root_nonexistent_and_creatable() {
+    let temp_dir = tempfile::tempdir().expect("temp dir should be created");
+    let workspace_root = temp_dir.path().join("new-workspaces");
+
+    let mut workspace = WorkspaceConfig::default();
+    workspace.root = workspace_root.display().to_string();
+    workspace.repo = Some(temp_dir.path().display().to_string());
+    workspace.strategy = WorkspaceRepoStrategy::Auto;
+    workspace.isolation = WorkspaceIsolation::Local;
+
+    let results = doctor::check_workspace(&workspace);
+    assert!(results
+        .iter()
+        .any(|result| { result.status == CheckStatus::Pass && result.name == "Workspace Root" }));
+    assert!(
+        workspace_root.exists(),
+        "doctor should create workspace root"
+    );
+}
+
+#[test]
+fn test_check_workspace_root_nonexistent_and_not_creatable() {
+    let mut workspace = WorkspaceConfig::default();
+    workspace.root = "/dev/null/symphony-root".to_string();
+    workspace.strategy = WorkspaceRepoStrategy::Auto;
+    workspace.isolation = WorkspaceIsolation::Local;
+
+    let results = doctor::check_workspace(&workspace);
+    assert!(results
+        .iter()
+        .any(|result| { result.status == CheckStatus::Error && result.name == "Workspace Root" }));
+}
+
+#[tokio::test]
+async fn test_check_linear_auth_failure() {
+    let mut server = Server::new_async().await;
+    let _auth_mock = server
+        .mock("POST", "/graphql")
+        .with_status(401)
+        .with_header("content-type", "application/json")
+        .with_body("{\"error\":\"Unauthorized\"}")
+        .create_async()
+        .await;
+
+    let config = TrackerConfig {
+        kind: Some("linear".to_string()),
+        endpoint: format!("{}/graphql", server.url()),
+        api_key: Some(ApiKey::new("bad-key")),
+        project_slug: Some("proj".to_string()),
+        workspace_slug: None,
+        assignee: None,
+        active_states: vec!["Todo".to_string()],
+        terminal_states: vec!["Done".to_string()],
+    };
+
+    let results = doctor::check_linear(&config).await;
+    assert!(results.iter().any(|result| {
+        result.status == CheckStatus::Error
+            && result.name == "Linear Auth"
+            && result.message.contains("HTTP 401")
+    }));
+}
+
+#[tokio::test]
+async fn test_doctor_full_run_with_valid_config() {
+    let temp_dir = tempfile::tempdir().expect("temp dir should be created");
+    let workspace_root = temp_dir.path().join("workspaces");
+    let local_repo = temp_dir.path().join("repo");
+    fs::create_dir_all(&local_repo).expect("local repo fixture should be created");
+
+    let mut server = Server::new_async().await;
+
+    let _viewer_mock = server
+        .mock("POST", "/graphql")
+        .match_body(Matcher::Regex("SymphonyDoctorViewer".to_string()))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body("{\"data\":{\"viewer\":{\"id\":\"viewer-1\"}}}")
+        .create_async()
+        .await;
+
+    let _project_mock = server
+        .mock("POST", "/graphql")
+        .match_body(Matcher::Regex("SymphonyDoctorProject".to_string()))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            "{\"data\":{\"projects\":{\"nodes\":[{\"id\":\"proj-1\",\"name\":\"Project\",\"teams\":{\"nodes\":[{\"id\":\"team-1\",\"name\":\"Team\",\"states\":{\"nodes\":[{\"name\":\"Todo\"},{\"name\":\"In Progress\"},{\"name\":\"Done\"}]}}]}}]}}}",
+        )
+        .create_async()
+        .await;
+
+    let _issues_mock = server
+        .mock("POST", "/graphql")
+        .match_body(Matcher::Regex("SymphonyLinearPoll".to_string()))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            "{\"data\":{\"issues\":{\"nodes\":[],\"pageInfo\":{\"hasNextPage\":false,\"endCursor\":null}}}}",
+        )
+        .create_async()
+        .await;
+
+    let workflow_path = temp_dir.path().join("WORKFLOW.md");
+    fs::write(
+        &workflow_path,
+        format!(
+            "---\ntracker:\n  kind: linear\n  api_key: test-token\n  endpoint: {endpoint}\n  project_slug: project\n  active_states:\n    - Todo\n    - In Progress\n  terminal_states:\n    - Done\nworkspace:\n  root: {workspace_root}\n  repo: {repo}\n  git_strategy: auto\n  isolation: local\nagent:\n  backend: codex\ncodex:\n  command:\n    - git\n---\nPrompt\n",
+            endpoint = format!("{}/graphql", server.url()),
+            workspace_root = workspace_root.display(),
+            repo = local_repo.display(),
+        ),
+    )
+    .expect("workflow fixture should be written");
+
+    let mut results = doctor::check_config(&workflow_path);
+    assert!(
+        !doctor::has_errors(&results),
+        "config checks should pass: {results:?}"
+    );
+
+    let service_config = doctor::load_service_config(&workflow_path)
+        .expect("doctor should load config for runtime checks");
+
+    results.extend(doctor::check_linear(&service_config.tracker).await);
+    results.extend(doctor::check_backend(&service_config));
+    results.extend(doctor::check_workspace(&service_config.workspace));
+
+    let adapter = LinearAdapter::new(LinearClient::new(service_config.tracker.clone()));
+    results.extend(doctor::check_orphans(&service_config, &adapter).await);
+
+    assert!(
+        !doctor::has_errors(&results),
+        "full doctor checks should pass: {results:?}"
+    );
+    assert!(results
+        .iter()
+        .any(|result| { result.status == CheckStatus::Pass && result.name == "Linear Auth" }));
+    assert!(results
+        .iter()
+        .any(|result| { result.status == CheckStatus::Pass && result.name == "Backend" }));
+    assert!(results
+        .iter()
+        .any(|result| { result.status == CheckStatus::Pass && result.name == "Workspace Root" }));
+    assert!(results
+        .iter()
+        .any(|result| { result.status == CheckStatus::Pass && result.name == "Orphans" }));
 }
 
 fn read_to_string_or_panic(path: &Path) -> String {
