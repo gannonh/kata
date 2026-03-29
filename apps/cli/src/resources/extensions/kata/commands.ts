@@ -45,6 +45,62 @@ import {
 import { getCurrentBranch } from "../pr-lifecycle/gh-utils.js";
 import { getPRNumber } from "../pr-lifecycle/pr-merge-utils.js";
 import { loadPrompt } from "./prompt-loader.js";
+import {
+  isProjectConfigured,
+  runOnboarding,
+  shouldSkipOnboarding,
+  setSkipOnboarding,
+} from "./onboarding.js";
+
+// ─── Onboarding gate ──────────────────────────────────────────────────────────
+
+/**
+ * Ensure the project is configured (has .kata/ with linear config).
+ * If not configured and not skipped, shows a setup-or-skip prompt.
+ *
+ * Returns true if the project is configured (or was just configured).
+ * Returns false if the user skipped or onboarding was already skipped this session.
+ */
+async function ensureOnboarding(
+  ctx: ExtensionCommandContext,
+  basePath: string,
+): Promise<boolean> {
+  if (isProjectConfigured(basePath)) return true;
+  if (shouldSkipOnboarding()) return false;
+
+  const { showNextAction } = await import("../shared/next-action-ui.js");
+
+  const choice = await showNextAction(ctx as any, {
+    title: "Kata Setup",
+    summary: [
+      "This project hasn't been set up with Kata yet.",
+      "You'll need a Linear API key to get started.",
+    ],
+    actions: [
+      {
+        id: "setup",
+        label: "Set up Kata (Recommended)",
+        description: "Configure Linear integration and create .kata/ directory.",
+        recommended: true,
+      },
+      {
+        id: "skip",
+        label: "Skip for now",
+        description: "Skip setup for this session. Run /kata later to configure.",
+      },
+    ],
+    notYetMessage: "Run /kata to set up when ready.",
+  });
+
+  if (choice === "setup") {
+    const result = await runOnboarding(ctx);
+    return result === "completed";
+  }
+
+  // User chose skip or not_yet
+  setSkipOnboarding(true);
+  return false;
+}
 
 export interface PrefsStatusReport {
   level: "info" | "warning";
@@ -228,8 +284,10 @@ export function registerKataCommand(pi: ExtensionAPI): void {
       }
 
       if (trimmed === "auto" || trimmed.startsWith("auto ")) {
+        const cwd = process.cwd();
+        if (!await ensureOnboarding(ctx, cwd)) return;
         const verboseMode = trimmed.includes("--verbose");
-        await startAuto(ctx, pi, process.cwd(), verboseMode);
+        await startAuto(ctx, pi, cwd, verboseMode);
         return;
       }
 
@@ -243,17 +301,23 @@ export function registerKataCommand(pi: ExtensionAPI): void {
       }
 
       if (trimmed === "queue") {
-        await showQueue(ctx, pi, process.cwd());
+        const cwd = process.cwd();
+        if (!await ensureOnboarding(ctx, cwd)) return;
+        await showQueue(ctx, pi, cwd);
         return;
       }
 
       if (trimmed === "discuss") {
-        await showDiscuss(ctx, pi, process.cwd());
+        const cwd = process.cwd();
+        if (!await ensureOnboarding(ctx, cwd)) return;
+        await showDiscuss(ctx, pi, cwd);
         return;
       }
 
       if (trimmed === "plan") {
-        await showPlan(ctx, pi, process.cwd());
+        const cwd = process.cwd();
+        if (!await ensureOnboarding(ctx, cwd)) return;
+        await showPlan(ctx, pi, cwd);
         return;
       }
 
@@ -263,9 +327,12 @@ export function registerKataCommand(pi: ExtensionAPI): void {
       }
 
       if (trimmed === "" || trimmed === "step") {
+        const cwd = process.cwd();
+        if (!await ensureOnboarding(ctx, cwd)) return;
+
         let stepBackend: KataBackend;
         try {
-          stepBackend = await createBackend(process.cwd());
+          stepBackend = await createBackend(cwd);
         } catch (err) {
           ctx.ui.notify(`Kata backend init failed: ${err instanceof Error ? err.message : String(err)}`, "error");
           return;
@@ -286,7 +353,7 @@ export function registerKataCommand(pi: ExtensionAPI): void {
           return;
         }
         if (state.phase === "complete" || !state.activeMilestone) {
-          await showSmartEntry(ctx, pi, process.cwd());
+          await showSmartEntry(ctx, pi, cwd);
           return;
         }
 
@@ -299,7 +366,7 @@ export function registerKataCommand(pi: ExtensionAPI): void {
         ) {
           try {
             const { ensureSliceBranch } = await import("./worktree.js");
-            ensureSliceBranch(process.cwd(), state.activeMilestone.id, state.activeSlice.id);
+            ensureSliceBranch(cwd, state.activeMilestone.id, state.activeSlice.id);
           } catch (err) {
             ctx.ui.notify(
               `Branch setup failed: ${err instanceof Error ? err.message : String(err)}`,

@@ -30,6 +30,10 @@ import type {
   KataState,
   RoadmapSliceEntry,
 } from "./types.js";
+import {
+  isProjectConfigured,
+  shouldSkipOnboarding,
+} from "./onboarding.js";
 
 // ─── PR onboarding helpers ─────────────────────────────────────────────────
 
@@ -865,6 +869,18 @@ export async function showSmartEntry(
   pi: ExtensionAPI,
   basePath: string,
 ): Promise<void> {
+  // Onboarding guard: if unconfigured and skipped, show a brief message
+  if (!isProjectConfigured(basePath)) {
+    if (shouldSkipOnboarding()) {
+      ctx.ui.notify("Run /kata to set up Linear integration.", "info");
+      return;
+    }
+    // If not skipped, the caller (commands.ts) should have already handled the prompt.
+    // This is a safety net — show the notification and return.
+    ctx.ui.notify("Run /kata to set up Linear integration.", "info");
+    return;
+  }
+
   const modeGate = getWorkflowEntrypointGuard("smart-entry");
   if (!modeGate.allow) {
     ctx.ui.notify(
