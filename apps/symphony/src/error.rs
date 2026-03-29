@@ -35,6 +35,9 @@ pub enum SymphonyError {
     #[error("missing Linear project slug")]
     MissingLinearProjectSlug,
 
+    #[error("missing GitHub API token")]
+    MissingGithubApiToken,
+
     #[error("Linear API request error: {0}")]
     LinearApiRequest(String),
 
@@ -49,6 +52,12 @@ pub enum SymphonyError {
 
     #[error("Linear missing end cursor")]
     LinearMissingEndCursor,
+
+    #[error("GitHub API request error: {0}")]
+    GithubApiRequest(String),
+
+    #[error("GitHub API status error: {status} ({message})")]
+    GithubApiStatus { status: u16, message: String },
 
     // ── Workspace ──────────────────────────────────────────────────────
     #[error("workspace path outside root: {workspace} not under {root}")]
