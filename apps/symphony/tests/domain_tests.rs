@@ -160,22 +160,37 @@ fn test_service_config_defaults_match_spec() {
 }
 
 #[test]
-fn test_tracker_linear_project_url_uses_project_and_workspace_slug() {
+fn test_tracker_project_url_uses_linear_project_and_workspace_slug() {
     let mut tracker = TrackerConfig::default();
     tracker.project_slug = Some("symphony".to_string());
     assert_eq!(
-        tracker.linear_project_url().as_deref(),
+        tracker.tracker_project_url().as_deref(),
         Some("https://linear.app/kata-sh/project/symphony")
     );
 
     tracker.workspace_slug = Some("acme".to_string());
     assert_eq!(
-        tracker.linear_project_url().as_deref(),
+        tracker.tracker_project_url().as_deref(),
         Some("https://linear.app/acme/project/symphony")
     );
 
     tracker.project_slug = None;
-    assert_eq!(tracker.linear_project_url(), None);
+    assert_eq!(tracker.tracker_project_url(), None);
+}
+
+#[test]
+fn test_tracker_project_url_uses_github_repo_path_for_github_kind() {
+    let tracker = TrackerConfig {
+        kind: Some("github".to_string()),
+        repo_owner: Some("kata-sh".to_string()),
+        repo_name: Some("kata-mono".to_string()),
+        ..TrackerConfig::default()
+    };
+
+    assert_eq!(
+        tracker.tracker_project_url().as_deref(),
+        Some("https://github.com/kata-sh/kata-mono/issues")
+    );
 }
 
 // ── ServerConfig default fix (T01 must-have) ───────────────────────────
@@ -285,7 +300,7 @@ fn test_orchestrator_snapshot_serializes() {
     let snap = OrchestratorSnapshot {
         poll_interval_ms: 30_000,
         max_concurrent_agents: 5,
-        linear_project_url: Some("https://linear.app/kata-sh/project/symphony".to_string()),
+        tracker_project_url: Some("https://linear.app/kata-sh/project/symphony".to_string()),
         running: {
             let mut m = BTreeMap::new();
             m.insert(
@@ -407,7 +422,7 @@ fn test_orchestrator_snapshot_serializes() {
     assert!(val.get("poll_interval_ms").is_some());
     assert!(val.get("max_concurrent_agents").is_some());
     assert_eq!(
-        val.get("linear_project_url").and_then(|v| v.as_str()),
+        val.get("tracker_project_url").and_then(|v| v.as_str()),
         Some("https://linear.app/kata-sh/project/symphony")
     );
     assert!(val.get("running").is_some());

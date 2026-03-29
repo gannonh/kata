@@ -530,12 +530,31 @@ impl Default for TrackerConfig {
 }
 
 impl TrackerConfig {
-    /// Build a browser URL for the configured Linear project.
+    /// Build a browser URL for the configured tracker project.
     ///
-    /// The project slug comes from workflow config (`tracker.project_slug`).
-    /// Workspace slug can come from `tracker.workspace_slug`, with a fallback
-    /// to Kata's default workspace for backward compatibility.
-    pub fn linear_project_url(&self) -> Option<String> {
+    /// - GitHub kind: `https://github.com/{owner}/{repo}/issues`
+    /// - Linear kind (or default): `https://linear.app/{workspace}/project/{slug}`
+    pub fn tracker_project_url(&self) -> Option<String> {
+        match self
+            .kind
+            .as_deref()
+            .map(str::trim)
+            .filter(|kind| !kind.is_empty())
+        {
+            Some(kind) if kind.eq_ignore_ascii_case("github") => {
+                let owner = self.repo_owner.as_deref()?.trim();
+                let repo = self.repo_name.as_deref()?.trim();
+                if owner.is_empty() || repo.is_empty() {
+                    return None;
+                }
+
+                Some(format!("https://github.com/{owner}/{repo}/issues"))
+            }
+            _ => self.build_linear_url(),
+        }
+    }
+
+    fn build_linear_url(&self) -> Option<String> {
         let project_slug = self.project_slug.as_deref()?.trim();
         if project_slug.is_empty() {
             return None;
@@ -1171,7 +1190,7 @@ pub struct OrchestratorSnapshot {
     pub poll_interval_ms: u64,
     pub max_concurrent_agents: u32,
     #[serde(default)]
-    pub linear_project_url: Option<String>,
+    pub tracker_project_url: Option<String>,
     pub running: BTreeMap<String, RunAttempt>,
     #[serde(default)]
     pub running_sessions: BTreeMap<String, RunningSessionSnapshot>,

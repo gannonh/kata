@@ -427,8 +427,8 @@ fn build_summary_lines(snapshot: &OrchestratorSnapshot, throughput_line: &str) -
     let mut lines = vec![counts.join("  |  "), throughput_line.to_string()];
     lines.push(supervisor_summary_line(snapshot));
 
-    if let Some(project_url) = snapshot.linear_project_url.as_deref() {
-        lines.push(format!("Linear Project: {project_url}"));
+    if let Some(project_url) = snapshot.tracker_project_url.as_deref() {
+        lines.push(format!("Project: {project_url}"));
     }
 
     lines
@@ -1057,12 +1057,12 @@ mod tests {
 
     fn snapshot_fixture(
         total_tokens: u64,
-        linear_project_url: Option<&str>,
+        tracker_project_url: Option<&str>,
     ) -> OrchestratorSnapshot {
         OrchestratorSnapshot {
             poll_interval_ms: REFRESH_INTERVAL_MS,
             max_concurrent_agents: 1,
-            linear_project_url: linear_project_url.map(ToString::to_string),
+            tracker_project_url: tracker_project_url.map(ToString::to_string),
             running: BTreeMap::new(),
             running_sessions: BTreeMap::new(),
             running_session_info: BTreeMap::new(),
@@ -1346,7 +1346,7 @@ mod tests {
     }
 
     #[test]
-    fn build_summary_lines_includes_linear_project_url_when_available() {
+    fn build_summary_lines_includes_tracker_project_url_when_available() {
         let snapshot = snapshot_fixture(1_337, Some("https://linear.app/kata-sh/project/symphony"));
         let throughput_line = "Throughput: 42.3 tps ▁▂▃▄▅▆▇█";
         let lines = build_summary_lines(&snapshot, throughput_line);
@@ -1358,8 +1358,8 @@ mod tests {
         assert!(
             lines
                 .iter()
-                .any(|line| line == "Linear Project: https://linear.app/kata-sh/project/symphony"),
-            "summary lines should include the linear project URL when configured"
+                .any(|line| line == "Project: https://linear.app/kata-sh/project/symphony"),
+            "summary lines should include the tracker project URL when configured"
         );
     }
 

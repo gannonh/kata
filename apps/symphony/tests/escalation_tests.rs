@@ -41,7 +41,7 @@ fn empty_snapshot() -> OrchestratorSnapshot {
     OrchestratorSnapshot {
         poll_interval_ms: 30_000,
         max_concurrent_agents: 4,
-        linear_project_url: None,
+        tracker_project_url: None,
         running: BTreeMap::new(),
         running_sessions: BTreeMap::new(),
         running_session_info: BTreeMap::new(),

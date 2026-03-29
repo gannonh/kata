@@ -297,7 +297,7 @@ struct ApiError {
 struct StateResponse {
     poll_interval_ms: u64,
     max_concurrent_agents: u32,
-    linear_project_url: Option<String>,
+    tracker_project_url: Option<String>,
     running: std::collections::BTreeMap<String, RunAttempt>,
     running_sessions: std::collections::BTreeMap<String, RunningSessionSnapshot>,
     running_session_info: std::collections::BTreeMap<String, WorkerSessionInfo>,
@@ -614,17 +614,17 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
         .map(|timestamp| timestamp.to_rfc3339())
         .map(|value| escape_html(&value))
         .unwrap_or_else(|| "n/a".to_string());
-    let linear_project_card = snapshot
-        .linear_project_url
+    let tracker_project_card = snapshot
+        .tracker_project_url
         .as_deref()
         .map(|url| {
             let escaped_url = escape_html(url);
             format!(
-                r#"<section class="card"><div class="label">linear project</div><div class="mono"><a id="linear-project-link" href="{escaped_url}" target="_blank" rel="noopener noreferrer">{escaped_url}</a></div></section>"#
+                r#"<section class="card"><div class="label">project</div><div class="mono"><a id="tracker-project-link" href="{escaped_url}" target="_blank" rel="noopener noreferrer">{escaped_url}</a></div></section>"#
             )
         })
         .unwrap_or_else(|| {
-            r#"<section class="card"><div class="label">linear project</div><div class="mono muted">n/a</div></section>"#
+            r#"<section class="card"><div class="label">project</div><div class="mono muted">n/a</div></section>"#
                 .to_string()
         });
 
@@ -684,7 +684,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
     <section class="card"><div class="label">claimed</div><div class="value" id="claimed-count">{claimed_count}</div></section>
     <section class="card"><div class="label">completed</div><div class="value" id="completed-count">{completed_count}</div></section>
     <section class="card"><div class="label">supervisor</div><div class="mono" id="supervisor-status">{supervisor_status_label}</div></section>
-    <div id="linear-project-card">{linear_project_card}</div>
+    <div id="linear-project-card">{tracker_project_card}</div>
   </div>
 
   <section class="card section">
@@ -1102,12 +1102,12 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
       }}
     }}
 
-    function renderLinearProjectCard(url) {{
+    function renderTrackerProjectCard(url) {{
       if (!url) {{
-        return '<section class="card"><div class="label">linear project</div><div class="mono muted">n/a</div></section>';
+        return '<section class="card"><div class="label">project</div><div class="mono muted">n/a</div></section>';
       }}
       const escaped = escapeHtml(url);
-      return '<section class="card"><div class="label">linear project</div><div class="mono"><a id="linear-project-link" href="' +
+      return '<section class="card"><div class="label">project</div><div class="mono"><a id="tracker-project-link" href="' +
         escaped +
         '" target="_blank" rel="noopener noreferrer">' +
         escaped +
@@ -1181,7 +1181,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
         document.getElementById('claimed-count').textContent = (state.claimed || []).length;
         document.getElementById('completed-count').textContent = completed.length;
         document.getElementById('linear-project-card').innerHTML =
-          renderLinearProjectCard(state.linear_project_url);
+          renderTrackerProjectCard(state.tracker_project_url);
         document.getElementById('running-table-body').innerHTML = renderRunningTable(
           running,
           state.running_session_info || {{}}
@@ -1232,7 +1232,7 @@ async fn get_state(State(state): State<HttpServerState>) -> impl IntoResponse {
     Json(StateResponse {
         poll_interval_ms: snapshot.poll_interval_ms,
         max_concurrent_agents: snapshot.max_concurrent_agents,
-        linear_project_url: snapshot.linear_project_url,
+        tracker_project_url: snapshot.tracker_project_url,
         running: snapshot.running,
         running_sessions: snapshot.running_sessions,
         running_session_info: snapshot.running_session_info,

@@ -48,7 +48,7 @@ fn fixture_snapshot() -> OrchestratorSnapshot {
     OrchestratorSnapshot {
         poll_interval_ms: 30_000,
         max_concurrent_agents: 4,
-        linear_project_url: Some("https://linear.app/kata-sh/project/symphony".to_string()),
+        tracker_project_url: Some("https://linear.app/kata-sh/project/symphony".to_string()),
         running: BTreeMap::from([(
             "issue-920".to_string(),
             RunAttempt {
