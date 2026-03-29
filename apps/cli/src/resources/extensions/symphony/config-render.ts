@@ -8,6 +8,8 @@ import {
 export interface ConfigEditorRenderOptions {
   connectionStatus?: string;
   workflowPath?: string;
+  /** Label prefix for the workflow/file path line. Defaults to "Workflow:" */
+  workflowPathLabel?: string;
   title?: string;
 }
 
@@ -25,9 +27,10 @@ export function renderConfigEditorHeader(
     ? `${options.title} — ${sectionCount} sections, ${fieldCount} fields`
     : `Symphony Config Editor — ${sectionCount} sections, ${fieldCount} fields`;
 
+  const pathLabel = options.workflowPathLabel ?? "Workflow:";
   const lines = [
     titleLine,
-    options.workflowPath ? `Workflow: ${options.workflowPath}` : "Workflow: (unknown)",
+    options.workflowPath ? `${pathLabel} ${options.workflowPath}` : `${pathLabel} (unknown)`,
   ];
 
   // Only show Symphony connection status when relevant (not for non-Symphony editors)

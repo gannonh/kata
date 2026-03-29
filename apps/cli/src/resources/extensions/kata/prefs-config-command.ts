@@ -33,9 +33,8 @@ export async function executePreferencesConfigCommand(
     ({ runConfigEditor } = await import("../symphony/config-editor.js"));
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
-    const isJsYaml =
-      detail.toLowerCase().includes("js-yaml") ||
-      detail.toLowerCase().includes("cannot find module");
+    const lowerDetail = detail.toLowerCase();
+    const isJsYaml = lowerDetail.includes("js-yaml");
     const message = isJsYaml
       ? "Kata config editor requires the js-yaml package which could not be resolved. " +
         "Install js-yaml in your project directory (npm install js-yaml) and run kata from there."
@@ -110,6 +109,7 @@ export async function executePreferencesConfigCommand(
   const editorResult = await runConfigEditor(model, ui, {
     title: "Kata Preferences Editor",
     workflowPath: prefsPath,
+    workflowPathLabel: "File:",
   });
 
   // ── Handle cancel ─────────────────────────────────────────────────────────
@@ -129,6 +129,10 @@ export async function executePreferencesConfigCommand(
       .map((issue) => `- ${issue.path}: ${issue.message}`)
       .join("\n");
 
+    // NOTE: Validation failure intentionally discards edits (parity with Symphony's
+    // executeSymphonyConfigCommand). The user must re-run /kata config and repeat
+    // their changes. A re-entry loop that re-opens the editor with the invalid model
+    // would improve UX but is out of scope for this slice.
     ctx.ui.notify(`config_editor_validation_failed\n${summary}`, "error");
     return;
   }
