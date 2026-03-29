@@ -8,6 +8,7 @@ import {
 export interface ConfigEditorRenderOptions {
   connectionStatus?: string;
   workflowPath?: string;
+  title?: string;
 }
 
 export function renderConfigEditorHeader(
@@ -20,13 +21,23 @@ export function renderConfigEditorHeader(
     0,
   );
 
+  const titleLine = options.title
+    ? `${options.title} — ${sectionCount} sections, ${fieldCount} fields`
+    : `Symphony Config Editor — ${sectionCount} sections, ${fieldCount} fields`;
+
   const lines = [
-    `Symphony Config Editor — ${sectionCount} sections, ${fieldCount} fields`,
+    titleLine,
     options.workflowPath ? `Workflow: ${options.workflowPath}` : "Workflow: (unknown)",
-    options.connectionStatus
-      ? `Symphony: ${options.connectionStatus}`
-      : "Symphony: status unavailable",
   ];
+
+  // Only show Symphony connection status when relevant (not for non-Symphony editors)
+  if (options.connectionStatus || !options.title) {
+    lines.push(
+      options.connectionStatus
+        ? `Symphony: ${options.connectionStatus}`
+        : "Symphony: status unavailable",
+    );
+  }
 
   return lines.join("\n");
 }
