@@ -77,7 +77,10 @@ async fn test_get_issue_returns_single_issue() {
         .create_async()
         .await;
 
-    let issue = client.get_issue(42).await.expect("get_issue should succeed");
+    let issue = client
+        .get_issue(42)
+        .await
+        .expect("get_issue should succeed");
 
     mock.assert_async().await;
     assert_eq!(issue.number, 42);
@@ -92,7 +95,9 @@ async fn test_create_comment_posts_body() {
     let mock = server
         .mock("POST", "/repos/kata-sh/kata-mono/issues/42/comments")
         .match_header("content-type", Matcher::Regex("application/json".into()))
-        .match_body(Matcher::PartialJson(json!({ "body": "hello from symphony" })))
+        .match_body(Matcher::PartialJson(
+            json!({ "body": "hello from symphony" }),
+        ))
         .with_status(201)
         .with_header("content-type", "application/json")
         .with_body("{}")
@@ -137,7 +142,10 @@ async fn test_remove_label_sends_delete() {
     let client = test_client(&server);
 
     let mock = server
-        .mock("DELETE", "/repos/kata-sh/kata-mono/issues/42/labels/symphony:todo")
+        .mock(
+            "DELETE",
+            "/repos/kata-sh/kata-mono/issues/42/labels/symphony:todo",
+        )
         .with_status(200)
         .with_header("content-type", "application/json")
         .with_body("{}")
@@ -172,7 +180,10 @@ async fn test_list_labels_returns_labels() {
         .create_async()
         .await;
 
-    let labels = client.list_labels().await.expect("list_labels should succeed");
+    let labels = client
+        .list_labels()
+        .await
+        .expect("list_labels should succeed");
 
     mock.assert_async().await;
     assert_eq!(labels.len(), 2);

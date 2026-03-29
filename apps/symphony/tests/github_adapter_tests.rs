@@ -121,7 +121,11 @@ async fn test_fetch_candidate_issues_applies_assignee_filter() {
         .expect("fetch_candidate_issues should succeed");
 
     mock.assert_async().await;
-    assert_eq!(issues.len(), 2, "only issues assigned to alice should remain");
+    assert_eq!(
+        issues.len(),
+        2,
+        "only issues assigned to alice should remain"
+    );
     assert_eq!(issues[0].identifier, "#1");
     assert_eq!(issues[1].identifier, "#3");
 }
@@ -230,7 +234,10 @@ async fn test_update_issue_state_swaps_labels() {
         .await;
 
     let remove_mock = server
-        .mock("DELETE", "/repos/kata-sh/kata-mono/issues/7/labels/symphony:todo")
+        .mock(
+            "DELETE",
+            "/repos/kata-sh/kata-mono/issues/7/labels/symphony:todo",
+        )
         .with_status(200)
         .with_header("content-type", "application/json")
         .with_body("{}")
@@ -302,7 +309,16 @@ async fn test_issue_to_domain_maps_identifier_format() {
         ]))
         .with_status(200)
         .with_header("content-type", "application/json")
-        .with_body(json!([issue_json(123, &["symphony:todo"], "alice", &["alice"], None)]).to_string())
+        .with_body(
+            json!([issue_json(
+                123,
+                &["symphony:todo"],
+                "alice",
+                &["alice"],
+                None
+            )])
+            .to_string(),
+        )
         .create_async()
         .await;
 
@@ -367,7 +383,16 @@ async fn test_issue_to_domain_extracts_state_from_label() {
         ]))
         .with_status(200)
         .with_header("content-type", "application/json")
-        .with_body(json!([issue_json(200, &["symphony:in-progress"], "alice", &["alice"], None)]).to_string())
+        .with_body(
+            json!([issue_json(
+                200,
+                &["symphony:in-progress"],
+                "alice",
+                &["alice"],
+                None
+            )])
+            .to_string(),
+        )
         .create_async()
         .await;
 

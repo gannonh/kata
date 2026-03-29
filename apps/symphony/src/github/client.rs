@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::{DateTime, TimeZone, Utc};
-use reqwest::{Method, Response, header};
+use reqwest::{header, Method, Response};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -144,7 +144,12 @@ impl GithubClient {
         self.rate_limit_state.lock().await.clone()
     }
 
-    pub async fn request(&self, method: Method, path: &str, body: Option<&Value>) -> Result<Response> {
+    pub async fn request(
+        &self,
+        method: Method,
+        path: &str,
+        body: Option<&Value>,
+    ) -> Result<Response> {
         let url = if path.starts_with("http://") || path.starts_with("https://") {
             path.to_string()
         } else {
@@ -200,7 +205,10 @@ impl GithubClient {
     }
 
     pub async fn get_issue(&self, number: u64) -> Result<GithubIssue> {
-        let path = format!("/repos/{}/{}/issues/{number}", self.repo_owner, self.repo_name);
+        let path = format!(
+            "/repos/{}/{}/issues/{number}",
+            self.repo_owner, self.repo_name
+        );
         self.request_json(Method::GET, &path, None).await
     }
 
@@ -210,7 +218,8 @@ impl GithubClient {
             self.repo_owner, self.repo_name
         );
         let payload = serde_json::json!({ "body": body });
-        self.request_empty(Method::POST, &path, Some(&payload)).await
+        self.request_empty(Method::POST, &path, Some(&payload))
+            .await
     }
 
     pub async fn add_label(&self, number: u64, label: &str) -> Result<()> {
@@ -219,7 +228,8 @@ impl GithubClient {
             self.repo_owner, self.repo_name
         );
         let payload = serde_json::json!({ "labels": [label] });
-        self.request_empty(Method::POST, &path, Some(&payload)).await
+        self.request_empty(Method::POST, &path, Some(&payload))
+            .await
     }
 
     pub async fn remove_label(&self, number: u64, label: &str) -> Result<()> {

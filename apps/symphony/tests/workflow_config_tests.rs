@@ -265,7 +265,8 @@ tracker:
 "#;
 
     let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
-    let config = from_workflow(&raw).expect("github tracker config with custom label prefix should parse");
+    let config =
+        from_workflow(&raw).expect("github tracker config with custom label prefix should parse");
 
     assert_eq!(
         config.tracker.label_prefix.as_deref(),

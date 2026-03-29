@@ -83,7 +83,9 @@ impl TrackerAdapter for GithubAdapter {
         let filtered = issues
             .iter()
             .filter(|issue| {
-                let Some((normalized_state, _)) = extract_state_from_labels(&issue.labels, self.state_prefix()) else {
+                let Some((normalized_state, _)) =
+                    extract_state_from_labels(&issue.labels, self.state_prefix())
+                else {
                     tracing::warn!(
                         issue_number = issue.number,
                         labels = ?issue.labels.iter().map(|l| l.name.clone()).collect::<Vec<_>>(),
@@ -139,7 +141,10 @@ impl TrackerAdapter for GithubAdapter {
             match self.client.get_issue(number).await {
                 Ok(issue) => issues.push(self.issue_to_domain(&issue)),
                 Err(SymphonyError::GithubApiStatus { status: 404, .. }) => {
-                    tracing::debug!(issue_number = number, "GitHub issue not found while polling");
+                    tracing::debug!(
+                        issue_number = number,
+                        "GitHub issue not found while polling"
+                    );
                 }
                 Err(err) => return Err(err),
             }
@@ -168,18 +173,15 @@ impl TrackerAdapter for GithubAdapter {
         let issue = self.client.get_issue(number).await?;
         let prefix = self.state_prefix();
 
-        let old_label = issue
-            .labels
-            .iter()
-            .find_map(|label| {
-                let lower = label.name.to_ascii_lowercase();
-                let marker = format!("{}:", prefix.to_ascii_lowercase());
-                if lower.starts_with(&marker) {
-                    Some(label.name.clone())
-                } else {
-                    None
-                }
-            });
+        let old_label = issue.labels.iter().find_map(|label| {
+            let lower = label.name.to_ascii_lowercase();
+            let marker = format!("{}:", prefix.to_ascii_lowercase());
+            if lower.starts_with(&marker) {
+                Some(label.name.clone())
+            } else {
+                None
+            }
+        });
 
         let new_label = format!("{prefix}:{}", normalize_state_for_label(state_name));
 
