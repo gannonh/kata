@@ -397,26 +397,45 @@ impl LinearClient {
     /// Create a comment on an issue.
     ///
     /// KAT-1231: Linear intermittently returns `Entity not found: Issue` for commentCreate on
-    /// issues that are otherwise mutable. Mitigation: retry once with a short delay and include
-    /// rich diagnostics (issue ID + attempt metadata + raw response) on failure.
+    /// issues that are otherwise mutable. Mitigation: retry once with a short delay *only* for
+    /// that known transient failure mode, and include rich diagnostics on all failures.
     pub async fn create_comment(&self, issue_id: &str, body: &str) -> Result<()> {
         match self.create_comment_attempt(issue_id, body, 1).await {
             Ok(()) => Ok(()),
             Err(first_err) => {
                 let first_error_text = first_err.to_string();
+                let first_error_preview = truncate_error_body(&first_error_text);
+
                 warn!(
                     event = "comment_create_failed",
                     issue_id = issue_id,
                     retry_attempted = false,
-                    error = %truncate_error_body(&first_error_text),
+                    error = %first_error_preview,
                     "Linear commentCreate failed on first attempt"
                 );
+
+                if !is_retryable_comment_create_failure(&first_error_text) {
+                    warn!(
+                        event = "comment_create_retry_skipped",
+                        issue_id = issue_id,
+                        retry_attempted = false,
+                        reason = "non_retryable_failure",
+                        error = %first_error_preview,
+                        "skipping Linear commentCreate retry to avoid duplicate non-idempotent writes"
+                    );
+
+                    return Err(SymphonyError::Other(format!(
+                        "commentCreate failed without retry (issue_id='{}', retry_attempted=false, error='{}')",
+                        issue_id, first_error_preview
+                    )));
+                }
+
                 warn!(
                     event = "comment_create_retry",
                     issue_id = issue_id,
                     attempt = 2,
-                    error_preview = %truncate_error_body(&first_error_text),
-                    "retrying Linear commentCreate after initial failure"
+                    error_preview = %first_error_preview,
+                    "retrying Linear commentCreate after retryable first failure"
                 );
 
                 tokio::time::sleep(std::time::Duration::from_millis(
@@ -439,7 +458,7 @@ impl LinearClient {
                         Err(SymphonyError::Other(format!(
                             "commentCreate failed after retry (issue_id='{}', retry_attempted=true, first_attempt_error='{}', retry_error='{}')",
                             issue_id,
-                            truncate_error_body(&first_error_text),
+                            first_error_preview,
                             truncate_error_body(&retry_error_text)
                         )))
                     }
@@ -1227,6 +1246,15 @@ fn format_available_assignee_identifiers(users: &[LinearUser]) -> String {
         let total = values.len();
         format!("{}, ... ({} total)", values[..MAX_VALUES].join(", "), total)
     }
+}
+
+/// Return true when a commentCreate failure is the known KAT-1231 transient issue.
+///
+/// We only retry this non-idempotent mutation for "Entity not found: Issue" responses to
+/// reduce duplicate-comment risk when the first request may have succeeded server-side.
+fn is_retryable_comment_create_failure(error_text: &str) -> bool {
+    let normalized = error_text.to_ascii_lowercase();
+    normalized.contains("entity not found") && normalized.contains("issue")
 }
 
 /// Truncate an error body to ≤1000 bytes for logging.

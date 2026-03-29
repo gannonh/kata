@@ -982,6 +982,36 @@ async fn test_create_comment_retries_after_first_failure_then_succeeds() {
 }
 
 #[tokio::test]
+async fn test_create_comment_non_retryable_failure_does_not_retry() {
+    let mut server = Server::new_async().await;
+
+    let first_attempt = server
+        .mock("POST", "/graphql")
+        .expect(1)
+        .with_body(
+            json!({
+                "errors": [{"message": "Permission denied"}]
+            })
+            .to_string(),
+        )
+        .create_async()
+        .await;
+
+    let client = test_client(&server, None);
+    let err = client
+        .create_comment("issue-42", "Hello from Symphony")
+        .await
+        .expect_err("comment creation should fail without retry on non-retryable errors");
+
+    let message = err.to_string();
+    assert!(message.contains("issue_id='issue-42'"));
+    assert!(message.contains("retry_attempted=false"));
+    assert!(message.contains("without retry"));
+
+    first_attempt.assert_async().await;
+}
+
+#[tokio::test]
 async fn test_create_comment_failure_includes_retry_diagnostics() {
     let mut server = Server::new_async().await;
 

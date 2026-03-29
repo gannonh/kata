@@ -1893,7 +1893,7 @@ impl Orchestrator {
                         event = "startup_orphan_workspace_removed",
                         issue_identifier = %issue.identifier,
                         workspace_path = %workspace_path,
-                        "removed orphan workspace during startup cleanup"
+                        "orphan workspace no longer present after startup cleanup"
                     );
                 }
             }

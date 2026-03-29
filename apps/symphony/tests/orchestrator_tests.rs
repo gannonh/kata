@@ -411,8 +411,8 @@ fn test_startup_terminal_cleanup_clears_runtime_bookkeeping_without_completed_in
 #[test]
 fn test_startup_terminal_cleanup_removes_orphan_workspace_from_scan() {
     let workspace_root = tempdir().expect("workspace root should be created");
-    let orphan_workspace = workspace_root.path().join("symphony").join("SIM-10");
-    let untouched_workspace = workspace_root.path().join("symphony").join("SIM-11");
+    let orphan_workspace = workspace_root.path().join("SIM-10");
+    let untouched_workspace = workspace_root.path().join("SIM-11");
 
     fs::create_dir_all(&orphan_workspace).expect("orphan workspace should be created");
     fs::create_dir_all(&untouched_workspace).expect("untouched workspace should be created");
