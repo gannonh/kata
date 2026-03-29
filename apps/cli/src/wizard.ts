@@ -1,4 +1,6 @@
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { createInterface } from 'readline'
+import { join } from 'node:path'
 import type { AuthStorage } from '@mariozechner/pi-coding-agent'
 
 // ─── Colors ──────────────────────────────────────────────────────────────────
@@ -84,6 +86,121 @@ export function loadStoredEnvKeys(authStorage: AuthStorage): void {
       }
     }
   }
+}
+
+// ─── Symphony URL helpers ─────────────────────────────────────────────────────
+
+/**
+ * Validate a Symphony URL string. Returns the normalized URL or null if invalid.
+ */
+export function validateSymphonyUrl(raw: string): string | null {
+  const trimmed = raw.trim()
+  if (!trimmed) return null
+  let parsed: URL
+  try {
+    parsed = new URL(trimmed)
+  } catch {
+    return null
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return null
+  }
+  // Remove trailing slash for consistency
+  return parsed.toString().replace(/\/$/, '')
+}
+
+/**
+ * Write a Symphony URL to the project's preferences file.
+ * Creates .kata/preferences.md if it doesn't exist.
+ * Returns true if the URL was written, false on error.
+ */
+export function writeSymphonyUrlToPreferences(basePath: string, url: string): boolean {
+  const dir = join(basePath, '.kata')
+  const path = join(dir, 'preferences.md')
+
+  try {
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true })
+    }
+
+    if (existsSync(path)) {
+      let content = readFileSync(path, 'utf-8')
+      // Check if symphony section already exists in frontmatter
+      if (/^symphony:/m.test(content)) {
+        // Replace or add url under existing symphony section
+        if (/^\s+url:/m.test(content)) {
+          content = content.replace(/^(\s+url:).*$/m, `$1 ${url}`)
+        } else {
+          content = content.replace(/^(symphony:.*$)/m, `$1\n  url: ${url}`)
+        }
+      } else {
+        // Add symphony section before the closing ---
+        content = content.replace(/^---\s*$/m, `symphony:\n  url: ${url}\n---`)
+      }
+      writeFileSync(path, content, 'utf-8')
+    } else {
+      writeFileSync(path, `---\nsymphony:\n  url: ${url}\n---\n`, 'utf-8')
+    }
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Prompt the user for an optional Symphony server URL and write it to preferences.
+ * Uses raw TTY input — intended to be called at the end of the wizard.
+ * Returns the URL that was written, or null if the user skipped.
+ */
+export async function promptSymphonyUrl(basePath: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const question = `  ${cyan}›${reset} Connect to a Symphony server? ${dim}(y/N)${reset} `
+    process.stdout.write(question)
+
+    try {
+      process.stdin.setRawMode(true)
+      process.stdin.resume()
+      process.stdin.setEncoding('utf8')
+
+      const handler = (ch: string) => {
+        process.stdin.setRawMode(false)
+        process.stdin.pause()
+        process.stdin.off('data', handler)
+        process.stdout.write('\n')
+
+        if (ch.toLowerCase() === 'y') {
+          promptForUrl(basePath).then(resolve)
+        } else {
+          process.stdout.write(`  ${dim}↷  Symphony skipped${reset}\n\n`)
+          resolve(null)
+        }
+      }
+      process.stdin.on('data', handler)
+    } catch {
+      resolve(null)
+    }
+  })
+}
+
+async function promptForUrl(basePath: string): Promise<string | null> {
+  const value = await promptMasked('Symphony URL', '(e.g. http://localhost:8080)')
+  const trimmed = value.trim()
+  if (!trimmed) {
+    process.stdout.write(`  ${dim}↷  Symphony skipped${reset}\n\n`)
+    return null
+  }
+  const validated = validateSymphonyUrl(trimmed)
+  if (!validated) {
+    process.stdout.write(`  ${yellow}⚠${reset}  Invalid URL — must be http or https.\n\n`)
+    return null
+  }
+  const written = writeSymphonyUrlToPreferences(basePath, validated)
+  if (written) {
+    process.stdout.write(`  ${green}✓${reset} Symphony URL saved: ${validated}\n\n`)
+    return validated
+  }
+  process.stdout.write(`  ${yellow}⚠${reset}  Failed to write Symphony URL to preferences.\n\n`)
+  return null
 }
 
 // ─── Wizard ───────────────────────────────────────────────────────────────────
@@ -177,6 +294,11 @@ export async function runWizardIfNeeded(authStorage: AuthStorage): Promise<void>
     } else {
       process.stdout.write(`  ${dim}↷  ${key.label} skipped${reset}\n\n`)
     }
+  }
+
+  // ── Symphony URL (optional) ─────────────────────────────────────────────────
+  if (!process.env.KATA_SYMPHONY_URL && !process.env.SYMPHONY_URL) {
+    await promptSymphonyUrl(process.cwd())
   }
 
   // ── Footer ───────────────────────────────────────────────────────────────────

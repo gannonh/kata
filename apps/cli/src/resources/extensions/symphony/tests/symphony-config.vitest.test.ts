@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { resolveSymphonyConfig, isSymphonyConfigured } from "../config.js";
 import { SymphonyError } from "../types.js";
 
