@@ -16,6 +16,29 @@
 # Unset variables resolve to empty string with a warning.
 # ═══════════════════════════════════════════════════════════════════════════════
 
+# ─── Doctor CLI reference ─────────────────────────────────────────────────────
+# Run: symphony doctor [WORKFLOW.md]
+#
+# Doctor validates this workflow before runtime and prints traffic-light lines:
+#   ✅ pass      — healthy
+#   ⚠️ warning   — non-fatal issue to review
+#   🚨 error     — fatal issue (doctor exits 1)
+#   ⏭️ skipped   — check intentionally not run
+#
+# Current check groups:
+#   - Config: parse + validate + env-var resolution + prompt file paths + Slack event names
+#   - Linear: auth (viewer), project slug resolution, workflow state alignment, assignee lookup
+#   - Backend: configured backend command present on PATH and responds to `--version`
+#   - Workspace: root path writable/creatable, repo reference sanity, git strategy compatibility,
+#                Docker daemon availability when isolation=docker
+#   - Orphans: on-disk workspace directories that do not map to active tracker issues
+#
+# Notes:
+#   - Exit code is 0 when no 🚨 errors are found, otherwise 1.
+#   - SSH host reachability checks are currently reported as ⏭️ skipped (future work).
+#   - Doctor is report-only (no auto-fix), except it may create `workspace.root`
+#     when missing so writability can be validated.
+
 # ─── Tracker ──────────────────────────────────────────────────────────────────
 # Configures which issue tracker to poll and how to filter issues.
 tracker:

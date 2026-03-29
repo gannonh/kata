@@ -17,6 +17,7 @@ pub mod shared_context;
 pub mod supervisor;
 
 pub mod codex;
+pub mod doctor;
 pub mod event_stream;
 pub mod http_server;
 pub mod logging;

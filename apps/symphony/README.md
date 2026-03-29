@@ -191,6 +191,47 @@ Optional flags:
 
 Symphony starts polling Linear. Open `http://localhost:8080` for the web dashboard, or watch the built-in terminal dashboard (enabled by default).
 
+### Doctor preflight checks
+
+Before launching the orchestrator, you can validate your setup with:
+
+```bash
+symphony doctor [WORKFLOW.md]
+```
+
+Doctor prints deterministic traffic-light output:
+
+- `✅` pass
+- `⚠️` warning (non-fatal)
+- `🚨` error (fatal)
+- `⏭️` skipped
+
+Example:
+
+```text
+Symphony Doctor
+✅ Config Parse: Parsed WORKFLOW.md
+✅ Config Validate: Required workflow settings are present
+✅ Linear Project: Resolved project "sym" (sym)
+🚨 Backend: 'kata' not found on PATH
+⚠️ Orphans: Workspace /tmp/symphony-workspaces/KAT-999 has no matching active issue (KAT-999)
+```
+
+Checks currently cover:
+
+- Workflow parse/validation, `$ENV_VAR` resolution, prompt path existence, notification event names
+- Linear auth/project/workflow-state/assignee checks
+- Agent backend command handshake (`--version`)
+- Workspace root/repo/git strategy/docker daemon checks
+- Orphan workspace detection under `workspace.root`
+
+Exit codes:
+
+- `0` when no `🚨` errors are found
+- `1` when any `🚨` error is found
+
+`doctor` is diagnostic only — it does not auto-fix configuration or environment problems. The one intentional local side effect is creating `workspace.root` when it does not exist so writability can be verified.
+
 ### 4. Create issues in Linear
 
 Create issues in your Linear project. Set them to `Todo`. Symphony picks them up on the next poll cycle (default: every 30 seconds).
