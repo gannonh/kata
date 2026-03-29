@@ -549,6 +549,25 @@ fn test_check_workspace_root_nonexistent_and_creatable() {
 }
 
 #[test]
+fn test_check_workspace_strategy_reports_remote_worktree_mismatch() {
+    let mut workspace = WorkspaceConfig::default();
+    workspace.root = tempfile::tempdir()
+        .expect("temp dir should be created")
+        .path()
+        .display()
+        .to_string();
+    workspace.repo = Some("https://github.com/kata-sh/kata.git".to_string());
+    workspace.strategy = WorkspaceRepoStrategy::Worktree;
+
+    let results = doctor::check_workspace(&workspace);
+    assert!(results.iter().any(|result| {
+        result.status == CheckStatus::Error
+            && result.name == "Workspace Strategy"
+            && result.message.contains("requires a local workspace.repo path")
+    }));
+}
+
+#[test]
 fn test_check_workspace_root_nonexistent_and_not_creatable() {
     let mut workspace = WorkspaceConfig::default();
     workspace.root = "/dev/null/symphony-root".to_string();
