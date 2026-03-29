@@ -2,7 +2,8 @@
 //!
 //! Full implementation in S04/T03. This is the public API skeleton so tests compile.
 
-use std::path::Path;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
@@ -155,6 +156,107 @@ pub fn validate_workspace_path(workspace: &Path, root: &Path) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Scan `<root>/<branch_prefix>/<identifier>` directories and map them by issue identifier.
+///
+/// This is used by orchestrator startup cleanup to recover orphan workspace paths for issues
+/// that reached terminal state while Symphony was not running.
+pub fn scan_workspace_root(root: &Path, branch_prefix: &str) -> HashMap<String, PathBuf> {
+    let mut discovered = HashMap::new();
+    let normalized_prefix = branch_prefix.trim_matches('/');
+    if normalized_prefix.is_empty() {
+        tracing::warn!(
+            event = "startup_workspace_scan_skipped",
+            root_path = %root.display(),
+            "workspace branch_prefix is empty; startup scan skipped"
+        );
+        return discovered;
+    }
+
+    let prefix_path = normalized_prefix
+        .split('/')
+        .fold(root.to_path_buf(), |acc, segment| acc.join(segment));
+
+    let entries = match std::fs::read_dir(&prefix_path) {
+        Ok(entries) => entries,
+        Err(err) => {
+            tracing::debug!(
+                event = "startup_workspace_scan_unavailable",
+                root_path = %root.display(),
+                branch_prefix = normalized_prefix,
+                error = %err,
+                "workspace prefix directory unavailable during startup scan"
+            );
+            return discovered;
+        }
+    };
+
+    for entry_result in entries {
+        let entry = match entry_result {
+            Ok(entry) => entry,
+            Err(err) => {
+                tracing::warn!(
+                    event = "startup_workspace_scan_entry_error",
+                    root_path = %root.display(),
+                    branch_prefix = normalized_prefix,
+                    error = %err,
+                    "failed to read workspace entry; skipping"
+                );
+                continue;
+            }
+        };
+
+        let file_type = match entry.file_type() {
+            Ok(file_type) => file_type,
+            Err(err) => {
+                tracing::warn!(
+                    event = "startup_workspace_scan_file_type_error",
+                    path = %entry.path().display(),
+                    error = %err,
+                    "failed to inspect workspace entry type; skipping"
+                );
+                continue;
+            }
+        };
+
+        if !file_type.is_dir() {
+            continue;
+        }
+
+        let identifier = entry
+            .file_name()
+            .to_str()
+            .map(str::trim)
+            .filter(|candidate| looks_like_issue_identifier(candidate))
+            .map(ToString::to_string);
+
+        let Some(identifier) = identifier else {
+            continue;
+        };
+
+        let path = std::fs::canonicalize(entry.path()).unwrap_or_else(|_| entry.path());
+        tracing::debug!(
+            event = "startup_workspace_scan_match",
+            issue_identifier = %identifier,
+            workspace_path = %path.display(),
+            "discovered startup workspace candidate"
+        );
+        discovered.insert(identifier, path);
+    }
+
+    discovered
+}
+
+fn looks_like_issue_identifier(value: &str) -> bool {
+    let Some((team, number)) = value.split_once('-') else {
+        return false;
+    };
+
+    !team.is_empty()
+        && !number.is_empty()
+        && team.chars().all(|ch| ch.is_ascii_alphanumeric())
+        && number.chars().all(|ch| ch.is_ascii_digit())
 }
 
 /// Run repository bootstrap (clone/worktree + branch creation) when configured.
@@ -691,5 +793,56 @@ fn truncate_output(output: &str, max_bytes: usize) -> String {
         // Find a safe UTF-8 boundary
         let truncated = &output[..output.floor_char_boundary(max_bytes)];
         format!("{}... (truncated)", truncated)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::scan_workspace_root;
+
+    #[test]
+    fn scan_workspace_root_maps_matching_directories() {
+        let temp = tempfile::tempdir().expect("tempdir should be created");
+        let root = temp.path();
+
+        let matching_a = root.join("symphony").join("KAT-100");
+        let matching_b = root.join("symphony").join("KAT-200");
+        let non_matching = root.join("symphony").join("not-an-issue");
+        let wrong_prefix = root.join("other").join("KAT-300");
+
+        std::fs::create_dir_all(&matching_a).expect("matching workspace A should be created");
+        std::fs::create_dir_all(&matching_b).expect("matching workspace B should be created");
+        std::fs::create_dir_all(&non_matching).expect("non-matching directory should exist");
+        std::fs::create_dir_all(&wrong_prefix).expect("other prefix directory should exist");
+
+        let discovered = scan_workspace_root(root, "symphony");
+        let expected_a = std::fs::canonicalize(&matching_a).expect("canonical path should resolve");
+        let expected_b = std::fs::canonicalize(&matching_b).expect("canonical path should resolve");
+
+        assert_eq!(discovered.len(), 2);
+        assert_eq!(discovered.get("KAT-100"), Some(&expected_a));
+        assert_eq!(discovered.get("KAT-200"), Some(&expected_b));
+        assert!(!discovered.contains_key("KAT-300"));
+    }
+
+    #[test]
+    fn scan_workspace_root_supports_nested_branch_prefix() {
+        let temp = tempfile::tempdir().expect("tempdir should be created");
+        let root = temp.path();
+
+        let nested_match = root.join("symphony").join("backend").join("KAT-900");
+        std::fs::create_dir_all(&nested_match)
+            .expect("nested branch prefix workspace should be created");
+
+        let discovered = scan_workspace_root(root, "symphony/backend");
+        let expected = std::fs::canonicalize(&nested_match).expect("canonical path should resolve");
+        assert_eq!(discovered.get("KAT-900"), Some(&expected));
+    }
+
+    #[test]
+    fn scan_workspace_root_returns_empty_when_prefix_missing() {
+        let temp = tempfile::tempdir().expect("tempdir should be created");
+        let discovered = scan_workspace_root(temp.path(), "symphony");
+        assert!(discovered.is_empty());
     }
 }

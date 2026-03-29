@@ -1868,9 +1868,37 @@ impl Orchestrator {
         );
 
         let terminal_issues = port.startup_terminal_issues(&self.config.tracker.terminal_states)?;
+        let workspace_root = Path::new(&self.config.workspace.root);
+        let startup_workspaces = workspace::scan_workspace_root(
+            workspace_root,
+            &self.config.workspace.branch_prefix,
+        );
+
+        tracing::info!(
+            event = "startup_workspace_scan",
+            root_path = %workspace_root.display(),
+            workspace_count = startup_workspaces.len(),
+            "completed startup workspace scan"
+        );
 
         for issue in terminal_issues {
-            self.mark_issue_terminal(&issue, None, false);
+            let workspace_path_hint = startup_workspaces
+                .get(&issue.identifier)
+                .map(|path| path.to_string_lossy().to_string());
+
+            self.mark_issue_terminal(&issue, workspace_path_hint.as_deref(), false);
+
+            if let Some(workspace_path) = workspace_path_hint {
+                let workspace_path_ref = Path::new(&workspace_path);
+                if !workspace_path_ref.exists() {
+                    tracing::info!(
+                        event = "startup_orphan_workspace_removed",
+                        issue_identifier = %issue.identifier,
+                        workspace_path = %workspace_path,
+                        "removed orphan workspace during startup cleanup"
+                    );
+                }
+            }
         }
 
         Ok(())
