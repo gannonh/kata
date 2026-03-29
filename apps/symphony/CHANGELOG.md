@@ -1,5 +1,24 @@
 # Changelog
 
+## 2.1.0
+
+### Features
+
+- **Skills injection into workspaces** — Symphony now auto-copies a `skills/` directory (sibling to WORKFLOW.md) into `.agents/skills/` in each worker workspace during bootstrap. Skills use a `sym-` namespace prefix to avoid collisions with user skills.
+- **`symphony doctor` preflight diagnostics** — New `symphony doctor` command validates configuration, connectivity, and runtime prerequisites before starting the orchestrator.
+- **Persistent worker error surfacing** — Worker failures are now propagated into orchestrator state and rendered in the TUI with 🚨 + red styling. The HTTP dashboard shows an Error column for running sessions. Rate-limit and usage-limit errors include retry-window hints when parseable, with 200-char truncation for redaction safety.
+- **`POST /api/v1/steer` endpoint** — Live operator steering for active workers. Delivers guidance to running Kata RPC sessions via `follow_up` injection. Includes `SteerSender`/`SteerResult` types, `steer_channel()`, and full HTTP validation/error mapping.
+- **`model_by_label` config** — Label-first model resolution parsed from WORKFLOW.md alongside `model_by_state`. Normalized to lowercase, takes priority over state-based and default model selection.
+
+### Bug Fixes
+
+- **S01 critical bug fixes (KAT-1652)** — `pi-agent` `stopReason: "error"` handling with rate-limit hint parsing; startup orphan workspace cleanup via `scan_workspace_root`; workpad duplication guard with search-before-create pattern and one-retry comment creation.
+- **Project identifier preferences** — Updated project identifiers in CLI and Symphony configurations.
+
+### Infrastructure
+
+- **llvm-cov CI gate** — Added coverage gating and core edge-path coverage tests.
+
 ## 2.0.0 — Symphony ↔ Kata CLI Integration
 
 Server/client architecture — Symphony is the server, Kata CLI is the client. Same planning artifacts, same Linear issues, same agent runtime at every level.

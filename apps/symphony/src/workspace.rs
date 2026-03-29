@@ -963,11 +963,19 @@ mod tests {
         // Create source skills
         let skill_dir = workflow_dir.join("skills").join("sym-land");
         std::fs::create_dir_all(&skill_dir).unwrap();
-        std::fs::write(skill_dir.join("SKILL.md"), "---\nname: sym-land\n---\n# Land").unwrap();
+        std::fs::write(
+            skill_dir.join("SKILL.md"),
+            "---\nname: sym-land\n---\n# Land",
+        )
+        .unwrap();
 
         inject_skills(&workflow_dir, &workspace).unwrap();
 
-        let target = workspace.join(".agents").join("skills").join("sym-land").join("SKILL.md");
+        let target = workspace
+            .join(".agents")
+            .join("skills")
+            .join("sym-land")
+            .join("SKILL.md");
         assert!(target.exists(), "skill should be copied to .agents/skills/");
         let content = std::fs::read_to_string(&target).unwrap();
         assert!(content.contains("sym-land"));
@@ -1009,7 +1017,10 @@ mod tests {
         // No skills/ directory — should be a no-op
         inject_skills(&workflow_dir, &workspace).unwrap();
 
-        assert!(!workspace.join(".agents").exists(), ".agents should not be created");
+        assert!(
+            !workspace.join(".agents").exists(),
+            ".agents should not be created"
+        );
     }
 
     #[test]
@@ -1023,7 +1034,11 @@ mod tests {
         // Pre-existing skill in the workspace (from the cloned repo)
         let existing_skill = workspace.join(".agents").join("skills").join("repo-custom");
         std::fs::create_dir_all(&existing_skill).unwrap();
-        std::fs::write(existing_skill.join("SKILL.md"), "---\nname: repo-custom\n---").unwrap();
+        std::fs::write(
+            existing_skill.join("SKILL.md"),
+            "---\nname: repo-custom\n---",
+        )
+        .unwrap();
 
         // Symphony skill to inject
         let sym_skill = workflow_dir.join("skills").join("sym-commit");
@@ -1034,11 +1049,21 @@ mod tests {
 
         // Both should exist
         assert!(
-            workspace.join(".agents").join("skills").join("repo-custom").join("SKILL.md").exists(),
+            workspace
+                .join(".agents")
+                .join("skills")
+                .join("repo-custom")
+                .join("SKILL.md")
+                .exists(),
             "existing repo skill should be preserved"
         );
         assert!(
-            workspace.join(".agents").join("skills").join("sym-commit").join("SKILL.md").exists(),
+            workspace
+                .join(".agents")
+                .join("skills")
+                .join("sym-commit")
+                .join("SKILL.md")
+                .exists(),
             "symphony skill should be injected"
         );
     }
@@ -1064,10 +1089,17 @@ mod tests {
         inject_skills(&workflow_dir, &workspace).unwrap();
 
         let content = std::fs::read_to_string(
-            workspace.join(".agents").join("skills").join("sym-land").join("SKILL.md"),
+            workspace
+                .join(".agents")
+                .join("skills")
+                .join("sym-land")
+                .join("SKILL.md"),
         )
         .unwrap();
-        assert_eq!(content, "new content", "skill files should be overwritten on re-injection");
+        assert_eq!(
+            content, "new content",
+            "skill files should be overwritten on re-injection"
+        );
     }
 
     #[test]
@@ -1091,11 +1123,20 @@ mod tests {
         inject_skills(&workflow_dir, &workspace).unwrap();
 
         assert!(
-            workspace.join(".agents").join("skills").join("sym-pull").join("SKILL.md").exists(),
+            workspace
+                .join(".agents")
+                .join("skills")
+                .join("sym-pull")
+                .join("SKILL.md")
+                .exists(),
             "proper skill should be injected"
         );
         assert!(
-            !workspace.join(".agents").join("skills").join("README.md").exists(),
+            !workspace
+                .join(".agents")
+                .join("skills")
+                .join("README.md")
+                .exists(),
             "non-directory entries should be skipped"
         );
     }

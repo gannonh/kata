@@ -67,8 +67,8 @@ pub struct Cli {
     #[arg(default_value = "WORKFLOW.md")]
     pub workflow_path: String,
 
-    /// HTTP server port (default: 8080)
-    #[arg(long, default_value = "8080")]
+    /// HTTP server port (overrides WORKFLOW.md server.port; defaults to 8080 if neither is set)
+    #[arg(long)]
     pub port: Option<u16>,
 
     /// Log file root directory
@@ -384,7 +384,7 @@ pub fn resolve_workflow_path(cli: &Cli) -> PathBuf {
 
 #[cfg_attr(test, allow(dead_code))]
 pub(crate) fn effective_http_binding(config: &ServiceConfig, cli: &Cli) -> Option<HttpBinding> {
-    let port = cli.port.or(config.server.port)?;
+    let port = cli.port.or(config.server.port).unwrap_or(8080);
     Some(HttpBinding {
         host: config.server.host.clone(),
         port,
