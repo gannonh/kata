@@ -4806,3 +4806,30 @@ fn test_exclude_labels_empty_skips_no_issues() {
         "with no exclude_labels, kata:task issue should dispatch normally"
     );
 }
+
+#[test]
+fn test_exclude_labels_blank_entries_are_ignored() {
+    let mut config = test_config(1);
+    // Blank/whitespace-only entries in exclude_labels must not match anything
+    config.tracker.exclude_labels = vec!["".to_string(), "   ".to_string()];
+
+    let mut issue_with_empty_label = issue("issue-blank-label", "KAT-1885", "Todo", None, 0);
+    // Issue carries a blank label — should not be blocked by a blank exclude entry
+    issue_with_empty_label.labels = vec!["".to_string(), "  ".to_string()];
+
+    let mut port = FakePort {
+        candidate_issues: vec![issue_with_empty_label.clone()],
+        ..FakePort::default()
+    };
+    let mut orchestrator = Orchestrator::new(config, String::new());
+
+    let tick = orchestrator
+        .tick(&mut port)
+        .expect("tick should succeed when all exclude_labels are blank");
+
+    assert_eq!(
+        tick.dispatched_issue_ids,
+        vec![issue_with_empty_label.id.clone()],
+        "blank exclude_labels entries must not block dispatch"
+    );
+}

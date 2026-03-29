@@ -4145,6 +4145,7 @@ impl Orchestrator {
             .exclude_labels
             .iter()
             .map(|l| l.trim().to_ascii_lowercase())
+            .filter(|l| !l.is_empty())
             .collect();
         if excluded.is_empty() {
             return false;
@@ -4152,7 +4153,9 @@ impl Orchestrator {
         issue
             .labels
             .iter()
-            .any(|l| excluded.contains(l.trim().to_ascii_lowercase().as_str()))
+            .map(|l| l.trim().to_ascii_lowercase())
+            .filter(|l| !l.is_empty())
+            .any(|l| excluded.contains(l.as_str()))
     }
 
     /// Returns `true` if the issue has at least one non-terminal blocker,
