@@ -436,6 +436,36 @@ describe("onboarding", () => {
       );
     });
 
+    it("duplicate project names → disambiguates with slugId in label, resolves correct project", async () => {
+      // Two projects with identical names — picker must display unique labels
+      const duplicateProjects = [
+        { id: "proj-1", name: "Kata CLI", slugId: "slug-first-111" },
+        { id: "proj-2", name: "Kata CLI", slugId: "slug-second-222" },
+      ];
+      // Single team → auto-selected; user selects the second project (disambiguated with slugId)
+      const ctx = makeMockCtx({
+        selectReturns: ["Kata CLI (slug-second-222)"],
+      });
+      const deps = makeMockDeps({
+        createLinearClient: () => ({
+          getViewer: async () => ({ id: "user-1", name: "Test", email: "t@t.com" }),
+          listTeams: async () => [{ id: "team-1", key: "KAT", name: "Kata-sh" }],
+          listProjects: async () => duplicateProjects,
+        }),
+      });
+      _setDeps(deps);
+
+      const result = await pickLinearTeamAndProject(ctx, "lin_api_test");
+
+      // Must resolve to the second project, not the first
+      expect(result).toEqual({ teamKey: "KAT", projectSlug: "slug-second-222" });
+      // Both duplicate project labels should include slugId for disambiguation
+      expect(ctx.ui.select).toHaveBeenCalledWith(
+        "Select your Linear project",
+        ["Kata CLI (slug-first-111)", "Kata CLI (slug-second-222)"],
+      );
+    });
+
     it("single-team auto-selects without prompting", async () => {
       const singleTeam = [{ id: "team-1", key: "KAT", name: "Kata-sh" }];
       const ctx = makeMockCtx({

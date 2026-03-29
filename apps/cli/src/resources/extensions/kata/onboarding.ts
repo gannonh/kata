@@ -180,12 +180,22 @@ export async function pickLinearTeamAndProject(
       ctx.ui.notify(`Auto-selected project: ${project.name}`, "info");
       projectSlug = project.slugId;
     } else {
-      const projectOptions = projects.map((p) => p.name);
+      // Build labels that are guaranteed unique: append slugId when two projects share a name.
+      const nameCounts = new Map<string, number>();
+      for (const p of projects) {
+        nameCounts.set(p.name, (nameCounts.get(p.name) ?? 0) + 1);
+      }
+      const projectLabelMap = new Map<string, (typeof projects)[number]>();
+      for (const p of projects) {
+        const label = (nameCounts.get(p.name) ?? 0) > 1 ? `${p.name} (${p.slugId})` : p.name;
+        projectLabelMap.set(label, p);
+      }
+      const projectOptions = Array.from(projectLabelMap.keys());
       const selected = await ctx.ui.select("Select your Linear project", projectOptions);
       if (!selected) return null;
 
-      const idx = projectOptions.indexOf(selected);
-      const project = projects[idx];
+      const project = projectLabelMap.get(selected);
+      if (!project) return null;
       projectSlug = project.slugId;
     }
   } catch (err) {
