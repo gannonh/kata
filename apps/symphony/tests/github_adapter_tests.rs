@@ -19,6 +19,7 @@ fn test_config(assignee: Option<&str>) -> TrackerConfig {
         assignee: assignee.map(|value| value.to_string()),
         active_states: vec!["Todo".to_string(), "In Progress".to_string()],
         terminal_states: vec!["Done".to_string(), "Cancelled".to_string()],
+        exclude_labels: vec![],
     }
 }
 
