@@ -227,10 +227,21 @@ pub async fn start_session(
     let thread_id =
         match do_start_session(&mut stdin, &mut stdout_reader, config, &workspace_str).await {
             Ok(id) => id,
-            Err(e) => {
+            Err(err) => {
                 // Kill the subprocess before propagating the error
                 let _ = child.kill().await;
-                return Err(e);
+
+                let enriched_err = match err {
+                    SymphonyError::ResponseError(message) => {
+                        SymphonyError::ResponseError(format!("{message}; command `{cmd_str}`"))
+                    }
+                    SymphonyError::ResponseTimeout => SymphonyError::ResponseError(format!(
+                        "codex response timeout while starting command `{cmd_str}`"
+                    )),
+                    other => other,
+                };
+
+                return Err(enriched_err);
             }
         };
 
