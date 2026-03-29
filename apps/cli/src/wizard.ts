@@ -63,6 +63,24 @@ async function promptMasked(label: string, hint: string): Promise<string> {
   })
 }
 
+// ─── Plain (unmasked) prompt ──────────────────────────────────────────────────
+
+/**
+ * Prompt for plain visible input using readline.
+ * Use for non-sensitive values like URLs where users need to see what they type.
+ */
+async function promptPlain(label: string, hint: string): Promise<string> {
+  return new Promise((resolve) => {
+    const question = `  ${cyan}›${reset} ${label} ${dim}${hint}${reset}\n  `
+    process.stdout.write(question)
+    const rl = createInterface({ input: process.stdin, output: process.stdout })
+    rl.question('', (answer) => {
+      rl.close()
+      resolve(answer)
+    })
+  })
+}
+
 // ─── Env hydration ────────────────────────────────────────────────────────────
 
 /**
@@ -194,7 +212,7 @@ export async function promptSymphonyUrl(basePath: string): Promise<string | null
 }
 
 async function promptForUrl(basePath: string): Promise<string | null> {
-  const value = await promptMasked('Symphony URL', '(e.g. http://localhost:8080)')
+  const value = await promptPlain('Symphony URL', '(e.g. http://localhost:8080)')
   const trimmed = value.trim()
   if (!trimmed) {
     process.stdout.write(`  ${dim}↷  Symphony skipped${reset}\n\n`)

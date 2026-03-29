@@ -121,7 +121,7 @@ const SYMPHONY_GUIDANCE_MESSAGE = `Symphony is not configured.
 
 To connect:
   • Set symphony.url in .kata/preferences.md
-  • Or set KATA_SYMPHONY_URL environment variable
+  • Or set SYMPHONY_URL / KATA_SYMPHONY_URL environment variable
 
 Run /symphony config to edit WORKFLOW.md settings.`;
 

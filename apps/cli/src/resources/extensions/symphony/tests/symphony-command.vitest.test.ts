@@ -114,6 +114,7 @@ describe("executeSymphonyCommand", () => {
     expect(info).toHaveLength(1);
     expect(info[0]).toContain("Symphony is not configured");
     expect(info[0]).toContain("symphony.url");
+    expect(info[0]).toContain("SYMPHONY_URL");
     expect(info[0]).toContain("KATA_SYMPHONY_URL");
   });
 
