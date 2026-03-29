@@ -200,7 +200,8 @@ impl GithubOrchestratorPort {
         let token = tracker
             .api_key
             .as_ref()
-            .map(|api_key| api_key.as_str().to_string())
+            .map(|api_key| api_key.as_str().trim().to_string())
+            .filter(|value| !value.is_empty())
             .or_else(|| {
                 std::env::var("GH_TOKEN")
                     .ok()
@@ -248,13 +249,15 @@ impl GithubOrchestratorPort {
             .filter(|prefix| !prefix.is_empty())
             .unwrap_or_else(|| "symphony".to_string());
 
-        let client = GithubClient::with_base_url(
-            token,
-            repo_owner,
-            repo_name,
-            label_prefix,
-            "https://api.github.com",
-        );
+        let endpoint = tracker.endpoint.trim();
+        let endpoint = if endpoint.is_empty() {
+            "https://api.github.com"
+        } else {
+            endpoint
+        };
+
+        let client =
+            GithubClient::with_base_url(token, repo_owner, repo_name, label_prefix, endpoint);
 
         Ok(GithubAdapter::new(client, tracker))
     }
