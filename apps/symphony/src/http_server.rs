@@ -900,7 +900,29 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
       return Number.isNaN(parsed.getTime()) ? String(value) : parsed.toISOString();
     }}
 
-    function renderRunningTable(running, sessionInfoByIssue) {{
+    function issueNumberFromIdentifier(identifier) {{
+      const match = String(identifier || '').match(/(\d+)/);
+      return match ? match[1] : null;
+    }}
+
+    function buildIssueUrl(issueIdentifier, issueUrl, trackerProjectUrl) {{
+      if (typeof issueUrl === 'string' && issueUrl.trim().length > 0) {{
+        return issueUrl.trim();
+      }}
+
+      if (typeof trackerProjectUrl !== 'string' || trackerProjectUrl.trim().length === 0) {{
+        return null;
+      }}
+
+      const issueNumber = issueNumberFromIdentifier(issueIdentifier);
+      if (!issueNumber) {{
+        return null;
+      }}
+
+      return trackerProjectUrl.replace(/\/+$/, '') + '/' + issueNumber;
+    }}
+
+    function renderRunningTable(running, sessionInfoByIssue, trackerProjectUrl) {{
       const rows = Object.entries(running || {{}}).sort(function(a, b) {{
         return String(a[1].issue_identifier || '').localeCompare(String(b[1].issue_identifier || ''));
       }});
@@ -936,12 +958,17 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
         const toolName = sessionInfo.current_tool_name || '';
         const toolArgs = sessionInfo.current_tool_args_preview || '';
         const activityLabel = toolName ? 'tool: ' + toolName + (toolArgs ? ' (' + toolArgs + ')' : '') : '-';
+        const issueIdentifier = run.issue_identifier || '-';
+        const issueUrl = buildIssueUrl(issueIdentifier, run.issue_url, trackerProjectUrl);
+        const issueCell = issueUrl
+          ? '<a href="' + escapeHtml(issueUrl) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(issueIdentifier) + '</a>'
+          : escapeHtml(issueIdentifier);
         const errorValue = sessionInfo.last_error;
         const errorCell = errorValue
           ? '<td class="mono error-text">' + escapeHtml(errorValue) + '</td>'
           : '<td class="muted">-</td>';
         return '<tr>' +
-          '<td class="mono">' + escapeHtml(run.issue_identifier || '-') + '</td>' +
+          '<td class="mono">' + issueCell + '</td>' +
           '<td>' + escapeHtml(run.linear_state || '-') + '</td>' +
           '<td>' + escapeHtml(run.status || '-') + '</td>' +
           '<td class="mono">' + escapeHtml(activityLabel) + '</td>' +
@@ -958,8 +985,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
       }}).join('');
     }}
 
-    function renderEscalationTable(escalations, running) {{
-      const rows = Array.isArray(escalations) ? escalations.slice() : [];
+    function renderEscalationTable(escalations, running) {{      const rows = Array.isArray(escalations) ? escalations.slice() : [];
       const runningRows = running && typeof running === 'object' ? Object.values(running) : [];
 
       rows.sort(function(a, b) {{
@@ -1025,7 +1051,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
       }}).join('');
     }}
 
-    function renderCompleted(completed) {{
+    function renderCompleted(completed, trackerProjectUrl) {{
       const items = Array.isArray(completed) ? completed : [];
       if (items.length === 0) {{
         return '<li class="muted">No completed issues yet.</li>';
@@ -1033,11 +1059,15 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
 
       return items.map(function(entry) {{
         const id = entry.identifier || entry.issue_id || '-';
+        const issueUrl = buildIssueUrl(id, entry.issue_url, trackerProjectUrl);
+        const idLabel = issueUrl
+          ? '<a href="' + escapeHtml(issueUrl) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(id) + '</a>'
+          : escapeHtml(id);
         const title = entry.title || '';
         const date = entry.completed_at ? new Date(entry.completed_at).toLocaleString() : '';
-        const label = title ? id + ' — ' + title : id;
+        const titleSuffix = title ? ' — ' + escapeHtml(title) : '';
         const suffix = date ? ' <span class="muted" style="font-size:12px">(' + escapeHtml(date) + ')</span>' : '';
-        return '<li class="mono">' + escapeHtml(label) + suffix + '</li>';
+        return '<li class="mono">' + idLabel + titleSuffix + suffix + '</li>';
       }}).join('');
     }}
 
@@ -1184,7 +1214,8 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
           renderTrackerProjectCard(state.tracker_project_url);
         document.getElementById('running-table-body').innerHTML = renderRunningTable(
           running,
-          state.running_session_info || {{}}
+          state.running_session_info || {{}},
+          state.tracker_project_url
         );
         document.getElementById('escalation-table-body').innerHTML = renderEscalationTable(pendingEscalations, running);
         document.getElementById('retry-table-body').innerHTML = renderRetryTable(retryQueue);
@@ -1203,7 +1234,10 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
           blockedSection.style.display = 'none';
         }}
 
-        document.getElementById('completed-list').innerHTML = renderCompleted(completed);
+        document.getElementById('completed-list').innerHTML = renderCompleted(
+          completed,
+          state.tracker_project_url
+        );
         updateSharedContextSection(sharedContextEntries);
         updateSupervisor(state.supervisor || {{}});
         document.getElementById('token-input').textContent = state.codex_totals?.input_tokens ?? 0;

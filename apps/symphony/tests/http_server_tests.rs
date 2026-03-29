@@ -168,6 +168,40 @@ fn fixture_snapshot() -> OrchestratorSnapshot {
     }
 }
 
+fn github_snapshot() -> OrchestratorSnapshot {
+    let started_at = Utc
+        .with_ymd_and_hms(2026, 3, 19, 12, 0, 0)
+        .single()
+        .expect("fixture timestamp should be valid");
+
+    let mut snapshot = fixture_snapshot();
+    snapshot.tracker_project_url = Some("https://github.com/test-owner/test-repo/issues".to_string());
+    snapshot.running = BTreeMap::from([(
+        "gh-42".to_string(),
+        RunAttempt {
+            issue_id: "gh-42".to_string(),
+            issue_identifier: "#42".to_string(),
+            issue_title: Some("GitHub issue parity".to_string()),
+            attempt: Some(1),
+            workspace_path: "/tmp/symphony/gh-42".to_string(),
+            started_at,
+            status: "running".to_string(),
+            error: None,
+            worker_host: Some("worker-a".to_string()),
+            model: None,
+            linear_state: Some("In Progress".to_string()),
+            issue_url: Some("https://github.com/test-owner/test-repo/issues/42".to_string()),
+        },
+    )]);
+    snapshot.completed = vec![CompletedEntry {
+        issue_id: "gh-42".to_string(),
+        identifier: "#42".to_string(),
+        title: "GitHub issue parity".to_string(),
+        completed_at: Some(started_at),
+    }];
+    snapshot
+}
+
 fn test_router() -> axum::Router {
     test_router_with_steer_sender(None)
 }
@@ -346,6 +380,66 @@ async fn test_get_root_returns_html_dashboard_shell_with_structured_sections() {
     assert!(
         !body.contains("Live state"),
         "dashboard shell should no longer expose the raw live-state section"
+    );
+}
+
+#[tokio::test]
+async fn test_dashboard_renders_github_identifiers() {
+    let app = build_router(HttpServerState::new(
+        Arc::new(StaticSnapshotSource {
+            snapshot: github_snapshot(),
+        }),
+        Arc::new(FakeRefreshControl::default()),
+        symphony::orchestrator::EscalationRegistry::default(),
+    ));
+
+    let dashboard_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/")
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("router should respond");
+
+    let dashboard_html = body_text(dashboard_response).await;
+
+    assert!(
+        dashboard_html.contains("https://github.com/test-owner/test-repo/issues"),
+        "dashboard should render GitHub tracker project URL card"
+    );
+    assert!(
+        dashboard_html.contains("buildIssueUrl(issueIdentifier, run.issue_url, trackerProjectUrl)"),
+        "running table rendering should resolve issue links using run.issue_url first"
+    );
+    assert!(
+        dashboard_html.contains("trackerProjectUrl.replace(/\\/+$/, '') + '/' + issueNumber"),
+        "running/completed link rendering should fall back to tracker_project_url + issue number"
+    );
+
+    let state_response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/api/v1/state")
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("router should respond");
+
+    let payload = body_json(state_response).await;
+    assert_eq!(payload["running"]["gh-42"]["issue_identifier"], "#42");
+    assert_eq!(
+        payload["running"]["gh-42"]["issue_url"],
+        "https://github.com/test-owner/test-repo/issues/42"
+    );
+    assert_eq!(
+        payload["tracker_project_url"],
+        "https://github.com/test-owner/test-repo/issues"
     );
 }
 
