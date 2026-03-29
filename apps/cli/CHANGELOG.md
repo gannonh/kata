@@ -6,6 +6,8 @@
 
 - **Milestone descriptions missing in Linear** — The KATA-WORKFLOW prompt doc only told the agent to pass a title when creating milestones, slices, and tasks. The `description` parameter was supported but never mentioned. Updated the workflow doc to instruct the agent to always include a description. This caused all M008+ milestones to appear without blurbs in Linear's UI.
 
+- **Slice dependency relations not materialized in Linear** — The `depends:[S01,S02]` tags in roadmap documents were written as markdown metadata but never created as actual Linear `blocked_by` relations. Added relation creation instructions to `KATA-WORKFLOW.md`, `linear-backend.ts` (`_buildPlanMilestoneOps` step 9), and `guided-plan-milestone.md` so Symphony can parallelize independent slices and respect ordering constraints.
+
 ## 0.12.0
 
 ### Features
