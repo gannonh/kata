@@ -12,6 +12,7 @@ import {
   pickLinearTeamAndProject,
   updatePreferencesLinearConfig,
   type OnboardingDeps,
+  type AuthStorageLike,
   type LinearPickerResult,
 } from "../onboarding.js";
 
@@ -79,16 +80,22 @@ const DEFAULT_PROJECTS = [
   { id: "proj-2", name: "Kata Desktop", slugId: "abc123def456" },
 ];
 
+function makeMockAuthStorage(initialCreds: Record<string, any> = {}): AuthStorageLike & { _creds: Record<string, any> } {
+  const creds: Record<string, any> = { ...initialCreds };
+  return {
+    has: (provider: string) => provider in creds,
+    get: (provider: string) => creds[provider],
+    set: (provider: string, cred: any) => { creds[provider] = cred; },
+    _creds: creds,
+  };
+}
+
 function makeMockDeps(overrides: Partial<OnboardingDeps> = {}): OnboardingDeps {
   const storedCreds: Record<string, any> = {};
 
   return {
     getAuthFilePath: () => "/tmp/fake-auth.json",
-    createAuthStorage: () => ({
-      set: (provider: string, cred: any) => {
-        storedCreds[provider] = cred;
-      },
-    }),
+    createAuthStorage: () => makeMockAuthStorage(storedCreds),
     createLinearClient: () => ({
       getViewer: async () => ({ id: "user-1", name: "Test User", email: "test@test.com" }),
       listTeams: async () => DEFAULT_TEAMS,
@@ -345,20 +352,16 @@ describe("onboarding", () => {
         inputReturns: ["lin_api_stored"],
         selectReturns: ["Kata-sh (KAT)", "Kata CLI"],
       });
-      const storedCreds: Record<string, any> = {};
+      const authStore = makeMockAuthStorage();
       const deps = makeMockDeps({
-        createAuthStorage: () => ({
-          set: (provider: string, cred: any) => {
-            storedCreds[provider] = cred;
-          },
-        }),
+        createAuthStorage: () => authStore,
       });
       _setDeps(deps);
 
       try {
         await runOnboarding(ctx, tmpDir);
 
-        expect(storedCreds.linear).toEqual({
+        expect(authStore._creds.linear).toEqual({
           type: "api_key",
           key: "lin_api_stored",
         });
@@ -406,6 +409,215 @@ describe("onboarding", () => {
         expect(ctx._notifications.some(
           (n: any) => n.message.includes("Failed to create project config") && n.level === "error",
         )).toBe(true);
+      } finally {
+        delete process.env.LINEAR_API_KEY;
+      }
+    });
+  });
+
+  // ─── Existing key reuse ────────────────────────────────────────────────────
+
+  describe("runOnboarding — existing key reuse", () => {
+    it("reuses valid stored key when user selects 'Use existing key'", async () => {
+      const ctx = makeMockCtx({
+        selectReturns: [
+          "Use existing key",    // reuse prompt
+          "Kata-sh (KAT)",       // team picker
+          "Kata CLI",            // project picker
+        ],
+      });
+      const authStore = makeMockAuthStorage({
+        linear: { type: "api_key", key: "lin_api_existing" },
+      });
+      const deps = makeMockDeps({
+        createAuthStorage: () => authStore,
+        ensurePreferences: vi.fn((basePath: string) => {
+          const kataDir = join(basePath, ".kata");
+          mkdirSync(kataDir, { recursive: true });
+          writeFileSync(
+            join(kataDir, "preferences.md"),
+            "---\nversion: 1\nworkflow:\n  mode: linear\nlinear: {}\n---\n",
+            "utf-8",
+          );
+          return true;
+        }),
+      });
+      _setDeps(deps);
+
+      try {
+        const result = await runOnboarding(ctx, tmpDir);
+
+        expect(result).toBe("completed");
+        expect(process.env.LINEAR_API_KEY).toBe("lin_api_existing");
+        // No input prompt — key was reused, not entered
+        expect(ctx.ui.input).not.toHaveBeenCalled();
+        // Key was not re-written to auth storage (already there)
+        expect(authStore._creds.linear).toEqual({
+          type: "api_key",
+          key: "lin_api_existing",
+        });
+      } finally {
+        delete process.env.LINEAR_API_KEY;
+      }
+    });
+
+    it("prompts for new key when user selects 'Enter a new key'", async () => {
+      const ctx = makeMockCtx({
+        inputReturns: ["lin_api_fresh"],
+        selectReturns: [
+          "Enter a new key",     // reuse prompt — user wants new
+          "Kata-sh (KAT)",       // team picker
+          "Kata CLI",            // project picker
+        ],
+      });
+      const authStore = makeMockAuthStorage({
+        linear: { type: "api_key", key: "lin_api_old" },
+      });
+      const deps = makeMockDeps({
+        createAuthStorage: () => authStore,
+        ensurePreferences: vi.fn((basePath: string) => {
+          const kataDir = join(basePath, ".kata");
+          mkdirSync(kataDir, { recursive: true });
+          writeFileSync(
+            join(kataDir, "preferences.md"),
+            "---\nversion: 1\nworkflow:\n  mode: linear\nlinear: {}\n---\n",
+            "utf-8",
+          );
+          return true;
+        }),
+      });
+      _setDeps(deps);
+
+      try {
+        const result = await runOnboarding(ctx, tmpDir);
+
+        expect(result).toBe("completed");
+        expect(process.env.LINEAR_API_KEY).toBe("lin_api_fresh");
+        // Input was prompted for new key
+        expect(ctx.ui.input).toHaveBeenCalledOnce();
+        // New key was stored
+        expect(authStore._creds.linear).toEqual({
+          type: "api_key",
+          key: "lin_api_fresh",
+        });
+      } finally {
+        delete process.env.LINEAR_API_KEY;
+      }
+    });
+
+    it("falls through to prompt when stored key is invalid", async () => {
+      let viewerCallCount = 0;
+      const ctx = makeMockCtx({
+        inputReturns: ["lin_api_replacement"],
+        selectReturns: ["Kata-sh (KAT)", "Kata CLI"],
+      });
+      const authStore = makeMockAuthStorage({
+        linear: { type: "api_key", key: "lin_api_expired" },
+      });
+      const deps = makeMockDeps({
+        createAuthStorage: () => authStore,
+        createLinearClient: (apiKey: string) => ({
+          getViewer: async () => {
+            viewerCallCount++;
+            // First call validates the stored key — fails
+            if (viewerCallCount === 1) {
+              throw new Error("401 Unauthorized");
+            }
+            return { id: "user-1", name: "Test", email: "t@t.com" };
+          },
+          listTeams: async () => DEFAULT_TEAMS,
+          listProjects: async () => DEFAULT_PROJECTS,
+        }),
+        ensurePreferences: vi.fn((basePath: string) => {
+          const kataDir = join(basePath, ".kata");
+          mkdirSync(kataDir, { recursive: true });
+          writeFileSync(
+            join(kataDir, "preferences.md"),
+            "---\nversion: 1\nworkflow:\n  mode: linear\nlinear: {}\n---\n",
+            "utf-8",
+          );
+          return true;
+        }),
+      });
+      _setDeps(deps);
+
+      try {
+        const result = await runOnboarding(ctx, tmpDir);
+
+        expect(result).toBe("completed");
+        expect(process.env.LINEAR_API_KEY).toBe("lin_api_replacement");
+        // Warning was shown about invalid existing key
+        expect(ctx._notifications.some(
+          (n: any) => n.message.includes("no longer valid") && n.level === "warning",
+        )).toBe(true);
+        // User was prompted for a new key
+        expect(ctx.ui.input).toHaveBeenCalledOnce();
+      } finally {
+        delete process.env.LINEAR_API_KEY;
+      }
+    });
+
+    it("returns 'skipped' when user cancels the reuse selector", async () => {
+      const ctx = makeMockCtx({
+        selectReturns: [undefined], // cancel the reuse prompt
+      });
+      const authStore = makeMockAuthStorage({
+        linear: { type: "api_key", key: "lin_api_existing" },
+      });
+      const deps = makeMockDeps({
+        createAuthStorage: () => authStore,
+      });
+      _setDeps(deps);
+
+      const result = await runOnboarding(ctx, tmpDir);
+
+      expect(result).toBe("skipped");
+      expect(ctx.ui.input).not.toHaveBeenCalled();
+    });
+
+    it("shows user identity in reuse prompt", async () => {
+      const ctx = makeMockCtx({
+        selectReturns: [
+          "Use existing key",
+          "Kata-sh (KAT)",
+          "Kata CLI",
+        ],
+      });
+      const authStore = makeMockAuthStorage({
+        linear: { type: "api_key", key: "lin_api_existing" },
+      });
+      const deps = makeMockDeps({
+        createAuthStorage: () => authStore,
+        createLinearClient: () => ({
+          getViewer: async () => ({ id: "user-1", name: "Gannon Hall", email: "gannon@kata.sh" }),
+          listTeams: async () => DEFAULT_TEAMS,
+          listProjects: async () => DEFAULT_PROJECTS,
+        }),
+        ensurePreferences: vi.fn((basePath: string) => {
+          const kataDir = join(basePath, ".kata");
+          mkdirSync(kataDir, { recursive: true });
+          writeFileSync(
+            join(kataDir, "preferences.md"),
+            "---\nversion: 1\nworkflow:\n  mode: linear\nlinear: {}\n---\n",
+            "utf-8",
+          );
+          return true;
+        }),
+      });
+      _setDeps(deps);
+
+      try {
+        await runOnboarding(ctx, tmpDir);
+
+        // Verify the select prompt contains the user's name and email
+        expect(ctx.ui.select).toHaveBeenCalledWith(
+          expect.stringContaining("Gannon Hall"),
+          expect.any(Array),
+        );
+        expect(ctx.ui.select).toHaveBeenCalledWith(
+          expect.stringContaining("gannon@kata.sh"),
+          expect.any(Array),
+        );
       } finally {
         delete process.env.LINEAR_API_KEY;
       }
@@ -856,13 +1068,9 @@ pr:
         inputReturns: ["lin_api_e2e_test_key"],
         selectReturns: ["Dev Team (DEV)", "Kata Desktop"],
       });
-      const storedCreds: Record<string, any> = {};
+      const authStore = makeMockAuthStorage();
       const deps = makeMockDeps({
-        createAuthStorage: () => ({
-          set: (provider: string, cred: any) => {
-            storedCreds[provider] = cred;
-          },
-        }),
+        createAuthStorage: () => authStore,
         createLinearClient: () => ({
           getViewer: async () => ({ id: "user-e2e", name: "E2E Tester", email: "e2e@test.com" }),
           listTeams: async () => DEFAULT_TEAMS,
@@ -902,7 +1110,7 @@ pr:
         expect(process.env.LINEAR_API_KEY).toBe("lin_api_e2e_test_key");
 
         // ── Auth storage has linear provider entry ────────────────────────
-        expect(storedCreds.linear).toEqual({
+        expect(authStore._creds.linear).toEqual({
           type: "api_key",
           key: "lin_api_e2e_test_key",
         });
@@ -936,13 +1144,9 @@ pr:
         inputReturns: ["lin_api_e2e_noproject"],
         selectReturns: [undefined], // cancel team picker
       });
-      const storedCreds: Record<string, any> = {};
+      const authStore = makeMockAuthStorage();
       const deps = makeMockDeps({
-        createAuthStorage: () => ({
-          set: (provider: string, cred: any) => {
-            storedCreds[provider] = cred;
-          },
-        }),
+        createAuthStorage: () => authStore,
         createLinearClient: () => ({
           getViewer: async () => ({ id: "user-e2e", name: "E2E Tester", email: "e2e@test.com" }),
           listTeams: async () => DEFAULT_TEAMS,
@@ -978,7 +1182,7 @@ pr:
         expect(isProjectConfigured(tmpDir)).toBe(false);
 
         // ── API key was still stored in auth + env ────────────────────────
-        expect(storedCreds.linear).toEqual({
+        expect(authStore._creds.linear).toEqual({
           type: "api_key",
           key: "lin_api_e2e_noproject",
         });

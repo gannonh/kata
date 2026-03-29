@@ -7,7 +7,7 @@
  */
 
 import { join, dirname } from "node:path";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 /**
@@ -135,6 +135,7 @@ export function ensurePreferences(basePath: string): boolean {
     }
   }
 
+  mkdirSync(dirname(preferencesPath), { recursive: true });
   writeFileSync(preferencesPath, template, "utf-8");
   return true;
 }

@@ -14,6 +14,7 @@ export default defineConfig({
       reporter: ['text', 'lcov'],
       include: [
         'src/resources/extensions/kata/auto-dispatch.ts',
+        'src/resources/extensions/kata/gitignore.ts',
         'src/resources/extensions/kata/prompt-loader.ts',
         'src/resources/extensions/pr-lifecycle/pr-runner.ts',
         'src/resources/extensions/pr-lifecycle/pr-body-composer.ts',

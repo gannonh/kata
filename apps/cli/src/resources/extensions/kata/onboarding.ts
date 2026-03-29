@@ -17,6 +17,7 @@
 
 import type { ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import { loadEffectiveKataPreferences } from "./preferences.js";
 import { ensurePreferences, ensureGitignore } from "./gitignore.js";
@@ -66,11 +67,15 @@ export function isProjectConfigured(basePath: string): boolean {
 
 // ─── Dependencies (injectable for testing) ────────────────────────────────────
 
+export interface AuthStorageLike {
+  get: (provider: string) => { type: string; key: string } | undefined;
+  has: (provider: string) => boolean;
+  set: (provider: string, cred: { type: string; key: string }) => void;
+}
+
 export interface OnboardingDeps {
   getAuthFilePath: () => string;
-  createAuthStorage: (path: string) => {
-    set: (provider: string, cred: { type: string; key: string }) => void;
-  };
+  createAuthStorage: (path: string) => AuthStorageLike;
   createLinearClient: (apiKey: string) => {
     getViewer: () => Promise<{ id: string; name: string; email: string }>;
     listTeams: () => Promise<Array<{ id: string; key: string; name: string }>>;
@@ -93,7 +98,7 @@ export function _setDeps(deps: OnboardingDeps | null): void {
 async function getDeps(): Promise<OnboardingDeps> {
   if (_deps) return _deps;
 
-  const { authFilePath } = await import("../../../app-paths.js");
+  const authFilePath = join(homedir(), ".kata-cli", "agent", "auth.json");
   const { AuthStorage } = await import("@mariozechner/pi-coding-agent");
   const { LinearClient } = await import("../linear/linear-client.js");
 
@@ -343,34 +348,72 @@ function replaceLinearBlock(
   return `${openDelim}${newLines.join(eol)}${eol}${closeDelim}${afterFrontmatter}`;
 }
 
-// ─── Onboarding wizard ───────────────────────────────────────────────────────
+// ─── API key resolution ───────────────────────────────────────────────────────
 
-export type OnboardingResult = "completed" | "skipped";
+interface ResolvedKey {
+  apiKey: string;
+  isExisting: boolean;
+}
 
 /**
- * Run the onboarding wizard.
+ * Resolve a Linear API key, checking for an existing stored key first.
  *
- * Prompts for LINEAR_API_KEY, validates it, stores it, and creates .kata/.
- * Returns "completed" on success, "skipped" if user skips or non-TTY.
+ * 1. If auth.json has a `linear` credential, validate it.
+ * 2. If valid, ask the user whether to reuse it or enter a new one.
+ * 3. If no stored key (or user chooses new), prompt for a fresh key.
+ *
+ * Returns `{ apiKey, isExisting }` on success, or `null` if the user skips.
  */
-export async function runOnboarding(
+async function resolveApiKey(
   ctx: ExtensionCommandContext,
-  basePath: string = process.cwd(),
-): Promise<OnboardingResult> {
-  // Non-TTY guard
-  if (!ctx.hasUI) {
-    ctx.ui.notify(
-      "Kata setup requires an interactive terminal. Run /kata in a TTY to configure.",
-      "warning",
-    );
-    return "skipped";
+  deps: OnboardingDeps,
+  authStorage: AuthStorageLike,
+): Promise<ResolvedKey | null> {
+  // Check for an existing stored key
+  if (authStorage.has("linear")) {
+    const cred = authStorage.get("linear");
+    if (cred && cred.type === "api_key" && cred.key) {
+      // Validate the stored key
+      try {
+        const client = deps.createLinearClient(cred.key);
+        const viewer = await client.getViewer();
+
+        // Key works — ask the user
+        const choice = await ctx.ui.select(
+          `Found existing Linear key (${viewer.name} — ${viewer.email}). Use it?`,
+          ["Use existing key", "Enter a new key"],
+        );
+
+        if (choice === "Use existing key") {
+          return { apiKey: cred.key, isExisting: true };
+        }
+
+        // User wants a new key — fall through to prompt
+        if (choice === undefined) {
+          // User cancelled the selector
+          return null;
+        }
+      } catch {
+        // Stored key is invalid or network error — fall through to prompt
+        ctx.ui.notify(
+          "Existing Linear key is no longer valid. Please enter a new one.",
+          "warning",
+        );
+      }
+    }
   }
 
-  const deps = await getDeps();
+  return promptForNewKey(ctx, deps);
+}
 
-  // Prompt for API key (with one retry on failure)
-  let apiKey: string | null = null;
-  let validated = false;
+/**
+ * Prompt the user for a new Linear API key with validation and one retry.
+ * Returns `{ apiKey, isExisting: false }` on success, or `null` if the user skips.
+ */
+async function promptForNewKey(
+  ctx: ExtensionCommandContext,
+  deps: OnboardingDeps,
+): Promise<ResolvedKey | null> {
   const maxAttempts = 2;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -381,17 +424,16 @@ export async function runOnboarding(
 
     // Empty input → user wants to skip
     if (!input || !input.trim()) {
-      return "skipped";
+      return null;
     }
 
-    apiKey = input.trim();
+    const apiKey = input.trim();
 
     // Validate the key
     try {
       const client = deps.createLinearClient(apiKey);
       await client.getViewer();
-      validated = true;
-      break;
+      return { apiKey, isExisting: false };
     } catch (err) {
       const isAuthError =
         err instanceof Error &&
@@ -417,26 +459,60 @@ export async function runOnboarding(
           "Setup cancelled after failed validation. Run /kata to try again.",
           "warning",
         );
-        return "skipped";
+        return null;
       }
     }
   }
 
-  if (!validated || !apiKey) {
+  return null;
+}
+
+// ─── Onboarding wizard ───────────────────────────────────────────────────────
+
+export type OnboardingResult = "completed" | "skipped";
+
+/**
+ * Run the onboarding wizard.
+ *
+ * Prompts for LINEAR_API_KEY, validates it, stores it, and creates .kata/.
+ * Returns "completed" on success, "skipped" if user skips or non-TTY.
+ */
+export async function runOnboarding(
+  ctx: ExtensionCommandContext,
+  basePath: string = process.cwd(),
+): Promise<OnboardingResult> {
+  // Non-TTY guard
+  if (!ctx.hasUI) {
+    ctx.ui.notify(
+      "Kata setup requires an interactive terminal. Run /kata in a TTY to configure.",
+      "warning",
+    );
     return "skipped";
   }
 
-  // Store the key in auth.json
-  try {
-    const authPath = deps.getAuthFilePath();
-    const authStorage = deps.createAuthStorage(authPath);
-    authStorage.set("linear", { type: "api_key", key: apiKey });
-  } catch (err) {
-    ctx.ui.notify(
-      `Failed to store API key: ${err instanceof Error ? err.message : String(err)}`,
-      "error",
-    );
+  const deps = await getDeps();
+  const authPath = deps.getAuthFilePath();
+  const authStorage = deps.createAuthStorage(authPath);
+
+  // ── Check for existing Linear API key ───────────────────────────────────
+  const keyResult = await resolveApiKey(ctx, deps, authStorage);
+  if (!keyResult) {
     return "skipped";
+  }
+
+  const { apiKey, isExisting } = keyResult;
+
+  // Store only if it's a new key (existing key is already in auth.json)
+  if (!isExisting) {
+    try {
+      authStorage.set("linear", { type: "api_key", key: apiKey });
+    } catch (err) {
+      ctx.ui.notify(
+        `Failed to store API key: ${err instanceof Error ? err.message : String(err)}`,
+        "error",
+      );
+      return "skipped";
+    }
   }
 
   // Hydrate process.env immediately for same-session use
