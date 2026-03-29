@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.14.0
+
+### Features
+
+- **`symphony_steer` tool + `/symphony steer` command** — Live operator steering for Symphony workers. `POST /api/v1/steer` delivers guidance to active Kata RPC sessions via `follow_up`. The `symphony_steer` tool and `/symphony steer <issue> <instruction>` command are wired to the live endpoint with actionable error mapping.
+- **`model_by_label` config** — Label-first model resolution in Symphony orchestrator. Parsed from WORKFLOW.md alongside `model_by_state`, normalized to lowercase, takes priority over state-based and default model selection.
+- **Console width option** — `console-render` now accepts a width option and truncates lines accordingly, improving layout in narrow terminals.
+
+### Bug Fixes
+
+- **Onboarding broken app-paths import** — Fixed broken import in onboarding module, ensured `.kata/` directory is created before writing preferences, and added support for reusing an existing stored Linear API key instead of always prompting.
+- **Onboarding banner polish** — Shows "Run `/kata` to get started" on the post-setup banner; removed the confusing "Skip for now" option.
+- **Symphony config editor path guards** — `setPath`/`deletePath` now guard against empty paths with a `console.warn` fallback instead of crashing.
+
 ## 0.13.0
 
 ### Features
