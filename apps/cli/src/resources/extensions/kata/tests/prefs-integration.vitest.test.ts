@@ -7,7 +7,7 @@ import {
   type ConfigEditorUI,
   type ConfigEditorResult,
 } from "../../symphony/config-editor.js";
-import type { ConfigEditorModel } from "../../symphony/config-model.js";
+
 
 // ---------------------------------------------------------------------------
 // Realistic preferences.md fixture
