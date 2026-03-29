@@ -1,6 +1,6 @@
 export type ConfigFieldType = "string" | "number" | "boolean" | "enum" | "string[]";
 
-export type ConfigSectionKey =
+export type SymphonySectionKey =
   | "tracker"
   | "workspace"
   | "agent"
@@ -10,6 +10,8 @@ export type ConfigSectionKey =
   | "server"
   | "hooks"
   | "worker";
+
+export type ConfigSectionKey = SymphonySectionKey | (string & {});
 
 export interface ConfigField<T = unknown> {
   key: string;
@@ -72,18 +74,20 @@ export interface WorkflowFrontmatter {
   body: string;
 }
 
+export type SymphonySections = [
+  TrackerSection,
+  WorkspaceSection,
+  AgentSection,
+  KataAgentSection,
+  NotificationsSection,
+  PromptsSection,
+  ServerSection,
+  HooksSection,
+  WorkerSection,
+];
+
 export interface ConfigEditorModel {
-  sections: [
-    TrackerSection,
-    WorkspaceSection,
-    AgentSection,
-    KataAgentSection,
-    NotificationsSection,
-    PromptsSection,
-    ServerSection,
-    HooksSection,
-    WorkerSection,
-  ];
+  sections: ConfigSection[];
   workflow: WorkflowFrontmatter;
 }
 
