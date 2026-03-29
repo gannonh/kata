@@ -171,7 +171,7 @@ test("symphony command registers config + console subcommands", () => {
     "console completions include console off",
   );
   assert.ok(
-    commandSrc.includes('description: "Symphony operator workflows: status, watch, config, console"'),
+    commandSrc.includes('description: "Symphony operator workflows: status, watch, steer, config, console"'),
     "symphony command description includes console",
   );
 });
