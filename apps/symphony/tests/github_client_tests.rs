@@ -248,7 +248,8 @@ async fn test_rate_limit_exhausted_delays_request() {
     let mut server = Server::new_async().await;
     let client = test_client(&server);
 
-    let reset_ts = (Utc::now().timestamp() + 5).to_string();
+    let reset_epoch = Utc::now().timestamp() + 5;
+    let reset_ts = reset_epoch.to_string();
     let first = server
         .mock("GET", "/repos/kata-sh/kata-mono/issues/10")
         .with_status(200)
@@ -277,6 +278,7 @@ async fn test_rate_limit_exhausted_delays_request() {
         .expect("first request should succeed");
     first.assert_async().await;
 
+    let started_wall = Utc::now().timestamp();
     let started = Instant::now();
     client
         .get_issue(11)
@@ -284,9 +286,12 @@ async fn test_rate_limit_exhausted_delays_request() {
         .expect("second request should succeed after delay");
     second.assert_async().await;
 
+    let expected_delay_secs = (reset_epoch - started_wall).max(0) as u64;
+    let minimum_expected_secs = expected_delay_secs.saturating_sub(1);
+
     assert!(
-        started.elapsed() >= Duration::from_secs(1),
-        "rate-limit exhaustion should delay subsequent request"
+        started.elapsed() >= Duration::from_secs(minimum_expected_secs),
+        "rate-limit exhaustion should delay subsequent request close to reset window"
     );
 }
 

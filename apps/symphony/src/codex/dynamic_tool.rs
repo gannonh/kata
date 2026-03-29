@@ -287,7 +287,7 @@ fn tool_error_payload(err: &SymphonyError) -> Value {
         }),
         other => json!({
             "error": {
-                "message": "Linear GraphQL tool execution failed.",
+                "message": "Tracker tool execution failed.",
                 "reason": other.to_string()
             }
         }),
