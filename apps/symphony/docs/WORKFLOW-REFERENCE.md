@@ -85,6 +85,16 @@ tracker:
     - Duplicate
     - Done
 
+  # Optional: labels that disqualify an issue from dispatch entirely.
+  # Any issue carrying at least one of these labels is silently skipped,
+  # regardless of its state. Matching is case-insensitive.
+  # Use ["kata:task"] when running Symphony against a Kata-planned project
+  # to prevent sub-tasks from being dispatched as independent workers —
+  # sub-tasks should only be executed by the parent slice worker.
+  # Default: [] (no issues excluded by label).
+  # exclude_labels:
+  #   - kata:task
+
 # ─── Polling ──────────────────────────────────────────────────────────────────
 # Controls how frequently Symphony polls the tracker for new/changed issues.
 polling:

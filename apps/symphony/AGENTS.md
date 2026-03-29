@@ -92,6 +92,7 @@ is at `docs/WORKFLOW-REFERENCE.md`. Copy it to your project root as
 | `tracker.assignee`        | string   | _(none)_                                                   | Filter candidate issues to this Linear username. Supports `$VAR` indirection.                                                                    |
 | `tracker.active_states`   | string[] | `["Todo", "In Progress"]`                                  | Issue states that are eligible for dispatch.                                                                                                     |
 | `tracker.terminal_states` | string[] | `["Closed", "Cancelled", "Canceled", "Duplicate", "Done"]` | Issue states that mark an agent run as complete.                                                                                                 |
+| `tracker.exclude_labels`  | string[] | `[]`                                                       | Labels that disqualify an issue from dispatch. Any issue carrying at least one of these labels is skipped (case-insensitive). Use `["kata:task"]` to prevent Kata sub-tasks from being dispatched as independent workers. |
 
 #### `polling` section
 

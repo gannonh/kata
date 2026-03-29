@@ -228,6 +228,15 @@ export const CONFIG_FIELD_DEFINITIONS: readonly ConfigFieldDefinition[] = [
     description: "Issue states that mark a run as completed.",
   },
   {
+    section: "tracker",
+    key: "exclude_labels",
+    label: "Exclude Labels",
+    path: ["tracker", "exclude_labels"],
+    type: "string[]",
+    description:
+      "Labels that disqualify an issue from dispatch. Any issue carrying at least one of these labels is skipped (case-insensitive). Use [\"kata:task\"] to prevent sub-tasks from being dispatched as independent workers.",
+  },
+  {
     section: "workspace",
     key: "root",
     label: "Workspace Root",

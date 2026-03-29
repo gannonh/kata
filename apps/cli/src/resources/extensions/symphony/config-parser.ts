@@ -1,4 +1,5 @@
-import { dump, load, type YAMLException } from "js-yaml";
+import { createRequire } from "node:module";
+import { join } from "node:path";
 import {
   cloneConfig,
   CONFIG_FIELD_DEFINITIONS,
@@ -11,6 +12,19 @@ import {
   type ConfigSectionKey,
   type WorkflowFrontmatter,
 } from "./config-model.js";
+
+// js-yaml is not in pi-coding-agent's extension alias list, so it cannot be
+// resolved via a static top-level import when the extension runs from
+// ~/.kata-cli/agent/. Use createRequire pointed at PI_PACKAGE_DIR (which has
+// js-yaml in its node_modules) so it resolves correctly at runtime.
+const _require = createRequire(
+  process.env.PI_PACKAGE_DIR
+    ? join(process.env.PI_PACKAGE_DIR, "package.json")
+    : import.meta.url,
+);
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { dump, load } = _require("js-yaml") as typeof import("js-yaml");
+type YAMLException = import("js-yaml").YAMLException;
 
 const TOP_LEVEL_KEY_ORDER = [
   "tracker",
