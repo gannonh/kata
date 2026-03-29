@@ -4491,6 +4491,153 @@ fn test_github_snapshot_contains_tracker_project_url() {
     );
 }
 
+#[test]
+fn test_e2e_github_label_mode_full_lifecycle() {
+    let mut orchestrator = Orchestrator::new(github_test_config(1), String::new());
+
+    let mut dispatch_port = FakePort {
+        candidate_issues: vec![github_issue("gh-42", 42, "Todo", -30)],
+        ..FakePort::default()
+    };
+    orchestrator
+        .tick(&mut dispatch_port)
+        .expect("dispatch tick should succeed");
+
+    let running_issue = orchestrator
+        .state()
+        .running
+        .get("gh-42")
+        .expect("issue should be tracked as running after dispatch");
+    assert_eq!(running_issue.issue_identifier, "#42");
+
+    let mut in_progress_port = FakePort {
+        reconciled_issues: vec![github_issue("gh-42", 42, "In Progress", -30)],
+        ..FakePort::default()
+    };
+    orchestrator
+        .tick(&mut in_progress_port)
+        .expect("reconcile in-progress tick should succeed");
+    assert!(
+        orchestrator.state().running.contains_key("gh-42"),
+        "issue should remain in running while state is active"
+    );
+
+    let mut done_port = FakePort {
+        reconciled_issues: vec![github_issue("gh-42", 42, "Done", -30)],
+        ..FakePort::default()
+    };
+    orchestrator
+        .tick(&mut done_port)
+        .expect("reconcile done tick should succeed");
+
+    assert!(
+        !orchestrator.state().running.contains_key("gh-42"),
+        "done issue should be removed from running set"
+    );
+
+    let completed = orchestrator
+        .state()
+        .completed
+        .get("gh-42")
+        .expect("done issue should be tracked as completed");
+    assert_eq!(completed.identifier, "#42");
+}
+
+#[test]
+fn test_e2e_github_projects_v2_mode_full_lifecycle() {
+    let mut config = github_test_config(1);
+    config.tracker.github_project_number = Some(7);
+
+    let mut orchestrator = Orchestrator::new(config, String::new());
+
+    let mut dispatch_port = FakePort {
+        candidate_issues: vec![github_issue("gh-84", 84, "Todo", -30)],
+        ..FakePort::default()
+    };
+    orchestrator
+        .tick(&mut dispatch_port)
+        .expect("dispatch tick should succeed");
+    assert!(
+        orchestrator.state().running.contains_key("gh-84"),
+        "projects-v2 mode should dispatch github issues the same as label mode"
+    );
+
+    let mut in_progress_port = FakePort {
+        reconciled_issues: vec![github_issue("gh-84", 84, "In Progress", -30)],
+        ..FakePort::default()
+    };
+    orchestrator
+        .tick(&mut in_progress_port)
+        .expect("reconcile in-progress tick should succeed");
+    assert!(
+        orchestrator.state().running.contains_key("gh-84"),
+        "active issue should remain running"
+    );
+
+    let mut done_port = FakePort {
+        reconciled_issues: vec![github_issue("gh-84", 84, "Done", -30)],
+        ..FakePort::default()
+    };
+    orchestrator
+        .tick(&mut done_port)
+        .expect("reconcile done tick should succeed");
+
+    assert!(
+        !orchestrator.state().running.contains_key("gh-84"),
+        "terminal issue should leave running set"
+    );
+    assert!(
+        orchestrator.state().completed.contains_key("gh-84"),
+        "terminal issue should be recorded as completed"
+    );
+}
+
+#[test]
+fn test_e2e_github_snapshot_state_json_complete() {
+    let mut orchestrator = Orchestrator::new(github_test_config(1), String::new());
+
+    let mut dispatch_port = FakePort {
+        candidate_issues: vec![github_issue("gh-42", 42, "Todo", -30)],
+        ..FakePort::default()
+    };
+    orchestrator
+        .tick(&mut dispatch_port)
+        .expect("dispatch tick should succeed");
+
+    let running_snapshot = serde_json::to_value(orchestrator.snapshot(0))
+        .expect("running snapshot should serialize to JSON");
+    assert_eq!(
+        running_snapshot["tracker_project_url"],
+        "https://github.com/test-owner/test-repo/issues"
+    );
+    assert_eq!(running_snapshot["running"]["gh-42"]["issue_identifier"], "#42");
+    assert_eq!(
+        running_snapshot["running"]["gh-42"]["issue_url"],
+        "https://github.com/test-owner/test-repo/issues/42"
+    );
+
+    let mut done_port = FakePort {
+        reconciled_issues: vec![github_issue("gh-42", 42, "Done", -30)],
+        ..FakePort::default()
+    };
+    orchestrator
+        .tick(&mut done_port)
+        .expect("reconcile done tick should succeed");
+
+    let final_snapshot = serde_json::to_value(orchestrator.snapshot(0))
+        .expect("final snapshot should serialize to JSON");
+    let completed_entries = final_snapshot["completed"]
+        .as_array()
+        .expect("completed should serialize as an array");
+    assert!(
+        completed_entries.iter().any(|entry| {
+            entry["identifier"] == "#42"
+                && entry["title"].as_str().is_some_and(|title| !title.is_empty())
+        }),
+        "completed snapshot should include github identifier and title"
+    );
+}
+
 // Covered by test_execute_worker_attempt_runs_multiple_turns_in_one_session:
 // same-state (In Progress → In Progress) continues normally for 2+ turns.
 // The Todo→In Progress auto-transition sets issue.state = effective_state in
