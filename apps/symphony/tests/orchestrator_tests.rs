@@ -1699,7 +1699,7 @@ fn test_worker_session_info_last_error_set_on_failed_turn_and_exposed_in_snapsho
 }
 
 #[test]
-fn test_worker_session_info_last_error_clears_after_successful_turn_completed() {
+fn test_worker_session_info_last_error_clears_after_zero_token_turn_completed() {
     let mut orchestrator = Orchestrator::new(test_config(1), String::new());
     let now_ms = 4_800_000;
     let issue_id = "issue-last-error-clear";
@@ -1739,9 +1739,9 @@ fn test_worker_session_info_last_error_clears_after_successful_turn_completed() 
             codex_app_server_pid: Some("9999".to_string()),
             turn_id: "turn-2".to_string(),
             message: Some("completed".to_string()),
-            input_tokens: 21,
-            output_tokens: 9,
-            total_tokens: 30,
+            input_tokens: 0,
+            output_tokens: 0,
+            total_tokens: 0,
             rate_limits: None,
         },
     );
@@ -1804,6 +1804,62 @@ fn test_worker_session_info_last_error_formats_rate_limit_retry_window() {
     assert_eq!(
         session_info.last_error.as_deref(),
         Some("rate limit: retry in ~80 min")
+    );
+}
+
+#[test]
+fn test_worker_session_info_last_error_rate_limit_fallback_is_truncated_to_display_cap() {
+    let mut orchestrator = Orchestrator::new(test_config(1), String::new());
+    let now_ms = 5_400_000;
+    let issue_id = "issue-last-error-rate-limit-fallback";
+
+    orchestrator.state_mut().running.insert(
+        issue_id.to_string(),
+        symphony::domain::RunAttempt {
+            issue_id: issue_id.to_string(),
+            issue_identifier: "SIM-LAST-ERROR-RATE-FALLBACK".to_string(),
+            issue_title: None,
+            attempt: Some(1),
+            workspace_path: "/tmp/workspace-last-error-rate-fallback".to_string(),
+            started_at: utc_ms(now_ms - 300_000),
+            status: "running".to_string(),
+            error: None,
+            worker_host: None,
+            model: None,
+            linear_state: None,
+            issue_url: None,
+        },
+    );
+
+    let long_tail = "x".repeat(260);
+    orchestrator.ingest_agent_event(
+        issue_id,
+        &AgentEvent::TurnFailed {
+            timestamp: utc_ms(now_ms - 1_000),
+            codex_app_server_pid: Some("9999".to_string()),
+            turn_id: "turn-1".to_string(),
+            error: format!("usage limit reached for account. details: {long_tail}"),
+        },
+    );
+
+    let snapshot = orchestrator.snapshot(now_ms);
+    let session_info = snapshot
+        .running_session_info
+        .get(issue_id)
+        .expect("running session info should exist");
+
+    let last_error = session_info
+        .last_error
+        .as_deref()
+        .expect("last_error should be populated for failed turns");
+
+    assert!(
+        last_error.starts_with("rate limit:"),
+        "rate limit fallback should preserve the rate-limit prefix"
+    );
+    assert!(
+        last_error.chars().count() <= 200,
+        "formatted fallback should obey the 200-char display cap"
     );
 }
 

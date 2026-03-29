@@ -2410,9 +2410,7 @@ impl Orchestrator {
                 .session_tokens
                 .total_tokens
                 .saturating_add(*total_tokens);
-            if *total_tokens > 0 {
-                session_info.last_error = None;
-            }
+            session_info.last_error = None;
             self.advance_turn_counter(issue_id);
             self.apply_turn_metrics(&TurnMetrics {
                 input_tokens: *input_tokens,
@@ -4370,19 +4368,19 @@ fn event_severity_for_agent_event(event: &AgentEvent) -> EventSeverity {
 }
 
 fn format_rate_limit_error(error: &str) -> String {
-    let truncated = truncate_for_display(error, WORKER_LAST_ERROR_MAX_CHARS);
     let normalized = error.to_ascii_lowercase();
     let is_rate_limit = normalized.contains("rate limit") || normalized.contains("usage limit");
 
     if !is_rate_limit {
-        return truncated;
+        return truncate_for_display(error, WORKER_LAST_ERROR_MAX_CHARS);
     }
 
     if let Some(minutes) = extract_retry_window_minutes(error) {
         return format!("rate limit: retry in ~{minutes} min");
     }
 
-    format!("rate limit: {truncated}")
+    let formatted = format!("rate limit: {error}");
+    truncate_for_display(&formatted, WORKER_LAST_ERROR_MAX_CHARS)
 }
 
 fn extract_retry_window_minutes(message: &str) -> Option<u64> {
