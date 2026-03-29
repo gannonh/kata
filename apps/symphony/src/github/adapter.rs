@@ -516,6 +516,7 @@ impl GithubAdapter {
 
         tracing::debug!(
             issue_number,
+            project_number,
             option_id = %target_option.id,
             state_name,
             "updating Projects v2 status"
