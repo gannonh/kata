@@ -3,7 +3,8 @@
 use serde_json::json;
 use std::path::Path;
 use symphony::pi_agent::protocol::{
-    ExtensionUIResponse, RpcCommand, RpcOutputLine, SessionStats, SessionTokens,
+    extract_stop_reason, has_rate_limit_hint, ExtensionUIResponse, RpcCommand, RpcOutputLine,
+    SessionStats, SessionTokens,
 };
 use symphony::pi_agent::rpc_bridge;
 use symphony::pi_agent::token_accounting::TokenTracker;
@@ -173,6 +174,45 @@ fn token_tracker_clamps_negative_deltas_to_zero() {
     assert_eq!(d.total_tokens, 0);
 }
 
+#[test]
+fn extract_stop_reason_returns_error_reason_and_message() {
+    let message = json!({
+        "stopReason": "error",
+        "errorMessage": "You have hit your ChatGPT usage limit"
+    });
+
+    let parsed = extract_stop_reason(&message);
+    assert_eq!(
+        parsed,
+        Some((
+            "error".to_string(),
+            Some("You have hit your ChatGPT usage limit".to_string())
+        ))
+    );
+}
+
+#[test]
+fn extract_stop_reason_ignores_end_turn_and_missing_stop_reason() {
+    let end_turn_message = json!({
+        "stopReason": "end_turn",
+        "errorMessage": "ignored"
+    });
+    assert_eq!(extract_stop_reason(&end_turn_message), None);
+
+    let missing_stop_reason = json!({
+        "errorMessage": "missing reason"
+    });
+    assert_eq!(extract_stop_reason(&missing_stop_reason), None);
+}
+
+#[test]
+fn has_rate_limit_hint_detects_expected_keywords() {
+    assert!(has_rate_limit_hint("Rate limit exceeded. Retry after 12s."));
+    assert!(has_rate_limit_hint("You have hit your usage limit for today."));
+    assert!(has_rate_limit_hint("Please retry this request in a moment."));
+    assert!(!has_rate_limit_hint("Model returned malformed JSON"));
+}
+
 fn write_script(dir: &Path, name: &str, content: &str) -> std::path::PathBuf {
     let path = dir.join(name);
     std::fs::write(&path, content).expect("write script");
@@ -220,6 +260,23 @@ while read -r line; do
     echo '{"type":"agent_end","messages":[]}'
   elif [[ "$line" == *'"type":"get_session_stats"'* ]]; then
     echo '{"type":"response","command":"get_session_stats","success":true,"data":{"session_id":"sess-123","tokens":{"input":10,"output":4,"total":14}}}'
+  elif [[ "$line" == *'"type":"abort"'* ]]; then
+    exit 0
+  fi
+done
+"#;
+
+const SCRIPT_ERROR_STOP_REASON_RPC: &str = r#"#!/bin/bash
+set -euo pipefail
+
+read -r line # get_state
+echo '{"type":"response","command":"get_state","success":true,"data":{"sessionId":"sess-error"}}'
+
+while read -r line; do
+  if [[ "$line" == *'"type":"prompt"'* ]]; then
+    echo '{"type":"response","command":"prompt","success":true}'
+    echo '{"type":"message_end","message":{"stopReason":"error","errorMessage":"Rate limit exceeded. Retry after 12s.","content":[]}}'
+    echo '{"type":"agent_end","messages":[]}'
   elif [[ "$line" == *'"type":"abort"'* ]]; then
     exit 0
   fi
@@ -296,6 +353,66 @@ async fn rpc_bridge_start_turn_stop_smoke() {
             .iter()
             .any(|event| matches!(event, symphony::domain::AgentEvent::TurnCompleted { .. })),
         "TurnCompleted event should be emitted"
+    );
+
+    rpc_bridge::stop_session(handle)
+        .await
+        .expect("stop_session succeeds");
+}
+
+#[tokio::test]
+async fn rpc_bridge_turn_fails_on_message_end_error_stop_reason() {
+    let scripts_dir = tempfile::tempdir().expect("scripts dir");
+    let root_dir = tempfile::tempdir().expect("root dir");
+    let workspace = root_dir.path().join("workspace");
+    std::fs::create_dir_all(&workspace).expect("workspace");
+
+    let script_path = write_script(
+        scripts_dir.path(),
+        "fake-kata-error-stop-reason.sh",
+        SCRIPT_ERROR_STOP_REASON_RPC,
+    );
+    let config = PiAgentConfig {
+        command: vec![script_path.to_string_lossy().to_string()],
+        read_timeout_ms: 5_000,
+        stall_timeout_ms: 10_000,
+        ..PiAgentConfig::default()
+    };
+
+    let issue = make_test_issue();
+    let (escalation_tx, _escalation_rx) = tokio::sync::mpsc::unbounded_channel();
+    let mut handle = rpc_bridge::start_session(
+        &config,
+        &issue,
+        &workspace,
+        root_dir.path(),
+        rpc_bridge::StartSessionOptions {
+            worker_host: None,
+            container_id: None,
+            escalation_tx,
+            escalation_timeout_ms: 60_000,
+        },
+    )
+    .await
+    .expect("start_session succeeds");
+
+    let mut events = Vec::new();
+    let err = rpc_bridge::run_turn(&mut handle, "hello", |event| events.push(event))
+        .await
+        .expect_err("run_turn should fail on stopReason=error");
+
+    match err {
+        symphony::error::SymphonyError::TurnFailed(message) => {
+            assert!(message.contains("Rate limit exceeded"));
+        }
+        other => panic!("expected TurnFailed error, got {other:?}"),
+    }
+
+    assert!(
+        events
+            .iter()
+            .any(|event| matches!(event, symphony::domain::AgentEvent::TurnFailed { .. })),
+        "TurnFailed event should be emitted"
     );
 
     rpc_bridge::stop_session(handle)
