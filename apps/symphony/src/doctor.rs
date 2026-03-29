@@ -162,13 +162,15 @@ pub fn check_config(workflow_path: &Path) -> Vec<DoctorCheckResult> {
         ));
     } else {
         for issue in unresolved_env_refs {
-            results.push(DoctorCheckResult::error(
-                "Config Env",
-                format!(
-                    "{} references ${} but the environment variable is unset or empty",
-                    issue.path, issue.var_name
-                ),
-            ));
+            let message = format!(
+                "{} references ${} but the environment variable is unset or empty",
+                issue.path, issue.var_name
+            );
+            if is_required_env_reference_path(&issue.path) {
+                results.push(DoctorCheckResult::error("Config Env", message));
+            } else {
+                results.push(DoctorCheckResult::warning("Config Env", message));
+            }
         }
     }
 
@@ -190,9 +192,7 @@ pub fn check_config(workflow_path: &Path) -> Vec<DoctorCheckResult> {
         }
     }
 
-    let sanitized_config = sanitize_invalid_slack_events(&workflow_definition.config);
-
-    let service_config = match config::from_workflow(&sanitized_config) {
+    let service_config = match config::from_workflow(&workflow_definition.config) {
         Ok(config) => config,
         Err(err) => {
             results.push(DoctorCheckResult::error("Config Parse", err.to_string()));
@@ -825,8 +825,7 @@ pub fn has_errors(results: &[DoctorCheckResult]) -> bool {
 pub fn load_service_config(workflow_path: &Path) -> Result<ServiceConfig, String> {
     let workflow_definition =
         workflow::parse_workflow(workflow_path).map_err(|err| format!("{err}"))?;
-    let sanitized = sanitize_invalid_slack_events(&workflow_definition.config);
-    config::from_workflow(&sanitized).map_err(|err| format!("{err}"))
+    config::from_workflow(&workflow_definition.config).map_err(|err| format!("{err}"))
 }
 
 fn format_linear_error(prefix: &str, err: &SymphonyError) -> String {
@@ -1025,48 +1024,11 @@ fn collect_invalid_slack_events(value: &YamlValue) -> Vec<String> {
     invalid
 }
 
-fn sanitize_invalid_slack_events(config: &YamlValue) -> YamlValue {
-    let mut sanitized = config.clone();
-
-    let Some(root) = sanitized.as_mapping_mut() else {
-        return sanitized;
-    };
-
-    let notifications_key = YamlValue::String("notifications".to_string());
-    let slack_key = YamlValue::String("slack".to_string());
-    let events_key = YamlValue::String("events".to_string());
-
-    let Some(notifications_value) = root.get_mut(&notifications_key) else {
-        return sanitized;
-    };
-    let Some(notifications_map) = notifications_value.as_mapping_mut() else {
-        return sanitized;
-    };
-
-    let Some(slack_value) = notifications_map.get_mut(&slack_key) else {
-        return sanitized;
-    };
-    let Some(slack_map) = slack_value.as_mapping_mut() else {
-        return sanitized;
-    };
-
-    let Some(events_value) = slack_map.get_mut(&events_key) else {
-        return sanitized;
-    };
-    let Some(events) = events_value.as_sequence_mut() else {
-        return sanitized;
-    };
-
-    events.retain(|event| {
-        event
-            .as_str()
-            .map(str::trim)
-            .filter(|event| !event.is_empty())
-            .map(notifications::is_supported_slack_event)
-            .unwrap_or(false)
-    });
-
-    sanitized
+fn is_required_env_reference_path(path: &str) -> bool {
+    matches!(
+        path,
+        "config.tracker.api_key" | "config.tracker.project_slug"
+    )
 }
 
 fn yaml_mapping_get<'a>(value: &'a YamlValue, key: &str) -> Option<&'a YamlValue> {
@@ -1215,6 +1177,51 @@ mod tests {
             result.status == CheckStatus::Error
                 && result.name == "Config Parse"
                 && result.message.contains("YAML parse error")
+        }));
+    }
+
+    #[test]
+    fn test_check_config_optional_env_reference_is_warning() {
+        let temp_dir = tempfile::tempdir().expect("tempdir");
+        let workflow_path = temp_dir.path().join("WORKFLOW.md");
+        fs::write(
+            &workflow_path,
+            "---\ntracker:\n  kind: linear\n  api_key: test-token\n  project_slug: test-project\n  assignee: $SYMPHONY_DOCTOR_OPTIONAL_ENV_UNSET_123\n---\nbody",
+        )
+        .expect("write workflow");
+
+        let results = check_config(&workflow_path);
+        assert!(!has_errors(&results));
+        assert!(results.iter().any(|result| {
+            result.status == CheckStatus::Warning
+                && result.name == "Config Env"
+                && result.message.contains("config.tracker.assignee")
+        }));
+    }
+
+    #[test]
+    fn test_check_config_invalid_slack_event_is_fatal() {
+        let temp_dir = tempfile::tempdir().expect("tempdir");
+        let workflow_path = temp_dir.path().join("WORKFLOW.md");
+        fs::write(
+            &workflow_path,
+            "---\ntracker:\n  kind: linear\n  api_key: test-token\n  project_slug: test-project\nnotifications:\n  slack:\n    webhook_url: https://hooks.slack.com/services/test\n    events:\n      - staleled\n---\nbody",
+        )
+        .expect("write workflow");
+
+        let results = check_config(&workflow_path);
+        assert!(has_errors(&results));
+        assert!(results.iter().any(|result| {
+            result.status == CheckStatus::Warning
+                && result.name == "Config Notifications"
+                && result.message.contains("staleled")
+        }));
+        assert!(results.iter().any(|result| {
+            result.status == CheckStatus::Error
+                && result.name == "Config Parse"
+                && result
+                    .message
+                    .contains("notifications.slack.events contains unsupported value")
         }));
     }
 }
