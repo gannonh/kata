@@ -608,6 +608,193 @@ fn test_check_workspace_root_nonexistent_and_not_creatable() {
         .any(|result| { result.status == CheckStatus::Error && result.name == "Workspace Root" }));
 }
 
+fn github_tracker_config(endpoint: String) -> TrackerConfig {
+    TrackerConfig {
+        kind: Some("github".to_string()),
+        endpoint,
+        api_key: Some(ApiKey::new("github-test-token")),
+        project_slug: None,
+        workspace_slug: None,
+        repo_owner: Some("test-owner".to_string()),
+        repo_name: Some("test-repo".to_string()),
+        github_project_number: None,
+        label_prefix: Some("symphony".to_string()),
+        assignee: None,
+        active_states: vec!["Todo".to_string(), "In Progress".to_string()],
+        terminal_states: vec!["Done".to_string()],
+        exclude_labels: vec![],
+    }
+}
+
+#[tokio::test]
+async fn test_doctor_github_pat_valid() {
+    let mut server = Server::new_async().await;
+    let _user_mock = server
+        .mock("GET", "/user")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(r#"{"login":"octocat"}"#)
+        .create_async()
+        .await;
+    let _repo_mock = server
+        .mock("GET", "/repos/test-owner/test-repo")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(r#"{"name":"test-repo"}"#)
+        .create_async()
+        .await;
+    let _labels_mock = server
+        .mock("GET", "/repos/test-owner/test-repo/labels")
+        .match_query(Matcher::UrlEncoded("per_page".to_string(), "100".to_string()))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            r#"[{"name":"symphony:todo"},{"name":"symphony:in-progress"},{"name":"symphony:done"}]"#,
+        )
+        .create_async()
+        .await;
+
+    let config = github_tracker_config(server.url());
+    let results = doctor::check_github(&config).await;
+
+    assert!(results.iter().any(|result| {
+        result.status == CheckStatus::Pass
+            && result.name == "GitHub PAT"
+            && result.message.contains("PAT authenticated")
+    }));
+}
+
+#[tokio::test]
+async fn test_doctor_github_pat_invalid() {
+    let mut server = Server::new_async().await;
+    let _user_mock = server
+        .mock("GET", "/user")
+        .with_status(401)
+        .with_header("content-type", "application/json")
+        .with_body(r#"{"message":"Bad credentials"}"#)
+        .create_async()
+        .await;
+
+    let config = github_tracker_config(server.url());
+    let results = doctor::check_github(&config).await;
+
+    assert!(results.iter().any(|result| {
+        result.status == CheckStatus::Error
+            && result.name == "GitHub PAT"
+            && result.message.contains("PAT authentication failed (HTTP 401)")
+    }));
+}
+
+#[tokio::test]
+async fn test_doctor_github_repo_not_found() {
+    let mut server = Server::new_async().await;
+    let _user_mock = server
+        .mock("GET", "/user")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(r#"{"login":"octocat"}"#)
+        .create_async()
+        .await;
+    let _repo_mock = server
+        .mock("GET", "/repos/test-owner/test-repo")
+        .with_status(404)
+        .with_header("content-type", "application/json")
+        .with_body(r#"{"message":"Not Found"}"#)
+        .create_async()
+        .await;
+
+    let config = github_tracker_config(server.url());
+    let results = doctor::check_github(&config).await;
+
+    assert!(results.iter().any(|result| {
+        result.status == CheckStatus::Error
+            && result.name == "GitHub Repo"
+            && result
+                .message
+                .contains("Repository test-owner/test-repo not found (HTTP 404)")
+    }));
+}
+
+#[tokio::test]
+async fn test_doctor_github_project_found() {
+    let mut server = Server::new_async().await;
+    let _user_mock = server
+        .mock("GET", "/user")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(r#"{"login":"octocat"}"#)
+        .create_async()
+        .await;
+    let _repo_mock = server
+        .mock("GET", "/repos/test-owner/test-repo")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(r#"{"name":"test-repo"}"#)
+        .create_async()
+        .await;
+    let _graphql_mock = server
+        .mock("POST", "/graphql")
+        .match_body(Matcher::Regex("projectV2".to_string()))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            r#"{"data":{"user":{"projectV2":{"id":"PVT_kwDOA","field":{"id":"PVTSSF_kwDOA","options":[{"id":"opt_todo","name":"Todo"},{"id":"opt_done","name":"Done"}]}}},"organization":null}}"#,
+        )
+        .create_async()
+        .await;
+
+    let mut config = github_tracker_config(server.url());
+    config.github_project_number = Some(7);
+
+    let results = doctor::check_github(&config).await;
+
+    assert!(results.iter().any(|result| {
+        result.status == CheckStatus::Pass
+            && result.name == "GitHub Project"
+            && result
+                .message
+                .contains("Project #7 found with Status field")
+    }));
+}
+
+#[tokio::test]
+async fn test_doctor_github_labels_missing_warning() {
+    let mut server = Server::new_async().await;
+    let _user_mock = server
+        .mock("GET", "/user")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(r#"{"login":"octocat"}"#)
+        .create_async()
+        .await;
+    let _repo_mock = server
+        .mock("GET", "/repos/test-owner/test-repo")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(r#"{"name":"test-repo"}"#)
+        .create_async()
+        .await;
+    let _labels_mock = server
+        .mock("GET", "/repos/test-owner/test-repo/labels")
+        .match_query(Matcher::UrlEncoded("per_page".to_string(), "100".to_string()))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(r#"[{"name":"symphony:todo"}]"#)
+        .create_async()
+        .await;
+
+    let config = github_tracker_config(server.url());
+    let results = doctor::check_github(&config).await;
+
+    assert!(results.iter().any(|result| {
+        result.status == CheckStatus::Warning
+            && result.name == "GitHub Labels"
+            && result
+                .message
+                .contains("Label symphony:in-progress not found on repository")
+    }));
+}
+
 #[tokio::test]
 async fn test_check_linear_auth_failure() {
     let mut server = Server::new_async().await;

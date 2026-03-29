@@ -3,6 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use reqwest::Method;
 use serde_json::Value as JsonValue;
 use serde_yaml::Value as YamlValue;
 
@@ -13,6 +14,7 @@ use crate::domain::{
 };
 use crate::error::SymphonyError;
 use crate::github::client::GithubClient;
+use crate::github::projects_v2::ProjectsV2Client;
 use crate::linear::adapter::TrackerAdapter;
 use crate::linear::client::LinearClient;
 use crate::notifications;
@@ -269,7 +271,7 @@ pub async fn check_github(config: &TrackerConfig) -> Vec<DoctorCheckResult> {
 
     let Some(token) = token else {
         results.push(DoctorCheckResult::error(
-            "GitHub Auth",
+            "GitHub PAT",
             "GH_TOKEN or GITHUB_TOKEN is required when tracker.kind is github",
         ));
         return results;
@@ -323,24 +325,206 @@ pub async fn check_github(config: &TrackerConfig) -> Vec<DoctorCheckResult> {
         endpoint,
     );
 
-    match client.list_labels().await {
-        Ok(labels) => {
-            results.push(DoctorCheckResult::pass(
-                "GitHub Auth",
-                "Authenticated with GitHub API",
+    let pat_ok = match client.request(Method::GET, "/user", None).await {
+        Ok(response) => {
+            match response.json::<JsonValue>().await {
+                Ok(payload) => {
+                    let login = payload
+                        .get("login")
+                        .and_then(|value| value.as_str())
+                        .map(str::trim)
+                        .filter(|value| !value.is_empty())
+                        .unwrap_or("authenticated");
+                    results.push(DoctorCheckResult::pass(
+                        "GitHub PAT",
+                        format!("PAT authenticated as {login}"),
+                    ));
+                }
+                Err(err) => {
+                    results.push(DoctorCheckResult::warning(
+                        "GitHub PAT",
+                        format!(
+                            "PAT authenticated but doctor could not decode /user response: {err}"
+                        ),
+                    ));
+                }
+            }
+            true
+        }
+        Err(SymphonyError::GithubApiStatus { status: 401, .. }) => {
+            results.push(DoctorCheckResult::error(
+                "GitHub PAT",
+                "PAT authentication failed (HTTP 401)",
             ));
-            results.push(DoctorCheckResult::pass(
-                "GitHub Repo",
-                format!(
-                    "Resolved repository '{repo_owner}/{repo_name}' ({} labels visible)",
-                    labels.len()
-                ),
+            false
+        }
+        Err(SymphonyError::GithubApiStatus { status, .. }) => {
+            results.push(DoctorCheckResult::warning(
+                "GitHub PAT",
+                format!("PAT authentication check returned HTTP {status}"),
             ));
+            false
         }
         Err(err) => {
-            results.push(DoctorCheckResult::error(
-                "GitHub Auth",
-                format!("Failed to authenticate with GitHub: {err}"),
+            results.push(DoctorCheckResult::warning(
+                "GitHub PAT",
+                format!("PAT authentication check failed: {err}"),
+            ));
+            false
+        }
+    };
+
+    let repo_ok = if pat_ok {
+        let repo_path = format!("/repos/{repo_owner}/{repo_name}");
+        match client.request(Method::GET, &repo_path, None).await {
+            Ok(_) => {
+                results.push(DoctorCheckResult::pass(
+                    "GitHub Repo",
+                    format!("Repository {repo_owner}/{repo_name} accessible"),
+                ));
+                true
+            }
+            Err(SymphonyError::GithubApiStatus { status: 404, .. }) => {
+                results.push(DoctorCheckResult::error(
+                    "GitHub Repo",
+                    format!("Repository {repo_owner}/{repo_name} not found (HTTP 404)"),
+                ));
+                false
+            }
+            Err(SymphonyError::GithubApiStatus { status, .. }) => {
+                results.push(DoctorCheckResult::warning(
+                    "GitHub Repo",
+                    format!(
+                        "Repository {repo_owner}/{repo_name} check returned HTTP {status}"
+                    ),
+                ));
+                false
+            }
+            Err(err) => {
+                results.push(DoctorCheckResult::warning(
+                    "GitHub Repo",
+                    format!(
+                        "Repository {repo_owner}/{repo_name} check failed: {err}"
+                    ),
+                ));
+                false
+            }
+        }
+    } else {
+        results.push(DoctorCheckResult::skipped(
+            "GitHub Repo",
+            "Skipped because PAT authentication failed",
+        ));
+        false
+    };
+
+    if let Some(project_number) = config.github_project_number {
+        if !pat_ok {
+            results.push(DoctorCheckResult::skipped(
+                "GitHub Project",
+                "Skipped because PAT authentication failed",
+            ));
+        } else {
+            let projects_client = ProjectsV2Client::new(client.clone());
+            match projects_client
+                .resolve_status_field(repo_owner, project_number)
+                .await
+            {
+                Ok(status_field) => {
+                    results.push(DoctorCheckResult::pass(
+                        "GitHub Project",
+                        format!(
+                            "Project #{project_number} found with Status field ({} options)",
+                            status_field.options.len()
+                        ),
+                    ));
+                }
+                Err(err) => {
+                    let err_text = err.to_string();
+                    let message = if err_text.to_ascii_lowercase().contains("not found") {
+                        format!("Project #{project_number} not found or not accessible")
+                    } else {
+                        format!(
+                            "Project #{project_number} not found or not accessible ({err_text})"
+                        )
+                    };
+                    results.push(DoctorCheckResult::error("GitHub Project", message));
+                }
+            }
+        }
+
+        results.push(DoctorCheckResult::skipped(
+            "GitHub Labels",
+            "Projects v2 mode configured (github_project_number set)",
+        ));
+        return results;
+    }
+
+    results.push(DoctorCheckResult::skipped(
+        "GitHub Project",
+        "No github_project_number configured — label mode assumed",
+    ));
+
+    if !pat_ok {
+        results.push(DoctorCheckResult::skipped(
+            "GitHub Labels",
+            "Skipped because PAT authentication failed",
+        ));
+        return results;
+    }
+
+    if !repo_ok {
+        results.push(DoctorCheckResult::skipped(
+            "GitHub Labels",
+            "Skipped because repository check failed",
+        ));
+        return results;
+    }
+
+    match client.list_labels().await {
+        Ok(labels) => {
+            let normalized_labels: BTreeSet<String> = labels
+                .iter()
+                .map(|label| label.name.trim().to_ascii_lowercase())
+                .filter(|label| !label.is_empty())
+                .collect();
+
+            let expected_labels: BTreeSet<String> = config
+                .active_states
+                .iter()
+                .chain(config.terminal_states.iter())
+                .map(|state| normalize_state_for_label(state))
+                .filter(|state| !state.is_empty())
+                .map(|state| format!("{label_prefix}:{state}"))
+                .collect();
+
+            let mut missing_labels = Vec::new();
+            for expected in expected_labels {
+                if !normalized_labels.contains(&expected.to_ascii_lowercase()) {
+                    missing_labels.push(expected);
+                }
+            }
+
+            if missing_labels.is_empty() {
+                results.push(DoctorCheckResult::pass(
+                    "GitHub Labels",
+                    "All configured state labels exist on repository",
+                ));
+            } else {
+                for missing in missing_labels {
+                    results.push(DoctorCheckResult::warning(
+                        "GitHub Labels",
+                        format!(
+                            "Label {missing} not found on repository — create it before running Symphony"
+                        ),
+                    ));
+                }
+            }
+        }
+        Err(err) => {
+            results.push(DoctorCheckResult::warning(
+                "GitHub Labels",
+                format!("Failed to list repository labels: {err}"),
             ));
         }
     }
@@ -1063,6 +1247,16 @@ async fn resolve_assignee(
     }
 
     Ok(None)
+}
+
+fn normalize_state_for_label(state_name: &str) -> String {
+    state_name
+        .trim()
+        .to_ascii_lowercase()
+        .replace('_', "-")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join("-")
 }
 
 fn collect_unresolved_env_refs(value: &YamlValue) -> Vec<EnvReferenceIssue> {
