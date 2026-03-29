@@ -38,6 +38,11 @@ export type SymphonyCommandAction =
       timeoutMs?: number;
     }
   | {
+      type: "steer";
+      issue: string;
+      instruction: string;
+    }
+  | {
       type: "config";
       workflowPathArg?: string;
     }
@@ -67,6 +72,24 @@ export function parseSymphonyCommand(input: string): SymphonyCommandAction {
 
   if (tokens[0] === "status") {
     return { type: "status" };
+  }
+
+  if (tokens[0] === "steer") {
+    const issue = tokens[1]?.trim().toUpperCase();
+    const instruction = input
+      .trim()
+      .replace(/^steer\s+\S+\s*/i, "")
+      .trim();
+
+    if (!issue || !instruction) {
+      return { type: "usage" };
+    }
+
+    return {
+      type: "steer",
+      issue,
+      instruction,
+    };
   }
 
   if (tokens[0] === "config") {
@@ -141,7 +164,11 @@ export async function executeSymphonyCommand(
     }
 
     // For status and watch: check config before attempting connection
-    if (action.type === "status" || action.type === "watch") {
+    if (
+      action.type === "status" ||
+      action.type === "watch" ||
+      action.type === "steer"
+    ) {
       if (!checkConfigured()) {
         sink.info(SYMPHONY_GUIDANCE_MESSAGE);
         return;
@@ -151,6 +178,18 @@ export async function executeSymphonyCommand(
     if (action.type === "status") {
       const state = await client.getState();
       sink.info(renderSymphonyStatus(state));
+      return;
+    }
+
+    if (action.type === "steer") {
+      const result = await client.steer(action.issue, action.instruction);
+      const preview = action.instruction.slice(0, 100);
+
+      if (result.ok) {
+        sink.info(`✓ Steered ${action.issue}: ${preview}`);
+      } else {
+        sink.error(`✗ Steer failed: ${result.error ?? "steer_failed"}`);
+      }
       return;
     }
 
@@ -201,7 +240,7 @@ export function registerSymphonyCommand(
   consoleManager?: ConsoleManager,
 ): void {
   pi.registerCommand("symphony", {
-    description: "Symphony operator workflows: status, watch, config, console",
+    description: "Symphony operator workflows: status, watch, steer, config, console",
     getArgumentCompletions(prefix: string) {
       const tokens = tokenize(prefix);
       if (prefix.endsWith(" ")) {
@@ -209,7 +248,7 @@ export function registerSymphonyCommand(
       }
 
       if (tokens.length <= 1) {
-        const options = ["status", "watch", "config", "console"];
+        const options = ["status", "watch", "steer", "config", "console"];
         const query = tokens[0] ?? "";
         return options
           .filter((option) => option.startsWith(query))
@@ -226,6 +265,20 @@ export function registerSymphonyCommand(
           { value: "--max-events", label: "--max-events <n>" },
           { value: "--timeout-ms", label: "--timeout-ms <ms>" },
         ];
+      }
+
+      if (tokens[0] === "steer" && tokens.length <= 2) {
+        const partial = tokens[1] ?? "";
+        return [
+          {
+            value: `steer ${partial}`.trim(),
+            label: "steer <ISSUE> <instruction>",
+          },
+        ];
+      }
+
+      if (tokens[0] === "steer") {
+        return [];
       }
 
       if (tokens[0] === "config" && tokens.length <= 2) {

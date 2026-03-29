@@ -17,6 +17,14 @@ import {
   type SymphonyWorkerSessionInfo,
 } from "./types.js";
 
+export interface SymphonySteerResult {
+  ok: boolean;
+  status: number;
+  issue_id?: string;
+  issue_identifier?: string;
+  error?: string;
+}
+
 export interface SymphonyClient {
   getConnectionConfig(): SymphonyConnectionConfig;
   getState(signal?: AbortSignal): Promise<SymphonyOrchestratorState>;
@@ -27,6 +35,11 @@ export interface SymphonyClient {
     responderId?: string,
     signal?: AbortSignal,
   ): Promise<{ ok: boolean; status: number }>;
+  steer(
+    issueIdentifier: string,
+    instruction: string,
+    signal?: AbortSignal,
+  ): Promise<SymphonySteerResult>;
   watchEvents(
     filter: SymphonyEventFilter,
     options?: SymphonyWatchOptions,
@@ -224,6 +237,59 @@ export class SymphonyHttpClient implements SymphonyClient {
     };
   }
 
+  async steer(
+    issueIdentifier: string,
+    instruction: string,
+    signal?: AbortSignal,
+  ): Promise<SymphonySteerResult> {
+    const connection = this.getConnectionConfig();
+    const endpoint = buildEndpoint(connection.url, "/api/v1/steer");
+
+    let response: Response;
+    try {
+      response = await this.fetchImpl(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          issue_identifier: issueIdentifier,
+          instruction,
+        }),
+        signal,
+      });
+    } catch (error) {
+      throw normalizeTransportError(error, {
+        code: "connection_failed",
+        endpoint,
+        origin: connection.origin,
+        reason: "fetch_failed",
+        retryable: true,
+      });
+    }
+
+    const payload = await safeReadJson(response);
+
+    if (response.ok) {
+      const parsed = isRecord(payload) ? payload : {};
+      return {
+        ok: true,
+        status: response.status,
+        ...(typeof parsed.issue_id === "string" ? { issue_id: parsed.issue_id } : {}),
+        ...(typeof parsed.issue_identifier === "string"
+          ? { issue_identifier: parsed.issue_identifier }
+          : {}),
+      };
+    }
+
+    return {
+      ok: false,
+      status: response.status,
+      error: mapSteerError(response.status, payload),
+    };
+  }
+
   async *watchEvents(
     filter: SymphonyEventFilter,
     options: SymphonyWatchOptions = {},
@@ -416,6 +482,42 @@ function normalizeIssueFilter(value: unknown): string | string[] | undefined {
   }
 
   return undefined;
+}
+
+async function safeReadJson(response: Response): Promise<unknown> {
+  const text = await response.text();
+  if (!text.trim()) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+function mapSteerError(status: number, payload: unknown): string {
+  const code =
+    isRecord(payload) && isRecord(payload.error) && typeof payload.error.code === "string"
+      ? payload.error.code
+      : undefined;
+
+  if (code) {
+    return code;
+  }
+
+  if (status === 404) {
+    return "issue_not_running";
+  }
+  if (status === 409) {
+    return "no_active_session";
+  }
+  if (status === 400) {
+    return "invalid_request";
+  }
+
+  return "steer_failed";
 }
 
 function normalizeTransportError(
