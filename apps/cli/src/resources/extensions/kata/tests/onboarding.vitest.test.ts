@@ -515,6 +515,18 @@ describe("onboarding", () => {
       )).toBe(true);
     });
 
+    it("team picker returns unrecognized label → returns null (Map guard)", async () => {
+      const ctx = makeMockCtx({
+        selectReturns: ["Nonexistent Team (XXX)"], // not in the team list
+      });
+      const deps = makeMockDeps();
+      _setDeps(deps);
+
+      const result = await pickLinearTeamAndProject(ctx, "lin_api_test");
+
+      expect(result).toBeNull();
+    });
+
     it("user cancels team picker → returns null", async () => {
       const ctx = makeMockCtx({
         selectReturns: [undefined], // user cancelled
@@ -704,6 +716,52 @@ pr:
       expect(content).toContain("teamKey: KAT");
       expect(content).toContain("projectSlug: abc");
       expect(isProjectConfigured(tmpDir)).toBe(true);
+    });
+
+    it("preserves blank separator lines between linear block and next YAML key", () => {
+      // Regression: blank line after linear block should NOT be swallowed
+      const withBlankSeparator = `---
+version: 1
+linear:
+  teamKey: OLD
+  projectSlug: old-slug
+
+pr:
+  enabled: true
+---
+
+# My Preferences
+`;
+      writePreferences(tmpDir, withBlankSeparator);
+
+      updatePreferencesLinearConfig(tmpDir, { teamKey: "KAT", projectSlug: "new-slug" });
+
+      const content = readFileSync(join(tmpDir, ".kata", "preferences.md"), "utf-8");
+      expect(content).toContain("teamKey: KAT");
+      expect(content).toContain("projectSlug: new-slug");
+      // The pr: block must still be present after the linear block
+      expect(content).toContain("pr:");
+      expect(content).toContain("enabled: true");
+    });
+
+    it("handles CRLF line endings in preferences file", () => {
+      // Regression: CRLF files must be parsed and written back without corrupting the file.
+      // Note: isProjectConfigured uses the preferences parser which has its own CRLF handling;
+      // this test verifies that replaceLinearBlock writes correct content regardless of EOL.
+      const crlfContent = "---\r\nversion: 1\r\nlinear: {}\r\npr:\r\n  enabled: true\r\n---\r\n\r\n# Prefs\r\n";
+      writePreferences(tmpDir, crlfContent);
+
+      updatePreferencesLinearConfig(tmpDir, { teamKey: "KAT", projectSlug: "slug123" });
+
+      const content = readFileSync(join(tmpDir, ".kata", "preferences.md"), "utf-8");
+      // Values must be present in the output
+      expect(content).toContain("teamKey: KAT");
+      expect(content).toContain("projectSlug: slug123");
+      // The pr: section must be preserved (not corrupted)
+      expect(content).toContain("pr:");
+      expect(content).toContain("enabled: true");
+      // CRLF line endings must be preserved throughout
+      expect(content).toContain("\r\n");
     });
   });
 

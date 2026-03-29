@@ -147,12 +147,14 @@ export async function pickLinearTeamAndProject(
       teamKey = team.key;
       teamId = team.id;
     } else {
-      const teamOptions = teams.map((t) => `${t.name} (${t.key})`);
+      // Team keys are unique in Linear, so labels are inherently unique.
+      const teamLabelMap = new Map(teams.map((t) => [`${t.name} (${t.key})`, t]));
+      const teamOptions = Array.from(teamLabelMap.keys());
       const selected = await ctx.ui.select("Select your Linear team", teamOptions);
       if (!selected) return null;
 
-      const idx = teamOptions.indexOf(selected);
-      const team = teams[idx];
+      const team = teamLabelMap.get(selected);
+      if (!team) return null;
       teamKey = team.key;
       teamId = team.id;
     }
@@ -273,17 +275,21 @@ function replaceLinearBlock(
   content: string,
   config: LinearPickerResult,
 ): string {
-  const fmMatch = content.match(/^(---\n)([\s\S]*?)\n(---)/);
+  // Detect line ending so we can be CRLF-agnostic.
+  const eol = content.includes("\r\n") ? "\r\n" : "\n";
+  const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!fmMatch) {
     // No frontmatter — wrap with new frontmatter
-    return `---\nversion: 1\nlinear:\n  teamKey: ${config.teamKey}\n  projectSlug: ${config.projectSlug}\n---\n${content}`;
+    return `---${eol}version: 1${eol}linear:${eol}  teamKey: ${config.teamKey}${eol}  projectSlug: ${config.projectSlug}${eol}---${eol}${content}`;
   }
 
-  const [, openDelim, frontmatter, closeDelim] = fmMatch;
+  const openDelim = `---${eol}`;
+  const frontmatter = fmMatch[1];
+  const closeDelim = "---";
   const afterFrontmatter = content.slice(fmMatch[0].length);
 
-  // Replace the linear block
-  const lines = frontmatter.split("\n");
+  // Replace the linear block (strip \r so line values are clean regardless of eol)
+  const lines = frontmatter.split("\n").map((l) => l.replace(/\r$/, ""));
   const newLines: string[] = [];
   let inLinearBlock = false;
   let linearBlockReplaced = false;
@@ -315,11 +321,12 @@ function replaceLinearBlock(
     }
 
     if (inLinearBlock) {
-      // Skip indented lines that belong to the old linear block
-      if (trimmed === "" || line.match(/^\s+\S/)) {
+      // Skip indented lines that belong to the old linear block.
+      // Blank lines end the block (they're separators between top-level keys) — preserve them.
+      if (line.match(/^\s+\S/)) {
         continue;
       }
-      // Non-indented line means linear block ended
+      // Blank line or non-indented line: linear block ended
       inLinearBlock = false;
     }
 
@@ -333,7 +340,7 @@ function replaceLinearBlock(
     newLines.push(`  projectSlug: ${config.projectSlug}`);
   }
 
-  return `${openDelim}${newLines.join("\n")}\n${closeDelim}${afterFrontmatter}`;
+  return `${openDelim}${newLines.join(eol)}${eol}${closeDelim}${afterFrontmatter}`;
 }
 
 // ─── Onboarding wizard ───────────────────────────────────────────────────────
