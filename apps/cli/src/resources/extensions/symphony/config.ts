@@ -75,7 +75,10 @@ export function isSymphonyConfigured(
     resolveSymphonyConfigFromRuntime(options);
     return true;
   } catch (error) {
-    if (isSymphonyError(error) && error.code === "config_missing") {
+    if (
+      isSymphonyError(error) &&
+      (error.code === "config_missing" || error.code === "config_invalid")
+    ) {
       return false;
     }
     throw error;
