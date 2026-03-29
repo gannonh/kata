@@ -659,6 +659,124 @@ fn test_dispatch_predispatch_refresh_rejects_stale_state() {
 }
 
 #[test]
+fn test_dispatch_respects_max_concurrent_limit() {
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
+    let first = issue("issue-first", "SIM-31", "Todo", Some(1), 0);
+    let second = issue("issue-second", "SIM-32", "Todo", Some(2), 0);
+    let third = issue("issue-third", "SIM-33", "Todo", Some(3), 0);
+
+    let mut port = FakePort {
+        candidate_issues: vec![third.clone(), second.clone(), first.clone()],
+        ..FakePort::default()
+    };
+
+    let tick = orchestrator.tick(&mut port).expect("tick should succeed");
+
+    assert_eq!(
+        tick.dispatched_issue_ids,
+        vec![first.id.clone(), second.id.clone()],
+        "dispatch should stop once max_concurrent_agents slots are filled"
+    );
+    assert_eq!(
+        orchestrator.state().running.len(),
+        2,
+        "only two issues should be in the running map"
+    );
+    assert!(
+        !orchestrator.state().running.contains_key(&third.id),
+        "third candidate should wait for a later tick"
+    );
+}
+
+#[test]
+fn test_dispatch_skips_already_running_issue_on_subsequent_tick() {
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
+    let candidate = issue("issue-race", "SIM-34", "In Progress", Some(1), 0);
+
+    let mut first_port = FakePort {
+        candidate_issues: vec![candidate.clone()],
+        ..FakePort::default()
+    };
+    let first_tick = orchestrator
+        .tick(&mut first_port)
+        .expect("first tick should dispatch");
+    assert_eq!(first_tick.dispatched_issue_ids, vec![candidate.id.clone()]);
+
+    let mut second_port = FakePort {
+        reconciled_issues: vec![candidate.clone()],
+        candidate_issues: vec![candidate.clone()],
+        ..FakePort::default()
+    };
+    let second_tick = orchestrator
+        .tick(&mut second_port)
+        .expect("second tick should not fail");
+
+    assert!(
+        second_tick.dispatched_issue_ids.is_empty(),
+        "claimed/running issue should not be dispatched twice across ticks"
+    );
+    assert_eq!(
+        orchestrator.state().running.len(),
+        1,
+        "running set should still contain only the original dispatch"
+    );
+}
+
+#[tokio::test]
+async fn test_reconcile_issue_disappears_between_polls_releases_running_entry() {
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
+    let issue_id = "issue-disappeared".to_string();
+
+    orchestrator.state_mut().running.insert(
+        issue_id.clone(),
+        symphony::domain::RunAttempt {
+            issue_id: issue_id.clone(),
+            issue_identifier: "SIM-35".to_string(),
+            issue_title: Some("Issue SIM-35".to_string()),
+            attempt: Some(1),
+            workspace_path: "/tmp/ws-disappeared".to_string(),
+            started_at: Utc::now(),
+            status: "running".to_string(),
+            error: None,
+            worker_host: None,
+            model: None,
+            linear_state: Some("In Progress".to_string()),
+            issue_url: None,
+        },
+    );
+    orchestrator.state_mut().claimed.insert(issue_id.clone());
+
+    let registry = orchestrator.escalation_registry();
+    let request = escalation_request("esc-disappeared", &issue_id);
+    let (tx, rx) = tokio::sync::oneshot::channel::<EscalationResponse>();
+    registry.register(request, tx);
+
+    let mut port = FakePort {
+        reconciled_issues: vec![],
+        ..FakePort::default()
+    };
+
+    orchestrator.tick(&mut port).expect("tick should succeed");
+
+    assert!(
+        !orchestrator.state().running.contains_key(&issue_id),
+        "running entry should be released when issue is no longer returned by reconcile"
+    );
+    assert!(
+        !orchestrator.state().claimed.contains(&issue_id),
+        "claimed entry should be released when issue disappears between polls"
+    );
+    assert!(
+        registry.pending_snapshot().is_empty(),
+        "release path should clear pending escalations for disappeared issues"
+    );
+    assert!(
+        rx.await.is_err(),
+        "pending escalation sender should be dropped during release"
+    );
+}
+
+#[test]
 fn test_retry_scheduling_continuation_and_failure_backoff_rules() {
     let mut orchestrator = Orchestrator::new(test_config(2), String::new());
     let now_ms = 10_000;

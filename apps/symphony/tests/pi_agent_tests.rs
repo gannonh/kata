@@ -310,6 +310,57 @@ while read -r line; do
 done
 "#;
 
+const SCRIPT_AGENT_END_BEFORE_MESSAGE_END_RPC: &str = r#"#!/bin/bash
+set -euo pipefail
+
+read -r line # get_state
+echo '{"type":"response","command":"get_state","success":true,"data":{"sessionId":"sess-agent-end"}}'
+
+while read -r line; do
+  if [[ "$line" == *'"type":"prompt"'* ]]; then
+    echo '{"type":"response","command":"prompt","success":true}'
+    echo '{"type":"agent_end","messages":[]}'
+  elif [[ "$line" == *'"type":"get_session_stats"'* ]]; then
+    echo '{"type":"response","command":"get_session_stats","success":true,"data":{"session_id":"sess-agent-end","tokens":{"input":1,"output":0,"total":1}}}'
+  elif [[ "$line" == *'"type":"abort"'* ]]; then
+    exit 0
+  fi
+done
+"#;
+
+const SCRIPT_EXIT_AFTER_HANDSHAKE_RPC: &str = r#"#!/bin/bash
+set -euo pipefail
+
+read -r line # get_state
+echo '{"type":"response","command":"get_state","success":true,"data":{"sessionId":"sess-exit"}}'
+exit 0
+"#;
+
+const SCRIPT_CLOSE_STDIN_AFTER_HANDSHAKE_RPC: &str = r#"#!/bin/bash
+set -euo pipefail
+
+read -r line # get_state
+echo '{"type":"response","command":"get_state","success":true,"data":{"sessionId":"sess-stdin-closed"}}'
+exec 0<&-
+sleep 2
+"#;
+
+const SCRIPT_STALL_AFTER_PROMPT_RPC: &str = r#"#!/bin/bash
+set -euo pipefail
+
+read -r line # get_state
+echo '{"type":"response","command":"get_state","success":true,"data":{"sessionId":"sess-stall"}}'
+
+while read -r line; do
+  if [[ "$line" == *'"type":"prompt"'* ]]; then
+    echo '{"type":"response","command":"prompt","success":true}'
+    sleep 2
+  elif [[ "$line" == *'"type":"abort"'* ]]; then
+    exit 0
+  fi
+done
+"#;
+
 #[tokio::test]
 async fn rpc_bridge_start_turn_stop_smoke() {
     let scripts_dir = tempfile::tempdir().expect("scripts dir");
@@ -363,6 +414,214 @@ async fn rpc_bridge_start_turn_stop_smoke() {
     rpc_bridge::stop_session(handle)
         .await
         .expect("stop_session succeeds");
+}
+
+#[tokio::test]
+async fn rpc_bridge_run_turn_handles_stdin_write_failure() {
+    let scripts_dir = tempfile::tempdir().expect("scripts dir");
+    let root_dir = tempfile::tempdir().expect("root dir");
+    let workspace = root_dir.path().join("workspace");
+    std::fs::create_dir_all(&workspace).expect("workspace");
+
+    let script_path = write_script(
+        scripts_dir.path(),
+        "fake-kata-close-stdin-after-handshake.sh",
+        SCRIPT_CLOSE_STDIN_AFTER_HANDSHAKE_RPC,
+    );
+    let config = PiAgentConfig {
+        command: vec![script_path.to_string_lossy().to_string()],
+        read_timeout_ms: 5_000,
+        stall_timeout_ms: 10_000,
+        ..PiAgentConfig::default()
+    };
+
+    let issue = make_test_issue();
+    let (escalation_tx, _escalation_rx) = tokio::sync::mpsc::unbounded_channel();
+    let mut handle = rpc_bridge::start_session(
+        &config,
+        &issue,
+        &workspace,
+        root_dir.path(),
+        rpc_bridge::StartSessionOptions {
+            worker_host: None,
+            container_id: None,
+            escalation_tx,
+            escalation_timeout_ms: 60_000,
+            model_override: None,
+        },
+    )
+    .await
+    .expect("start_session succeeds");
+
+    let err = rpc_bridge::run_turn(&mut handle, "hello", |_| {})
+        .await
+        .expect_err("run_turn should fail when stdin closes before prompt write");
+
+    match err {
+        symphony::error::SymphonyError::PiAgentError(message) => {
+            assert!(
+                message.contains("failed to write stdin")
+                    || message.contains("failed to flush stdin")
+                    || message.contains("stdout closed unexpectedly"),
+                "expected stdin/write-side failure signal, got: {message}"
+            );
+        }
+        other => panic!("expected PiAgentError, got {other:?}"),
+    }
+
+    rpc_bridge::stop_session(handle)
+        .await
+        .expect("stop_session succeeds even after write failure");
+}
+
+#[tokio::test]
+async fn rpc_bridge_run_turn_handles_agent_end_before_message_end() {
+    let scripts_dir = tempfile::tempdir().expect("scripts dir");
+    let root_dir = tempfile::tempdir().expect("root dir");
+    let workspace = root_dir.path().join("workspace");
+    std::fs::create_dir_all(&workspace).expect("workspace");
+
+    let script_path = write_script(
+        scripts_dir.path(),
+        "fake-kata-agent-end-first.sh",
+        SCRIPT_AGENT_END_BEFORE_MESSAGE_END_RPC,
+    );
+    let config = PiAgentConfig {
+        command: vec![script_path.to_string_lossy().to_string()],
+        read_timeout_ms: 5_000,
+        stall_timeout_ms: 10_000,
+        ..PiAgentConfig::default()
+    };
+
+    let issue = make_test_issue();
+    let (escalation_tx, _escalation_rx) = tokio::sync::mpsc::unbounded_channel();
+    let mut handle = rpc_bridge::start_session(
+        &config,
+        &issue,
+        &workspace,
+        root_dir.path(),
+        rpc_bridge::StartSessionOptions {
+            worker_host: None,
+            container_id: None,
+            escalation_tx,
+            escalation_timeout_ms: 60_000,
+            model_override: None,
+        },
+    )
+    .await
+    .expect("start_session succeeds");
+
+    let turn = rpc_bridge::run_turn(&mut handle, "hello", |_| {})
+        .await
+        .expect("run_turn should succeed when agent_end arrives before message_end");
+
+    assert_eq!(
+        turn.output_text, None,
+        "output text should remain None when no message_end payload is emitted"
+    );
+
+    rpc_bridge::stop_session(handle)
+        .await
+        .expect("stop_session succeeds");
+}
+
+#[tokio::test]
+async fn rpc_bridge_run_turn_surfaces_stall_timeout() {
+    let scripts_dir = tempfile::tempdir().expect("scripts dir");
+    let root_dir = tempfile::tempdir().expect("root dir");
+    let workspace = root_dir.path().join("workspace");
+    std::fs::create_dir_all(&workspace).expect("workspace");
+
+    let script_path = write_script(
+        scripts_dir.path(),
+        "fake-kata-stall.sh",
+        SCRIPT_STALL_AFTER_PROMPT_RPC,
+    );
+    let config = PiAgentConfig {
+        command: vec![script_path.to_string_lossy().to_string()],
+        read_timeout_ms: 50,
+        stall_timeout_ms: 150,
+        ..PiAgentConfig::default()
+    };
+
+    let issue = make_test_issue();
+    let (escalation_tx, _escalation_rx) = tokio::sync::mpsc::unbounded_channel();
+    let mut handle = rpc_bridge::start_session(
+        &config,
+        &issue,
+        &workspace,
+        root_dir.path(),
+        rpc_bridge::StartSessionOptions {
+            worker_host: None,
+            container_id: None,
+            escalation_tx,
+            escalation_timeout_ms: 60_000,
+            model_override: None,
+        },
+    )
+    .await
+    .expect("start_session succeeds");
+
+    let err = rpc_bridge::run_turn(&mut handle, "hello", |_| {})
+        .await
+        .expect_err("run_turn should fail when no output arrives before stall timeout");
+
+    match err {
+        symphony::error::SymphonyError::PiAgentError(message) => {
+            assert!(
+                message.contains("read timed out"),
+                "expected stall timeout message, got: {message}"
+            );
+        }
+        other => panic!("expected PiAgentError, got {other:?}"),
+    }
+
+    rpc_bridge::stop_session(handle)
+        .await
+        .expect("stop_session succeeds after timeout");
+}
+
+#[tokio::test]
+async fn rpc_bridge_stop_session_handles_process_already_exited() {
+    let scripts_dir = tempfile::tempdir().expect("scripts dir");
+    let root_dir = tempfile::tempdir().expect("root dir");
+    let workspace = root_dir.path().join("workspace");
+    std::fs::create_dir_all(&workspace).expect("workspace");
+
+    let script_path = write_script(
+        scripts_dir.path(),
+        "fake-kata-stop-after-exit.sh",
+        SCRIPT_EXIT_AFTER_HANDSHAKE_RPC,
+    );
+    let config = PiAgentConfig {
+        command: vec![script_path.to_string_lossy().to_string()],
+        read_timeout_ms: 5_000,
+        stall_timeout_ms: 10_000,
+        ..PiAgentConfig::default()
+    };
+
+    let issue = make_test_issue();
+    let (escalation_tx, _escalation_rx) = tokio::sync::mpsc::unbounded_channel();
+    let handle = rpc_bridge::start_session(
+        &config,
+        &issue,
+        &workspace,
+        root_dir.path(),
+        rpc_bridge::StartSessionOptions {
+            worker_host: None,
+            container_id: None,
+            escalation_tx,
+            escalation_timeout_ms: 60_000,
+            model_override: None,
+        },
+    )
+    .await
+    .expect("start_session succeeds");
+
+    tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    rpc_bridge::stop_session(handle)
+        .await
+        .expect("stop_session should gracefully handle already-exited process");
 }
 
 #[tokio::test]

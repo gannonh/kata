@@ -678,6 +678,28 @@ When a worker emits an interactive `extension_ui_request`, Symphony now:
 
 Enabled by default. Shows a Ratatui-based live view with throughput sparkline and color-coded session status. Disable with `--no-tui` to get JSON log output instead.
 
+## Test Coverage
+
+Symphony coverage is enforced in CI on every PR with `cargo-llvm-cov`.
+
+- **Gate:** overall line coverage must stay at or above **72%** (current baseline, excluding `main.rs`).
+- **Exclusion:** `main.rs` is excluded from the threshold via `--ignore-filename-regex 'main\.rs'` because it is primarily CLI/bootstrap/signal wiring.
+- **Artifact:** each PR run uploads an HTML report (`symphony-coverage-report`) you can download from GitHub Actions artifacts.
+- **Roadmap:** threshold ratchet to 80% is tracked separately as coverage debt follow-up work.
+
+Run coverage locally:
+
+```bash
+rustup component add llvm-tools-preview
+cargo install cargo-llvm-cov
+cd apps/symphony
+cargo llvm-cov --html --output-dir coverage --fail-under-lines 72 --ignore-filename-regex 'main\.rs'
+```
+
+Open `apps/symphony/coverage/index.html` in a browser to inspect per-file and per-line coverage.
+
+If you add files that are intentionally non-unit-testable (entrypoints/bootstrap wrappers), extend `--ignore-filename-regex` deliberately and document the reason in the PR.
+
 ## Development
 
 ```bash

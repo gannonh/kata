@@ -519,6 +519,24 @@ echo '{"id":3,"result":{"turn":{"id":"turn-exit"}}}'
 exit 2
 "#;
 
+/// Handshake script that never responds to initialize (used for startup timeout).
+const SCRIPT_HANDSHAKE_TIMEOUT: &str = r#"#!/bin/bash
+read -r line
+sleep 2
+"#;
+
+/// Handshake script that starts a turn but never emits turn/completed.
+const SCRIPT_TURN_TIMEOUT: &str = r#"#!/bin/bash
+read -r line
+echo '{"id":1,"result":{"capabilities":{}}}'
+read -r line
+read -r line
+echo '{"id":2,"result":{"thread":{"id":"thread-timeout"}}}'
+read -r line
+echo '{"id":3,"result":{"turn":{"id":"turn-timeout"}}}'
+sleep 2
+"#;
+
 /// Handshake script that sends a very large turn/completed line (>8 KB).
 const SCRIPT_LARGE_LINE: &str = r#"#!/bin/bash
 read -r line
@@ -597,6 +615,111 @@ async fn test_app_server_cwd_rejects_symlink_escape() {
         matches!(result, Err(SymphonyError::InvalidWorkspaceCwd(_))),
         "expected InvalidWorkspaceCwd for symlink escape"
     );
+}
+
+#[tokio::test]
+async fn test_app_server_start_session_command_not_found_includes_command_name() {
+    let root_dir = tempfile::tempdir().unwrap();
+    let workspace = root_dir.path().join("workspace");
+    std::fs::create_dir_all(&workspace).unwrap();
+
+    let missing_command = "definitely-not-a-real-codex-command";
+    let config = CodexConfig {
+        command: vec![missing_command.to_string()],
+        read_timeout_ms: 200,
+        ..Default::default()
+    };
+    let issue = make_test_issue();
+
+    let err =
+        match app_server::start_session(&config, &issue, &workspace, root_dir.path(), None, None)
+            .await
+        {
+            Ok(_) => panic!("start_session should fail for missing codex command"),
+            Err(err) => err,
+        };
+
+    let rendered = err.to_string();
+    assert!(
+        rendered.contains(missing_command),
+        "error should include missing command name for diagnostics: {rendered}"
+    );
+}
+
+#[tokio::test]
+async fn test_app_server_start_session_handshake_timeout() {
+    let scripts_dir = tempfile::tempdir().unwrap();
+    let root_dir = tempfile::tempdir().unwrap();
+    let workspace = root_dir.path().join("workspace");
+    std::fs::create_dir_all(&workspace).unwrap();
+
+    let script_path = write_script(
+        scripts_dir.path(),
+        "codex-handshake-timeout.sh",
+        SCRIPT_HANDSHAKE_TIMEOUT,
+    );
+    let mut config = make_codex_config(&script_path);
+    config.read_timeout_ms = 100;
+
+    let issue = make_test_issue();
+    let result =
+        app_server::start_session(&config, &issue, &workspace, root_dir.path(), None, None).await;
+
+    match result {
+        Err(SymphonyError::ResponseError(message)) => {
+            assert!(
+                message.contains("timeout"),
+                "expected timeout diagnostic, got: {message}"
+            );
+            assert!(
+                message.contains(config.command[0].as_str()),
+                "expected timeout diagnostic to include command context, got: {message}"
+            );
+        }
+        Err(other) => panic!("expected ResponseError timeout diagnostic, got: {other}"),
+        Ok(_) => panic!("expected startup handshake timeout"),
+    }
+}
+
+#[tokio::test]
+async fn test_app_server_start_session_handshake_timeout_sanitizes_command_context() {
+    let scripts_dir = tempfile::tempdir().unwrap();
+    let root_dir = tempfile::tempdir().unwrap();
+    let workspace = root_dir.path().join("workspace");
+    std::fs::create_dir_all(&workspace).unwrap();
+
+    let script_path = write_script(
+        scripts_dir.path(),
+        "codex-handshake-timeout-sanitized.sh",
+        SCRIPT_HANDSHAKE_TIMEOUT,
+    );
+    let script_str = script_path.to_str().unwrap();
+    let mut config = make_codex_config(&script_path);
+    config.command = vec![format!("OPENAI_API_KEY=supersecret-token {script_str}")];
+    config.read_timeout_ms = 100;
+
+    let issue = make_test_issue();
+    let result =
+        app_server::start_session(&config, &issue, &workspace, root_dir.path(), None, None).await;
+
+    match result {
+        Err(SymphonyError::ResponseError(message)) => {
+            assert!(
+                message.contains("timeout"),
+                "expected timeout diagnostic, got: {message}"
+            );
+            assert!(
+                message.contains(script_str),
+                "expected timeout diagnostic to include sanitized command label, got: {message}"
+            );
+            assert!(
+                !message.contains("supersecret-token"),
+                "timeout diagnostic should not leak env-assigned secrets: {message}"
+            );
+        }
+        Err(other) => panic!("expected ResponseError timeout diagnostic, got: {other}"),
+        Ok(_) => panic!("expected startup handshake timeout"),
+    }
 }
 
 // ── Handshake + completion ────────────────────────────────────────────
@@ -855,6 +978,36 @@ async fn test_app_server_turn_cancellation() {
             .iter()
             .any(|e| matches!(e, AgentEvent::TurnCancelled { .. })),
         "expected TurnCancelled event in callback"
+    );
+}
+
+#[tokio::test]
+async fn test_app_server_turn_timeout_during_response() {
+    let scripts_dir = tempfile::tempdir().unwrap();
+    let root_dir = tempfile::tempdir().unwrap();
+    let workspace = root_dir.path().join("workspace");
+    std::fs::create_dir_all(&workspace).unwrap();
+
+    let script_path = write_script(
+        scripts_dir.path(),
+        "codex-turn-timeout.sh",
+        SCRIPT_TURN_TIMEOUT,
+    );
+    let mut config = make_codex_config(&script_path);
+    config.turn_timeout_ms = 100;
+
+    let issue = make_test_issue();
+    let mut handle =
+        app_server::start_session(&config, &issue, &workspace, root_dir.path(), None, None)
+            .await
+            .expect("start_session should succeed");
+
+    let result = app_server::run_turn(&mut handle, "hello", never_executor, |_| {}).await;
+    app_server::stop_session(handle).await.ok();
+
+    assert!(
+        matches!(result, Err(SymphonyError::TurnTimeout)),
+        "expected TurnTimeout error"
     );
 }
 
