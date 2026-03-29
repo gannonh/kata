@@ -1062,7 +1062,7 @@ fn sanitize_invalid_slack_events(config: &YamlValue) -> YamlValue {
             .as_str()
             .map(str::trim)
             .filter(|event| !event.is_empty())
-            .map(|event| notifications::is_supported_slack_event(event))
+            .map(notifications::is_supported_slack_event)
             .unwrap_or(false)
     });
 

@@ -563,7 +563,9 @@ fn test_check_workspace_strategy_reports_remote_worktree_mismatch() {
     assert!(results.iter().any(|result| {
         result.status == CheckStatus::Error
             && result.name == "Workspace Strategy"
-            && result.message.contains("requires a local workspace.repo path")
+            && result
+                .message
+                .contains("requires a local workspace.repo path")
     }));
 }
 
