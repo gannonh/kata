@@ -217,7 +217,7 @@ describe("round-trip preservation", () => {
     const parsed3 = parsePreferencesFile(written2);
 
     // Compare all field values
-    for (let i = 0; i < parsed2.sections?.length ?? 0; i++) {
+    for (let i = 0; i < (parsed2.model.sections?.length ?? 0); i++) {
       for (let j = 0; j < parsed2.model.sections[i].fields.length; j++) {
         expect(parsed3.model.sections[i].fields[j].value).toEqual(
           parsed2.model.sections[i].fields[j].value,

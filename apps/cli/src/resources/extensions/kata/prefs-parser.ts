@@ -42,7 +42,7 @@ export interface ParsedPreferencesFile {
  * Edge cases handled:
  * - BOM prefix (stripped)
  * - CRLF line endings (preserved in body, normalized for YAML parsing)
- * - Empty frontmatter (`---\n---`) → empty config
+ * - Empty frontmatter (`---\n\n---`, blank line between delimiters) → empty config
  * - Missing frontmatter → error
  */
 export function parsePreferencesFile(content: string): ParsedPreferencesFile {
