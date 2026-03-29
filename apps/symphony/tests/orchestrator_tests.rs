@@ -4705,3 +4705,131 @@ fn test_model_by_label_falls_back_to_default() {
         Some("anthropic/claude-haiku-3-5")
     );
 }
+
+// ── exclude_labels ────────────────────────────────────────────────────────────
+
+#[test]
+fn test_exclude_labels_blocks_dispatch() {
+    let mut config = test_config(1);
+    config.tracker.exclude_labels = vec!["kata:task".to_string()];
+
+    let mut task_issue = issue("issue-task", "KAT-1882", "Todo", None, 0);
+    task_issue.labels = vec!["kata:task".to_string()];
+
+    let mut port = FakePort {
+        candidate_issues: vec![task_issue.clone()],
+        ..FakePort::default()
+    };
+    let mut orchestrator = Orchestrator::new(config, String::new());
+
+    let tick = orchestrator
+        .tick(&mut port)
+        .expect("tick should not error on excluded-label issue");
+
+    assert!(
+        tick.dispatched_issue_ids.is_empty(),
+        "kata:task issue should not be dispatched"
+    );
+}
+
+#[test]
+fn test_exclude_labels_case_insensitive() {
+    let mut config = test_config(1);
+    config.tracker.exclude_labels = vec!["kata:task".to_string()];
+
+    let mut task_issue = issue("issue-task-ci", "KAT-1883", "Todo", None, 0);
+    task_issue.labels = vec!["Kata:Task".to_string()]; // mixed case on the issue
+
+    let mut port = FakePort {
+        candidate_issues: vec![task_issue.clone()],
+        ..FakePort::default()
+    };
+    let mut orchestrator = Orchestrator::new(config, String::new());
+
+    let tick = orchestrator
+        .tick(&mut port)
+        .expect("tick should not error on case-variant excluded label");
+
+    assert!(
+        tick.dispatched_issue_ids.is_empty(),
+        "kata:task issue (mixed case) should not be dispatched"
+    );
+}
+
+#[test]
+fn test_exclude_labels_does_not_affect_slice() {
+    let mut config = test_config(1);
+    config.tracker.exclude_labels = vec!["kata:task".to_string()];
+
+    let mut slice_issue = issue("issue-slice", "KAT-1880", "Todo", None, 0);
+    slice_issue.labels = vec!["kata:slice".to_string()];
+
+    let mut port = FakePort {
+        candidate_issues: vec![slice_issue.clone()],
+        ..FakePort::default()
+    };
+    let mut orchestrator = Orchestrator::new(config, String::new());
+
+    let tick = orchestrator
+        .tick(&mut port)
+        .expect("tick should succeed for slice issue");
+
+    assert_eq!(
+        tick.dispatched_issue_ids,
+        vec![slice_issue.id.clone()],
+        "kata:slice issue should still be dispatched when only kata:task is excluded"
+    );
+}
+
+#[test]
+fn test_exclude_labels_empty_skips_no_issues() {
+    let mut config = test_config(1);
+    // No exclude_labels configured (default empty vec)
+    assert!(config.tracker.exclude_labels.is_empty());
+
+    let mut task_issue = issue("issue-task-no-excl", "KAT-1884", "Todo", None, 0);
+    task_issue.labels = vec!["kata:task".to_string()];
+
+    let mut port = FakePort {
+        candidate_issues: vec![task_issue.clone()],
+        ..FakePort::default()
+    };
+    let mut orchestrator = Orchestrator::new(config, String::new());
+
+    let tick = orchestrator
+        .tick(&mut port)
+        .expect("tick should succeed with no exclude_labels configured");
+
+    assert_eq!(
+        tick.dispatched_issue_ids,
+        vec![task_issue.id.clone()],
+        "with no exclude_labels, kata:task issue should dispatch normally"
+    );
+}
+
+#[test]
+fn test_exclude_labels_blank_entries_are_ignored() {
+    let mut config = test_config(1);
+    // Blank/whitespace-only entries in exclude_labels must not match anything
+    config.tracker.exclude_labels = vec!["".to_string(), "   ".to_string()];
+
+    let mut issue_with_empty_label = issue("issue-blank-label", "KAT-1885", "Todo", None, 0);
+    // Issue carries a blank label — should not be blocked by a blank exclude entry
+    issue_with_empty_label.labels = vec!["".to_string(), "  ".to_string()];
+
+    let mut port = FakePort {
+        candidate_issues: vec![issue_with_empty_label.clone()],
+        ..FakePort::default()
+    };
+    let mut orchestrator = Orchestrator::new(config, String::new());
+
+    let tick = orchestrator
+        .tick(&mut port)
+        .expect("tick should succeed when all exclude_labels are blank");
+
+    assert_eq!(
+        tick.dispatched_issue_ids,
+        vec![issue_with_empty_label.id.clone()],
+        "blank exclude_labels entries must not block dispatch"
+    );
+}
