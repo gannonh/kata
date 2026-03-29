@@ -65,7 +65,17 @@ export default function (pi: ExtensionAPI) {
   // ── session_start: render branded Kata header ───────────────────────────
   pi.on("session_start", async (_event, ctx) => {
     setHeaderCtx(ctx);
-    renderHeader(!isProjectConfigured(process.cwd()));
+    // isProjectConfigured reads prefs from disk — guard against unreadable/corrupt files
+    // so a recoverable config issue doesn't prevent the extension from initializing.
+    // Note: this is evaluated once at session start. If the user completes onboarding,
+    // clearHeaderHint() removes the hint. Mid-session cwd changes won't re-evaluate.
+    let configured = false;
+    try {
+      configured = isProjectConfigured(process.cwd());
+    } catch {
+      // Prefs file unreadable or corrupt — treat as unconfigured, show hint
+    }
+    renderHeader(!configured);
   });
 
   // ── Ctrl+Alt+G shortcut — Kata dashboard overlay ────────────────────────

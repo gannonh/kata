@@ -31,6 +31,11 @@ export function setHeaderCtx(ctx: HeaderCtx): void {
   _headerCtx = ctx;
 }
 
+/** Clear the stored context. Useful for testing or session teardown to prevent stale references. */
+export function resetHeaderCtx(): void {
+  _headerCtx = null;
+}
+
 /** Render (or re-render) the Kata header. Pass `showHint: true` to include the getting-started line. */
 export function renderHeader(showHint: boolean): void {
   if (!_headerCtx) return;
