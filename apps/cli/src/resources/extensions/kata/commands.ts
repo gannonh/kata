@@ -227,7 +227,7 @@ function describeSkillResolution(
 export function registerKataCommand(pi: ExtensionAPI): void {
   pi.registerCommand("kata", {
     description:
-      "Kata — Kata Workflow: /kata step|auto|stop|status|queue|discuss|plan|prefs|pr",
+      "Kata — Kata Workflow: /kata step|auto|stop|status|queue|discuss|plan|config|prefs|pr",
 
     getArgumentCompletions: (prefix: string) => {
       const subcommands = [
@@ -238,6 +238,7 @@ export function registerKataCommand(pi: ExtensionAPI): void {
         "queue",
         "discuss",
         "plan",
+        "config",
         "prefs",
         "pr",
       ];
@@ -279,6 +280,11 @@ export function registerKataCommand(pi: ExtensionAPI): void {
 
       if (trimmed === "status") {
         await handleStatus(ctx);
+        return;
+      }
+
+      if (trimmed === "config") {
+        await handleConfig(ctx);
         return;
       }
 
@@ -426,7 +432,7 @@ export function registerKataCommand(pi: ExtensionAPI): void {
       }
 
       ctx.ui.notify(
-        `Unknown: /kata ${trimmed}. Use /kata step, /kata auto, /kata stop, /kata status, /kata queue, /kata discuss, /kata plan, /kata prefs [global|project|status], or /kata pr [status|create|review|address|merge].`,
+        `Unknown: /kata ${trimmed}. Use /kata step, /kata auto, /kata stop, /kata status, /kata queue, /kata discuss, /kata plan, /kata config, /kata prefs [global|project|status], or /kata pr [status|create|review|address|merge].`,
         "warning",
       );
     },
@@ -476,6 +482,16 @@ async function handleStatus(ctx: ExtensionCommandContext): Promise<void> {
       },
     },
   );
+}
+
+async function handleConfig(ctx: ExtensionCommandContext): Promise<void> {
+  try {
+    const { executePreferencesConfigCommand } = await import("./prefs-config-command.js");
+    await executePreferencesConfigCommand(ctx);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    ctx.ui.notify(`Failed to load config editor: ${message}`, "error");
+  }
 }
 
 export async function fireStatusViaCommand(
