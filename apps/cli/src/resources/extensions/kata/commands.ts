@@ -51,6 +51,7 @@ import {
   shouldSkipOnboarding,
   setSkipOnboarding,
 } from "./onboarding.js";
+import { clearHeaderHint } from "./header.js";
 
 // ─── Onboarding gate ──────────────────────────────────────────────────────────
 
@@ -83,11 +84,6 @@ async function ensureOnboarding(
         description: "Configure Linear integration and create .kata/ directory.",
         recommended: true,
       },
-      {
-        id: "skip",
-        label: "Skip for now",
-        description: "Skip setup for this session. Run /kata later to configure.",
-      },
     ],
     notYetMessage: "Run /kata to set up when ready.",
   });
@@ -100,15 +96,13 @@ async function ensureOnboarding(
       // flag so the wizard doesn't re-trigger on every subsequent /kata call
       // within this session.
       setSkipOnboarding(true);
+      clearHeaderHint();
       return true;
     }
     return false;
   }
 
-  // Only persist skip for the explicit "skip" action; "not_yet" just returns false
-  if (choice === "skip") {
-    setSkipOnboarding(true);
-  }
+  // "not_yet" (or Escape) — don't persist skip, just return false
   return false;
 }
 

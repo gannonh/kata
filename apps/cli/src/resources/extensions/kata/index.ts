@@ -50,21 +50,12 @@ import {
   formatSkillsXml,
 } from "./skill-discovery.js";
 import { getWorkflowEntrypointGuard } from "./linear-config.js";
+import { isProjectConfigured } from "./onboarding.js";
+import { setHeaderCtx, renderHeader } from "./header.js";
 import { Key } from "@mariozechner/pi-tui";
 import { join } from "node:path";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { Text } from "@mariozechner/pi-tui";
-
-// ── ASCII logo ────────────────────────────────────────────────────────────
-const KATA_LOGO_LINES = [
-  "  ██╗  ██╗ █████╗ ████████╗ █████╗ ",
-  "  ██║ ██╔╝██╔══██╗╚══██╔══╝██╔══██╗",
-  "  █████╔╝ ███████║   ██║   ███████║",
-  "  ██╔═██╗ ██╔══██║   ██║   ██╔══██║",
-  "  ██║  ██╗██║  ██║   ██║   ██║  ██║",
-  "  ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝",
-];
 
 // Provider error retry is handled in auto.ts — see handleProviderError()
 
@@ -73,16 +64,8 @@ export default function (pi: ExtensionAPI) {
 
   // ── session_start: render branded Kata header ───────────────────────────
   pi.on("session_start", async (_event, ctx) => {
-    const theme = ctx.ui.theme;
-    const version = process.env.KATA_VERSION || "0.0.0";
-
-    const logoText = KATA_LOGO_LINES.map((line) =>
-      theme.fg("accent", line),
-    ).join("\n");
-    const titleLine = `  ${theme.bold("Kata CLI")} ${theme.fg("dim", `v${version}`)}`;
-
-    const headerContent = `${logoText}\n${titleLine}`;
-    ctx.ui.setHeader((_ui, _theme) => new Text(headerContent, 1, 0));
+    setHeaderCtx(ctx);
+    renderHeader(!isProjectConfigured(process.cwd()));
   });
 
   // ── Ctrl+Alt+G shortcut — Kata dashboard overlay ────────────────────────
