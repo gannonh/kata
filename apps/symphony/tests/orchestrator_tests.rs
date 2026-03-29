@@ -1808,6 +1808,61 @@ fn test_worker_session_info_last_error_formats_rate_limit_retry_window() {
 }
 
 #[test]
+fn test_worker_session_info_last_error_does_not_treat_milliseconds_as_minutes() {
+    let mut orchestrator = Orchestrator::new(test_config(1), String::new());
+    let now_ms = 5_250_000;
+    let issue_id = "issue-last-error-rate-limit-ms";
+
+    orchestrator.state_mut().running.insert(
+        issue_id.to_string(),
+        symphony::domain::RunAttempt {
+            issue_id: issue_id.to_string(),
+            issue_identifier: "SIM-LAST-ERROR-RATE-MS".to_string(),
+            issue_title: None,
+            attempt: Some(1),
+            workspace_path: "/tmp/workspace-last-error-rate-ms".to_string(),
+            started_at: utc_ms(now_ms - 300_000),
+            status: "running".to_string(),
+            error: None,
+            worker_host: None,
+            model: None,
+            linear_state: None,
+            issue_url: None,
+        },
+    );
+
+    orchestrator.ingest_agent_event(
+        issue_id,
+        &AgentEvent::TurnFailed {
+            timestamp: utc_ms(now_ms - 1_000),
+            codex_app_server_pid: Some("9999".to_string()),
+            turn_id: "turn-1".to_string(),
+            error: "Rate limit exceeded. Retry in 500ms.".to_string(),
+        },
+    );
+
+    let snapshot = orchestrator.snapshot(now_ms);
+    let session_info = snapshot
+        .running_session_info
+        .get(issue_id)
+        .expect("running session info should exist");
+
+    let last_error = session_info
+        .last_error
+        .as_deref()
+        .expect("last_error should be populated for failed turns");
+
+    assert!(
+        !last_error.contains("~500 min"),
+        "millisecond values should not be interpreted as minutes"
+    );
+    assert_eq!(
+        last_error,
+        "rate limit: Rate limit exceeded. Retry in 500ms."
+    );
+}
+
+#[test]
 fn test_worker_session_info_last_error_rate_limit_fallback_is_truncated_to_display_cap() {
     let mut orchestrator = Orchestrator::new(test_config(1), String::new());
     let now_ms = 5_400_000;

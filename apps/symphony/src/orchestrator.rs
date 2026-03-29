@@ -4399,6 +4399,11 @@ fn extract_retry_window_minutes(message: &str) -> Option<u64> {
             continue;
         };
 
+        let next_char = message[unit_match.end()..].chars().next();
+        if next_char.is_some_and(|ch| ch.is_ascii_alphabetic()) {
+            continue;
+        }
+
         let unit = unit_match.as_str().to_ascii_lowercase();
         let seconds = if unit.starts_with('h') {
             amount.saturating_mul(3_600)
