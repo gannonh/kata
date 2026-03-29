@@ -14,7 +14,7 @@ Read `.codex/skills/address-comments/SKILL.md` if available and follow its steps
 3. Treat every actionable reviewer comment (human or bot), including inline review comments, as blocking until one of these is true:
    - Code/test/docs updated to address it, **or**
    - Explicit, justified pushback reply posted on that thread.
-4. Update the workpad plan/checklist to include each feedback item and its resolution status.
+4. Update the workpad plan/checklist (using the Workpad search protocol from `prompts/system.md`) to include each feedback item and its resolution status.
 5. Re-run validation after feedback-driven changes and push updates.
 6. Repeat until there are no outstanding actionable comments.
 

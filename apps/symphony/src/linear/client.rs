@@ -23,6 +23,10 @@ const ISSUE_PAGE_SIZE: usize = 50;
 const USER_PAGE_SIZE: usize = 100;
 const REQUEST_TIMEOUT_SECS: u64 = 30;
 const MAX_ERROR_BODY_LOG_BYTES: usize = 1_000;
+#[cfg(not(test))]
+const COMMENT_CREATE_RETRY_DELAY_MS: u64 = 1_000;
+#[cfg(test)]
+const COMMENT_CREATE_RETRY_DELAY_MS: u64 = 1;
 
 // ── GraphQL Queries (match Elixir reference exactly) ───────────────────
 
@@ -391,18 +395,78 @@ impl LinearClient {
     }
 
     /// Create a comment on an issue.
+    ///
+    /// KAT-1231: Linear intermittently returns `Entity not found: Issue` for commentCreate on
+    /// issues that are otherwise mutable. Mitigation: retry once with a short delay and include
+    /// rich diagnostics (issue ID + attempt metadata + raw response) on failure.
     pub async fn create_comment(&self, issue_id: &str, body: &str) -> Result<()> {
-        let resp = self
-            .graphql(
+        match self.create_comment_attempt(issue_id, body, 1).await {
+            Ok(()) => Ok(()),
+            Err(first_err) => {
+                let first_error_text = first_err.to_string();
+                warn!(
+                    event = "comment_create_failed",
+                    issue_id = issue_id,
+                    retry_attempted = false,
+                    error = %truncate_error_body(&first_error_text),
+                    "Linear commentCreate failed on first attempt"
+                );
+                warn!(
+                    event = "comment_create_retry",
+                    issue_id = issue_id,
+                    attempt = 2,
+                    error_preview = %truncate_error_body(&first_error_text),
+                    "retrying Linear commentCreate after initial failure"
+                );
+
+                tokio::time::sleep(std::time::Duration::from_millis(COMMENT_CREATE_RETRY_DELAY_MS))
+                    .await;
+
+                match self.create_comment_attempt(issue_id, body, 2).await {
+                    Ok(()) => Ok(()),
+                    Err(retry_err) => {
+                        let retry_error_text = retry_err.to_string();
+                        warn!(
+                            event = "comment_create_failed",
+                            issue_id = issue_id,
+                            retry_attempted = true,
+                            error = %truncate_error_body(&retry_error_text),
+                            "Linear commentCreate failed after retry"
+                        );
+
+                        Err(SymphonyError::Other(format!(
+                            "commentCreate failed after retry (issue_id='{}', retry_attempted=true, first_attempt_error='{}', retry_error='{}')",
+                            issue_id,
+                            truncate_error_body(&first_error_text),
+                            truncate_error_body(&retry_error_text)
+                        )))
+                    }
+                }
+            }
+        }
+    }
+
+    async fn create_comment_attempt(&self, issue_id: &str, body: &str, attempt: u8) -> Result<()> {
+        let response = self
+            .graphql_raw(
                 MUTATION_CREATE_COMMENT,
                 serde_json::json!({
                     "issueId": issue_id,
                     "body": body,
                 }),
             )
-            .await?;
+            .await
+            .map_err(|err| {
+                SymphonyError::Other(format!(
+                    "commentCreate transport failure (issue_id='{}', attempt={}, retry_attempted={}, error='{}')",
+                    issue_id,
+                    attempt,
+                    attempt > 1,
+                    truncate_error_body(&err.to_string())
+                ))
+            })?;
 
-        let success = resp
+        let success = response
             .get("data")
             .and_then(|d| d.get("commentCreate"))
             .and_then(|c| c.get("success"))
@@ -410,13 +474,17 @@ impl LinearClient {
             .unwrap_or(false);
 
         if success {
-            Ok(())
-        } else {
-            Err(SymphonyError::Other(format!(
-                "commentCreate failed for issue '{}'",
-                issue_id
-            )))
+            return Ok(());
         }
+
+        let raw_response = truncate_error_body(&response.to_string());
+        Err(SymphonyError::Other(format!(
+            "commentCreate failed (issue_id='{}', attempt={}, retry_attempted={}, raw_response='{}')",
+            issue_id,
+            attempt,
+            attempt > 1,
+            raw_response
+        )))
     }
 
     // ── GraphQL transport ──────────────────────────────────────────────

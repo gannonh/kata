@@ -81,7 +81,7 @@ This issue is a **Kata task** under parent slice {{ issue.parent_identifier }}. 
 This is a standalone ticket. Read the description, plan your approach, implement, and validate.
 
 1. Analyze the issue description and any linked context.
-2. Write a plan in the workpad comment before coding.
+2. Locate/update the existing workpad using the **Workpad search protocol in `prompts/system.md`**, then write the plan before coding.
 3. Before implementing, capture a concrete reproduction signal and record it in the workpad Notes section.
 4. Implement the solution.
 5. Run appropriate validation (tests, lint, build).
@@ -91,7 +91,7 @@ This is a standalone ticket. Read the description, plan your approach, implement
 ## Implementation steps
 
 1. Run pull-sync against `origin/{{ workspace.base_branch }}` before any code edits.
-2. Implement the work, keeping the workpad current as you go.
+2. Implement the work, keeping the workpad current as you go (always reusing the same workpad located via the system workpad search protocol).
 3. Run validation/tests required for the scope.
    - Mandatory gate: execute all ticket-provided `Validation`/`Test Plan`/`Testing` requirements when present.
    - Prefer targeted proofs that directly demonstrate the behavior you changed.

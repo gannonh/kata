@@ -939,6 +939,92 @@ async fn test_create_comment_success() {
     mock.assert_async().await;
 }
 
+#[tokio::test]
+async fn test_create_comment_retries_after_first_failure_then_succeeds() {
+    let mut server = Server::new_async().await;
+
+    let first_attempt = server
+        .mock("POST", "/graphql")
+        .expect(1)
+        .with_body(
+            json!({
+                "errors": [{"message": "Entity not found: Issue"}]
+            })
+            .to_string(),
+        )
+        .create_async()
+        .await;
+
+    let retry_attempt = server
+        .mock("POST", "/graphql")
+        .expect(1)
+        .with_body(
+            json!({
+                "data": {
+                    "commentCreate": {
+                        "success": true
+                    }
+                }
+            })
+            .to_string(),
+        )
+        .create_async()
+        .await;
+
+    let client = test_client(&server, None);
+    let result = client
+        .create_comment("issue-1", "Hello from Symphony")
+        .await;
+
+    assert!(result.is_ok(), "comment creation should succeed on retry");
+    first_attempt.assert_async().await;
+    retry_attempt.assert_async().await;
+}
+
+#[tokio::test]
+async fn test_create_comment_failure_includes_retry_diagnostics() {
+    let mut server = Server::new_async().await;
+
+    let first_attempt = server
+        .mock("POST", "/graphql")
+        .expect(1)
+        .with_body(
+            json!({
+                "errors": [{"message": "Entity not found: Issue"}]
+            })
+            .to_string(),
+        )
+        .create_async()
+        .await;
+
+    let retry_attempt = server
+        .mock("POST", "/graphql")
+        .expect(1)
+        .with_body(
+            json!({
+                "errors": [{"message": "Entity not found: Issue (retry)"}]
+            })
+            .to_string(),
+        )
+        .create_async()
+        .await;
+
+    let client = test_client(&server, None);
+    let err = client
+        .create_comment("issue-99", "Hello from Symphony")
+        .await
+        .expect_err("comment creation should fail after retry exhaustion");
+
+    let message = err.to_string();
+    assert!(message.contains("issue_id='issue-99'"));
+    assert!(message.contains("retry_attempted=true"));
+    assert!(message.contains("raw_response"));
+    assert!(message.contains("Entity not found: Issue"));
+
+    first_attempt.assert_async().await;
+    retry_attempt.assert_async().await;
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // Assignee "me" resolution via viewer query
 // ═══════════════════════════════════════════════════════════════════════

@@ -56,6 +56,36 @@ Use the built-in Linear tools (`linear_get_issue`, `linear_list_workflow_states`
 
 Maintain a single persistent `## Agent Workpad` comment on the issue as the source of truth for progress.
 
+### Workpad search (required before create/update)
+
+1. Query issue comments first (via Linear GraphQL tooling) and locate comments whose body contains `## Agent Workpad`.
+2. Use this query shape when available:
+
+```graphql
+query IssueCommentsForWorkpad($issueId: String!) {
+  issue(id: $issueId) {
+    comments(first: 50) {
+      nodes {
+        id
+        body
+        createdAt
+        resolvedAt
+      }
+    }
+  }
+}
+```
+
+3. Filter comment bodies for `## Agent Workpad` (case-sensitive exact heading).
+
+### Workpad conflict resolution
+
+- **0 matches:** create one new `## Agent Workpad` comment.
+- **1 match:** update that existing comment; do not create a second workpad.
+- **2+ matches:** select the **oldest unresolved** workpad (`resolvedAt == null`, earliest `createdAt`), update it, and ignore newer duplicates. Add a short note in the kept workpad indicating duplicate workpads were detected.
+
+### Workpad content requirements
+
 - **Load all context BEFORE creating or updating the workpad.** Read the issue description, comments, child tasks, attached plan documents, and AGENTS.md first.
 - **Write the workpad with FULL content — never placeholder content.** Include:
   - `Environment` stamp (`<host>:<abs-workdir>@<short-sha>`)
