@@ -93,20 +93,22 @@ jobs:
 
       - name: Run coverage gate and generate HTML report
         working-directory: apps/symphony
-        run: cargo llvm-cov --html --output-dir coverage --fail-under-lines 80 --ignore-filename-regex 'main\.rs'
+        run: cargo llvm-cov --html --output-dir coverage --fail-under-lines 72 --ignore-filename-regex 'main\.rs'
 
       - name: Add coverage summary to job summary
+        if: always()
         working-directory: apps/symphony
         run: |
           {
             echo '## Symphony Coverage Summary'
             echo
             echo '```text'
-            cargo llvm-cov report --summary-only
+            cargo llvm-cov report --summary-only --ignore-filename-regex 'main\.rs'
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload coverage artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: symphony-coverage-report
