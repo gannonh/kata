@@ -4,6 +4,7 @@ import {
 } from "../kata/preferences.js";
 import {
   SymphonyError,
+  isSymphonyError,
   type SymphonyConfigOrigin,
   type SymphonyConnectionConfig,
 } from "./types.js";
@@ -60,6 +61,25 @@ export function resolveSymphonyConfigFromRuntime(
     ...options,
     preferences: loaded?.preferences,
   });
+}
+
+/**
+ * Check whether Symphony is configured (URL available via preferences or env).
+ * Returns true if `resolveSymphonyConfigFromRuntime()` succeeds, false if it
+ * throws a `config_missing` SymphonyError. Re-throws any other error.
+ */
+export function isSymphonyConfigured(
+  options?: Omit<ResolveSymphonyConfigOptions, "preferences"> & { cwd?: string },
+): boolean {
+  try {
+    resolveSymphonyConfigFromRuntime(options);
+    return true;
+  } catch (error) {
+    if (isSymphonyError(error) && error.code === "config_missing") {
+      return false;
+    }
+    throw error;
+  }
 }
 
 function normalizeCandidate(value: unknown): string | null {
