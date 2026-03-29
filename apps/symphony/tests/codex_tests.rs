@@ -671,6 +671,51 @@ async fn test_app_server_start_session_handshake_timeout() {
                 message.contains("timeout"),
                 "expected timeout diagnostic, got: {message}"
             );
+            assert!(
+                message.contains(config.command[0].as_str()),
+                "expected timeout diagnostic to include command context, got: {message}"
+            );
+        }
+        Err(other) => panic!("expected ResponseError timeout diagnostic, got: {other}"),
+        Ok(_) => panic!("expected startup handshake timeout"),
+    }
+}
+
+#[tokio::test]
+async fn test_app_server_start_session_handshake_timeout_sanitizes_command_context() {
+    let scripts_dir = tempfile::tempdir().unwrap();
+    let root_dir = tempfile::tempdir().unwrap();
+    let workspace = root_dir.path().join("workspace");
+    std::fs::create_dir_all(&workspace).unwrap();
+
+    let script_path = write_script(
+        scripts_dir.path(),
+        "codex-handshake-timeout-sanitized.sh",
+        SCRIPT_HANDSHAKE_TIMEOUT,
+    );
+    let script_str = script_path.to_str().unwrap();
+    let mut config = make_codex_config(&script_path);
+    config.command = vec![format!("OPENAI_API_KEY=supersecret-token {script_str}")];
+    config.read_timeout_ms = 100;
+
+    let issue = make_test_issue();
+    let result =
+        app_server::start_session(&config, &issue, &workspace, root_dir.path(), None, None).await;
+
+    match result {
+        Err(SymphonyError::ResponseError(message)) => {
+            assert!(
+                message.contains("timeout"),
+                "expected timeout diagnostic, got: {message}"
+            );
+            assert!(
+                message.contains(script_str),
+                "expected timeout diagnostic to include sanitized command label, got: {message}"
+            );
+            assert!(
+                !message.contains("supersecret-token"),
+                "timeout diagnostic should not leak env-assigned secrets: {message}"
+            );
         }
         Err(other) => panic!("expected ResponseError timeout diagnostic, got: {other}"),
         Ok(_) => panic!("expected startup handshake timeout"),

@@ -40,6 +40,16 @@ const TURN_START_ID: u64 = 3;
 /// Maximum bytes printed from non-JSON lines in logs.
 const MAX_STREAM_LOG_BYTES: usize = 1_000;
 
+/// Best-effort safe command label for diagnostics (avoids logging raw command lines).
+fn command_label(command: &[String]) -> String {
+    command
+        .iter()
+        .flat_map(|part| part.split_whitespace())
+        .find(|token| !token.contains('='))
+        .unwrap_or("configured-command")
+        .to_string()
+}
+
 // ── Public types ──────────────────────────────────────────────────────
 
 /// Opaque handle to a running Codex app-server subprocess session.
@@ -133,6 +143,7 @@ pub async fn start_session(
     container_id: Option<&str>,
 ) -> Result<SessionHandle> {
     let cmd_str = config.command.join(" ");
+    let cmd_label = command_label(&config.command);
 
     // ── Step 1 & 2: Validate + Spawn (local or remote) ───────────────
     let (workspace_str, mut child) = match (container_id, worker_host) {
@@ -233,10 +244,10 @@ pub async fn start_session(
 
                 let enriched_err = match err {
                     SymphonyError::ResponseError(message) => {
-                        SymphonyError::ResponseError(format!("{message}; command `{cmd_str}`"))
+                        SymphonyError::ResponseError(format!("{message}; command `{cmd_label}`"))
                     }
                     SymphonyError::ResponseTimeout => SymphonyError::ResponseError(format!(
-                        "codex response timeout while starting command `{cmd_str}`"
+                        "codex response timeout while starting command `{cmd_label}`"
                     )),
                     other => other,
                 };
