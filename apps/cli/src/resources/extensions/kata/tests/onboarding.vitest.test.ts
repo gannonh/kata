@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { mkdirSync, writeFileSync, readFileSync, rmSync, realpathSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync, rmSync, realpathSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
@@ -842,6 +842,311 @@ pr:
       } finally {
         delete process.env.LINEAR_API_KEY;
       }
+    });
+  });
+
+  // ─── End-to-end onboarding integration tests ──────────────────────────────
+
+  describe("onboarding end-to-end", () => {
+    it("full wizard: API key → validate → multi-team picker → multi-project picker → preferences correct → isProjectConfigured true", async () => {
+      // Simulate the complete onboarding wizard flow with multiple teams and projects,
+      // exercising the full path from S01 (key collection + validation) through
+      // S02 (team/project picker + preferences write).
+      const ctx = makeMockCtx({
+        inputReturns: ["lin_api_e2e_test_key"],
+        selectReturns: ["Dev Team (DEV)", "Kata Desktop"],
+      });
+      const storedCreds: Record<string, any> = {};
+      const deps = makeMockDeps({
+        createAuthStorage: () => ({
+          set: (provider: string, cred: any) => {
+            storedCreds[provider] = cred;
+          },
+        }),
+        createLinearClient: () => ({
+          getViewer: async () => ({ id: "user-e2e", name: "E2E Tester", email: "e2e@test.com" }),
+          listTeams: async () => DEFAULT_TEAMS,
+          listProjects: async () => DEFAULT_PROJECTS,
+        }),
+        // Write real preferences to disk so the full pipeline is exercised
+        ensurePreferences: vi.fn((basePath: string) => {
+          const kataDir = join(basePath, ".kata");
+          mkdirSync(kataDir, { recursive: true });
+          writeFileSync(
+            join(kataDir, "preferences.md"),
+            "---\nversion: 1\nworkflow:\n  mode: linear\nlinear: {}\n---\n",
+            "utf-8",
+          );
+          return true;
+        }),
+      });
+      _setDeps(deps);
+
+      try {
+        const result = await runOnboarding(ctx, tmpDir);
+
+        // ── Wizard completed ──────────────────────────────────────────────
+        expect(result).toBe("completed");
+
+        // ── Preferences file exists with correct Linear config ────────────
+        const prefsPath = join(tmpDir, ".kata", "preferences.md");
+        expect(existsSync(prefsPath)).toBe(true);
+        const content = readFileSync(prefsPath, "utf-8");
+        expect(content).toContain("teamKey: DEV");
+        expect(content).toContain("projectSlug: abc123def456");
+
+        // ── isProjectConfigured returns true ──────────────────────────────
+        expect(isProjectConfigured(tmpDir)).toBe(true);
+
+        // ── process.env.LINEAR_API_KEY hydrated ──────────────────────────
+        expect(process.env.LINEAR_API_KEY).toBe("lin_api_e2e_test_key");
+
+        // ── Auth storage has linear provider entry ────────────────────────
+        expect(storedCreds.linear).toEqual({
+          type: "api_key",
+          key: "lin_api_e2e_test_key",
+        });
+
+        // ── ctx.ui interactions were called correctly ─────────────────────
+        expect(ctx.ui.input).toHaveBeenCalledOnce(); // API key prompt
+        expect(ctx.ui.select).toHaveBeenCalledTimes(2); // team + project
+        expect(ctx.ui.select).toHaveBeenCalledWith(
+          "Select your Linear team",
+          ["Kata-sh (KAT)", "Dev Team (DEV)"],
+        );
+        expect(ctx.ui.select).toHaveBeenCalledWith(
+          "Select your Linear project",
+          ["Kata CLI", "Kata Desktop"],
+        );
+
+        // ── Success notification emitted ──────────────────────────────────
+        expect(ctx._notifications.some(
+          (n: any) => n.message.includes("✓") && n.message.includes("team=DEV"),
+        )).toBe(true);
+      } finally {
+        delete process.env.LINEAR_API_KEY;
+      }
+    });
+
+    it("full wizard with picker cancelled: API key validated but no team/project selected → completed but isProjectConfigured false", async () => {
+      // User enters a valid API key, validation succeeds, but cancels the
+      // team picker. The wizard should still return "completed" (API key was
+      // stored), but isProjectConfigured should be false (no team/project config).
+      const ctx = makeMockCtx({
+        inputReturns: ["lin_api_e2e_noproject"],
+        selectReturns: [undefined], // cancel team picker
+      });
+      const storedCreds: Record<string, any> = {};
+      const deps = makeMockDeps({
+        createAuthStorage: () => ({
+          set: (provider: string, cred: any) => {
+            storedCreds[provider] = cred;
+          },
+        }),
+        createLinearClient: () => ({
+          getViewer: async () => ({ id: "user-e2e", name: "E2E Tester", email: "e2e@test.com" }),
+          listTeams: async () => DEFAULT_TEAMS,
+          listProjects: async () => DEFAULT_PROJECTS,
+        }),
+        ensurePreferences: vi.fn((basePath: string) => {
+          const kataDir = join(basePath, ".kata");
+          mkdirSync(kataDir, { recursive: true });
+          writeFileSync(
+            join(kataDir, "preferences.md"),
+            "---\nversion: 1\nworkflow:\n  mode: linear\nlinear: {}\n---\n",
+            "utf-8",
+          );
+          return true;
+        }),
+      });
+      _setDeps(deps);
+
+      try {
+        const result = await runOnboarding(ctx, tmpDir);
+
+        // ── Wizard completed (API key was stored) ─────────────────────────
+        expect(result).toBe("completed");
+
+        // ── Preferences exist but no team/project config ──────────────────
+        const prefsPath = join(tmpDir, ".kata", "preferences.md");
+        expect(existsSync(prefsPath)).toBe(true);
+        const content = readFileSync(prefsPath, "utf-8");
+        expect(content).not.toContain("teamKey: DEV");
+        expect(content).not.toContain("teamKey: KAT");
+
+        // ── isProjectConfigured returns false (no identifiers) ────────────
+        expect(isProjectConfigured(tmpDir)).toBe(false);
+
+        // ── API key was still stored in auth + env ────────────────────────
+        expect(storedCreds.linear).toEqual({
+          type: "api_key",
+          key: "lin_api_e2e_noproject",
+        });
+        expect(process.env.LINEAR_API_KEY).toBe("lin_api_e2e_noproject");
+
+        // ── Fallback notification emitted ─────────────────────────────────
+        expect(ctx._notifications.some(
+          (n: any) => n.message.includes("Run /kata to configure team/project"),
+        )).toBe(true);
+      } finally {
+        delete process.env.LINEAR_API_KEY;
+      }
+    });
+
+    it("retry then succeed: first key invalid → retry → second key valid → full flow completes", async () => {
+      // Tests the retry path: first API key fails validation, second succeeds,
+      // then team/project picker completes successfully.
+      let viewerCallCount = 0;
+      const ctx = makeMockCtx({
+        inputReturns: ["lin_api_bad", "lin_api_good"],
+        selectReturns: ["Kata-sh (KAT)", "Kata CLI"],
+      });
+      const deps = makeMockDeps({
+        createLinearClient: () => ({
+          getViewer: async () => {
+            viewerCallCount++;
+            if (viewerCallCount === 1) {
+              throw new Error("401 Unauthorized");
+            }
+            return { id: "user-1", name: "Test", email: "t@t.com" };
+          },
+          listTeams: async () => DEFAULT_TEAMS,
+          listProjects: async () => DEFAULT_PROJECTS,
+        }),
+        ensurePreferences: vi.fn((basePath: string) => {
+          const kataDir = join(basePath, ".kata");
+          mkdirSync(kataDir, { recursive: true });
+          writeFileSync(
+            join(kataDir, "preferences.md"),
+            "---\nversion: 1\nworkflow:\n  mode: linear\nlinear: {}\n---\n",
+            "utf-8",
+          );
+          return true;
+        }),
+      });
+      _setDeps(deps);
+
+      try {
+        const result = await runOnboarding(ctx, tmpDir);
+
+        expect(result).toBe("completed");
+        expect(isProjectConfigured(tmpDir)).toBe(true);
+        const content = readFileSync(join(tmpDir, ".kata", "preferences.md"), "utf-8");
+        expect(content).toContain("teamKey: KAT");
+        expect(content).toContain("projectSlug: 459f9835e809");
+        expect(process.env.LINEAR_API_KEY).toBe("lin_api_good");
+
+        // Error notification was shown for first attempt
+        expect(ctx._notifications.some(
+          (n: any) => n.message.includes("Invalid API key") && n.level === "error",
+        )).toBe(true);
+      } finally {
+        delete process.env.LINEAR_API_KEY;
+      }
+    });
+  });
+
+  // ─── Onboarding edge cases (skip & non-TTY integration) ──────────────────
+
+  describe("onboarding edge cases", () => {
+    it("skip → re-trigger: first call skipped → isProjectConfigured false → reset → second call completes → isProjectConfigured true", async () => {
+      // Simulates the ensureOnboarding gate logic:
+      // 1. User skips onboarding → skip flag set → isProjectConfigured false
+      // 2. New session (skip flag reset) → user completes wizard → isProjectConfigured true
+      //
+      // First call: user provides empty input (skip)
+      const ctx1 = makeMockCtx({ inputReturns: [""] });
+      const deps = makeMockDeps({
+        ensurePreferences: vi.fn((basePath: string) => {
+          const kataDir = join(basePath, ".kata");
+          mkdirSync(kataDir, { recursive: true });
+          writeFileSync(
+            join(kataDir, "preferences.md"),
+            "---\nversion: 1\nworkflow:\n  mode: linear\nlinear: {}\n---\n",
+            "utf-8",
+          );
+          return true;
+        }),
+        createLinearClient: () => ({
+          getViewer: async () => ({ id: "user-1", name: "Test", email: "t@t.com" }),
+          listTeams: async () => [{ id: "team-1", key: "KAT", name: "Kata-sh" }],
+          listProjects: async () => [{ id: "proj-1", name: "Kata CLI", slugId: "459f9835e809" }],
+        }),
+      });
+      _setDeps(deps);
+
+      // ── First call: user skips ──────────────────────────────────────────
+      const result1 = await runOnboarding(ctx1, tmpDir);
+      expect(result1).toBe("skipped");
+      expect(isProjectConfigured(tmpDir)).toBe(false);
+
+      // Simulate the gate: skip flag would be set by ensureOnboarding
+      setSkipOnboarding(true);
+      expect(shouldSkipOnboarding()).toBe(true);
+
+      // ── Simulate new session: reset skip flag ───────────────────────────
+      setSkipOnboarding(false);
+      expect(shouldSkipOnboarding()).toBe(false);
+
+      // ── Second call: user completes wizard ──────────────────────────────
+      const ctx2 = makeMockCtx({
+        inputReturns: ["lin_api_second_try"],
+      });
+
+      try {
+        const result2 = await runOnboarding(ctx2, tmpDir);
+
+        expect(result2).toBe("completed");
+        expect(isProjectConfigured(tmpDir)).toBe(true);
+        const content = readFileSync(join(tmpDir, ".kata", "preferences.md"), "utf-8");
+        expect(content).toContain("teamKey: KAT");
+        expect(content).toContain("projectSlug: 459f9835e809");
+      } finally {
+        delete process.env.LINEAR_API_KEY;
+      }
+    });
+
+    it("non-TTY: ctx.hasUI = false → returns 'skipped' with warning, no .kata/ created, no interactive calls", async () => {
+      // Proves R001: non-TTY environments gracefully degrade without crashing
+      const ctx = makeMockCtx({ hasUI: false });
+      const deps = makeMockDeps();
+      _setDeps(deps);
+
+      const result = await runOnboarding(ctx, tmpDir);
+
+      // ── Returns "skipped" ───────────────────────────────────────────────
+      expect(result).toBe("skipped");
+
+      // ── Warning notification emitted with guidance ──────────────────────
+      expect(ctx.ui.notify).toHaveBeenCalledWith(
+        expect.stringContaining("interactive terminal"),
+        "warning",
+      );
+
+      // ── No .kata/ directory created ─────────────────────────────────────
+      expect(existsSync(join(tmpDir, ".kata"))).toBe(false);
+
+      // ── No interactive UI calls made ────────────────────────────────────
+      expect(ctx.ui.input).not.toHaveBeenCalled();
+      expect(ctx.ui.select).not.toHaveBeenCalled();
+
+      // ── ensurePreferences never called ──────────────────────────────────
+      expect(deps.ensurePreferences).not.toHaveBeenCalled();
+    });
+
+    it("non-TTY: multiple calls don't crash or change state", async () => {
+      // Proves non-TTY is idempotent and safe to call repeatedly
+      const ctx = makeMockCtx({ hasUI: false });
+      const deps = makeMockDeps();
+      _setDeps(deps);
+
+      const result1 = await runOnboarding(ctx, tmpDir);
+      const result2 = await runOnboarding(ctx, tmpDir);
+
+      expect(result1).toBe("skipped");
+      expect(result2).toBe("skipped");
+      expect(ctx.ui.notify).toHaveBeenCalledTimes(2);
+      expect(existsSync(join(tmpDir, ".kata"))).toBe(false);
     });
   });
 });
