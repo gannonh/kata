@@ -4092,6 +4092,9 @@ impl Orchestrator {
         if !self.active_state_set().contains(&normalized_state) {
             return false;
         }
+        if self.issue_has_excluded_label(issue) {
+            return false;
+        }
         true
     }
 
@@ -4114,6 +4117,11 @@ impl Orchestrator {
             return false;
         }
 
+        // Skip issues carrying any of the configured exclude_labels.
+        if self.issue_has_excluded_label(issue) {
+            return false;
+        }
+
         // NOTE: blocker checks are done at the dispatch loop level via
         // is_blocked_by_dependency() which needs access to all candidates.
 
@@ -4126,6 +4134,25 @@ impl Orchestrator {
         }
 
         true
+    }
+
+    /// Returns `true` if the issue carries at least one label that matches an
+    /// entry in `tracker.exclude_labels` (comparison is case-insensitive).
+    fn issue_has_excluded_label(&self, issue: &Issue) -> bool {
+        let excluded: std::collections::HashSet<String> = self
+            .config
+            .tracker
+            .exclude_labels
+            .iter()
+            .map(|l| l.trim().to_ascii_lowercase())
+            .collect();
+        if excluded.is_empty() {
+            return false;
+        }
+        issue
+            .labels
+            .iter()
+            .any(|l| excluded.contains(l.trim().to_ascii_lowercase().as_str()))
     }
 
     /// Returns `true` if the issue has at least one non-terminal blocker,

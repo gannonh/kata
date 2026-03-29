@@ -25,6 +25,7 @@ fn test_config(server: &ServerGuard, assignee: Option<&str>) -> TrackerConfig {
         assignee: assignee.map(String::from),
         active_states: vec!["Todo".to_string(), "In Progress".to_string()],
         terminal_states: vec!["Done".to_string(), "Cancelled".to_string()],
+        exclude_labels: vec![],
     }
 }
 
@@ -745,6 +746,7 @@ async fn test_error_transport_error() {
         assignee: None,
         active_states: vec!["Todo".to_string()],
         terminal_states: vec![],
+        exclude_labels: vec![],
     };
 
     let client = LinearClient::new(config);
