@@ -62,6 +62,57 @@ jobs:
       - name: Run Turborepo validation
         run: bunx turbo run lint typecheck test --affected
 
+  symphony-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+
+      - name: Cache Cargo + llvm-cov
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin/cargo-llvm-cov
+            apps/symphony/target
+          key: ${{ runner.os }}-symphony-coverage-${{ hashFiles('apps/symphony/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-symphony-coverage-
+
+      - name: Install cargo-llvm-cov
+        run: |
+          if ! command -v cargo-llvm-cov >/dev/null 2>&1; then
+            cargo install cargo-llvm-cov --locked
+          fi
+
+      - name: Run coverage gate and generate HTML report
+        working-directory: apps/symphony
+        run: cargo llvm-cov --html --output-dir coverage --fail-under-lines 80 --ignore-filename-regex 'main\.rs'
+
+      - name: Add coverage summary to job summary
+        working-directory: apps/symphony
+        run: |
+          {
+            echo '## Symphony Coverage Summary'
+            echo
+            echo '```text'
+            cargo llvm-cov report --summary-only
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: symphony-coverage-report
+          path: apps/symphony/coverage/
+          retention-days: 30
+
   e2e-mocked:
     needs: validate
     runs-on: ubuntu-latest
@@ -123,16 +174,18 @@ jobs:
           retention-days: 7
 
   gate:
-    needs: [validate, e2e-mocked]
+    needs: [validate, symphony-coverage, e2e-mocked]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Check job results
         run: |
           echo "validate: ${{ needs.validate.result }}"
+          echo "symphony-coverage: ${{ needs.symphony-coverage.result }}"
           echo "e2e-mocked: ${{ needs.e2e-mocked.result }}"
 
           if [[ "${{ needs.validate.result }}" == "failure" || \
+                "${{ needs.symphony-coverage.result }}" == "failure" || \
                 "${{ needs.e2e-mocked.result }}" == "failure" ]]; then
             echo "One or more jobs failed"
             exit 1
