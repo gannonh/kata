@@ -32,6 +32,11 @@ static SHARED_CONTEXT_PLACEHOLDER_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"\{\{\s*shared_context\s*\}\}")
         .expect("shared_context placeholder regex must compile")
 });
+static RATE_LIMIT_WINDOW_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?i)(\d+)\s*(hours?|hrs?|hr|h|minutes?|mins?|min|m|seconds?|secs?|sec|s)")
+        .expect("rate-limit window regex must compile")
+});
+const WORKER_LAST_ERROR_MAX_CHARS: usize = 200;
 
 // ── Standalone Worker Task ──────────────────────────────────────────────
 
@@ -2216,6 +2221,7 @@ impl Orchestrator {
                 session_tokens: SessionTokenUsage::default(),
                 current_tool_name: None,
                 current_tool_args_preview: None,
+                last_error: None,
             });
         if info.max_turns == 0 {
             info.max_turns = max_turns;
@@ -2316,6 +2322,19 @@ impl Orchestrator {
             }
         }
 
+        let event_error = match event {
+            AgentEvent::TurnFailed { error, .. }
+            | AgentEvent::TurnEndedWithError { error, .. }
+            | AgentEvent::StartupFailed { error, .. } => Some(error.as_str()),
+            _ => None,
+        };
+
+        if let Some(error) = event_error {
+            if let Some(info) = self.worker_session_info.get_mut(issue_id) {
+                info.last_error = Some(format_rate_limit_error(error));
+            }
+        }
+
         match event {
             AgentEvent::EscalationCreated { request, .. } => {
                 tracing::info!(
@@ -2391,6 +2410,9 @@ impl Orchestrator {
                 .session_tokens
                 .total_tokens
                 .saturating_add(*total_tokens);
+            if *total_tokens > 0 {
+                session_info.last_error = None;
+            }
             self.advance_turn_counter(issue_id);
             self.apply_turn_metrics(&TurnMetrics {
                 input_tokens: *input_tokens,
@@ -3490,6 +3512,10 @@ impl Orchestrator {
                         current_tool_name: stats.and_then(|s| s.current_tool_name.clone()),
                         current_tool_args_preview: stats
                             .and_then(|s| s.current_tool_args_preview.clone()),
+                        last_error: self
+                            .worker_session_info
+                            .get(issue_id)
+                            .and_then(|info| info.last_error.clone()),
                     },
                 )
             })
@@ -4341,6 +4367,58 @@ fn event_severity_for_agent_event(event: &AgentEvent) -> EventSeverity {
         AgentEvent::OtherMessage { .. } => EventSeverity::Debug,
         _ => EventSeverity::Info,
     }
+}
+
+fn format_rate_limit_error(error: &str) -> String {
+    let truncated = truncate_for_display(error, WORKER_LAST_ERROR_MAX_CHARS);
+    let normalized = error.to_ascii_lowercase();
+    let is_rate_limit = normalized.contains("rate limit") || normalized.contains("usage limit");
+
+    if !is_rate_limit {
+        return truncated;
+    }
+
+    if let Some(minutes) = extract_retry_window_minutes(error) {
+        return format!("rate limit: retry in ~{minutes} min");
+    }
+
+    format!("rate limit: {truncated}")
+}
+
+fn extract_retry_window_minutes(message: &str) -> Option<u64> {
+    let mut total_seconds: u64 = 0;
+    let mut matched = false;
+
+    for captures in RATE_LIMIT_WINDOW_RE.captures_iter(message) {
+        let Some(amount_match) = captures.get(1) else {
+            continue;
+        };
+        let Some(unit_match) = captures.get(2) else {
+            continue;
+        };
+
+        let Ok(amount) = amount_match.as_str().parse::<u64>() else {
+            continue;
+        };
+
+        let unit = unit_match.as_str().to_ascii_lowercase();
+        let seconds = if unit.starts_with('h') {
+            amount.saturating_mul(3_600)
+        } else if unit.starts_with('m') {
+            amount.saturating_mul(60)
+        } else {
+            amount
+        };
+
+        total_seconds = total_seconds.saturating_add(seconds);
+        matched = true;
+    }
+
+    if !matched {
+        return None;
+    }
+
+    Some(((total_seconds.saturating_add(59)) / 60).max(1))
 }
 
 fn event_summary(event: &AgentEvent) -> (String, Option<String>) {

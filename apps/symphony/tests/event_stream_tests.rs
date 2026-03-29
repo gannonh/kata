@@ -77,6 +77,7 @@ fn fixture_snapshot() -> OrchestratorSnapshot {
                 session_id: Some("session-920".to_string()),
                 current_tool_name: None,
                 current_tool_args_preview: None,
+                last_error: None,
             },
         )]),
         running_session_info: BTreeMap::from([(
@@ -89,6 +90,7 @@ fn fixture_snapshot() -> OrchestratorSnapshot {
                 session_tokens: Default::default(),
                 current_tool_name: None,
                 current_tool_args_preview: None,
+                last_error: None,
             },
         )]),
         claimed: BTreeSet::from(["issue-920".to_string()]),

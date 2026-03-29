@@ -337,6 +337,7 @@ fn test_orchestrator_snapshot_serializes() {
                     session_id: None,
                     current_tool_name: None,
                     current_tool_args_preview: None,
+                    last_error: None,
                 },
             );
             m.insert(
@@ -350,6 +351,7 @@ fn test_orchestrator_snapshot_serializes() {
                     session_id: None,
                     current_tool_name: None,
                     current_tool_args_preview: None,
+                    last_error: None,
                 },
             );
             m
