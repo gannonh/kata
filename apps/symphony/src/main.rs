@@ -215,8 +215,7 @@ impl GithubOrchestratorPort {
             })
             .ok_or_else(|| {
                 error::SymphonyError::InvalidWorkflowConfig(
-                    "GH_TOKEN or GITHUB_TOKEN is required when tracker.kind is github"
-                        .to_string(),
+                    "GH_TOKEN or GITHUB_TOKEN is required when tracker.kind is github".to_string(),
                 )
             })?;
 
