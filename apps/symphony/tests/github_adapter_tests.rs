@@ -166,6 +166,11 @@ fn issue_json(
     })
 }
 
+fn issue_state_json(mut issue: serde_json::Value, state: &str) -> serde_json::Value {
+    issue["state"] = json!(state);
+    issue
+}
+
 fn pull_request_json(mut issue: serde_json::Value) -> serde_json::Value {
     issue["pull_request"] = json!({
         "url": "https://api.github.com/repos/kata-sh/kata-mono/pulls/123"
@@ -787,6 +792,73 @@ async fn test_projects_v2_fetch_candidate_issues_queries_by_status() {
     assert_eq!(issues[0].state, "Todo");
     assert_eq!(issues[1].identifier, "#102");
     assert_eq!(issues[1].state, "In Progress");
+}
+
+#[tokio::test]
+async fn test_projects_v2_fetch_candidate_issues_skips_closed_issues() {
+    let mut server = Server::new_async().await;
+    let adapter = test_projects_adapter(&server, None, 42);
+
+    let fields_mock = server
+        .mock("POST", "/graphql")
+        .match_body(Matcher::Regex("projectV2\\(number".to_string()))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(projects_v2_status_field_payload().to_string())
+        .expect(1)
+        .create_async()
+        .await;
+
+    let items_mock = server
+        .mock("POST", "/graphql")
+        .match_body(Matcher::Regex("fieldValueByName".to_string()))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            projects_v2_items_payload(&[
+                project_item_node("item_301", 301, "opt_todo", "Todo"),
+                project_item_node("item_302", 302, "opt_in_progress", "In Progress"),
+            ])
+            .to_string(),
+        )
+        .expect(1)
+        .create_async()
+        .await;
+
+    let issue_open = server
+        .mock("GET", "/repos/kata-sh/kata-mono/issues/301")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(issue_json(301, &["symphony:todo"], "alice", &["alice"], None).to_string())
+        .create_async()
+        .await;
+
+    let issue_closed = server
+        .mock("GET", "/repos/kata-sh/kata-mono/issues/302")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            issue_state_json(
+                issue_json(302, &["symphony:todo"], "bob", &["bob"], None),
+                "closed",
+            )
+            .to_string(),
+        )
+        .create_async()
+        .await;
+
+    let issues = adapter
+        .fetch_candidate_issues()
+        .await
+        .expect("projects v2 fetch_candidate_issues should succeed");
+
+    fields_mock.assert_async().await;
+    items_mock.assert_async().await;
+    issue_open.assert_async().await;
+    issue_closed.assert_async().await;
+
+    assert_eq!(issues.len(), 1);
+    assert_eq!(issues[0].identifier, "#301");
 }
 
 #[tokio::test]

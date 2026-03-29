@@ -17,7 +17,7 @@ query($projectNumber: Int!, $owner: String!) {
   user(login: $owner) {
     projectV2(number: $projectNumber) {
       id
-      field(name: \"Status\") {
+      field(name: "Status") {
         ... on ProjectV2SingleSelectField {
           id
           options {
@@ -31,7 +31,7 @@ query($projectNumber: Int!, $owner: String!) {
   organization(login: $owner) {
     projectV2(number: $projectNumber) {
       id
-      field(name: \"Status\") {
+      field(name: "Status") {
         ... on ProjectV2SingleSelectField {
           id
           options {
@@ -57,7 +57,7 @@ query($projectId: ID!, $first: Int!, $after: String) {
               number
             }
           }
-          fieldValueByName(name: \"Status\") {
+          fieldValueByName(name: "Status") {
             ... on ProjectV2ItemFieldSingleSelectValue {
               name
               optionId

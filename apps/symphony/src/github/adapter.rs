@@ -264,7 +264,6 @@ impl GithubAdapter {
 
     async fn fetch_candidate_issues_projects(
         &self,
-        _project_number: u64,
         v2_client: &ProjectsV2Client,
     ) -> Result<Vec<Issue>> {
         let status_field = self.ensure_status_field().await?;
@@ -298,6 +297,15 @@ impl GithubAdapter {
                 tracing::debug!(
                     issue_number = issue.number,
                     "Skipping GitHub pull request from Projects v2 candidate issue set"
+                );
+                continue;
+            }
+
+            if !issue.state.eq_ignore_ascii_case("open") {
+                tracing::debug!(
+                    issue_number = issue.number,
+                    issue_state = %issue.state,
+                    "Skipping non-open GitHub issue from Projects v2 candidate issue set"
                 );
                 continue;
             }
@@ -348,7 +356,6 @@ impl GithubAdapter {
 
     async fn fetch_issues_by_states_projects(
         &self,
-        _project_number: u64,
         v2_client: &ProjectsV2Client,
         state_names: &[String],
     ) -> Result<Vec<Issue>> {
@@ -427,7 +434,6 @@ impl GithubAdapter {
 
     async fn fetch_issue_states_by_ids_projects(
         &self,
-        _project_number: u64,
         v2_client: &ProjectsV2Client,
         issue_ids: &[String],
     ) -> Result<Vec<Issue>> {
@@ -486,11 +492,19 @@ impl GithubAdapter {
 
     async fn update_issue_state_projects(
         &self,
-        project_number: u64,
         v2_client: &ProjectsV2Client,
         issue_number: u64,
         state_name: &str,
     ) -> Result<()> {
+        let project_number = self
+            .projects_mode()
+            .map(|(project_number, _)| project_number)
+            .ok_or_else(|| {
+                SymphonyError::GithubProjectsV2Error(
+                    "Projects v2 mode not enabled for this GitHub adapter".to_string(),
+                )
+            })?;
+
         let status_field = self.ensure_status_field().await?;
         let target_option = self.status_option_for_name(status_field, state_name)?;
 
@@ -537,18 +551,15 @@ impl GithubAdapter {
 impl TrackerAdapter for GithubAdapter {
     async fn fetch_candidate_issues(&self) -> Result<Vec<Issue>> {
         match self.projects_mode() {
-            Some((project_number, v2_client)) => {
-                self.fetch_candidate_issues_projects(project_number, v2_client)
-                    .await
-            }
+            Some((_, v2_client)) => self.fetch_candidate_issues_projects(v2_client).await,
             None => self.fetch_candidate_issues_labels().await,
         }
     }
 
     async fn fetch_issues_by_states(&self, state_names: &[String]) -> Result<Vec<Issue>> {
         match self.projects_mode() {
-            Some((project_number, v2_client)) => {
-                self.fetch_issues_by_states_projects(project_number, v2_client, state_names)
+            Some((_, v2_client)) => {
+                self.fetch_issues_by_states_projects(v2_client, state_names)
                     .await
             }
             None => self.fetch_issues_by_states_labels(state_names).await,
@@ -557,8 +568,8 @@ impl TrackerAdapter for GithubAdapter {
 
     async fn fetch_issue_states_by_ids(&self, issue_ids: &[String]) -> Result<Vec<Issue>> {
         match self.projects_mode() {
-            Some((project_number, v2_client)) => {
-                self.fetch_issue_states_by_ids_projects(project_number, v2_client, issue_ids)
+            Some((_, v2_client)) => {
+                self.fetch_issue_states_by_ids_projects(v2_client, issue_ids)
                     .await
             }
             None => self.fetch_issue_states_by_ids_labels(issue_ids).await,
@@ -584,8 +595,8 @@ impl TrackerAdapter for GithubAdapter {
         })?;
 
         match self.projects_mode() {
-            Some((project_number, v2_client)) => {
-                self.update_issue_state_projects(project_number, v2_client, number, state_name)
+            Some((_, v2_client)) => {
+                self.update_issue_state_projects(v2_client, number, state_name)
                     .await
             }
             None => {

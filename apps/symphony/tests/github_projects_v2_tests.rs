@@ -2,7 +2,7 @@ use mockito::{Matcher, Server, ServerGuard};
 use serde_json::json;
 use symphony::error::SymphonyError;
 use symphony::github::client::GithubClient;
-use symphony::github::projects_v2::ProjectsV2Client;
+use symphony::github::projects_v2::{ProjectsV2Client, QUERY_PROJECT_FIELDS, QUERY_PROJECT_ITEMS};
 
 fn test_client(server: &ServerGuard) -> ProjectsV2Client {
     let github_client = GithubClient::with_base_url(
@@ -206,6 +206,26 @@ async fn test_update_item_status_sends_mutation() {
         .expect("status mutation should succeed");
 
     mock.assert_async().await;
+}
+
+#[test]
+fn test_projects_v2_queries_use_plain_status_literal() {
+    assert!(
+        QUERY_PROJECT_FIELDS.contains("field(name: \"Status\")"),
+        "QUERY_PROJECT_FIELDS should use a plain GraphQL string literal"
+    );
+    assert!(
+        QUERY_PROJECT_ITEMS.contains("fieldValueByName(name: \"Status\")"),
+        "QUERY_PROJECT_ITEMS should use a plain GraphQL string literal"
+    );
+    assert!(
+        !QUERY_PROJECT_FIELDS.contains("\\\"Status\\\""),
+        "QUERY_PROJECT_FIELDS should not contain escaped quotes inside a raw string"
+    );
+    assert!(
+        !QUERY_PROJECT_ITEMS.contains("\\\"Status\\\""),
+        "QUERY_PROJECT_ITEMS should not contain escaped quotes inside a raw string"
+    );
 }
 
 #[tokio::test]
