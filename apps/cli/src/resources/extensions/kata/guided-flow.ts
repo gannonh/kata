@@ -32,7 +32,6 @@ import type {
 } from "./types.js";
 import {
   isProjectConfigured,
-  shouldSkipOnboarding,
 } from "./onboarding.js";
 
 // ─── PR onboarding helpers ─────────────────────────────────────────────────
@@ -869,14 +868,9 @@ export async function showSmartEntry(
   pi: ExtensionAPI,
   basePath: string,
 ): Promise<void> {
-  // Onboarding guard: if unconfigured and skipped, show a brief message
+  // Onboarding guard: if unconfigured, show a brief message and return.
+  // commands.ts is the authoritative entry point for triggering the wizard.
   if (!isProjectConfigured(basePath)) {
-    if (shouldSkipOnboarding()) {
-      ctx.ui.notify("Run /kata to set up Linear integration.", "info");
-      return;
-    }
-    // If not skipped, the caller (commands.ts) should have already handled the prompt.
-    // This is a safety net — show the notification and return.
     ctx.ui.notify("Run /kata to set up Linear integration.", "info");
     return;
   }

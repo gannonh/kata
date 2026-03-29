@@ -61,7 +61,7 @@ export function isProjectConfigured(basePath: string): boolean {
   const linear = loaded.preferences.linear;
   if (!linear) return false;
 
-  return !!(linear.teamKey || linear.projectSlug);
+  return !!(linear.teamKey || linear.projectSlug || linear.teamId || linear.projectId);
 }
 
 // ─── Dependencies (injectable for testing) ────────────────────────────────────
@@ -116,6 +116,7 @@ export type OnboardingResult = "completed" | "skipped";
  */
 export async function runOnboarding(
   ctx: ExtensionCommandContext,
+  basePath: string = process.cwd(),
 ): Promise<OnboardingResult> {
   // Non-TTY guard
   if (!ctx.hasUI) {
@@ -127,7 +128,6 @@ export async function runOnboarding(
   }
 
   const deps = await getDeps();
-  const basePath = process.cwd();
 
   // Prompt for API key (with one retry on failure)
   let apiKey: string | null = null;
@@ -212,7 +212,7 @@ export async function runOnboarding(
       `Failed to create project config: ${err instanceof Error ? err.message : String(err)}`,
       "error",
     );
-    // Key is stored even if preferences fail — not a full failure
+    return "skipped";
   }
 
   ctx.ui.notify("✓ Linear API key saved. .kata/ created.", "info");

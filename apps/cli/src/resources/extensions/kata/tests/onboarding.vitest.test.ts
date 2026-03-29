@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { mkdirSync, writeFileSync, rmSync, existsSync, readFileSync, realpathSync } from "node:fs";
+import { mkdirSync, writeFileSync, rmSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
@@ -109,9 +109,19 @@ describe("onboarding", () => {
       expect(isProjectConfigured(tmpDir)).toBe(false);
     });
 
-    it("returns false when preferences exist but linear has no teamKey or projectSlug", () => {
-      writePreferences(tmpDir, prefsWithLinear("  projectId: some-uuid"));
+    it("returns false when preferences exist but linear block has no known identifier", () => {
+      writePreferences(tmpDir, prefsWithLinear("  foo: bar"));
       expect(isProjectConfigured(tmpDir)).toBe(false);
+    });
+
+    it("returns true when preferences have linear.teamId", () => {
+      writePreferences(tmpDir, prefsWithLinear("  teamId: some-uuid"));
+      expect(isProjectConfigured(tmpDir)).toBe(true);
+    });
+
+    it("returns true when preferences have linear.projectId", () => {
+      writePreferences(tmpDir, prefsWithLinear("  projectId: some-uuid"));
+      expect(isProjectConfigured(tmpDir)).toBe(true);
     });
 
     it("returns true when preferences have linear.teamKey", () => {
@@ -178,10 +188,8 @@ describe("onboarding", () => {
       const deps = makeMockDeps();
       _setDeps(deps);
 
-      const savedCwd = process.cwd();
-      process.chdir(tmpDir);
       try {
-        const result = await runOnboarding(ctx);
+        const result = await runOnboarding(ctx, tmpDir);
 
         expect(result).toBe("completed");
         expect(ctx.ui.input).toHaveBeenCalledOnce();
@@ -192,7 +200,6 @@ describe("onboarding", () => {
           (n: any) => n.message.includes("✓") && n.level === "info",
         )).toBe(true);
       } finally {
-        process.chdir(savedCwd);
         delete process.env.LINEAR_API_KEY;
       }
     });
@@ -236,10 +243,8 @@ describe("onboarding", () => {
       });
       _setDeps(deps);
 
-      const savedCwd = process.cwd();
-      process.chdir(tmpDir);
       try {
-        const result = await runOnboarding(ctx);
+        const result = await runOnboarding(ctx, tmpDir);
 
         expect(result).toBe("completed");
         expect(ctx.ui.input).toHaveBeenCalledTimes(2);
@@ -248,7 +253,6 @@ describe("onboarding", () => {
         )).toBe(true);
         expect(process.env.LINEAR_API_KEY).toBe("good_key");
       } finally {
-        process.chdir(savedCwd);
         delete process.env.LINEAR_API_KEY;
       }
     });
@@ -308,17 +312,14 @@ describe("onboarding", () => {
       });
       _setDeps(deps);
 
-      const savedCwd = process.cwd();
-      process.chdir(tmpDir);
       try {
-        await runOnboarding(ctx);
+        await runOnboarding(ctx, tmpDir);
 
         expect(storedCreds.linear).toEqual({
           type: "api_key",
           key: "lin_api_stored",
         });
       } finally {
-        process.chdir(savedCwd);
         delete process.env.LINEAR_API_KEY;
       }
     });
@@ -344,6 +345,27 @@ describe("onboarding", () => {
       const result = await runOnboarding(ctx);
 
       expect(result).toBe("skipped");
+    });
+
+    it("returns 'skipped' when ensurePreferences throws", async () => {
+      const ctx = makeMockCtx({ inputReturns: ["lin_api_good"] });
+      const deps = makeMockDeps({
+        ensurePreferences: vi.fn(() => {
+          throw new Error("Permission denied");
+        }),
+      });
+      _setDeps(deps);
+
+      try {
+        const result = await runOnboarding(ctx, tmpDir);
+
+        expect(result).toBe("skipped");
+        expect(ctx._notifications.some(
+          (n: any) => n.message.includes("Failed to create project config") && n.level === "error",
+        )).toBe(true);
+      } finally {
+        delete process.env.LINEAR_API_KEY;
+      }
     });
   });
 });

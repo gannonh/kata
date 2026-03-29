@@ -93,7 +93,7 @@ async function ensureOnboarding(
   });
 
   if (choice === "setup") {
-    const result = await runOnboarding(ctx);
+    const result = await runOnboarding(ctx, basePath);
     return result === "completed";
   }
 
