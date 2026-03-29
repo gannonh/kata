@@ -166,6 +166,40 @@ async fn test_fetch_issues_by_states_filters_by_state_labels() {
 }
 
 #[tokio::test]
+async fn test_fetch_issues_by_states_marks_assignment_with_assignee_filter() {
+    let mut server = Server::new_async().await;
+    let adapter = test_adapter(&server, Some("alice"));
+
+    let mock = server
+        .mock("GET", "/repos/kata-sh/kata-mono/issues")
+        .match_query(Matcher::AllOf(vec![
+            Matcher::UrlEncoded("state".into(), "open".into()),
+            Matcher::UrlEncoded("per_page".into(), "100".into()),
+        ]))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            json!([
+                issue_json(8, &["symphony:todo"], "alice", &["alice"], None),
+                issue_json(9, &["symphony:todo"], "bob", &["bob"], None)
+            ])
+            .to_string(),
+        )
+        .create_async()
+        .await;
+
+    let issues = adapter
+        .fetch_issues_by_states(&["Todo".to_string()])
+        .await
+        .expect("fetch_issues_by_states should succeed");
+
+    mock.assert_async().await;
+    assert_eq!(issues.len(), 2);
+    assert!(issues[0].assigned_to_worker);
+    assert!(!issues[1].assigned_to_worker);
+}
+
+#[tokio::test]
 async fn test_fetch_issue_states_by_ids_returns_individual_issues() {
     let mut server = Server::new_async().await;
     let adapter = test_adapter(&server, None);
@@ -196,6 +230,29 @@ async fn test_fetch_issue_states_by_ids_returns_individual_issues() {
     assert_eq!(issues.len(), 2);
     assert_eq!(issues[0].identifier, "#10");
     assert_eq!(issues[1].identifier, "#11");
+}
+
+#[tokio::test]
+async fn test_fetch_issue_states_by_ids_marks_assignment_with_assignee_filter() {
+    let mut server = Server::new_async().await;
+    let adapter = test_adapter(&server, Some("alice"));
+
+    let mock = server
+        .mock("GET", "/repos/kata-sh/kata-mono/issues/12")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(issue_json(12, &["symphony:todo"], "bob", &["bob"], None).to_string())
+        .create_async()
+        .await;
+
+    let issues = adapter
+        .fetch_issue_states_by_ids(&["12".to_string()])
+        .await
+        .expect("fetch_issue_states_by_ids should succeed");
+
+    mock.assert_async().await;
+    assert_eq!(issues.len(), 1);
+    assert!(!issues[0].assigned_to_worker);
 }
 
 #[tokio::test]

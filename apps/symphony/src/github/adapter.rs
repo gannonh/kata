@@ -37,6 +37,12 @@ impl GithubAdapter {
             ))
         });
 
+        let assignee_id = gh
+            .assignees
+            .first()
+            .map(|assignee| assignee.login.clone())
+            .or_else(|| gh.user.as_ref().map(|u| u.login.clone()));
+
         Issue {
             id: gh.number.to_string(),
             identifier: format!("#{}", gh.number),
@@ -46,10 +52,10 @@ impl GithubAdapter {
             state,
             branch_name: None,
             url,
-            assignee_id: gh.user.as_ref().map(|u| u.login.clone()),
+            assignee_id,
             labels,
             blocked_by: vec![],
-            assigned_to_worker: true,
+            assigned_to_worker: self.assigned_to_worker(gh),
             created_at: gh.created_at,
             updated_at: gh.updated_at,
             children_count: 0,
@@ -64,6 +70,23 @@ impl GithubAdapter {
             .map(|state| normalize_state_for_label(state))
             .collect()
     }
+
+    fn assignee_filter(&self) -> Option<String> {
+        self.config
+            .assignee
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(|value| value.to_ascii_lowercase())
+    }
+
+    fn assigned_to_worker(&self, issue: &GithubIssue) -> bool {
+        let Some(assignee) = self.assignee_filter() else {
+            return true;
+        };
+
+        issue_matches_assignee(issue, &assignee)
+    }
 }
 
 #[async_trait]
@@ -72,13 +95,7 @@ impl TrackerAdapter for GithubAdapter {
         let issues = self.client.list_issues("open", &[]).await?;
         let allowed_states = self.candidate_state_set();
 
-        let assignee_filter = self
-            .config
-            .assignee
-            .as_deref()
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .map(|value| value.to_ascii_lowercase());
+        let assignee_filter = self.assignee_filter();
 
         let filtered = issues
             .iter()
@@ -111,6 +128,9 @@ impl TrackerAdapter for GithubAdapter {
     }
 
     async fn fetch_issues_by_states(&self, state_names: &[String]) -> Result<Vec<Issue>> {
+        // NOTE: We intentionally query only GitHub-open issues.
+        // Symphony tracker state is label-driven (`{prefix}:{state}`), and this adapter does not
+        // transition GitHub's native open/closed field.
         let issues = self.client.list_issues("open", &[]).await?;
         let state_filters: HashSet<String> = state_names
             .iter()

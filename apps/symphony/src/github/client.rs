@@ -70,7 +70,6 @@ pub struct GithubIssue {
 pub struct GithubClient {
     pub http_client: reqwest::Client,
     pub base_url: String,
-    pub token: String,
     pub repo_owner: String,
     pub repo_name: String,
     pub label_prefix: String,
@@ -81,7 +80,6 @@ impl std::fmt::Debug for GithubClient {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("GithubClient")
             .field("base_url", &self.base_url)
-            .field("token", &"[REDACTED]")
             .field("repo_owner", &self.repo_owner)
             .field("repo_name", &self.repo_name)
             .field("label_prefix", &self.label_prefix)
@@ -132,7 +130,6 @@ impl GithubClient {
         Self {
             http_client,
             base_url: base_url.into().trim_end_matches('/').to_string(),
-            token,
             repo_owner: repo_owner.into(),
             repo_name: repo_name.into(),
             label_prefix: label_prefix.into(),
@@ -290,6 +287,13 @@ impl GithubClient {
             })?;
             results.extend(page);
             next_url = extracted_next;
+        }
+
+        if next_url.is_some() {
+            tracing::warn!(
+                max_pages = MAX_PAGES,
+                "GitHub paginated response truncated at page cap; results may be incomplete"
+            );
         }
 
         Ok(results)
