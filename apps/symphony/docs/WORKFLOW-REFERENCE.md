@@ -36,7 +36,8 @@
 # Notes:
 #   - Exit code is 0 when no 🚨 errors are found, otherwise 1.
 #   - SSH host reachability checks are currently reported as ⏭️ skipped (future work).
-#   - Doctor is report-only (no auto-fix).
+#   - Doctor is report-only (no auto-fix), except it may create `workspace.root`
+#     when missing so writability can be validated.
 
 # ─── Tracker ──────────────────────────────────────────────────────────────────
 # Configures which issue tracker to poll and how to filter issues.

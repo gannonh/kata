@@ -1104,8 +1104,18 @@ fn assert_directory_writable(path: &Path) -> std::io::Result<()> {
         chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()
     ));
 
+    struct ProbeCleanup(PathBuf);
+
+    impl Drop for ProbeCleanup {
+        fn drop(&mut self) {
+            let _ = fs::remove_file(&self.0);
+        }
+    }
+
+    let cleanup = ProbeCleanup(probe_path.clone());
     fs::write(&probe_path, b"doctor")?;
-    fs::remove_file(probe_path)?;
+    fs::remove_file(&probe_path)?;
+    std::mem::forget(cleanup);
     Ok(())
 }
 

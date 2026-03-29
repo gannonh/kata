@@ -230,7 +230,7 @@ Exit codes:
 - `0` when no `🚨` errors are found
 - `1` when any `🚨` error is found
 
-`doctor` is diagnostic only — it does not auto-fix configuration or environment problems.
+`doctor` is diagnostic only — it does not auto-fix configuration or environment problems. The one intentional local side effect is creating `workspace.root` when it does not exist so writability can be verified.
 
 ### 4. Create issues in Linear
 
