@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.13.0
+
+### Features
+
+- **M009: OOBE & Onboarding** — New interactive onboarding wizard for first-time project setup.
+  - **Onboarding wizard core** — `/kata` detects unconfigured projects and offers a guided setup flow. Collects `LINEAR_API_KEY` with masked input, validates via `getViewer()`, stores in `auth.json`, creates `.kata/preferences.md` with `.gitignore` entry. Non-TTY environments gracefully degrade with a warning. Session-scoped skip flag prevents re-prompting within the same session.
+  - **Linear team & project picker** — After API key validation, fetches teams and projects from Linear API. Single-team/project accounts auto-select without prompting. Multi-item lists present interactive pickers. Duplicate project names are disambiguated with slug IDs. API failures fall back to manual text entry.
+  - **Symphony silence** — Fresh installations without Symphony configuration no longer emit escalation listener warnings. The `isSymphonyConfigured()` guard prevents the listener from starting when no Symphony URL is set.
+  - **Comprehensive test coverage** — 47 Vitest tests covering the full onboarding flow: end-to-end wizard path, skip-and-retrigger lifecycle, non-TTY degradation, picker edge cases, fallback paths, and preferences file manipulation.
+
 ## 0.12.1
 
 ### Bug Fixes
