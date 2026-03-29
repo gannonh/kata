@@ -7,6 +7,7 @@ import type {
 } from "@mariozechner/pi-coding-agent";
 import { loadEffectiveKataPreferences } from "../kata/preferences.js";
 import type { SymphonyClient } from "./client.js";
+import { isSymphonyConfigured } from "./config.js";
 import type { ConsoleManager } from "./console.js";
 // config-parser, config-validator, config-writer, and config-editor depend on
 // js-yaml which is NOT in pi-coding-agent's extension alias list. Lazy-import
@@ -116,18 +117,35 @@ export function parseSymphonyCommand(input: string): SymphonyCommandAction {
   return { type: "usage" };
 }
 
+const SYMPHONY_GUIDANCE_MESSAGE = `Symphony is not configured.
+
+To connect:
+  • Set symphony.url in .kata/preferences.md
+  • Or set KATA_SYMPHONY_URL environment variable
+
+Run /symphony config to edit WORKFLOW.md settings.`;
+
 export async function executeSymphonyCommand(
   action: SymphonyCommandAction,
   client: SymphonyClient,
   sink: SymphonyCommandSink,
-  options: SymphonyCommandOptions = {},
+  options: SymphonyCommandOptions & { checkConfigured?: () => boolean } = {},
 ): Promise<void> {
   const now = options.now ?? Date.now;
+  const checkConfigured = options.checkConfigured ?? isSymphonyConfigured;
 
   try {
     if (action.type === "usage") {
       sink.info(renderSymphonyUsage());
       return;
+    }
+
+    // For status and watch: check config before attempting connection
+    if (action.type === "status" || action.type === "watch") {
+      if (!checkConfigured()) {
+        sink.info(SYMPHONY_GUIDANCE_MESSAGE);
+        return;
+      }
     }
 
     if (action.type === "status") {
@@ -233,6 +251,11 @@ export function registerSymphonyCommand(
       }
 
       if (action.type === "console") {
+        if (!isSymphonyConfigured()) {
+          ctx.ui.notify(SYMPHONY_GUIDANCE_MESSAGE, "info");
+          return;
+        }
+
         if (!consoleManager) {
           ctx.ui.notify(
             "Symphony console manager is unavailable in this session.",
