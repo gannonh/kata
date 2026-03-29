@@ -122,6 +122,24 @@ fn backend_stall_timeout_ms(config: &ServiceConfig, backend: AgentBackend) -> i6
 }
 
 fn effective_pi_model_for_issue(config: &ServiceConfig, issue: &Issue) -> Option<String> {
+    for label in &issue.labels {
+        let normalized_label = label.trim().to_lowercase();
+        if normalized_label.is_empty() {
+            continue;
+        }
+
+        if let Some(model) = config.pi_agent.model_by_label.get(&normalized_label) {
+            tracing::info!(
+                event = "model_resolved_from_label",
+                issue_identifier = %issue.identifier,
+                label = %normalized_label,
+                model = %model,
+                "resolved pi-agent model from issue label"
+            );
+            return Some(model.clone());
+        }
+    }
+
     config.pi_agent.model_for_state(&issue.state)
 }
 

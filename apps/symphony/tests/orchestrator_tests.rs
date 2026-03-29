@@ -12,7 +12,7 @@ use serde_json::json;
 use tempfile::{tempdir, NamedTempFile};
 
 use symphony::domain::{
-    AgentConfig, AgentEvent, ApiKey, BlockerRef, ContextScope, EscalationRequest,
+    AgentBackend, AgentConfig, AgentEvent, ApiKey, BlockerRef, ContextScope, EscalationRequest,
     EscalationResponse, Issue, NotificationsConfig, ServiceConfig, SlackConfig, TrackerConfig,
     WorkspaceIsolation,
 };
@@ -4200,5 +4200,116 @@ async fn test_escalation_registry_cancel_for_issue_cleans_up() {
     assert!(
         rx_a2.await.is_err(),
         "cancel should drop sender for issue-a"
+    );
+}
+
+#[test]
+fn test_model_by_label_takes_priority() {
+    let mut config = test_config(1);
+    config.agent_backend = AgentBackend::KataCli;
+    config.pi_agent.model = Some("anthropic/claude-haiku-3-5".to_string());
+    config.pi_agent.model_by_state.insert(
+        "in progress".to_string(),
+        "anthropic/claude-opus-4-6".to_string(),
+    );
+    config.pi_agent.model_by_label.insert(
+        "model:sonnet".to_string(),
+        "anthropic/claude-sonnet-4-6".to_string(),
+    );
+
+    let mut candidate = issue("issue-model-label", "KAT-9301", "In Progress", None, 0);
+    candidate.labels = vec!["Model:Sonnet".to_string()];
+
+    let mut port = FakePort {
+        candidate_issues: vec![candidate.clone()],
+        ..FakePort::default()
+    };
+    let mut orchestrator = Orchestrator::new(config, String::new());
+
+    let tick = orchestrator
+        .tick(&mut port)
+        .expect("dispatch should succeed for label-model test");
+
+    assert_eq!(tick.dispatched_issue_ids, vec![candidate.id.clone()]);
+    let run_attempt = orchestrator
+        .state()
+        .running
+        .get(&candidate.id)
+        .expect("run attempt should exist after dispatch");
+    assert_eq!(
+        run_attempt.model.as_deref(),
+        Some("anthropic/claude-sonnet-4-6")
+    );
+}
+
+#[test]
+fn test_model_by_label_falls_back_to_state() {
+    let mut config = test_config(1);
+    config.agent_backend = AgentBackend::KataCli;
+    config.pi_agent.model = Some("anthropic/claude-haiku-3-5".to_string());
+    config.pi_agent.model_by_label.insert(
+        "model:sonnet".to_string(),
+        "anthropic/claude-sonnet-4-6".to_string(),
+    );
+    config.pi_agent.model_by_state.insert(
+        "in progress".to_string(),
+        "anthropic/claude-opus-4-6".to_string(),
+    );
+
+    let mut candidate = issue("issue-model-state", "KAT-9302", "In Progress", None, 0);
+    candidate.labels = vec!["model:haiku".to_string()];
+
+    let mut port = FakePort {
+        candidate_issues: vec![candidate.clone()],
+        ..FakePort::default()
+    };
+    let mut orchestrator = Orchestrator::new(config, String::new());
+
+    orchestrator
+        .tick(&mut port)
+        .expect("dispatch should succeed for state fallback test");
+
+    let run_attempt = orchestrator
+        .state()
+        .running
+        .get(&candidate.id)
+        .expect("run attempt should exist after dispatch");
+    assert_eq!(
+        run_attempt.model.as_deref(),
+        Some("anthropic/claude-opus-4-6")
+    );
+}
+
+#[test]
+fn test_model_by_label_falls_back_to_default() {
+    let mut config = test_config(1);
+    config.agent_backend = AgentBackend::KataCli;
+    config.pi_agent.model = Some("anthropic/claude-haiku-3-5".to_string());
+    config.pi_agent.model_by_label.insert(
+        "model:sonnet".to_string(),
+        "anthropic/claude-sonnet-4-6".to_string(),
+    );
+
+    let mut candidate = issue("issue-model-default", "KAT-9303", "Todo", None, 0);
+    candidate.labels = vec!["model:opus".to_string()];
+
+    let mut port = FakePort {
+        candidate_issues: vec![candidate.clone()],
+        ..FakePort::default()
+    };
+    let mut orchestrator = Orchestrator::new(config, String::new());
+
+    orchestrator
+        .tick(&mut port)
+        .expect("dispatch should succeed for default fallback test");
+
+    let run_attempt = orchestrator
+        .state()
+        .running
+        .get(&candidate.id)
+        .expect("run attempt should exist after dispatch");
+    assert_eq!(
+        run_attempt.model.as_deref(),
+        Some("anthropic/claude-haiku-3-5")
     );
 }
