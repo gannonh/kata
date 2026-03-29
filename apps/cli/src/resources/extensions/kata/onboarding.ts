@@ -16,7 +16,7 @@
  */
 
 import type { ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { loadEffectiveKataPreferences } from "./preferences.js";
 import { ensurePreferences, ensureGitignore } from "./gitignore.js";
@@ -73,6 +73,8 @@ export interface OnboardingDeps {
   };
   createLinearClient: (apiKey: string) => {
     getViewer: () => Promise<{ id: string; name: string; email: string }>;
+    listTeams: () => Promise<Array<{ id: string; key: string; name: string }>>;
+    listProjects: (opts?: { teamId?: string }) => Promise<Array<{ id: string; name: string; slugId: string }>>;
   };
   ensurePreferences: (basePath: string) => boolean;
   ensureGitignore: (basePath: string) => boolean;
@@ -102,6 +104,226 @@ async function getDeps(): Promise<OnboardingDeps> {
     ensurePreferences,
     ensureGitignore,
   };
+}
+
+// ─── Linear team & project picker ─────────────────────────────────────────────
+
+export interface LinearPickerResult {
+  teamKey: string;
+  projectSlug: string;
+}
+
+/**
+ * Fetch teams and projects from the Linear API and present interactive pickers.
+ * Returns `{ teamKey, projectSlug }` on success, or `null` if the user cancels
+ * or both API calls fail and manual entry is cancelled.
+ *
+ * - Single-team accounts auto-select without prompting.
+ * - Single-project teams auto-select without prompting.
+ * - API failures fall back to manual `ctx.ui.input` entry.
+ */
+export async function pickLinearTeamAndProject(
+  ctx: ExtensionCommandContext,
+  apiKey: string,
+): Promise<LinearPickerResult | null> {
+  const deps = await getDeps();
+  const client = deps.createLinearClient(apiKey);
+
+  // ── Team selection ──────────────────────────────────────────────────────
+  let teamKey: string;
+  let teamId: string;
+
+  try {
+    const teams = await client.listTeams();
+
+    if (teams.length === 0) {
+      ctx.ui.notify("No teams found in your Linear workspace.", "warning");
+      return manualLinearEntry(ctx);
+    }
+
+    if (teams.length === 1) {
+      const team = teams[0];
+      ctx.ui.notify(`Auto-selected team: ${team.name} (${team.key})`, "info");
+      teamKey = team.key;
+      teamId = team.id;
+    } else {
+      const teamOptions = teams.map((t) => `${t.name} (${t.key})`);
+      const selected = await ctx.ui.select("Select your Linear team", teamOptions);
+      if (!selected) return null;
+
+      const idx = teamOptions.indexOf(selected);
+      const team = teams[idx];
+      teamKey = team.key;
+      teamId = team.id;
+    }
+  } catch (err) {
+    ctx.ui.notify(
+      `Could not fetch teams from Linear — entering manually. (${err instanceof Error ? err.message : String(err)})`,
+      "warning",
+    );
+    return manualLinearEntry(ctx);
+  }
+
+  // ── Project selection ───────────────────────────────────────────────────
+  let projectSlug: string;
+
+  try {
+    const projects = await client.listProjects({ teamId });
+
+    if (projects.length === 0) {
+      ctx.ui.notify("No projects found for this team.", "warning");
+      return manualProjectEntry(ctx, teamKey);
+    }
+
+    if (projects.length === 1) {
+      const project = projects[0];
+      ctx.ui.notify(`Auto-selected project: ${project.name}`, "info");
+      projectSlug = project.slugId;
+    } else {
+      const projectOptions = projects.map((p) => p.name);
+      const selected = await ctx.ui.select("Select your Linear project", projectOptions);
+      if (!selected) return null;
+
+      const idx = projectOptions.indexOf(selected);
+      const project = projects[idx];
+      projectSlug = project.slugId;
+    }
+  } catch (err) {
+    ctx.ui.notify(
+      `Could not fetch projects from Linear — entering manually. (${err instanceof Error ? err.message : String(err)})`,
+      "warning",
+    );
+    return manualProjectEntry(ctx, teamKey);
+  }
+
+  return { teamKey, projectSlug };
+}
+
+/**
+ * Fallback: prompt user to manually enter both team key and project slug.
+ */
+async function manualLinearEntry(
+  ctx: ExtensionCommandContext,
+): Promise<LinearPickerResult | null> {
+  const teamKey = await ctx.ui.input("Linear team key", "e.g. KAT");
+  if (!teamKey || !teamKey.trim()) return null;
+
+  const projectSlug = await ctx.ui.input("Linear project slug", "from your project URL, e.g. 459f9835e809");
+  if (!projectSlug || !projectSlug.trim()) return null;
+
+  return { teamKey: teamKey.trim(), projectSlug: projectSlug.trim() };
+}
+
+/**
+ * Fallback: prompt user to manually enter just the project slug (team was already selected).
+ */
+async function manualProjectEntry(
+  ctx: ExtensionCommandContext,
+  teamKey: string,
+): Promise<LinearPickerResult | null> {
+  const projectSlug = await ctx.ui.input("Linear project slug", "from your project URL, e.g. 459f9835e809");
+  if (!projectSlug || !projectSlug.trim()) return null;
+
+  return { teamKey, projectSlug: projectSlug.trim() };
+}
+
+// ─── Preferences update utility ──────────────────────────────────────────────
+
+/**
+ * Update `.kata/preferences.md` YAML frontmatter with `linear.teamKey` and
+ * `linear.projectSlug`. Preserves all other frontmatter fields and the
+ * markdown body below the closing `---`.
+ */
+export function updatePreferencesLinearConfig(
+  basePath: string,
+  config: LinearPickerResult,
+): void {
+  const preferencesPath = join(basePath, ".kata", "preferences.md");
+  const legacyPath = join(basePath, ".kata", "PREFERENCES.md");
+
+  const filePath = existsSync(preferencesPath)
+    ? preferencesPath
+    : existsSync(legacyPath)
+      ? legacyPath
+      : preferencesPath;
+
+  const content = existsSync(filePath)
+    ? readFileSync(filePath, "utf-8")
+    : "---\nversion: 1\nlinear: {}\n---\n";
+
+  const updated = replaceLinearBlock(content, config);
+  writeFileSync(filePath, updated, "utf-8");
+}
+
+/**
+ * Replace the `linear:` block in YAML frontmatter with the new teamKey/projectSlug.
+ * Handles both `linear: {}` (empty inline) and multi-line `linear:` blocks.
+ */
+function replaceLinearBlock(
+  content: string,
+  config: LinearPickerResult,
+): string {
+  const fmMatch = content.match(/^(---\n)([\s\S]*?)\n(---)/);
+  if (!fmMatch) {
+    // No frontmatter — wrap with new frontmatter
+    return `---\nversion: 1\nlinear:\n  teamKey: ${config.teamKey}\n  projectSlug: ${config.projectSlug}\n---\n${content}`;
+  }
+
+  const [, openDelim, frontmatter, closeDelim] = fmMatch;
+  const afterFrontmatter = content.slice(fmMatch[0].length);
+
+  // Replace the linear block
+  const lines = frontmatter.split("\n");
+  const newLines: string[] = [];
+  let inLinearBlock = false;
+  let linearBlockReplaced = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trimStart();
+
+    if (trimmed.startsWith("linear:")) {
+      inLinearBlock = true;
+      linearBlockReplaced = true;
+
+      // Check if inline (e.g. "linear: {}" or "linear: {teamKey: ...}")
+      const afterColon = trimmed.slice("linear:".length).trim();
+      if (afterColon && afterColon !== "") {
+        // Replace the inline value
+        newLines.push("linear:");
+        newLines.push(`  teamKey: ${config.teamKey}`);
+        newLines.push(`  projectSlug: ${config.projectSlug}`);
+        inLinearBlock = false;
+        continue;
+      }
+
+      // Multi-line block starts
+      newLines.push("linear:");
+      newLines.push(`  teamKey: ${config.teamKey}`);
+      newLines.push(`  projectSlug: ${config.projectSlug}`);
+      continue;
+    }
+
+    if (inLinearBlock) {
+      // Skip indented lines that belong to the old linear block
+      if (trimmed === "" || line.match(/^\s+\S/)) {
+        continue;
+      }
+      // Non-indented line means linear block ended
+      inLinearBlock = false;
+    }
+
+    newLines.push(line);
+  }
+
+  // If no linear block was found, append one
+  if (!linearBlockReplaced) {
+    newLines.push("linear:");
+    newLines.push(`  teamKey: ${config.teamKey}`);
+    newLines.push(`  projectSlug: ${config.projectSlug}`);
+  }
+
+  return `${openDelim}${newLines.join("\n")}\n${closeDelim}${afterFrontmatter}`;
 }
 
 // ─── Onboarding wizard ───────────────────────────────────────────────────────
@@ -215,6 +437,24 @@ export async function runOnboarding(
     return "skipped";
   }
 
-  ctx.ui.notify("✓ Linear API key saved. .kata/ created.", "info");
+  // Pick Linear team and project
+  const pickerResult = await pickLinearTeamAndProject(ctx, apiKey);
+  if (pickerResult) {
+    try {
+      updatePreferencesLinearConfig(basePath, pickerResult);
+      ctx.ui.notify(
+        `✓ Linear configured: team=${pickerResult.teamKey}, project=${pickerResult.projectSlug}`,
+        "info",
+      );
+    } catch (err) {
+      ctx.ui.notify(
+        `Failed to write Linear config: ${err instanceof Error ? err.message : String(err)}`,
+        "error",
+      );
+    }
+  } else {
+    ctx.ui.notify("✓ Linear API key saved. .kata/ created. Run /kata to configure team/project.", "info");
+  }
+
   return "completed";
 }
