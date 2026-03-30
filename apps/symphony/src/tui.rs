@@ -1287,6 +1287,46 @@ mod tests {
     }
 
     #[test]
+    fn test_tui_renders_github_identifier() {
+        let now = Utc
+            .with_ymd_and_hms(2026, 3, 22, 16, 10, 0)
+            .single()
+            .expect("valid fixture timestamp");
+        let mut snapshot = snapshot_fixture(0, None);
+        let issue_id = "issue-github".to_string();
+
+        snapshot.running.insert(
+            issue_id.clone(),
+            crate::domain::RunAttempt {
+                issue_id: issue_id.clone(),
+                issue_identifier: "#42".to_string(),
+                issue_title: Some("GitHub parity issue".to_string()),
+                attempt: Some(1),
+                workspace_path: "/tmp/workspace-github".to_string(),
+                started_at: now,
+                status: "running".to_string(),
+                error: None,
+                worker_host: None,
+                model: None,
+                linear_state: Some("In Progress".to_string()),
+                issue_url: Some("https://github.com/owner/repo/issues/42".to_string()),
+            },
+        );
+
+        let backend = TestBackend::new(180, 30);
+        let mut terminal = Terminal::new(backend).expect("test terminal");
+        terminal
+            .draw(|frame| draw_dashboard(frame, &snapshot, now, "Throughput: 0.0 tps ▁▁▁▁▁▁▁▁"))
+            .expect("dashboard draw should succeed");
+
+        let rendered = render_text(terminal.backend());
+        assert!(
+            rendered.contains("#42"),
+            "running table should render github issue identifiers verbatim, got:\n{rendered}"
+        );
+    }
+
+    #[test]
     fn status_color_respects_event_mapping_and_staleness() {
         let now = Utc
             .with_ymd_and_hms(2026, 3, 22, 15, 0, 0)

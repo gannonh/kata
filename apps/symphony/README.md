@@ -174,6 +174,52 @@ Complete the task described in the issue.
 
 The YAML front-matter is configuration. Everything below the `---` is a [Liquid template](https://shopify.github.io/liquid/) rendered as the prompt for each agent session, with `{{ issue.* }}` and `{{ workspace.* }}` variables available.
 
+### GitHub Issues Backend
+
+Symphony can use **GitHub Issues** as a tracker backend (`tracker.kind: github`) instead of Linear.
+
+Minimal GitHub tracker configuration:
+
+```yaml
+tracker:
+  kind: github
+  api_key: $GH_TOKEN          # or $GITHUB_TOKEN
+  repo_owner: your-org
+  repo_name: your-repo
+
+  # Optional: Projects v2 mode (board status drives state mapping)
+  # github_project_number: 7
+
+  # Optional: label mode prefix when github_project_number is omitted
+  # label_prefix: symphony
+
+  active_states:
+    - Todo
+    - In Progress
+  terminal_states:
+    - Done
+```
+
+Authentication:
+
+- Use a GitHub **PAT** (personal access token) via `GH_TOKEN` or `GITHUB_TOKEN`.
+- `tracker.api_key` supports `$VAR` indirection like other secrets.
+
+State management modes:
+
+- **Projects v2 mode**: set `tracker.github_project_number`.
+  - Symphony reads/writes state from the project's `Status` single-select field.
+- **Label mode**: omit `tracker.github_project_number`.
+  - Symphony reads/writes state labels using `{label_prefix}:{state}` (default prefix: `symphony`).
+
+Operational notes:
+
+- Issue identifiers are rendered as GitHub-style `#N`.
+- Dashboard/TUI/Slack links use GitHub issue URLs.
+- `/api/v1/state` emits GitHub identifiers and URLs for running sessions.
+- GitHub's standard REST rate limit is typically `5000` requests/hour per authenticated user/token.
+- `symphony doctor` validates GitHub PAT auth, repository access, Projects v2 availability (when configured), and label presence (label mode).
+
 ### 3. Run Symphony
 
 ```bash
@@ -220,7 +266,9 @@ Symphony Doctor
 Checks currently cover:
 
 - Workflow parse/validation, `$ENV_VAR` resolution, prompt path existence, notification event names
-- Linear auth/project/workflow-state/assignee checks
+- Tracker checks:
+  - Linear: auth/project/workflow-state/assignee checks
+  - GitHub: PAT auth, repo access, Projects v2 status field check (when configured), label presence check (label mode)
 - Agent backend command handshake (`--version`)
 - Workspace root/repo/git strategy/docker daemon checks
 - Orphan workspace detection under `workspace.root`

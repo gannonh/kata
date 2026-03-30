@@ -256,6 +256,22 @@ mod tests {
         assert!(!is_supported_slack_event("staleled"));
     }
 
+    #[test]
+    fn test_slack_message_formats_github_url() {
+        let message = format_slack_message(
+            "in_progress",
+            "#42",
+            "Fix login bug",
+            "Moved to In Progress",
+            Some("https://github.com/owner/repo/issues/42"),
+        );
+
+        assert!(
+            message.contains("<https://github.com/owner/repo/issues/42|#42>"),
+            "expected github issue to be rendered as Slack mrkdwn link"
+        );
+    }
+
     #[tokio::test]
     async fn test_notification_dispatch_formats_slack_message() {
         let mut server = Server::new_async().await;

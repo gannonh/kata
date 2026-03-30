@@ -27,7 +27,10 @@
 #
 # Current check groups:
 #   - Config: parse + validate + env-var resolution + prompt file paths + Slack event names
-#   - Linear: auth (viewer), project slug resolution, workflow state alignment, assignee lookup
+#   - Tracker:
+#       Linear: auth (viewer), project slug resolution, workflow state alignment, assignee lookup
+#       GitHub: PAT auth, repo access, Projects v2 check (when github_project_number is set),
+#               label presence checks (label mode)
 #   - Backend: configured backend command present on PATH and responds to `--version`
 #   - Workspace: root path writable/creatable, repo reference sanity, git strategy compatibility,
 #                Docker daemon availability when isolation=docker
@@ -42,26 +45,46 @@
 # ─── Tracker ──────────────────────────────────────────────────────────────────
 # Configures which issue tracker to poll and how to filter issues.
 tracker:
-  # Tracker backend. Currently only "linear" is supported.
+  # Tracker backend: "linear" or "github".
   kind: linear
 
-  # Linear personal API key. Use $VAR indirection to avoid committing secrets.
+  # Tracker API token (supports $VAR indirection).
+  # - Linear: personal API key (for example $LINEAR_API_KEY)
+  # - GitHub: PAT (for example $GH_TOKEN or $GITHUB_TOKEN)
   api_key: $LINEAR_API_KEY
 
-  # Linear project URL slug or slugId. Found in the project URL:
+  # Optional tracker endpoint override.
+  # - Linear default: https://api.linear.app/graphql
+  # - GitHub default: https://api.github.com
+  # endpoint: https://api.linear.app/graphql
+
+  # Linear-only: project URL slug or slugId from
   # https://linear.app/<workspace>/project/<slug>
   project_slug: "89d4761fddf0"
 
-  # Optional: Linear workspace slug for dashboard project links.
+  # Linear-only: workspace slug used for dashboard project links.
   # When omitted, Symphony falls back to "kata-sh".
   # workspace_slug: kata-sh
 
-  # Optional: Linear GraphQL endpoint. Override for self-hosted Linear.
-  # endpoint: https://api.linear.app/graphql
+  # GitHub-only: repository owner and repository name.
+  # Required when kind: github.
+  # repo_owner: kata-sh
+  # repo_name: kata-mono
 
-  # Optional: filter candidate issues to this Linear username.
-  # When set, only issues assigned to this user are dispatched.
-  # When omitted, ALL issues in the project matching active_states are eligible.
+  # GitHub-only: Projects v2 project number.
+  # - Set this for Projects v2 mode (state from Status field)
+  # - Omit for label mode (state from labels)
+  # github_project_number: 7
+
+  # GitHub-only (label mode): prefix for state labels.
+  # Labels are expected as {label_prefix}:{normalized-state}.
+  # Default: symphony
+  # label_prefix: symphony
+
+  # Optional: filter candidate issues to this assignee.
+  # - Linear: username/display name/email/user id lookup
+  # - GitHub: login match against assignee/assignees
+  # When omitted, ALL issues in the project/repository matching active_states are eligible.
   # Supports $VAR indirection.
   # assignee: alice
 
@@ -94,6 +117,32 @@ tracker:
   # Default: [] (no issues excluded by label).
   # exclude_labels:
   #   - kata:task
+
+# GitHub label mode example (omit github_project_number):
+# tracker:
+#   kind: github
+#   api_key: $GH_TOKEN
+#   repo_owner: kata-sh
+#   repo_name: kata-mono
+#   label_prefix: symphony
+#   active_states:
+#     - Todo
+#     - In Progress
+#   terminal_states:
+#     - Done
+#
+# GitHub Projects v2 example (set github_project_number):
+# tracker:
+#   kind: github
+#   api_key: $GH_TOKEN
+#   repo_owner: kata-sh
+#   repo_name: kata-mono
+#   github_project_number: 7
+#   active_states:
+#     - Todo
+#     - In Progress
+#   terminal_states:
+#     - Done
 
 # ─── Polling ──────────────────────────────────────────────────────────────────
 # Controls how frequently Symphony polls the tracker for new/changed issues.
