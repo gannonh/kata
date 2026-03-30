@@ -71,7 +71,7 @@ and remove `label_prefix`.
 | ----- | ----------------------------------- | ------ |
 | 1     | Config & Doctor                     | ✅ Pass |
 | 2     | Label Mode — Polling & Dispatch     | ✅ Pass (issue #1 fixed) |
-| 3     | Projects v2 Mode — Polling & Dispatch | ⬜ Not tested (no board) |
+| 3     | Projects v2 Mode — Polling & Dispatch | ✅ Pass (issues #7, #8) |
 | 4     | Dashboard & TUI Rendering           | ✅ Pass (issues #2, #6) |
 | 5     | Slack Notifications (GitHub URLs)   | ⬜ Not tested |
 | 6     | Live Worker E2E                     | ✅ Pass (issues #2, #3) |
@@ -167,32 +167,32 @@ Start Symphony with label mode config. Ensure test issues have `symphony:todo` l
 
 ## Phase 3: Projects v2 Mode — Polling & Dispatch
 
-### 3.1 Candidate Fetching via Board Status
+### 3.1 Candidate Fetching via Board Status ✅
 
 Start Symphony with Projects v2 config. Ensure test issues are in `Todo` column on the board.
 
-- [ ] Symphony fetches candidates from the Projects v2 board
-- [ ] TUI/dashboard shows `#N` issues as candidates
+- [x] Symphony fetches candidates from the Projects v2 board
+- [x] Dashboard shows `#4` and `#5` as running workers
 
-**Notes:**
-
----
-
-### 3.2 State Transition via `updateProjectV2ItemFieldValue`
-
-- [ ] Dispatch: board item status changes from `Todo` → `In Progress` (verify on GitHub Projects board)
-- [ ] Completion: board item status changes to terminal state
-
-**Notes:**
+**Notes:** Board created via GraphQL (`createProjectV2`). Issues #4 and #5 added via `addProjectV2ItemById`, status set to Todo via `updateProjectV2ItemFieldValue`. Symphony picked them up on first poll.
 
 ---
 
-### 3.3 Mode Auto-Detection
+### 3.2 State Transition via `updateProjectV2ItemFieldValue` ✅
 
-- [ ] Config with `github_project_number` set → Projects v2 mode active (logs `state_mode=ProjectsV2`)
-- [ ] Config without `github_project_number` → label mode active (logs `state_mode=Labels`)
+- [x] Dispatch: board item status changes from `Todo` → `In Progress` (verified via GraphQL query)
+- [x] Completion: board item status changes to `Done`, issue closed (verified for #4)
 
-**Notes:**
+**Notes:** Verified both transitions via direct GraphQL query against the Projects v2 board. Issue #4 completed: board status `Done`, GitHub state `CLOSED`. Issue #5 still running at time of check.
+
+---
+
+### 3.3 Mode Auto-Detection ✅
+
+- [x] Config with `github_project_number: 16` → Projects v2 mode active
+- [x] Config without `github_project_number` → label mode active (verified in Phase 2)
+
+**Notes:** Doctor output confirms: with project number → `Project #16 found with Status field (3 options)`, labels check skipped. Without project number → `No github_project_number configured — label mode assumed`.
 
 ---
 
@@ -286,13 +286,13 @@ Trigger a stall (set `stall_timeout_ms` very low for testing):
 
 ---
 
-### 6.2 Full Lifecycle — Projects v2 Mode (if board configured)
+### 6.2 Full Lifecycle — Projects v2 Mode ✅
 
-- [ ] Issue is in `Todo` column on the Projects v2 board
-- [ ] Symphony dispatches → board status changes to `In Progress`
-- [ ] Worker completes → board status changes to `Done`
+- [x] Issues #4 and #5 in `Todo` column on the Projects v2 board
+- [x] Symphony dispatches → board status changes to `In Progress` (verified via GraphQL)
+- [x] Worker completes → board status changes to `Done`, issue closed (verified for #4)
 
-**Notes:**
+**Notes:** Full Projects v2 lifecycle verified. Board created with `createProjectV2`, issues added with `addProjectV2ItemById`. Symphony dispatched both, status transitions confirmed via direct GraphQL queries. Doctor required fix #7 (partial GraphQL error handling for user vs org accounts).
 
 ---
 
@@ -374,6 +374,8 @@ Add `kata:task` label to a GitHub issue. Configure `exclude_labels: [kata:task]`
 | 4   | 6     | minor    | Codex backend `graphql_executor` closure hardcoded to `LinearClient.graphql_raw` — Codex workers with GitHub tracker can't use the dynamic tool | ⬜ Deferred | Only affects Codex backend. Kata CLI backend (primary) unaffected. |
 | 5   | 2     | minor    | Workspace paths use `_N` format (`/tmp/.../\_1`) instead of `#N` — likely because `#` is filesystem-unfriendly | ✅ OK | By design — workspace path uses issue number without `#` prefix |
 | 6   | 4     | cosmetic | Dashboard running sessions column header says "LINEAR STATE" instead of "STATE" — misleading when tracker is GitHub | ⬜ Open | Rename column header to "STATE" in `http_server.rs` dashboard HTML |
+| 7   | 3     | blocker  | Projects v2 `graphql_request` treats partial GraphQL errors as fatal — org-path error for user accounts kills the query even though user-path data is present | ✅ Fixed | Only treat errors as fatal when `data` is absent (commit `07a66e3b`) |
+| 8   | 6     | major    | Workers get Linear-centric prompts when `prompts:` section is configured — untested because UAT workflow files don't use `prompts:` section | ⬜ Known | Need tracker-aware prompt templates or conditional Liquid blocks. Requires `tracker.kind` template variable in `prompt_builder.rs`. |
 
 ---
 
