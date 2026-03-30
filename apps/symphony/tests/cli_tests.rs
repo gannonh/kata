@@ -760,6 +760,46 @@ async fn test_doctor_github_project_found() {
 }
 
 #[tokio::test]
+async fn test_doctor_github_project_status_field_missing_message() {
+    let mut server = Server::new_async().await;
+    let _user_mock = server
+        .mock("GET", "/user")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(r#"{"login":"octocat"}"#)
+        .create_async()
+        .await;
+    let _repo_mock = server
+        .mock("GET", "/repos/test-owner/test-repo")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(r#"{"name":"test-repo"}"#)
+        .create_async()
+        .await;
+    let _graphql_mock = server
+        .mock("POST", "/graphql")
+        .match_body(Matcher::Regex("projectV2".to_string()))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(r#"{"data":{"user":{"projectV2":{"id":"PVT_kwDOA","field":null}},"organization":null}}"#)
+        .create_async()
+        .await;
+
+    let mut config = github_tracker_config(server.url());
+    config.github_project_number = Some(7);
+
+    let results = doctor::check_github(&config).await;
+
+    assert!(results.iter().any(|result| {
+        result.status == CheckStatus::Error
+            && result.name == "GitHub Project"
+            && result
+                .message
+                .contains("Project #7 found but Status field is missing or inaccessible")
+    }));
+}
+
+#[tokio::test]
 async fn test_doctor_github_labels_missing_warning() {
     let mut server = Server::new_async().await;
     let _user_mock = server

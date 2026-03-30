@@ -437,7 +437,12 @@ pub async fn check_github(config: &TrackerConfig) -> Vec<DoctorCheckResult> {
                 }
                 Err(err) => {
                     let err_text = err.to_string();
-                    let message = if err_text.to_ascii_lowercase().contains("not found") {
+                    let err_lower = err_text.to_ascii_lowercase();
+                    let message = if err_lower.contains("status field") {
+                        format!(
+                            "Project #{project_number} found but Status field is missing or inaccessible"
+                        )
+                    } else if err_lower.contains("not found") {
                         format!("Project #{project_number} not found or not accessible")
                     } else {
                         format!(

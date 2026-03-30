@@ -417,8 +417,12 @@ async fn test_dashboard_renders_github_identifiers() {
         "running table rendering should resolve issue links using run.issue_url first"
     );
     assert!(
-        dashboard_html.contains("trackerProjectUrl.replace(/\\/+$/, '') + '/' + issueNumber"),
-        "running/completed link rendering should fall back to tracker_project_url + issue number"
+        dashboard_html.contains("if (!projectBase.includes('/issues'))"),
+        "running/completed link fallback should only activate for GitHub-style /issues base URLs"
+    );
+    assert!(
+        dashboard_html.contains("projectBase.replace(/\\/+$/, '') + '/' + issueNumber"),
+        "running/completed link rendering should append numeric issue ids to GitHub issue base URLs"
     );
 
     let state_response = app
@@ -441,6 +445,33 @@ async fn test_dashboard_renders_github_identifiers() {
     assert_eq!(
         payload["tracker_project_url"],
         "https://github.com/test-owner/test-repo/issues"
+    );
+}
+
+#[tokio::test]
+async fn test_dashboard_does_not_fallback_issue_links_for_linear_project_urls() {
+    let app = test_router();
+
+    let dashboard_response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/")
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("router should respond");
+
+    let dashboard_html = body_text(dashboard_response).await;
+
+    assert!(
+        dashboard_html.contains("if (!projectBase.includes('/issues'))"),
+        "dashboard JS should guard numeric issue-url fallback so Linear project URLs are not treated like issue bases"
+    );
+    assert!(
+        !dashboard_html.contains("trackerProjectUrl.replace(/\\/+$/, '') + '/' + issueNumber"),
+        "dashboard JS should no longer append issue numbers to arbitrary tracker project URLs"
     );
 }
 

@@ -914,12 +914,17 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
         return null;
       }}
 
+      const projectBase = trackerProjectUrl.trim();
+      if (!projectBase.includes('/issues')) {{
+        return null;
+      }}
+
       const issueNumber = issueNumberFromIdentifier(issueIdentifier);
       if (!issueNumber) {{
         return null;
       }}
 
-      return trackerProjectUrl.replace(/\/+$/, '') + '/' + issueNumber;
+      return projectBase.replace(/\/+$/, '') + '/' + issueNumber;
     }}
 
     function renderRunningTable(running, sessionInfoByIssue, trackerProjectUrl) {{
@@ -985,7 +990,8 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
       }}).join('');
     }}
 
-    function renderEscalationTable(escalations, running) {{      const rows = Array.isArray(escalations) ? escalations.slice() : [];
+    function renderEscalationTable(escalations, running) {{
+      const rows = Array.isArray(escalations) ? escalations.slice() : [];
       const runningRows = running && typeof running === 'object' ? Object.values(running) : [];
 
       rows.sort(function(a, b) {{
