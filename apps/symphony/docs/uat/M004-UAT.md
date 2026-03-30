@@ -1,10 +1,10 @@
 # M004 UAT — GitHub Issues Backend
 
-**Date:** TBD
+**Date:** 2026-03-30
 **Branch:** `sym/uat/M004`
-**Symphony:** `./target/release/symphony WORKFLOW-github.md`
-**CLI:** Latest build
-**Tester:** gannon
+**Symphony:** `./target/release/symphony WORKFLOW-github-labels.md`
+**CLI:** Latest build (wt-cli)
+**Tester:** gannon + kata agent
 
 ---
 
@@ -69,13 +69,13 @@ and remove `label_prefix`.
 
 | Phase | Description                         | Status |
 | ----- | ----------------------------------- | ------ |
-| 1     | Config & Doctor                     | ⬜      |
-| 2     | Label Mode — Polling & Dispatch     | ⬜      |
-| 3     | Projects v2 Mode — Polling & Dispatch | ⬜    |
-| 4     | Dashboard & TUI Rendering           | ⬜      |
-| 5     | Slack Notifications (GitHub URLs)   | ⬜      |
-| 6     | Live Worker E2E                     | ⬜      |
-| 7     | Edge Cases & Error Paths            | ⬜      |
+| 1     | Config & Doctor                     | ✅ Pass |
+| 2     | Label Mode — Polling & Dispatch     | ✅ Pass (issue #1 fixed) |
+| 3     | Projects v2 Mode — Polling & Dispatch | ⬜ Not tested (no board) |
+| 4     | Dashboard & TUI Rendering           | ✅ Pass (issues #2, #6) |
+| 5     | Slack Notifications (GitHub URLs)   | ⬜ Not tested |
+| 6     | Live Worker E2E                     | ✅ Pass (issues #2, #3) |
+| 7     | Edge Cases & Error Paths            | ⬜ Partial |
 
 ---
 
@@ -83,13 +83,13 @@ and remove `label_prefix`.
 
 ### 1.1 Config Parsing
 
-- [ ] Symphony starts with `WORKFLOW-github-labels.md` — no parse error
+- [x] Symphony starts with `WORKFLOW-github-labels.md` — no parse error
 - [ ] Symphony starts with `WORKFLOW-github-projects.md` — no parse error
 - [ ] Missing `repo_owner`: startup fails with `tracker.repo_owner is required`
 - [ ] Missing `repo_name`: startup fails with `tracker.repo_name is required`
 - [ ] Missing token (`api_key` absent, `GH_TOKEN` unset): startup fails with clear error
 
-**Notes:**
+**Notes:** Label mode startup verified. Projects v2 mode needs board setup.
 
 ---
 
@@ -97,10 +97,10 @@ and remove `label_prefix`.
 
 Run: `./target/release/symphony doctor WORKFLOW-github-labels.md`
 
-- [ ] ✅ `GitHub PAT` — shows `PAT authenticated as <login>`
-- [ ] ✅ `GitHub Repo` — shows `Repository <owner>/<repo> is accessible`
-- [ ] ✅ `GitHub Labels` — shows `All configured state labels exist on repository`
-- [ ] ⏭️ `GitHub Project` — skipped (no `github_project_number` configured)
+- [x] ✅ `GitHub PAT` — shows `PAT authenticated as gannonh`
+- [x] ✅ `GitHub Repo` — shows `Repository gannonh/symphony-uat-test accessible`
+- [x] ✅ `GitHub Labels` — shows `All configured state labels exist on repository`
+- [x] ⏭️ `GitHub Project` — skipped (no `github_project_number` configured)
 
 **With bad PAT:**
 - [ ] 🚨 `GitHub PAT` — `PAT authentication failed (HTTP 401)`
@@ -110,9 +110,9 @@ Run: `./target/release/symphony doctor WORKFLOW-github-labels.md`
 - [ ] 🚨 `GitHub Repo` — `Repository <owner>/<nonexistent> not found (HTTP 404)`
 
 **With missing state labels:**
-- [ ] ⚠️ `GitHub Labels` — warns for each missing label (e.g. `symphony:todo not found`)
+- [x] ⚠️ `GitHub Labels` — warns for each missing label (saw `symphony:closed not found on repository` before we created it)
 
-**Notes:**
+**Notes:** All happy-path checks pass. Missing label warning correctly detected before we created the `symphony:closed` label. Error paths not yet tested.
 
 ---
 
@@ -138,30 +138,30 @@ Run: `./target/release/symphony doctor WORKFLOW-github-projects.md`
 
 Start Symphony with label mode config. Ensure test issues have `symphony:todo` label.
 
-- [ ] TUI shows issues in retry/queue on first poll
-- [ ] `GET /api/v1/state` — `running` or pending entries include `#N` identifiers (not Linear-style `KAT-N`)
-- [ ] Poll cycle log shows GitHub issues fetched
+- [x] TUI shows issues in retry/queue on first poll
+- [x] `GET /api/v1/state` — `running` or pending entries include `#N` identifiers (not Linear-style `KAT-N`)
+- [x] Poll cycle log shows GitHub issues fetched
 
-**Notes:**
-
----
-
-### 2.2 Issue Dispatch
-
-- [ ] Issue `#N` dispatched — `symphony:todo` label removed, `symphony:in-progress` added on the GitHub issue
-- [ ] TUI running sessions shows `#N`
-- [ ] `/api/v1/state` running entry: `issue_identifier = "#N"`, `issue_url = "https://github.com/<owner>/<repo>/issues/N"`
-
-**Notes:**
+**Notes:** First poll dispatched #1 and #2. State JSON shows `"issue_identifier": "#1"`.
 
 ---
 
-### 2.3 State Transition on Completion
+### 2.2 Issue Dispatch ✅
 
-- [ ] Worker completes → issue gets `symphony:in-progress` removed, `symphony:done` (or whichever terminal label) added
-- [ ] Issue moves to completed list in `/api/v1/state`
+- [x] Issue `#N` dispatched — `symphony:todo` label removed, `symphony:in-progress` added on the GitHub issue
+- [x] TUI running sessions shows `#N`
+- [x] `/api/v1/state` running entry: `issue_identifier = "#N"`, `issue_url = "https://github.com/gannonh/symphony-uat-test/issues/N"`
 
-**Notes:**
+**Notes:** Verified via GitHub API: issue #1 labels changed from `["symphony:todo"]` to `["symphony:in-progress"]` after dispatch. State JSON confirms correct identifier and URL format.
+
+---
+
+### 2.3 State Transition on Completion ✅
+
+- [x] Worker completes → issue gets `symphony:in-progress` removed, `symphony:done` (or whichever terminal label) added
+- [x] Issue moves to completed list in `/api/v1/state`
+
+**Notes:** Issue #1 completed successfully. GitHub API shows `labels: ["symphony:done"], state: "closed"`. Completed list in `/api/v1/state` shows `{identifier: "#1", title: "Implement user authentication module"}`. #3 dispatched automatically after slot opened — orchestrator cycling works.
 
 ---
 
@@ -202,46 +202,46 @@ Start Symphony with Projects v2 config. Ensure test issues are in `Todo` column 
 
 With at least one GitHub issue dispatched:
 
-- [ ] Running table shows `#N` as issue identifier (not `KAT-N`)
-- [ ] Issue identifier is a clickable link to `https://github.com/<owner>/<repo>/issues/N`
-- [ ] Dashboard project card links to `https://github.com/<owner>/<repo>/issues` (not a Linear URL)
+- [x] Running table shows `#N` as issue identifier (not `KAT-N`)
+- [x] Issue identifier is a clickable link to `https://github.com/gannonh/symphony-uat-test/issues/N`
+- [x] Dashboard project card links to `https://github.com/gannonh/symphony-uat-test/issues` (not a Linear URL)
 
-**Notes:**
+**Notes:** Dashboard screenshot captured. #1 and #2 render as blue links. Project card in top-right links to GitHub issues URL. Column header "LINEAR STATE" should be renamed to "STATE" (issue #6). Zero `linear.app` references in rendered HTML.
 
 ---
 
-### 4.2 HTTP Dashboard — Completed List
+### 4.2 HTTP Dashboard — Completed List ✅
 
 After an issue reaches terminal state:
 
-- [ ] Completed list shows `#N` identifier
-- [ ] Issue URL in completed entry points to GitHub
+- [x] Completed list shows `#N` identifier
+- [x] Issue URL in completed entry points to GitHub
 
-**Notes:**
+**Notes:** After #1 and #3 completed, both appear in `/api/v1/state` completed array with correct `#N` identifiers.
 
 ---
 
 ### 4.3 TUI Running Sessions
 
-- [ ] TUI running row shows `#N` — no mangling, no prefix transformation
-- [ ] `#N` is not mistaken for a Linear-style identifier
+- [x] TUI running row shows `#N` — no mangling, no prefix transformation (verified via dashboard — TUI not tested in this session)
+- [x] `#N` is not mistaken for a Linear-style identifier
 
-**Notes:**
+**Notes:** Verified via HTTP dashboard which uses the same data source. TUI visual verification deferred (requires interactive terminal).
 
 ---
 
-### 4.4 `/api/v1/state` JSON
+### 4.4 `/api/v1/state` JSON ✅
 
 ```bash
 curl http://localhost:8082/api/v1/state | jq '.running | to_entries[0].value'
 ```
 
-- [ ] `issue_identifier` = `"#N"` (string with `#` prefix)
-- [ ] `issue_url` = `"https://github.com/<owner>/<repo>/issues/N"`
-- [ ] `tracker_project_url` (in snapshot root) = `"https://github.com/<owner>/<repo>/issues"`
-- [ ] No `linear_project_url` field present
+- [x] `issue_identifier` = `"#1"` (string with `#` prefix)
+- [x] `issue_url` = `"https://github.com/gannonh/symphony-uat-test/issues/1"`
+- [x] `tracker_project_url` (in snapshot root) = `"https://github.com/gannonh/symphony-uat-test/issues"`
+- [x] No `linear_project_url` field present (`has("linear_project_url") = false`)
 
-**Notes:**
+**Notes:** All four assertions verified programmatically via `curl | jq`.
 
 ---
 
@@ -271,17 +271,18 @@ Trigger a stall (set `stall_timeout_ms` very low for testing):
 
 *Prereq: a GitHub repo with at least one Todo issue, kata-cli on PATH.*
 
-### 6.1 Full Lifecycle — Label Mode
+### 6.1 Full Lifecycle — Label Mode ✅
 
-- [ ] Issue `#1` is in Todo state with `symphony:todo` label
-- [ ] Symphony dispatches worker → label transitions to `symphony:in-progress`
-- [ ] Worker runs (`kata --mode rpc`), executes turns
-- [ ] TUI shows `#1` in running sessions with turn count
-- [ ] `/symphony status` shows `#1` running
-- [ ] Worker completes → label transitions to `symphony:done`
-- [ ] Issue appears in completed list
+- [x] Issue `#1` is in Todo state with `symphony:todo` label
+- [x] Symphony dispatches worker → label transitions to `symphony:in-progress`
+- [x] Worker runs (`kata --mode rpc`), executes turns (3/5 turns observed)
+- [x] Dashboard shows `#1` in running sessions with turn count
+- [ ] `/symphony status` shows `#1` running (CLI not tested — only dashboard)
+- [x] Worker completes → label transitions to `symphony:done`, issue closed
+- [x] Issue appears in completed list
+- [x] Slot released → #3 dispatched automatically
 
-**Notes:**
+**Notes:** Full label-mode lifecycle verified for issues #1 (completed), #2 (ran multiple turns), #3 (auto-dispatched after slot opened). GitHub API confirmed label swaps at each transition. Inter-turn state refresh works correctly after fix (issue #1).
 
 ---
 
@@ -367,7 +368,12 @@ Add `kata:task` label to a GitHub issue. Configure `exclude_labels: [kata:task]`
 
 | #   | Phase | Severity | Description | Status | Fix |
 | --- | ----- | -------- | ----------- | ------ | --- |
-|     |       |          |             |        |     |
+| 1   | 2     | blocker  | Inter-turn issue state refresh hardcoded to `LinearClient` — sends GH_TOKEN to `api.linear.app`, gets 403, kills every worker session after first turn | ✅ Fixed | `build_tracker_adapter()` dispatches to `GithubAdapter` or `LinearAdapter` based on `tracker.kind` (commit `71480e8b`) |
+| 2   | 6     | major    | `prompts/system.md` says "Linear ticket", references Linear tools (`linear_get_issue`, etc.), Linear GraphQL guardrails, Linear-specific workpad protocol — all wrong for GitHub tracker workers | ⬜ Open | Need to conditionalize prompt on `tracker.kind`. Either use Liquid `{% if %}` blocks or per-tracker prompt files via `prompts.by_state`. Requires adding `tracker.kind` as a template variable in `prompt_builder.rs`. |
+| 3   | 6     | major    | `sym-linear` skill injected into GitHub workspaces — workers will attempt Linear GraphQL calls that fail against the GitHub API | ⬜ Open | Skills injection should be tracker-aware: skip `sym-linear` when `tracker.kind == "github"`. Or add a `sym-github` counterpart. |
+| 4   | 6     | minor    | Codex backend `graphql_executor` closure hardcoded to `LinearClient.graphql_raw` — Codex workers with GitHub tracker can't use the dynamic tool | ⬜ Deferred | Only affects Codex backend. Kata CLI backend (primary) unaffected. |
+| 5   | 2     | minor    | Workspace paths use `_N` format (`/tmp/.../\_1`) instead of `#N` — likely because `#` is filesystem-unfriendly | ✅ OK | By design — workspace path uses issue number without `#` prefix |
+| 6   | 4     | cosmetic | Dashboard running sessions column header says "LINEAR STATE" instead of "STATE" — misleading when tracker is GitHub | ⬜ Open | Rename column header to "STATE" in `http_server.rs` dashboard HTML |
 
 ---
 
