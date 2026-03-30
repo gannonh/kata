@@ -569,7 +569,12 @@ export function formatLinearConfigStatus(
     lines.push(`linear.teamKey: ${result.config.linear.teamKey}`);
   }
   if (result.config.linear.projectId) {
-    lines.push(`linear.projectSlug: ${result.config.linear.projectId}`);
+    // The normalized projectId may originate from projectSlug or legacy projectId.
+    // Use the value shape (UUIDs contain dashes) to display the correct field name.
+    const projectLabel = UUID_RE.test(result.config.linear.projectId)
+      ? "linear.projectId (legacy)"
+      : "linear.projectSlug";
+    lines.push(`${projectLabel}: ${result.config.linear.projectId}`);
   }
 
   lines.push(`validation: ${result.status}`);

@@ -142,7 +142,6 @@ export const PREFS_FIELD_DEFINITIONS: readonly PrefsFieldDefinition[] = [
     label: "Team Key",
     path: ["linear", "teamKey"],
     type: "string",
-    required: true,
     description: "Linear team key such as KAT. Required for Linear mode.",
   },
   {
@@ -151,9 +150,8 @@ export const PREFS_FIELD_DEFINITIONS: readonly PrefsFieldDefinition[] = [
     label: "Project Slug",
     path: ["linear", "projectSlug"],
     type: "string",
-    required: true,
     description:
-      "Linear project slug (from the project URL, e.g. '459f9835e809'). Required for Linear mode.",
+      "Linear project slug from the project URL (e.g. '459f9835e809'). Required for Linear mode.",
   },
   {
     section: "linear",

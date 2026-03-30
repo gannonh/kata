@@ -28,8 +28,8 @@ describe("applyPrefsModelToConfig", () => {
     const model = buildPreferencesModel({});
     const result = applyPrefsModelToConfig(model);
 
-    // Required string fields (teamKey, projectSlug) produce empty strings,
-    // so the linear block exists but optional unrequired fields are absent.
+    // All optional fields with empty/null values should be omitted.
+    expect(result.linear).toBeUndefined();
     expect(result.pr).toBeUndefined();
     expect(result.models).toBeUndefined();
     expect(result.symphony).toBeUndefined();
