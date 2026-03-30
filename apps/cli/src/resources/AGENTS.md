@@ -550,11 +550,11 @@ mcp({ connect: "linear" })               — force connect/reconnect a server
 
 ## Built-in Linear Integration
 
-Kata ships a built-in Linear extension with a custom GraphQL client — no MCP server required. It provides native tools that are always available when `LINEAR_API_KEY` is set.
+Kata ships a built-in Linear extension with a custom GraphQL client — no MCP server required. It provides native tools whenever a Linear API key is available in runtime env (typically hydrated from `~/.kata-cli/agent/auth.json`, or set manually as `LINEAR_API_KEY`).
 
 ### Setup
 
-Set `LINEAR_API_KEY` in your environment (a Linear personal API key). That's it — the tools are immediately available.
+Provide a Linear personal API key via Kata onboarding (stored in `~/.kata-cli/agent/auth.json`) or set `LINEAR_API_KEY` manually in your environment. `.env` is optional. Once the key is available at runtime, the tools are immediately available.
 
 ### Tools
 
@@ -593,7 +593,7 @@ workflow:
   mode: linear
 linear:
   teamKey: KAT
-  projectId: <project-uuid>
+  projectSlug: <project-slug>
 ```
 
 Use `linear_list_projects` to find the project UUID.

@@ -30,7 +30,7 @@ See `~/.kata-cli/agent/extensions/kata/docs/preferences-reference.md` for full f
 
 - `workflow.mode` is Linear-only. Keep `workflow.mode: linear`.
 - Fill in the `linear` block to bind this project to a Linear team/project.
-- Keep secrets like `LINEAR_API_KEY` in environment variables, not in this file.
+- Keep secrets out of this file. Store credentials in `~/.kata-cli/agent/auth.json` (preferred) or env vars (`LINEAR_API_KEY`, etc.). `.env` is optional.
 - Set `pr.enabled: true` to activate the PR lifecycle (create, review, address, merge via `gh` CLI).
 
 ## Models example

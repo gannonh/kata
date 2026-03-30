@@ -28,8 +28,8 @@ describe("applyPrefsModelToConfig", () => {
     const model = buildPreferencesModel({});
     const result = applyPrefsModelToConfig(model);
 
-    // Unset string fields should not appear
-    expect(result.linear).toBeUndefined();
+    // Required string fields (teamKey, projectSlug) produce empty strings,
+    // so the linear block exists but optional unrequired fields are absent.
     expect(result.pr).toBeUndefined();
     expect(result.models).toBeUndefined();
     expect(result.symphony).toBeUndefined();
@@ -308,25 +308,27 @@ Body.
     expect(output).toContain("version: abc");
   });
 
-  it("edit-then-write: clearing a value removes it", () => {
+  it("edit-then-write: clearing an optional value removes it", () => {
     const fixture = `---
 version: 1
 linear:
   teamKey: KAT
+  teamId: some-uuid
 ---
 Body.
 `;
     const { model, body } = parsePreferencesFile(fixture);
 
-    // Clear the value
+    // Clear the optional teamId value
     const linear = model.sections.find((s) => s.key === "linear")!;
-    const teamKeyField = linear.fields.find((f) => f.key === "teamKey")!;
-    teamKeyField.value = "";
+    const teamIdField = linear.fields.find((f) => f.key === "teamId")!;
+    teamIdField.value = "";
 
     const output = writePreferencesFile(model, body);
-    // teamKey should be removed since it's optional and empty
-    expect(output).not.toContain("teamKey");
-    // linear section should be removed since it's empty
-    expect(output).not.toContain("linear:");
+    // optional teamId should be removed since it's empty
+    expect(output).not.toContain("teamId");
+    // linear section remains because required fields exist
+    expect(output).toContain("linear:");
+    expect(output).toContain("teamKey: KAT");
   });
 });

@@ -21,7 +21,6 @@ const EXPECTED_PREFS_KEYS = [
   "linear.teamKey",
   "linear.projectSlug",
   "linear.teamId",
-  "linear.projectId",
   // PR
   "pr.enabled",
   "pr.auto_create",

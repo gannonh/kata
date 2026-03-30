@@ -50,7 +50,7 @@ export function renderHeader(showHint: boolean): void {
     ? `\n\n  ${theme.fg("dim", "Run")} ${theme.fg("accent", "/kata")} ${theme.fg("dim", "to get started.")}`
     : "";
 
-  const headerContent = `${logoText}\n${titleLine}${hintLine}`;
+  const headerContent = `\n${logoText}\n${titleLine}${hintLine}`;
   _headerCtx.ui.setHeader((_ui: any, _theme: any) => new Text(headerContent, 1, 0));
 }
 
