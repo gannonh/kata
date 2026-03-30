@@ -37,7 +37,7 @@ export async function createBackend(basePath: string): Promise<KataBackend> {
   // Resolve projectId slug → UUID if needed (filter expressions require UUIDs).
   const projectResolution = await resolveConfiguredLinearProjectId(client, loadedPreferences);
   if (!projectResolution.projectId) {
-    throw new Error(projectResolution.error ?? "Linear project not configured. Set linear.projectSlug in .kata/preferences.md.");
+    throw new Error(projectResolution.error ?? "Linear project not configured \u2014 set linear.projectSlug in .kata/preferences.md.");
   }
   const projectId = projectResolution.projectId;
 

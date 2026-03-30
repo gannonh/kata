@@ -260,7 +260,7 @@ export async function resolveConfiguredLinearProjectId(
     return {
       projectId: null,
       projectLookup: null,
-      error: "Linear project not configured — set linear.projectSlug (or linear.projectId) in kata preferences.",
+      error: "Linear project not configured — set linear.projectSlug in .kata/preferences.md.",
     };
   }
 
@@ -279,7 +279,7 @@ export async function resolveConfiguredLinearProjectId(
     return {
       projectId: null,
       projectLookup: rawProjectId,
-      error: `Linear project not found for "${rawProjectId}". Check linear.projectSlug (or linear.projectId) in preferences.`,
+      error: `Linear project not found for "${rawProjectId}". Check linear.projectSlug in .kata/preferences.md.`,
     };
   }
 
@@ -377,7 +377,7 @@ export async function validateLinearProjectConfig(
         return invalidResult(config, apiKeyPresent, [
           {
             code: "invalid_linear_project",
-            field: "linear.projectId",
+            field: "linear.projectSlug",
             message: `Configured Linear project could not be resolved: ${JSON.stringify(config.linear.projectId)}.`,
             retryable: false,
           },
@@ -569,7 +569,12 @@ export function formatLinearConfigStatus(
     lines.push(`linear.teamKey: ${result.config.linear.teamKey}`);
   }
   if (result.config.linear.projectId) {
-    lines.push(`linear.projectId: ${result.config.linear.projectId}`);
+    // The normalized projectId may originate from projectSlug or legacy projectId.
+    // Use the value shape (UUIDs contain dashes) to display the correct field name.
+    const projectLabel = UUID_RE.test(result.config.linear.projectId)
+      ? "linear.projectId (legacy)"
+      : "linear.projectSlug";
+    lines.push(`${projectLabel}: ${result.config.linear.projectId}`);
   }
 
   lines.push(`validation: ${result.status}`);
@@ -626,7 +631,7 @@ function getLinearDiagnosticAction(
         ? "update linear.teamId to a valid Linear team." 
         : "update linear.teamKey to a valid Linear team.";
     case "invalid_linear_project":
-      return "update linear.projectId to a valid Linear project or remove it.";
+      return "update linear.projectSlug to a valid Linear project.";
     case "linear_auth_error":
       return "refresh LINEAR_API_KEY before retrying validation.";
     case "linear_network_error":

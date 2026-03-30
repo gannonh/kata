@@ -142,7 +142,7 @@ export const PREFS_FIELD_DEFINITIONS: readonly PrefsFieldDefinition[] = [
     label: "Team Key",
     path: ["linear", "teamKey"],
     type: "string",
-    description: "Linear team key such as KAT.",
+    description: "Linear team key such as KAT. Required for Linear mode.",
   },
   {
     section: "linear",
@@ -151,7 +151,7 @@ export const PREFS_FIELD_DEFINITIONS: readonly PrefsFieldDefinition[] = [
     path: ["linear", "projectSlug"],
     type: "string",
     description:
-      "Linear project slug ID (from the project URL). Preferred over projectId.",
+      "Linear project slug from the project URL (e.g. '459f9835e809'). Required for Linear mode.",
   },
   {
     section: "linear",
@@ -161,15 +161,7 @@ export const PREFS_FIELD_DEFINITIONS: readonly PrefsFieldDefinition[] = [
     type: "string",
     description: "Optional Linear team UUID.",
   },
-  {
-    section: "linear",
-    key: "projectId",
-    label: "Project ID",
-    path: ["linear", "projectId"],
-    type: "string",
-    description:
-      "Optional Linear project UUID. Supported for backward compatibility; prefer projectSlug.",
-  },
+  // projectId is still read at runtime for backward compat but hidden from the editor.
 
   // ── PR ────────────────────────────────────────────────────────────────────
   {

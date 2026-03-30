@@ -536,7 +536,7 @@ export async function runOnboarding(
     try {
       updatePreferencesLinearConfig(basePath, pickerResult);
       ctx.ui.notify(
-        `✓ Linear configured: team=${pickerResult.teamKey}, project=${pickerResult.projectSlug}`,
+        `✓ Linear configured: team=${pickerResult.teamKey}, project=${pickerResult.projectSlug}\nPreferences saved: .kata/preferences.md (edit directly or with /kata config)`,
         "info",
       );
     } catch (err) {

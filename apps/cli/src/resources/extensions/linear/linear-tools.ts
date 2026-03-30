@@ -916,7 +916,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
           activeMilestone: null,
           activeSlice: null,
           activeTask: null,
-          blockers: ["Linear project not configured — set linear.projectSlug (or linear.projectId) in kata preferences"],
+          blockers: ["Linear project not configured — set linear.projectSlug in .kata/preferences.md"],
           recentDecisions: [],
           nextAction: "Run /kata prefs to configure the Linear project.",
           registry: [],

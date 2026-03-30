@@ -318,10 +318,11 @@ Kata ships with built-in Linear support — 40 native tools for managing issues,
 ### Setup
 
 1. Create a [Linear personal API key](https://linear.app/settings/api)
-2. Start Kata and provide the key when prompted, or set it in your environment:
+2. Start Kata and provide the key when prompted (stored in `~/.kata-cli/agent/auth.json` and hydrated automatically). You can also set `LINEAR_API_KEY` manually in your environment if you prefer:
    ```bash
    LINEAR_API_KEY=lin_api_... npx @kata-sh/cli
    ```
+   `.env` is optional.
 3. Ask Kata to configure your project:
    ```
    Configure this project to use Linear
@@ -361,7 +362,7 @@ workflow:
   mode: linear
 linear:
   teamKey: KAT
-  projectId: <your-project-uuid>
+  projectSlug: <your-project-slug>
 ---
 ```
 

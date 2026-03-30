@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.15.0
+
+### Features
+
+- **M010: Preferences Config Editor (`/kata config`)** — Interactive TUI editor for `.kata/preferences.md`. Section-based navigation across 8 sections (General, Workflow, Linear, PR, Models, Symphony, Skills, Auto Supervisor). Type-aware field editing (strings, numbers, booleans, enums, string arrays). Validation blocks invalid values before save. Cancel is safe — file is byte-identical. Reuses Symphony's `ConfigEditor` architecture with preferences-specific parser, writer, and validator. Creates preferences file from template if missing.
+  - **Preferences model** — Complete field model covering all `KataPreferences` fields with section definitions, type metadata, enum values, and descriptions. `buildPreferencesModel()` produces a `ConfigEditorModel` compatible with the shared `ConfigEditor` class.
+  - **Preferences parser & writer** — YAML frontmatter round-trip: parse → edit → write preserves markdown body unchanged. Handles BOM, CRLF, empty frontmatter. Parse errors include line numbers.
+  - **Preferences validator** — Catches invalid enum values, non-numeric/negative numbers, and non-boolean fields before save. Returns structured `ConfigValidationIssue[]`.
+  - **ConfigEditorModel generalization** — Symphony's `config-model.ts` types widened so non-Symphony section keys are valid. `ConfigSectionKey` accepts arbitrary strings. All existing Symphony code compiles unchanged.
+  - **134 new Vitest tests** across 5 test suites: model (39), parser (11), writer (17), validator (16), integration (4 + mock ConfigEditor pipeline).
+
+### Improvements
+
+- **Onboarding post-setup message** — After Linear configuration, shows both the confirmation and where preferences are saved: `Preferences saved: .kata/preferences.md (edit directly or with /kata config)`.
+- **Header padding** — Added top padding above the ASCII KATA logo.
+- **Auth storage documentation** — All docs now correctly describe `~/.kata-cli/agent/auth.json` as the primary credential store. Removed misleading guidance that implied `.env` files or manual env vars were required.
+- **`uat_dispatch` and `budget_ceiling` documented** — Both General-section fields now have full documentation in the preferences reference.
+- **`projectId` de-emphasized** — `linear.projectSlug` is the only publicly surfaced project identifier. `projectId` still works at runtime for backward compatibility but is removed from the config editor, docs, error messages, and templates.
+- **`teamKey` and `projectSlug` marked required** — Editor and docs reflect that Linear mode requires both fields.
+
 ## 0.14.0
 
 ### Features

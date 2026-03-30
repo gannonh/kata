@@ -9,7 +9,9 @@ Full documentation for `~/.kata-cli/preferences.md` (global) and `.kata/preferen
 - These preferences guide how Kata should route work and load skills.
 - Project preferences live at `.kata/preferences.md`.
 - Kata still reads the legacy `.kata/PREFERENCES.md` filename for backward compatibility, but new projects should use the lowercase canonical path.
-- Secrets stay in environment variables (`LINEAR_API_KEY`, provider keys, tokens). Do not store secrets in preferences files.
+- Do not store secrets in preferences files.
+- Kata stores provider credentials in `~/.kata-cli/agent/auth.json` (for example via onboarding prompts) and hydrates runtime env vars like `LINEAR_API_KEY` automatically.
+- Manually setting env vars is still supported, but `.env` is optional.
 
 ---
 
@@ -17,16 +19,21 @@ Full documentation for `~/.kata-cli/preferences.md` (global) and `.kata/preferen
 
 - `version`: schema version. Start at `1`.
 
+- `uat_dispatch`: boolean toggle for `/kata auto` UAT dispatch.
+  - When `true`, auto-mode dispatches `run-uat` for a completed slice when `Sxx-UAT` exists and `Sxx-UAT-RESULT` is still missing.
+  - For non-`artifact-driven` UAT types, auto-mode surfaces the result for human review and pauses.
+
+- `budget_ceiling`: optional numeric spend cap for auto-mode.
+  - When current tracked cost reaches/exceeds this value, auto-mode pauses and asks you to resume explicitly.
+
 - `workflow`: workflow-mode configuration.
   - `workflow.mode`: `linear`.
     - File mode has been removed; all Kata workflow state is Linear-backed.
 
-- `linear`: Linear binding configuration used when `workflow.mode: linear`.
-  - `linear.teamId`: optional Linear team UUID.
-  - `linear.teamKey`: optional Linear team key such as `KAT`.
-  - `linear.projectSlug`: optional Linear project slug ID (from the project URL, e.g. `459f9835e809`). Preferred over `linear.projectId` — shorter, human-readable, and matches the slug in Linear URLs and Symphony's `tracker.project_slug`.
-  - `linear.projectId`: optional Linear project UUID. Supported for backward compatibility; prefer `linear.projectSlug`.
-  - These fields identify which Linear team/project Kata should validate and operate against. When both `projectSlug` and `projectId` are set, `projectSlug` takes precedence.
+- `linear`: Linear binding configuration. Required for Linear mode.
+  - `linear.teamKey`: Linear team key such as `KAT`. Required.
+  - `linear.projectSlug`: Linear project slug from the project URL (e.g. `459f9835e809`). Required.
+  - `linear.teamId`: optional Linear team UUID (alternative to `teamKey`).
 
 - `pr`: PR lifecycle configuration. Controls whether and how Kata manages GitHub pull requests.
   - `pr.enabled`: set to `true` to activate the PR lifecycle. Requires `gh` CLI installed and authenticated.
@@ -110,7 +117,9 @@ Set pr.enabled: true in .kata/preferences.md to activate the PR workflow.
 - Prefer skill names for stable built-in skills.
 - Prefer absolute paths for local personal skills.
 - Use `linear.teamKey` when you want a readable binding; use `linear.teamId` when you already have the UUID.
-- Keep auth in env vars and config in preferences.
+- Keep config in preferences.
+- Keep credentials in `~/.kata-cli/agent/auth.json` (preferred) or env vars.
+- Never place API keys/tokens directly in preferences files.
 
 ---
 
@@ -151,7 +160,7 @@ custom_instructions:
 ---
 ```
 
-This opts the project into Linear mode without storing `LINEAR_API_KEY` in the preferences file. Use `projectSlug` (the short ID from your Linear project URL) instead of the full UUID.
+Kata typically hydrates `LINEAR_API_KEY` from `~/.kata-cli/agent/auth.json`; setting it manually in your shell/.env is optional.
 
 **PR lifecycle — auto-create PRs after each slice:**
 

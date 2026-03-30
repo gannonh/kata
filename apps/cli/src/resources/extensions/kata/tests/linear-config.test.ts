@@ -210,7 +210,7 @@ test("validateLinearProjectConfig reports invalid project resolution", async () 
   assert.deepEqual(result.diagnostics, [
     {
       code: "invalid_linear_project",
-      field: "linear.projectId",
+      field: "linear.projectSlug",
       message: 'Configured Linear project could not be resolved: "project-456".',
       retryable: false,
     },
