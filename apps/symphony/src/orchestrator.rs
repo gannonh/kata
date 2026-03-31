@@ -19,6 +19,7 @@ use crate::domain::{
 };
 use crate::error::{Result, SymphonyError};
 use crate::event_stream::EventHub;
+use crate::linear::adapter::TrackerAdapter;
 use crate::notifications;
 use crate::pi_agent::rpc_bridge;
 use crate::session_summary::{compact_session_id, normalize_whitespace, truncate_for_display};
@@ -174,13 +175,68 @@ fn should_continue_issue_in_session(
         && normalize_issue_state(&issue.state) == normalize_issue_state(dispatched_state)
 }
 
+/// Build a boxed `TrackerAdapter` appropriate for the given `TrackerConfig`.
+/// Used for inter-turn issue state refresh — routes to GitHub or Linear based on `tracker.kind`.
+fn build_tracker_adapter(tracker_config: &TrackerConfig) -> Box<dyn TrackerAdapter> {
+    let kind = tracker_config.kind.as_deref().unwrap_or("linear");
+    if kind.eq_ignore_ascii_case("github") {
+        use crate::github::adapter::GithubAdapter;
+        use crate::github::client::GithubClient;
+        let token = tracker_config
+            .api_key
+            .as_deref()
+            .map(str::trim)
+            .filter(|v| !v.is_empty())
+            .map(str::to_string)
+            .or_else(|| {
+                std::env::var("GH_TOKEN")
+                    .ok()
+                    .map(|v| v.trim().to_string())
+                    .filter(|v| !v.is_empty())
+            })
+            .or_else(|| {
+                std::env::var("GITHUB_TOKEN")
+                    .ok()
+                    .map(|v| v.trim().to_string())
+                    .filter(|v| !v.is_empty())
+            })
+            .unwrap_or_else(|| {
+                tracing::warn!(
+                    "no GitHub token found for inter-turn refresh; requests will likely fail"
+                );
+                String::new()
+            });
+        let repo_owner = tracker_config.repo_owner.clone().unwrap_or_default();
+        let repo_name = tracker_config.repo_name.clone().unwrap_or_default();
+        let label_prefix = tracker_config
+            .label_prefix
+            .clone()
+            .unwrap_or_else(|| "symphony".to_string());
+        let endpoint = tracker_config.endpoint.trim();
+        let endpoint = if endpoint.is_empty() {
+            "https://api.github.com"
+        } else {
+            endpoint
+        };
+        let client =
+            GithubClient::with_base_url(token, repo_owner, repo_name, label_prefix, endpoint);
+        Box::new(GithubAdapter::new(client, tracker_config.clone()))
+    } else {
+        use crate::linear::adapter::LinearAdapter;
+        use crate::linear::client::LinearClient;
+        Box::new(LinearAdapter::new(LinearClient::new(
+            tracker_config.clone(),
+        )))
+    }
+}
+
 async fn check_issue_still_active(
     issue: &Issue,
-    client: &crate::linear::client::LinearClient,
+    adapter: &dyn TrackerAdapter,
     tracker_config: &TrackerConfig,
     dispatched_state: &str,
 ) -> IssueCheck {
-    match client
+    match adapter
         .fetch_issue_states_by_ids(std::slice::from_ref(&issue.id))
         .await
     {
@@ -227,7 +283,7 @@ where
     let capped_max_turns = max_turns.max(1);
     let mut turn_number: u32 = 1;
     let mut current_issue = issue.clone();
-    let issue_state_client = crate::linear::client::LinearClient::new(tracker_config.clone());
+    let issue_state_client = build_tracker_adapter(tracker_config);
     let mut observed_events: Vec<AgentEvent> = Vec::new();
     let mut metrics: Option<TurnMetrics> = None;
     let mut schedule_continuation = true;
@@ -272,7 +328,7 @@ where
 
         match check_issue_still_active(
             &current_issue,
-            &issue_state_client,
+            issue_state_client.as_ref(),
             tracker_config,
             &issue.state,
         )
@@ -330,7 +386,7 @@ where
     let capped_max_turns = max_turns.max(1);
     let mut turn_number: u32 = 1;
     let mut current_issue = issue.clone();
-    let issue_state_client = crate::linear::client::LinearClient::new(tracker_config.clone());
+    let issue_state_client = build_tracker_adapter(tracker_config);
     let mut observed_events: Vec<AgentEvent> = Vec::new();
     let mut metrics: Option<TurnMetrics> = None;
     let mut schedule_continuation = true;
@@ -375,7 +431,7 @@ where
 
         match check_issue_still_active(
             &current_issue,
-            &issue_state_client,
+            issue_state_client.as_ref(),
             tracker_config,
             &issue.state,
         )
