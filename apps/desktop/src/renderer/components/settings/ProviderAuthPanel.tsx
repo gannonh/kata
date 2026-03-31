@@ -82,12 +82,6 @@ export function ProviderAuthPanel() {
     setActionSuccess(null)
 
     try {
-      const validation = await window.api.auth.validateKey(activeProvider, trimmed)
-      if (!validation.valid) {
-        setActionError(validation.error ?? 'Invalid API key')
-        return
-      }
-
       const setResult = await window.api.auth.setKey(activeProvider, trimmed)
       if (!setResult.success) {
         setActionError(setResult.error ?? 'Unable to save API key')

@@ -30,12 +30,6 @@ export function KeyInputStep({ provider, onBack, onSaved, onSkip }: KeyInputStep
     setSuccessMessage(null)
 
     try {
-      const validation = await window.api.auth.validateKey(provider, trimmed)
-      if (!validation.valid) {
-        setError(validation.error ?? 'Invalid API key')
-        return
-      }
-
       const saveResult = await window.api.auth.setKey(provider, trimmed)
       if (!saveResult.success) {
         setError(saveResult.error ?? 'Unable to save API key')
@@ -43,7 +37,13 @@ export function KeyInputStep({ provider, onBack, onSaved, onSkip }: KeyInputStep
       }
 
       setSuccessMessage(`${metadata.name} key validated and saved`)
-      await onSaved(provider)
+
+      try {
+        await onSaved(provider)
+      } catch (savedError) {
+        setSuccessMessage(null)
+        setError(savedError instanceof Error ? savedError.message : String(savedError))
+      }
     } finally {
       setBusy(false)
     }

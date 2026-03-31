@@ -45,21 +45,13 @@ export function OnboardingWizard() {
       const response = await window.api.auth.getProviders()
       setProviders(response.providers)
       setProvidersError(response.success ? null : response.error ?? 'Unable to load credentials')
-
-      if (!selectedProvider) {
-        const firstValid = ALL_AUTH_PROVIDERS.find(
-          (provider) => response.providers[provider].status === 'valid',
-        )
-
-        setSelectedProvider(firstValid ?? 'openai')
-      }
     } catch (error) {
       setProviders(createMissingProviderMap())
       setProvidersError(error instanceof Error ? error.message : String(error))
     } finally {
       setProvidersLoading(false)
     }
-  }, [selectedProvider])
+  }, [])
 
   useEffect(() => {
     void loadProviders()
