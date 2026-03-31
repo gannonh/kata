@@ -38,6 +38,23 @@ describe('PiAgentBridge', () => {
     expect(bridge.getState().status).toBe('crashed')
   })
 
+  test('coalesces concurrent start calls into a single spawn attempt', async () => {
+    const bridge = new PiAgentBridge(process.cwd(), 'kata-command-that-does-not-exist')
+    const statusHistory: string[] = []
+
+    bridge.on('status', (status) => {
+      statusHistory.push(status.state)
+    })
+
+    await Promise.all([bridge.start(), bridge.start(), bridge.start()])
+    await waitFor(() => statusHistory.includes('crashed'))
+
+    expect(statusHistory.filter((state) => state === 'spawning').length).toBe(1)
+    expect(statusHistory.filter((state) => state === 'crashed').length).toBe(1)
+    expect(bridge.getState().running).toBe(false)
+    expect(bridge.getState().status).toBe('crashed')
+  })
+
   test('resolves oldest pending command when response id is omitted', () => {
     const bridge = new PiAgentBridge(process.cwd()) as any
 

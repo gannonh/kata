@@ -26,6 +26,18 @@ export function MessageInput({ disabled = false, stopDisabled = disabled, onSubm
     }
   }
 
+  const handleSend = (): void => {
+    void send().catch((error: unknown) => {
+      console.error('[MessageInput] failed to send message', error)
+    })
+  }
+
+  const handleStop = (): void => {
+    void onStop().catch((error: unknown) => {
+      console.error('[MessageInput] failed to stop session', error)
+    })
+  }
+
   return (
     <div className="border-t border-slate-800 p-4">
       <div className="rounded-lg border border-slate-700 bg-slate-900 p-2">
@@ -35,7 +47,7 @@ export function MessageInput({ disabled = false, stopDisabled = disabled, onSubm
           onKeyDown={(event) => {
             if (event.key === 'Enter' && !event.shiftKey) {
               event.preventDefault()
-              void send()
+              handleSend()
             }
           }}
           className="h-20 w-full resize-none border-none bg-transparent text-sm text-slate-100 outline-none disabled:opacity-50"
@@ -46,8 +58,8 @@ export function MessageInput({ disabled = false, stopDisabled = disabled, onSubm
         <div className="mt-2 flex justify-end gap-2">
           <button
             type="button"
-            onClick={() => void onStop()}
-            disabled={stopDisabled || submitting}
+            onClick={handleStop}
+            disabled={stopDisabled}
             className="rounded border border-slate-600 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800 disabled:opacity-50"
           >
             Stop
@@ -55,7 +67,7 @@ export function MessageInput({ disabled = false, stopDisabled = disabled, onSubm
 
           <button
             type="button"
-            onClick={() => void send()}
+            onClick={handleSend}
             disabled={disabled || submitting}
             className="rounded bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-900 disabled:opacity-50"
           >
