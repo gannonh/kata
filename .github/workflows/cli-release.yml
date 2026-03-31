@@ -95,7 +95,7 @@ jobs:
         run: bun install
 
       - name: Build
-        run: cd apps/cli && npx tsc && npm run copy-themes && npm run copy-export-html
+        run: cd apps/cli && npm run build
 
       - name: Publish to npm
         run: cd apps/cli && npm publish --access public
