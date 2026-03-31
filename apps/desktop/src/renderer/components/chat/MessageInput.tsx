@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 
 interface MessageInputProps {
   disabled?: boolean
@@ -10,18 +10,21 @@ interface MessageInputProps {
 export function MessageInput({ disabled = false, stopDisabled = disabled, onSubmit, onStop }: MessageInputProps) {
   const [value, setValue] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const sendingRef = useRef(false)
 
   const send = async (): Promise<void> => {
     const trimmed = value.trim()
-    if (!trimmed || submitting || disabled) {
+    if (!trimmed || disabled || submitting || sendingRef.current) {
       return
     }
 
+    sendingRef.current = true
     setSubmitting(true)
     try {
       await onSubmit(trimmed)
       setValue('')
     } finally {
+      sendingRef.current = false
       setSubmitting(false)
     }
   }
@@ -45,6 +48,10 @@ export function MessageInput({ disabled = false, stopDisabled = disabled, onSubm
           value={value}
           onChange={(event) => setValue(event.target.value)}
           onKeyDown={(event) => {
+            if (event.nativeEvent.isComposing) {
+              return
+            }
+
             if (event.key === 'Enter' && !event.shiftKey) {
               event.preventDefault()
               handleSend()

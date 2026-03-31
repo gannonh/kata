@@ -65,6 +65,7 @@ export const applyBridgeStatusAtom = atom(null, (_get, set, status: BridgeStatus
 
   if (status.state === 'running') {
     set(errorAtom, null)
+    set(toolCallsAtom, [])
   }
 })
 
