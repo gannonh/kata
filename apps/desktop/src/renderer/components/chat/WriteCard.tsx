@@ -3,6 +3,7 @@ import * as Collapsible from '@radix-ui/react-collapsible'
 import { ShikiCodeViewer } from '@kata-ui/components/code-viewer/ShikiCodeViewer'
 import { getLanguageFromPath, truncateFilePath } from '@kata-ui/components/code-viewer/language-map'
 import type { ToolCallView } from '@/atoms/chat'
+import { asNumber, asRecord, asString } from './toolCardUtils'
 
 interface WriteCardProps {
   tool: ToolCallView
@@ -12,21 +13,6 @@ interface WriteViewModel {
   filePath: string
   content: string
   bytesWritten?: number
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return null
-  }
-  return value as Record<string, unknown>
-}
-
-function asString(value: unknown): string | undefined {
-  return typeof value === 'string' ? value : undefined
-}
-
-function asNumber(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
 }
 
 function buildWriteViewModel(tool: ToolCallView): WriteViewModel {

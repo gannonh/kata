@@ -3,6 +3,7 @@ import * as Collapsible from '@radix-ui/react-collapsible'
 import { ShikiDiffViewer } from '@kata-ui/components/code-viewer/ShikiDiffViewer'
 import { getLanguageFromPath, truncateFilePath } from '@kata-ui/components/code-viewer/language-map'
 import type { ToolCallView } from '@/atoms/chat'
+import { asNumber, asRecord, asString, countTextLines } from './toolCardUtils'
 
 interface FileEditCardProps {
   tool: ToolCallView
@@ -15,21 +16,6 @@ interface DiffViewModel {
   additions: number
   deletions: number
   parseError?: string
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return null
-  }
-  return value as Record<string, unknown>
-}
-
-function asString(value: unknown): string | undefined {
-  return typeof value === 'string' ? value : undefined
-}
-
-function asNumber(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
 }
 
 function parseUnifiedDiff(diffText: string): Omit<DiffViewModel, 'filePath'> | null {
@@ -131,8 +117,8 @@ function buildFromEditsArray(edits: unknown): Omit<DiffViewModel, 'filePath'> | 
     originalChunks.push(oldText)
     modifiedChunks.push(newText)
 
-    additions += newText.split('\n').filter(Boolean).length
-    deletions += oldText.split('\n').filter(Boolean).length
+    additions += countTextLines(newText)
+    deletions += countTextLines(oldText)
   })
 
   return {
@@ -163,8 +149,8 @@ function createDiffViewModel(tool: ToolCallView): DiffViewModel {
       filePath,
       original: explicitOriginal,
       modified: explicitModified,
-      additions: asNumber(result?.linesAdded) ?? explicitModified.split('\n').filter(Boolean).length,
-      deletions: asNumber(result?.linesRemoved) ?? explicitOriginal.split('\n').filter(Boolean).length,
+      additions: asNumber(result?.linesAdded) ?? countTextLines(explicitModified),
+      deletions: asNumber(result?.linesRemoved) ?? countTextLines(explicitOriginal),
     }
   }
 

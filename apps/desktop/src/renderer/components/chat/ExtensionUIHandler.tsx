@@ -40,6 +40,12 @@ function isInputRequest(request: ExtensionUIRequest): request is ExtensionUIInpu
   return request.method === 'input'
 }
 
+function isSupportedInteractiveRequest(
+  request: ExtensionUIRequest,
+): request is ExtensionUIConfirmRequest | ExtensionUISelectRequest | ExtensionUIInputRequest {
+  return isConfirmRequest(request) || isSelectRequest(request) || isInputRequest(request)
+}
+
 function isNotifyLevel(value: unknown): value is ToastItem['level'] {
   return value === 'info' || value === 'success' || value === 'warning' || value === 'error'
 }
@@ -112,10 +118,11 @@ export function ExtensionUIHandler() {
     window.setTimeout(() => dismissToast(id), 4_500)
   }
 
-  const sendResponse = async (requestId: string, response: ExtensionUIResponse): Promise<void> => {
+  const sendResponse = async (requestId: string, response: ExtensionUIResponse): Promise<boolean> => {
     try {
       await window.api.sendExtensionUIResponse(requestId, response)
       console.debug('[ExtensionUIHandler] extension_ui_response sent', { requestId, response })
+      return true
     } catch (error) {
       console.error('[ExtensionUIHandler] failed to send extension_ui_response', {
         requestId,
@@ -125,9 +132,11 @@ export function ExtensionUIHandler() {
 
       pushToast({
         title: 'Response failed',
-        message: 'Could not send extension_ui_response to the agent subprocess.',
+        message: 'Could not send extension_ui_response to the agent subprocess. Request remains open for retry.',
         level: 'error',
       })
+
+      return false
     }
   }
 
@@ -149,6 +158,15 @@ export function ExtensionUIHandler() {
         const level = isNotifyLevel(request.level) ? request.level : 'info'
 
         pushToast({ title, message, level })
+        return
+      }
+
+      if (!isSupportedInteractiveRequest(request)) {
+        console.warn('[ExtensionUIHandler] unsupported extension_ui_request method; auto-cancelling', {
+          id: request.id,
+          method: request.method,
+        })
+        void sendResponse(request.id, { cancelled: true })
         return
       }
 
@@ -207,14 +225,23 @@ export function ExtensionUIHandler() {
       return
     }
 
+    const requestId = activeRequest.id
+    const requestMethod = activeRequest.method
+
     const timeoutId = window.setTimeout(() => {
-      void sendResponse(activeRequest.id, { cancelled: true })
-      pushToast({
-        title: 'Request timed out',
-        message: `${activeRequest.method} request expired without input.`,
-        level: 'warning',
-      })
-      setActiveRequest(null)
+      void (async () => {
+        const sent = await sendResponse(requestId, { cancelled: true })
+        if (!sent) {
+          return
+        }
+
+        pushToast({
+          title: 'Request timed out',
+          message: `${requestMethod} request expired without input.`,
+          level: 'warning',
+        })
+        setActiveRequest((current) => (current?.id === requestId ? null : current))
+      })()
     }, getTimeoutMs(activeRequest))
 
     return () => window.clearTimeout(timeoutId)
@@ -239,21 +266,35 @@ export function ExtensionUIHandler() {
         open={Boolean(activeConfirmRequest)}
         request={activeConfirmRequest}
         onApprove={(requestId) => {
-          void sendResponse(requestId, { confirmed: true })
-          setActiveRequest(null)
+          void (async () => {
+            const sent = await sendResponse(requestId, { confirmed: true })
+            if (sent) {
+              setActiveRequest((current) => (current?.id === requestId ? null : current))
+            }
+          })()
         }}
         onReject={(requestId) => {
-          void sendResponse(requestId, { confirmed: false })
-          setActiveRequest(null)
+          void (async () => {
+            const sent = await sendResponse(requestId, { confirmed: false })
+            if (sent) {
+              setActiveRequest((current) => (current?.id === requestId ? null : current))
+            }
+          })()
         }}
         onTimeout={(requestId) => {
-          void sendResponse(requestId, { confirmed: false })
-          pushToast({
-            title: 'Approval timed out',
-            message: 'Tool request was rejected after timeout.',
-            level: 'warning',
-          })
-          setActiveRequest(null)
+          void (async () => {
+            const sent = await sendResponse(requestId, { confirmed: false })
+            if (!sent) {
+              return
+            }
+
+            pushToast({
+              title: 'Approval timed out',
+              message: 'Tool request was rejected after timeout.',
+              level: 'warning',
+            })
+            setActiveRequest((current) => (current?.id === requestId ? null : current))
+          })()
         }}
       />
 
@@ -302,8 +343,13 @@ export function ExtensionUIHandler() {
                 type="button"
                 className="rounded border border-slate-600 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800"
                 onClick={() => {
-                  void sendResponse(activeSelectRequest.id, { cancelled: true })
-                  setActiveRequest(null)
+                  void (async () => {
+                    const requestId = activeSelectRequest.id
+                    const sent = await sendResponse(requestId, { cancelled: true })
+                    if (sent) {
+                      setActiveRequest((current) => (current?.id === requestId ? null : current))
+                    }
+                  })()
                 }}
               >
                 Cancel
@@ -312,8 +358,13 @@ export function ExtensionUIHandler() {
                 type="button"
                 className="rounded border border-emerald-500/50 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-100 hover:bg-emerald-500/20"
                 onClick={() => {
-                  void sendResponse(activeSelectRequest.id, { value: selectedValue })
-                  setActiveRequest(null)
+                  void (async () => {
+                    const requestId = activeSelectRequest.id
+                    const sent = await sendResponse(requestId, { value: selectedValue })
+                    if (sent) {
+                      setActiveRequest((current) => (current?.id === requestId ? null : current))
+                    }
+                  })()
                 }}
                 disabled={!selectedValue}
               >
@@ -348,8 +399,13 @@ export function ExtensionUIHandler() {
                 type="button"
                 className="rounded border border-slate-600 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800"
                 onClick={() => {
-                  void sendResponse(activeInputRequest.id, { cancelled: true })
-                  setActiveRequest(null)
+                  void (async () => {
+                    const requestId = activeInputRequest.id
+                    const sent = await sendResponse(requestId, { cancelled: true })
+                    if (sent) {
+                      setActiveRequest((current) => (current?.id === requestId ? null : current))
+                    }
+                  })()
                 }}
               >
                 Cancel
@@ -358,8 +414,13 @@ export function ExtensionUIHandler() {
                 type="button"
                 className="rounded border border-emerald-500/50 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-100 hover:bg-emerald-500/20"
                 onClick={() => {
-                  void sendResponse(activeInputRequest.id, { value: inputValue })
-                  setActiveRequest(null)
+                  void (async () => {
+                    const requestId = activeInputRequest.id
+                    const sent = await sendResponse(requestId, { value: inputValue })
+                    if (sent) {
+                      setActiveRequest((current) => (current?.id === requestId ? null : current))
+                    }
+                  })()
                 }}
               >
                 Submit

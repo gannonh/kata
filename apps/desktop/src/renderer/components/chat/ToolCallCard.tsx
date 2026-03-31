@@ -36,8 +36,8 @@ function GenericToolCallCard({ tool }: ToolCallCardProps) {
       <Collapsible.Trigger className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left">
         <div className="flex min-w-0 items-center gap-2">
           <span className="truncate text-xs font-medium text-slate-100">{tool.name}</span>
-          <span className="rounded border border-amber-500/40 bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-200">
-            rendering failed
+          <span className="rounded border border-slate-600 bg-slate-700/30 px-1.5 py-0.5 text-[10px] text-slate-400">
+            generic
           </span>
         </div>
         <span className={`rounded border px-2 py-0.5 text-[10px] uppercase tracking-wide ${badgeClass}`}>

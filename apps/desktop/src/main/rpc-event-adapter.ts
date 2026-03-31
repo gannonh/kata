@@ -30,6 +30,7 @@ interface RpcEvent {
   error?: string
   status?: string
   stdout?: unknown
+  partialResult?: unknown
 }
 
 const LANGUAGE_BY_EXTENSION: Record<string, string> = {
@@ -351,16 +352,37 @@ export class RpcEventAdapter {
       return fromTopLevel
     }
 
+    const topLevelPartialRecord = asRecord(event.partialResult)
+    const fromTopLevelPartial =
+      stringifyField(topLevelPartialRecord?.stdout) ?? stringifyField(topLevelPartialRecord?.output)
+    if (fromTopLevelPartial) {
+      return fromTopLevelPartial
+    }
+
     const resultRecord = asRecord(event.result)
-    const fromResult = stringifyField(resultRecord?.stdout)
+    const fromResult = stringifyField(resultRecord?.stdout) ?? stringifyField(resultRecord?.output)
     if (fromResult) {
       return fromResult
     }
 
+    const resultPartialRecord = asRecord(resultRecord?.partialResult)
+    const fromResultPartial =
+      stringifyField(resultPartialRecord?.stdout) ?? stringifyField(resultPartialRecord?.output)
+    if (fromResultPartial) {
+      return fromResultPartial
+    }
+
     const messageRecord = event.message
-    const fromMessage = stringifyField(messageRecord?.stdout)
+    const fromMessage = stringifyField(messageRecord?.stdout) ?? stringifyField(messageRecord?.output)
     if (fromMessage) {
       return fromMessage
+    }
+
+    const messagePartialRecord = asRecord(messageRecord?.partialResult)
+    const fromMessagePartial =
+      stringifyField(messagePartialRecord?.stdout) ?? stringifyField(messagePartialRecord?.output)
+    if (fromMessagePartial) {
+      return fromMessagePartial
     }
 
     return undefined
@@ -593,8 +615,8 @@ function countFromEdits(edits: Array<{ oldText: string; newText: string }>): {
 } {
   return edits.reduce(
     (totals, edit) => {
-      totals.additions += edit.newText.split('\n').filter(Boolean).length
-      totals.deletions += edit.oldText.split('\n').filter(Boolean).length
+      totals.additions += countTextLines(edit.newText)
+      totals.deletions += countTextLines(edit.oldText)
       return totals
     },
     {
@@ -602,6 +624,17 @@ function countFromEdits(edits: Array<{ oldText: string; newText: string }>): {
       deletions: 0,
     },
   )
+}
+
+function countTextLines(value: string): number {
+  if (value.length === 0) {
+    return 0
+  }
+
+  const normalized = value.replace(/\r\n/g, '\n')
+  const lineCount = normalized.split('\n').length
+
+  return normalized.endsWith('\n') ? Math.max(0, lineCount - 1) : lineCount
 }
 
 function detectLanguage(path: string): string {

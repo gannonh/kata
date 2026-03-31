@@ -3,6 +3,7 @@ import * as Collapsible from '@radix-ui/react-collapsible'
 import { ShikiCodeViewer } from '@kata-ui/components/code-viewer/ShikiCodeViewer'
 import { getLanguageFromPath, truncateFilePath } from '@kata-ui/components/code-viewer/language-map'
 import type { ToolCallView } from '@/atoms/chat'
+import { asBoolean, asNumber, asRecord, asString } from './toolCardUtils'
 
 interface FileReadCardProps {
   tool: ToolCallView
@@ -14,26 +15,6 @@ interface ReadViewModel {
   language: string
   totalLines: number
   truncated: boolean
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return null
-  }
-
-  return value as Record<string, unknown>
-}
-
-function asString(value: unknown): string | undefined {
-  return typeof value === 'string' ? value : undefined
-}
-
-function asBoolean(value: unknown): boolean | undefined {
-  return typeof value === 'boolean' ? value : undefined
-}
-
-function asNumber(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
 }
 
 function buildReadViewModel(tool: ToolCallView): ReadViewModel {

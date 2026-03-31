@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import * as Collapsible from '@radix-ui/react-collapsible'
 import { TerminalOutput } from '@kata-ui/components/terminal/TerminalOutput'
 import type { ToolCallView } from '@/atoms/chat'
+import { asNumber, asRecord, asString } from './toolCardUtils'
 
 interface BashOutputCardProps {
   tool: ToolCallView
@@ -13,46 +14,6 @@ interface BashViewModel {
   stderr: string
   output: string
   exitCode?: number
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return null
-  }
-
-  return value as Record<string, unknown>
-}
-
-function asString(value: unknown): string | undefined {
-  return typeof value === 'string' ? value : undefined
-}
-
-function asNumber(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
-}
-
-function toText(value: unknown): string {
-  if (typeof value === 'string') {
-    return value
-  }
-
-  if (Array.isArray(value)) {
-    return value.map((entry) => toText(entry)).join('\n')
-  }
-
-  if (value && typeof value === 'object') {
-    try {
-      return JSON.stringify(value, null, 2)
-    } catch {
-      return String(value)
-    }
-  }
-
-  if (value === null || value === undefined) {
-    return ''
-  }
-
-  return String(value)
 }
 
 function buildBashViewModel(tool: ToolCallView): BashViewModel {

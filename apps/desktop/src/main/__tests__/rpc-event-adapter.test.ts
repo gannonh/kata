@@ -136,7 +136,7 @@ describe('RpcEventAdapter', () => {
       toolCallId: 'tool-bash-1',
       toolName: 'bash',
       status: 'running',
-      result: {
+      partialResult: {
         stdout: '\u001b[32mline one\u001b[0m\n',
       },
     })
@@ -219,6 +219,40 @@ describe('RpcEventAdapter', () => {
           totalLines: 120,
           truncated: true,
         },
+      },
+    })
+  })
+
+  test('counts blank lines when edit result is reconstructed from edits array', () => {
+    const [endEvent] = adapter.adapt({
+      type: 'tool_execution_end',
+      toolCallId: 'tool-edit-blank-lines',
+      toolName: 'edit',
+      args: {
+        path: 'apps/desktop/src/main/index.ts',
+        edits: [
+          {
+            oldText: 'const value = 1\n',
+            newText: 'const value = 2\n\n',
+          },
+        ],
+      },
+      result: {
+        path: 'apps/desktop/src/main/index.ts',
+      },
+      isError: false,
+    })
+
+    expect(endEvent).toMatchObject({
+      type: 'tool_end',
+      toolCallId: 'tool-edit-blank-lines',
+      toolName: 'edit',
+      isError: false,
+      result: {
+        path: 'apps/desktop/src/main/index.ts',
+        linesAdded: 2,
+        linesRemoved: 1,
+        linesChanged: 3,
       },
     })
   })
