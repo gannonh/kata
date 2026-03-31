@@ -43,13 +43,20 @@ export function ModelSelector() {
         return
       }
 
+      const bridgeState = await window.api.getBridgeState()
+      const bridgeModel = bridgeState.selectedModel?.trim() || null
+      const activeModel = selectedModel ?? bridgeModel
+
       const currentExists =
-        !!selectedModel &&
+        !!activeModel &&
         response.models.some(
-          (model) => toModelIdentifier(model.provider, model.id) === selectedModel,
+          (model) => toModelIdentifier(model.provider, model.id) === activeModel,
         )
 
       if (currentExists) {
+        if (activeModel !== selectedModel) {
+          setSelectedModel(activeModel)
+        }
         return
       }
 

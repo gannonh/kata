@@ -165,6 +165,7 @@ export interface BridgeState {
   pid: number | null
   command: string | null
   status: BridgeLifecycleState
+  selectedModel: string | null
 }
 
 export interface DesktopApi {

@@ -158,8 +158,17 @@ export function registerSessionIpc({
 
     try {
       await bridge.setModel(model)
+
       if (onModelSelected) {
-        await onModelSelected(model)
+        try {
+          await onModelSelected(model)
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error)
+          log.warn('[desktop-ipc] model persistence failed after runtime switch', {
+            model,
+            error: message,
+          })
+        }
       }
 
       log.info('[desktop-ipc] model switch', {

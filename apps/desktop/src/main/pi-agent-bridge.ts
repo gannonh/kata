@@ -74,6 +74,7 @@ export class PiAgentBridge extends EventEmitter {
       pid: this.child?.pid ?? null,
       command: this.resolvedCommand,
       status: this.status,
+      selectedModel: this.selectedModel,
     }
   }
 
