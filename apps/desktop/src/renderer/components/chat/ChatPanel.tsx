@@ -11,8 +11,10 @@ import {
   toolCallsAtom,
 } from '@/atoms/chat'
 import { ErrorBanner } from './ErrorBanner'
+import { ExtensionUIHandler } from './ExtensionUIHandler'
 import { MessageInput } from './MessageInput'
 import { MessageList } from './MessageList'
+import { PermissionModeSelector } from './PermissionModeSelector'
 
 export function ChatPanel() {
   const messages = useAtomValue(messagesAtom)
@@ -64,7 +66,9 @@ export function ChatPanel() {
   const errorTitle = bridgeStatus.state === 'crashed' ? 'Agent process crashed' : 'Agent error'
 
   return (
-    <div className="flex h-[calc(100%-3.5rem)] flex-col">
+    <div className="relative flex h-[calc(100%-3.5rem)] flex-col">
+      <ExtensionUIHandler />
+
       {errorMessage && (
         <ErrorBanner
           title={errorTitle}
@@ -72,6 +76,11 @@ export function ChatPanel() {
           onRestart={bridgeStatus.state !== 'spawning' ? () => window.api.restartAgent() : undefined}
         />
       )}
+
+      <div className="flex items-center justify-between border-b border-slate-800 px-4 py-2">
+        <p className="text-[11px] uppercase tracking-wide text-slate-400">Permission mode</p>
+        <PermissionModeSelector />
+      </div>
 
       <div ref={scrollRef} className="flex-1 overflow-auto">
         <MessageList messages={messages} tools={tools} />
