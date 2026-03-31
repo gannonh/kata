@@ -2,7 +2,7 @@
 name = "symphony"
 version = "2.2.0"
 edition = "2021"
-description = "Symphony orchestrator — polls Linear, dispatches Codex agent sessions"
+description = "Symphony orchestrator — polls Linear or GitHub Issues, dispatches agent sessions"
 license = "MIT"
 
 [[bin]]

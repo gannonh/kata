@@ -73,9 +73,9 @@ and remove `label_prefix`.
 | 2     | Label Mode — Polling & Dispatch     | ✅ Pass (issue #1 fixed) |
 | 3     | Projects v2 Mode — Polling & Dispatch | ✅ Pass (issues #7, #8) |
 | 4     | Dashboard & TUI Rendering           | ✅ Pass (issues #2, #6) |
-| 5     | Slack Notifications (GitHub URLs)   | ⬜ Not tested |
-| 6     | Live Worker E2E                     | ✅ Pass (issues #2, #3) |
-| 7     | Edge Cases & Error Paths            | ⬜ Partial |
+| 5     | Slack Notifications (GitHub URLs)   | ⬜ Not tested — requires Slack webhook configured with GitHub WORKFLOW |
+| 6     | Live Worker E2E                     | ✅ Pass (issues #2, #3) — `/symphony status` CLI not exercised (dashboard only) |
+| 7     | Edge Cases & Error Paths            | ⬜ Partial — `exclude_labels`, bad-PAT/repo doctor errors, graceful shutdown untested |
 
 ---
 

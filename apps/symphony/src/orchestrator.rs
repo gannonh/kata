@@ -188,14 +188,26 @@ fn build_tracker_adapter(tracker_config: &TrackerConfig) -> Box<dyn TrackerAdapt
             .map(str::to_string)
             .or_else(|| std::env::var("GH_TOKEN").ok())
             .or_else(|| std::env::var("GITHUB_TOKEN").ok())
-            .unwrap_or_default();
+            .unwrap_or_else(|| {
+                tracing::warn!(
+                    "no GitHub token found for inter-turn refresh; requests will likely fail"
+                );
+                String::new()
+            });
         let repo_owner = tracker_config.repo_owner.clone().unwrap_or_default();
         let repo_name = tracker_config.repo_name.clone().unwrap_or_default();
         let label_prefix = tracker_config
             .label_prefix
             .clone()
             .unwrap_or_else(|| "symphony".to_string());
-        let client = GithubClient::new(token, repo_owner, repo_name, label_prefix);
+        let endpoint = tracker_config.endpoint.trim();
+        let endpoint = if endpoint.is_empty() {
+            "https://api.github.com"
+        } else {
+            endpoint
+        };
+        let client =
+            GithubClient::with_base_url(token, repo_owner, repo_name, label_prefix, endpoint);
         Box::new(GithubAdapter::new(client, tracker_config.clone()))
     } else {
         use crate::linear::adapter::LinearAdapter;
