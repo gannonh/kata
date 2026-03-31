@@ -6,4 +6,5 @@ WORKFLOW-cli.md
 WORKFLOW-*.md
 !docs/WORKFLOW-*.md
 !docs/WORKFLOW-REFERENCE.md
+prompts/repo-desktop.md
 
