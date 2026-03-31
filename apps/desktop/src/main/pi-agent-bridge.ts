@@ -132,30 +132,43 @@ export class PiAgentBridge extends EventEmitter {
       }
     })
 
-    child.on('error', (error) => {
-      const message = error instanceof Error ? error.message : String(error)
-      this.pushStderr(message)
-      log.error('[PiAgentBridge] subprocess error', error)
-      this.emit('debug', {
-        type: 'bridge:error',
-        message,
-      })
-    })
+    let finalizedTermination = false
 
-    child.on('exit', (exitCode, signal) => {
+    const finalizeTermination = (
+      cause: 'exit' | 'close' | 'error',
+      exitCode: number | null,
+      signal: NodeJS.Signals | null,
+      errorMessage?: string,
+    ): void => {
+      if (finalizedTermination) {
+        return
+      }
+
+      finalizedTermination = true
+
+      if (errorMessage) {
+        this.pushStderr(errorMessage)
+      }
+
       const stderrSnapshot = [...this.stderrLines]
       this.cleanupStreams()
-      this.child = null
+
+      if (this.child === child) {
+        this.child = null
+      }
+
       this.rejectPending(new Error('RPC subprocess exited before response was received'))
 
       if (!this.shuttingDown) {
         log.error('[PiAgentBridge] crash', {
+          cause,
           exitCode,
           signal,
           stderrLines: stderrSnapshot,
         })
         this.emit('debug', {
           type: 'bridge:crash',
+          cause,
           exitCode,
           signal,
           stderrLines: stderrSnapshot,
@@ -173,9 +186,10 @@ export class PiAgentBridge extends EventEmitter {
           signal,
         })
       } else {
-        log.info('[PiAgentBridge] shutdown complete', { exitCode, signal })
+        log.info('[PiAgentBridge] shutdown complete', { cause, exitCode, signal })
         this.emit('debug', {
           type: 'bridge:shutdown',
+          cause,
           exitCode,
           signal,
         })
@@ -186,6 +200,24 @@ export class PiAgentBridge extends EventEmitter {
           signal,
         })
       }
+    }
+
+    child.on('error', (error) => {
+      const message = error instanceof Error ? error.message : String(error)
+      log.error('[PiAgentBridge] subprocess error', error)
+      this.emit('debug', {
+        type: 'bridge:error',
+        message,
+      })
+      finalizeTermination('error', null, null, message)
+    })
+
+    child.on('exit', (exitCode, signal) => {
+      finalizeTermination('exit', exitCode, signal)
+    })
+
+    child.on('close', (exitCode, signal) => {
+      finalizeTermination('close', exitCode, signal)
     })
   }
 
@@ -317,16 +349,23 @@ export class PiAgentBridge extends EventEmitter {
 
   private resolvePending(response: RpcResponse): void {
     const id = response.id
-    if (!id) {
+
+    let pendingId: string | undefined = id
+    let pending = id ? this.pending.get(id) : undefined
+
+    if (!pending && !id) {
+      const firstPendingEntry = this.pending.entries().next()
+      if (!firstPendingEntry.done) {
+        pendingId = firstPendingEntry.value[0]
+        pending = firstPendingEntry.value[1]
+      }
+    }
+
+    if (!pending || !pendingId) {
       return
     }
 
-    const pending = this.pending.get(id)
-    if (!pending) {
-      return
-    }
-
-    this.pending.delete(id)
+    this.pending.delete(pendingId)
 
     if (!response.success) {
       pending.reject(new Error(response.error ?? `RPC command failed: ${pending.command}`))
@@ -334,7 +373,7 @@ export class PiAgentBridge extends EventEmitter {
     }
 
     pending.resolve({
-      id,
+      id: pendingId,
       command: response.command,
       success: true,
       data: response.data,
@@ -362,17 +401,19 @@ export class PiAgentBridge extends EventEmitter {
         resolve(false)
       }, timeoutMs)
 
-      const onExit = () => {
+      const onTerminated = () => {
         cleanup()
         resolve(true)
       }
 
       const cleanup = () => {
         clearTimeout(timer)
-        current.removeListener('exit', onExit)
+        current.removeListener('exit', onTerminated)
+        current.removeListener('close', onTerminated)
       }
 
-      current.once('exit', onExit)
+      current.once('exit', onTerminated)
+      current.once('close', onTerminated)
     })
   }
 

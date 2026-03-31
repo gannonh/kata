@@ -59,6 +59,7 @@ export function ChatPanel() {
 
   const bridgeAvailable = bridgeStatus.state === 'running'
   const inputDisabled = isStreaming || !bridgeAvailable
+  const stopDisabled = !isStreaming || !bridgeAvailable
   const errorMessage = error ?? bridgeStatus.message ?? null
 
   return (
@@ -76,6 +77,7 @@ export function ChatPanel() {
 
       <MessageInput
         disabled={inputDisabled}
+        stopDisabled={stopDisabled}
         onSubmit={async (value) => {
           appendUserMessage(value)
           await window.api.sendMessage(value)

@@ -2,11 +2,12 @@ import { useState } from 'react'
 
 interface MessageInputProps {
   disabled?: boolean
+  stopDisabled?: boolean
   onSubmit: (value: string) => Promise<void>
   onStop: () => Promise<void>
 }
 
-export function MessageInput({ disabled = false, onSubmit, onStop }: MessageInputProps) {
+export function MessageInput({ disabled = false, stopDisabled = disabled, onSubmit, onStop }: MessageInputProps) {
   const [value, setValue] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -46,7 +47,7 @@ export function MessageInput({ disabled = false, onSubmit, onStop }: MessageInpu
           <button
             type="button"
             onClick={() => void onStop()}
-            disabled={disabled}
+            disabled={stopDisabled || submitting}
             className="rounded border border-slate-600 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800 disabled:opacity-50"
           >
             Stop
