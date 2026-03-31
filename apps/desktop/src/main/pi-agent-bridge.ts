@@ -3,6 +3,7 @@ import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from 'node:chil
 import readline from 'node:readline'
 import log from './logger'
 import {
+  type AvailableModel,
   type BridgeLifecycleState,
   type BridgeState,
   type BridgeStatusEvent,
@@ -52,13 +53,16 @@ export class PiAgentBridge extends EventEmitter {
   private status: BridgeLifecycleState = 'shutdown'
   private startPromise: Promise<void> | null = null
   private permissionMode: PermissionMode = 'ask'
+  private selectedModel: string | null
 
   constructor(
     private readonly workspacePath: string,
     private readonly commandHint = 'kata',
     private readonly commandTimeoutMs = 30_000,
+    initialModel: string | null = null,
   ) {
     super()
+    this.selectedModel = initialModel?.trim() ? initialModel.trim() : null
   }
 
   override on<K extends keyof BridgeEvents>(event: K, listener: BridgeEvents[K]): this {
@@ -76,6 +80,7 @@ export class PiAgentBridge extends EventEmitter {
       command: this.resolvedCommand,
       status: this.status,
       permissionMode: this.permissionMode,
+      selectedModel: this.selectedModel,
     }
   }
 
@@ -110,6 +115,9 @@ export class PiAgentBridge extends EventEmitter {
     })
 
     const args = ['--mode', 'rpc', '--cwd', this.workspacePath]
+    if (this.selectedModel) {
+      args.push('--model', this.selectedModel)
+    }
     const child = spawn(command, args, {
       cwd: this.workspacePath,
       env: process.env,
@@ -306,6 +314,52 @@ export class PiAgentBridge extends EventEmitter {
 
   public abort(): Promise<CommandResult> {
     return this.send({ type: 'abort' })
+  }
+
+  public async getAvailableModels(): Promise<AvailableModel[]> {
+    const result = await this.send({ type: 'get_available_models' })
+    const payload = result.data
+
+    if (!Array.isArray(payload)) {
+      return []
+    }
+
+    const models: AvailableModel[] = []
+
+    for (const entry of payload) {
+      if (!entry || typeof entry !== 'object') {
+        continue
+      }
+
+      const candidate = entry as Partial<AvailableModel>
+      if (typeof candidate.provider !== 'string' || typeof candidate.id !== 'string') {
+        continue
+      }
+
+      models.push({
+        provider: candidate.provider,
+        id: candidate.id,
+        contextWindow:
+          typeof candidate.contextWindow === 'number' ? candidate.contextWindow : undefined,
+        reasoning: typeof candidate.reasoning === 'boolean' ? candidate.reasoning : undefined,
+      })
+    }
+
+    return models
+  }
+
+  public async setModel(model: string): Promise<void> {
+    const trimmed = model.trim()
+    if (!trimmed) {
+      throw new Error('Model is required')
+    }
+
+    await this.send({ type: 'set_model', model: trimmed })
+    this.selectedModel = trimmed
+  }
+
+  public getSelectedModel(): string | null {
+    return this.selectedModel
   }
 
   public async restart(): Promise<void> {

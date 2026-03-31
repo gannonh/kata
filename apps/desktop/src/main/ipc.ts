@@ -1,11 +1,19 @@
 import { ipcMain, type BrowserWindow } from 'electron'
 import log from './logger'
+import { AuthBridge } from './auth-bridge'
 import { PiAgentBridge } from './pi-agent-bridge'
 import { RpcEventAdapter } from './rpc-event-adapter'
 import {
   IPC_CHANNELS,
+  type AuthProvider,
   type BridgeStatusEvent,
   type ChatEvent,
+  type AvailableModelsResponse,
+  type SetModelResponse,
+  type AuthProvidersResponse,
+  type AuthSetKeyResponse,
+  type AuthRemoveKeyResponse,
+  type AuthValidationResult,
   type ExtensionUIRequest,
   type ExtensionUIResponse,
   type PermissionMode,
@@ -13,10 +21,17 @@ import {
 
 interface RegisterIpcOptions {
   bridge: PiAgentBridge
+  authBridge: AuthBridge
   window: BrowserWindow
+  onModelSelected?: (model: string) => Promise<void> | void
 }
 
-export function registerSessionIpc({ bridge, window }: RegisterIpcOptions): () => void {
+export function registerSessionIpc({
+  bridge,
+  authBridge,
+  window,
+  onModelSelected,
+}: RegisterIpcOptions): () => void {
   const adapter = new RpcEventAdapter()
 
   const canSendToRenderer = (): boolean => !window.isDestroyed() && !window.webContents.isDestroyed()
@@ -99,6 +114,12 @@ export function registerSessionIpc({ bridge, window }: RegisterIpcOptions): () =
   ipcMain.removeHandler(IPC_CHANNELS.sessionGetBridgeState)
   ipcMain.removeHandler(IPC_CHANNELS.sessionExtensionUiResponse)
   ipcMain.removeHandler(IPC_CHANNELS.sessionPermissionMode)
+  ipcMain.removeHandler(IPC_CHANNELS.sessionGetAvailableModels)
+  ipcMain.removeHandler(IPC_CHANNELS.sessionSetModel)
+  ipcMain.removeHandler(IPC_CHANNELS.authGetProviders)
+  ipcMain.removeHandler(IPC_CHANNELS.authSetKey)
+  ipcMain.removeHandler(IPC_CHANNELS.authRemoveKey)
+  ipcMain.removeHandler(IPC_CHANNELS.authValidateKey)
 
   ipcMain.handle(IPC_CHANNELS.sessionSend, async (_event, message: string) => {
     if (!message?.trim()) {
@@ -140,6 +161,118 @@ export function registerSessionIpc({ bridge, window }: RegisterIpcOptions): () =
     bridge.setPermissionMode(mode)
   })
 
+  ipcMain.handle(IPC_CHANNELS.sessionGetAvailableModels, async (): Promise<AvailableModelsResponse> => {
+    try {
+      const models = await bridge.getAvailableModels()
+      return {
+        success: true,
+        models,
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      return {
+        success: false,
+        models: [],
+        error: message,
+      }
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.sessionSetModel, async (_event, model: string): Promise<SetModelResponse> => {
+    if (!model?.trim()) {
+      return {
+        success: false,
+        error: 'Model is required',
+      }
+    }
+
+    try {
+      await bridge.setModel(model)
+
+      if (onModelSelected) {
+        try {
+          await onModelSelected(model)
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error)
+          log.warn('[desktop-ipc] model persistence failed after runtime switch', {
+            model,
+            error: message,
+          })
+        }
+      }
+
+      log.info('[desktop-ipc] model switch', {
+        model,
+      })
+
+      return {
+        success: true,
+        model,
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      log.error('[desktop-ipc] model switch failed', {
+        model,
+        error: message,
+      })
+      return {
+        success: false,
+        error: message,
+      }
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.authGetProviders, async (): Promise<AuthProvidersResponse> => {
+    return authBridge.getProviders()
+  })
+
+  ipcMain.handle(
+    IPC_CHANNELS.authSetKey,
+    async (_event, provider: AuthProvider, key: string): Promise<AuthSetKeyResponse> => {
+      try {
+        return await authBridge.setProviderKey(provider, key)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        return {
+          success: false,
+          provider,
+          error: message,
+        }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    IPC_CHANNELS.authRemoveKey,
+    async (_event, provider: AuthProvider): Promise<AuthRemoveKeyResponse> => {
+      try {
+        return await authBridge.removeProviderKey(provider)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        return {
+          success: false,
+          provider,
+          error: message,
+        }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    IPC_CHANNELS.authValidateKey,
+    async (_event, provider: AuthProvider, key: string): Promise<AuthValidationResult> => {
+      try {
+        return await authBridge.validateKey(provider, key)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        return {
+          valid: false,
+          error: message,
+        }
+      }
+    },
+  )
+
   return () => {
     bridge.off('rpc-event', onRpcEvent)
     bridge.off('extension-ui-request', onExtensionUiRequest)
@@ -153,5 +286,11 @@ export function registerSessionIpc({ bridge, window }: RegisterIpcOptions): () =
     ipcMain.removeHandler(IPC_CHANNELS.sessionGetBridgeState)
     ipcMain.removeHandler(IPC_CHANNELS.sessionExtensionUiResponse)
     ipcMain.removeHandler(IPC_CHANNELS.sessionPermissionMode)
+    ipcMain.removeHandler(IPC_CHANNELS.sessionGetAvailableModels)
+    ipcMain.removeHandler(IPC_CHANNELS.sessionSetModel)
+    ipcMain.removeHandler(IPC_CHANNELS.authGetProviders)
+    ipcMain.removeHandler(IPC_CHANNELS.authSetKey)
+    ipcMain.removeHandler(IPC_CHANNELS.authRemoveKey)
+    ipcMain.removeHandler(IPC_CHANNELS.authValidateKey)
   }
 }

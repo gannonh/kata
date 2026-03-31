@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import {
   IPC_CHANNELS,
+  type AuthProvider,
   type BridgeStatusEvent,
   type ChatEvent,
   type DesktopApi,
@@ -54,11 +55,34 @@ const api: DesktopApi = {
       ipcRenderer.removeListener(IPC_CHANNELS.sessionExtensionUiRequest, wrapped)
     }
   },
-  sendExtensionUIResponse: async (id: string, response: Parameters<DesktopApi['sendExtensionUIResponse']>[1]) => {
+  sendExtensionUIResponse: async (
+    id: string,
+    response: Parameters<DesktopApi['sendExtensionUIResponse']>[1],
+  ) => {
     await ipcRenderer.invoke(IPC_CHANNELS.sessionExtensionUiResponse, id, response)
   },
   setPermissionMode: async (mode: PermissionMode) => {
     await ipcRenderer.invoke(IPC_CHANNELS.sessionPermissionMode, mode)
+  },
+  getAvailableModels: async () => {
+    return ipcRenderer.invoke(IPC_CHANNELS.sessionGetAvailableModels)
+  },
+  setModel: async (model: string) => {
+    return ipcRenderer.invoke(IPC_CHANNELS.sessionSetModel, model)
+  },
+  auth: {
+    getProviders: async () => {
+      return ipcRenderer.invoke(IPC_CHANNELS.authGetProviders)
+    },
+    setKey: async (provider: AuthProvider, key: string) => {
+      return ipcRenderer.invoke(IPC_CHANNELS.authSetKey, provider, key)
+    },
+    removeKey: async (provider: AuthProvider) => {
+      return ipcRenderer.invoke(IPC_CHANNELS.authRemoveKey, provider)
+    },
+    validateKey: async (provider: AuthProvider, key: string) => {
+      return ipcRenderer.invoke(IPC_CHANNELS.authValidateKey, provider, key)
+    },
   },
 }
 

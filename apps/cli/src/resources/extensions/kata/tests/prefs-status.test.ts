@@ -142,7 +142,7 @@ test("buildPrefsStatusReport reports Linear mode identifiers and validation summ
   assert.match(report.message, /^mode: linear$/m);
   assert.match(report.message, /^LINEAR_API_KEY: present$/m);
   assert.match(report.message, /^linear\.teamKey: KAT$/m);
-  assert.match(report.message, /^linear\.projectId: project-456$/m);
+  assert.match(report.message, /^linear\.projectSlug: project-456$/m);
   assert.match(report.message, /^validation: valid$/m);
   assert.match(report.message, /^resolved team: Kata \(KAT · team-123\)$/m);
   assert.match(report.message, /^resolved project: CLI \(project-456 · started\)$/m);
