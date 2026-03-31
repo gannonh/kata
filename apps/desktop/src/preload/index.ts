@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import {
   IPC_CHANNELS,
+  type AuthProvider,
   type BridgeStatusEvent,
   type ChatEvent,
   type DesktopApi,
@@ -40,6 +41,26 @@ const api: DesktopApi = {
   },
   getBridgeState: async () => {
     return ipcRenderer.invoke(IPC_CHANNELS.sessionGetBridgeState)
+  },
+  getAvailableModels: async () => {
+    return ipcRenderer.invoke(IPC_CHANNELS.sessionGetAvailableModels)
+  },
+  setModel: async (model: string) => {
+    return ipcRenderer.invoke(IPC_CHANNELS.sessionSetModel, model)
+  },
+  auth: {
+    getProviders: async () => {
+      return ipcRenderer.invoke(IPC_CHANNELS.authGetProviders)
+    },
+    setKey: async (provider: AuthProvider, key: string) => {
+      return ipcRenderer.invoke(IPC_CHANNELS.authSetKey, provider, key)
+    },
+    removeKey: async (provider: AuthProvider) => {
+      return ipcRenderer.invoke(IPC_CHANNELS.authRemoveKey, provider)
+    },
+    validateKey: async (provider: AuthProvider, key: string) => {
+      return ipcRenderer.invoke(IPC_CHANNELS.authValidateKey, provider, key)
+    },
   },
 }
 
