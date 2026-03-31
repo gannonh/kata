@@ -14,6 +14,9 @@ import {
   type AuthSetKeyResponse,
   type AuthRemoveKeyResponse,
   type AuthValidationResult,
+  type ExtensionUIRequest,
+  type ExtensionUIResponse,
+  type PermissionMode,
 } from '../shared/types'
 
 interface RegisterIpcOptions {
@@ -60,6 +63,19 @@ export function registerSessionIpc({
     }
   }
 
+  const onExtensionUiRequest = (request: ExtensionUIRequest): void => {
+    if (!canSendToRenderer()) {
+      log.warn('[desktop-ipc] skipping extension ui request dispatch: renderer window is destroyed')
+      return
+    }
+
+    window.webContents.send(IPC_CHANNELS.sessionExtensionUiRequest, request)
+    log.debug('[desktop-ipc] outbound extension ui request', {
+      id: request.id,
+      method: request.method,
+    })
+  }
+
   const onStatus = (status: BridgeStatusEvent): void => {
     sendBridgeStatus(status)
   }
@@ -80,6 +96,7 @@ export function registerSessionIpc({
   }
 
   bridge.on('rpc-event', onRpcEvent)
+  bridge.on('extension-ui-request', onExtensionUiRequest)
   bridge.on('status', onStatus)
   bridge.on('debug', onDebug)
   bridge.on('crash', onCrash)
@@ -95,6 +112,8 @@ export function registerSessionIpc({
   ipcMain.removeHandler(IPC_CHANNELS.sessionStop)
   ipcMain.removeHandler(IPC_CHANNELS.sessionRestart)
   ipcMain.removeHandler(IPC_CHANNELS.sessionGetBridgeState)
+  ipcMain.removeHandler(IPC_CHANNELS.sessionExtensionUiResponse)
+  ipcMain.removeHandler(IPC_CHANNELS.sessionPermissionMode)
   ipcMain.removeHandler(IPC_CHANNELS.sessionGetAvailableModels)
   ipcMain.removeHandler(IPC_CHANNELS.sessionSetModel)
   ipcMain.removeHandler(IPC_CHANNELS.authGetProviders)
@@ -130,6 +149,17 @@ export function registerSessionIpc({
   })
 
   ipcMain.handle(IPC_CHANNELS.sessionGetBridgeState, async () => bridge.getState())
+
+  ipcMain.handle(
+    IPC_CHANNELS.sessionExtensionUiResponse,
+    async (_event, id: string, response: ExtensionUIResponse) => {
+      await bridge.sendExtensionUIResponse(id, response)
+    },
+  )
+
+  ipcMain.handle(IPC_CHANNELS.sessionPermissionMode, async (_event, mode: PermissionMode) => {
+    bridge.setPermissionMode(mode)
+  })
 
   ipcMain.handle(IPC_CHANNELS.sessionGetAvailableModels, async (): Promise<AvailableModelsResponse> => {
     try {
@@ -245,6 +275,7 @@ export function registerSessionIpc({
 
   return () => {
     bridge.off('rpc-event', onRpcEvent)
+    bridge.off('extension-ui-request', onExtensionUiRequest)
     bridge.off('status', onStatus)
     bridge.off('debug', onDebug)
     bridge.off('crash', onCrash)
@@ -253,6 +284,8 @@ export function registerSessionIpc({
     ipcMain.removeHandler(IPC_CHANNELS.sessionStop)
     ipcMain.removeHandler(IPC_CHANNELS.sessionRestart)
     ipcMain.removeHandler(IPC_CHANNELS.sessionGetBridgeState)
+    ipcMain.removeHandler(IPC_CHANNELS.sessionExtensionUiResponse)
+    ipcMain.removeHandler(IPC_CHANNELS.sessionPermissionMode)
     ipcMain.removeHandler(IPC_CHANNELS.sessionGetAvailableModels)
     ipcMain.removeHandler(IPC_CHANNELS.sessionSetModel)
     ipcMain.removeHandler(IPC_CHANNELS.authGetProviders)

@@ -8,6 +8,9 @@ import {
   type BridgeState,
   type BridgeStatusEvent,
   type CommandResult,
+  type ExtensionUIRequest,
+  type ExtensionUIResponse,
+  type PermissionMode,
   type RpcCommand,
 } from '../shared/types'
 
@@ -33,6 +36,7 @@ interface RpcEnvelope {
 
 interface BridgeEvents {
   'rpc-event': (event: Record<string, unknown>) => void
+  'extension-ui-request': (request: ExtensionUIRequest) => void
   crash: (payload: { exitCode: number | null; signal: NodeJS.Signals | null; stderrLines: string[] }) => void
   status: (payload: BridgeStatusEvent) => void
   debug: (payload: Record<string, unknown>) => void
@@ -48,6 +52,7 @@ export class PiAgentBridge extends EventEmitter {
   private resolvedCommand: string | null = null
   private status: BridgeLifecycleState = 'shutdown'
   private startPromise: Promise<void> | null = null
+  private permissionMode: PermissionMode = 'ask'
   private selectedModel: string | null
 
   constructor(
@@ -74,6 +79,7 @@ export class PiAgentBridge extends EventEmitter {
       pid: this.child?.pid ?? null,
       command: this.resolvedCommand,
       status: this.status,
+      permissionMode: this.permissionMode,
       selectedModel: this.selectedModel,
     }
   }
@@ -274,14 +280,32 @@ export class PiAgentBridge extends EventEmitter {
         },
       })
 
-      child.stdin.write(`${JSON.stringify(payload)}\n`, (error) => {
-        if (error) {
-          clearTimeout(timeoutId)
-          this.pending.delete(id)
-          reject(error)
-        }
+      this.writeJsonLine(payload).catch((error: unknown) => {
+        clearTimeout(timeoutId)
+        this.pending.delete(id)
+        reject(error instanceof Error ? error : new Error(String(error)))
       })
     })
+  }
+
+  public setPermissionMode(mode: PermissionMode): void {
+    this.permissionMode = mode
+    this.emit('debug', {
+      type: 'bridge:permission-mode',
+      mode,
+    })
+  }
+
+  public async sendExtensionUIResponse(id: string, response: ExtensionUIResponse): Promise<void> {
+    await this.start()
+
+    const payload = {
+      type: 'extension_ui_response',
+      id,
+      ...response,
+    }
+
+    await this.writeJsonLine(payload)
   }
 
   public prompt(message: string): Promise<CommandResult> {
@@ -380,6 +404,25 @@ export class PiAgentBridge extends EventEmitter {
     }
   }
 
+  private writeJsonLine(payload: Record<string, unknown>): Promise<void> {
+    const child = this.child
+    if (!child || child.killed || !child.stdin.writable) {
+      return Promise.reject(new Error('RPC subprocess is not writable'))
+    }
+
+    return new Promise<void>((resolve, reject) => {
+      const line = `${JSON.stringify(payload)}\n`
+      child.stdin.write(line, (error) => {
+        if (error) {
+          reject(error)
+          return
+        }
+
+        resolve()
+      })
+    })
+  }
+
   private resolveCommand(): string {
     const fromEnv = process.env.KATA_BIN_PATH?.trim()
     if (fromEnv) {
@@ -425,12 +468,12 @@ export class PiAgentBridge extends EventEmitter {
     }
 
     if (this.isRpcEnvelope(parsed)) {
-      this.emit('rpc-event', parsed.event)
+      this.dispatchRpcEvent(parsed.event)
       return
     }
 
     if (this.isRpcEvent(parsed)) {
-      this.emit('rpc-event', parsed)
+      this.dispatchRpcEvent(parsed)
       return
     }
 
@@ -438,6 +481,39 @@ export class PiAgentBridge extends EventEmitter {
       type: 'agent_error',
       message: 'Received unrecognized RPC payload shape',
     })
+  }
+
+  private dispatchRpcEvent(event: Record<string, unknown>): void {
+    if (event.type === 'extension_ui_request') {
+      const request = this.extractExtensionUIRequest(event)
+      if (!request) {
+        this.emit('rpc-event', {
+          type: 'agent_error',
+          message: 'Received malformed extension_ui_request payload',
+        })
+        return
+      }
+
+      this.emit('extension-ui-request', request)
+      return
+    }
+
+    this.emit('rpc-event', event)
+  }
+
+  private extractExtensionUIRequest(event: Record<string, unknown>): ExtensionUIRequest | null {
+    const id = event.id
+    const method = event.method
+
+    if (typeof id !== 'string' || id.length === 0) {
+      return null
+    }
+
+    if (typeof method !== 'string' || method.length === 0) {
+      return null
+    }
+
+    return event as ExtensionUIRequest
   }
 
   private resolvePending(response: RpcResponse): void {

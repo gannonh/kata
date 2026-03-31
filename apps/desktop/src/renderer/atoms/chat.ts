@@ -3,15 +3,18 @@ import {
   type BridgeStatusEvent,
   type BridgeLifecycleState,
   type ChatEvent,
+  type ToolArgs,
+  type ToolResult,
 } from '@shared/types'
 
 export interface ToolCallView {
   id: string
   name: string
-  args: unknown
+  args: ToolArgs
   status: 'running' | 'done' | 'error'
-  result?: unknown
+  result?: ToolResult
   error?: string
+  partialStdout?: string
 }
 
 export interface ChatMessageView {
@@ -184,15 +187,20 @@ export const applyChatEventAtom = atom(null, (get, set, event: ChatEvent) => {
     case 'tool_update': {
       set(
         toolCallsAtom,
-        get(toolCallsAtom).map((tool) =>
-          tool.id === event.toolCallId
-            ? {
-                ...tool,
-                name: event.toolName,
-                status: event.status === 'error' ? 'error' : tool.status,
-              }
-            : tool,
-        ),
+        get(toolCallsAtom).map((tool) => {
+          if (tool.id !== event.toolCallId) {
+            return tool
+          }
+
+          return {
+            ...tool,
+            name: event.toolName,
+            status: event.status === 'error' ? 'error' : tool.status,
+            partialStdout: event.partialStdout
+              ? `${tool.partialStdout ?? ''}${event.partialStdout}`
+              : tool.partialStdout,
+          }
+        }),
       )
       return
     }
@@ -208,6 +216,7 @@ export const applyChatEventAtom = atom(null, (get, set, event: ChatEvent) => {
                 status: event.isError ? 'error' : 'done',
                 result: event.result,
                 error: event.error,
+                partialStdout: undefined,
               }
             : tool,
         ),
