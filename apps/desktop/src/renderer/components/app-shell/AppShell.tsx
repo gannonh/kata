@@ -23,15 +23,20 @@ function readInitialLayout(): Layout {
 
   try {
     const parsed = JSON.parse(value)
+    const left = parsed?.[LEFT_PANEL_ID]
+    const right = parsed?.[RIGHT_PANEL_ID]
+
     if (
       parsed &&
       typeof parsed === 'object' &&
-      typeof parsed[LEFT_PANEL_ID] === 'number' &&
-      typeof parsed[RIGHT_PANEL_ID] === 'number'
+      Number.isFinite(left) &&
+      Number.isFinite(right) &&
+      left > 0 &&
+      right > 0
     ) {
       return {
-        [LEFT_PANEL_ID]: parsed[LEFT_PANEL_ID],
-        [RIGHT_PANEL_ID]: parsed[RIGHT_PANEL_ID],
+        [LEFT_PANEL_ID]: left,
+        [RIGHT_PANEL_ID]: right,
       }
     }
   } catch {
@@ -51,7 +56,11 @@ export function AppShell() {
         className="h-full"
         defaultLayout={defaultLayout}
         onLayoutChanged={(layout) => {
-          window.localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(layout))
+          try {
+            window.localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(layout))
+          } catch {
+            // Ignore storage persistence failures.
+          }
         }}
       >
         <Panel id={LEFT_PANEL_ID} defaultSize={defaultLayout[LEFT_PANEL_ID]} minSize={45}>

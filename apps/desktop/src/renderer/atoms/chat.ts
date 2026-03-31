@@ -70,6 +70,12 @@ export const applyBridgeStatusAtom = atom(null, (_get, set, status: BridgeStatus
 
 export const applyChatEventAtom = atom(null, (get, set, event: ChatEvent) => {
   switch (event.type) {
+    case 'agent_start': {
+      set(toolCallsAtom, [])
+      set(errorAtom, null)
+      return
+    }
+
     case 'message_start': {
       if (event.role !== 'assistant') {
         return

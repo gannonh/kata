@@ -46,10 +46,12 @@ export class PiAgentBridge extends EventEmitter {
   private shuttingDown = false
   private resolvedCommand: string | null = null
   private status: BridgeLifecycleState = 'shutdown'
+  private startPromise: Promise<void> | null = null
 
   constructor(
     private readonly workspacePath: string,
     private readonly commandHint = 'kata',
+    private readonly commandTimeoutMs = 30_000,
   ) {
     super()
   }
@@ -76,6 +78,20 @@ export class PiAgentBridge extends EventEmitter {
       return
     }
 
+    if (this.startPromise) {
+      return this.startPromise
+    }
+
+    this.startPromise = this.startInternal()
+
+    try {
+      await this.startPromise
+    } finally {
+      this.startPromise = null
+    }
+  }
+
+  private async startInternal(): Promise<void> {
     this.shuttingDown = false
     this.stderrLines.length = 0
 
@@ -233,14 +249,26 @@ export class PiAgentBridge extends EventEmitter {
     const payload = { ...command, id }
 
     return new Promise<CommandResult>((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        this.pending.delete(id)
+        reject(new Error(`RPC command timed out: ${command.type}`))
+      }, this.commandTimeoutMs)
+
       this.pending.set(id, {
         command: command.type,
-        resolve,
-        reject,
+        resolve: (value) => {
+          clearTimeout(timeoutId)
+          resolve(value)
+        },
+        reject: (error) => {
+          clearTimeout(timeoutId)
+          reject(error)
+        },
       })
 
       child.stdin.write(`${JSON.stringify(payload)}\n`, (error) => {
         if (error) {
+          clearTimeout(timeoutId)
           this.pending.delete(id)
           reject(error)
         }
@@ -284,7 +312,17 @@ export class PiAgentBridge extends EventEmitter {
     const exited = await this.waitForExit(timeoutMs)
     if (!exited && this.child && !this.child.killed) {
       this.child.kill('SIGTERM')
-      await this.waitForExit(timeoutMs)
+      const exitedAfterTerm = await this.waitForExit(timeoutMs)
+
+      if (!exitedAfterTerm && this.child && !this.child.killed && this.child.exitCode === null) {
+        log.warn('[PiAgentBridge] SIGTERM ignored, escalating to SIGKILL')
+        this.child.kill('SIGKILL')
+
+        const exitedAfterKill = await this.waitForExit(Math.min(timeoutMs, 500))
+        if (!exitedAfterKill) {
+          log.error('[PiAgentBridge] subprocess did not exit after SIGKILL')
+        }
+      }
     }
   }
 
@@ -294,13 +332,14 @@ export class PiAgentBridge extends EventEmitter {
       return fromEnv
     }
 
-    const whichResult = spawnSync('which', [this.commandHint], {
+    const lookupCommand = process.platform === 'win32' ? 'where' : 'which'
+    const whichResult = spawnSync(lookupCommand, [this.commandHint], {
       stdio: 'pipe',
       encoding: 'utf8',
     })
 
     if (whichResult.status === 0) {
-      const discovered = whichResult.stdout.trim()
+      const discovered = whichResult.stdout.trim().split(/\r?\n/)[0]?.trim()
       if (discovered) {
         return discovered
       }

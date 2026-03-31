@@ -7,7 +7,8 @@ interface ToolCallCardProps {
 
 function formatJson(value: unknown): string {
   try {
-    return JSON.stringify(value, null, 2)
+    const serialized = JSON.stringify(value, null, 2)
+    return serialized ?? String(value)
   } catch {
     return String(value)
   }

@@ -61,11 +61,13 @@ export function ChatPanel() {
   const inputDisabled = isStreaming || !bridgeAvailable
   const stopDisabled = !isStreaming || !bridgeAvailable
   const errorMessage = error ?? bridgeStatus.message ?? null
+  const errorTitle = bridgeStatus.state === 'crashed' ? 'Agent process crashed' : 'Agent error'
 
   return (
     <div className="flex h-[calc(100%-3.5rem)] flex-col">
       {errorMessage && (
         <ErrorBanner
+          title={errorTitle}
           message={errorMessage}
           onRestart={bridgeStatus.state !== 'spawning' ? () => window.api.restartAgent() : undefined}
         />
@@ -80,7 +82,16 @@ export function ChatPanel() {
         stopDisabled={stopDisabled}
         onSubmit={async (value) => {
           appendUserMessage(value)
-          await window.api.sendMessage(value)
+
+          try {
+            await window.api.sendMessage(value)
+          } catch (sendError) {
+            const message = sendError instanceof Error ? sendError.message : String(sendError)
+            applyChatEvent({
+              type: 'agent_error',
+              message,
+            })
+          }
         }}
         onStop={async () => {
           await window.api.stopAgent()

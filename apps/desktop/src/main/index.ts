@@ -6,6 +6,7 @@ import { registerSessionIpc } from './ipc'
 
 let mainWindow: BrowserWindow | null = null
 let bridge: PiAgentBridge | null = null
+let unregisterSessionIpc: (() => void) | null = null
 
 function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
@@ -39,9 +40,11 @@ app.whenReady().then(() => {
   bridge = new PiAgentBridge(workspacePath)
   mainWindow = createWindow()
 
-  registerSessionIpc({ bridge, window: mainWindow })
+  unregisterSessionIpc = registerSessionIpc({ bridge, window: mainWindow })
 
   mainWindow.on('closed', () => {
+    unregisterSessionIpc?.()
+    unregisterSessionIpc = null
     mainWindow = null
   })
 
