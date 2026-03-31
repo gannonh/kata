@@ -185,9 +185,21 @@ fn build_tracker_adapter(tracker_config: &TrackerConfig) -> Box<dyn TrackerAdapt
         let token = tracker_config
             .api_key
             .as_deref()
+            .map(str::trim)
+            .filter(|v| !v.is_empty())
             .map(str::to_string)
-            .or_else(|| std::env::var("GH_TOKEN").ok())
-            .or_else(|| std::env::var("GITHUB_TOKEN").ok())
+            .or_else(|| {
+                std::env::var("GH_TOKEN")
+                    .ok()
+                    .map(|v| v.trim().to_string())
+                    .filter(|v| !v.is_empty())
+            })
+            .or_else(|| {
+                std::env::var("GITHUB_TOKEN")
+                    .ok()
+                    .map(|v| v.trim().to_string())
+                    .filter(|v| !v.is_empty())
+            })
             .unwrap_or_else(|| {
                 tracing::warn!(
                     "no GitHub token found for inter-turn refresh; requests will likely fail"
