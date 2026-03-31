@@ -9,7 +9,6 @@ use std::time::Duration;
 
 use crate::codex::app_server;
 use crate::config;
-use crate::linear::adapter::TrackerAdapter;
 use crate::domain::{
     AgentBackend, AgentEvent, CodexConfig, CodexTotals, CompletedEntry, ContextEntry, ContextScope,
     EscalationRequest, EscalationResponse, EventKind, EventSeverity, HooksConfig, Issue,
@@ -20,6 +19,7 @@ use crate::domain::{
 };
 use crate::error::{Result, SymphonyError};
 use crate::event_stream::EventHub;
+use crate::linear::adapter::TrackerAdapter;
 use crate::notifications;
 use crate::pi_agent::rpc_bridge;
 use crate::session_summary::{compact_session_id, normalize_whitespace, truncate_for_display};
@@ -189,14 +189,8 @@ fn build_tracker_adapter(tracker_config: &TrackerConfig) -> Box<dyn TrackerAdapt
             .or_else(|| std::env::var("GH_TOKEN").ok())
             .or_else(|| std::env::var("GITHUB_TOKEN").ok())
             .unwrap_or_default();
-        let repo_owner = tracker_config
-            .repo_owner
-            .clone()
-            .unwrap_or_default();
-        let repo_name = tracker_config
-            .repo_name
-            .clone()
-            .unwrap_or_default();
+        let repo_owner = tracker_config.repo_owner.clone().unwrap_or_default();
+        let repo_name = tracker_config.repo_name.clone().unwrap_or_default();
         let label_prefix = tracker_config
             .label_prefix
             .clone()
@@ -206,7 +200,9 @@ fn build_tracker_adapter(tracker_config: &TrackerConfig) -> Box<dyn TrackerAdapt
     } else {
         use crate::linear::adapter::LinearAdapter;
         use crate::linear::client::LinearClient;
-        Box::new(LinearAdapter::new(LinearClient::new(tracker_config.clone())))
+        Box::new(LinearAdapter::new(LinearClient::new(
+            tracker_config.clone(),
+        )))
     }
 }
 
