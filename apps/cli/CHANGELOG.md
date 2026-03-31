@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.15.1
+
+### Bug Fixes
+
+- **Fix `/export` command failing with ENOENT** — The HTML export template (`template.html` and related assets) from `pi-coding-agent` was not being copied into `pkg/dist/core/export-html/` during build. Added `copy-export-html` build step so the export templates are included in published packages.
+- **Ignore exported session HTML files** — Added `kata-session-*.html` to `.gitignore` so session exports don't get committed.
+
 ## 0.15.0
 
 ### Features
