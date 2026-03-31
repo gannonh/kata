@@ -81,7 +81,7 @@
     "@typescript-eslint/eslint-plugin": "^8.57.1",
     "@typescript-eslint/parser": "^8.57.1",
     "@vitejs/plugin-react": "^6.0.1",
-    "agentation": "^2.3.0",
+    "agentation": "^3.0.2",
     "autoprefixer": "^10.4.23",
     "concurrently": "^9.2.1",
     "electron": "^41.0.3",
