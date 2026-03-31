@@ -88,7 +88,7 @@
     },
     "apps/cli": {
       "name": "@kata-sh/cli",
-      "version": "0.13.0",
+      "version": "0.15.0",
       "bin": {
         "kata": "dist/loader.js",
         "kata-cli": "dist/loader.js",
