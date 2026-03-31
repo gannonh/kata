@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events'
 import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import readline from 'node:readline'
-import log from 'electron-log/main'
+import log from './logger'
 import {
   type BridgeLifecycleState,
   type BridgeState,

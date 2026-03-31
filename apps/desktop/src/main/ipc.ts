@@ -1,5 +1,5 @@
 import { ipcMain, type BrowserWindow } from 'electron'
-import log from 'electron-log/main'
+import log from './logger'
 import { PiAgentBridge } from './pi-agent-bridge'
 import { RpcEventAdapter } from './rpc-event-adapter'
 import { IPC_CHANNELS, type BridgeStatusEvent, type ChatEvent } from '../shared/types'

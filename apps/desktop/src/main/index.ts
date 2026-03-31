@@ -1,6 +1,6 @@
 import path from 'node:path'
 import { app, BrowserWindow } from 'electron'
-import log from 'electron-log/main'
+import log from './logger'
 import { PiAgentBridge } from './pi-agent-bridge'
 import { registerSessionIpc } from './ipc'
 
