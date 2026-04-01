@@ -221,7 +221,7 @@ export interface UnknownToolArgs {
 export type ToolArgs = EditArgs | BashArgs | ReadArgs | WriteArgs | UnknownToolArgs
 
 export interface EditResult {
-  path: string
+  path?: string
   diff: string
   linesAdded: number
   linesRemoved: number
@@ -241,7 +241,7 @@ export interface BashResult {
 }
 
 export interface ReadResult {
-  path: string
+  path?: string
   content: string
   language: string
   totalLines: number
@@ -250,7 +250,7 @@ export interface ReadResult {
 }
 
 export interface WriteResult {
-  path: string
+  path?: string
   content: string
   bytesWritten: number
   raw?: unknown

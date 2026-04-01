@@ -276,7 +276,7 @@ export class RpcEventAdapter {
     const argRecord = asRecord(args)
     const resultRecord = asRecord(result)
 
-    const path = asString(resultRecord?.path) ?? asString(argRecord?.path) ?? 'unknown-file'
+    const path = asString(resultRecord?.path) ?? asString(argRecord?.path)
     const diff = asString(resultRecord?.diff) ?? asString(resultRecord?.content) ?? ''
 
     const { additions, deletions } = diff ? countDiffLines(diff) : countFromEdits(toEditsArray(argRecord?.edits))
@@ -322,7 +322,7 @@ export class RpcEventAdapter {
     const argRecord = asRecord(args)
     const resultRecord = asRecord(result)
 
-    const path = asString(resultRecord?.path) ?? asString(argRecord?.path) ?? 'unknown-file'
+    const path = asString(resultRecord?.path) ?? asString(argRecord?.path)
     const content =
       asString(resultRecord?.content) ??
       asString(resultRecord?.text) ??
@@ -347,7 +347,7 @@ export class RpcEventAdapter {
     return {
       path,
       content,
-      language: detectLanguage(path),
+      language: path ? detectLanguage(path) : 'text',
       totalLines,
       truncated,
       raw: result,
@@ -358,7 +358,7 @@ export class RpcEventAdapter {
     const argRecord = asRecord(args)
     const resultRecord = asRecord(result)
 
-    const path = asString(resultRecord?.path) ?? asString(argRecord?.path) ?? 'unknown-file'
+    const path = asString(resultRecord?.path) ?? asString(argRecord?.path)
     const content = asString(resultRecord?.content) ?? asString(argRecord?.content) ?? ''
 
     return {
