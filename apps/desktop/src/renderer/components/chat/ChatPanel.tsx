@@ -10,6 +10,7 @@ import {
   messagesAtom,
   toolCallsAtom,
 } from '@/atoms/chat'
+import { refreshSessionListAtom } from '@/atoms/session'
 import { ErrorBanner } from './ErrorBanner'
 import { ExtensionUIHandler } from './ExtensionUIHandler'
 import { MessageInput } from './MessageInput'
@@ -26,12 +27,17 @@ export function ChatPanel() {
   const appendUserMessage = useSetAtom(appendUserMessageAtom)
   const applyChatEvent = useSetAtom(applyChatEventAtom)
   const applyBridgeStatus = useSetAtom(applyBridgeStatusAtom)
+  const refreshSessions = useSetAtom(refreshSessionListAtom)
 
   const scrollRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     const unsubscribeChatEvents = window.api.onChatEvent((event) => {
       applyChatEvent(event)
+
+      if (event.type === 'agent_end') {
+        void refreshSessions()
+      }
     })
 
     const unsubscribeBridgeStatus = window.api.onBridgeStatus((status) => {
@@ -50,7 +56,7 @@ export function ChatPanel() {
       unsubscribeChatEvents()
       unsubscribeBridgeStatus()
     }
-  }, [applyBridgeStatus, applyChatEvent])
+  }, [applyBridgeStatus, applyChatEvent, refreshSessions])
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -66,7 +72,7 @@ export function ChatPanel() {
   const errorTitle = bridgeStatus.state === 'crashed' ? 'Agent process crashed' : 'Agent error'
 
   return (
-    <div className="relative flex h-[calc(100%-3.5rem)] flex-col">
+    <div className="relative flex h-full min-h-0 flex-col">
       <ExtensionUIHandler />
 
       {errorMessage && (
