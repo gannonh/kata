@@ -16,6 +16,8 @@ async function waitFor(condition: () => boolean, timeoutMs = 1_500): Promise<voi
 
 describe('PiAgentBridge', () => {
   test('marks bridge as crashed and allows restart attempts after spawn error', async () => {
+    const savedBinPath = process.env.KATA_BIN_PATH
+    delete process.env.KATA_BIN_PATH
     const bridge = new PiAgentBridge(process.cwd(), 'kata-command-that-does-not-exist')
     const statusHistory: string[] = []
 
@@ -36,9 +38,12 @@ describe('PiAgentBridge', () => {
 
     expect(bridge.getState().running).toBe(false)
     expect(bridge.getState().status).toBe('crashed')
+    if (savedBinPath !== undefined) process.env.KATA_BIN_PATH = savedBinPath
   })
 
   test('coalesces concurrent start calls into a single spawn attempt', async () => {
+    const savedBinPath = process.env.KATA_BIN_PATH
+    delete process.env.KATA_BIN_PATH
     const bridge = new PiAgentBridge(process.cwd(), 'kata-command-that-does-not-exist')
     const statusHistory: string[] = []
 
@@ -52,6 +57,7 @@ describe('PiAgentBridge', () => {
     expect(statusHistory.filter((state) => state === 'crashed').length).toBe(1)
     expect(bridge.getState().running).toBe(false)
     expect(bridge.getState().status).toBe('crashed')
+    if (savedBinPath !== undefined) process.env.KATA_BIN_PATH = savedBinPath
   })
 
   test('resolves oldest pending command when response id is omitted', () => {
