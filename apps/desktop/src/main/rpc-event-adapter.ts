@@ -327,6 +327,8 @@ export class RpcEventAdapter {
       asString(resultRecord?.content) ??
       asString(resultRecord?.text) ??
       asString(asRecord(resultRecord?.file)?.content) ??
+      // Handle CLI's content array format: {content: [{type: "text", text: "..."}]}
+      extractTextFromContentArray(resultRecord?.content) ??
       stringifyField(result) ??
       ''
 
@@ -543,6 +545,28 @@ export class RpcEventAdapter {
 
     return 'Unknown extension error'
   }
+}
+
+/**
+ * Extract text from a Claude-style content array: [{type: "text", text: "..."}]
+ * The CLI wraps tool results in this format.
+ */
+function extractTextFromContentArray(value: unknown): string | undefined {
+  if (!Array.isArray(value)) {
+    return undefined
+  }
+
+  const texts: string[] = []
+  for (const item of value) {
+    if (item && typeof item === 'object') {
+      const block = item as Record<string, unknown>
+      if (block.type === 'text' && typeof block.text === 'string') {
+        texts.push(block.text)
+      }
+    }
+  }
+
+  return texts.length > 0 ? texts.join('\n') : undefined
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
