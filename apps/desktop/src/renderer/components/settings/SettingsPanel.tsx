@@ -33,7 +33,7 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="h-[min(48rem,90vh)] w-[min(70rem,95vw)] max-w-[min(70rem,95vw)] gap-0 overflow-hidden p-0"
+        className="h-[min(48rem,90vh)] w-[min(70rem,95vw)] max-w-[min(70rem,95vw)] sm:max-w-[min(70rem,95vw)] gap-0 overflow-hidden p-0"
       >
         <DialogHeader className="px-5 py-4">
           <div className="flex items-start justify-between gap-4">
