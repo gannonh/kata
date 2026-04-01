@@ -6,6 +6,7 @@ import { AuthBridge } from './auth-bridge'
 import log from './logger'
 import { PiAgentBridge } from './pi-agent-bridge'
 import { registerSessionIpc } from './ipc'
+import { DesktopSessionManager } from './session-manager'
 
 const SETTINGS_PATH = path.join(homedir(), '.kata-cli', 'agent', 'settings.json')
 
@@ -39,27 +40,63 @@ function createWindow(): BrowserWindow {
   return window
 }
 
-async function loadPersistedModel(): Promise<string | null> {
+async function isDirectory(targetPath: string): Promise<boolean> {
+  try {
+    const stat = await fs.stat(targetPath)
+    return stat.isDirectory()
+  } catch {
+    return false
+  }
+}
+
+async function readSettings(): Promise<Record<string, unknown>> {
   try {
     const raw = await fs.readFile(SETTINGS_PATH, 'utf8')
     if (!raw.trim()) {
-      return null
+      return {}
     }
 
-    const parsed = JSON.parse(raw) as Record<string, unknown>
-    const model = parsed.model
-    return typeof model === 'string' && model.trim() ? model.trim() : null
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {}
   } catch (error) {
-    if (typeof error === 'object' && error !== null && 'code' in error && (error as { code?: string }).code === 'ENOENT') {
-      return null
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error as { code?: string }).code === 'ENOENT'
+    ) {
+      return {}
     }
 
-    log.warn('[desktop-main] failed to read settings model', {
+    log.warn('[desktop-main] failed to read settings', {
       path: SETTINGS_PATH,
       error: error instanceof Error ? error.message : String(error),
     })
-    return null
+    return {}
   }
+}
+
+async function writeSettings(updates: Record<string, unknown>): Promise<void> {
+  const settingsDir = path.dirname(SETTINGS_PATH)
+  await fs.mkdir(settingsDir, { recursive: true })
+
+  const current = await readSettings()
+  const next = {
+    ...current,
+    ...updates,
+  }
+
+  const tempPath = `${SETTINGS_PATH}.${process.pid}.${Date.now()}.tmp`
+  await fs.writeFile(tempPath, `${JSON.stringify(next, null, 2)}\n`, { mode: 0o600 })
+  await fs.rename(tempPath, SETTINGS_PATH)
+}
+
+async function loadPersistedModel(): Promise<string | null> {
+  const settings = await readSettings()
+  const model = settings.model
+  return typeof model === 'string' && model.trim() ? model.trim() : null
 }
 
 async function persistSelectedModel(model: string): Promise<void> {
@@ -68,32 +105,7 @@ async function persistSelectedModel(model: string): Promise<void> {
     return
   }
 
-  const settingsDir = path.dirname(SETTINGS_PATH)
-  await fs.mkdir(settingsDir, { recursive: true })
-
-  let current: Record<string, unknown> = {}
-  try {
-    const raw = await fs.readFile(SETTINGS_PATH, 'utf8')
-    if (raw.trim()) {
-      const parsed = JSON.parse(raw)
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        current = parsed as Record<string, unknown>
-      }
-    }
-  } catch (error) {
-    if (!(typeof error === 'object' && error !== null && 'code' in error && (error as { code?: string }).code === 'ENOENT')) {
-      throw error
-    }
-  }
-
-  const next = {
-    ...current,
-    model: trimmedModel,
-  }
-
-  const tempPath = `${SETTINGS_PATH}.${process.pid}.${Date.now()}.tmp`
-  await fs.writeFile(tempPath, `${JSON.stringify(next, null, 2)}\n`, { mode: 0o600 })
-  await fs.rename(tempPath, SETTINGS_PATH)
+  await writeSettings({ model: trimmedModel })
 
   log.info('[desktop-main] persisted model preference', {
     model: trimmedModel,
@@ -101,19 +113,66 @@ async function persistSelectedModel(model: string): Promise<void> {
   })
 }
 
+async function resolveInitialWorkspacePath(): Promise<string> {
+  const fallback = homedir()
+  const envWorkspacePath = process.env.KATA_WORKSPACE_PATH?.trim()
+
+  if (envWorkspacePath) {
+    const resolvedEnvPath = path.resolve(envWorkspacePath)
+    if (await isDirectory(resolvedEnvPath)) {
+      return resolvedEnvPath
+    }
+
+    log.warn('[desktop-main] KATA_WORKSPACE_PATH is not a directory, falling back', {
+      value: resolvedEnvPath,
+      fallback,
+    })
+  }
+
+  const settings = await readSettings()
+  const storedWorkspace = settings.lastWorkingDirectory
+
+  if (typeof storedWorkspace === 'string' && storedWorkspace.trim()) {
+    const resolvedStoredPath = path.resolve(storedWorkspace)
+    if (await isDirectory(resolvedStoredPath)) {
+      return resolvedStoredPath
+    }
+
+    log.warn('[desktop-main] stored workspace is missing, falling back to home directory', {
+      storedWorkspace: resolvedStoredPath,
+      fallback,
+    })
+  }
+
+  return fallback
+}
+
+async function persistWorkspacePath(workspacePath: string): Promise<void> {
+  const resolvedPath = path.resolve(workspacePath)
+  await writeSettings({ lastWorkingDirectory: resolvedPath })
+
+  log.info('[desktop-main] persisted workspace preference', {
+    workspacePath: resolvedPath,
+    path: SETTINGS_PATH,
+  })
+}
+
 app.whenReady().then(async () => {
-  const workspacePath = process.env.KATA_WORKSPACE_PATH || process.cwd()
+  const workspacePath = await resolveInitialWorkspacePath()
   const persistedModel = await loadPersistedModel()
 
   bridge = new PiAgentBridge(workspacePath, 'kata', 30_000, persistedModel)
   const authBridge = new AuthBridge()
+  const sessionManager = new DesktopSessionManager()
   mainWindow = createWindow()
 
   unregisterSessionIpc = registerSessionIpc({
     bridge,
     authBridge,
+    sessionManager,
     window: mainWindow,
     onModelSelected: persistSelectedModel,
+    onWorkspaceSelected: persistWorkspacePath,
   })
 
   mainWindow.on('closed', () => {

@@ -13,9 +13,10 @@ Fresh Electron shell for Kata Desktop.
 
 - `src/main/pi-agent-bridge.ts` — spawn/lifecycle + JSONL command/event bridge
 - `src/main/rpc-event-adapter.ts` — maps RPC events to renderer chat events
-- `src/main/ipc.ts` — `session:send`, `session:stop`, `session:events`
+- `src/main/ipc.ts` — session/chat/auth/workspace IPC handlers (`session:list`, `session:new`, `workspace:set`, etc.)
+- `src/main/session-manager.ts` — reads `~/.kata-cli/sessions/*.jsonl` and derives sidebar metadata
 - `src/shared/types.ts` — cross-process IPC and chat event contracts
-- `src/renderer/components/` — app shell + chat UI
+- `src/renderer/components/` — app shell + chat UI (`SessionSidebar`, `WorkspaceIndicator`)
 
 ## Guardrails
 

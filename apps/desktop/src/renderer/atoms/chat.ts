@@ -58,6 +58,13 @@ export const appendUserMessageAtom = atom(null, (get, set, content: string) => {
   ])
 })
 
+export const resetChatStateAtom = atom(null, (_get, set) => {
+  set(messagesAtom, [])
+  set(toolCallsAtom, [])
+  set(isStreamingAtom, false)
+  set(errorAtom, null)
+})
+
 export const applyBridgeStatusAtom = atom(null, (_get, set, status: BridgeStatusEvent) => {
   set(bridgeStatusAtom, {
     state: status.state,
