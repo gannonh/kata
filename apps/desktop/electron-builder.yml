@@ -19,14 +19,8 @@ extraMetadata:
 
 publish: null
 
-extraResources:
-  - from: vendor/kata
-    to: kata
-  - from: vendor/kata-runtime
-    to: kata-runtime
-  - from: vendor/bun
-    to: bun
-
+# Runtime resources (kata, kata-runtime, bun) are copied into
+# Contents/Resources by scripts/package-mac.sh before --prepackaged DMG creation.
 mac:
   category: public.app-category.developer-tools
   icon: ../electron/resources/AppIcon.icns

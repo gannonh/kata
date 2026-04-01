@@ -115,14 +115,15 @@ export class PiAgentBridge extends EventEmitter {
     this.shuttingDown = false
     this.stderrLines.length = 0
 
-    const discovery = this.discoverBinary()
+    const isPackaged = this.isElectronPackaged()
+    const discovery = this.discoverBinary(isPackaged)
     this.resolvedCommand = discovery.resolvedPath
 
     log.info('[PiAgentBridge] binary discovery', {
       source: discovery.source,
       path: discovery.resolvedPath,
       checkedPaths: discovery.checkedPaths,
-      isPackaged: app.isPackaged,
+      isPackaged,
     })
 
     this.emit('debug', {
@@ -130,7 +131,7 @@ export class PiAgentBridge extends EventEmitter {
       source: discovery.source,
       path: discovery.resolvedPath,
       checkedPaths: discovery.checkedPaths,
-      isPackaged: app.isPackaged,
+      isPackaged,
     })
 
     if (discovery.source === 'not_found' || !discovery.resolvedPath) {
@@ -487,10 +488,10 @@ export class PiAgentBridge extends EventEmitter {
     })
   }
 
-  private discoverBinary(): BinaryDiscoveryResult {
+  private discoverBinary(isPackaged: boolean): BinaryDiscoveryResult {
     const checkedPaths: string[] = []
 
-    if (app.isPackaged) {
+    if (isPackaged) {
       const bundledPath = path.join(process.resourcesPath, 'kata')
       checkedPaths.push(bundledPath)
       if (this.isExecutableFile(bundledPath)) {
@@ -512,6 +513,14 @@ export class PiAgentBridge extends EventEmitter {
           checkedPaths,
         }
       }
+
+      log.warn('[PiAgentBridge] KATA_BIN_PATH is set but not executable, falling back to PATH lookup', {
+        fromEnv,
+      })
+      this.emit('debug', {
+        type: 'bridge:binary-discovery-env-not-executable',
+        fromEnv,
+      })
     }
 
     const lookupCommand = process.platform === 'win32' ? 'where' : 'which'
@@ -538,6 +547,10 @@ export class PiAgentBridge extends EventEmitter {
       resolvedPath: null,
       checkedPaths,
     }
+  }
+
+  private isElectronPackaged(): boolean {
+    return Boolean(app?.isPackaged)
   }
 
   private isExecutableFile(filePath: string): boolean {
