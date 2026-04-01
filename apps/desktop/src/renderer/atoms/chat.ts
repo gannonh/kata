@@ -22,6 +22,8 @@ export interface ChatMessageView {
   role: 'user' | 'assistant'
   content: string
   streaming: boolean
+  thinking?: string    // accumulated thinking text; undefined until first thinking_delta
+  isThinking: boolean  // true while thinking_delta stream is open
 }
 
 export interface BridgeStatusView {
@@ -54,6 +56,7 @@ export const appendUserMessageAtom = atom(null, (get, set, content: string) => {
       role: 'user',
       content: trimmed,
       streaming: false,
+      isThinking: false,
     },
   ])
 })
@@ -105,6 +108,7 @@ export const applyChatEventAtom = atom(null, (get, set, event: ChatEvent) => {
           role: 'assistant',
           content: '',
           streaming: true,
+          isThinking: false,
         },
       ])
       set(isStreamingAtom, true)
@@ -137,6 +141,7 @@ export const applyChatEventAtom = atom(null, (get, set, event: ChatEvent) => {
             role: 'assistant',
             content: event.delta,
             streaming: true,
+            isThinking: false,
           },
         ])
       }

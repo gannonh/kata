@@ -351,6 +351,9 @@ export type ChatEvent =
       signal: NodeJS.Signals | null
       stderrLines: string[]
     }
+  | { type: 'thinking_start'; messageId: string }
+  | { type: 'thinking_delta'; messageId: string; delta: string }
+  | { type: 'thinking_end'; messageId: string; content: string }
 
 export interface BridgeState {
   running: boolean
