@@ -899,6 +899,12 @@ pub async fn run_turn_with_followups(
                             None
                         };
 
+                        // Pi-agent retries transient API errors (connection errors,
+                        // overloaded, etc.) internally. A message_end with
+                        // stopReason="error" is NOT terminal — the agent will
+                        // retry and continue. Only agent_end signals a true
+                        // session end. Log the error and emit a TurnEndedWithError
+                        // notification, but keep the read loop alive.
                         tracing::warn!(
                             event = "turn_error_detected",
                             issue_id = %handle.issue_id,
@@ -906,7 +912,8 @@ pub async fn run_turn_with_followups(
                             error_type = %stop_reason,
                             message = %message_preview,
                             retry_after_ms,
-                            "pi-agent turn ended with stopReason=error"
+                            "pi-agent message ended with stopReason=error; \
+                             continuing read loop (agent retries internally)"
                         );
 
                         if has_rate_limit_hint(&error_text) {
@@ -920,15 +927,16 @@ pub async fn run_turn_with_followups(
                             );
                         }
 
-                        let failed = AgentEvent::TurnFailed {
+                        let error_event = AgentEvent::TurnEndedWithError {
                             timestamp: Utc::now(),
                             codex_app_server_pid: handle.pid.clone(),
                             turn_id: turn_id.clone(),
-                            error: error_text.clone(),
+                            error: error_text,
                         };
-                        event_callback(failed.clone());
-                        events.push(failed);
-                        return Err(SymphonyError::TurnFailed(error_text));
+                        event_callback(error_event.clone());
+                        events.push(error_event);
+                        // Do NOT return — let the loop continue so pi-agent
+                        // can retry the API call internally.
                     }
                 }
             }
