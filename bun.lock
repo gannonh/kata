@@ -88,7 +88,7 @@
     },
     "apps/cli": {
       "name": "@kata-sh/cli",
-      "version": "0.15.0",
+      "version": "0.15.1",
       "bin": {
         "kata": "dist/loader.js",
         "kata-cli": "dist/loader.js",
@@ -134,15 +134,8 @@
     "apps/desktop": {
       "name": "@kata/desktop",
       "version": "0.0.0",
-      "dependencies": {
-        "@radix-ui/react-collapsible": "^1.1.12",
-        "electron-log": "^5.4.3",
-        "jotai": "^2.16.0",
-        "react": "^19.1.0",
-        "react-dom": "^19.1.0",
-        "react-resizable-panels": "^4.6.3",
-      },
       "devDependencies": {
+        "@radix-ui/react-collapsible": "^1.1.12",
         "@tailwindcss/vite": "^4.1.18",
         "@types/node": "^25.0.8",
         "@types/react": "^19.1.0",
@@ -150,7 +143,13 @@
         "@vitejs/plugin-react": "^6.0.1",
         "concurrently": "^9.2.1",
         "electron": "^41.0.3",
+        "electron-builder": "^26.0.12",
+        "electron-log": "^5.4.3",
         "esbuild": "^0.27.4",
+        "jotai": "^2.16.0",
+        "react": "^19.1.0",
+        "react-dom": "^19.1.0",
+        "react-resizable-panels": "^4.6.3",
         "tailwindcss": "^4.1.18",
         "typescript": "^5.9.0",
         "vite": "^8.0.2",
