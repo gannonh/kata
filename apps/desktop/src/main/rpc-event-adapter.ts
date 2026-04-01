@@ -216,14 +216,14 @@ export class RpcEventAdapter {
 
       case 'read':
         return {
-          path: asString(argRecord?.path) ?? 'unknown-file',
+          path: asString(argRecord?.path) ?? asString(argRecord?.file_path) ?? asString(argRecord?.filePath) ?? (typeof args === 'string' ? args : 'unknown-file'),
           offset: asNumber(argRecord?.offset),
           limit: asNumber(argRecord?.limit),
         } satisfies ReadArgs
 
       case 'write':
         return {
-          path: asString(argRecord?.path) ?? 'unknown-file',
+          path: asString(argRecord?.path) ?? asString(argRecord?.file_path) ?? asString(argRecord?.filePath) ?? (typeof args === 'string' ? args : 'unknown-file'),
           content: asString(argRecord?.content) ?? '',
         } satisfies WriteArgs
 
