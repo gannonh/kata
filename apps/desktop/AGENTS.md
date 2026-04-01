@@ -93,7 +93,7 @@ Reference: `apps/cli/src/resources/extensions/linear/` (Linear client), `apps/sy
 - **Shared components:** `packages/ui/` (chat, markdown, code-viewer, terminal)
 - **Diagrams:** `packages/mermaid/` (Mermaid → SVG)
 - **Build:** esbuild (main/preload) + Vite (renderer) + electron-builder (distribution)
-- **Tests:** Bun test (unit), Playwright (e2e)
+- **Tests:** Vitest + v8 coverage (unit), Playwright + `_electron` (e2e), agent-browser + CDP (UAT)
 
 ## Reusable Assets from Legacy Desktop
 
@@ -142,139 +142,121 @@ Borrow patterns and components selectively. **Import from shared packages**, not
 
 See the `DECISIONS` document in Linear for full rationale and revisability notes.
 
-## Automating and Testing the Electron App
+## Testing
 
-Kata Desktop is an Electron app. The renderer runs inside Electron's Chromium shell with a preload bridge (`window.api`) — it **cannot** be tested by opening `http://127.0.0.1:5174` in a standalone browser or Playwright instance. The preload bridge won't exist and every component that touches IPC will crash.
+Three test layers, each with a distinct purpose:
 
-Use **agent-browser** connected to the Electron process via Chrome DevTools Protocol (CDP). This is the only supported way to snapshot, interact with, and screenshot the running app from an agent session.
+| Layer | Tool | Scope | Command |
+|-------|------|-------|---------|
+| Unit | Vitest + v8 coverage | Main process logic (bridge, adapter, auth, sessions, logger) | `bun run test` |
+| E2E | Playwright + `_electron` API | Full Electron app launch, UI structure, onboarding flow | `bun run test:e2e` |
+| UAT | agent-browser + CDP | Interactive acceptance testing with screenshots and reports | Manual / skill-driven |
 
-### Prerequisites
+### Unit Tests (Vitest)
 
-- `agent-browser` installed globally (`npm i -g agent-browser`)
-- The Electron app launched with `--remote-debugging-port=<port>`
+**Config:** `vitest.config.ts` with `@vitest/coverage-v8`.
 
-### Launching for Automation
+**Thresholds:** 90% lines / 80% branches / 90% functions. These are enforced in CI and pre-push.
 
-The standard `desktop:dev` script does NOT enable CDP. Launch the pieces separately:
+**Coverage scope:** All `src/**/*.ts` files are included by default. Exclusions with rationale:
 
+| Excluded | Why |
+|----------|-----|
+| `src/main/index.ts` | Electron entrypoint — requires `app.whenReady()`, `BrowserWindow` |
+| `src/main/ipc.ts` | Coupled to `ipcMain.handle()` — can't import outside Electron |
+| `src/renderer/**` | React UI layer — covered by e2e and future component tests |
+| `src/preload/**` | Runs in Electron's sandboxed preload context |
+| `src/shared/**` | Type definitions only — no runtime logic |
+
+Every new `src/main/*.ts` file is automatically in coverage scope. Do not add files to an include list — if a file needs to be excluded, add it to the exclude list with a comment explaining why.
+
+**Running:**
 ```bash
-# 1. Build main + preload, then start the Vite renderer dev server
-cd apps/desktop
-bun run build:main && bun run build:preload
-bun run dev:renderer  # Starts Vite on http://127.0.0.1:5174
+bun run test                    # Run with coverage (used by CI)
+bun run test:watch              # Watch mode for development
+```
 
-# 2. In a separate terminal (or via bg_shell), launch Electron with CDP enabled
+**Writing tests:**
+- Import from `vitest`, not `bun:test`
+- Test files go in `src/main/__tests__/<module>.test.ts`
+- Test private methods via `(instance as any).methodName()` when the public API doesn't cover the path
+- Tests that modify `process.env.KATA_BIN_PATH` must save and restore it
+
+### E2E Tests (Playwright Electron)
+
+**Config:** `playwright.config.ts` — launches the real Electron app via `_electron.launch()`.
+
+**Headless:** When `KATA_TEST_MODE=1`, the app sets `show: false` on BrowserWindow and skips DevTools. Tests never pop up windows.
+
+**Fixtures** (`e2e/fixtures/electron.fixture.ts`):
+
+| Fixture | What it provides |
+|---------|------------------|
+| `electronApp` | Launched Electron process with isolated `--user-data-dir`. Cleaned up after test. |
+| `mainWindow` | First window, waited for React mount. Onboarding overlay may be visible. |
+| `readyWindow` | Same as `mainWindow` but auto-dismisses onboarding. Use for tests that click behind the overlay. |
+
+**Teardown:** `app.close()` is raced with a 3s timeout + `SIGKILL`. Without this, the kata CLI subprocess shutdown hangs for 30s.
+
+**Test suites:**
+
+| Suite | Tests | What it covers |
+|-------|-------|----------------|
+| `app-launch.e2e.ts` | 7 | Process exists, window title, #root, console errors, viewport, context isolation, test mode |
+| `app-shell.e2e.ts` | 7 | Branding, sidebar, chat input, permission modes, right pane, settings panel + tabs |
+| `onboarding.e2e.ts` | 5 | Welcome step, step navigation, provider cards, full walkthrough, persistence |
+
+**Running:**
+```bash
+bun run build                   # Must build first — e2e loads dist/main.cjs
+bun run test:e2e                # Headless
+bun run test:e2e:headed         # Visible windows for debugging
+```
+
+**Adding tests:**
+- Test files go in `e2e/tests/<feature>.e2e.ts`
+- Import `{ test, expect }` from `../fixtures/electron.fixture`
+- Use `mainWindow` for tests that work with the onboarding overlay present
+- Use `readyWindow` for tests that need to interact with the chat shell behind the overlay
+- Re-build main + preload + renderer before running if source changed
+
+### UAT (agent-browser + CDP)
+
+For interactive acceptance testing and milestone sign-off. See the `kata-desktop-uat` skill (`.agents/skills/kata-desktop-uat/SKILL.md`) for the full workflow. Key points:
+
+The renderer depends on `window.api` — the Electron preload bridge. It **cannot** be tested by opening `http://127.0.0.1:5174` in a standalone browser. You must connect to the actual Electron process via CDP.
+
+**Launch for automation** (the `desktop:dev` script does NOT enable CDP):
+```bash
+# Terminal 1: renderer
+cd apps/desktop && bun run build:main && bun run build:preload && bun run dev:renderer
+
+# Terminal 2: Electron with CDP on port 9333
 VITE_DEV_SERVER_URL=http://127.0.0.1:5174 npx electron . --remote-debugging-port=9333
 ```
 
-Use port **9333** (not 9222, which Chrome often occupies). Confirm the port is free first: `lsof -i :9333`.
-
-For agent sessions, use `bg_shell` to manage both processes:
-
+**Connect and interact:**
 ```bash
-# Start renderer
-bg_shell start "cd apps/desktop && bun run build:main && bun run build:preload && bun run dev:renderer" \
-  --label desktop-renderer --type server --ready-port 5174
-
-# Start Electron with CDP
-bg_shell start "cd apps/desktop && VITE_DEV_SERVER_URL=http://127.0.0.1:5174 npx electron . --remote-debugging-port=9333" \
-  --label desktop-electron --type server --ready-port 9333
+agent-browser --cdp 9333 tab 1          # Switch to app window (index 0 is DevTools)
+agent-browser --cdp 9333 snapshot -i    # Discover elements
+agent-browser --cdp 9333 click @e15     # Interact
+agent-browser --cdp 9333 screenshot /tmp/evidence.png
 ```
 
-### Connecting agent-browser
-
-Electron exposes multiple CDP targets (the main app window and DevTools). You must select the correct one.
-
-```bash
-# List available targets
-agent-browser --cdp 9333 tab
-# Output:
-#   → [0] DevTools - devtools://devtools/bundled/...
-#     [1] Kata Desktop - http://127.0.0.1:5174/
-
-# Switch to the app window (index 1)
-agent-browser --cdp 9333 tab 1
-
-# Now all commands target the Kata Desktop renderer
-```
-
-After switching tabs once, subsequent `--cdp 9333` commands stay on that target.
-
-### Core Workflow: Snapshot → Interact → Re-snapshot
-
-```bash
-# 1. Snapshot interactive elements (returns refs like @e1, @e2, ...)
-agent-browser --cdp 9333 snapshot -i
-
-# 2. Interact using refs
-agent-browser --cdp 9333 click @e15        # e.g. "Get started" button
-agent-browser --cdp 9333 fill @e3 "sk-..."  # Fill an input
-agent-browser --cdp 9333 press Enter
-
-# 3. Re-snapshot after navigation or DOM changes (refs are invalidated)
-agent-browser --cdp 9333 snapshot -i
-
-# 4. Screenshot for visual verification
-agent-browser --cdp 9333 screenshot /tmp/kata-desktop.png
-```
-
-**Important:** Refs (`@e1`, `@e2`) are invalidated whenever the DOM changes (navigation, modal open/close, state transitions). Always re-snapshot after any action that changes the page.
-
-### Common UAT Patterns
-
-**Walk through onboarding:**
-```bash
-agent-browser --cdp 9333 snapshot -i          # See step 1
-agent-browser --cdp 9333 click @e15           # "Get started"
-agent-browser --cdp 9333 snapshot -i          # See step 2 (provider selection)
-agent-browser --cdp 9333 screenshot /tmp/onboarding-step2.png
-```
-
-**Check for errors:**
-```bash
-# Evaluate JS in the Electron renderer context
-agent-browser --cdp 9333 eval 'document.querySelectorAll("[role=alert]").length'
-
-# Get console errors
-agent-browser --cdp 9333 eval 'window.__console_errors || "no error capture"'
-```
-
-**Test chat interaction:**
-```bash
-agent-browser --cdp 9333 snapshot -i
-agent-browser --cdp 9333 fill @e12 "Hello, what can you do?"
-agent-browser --cdp 9333 click @e14           # Send button
-agent-browser --cdp 9333 wait 3000            # Wait for streaming response
-agent-browser --cdp 9333 snapshot -i          # See response
-agent-browser --cdp 9333 screenshot /tmp/chat-response.png
-```
-
-**Full-page screenshot:**
-```bash
-agent-browser --cdp 9333 screenshot --full /tmp/full-page.png
-```
-
-**Annotated screenshot (numbered element labels):**
-```bash
-agent-browser --cdp 9333 screenshot --annotate /tmp/annotated.png
-```
-
-### What NOT to Do
+**UAT reports** go in `docs/uat/<milestone>/` with numbered screenshots and a markdown report.
 
 | ❌ Don't | ✅ Do instead |
 |----------|--------------|
 | Open `http://127.0.0.1:5174` in Playwright or a browser | Use `agent-browser --cdp 9333` to connect to Electron |
-| Use `browser_navigate`, `browser_click`, etc. (Playwright tools) | Use `agent-browser` via `bash` commands |
+| Use `browser_navigate`, `browser_click`, etc. (pi browser tools) | Use `agent-browser` via `bash` commands |
 | Use `mac_screenshot` (requires Screen Recording permission) | Use `agent-browser --cdp 9333 screenshot` |
 | Assume refs persist after clicking/navigating | Always `snapshot -i` again after any DOM change |
 | Launch with `desktop:dev` for automation | Launch renderer + Electron separately with `--remote-debugging-port` |
 
-### Troubleshooting
+### CI Integration
 
-| Problem | Solution |
-|---------|----------|
-| `bind() failed: Address already in use` | Port already taken. Check `lsof -i :9333` and pick a different port |
-| Snapshot shows DevTools elements, not app UI | Run `agent-browser --cdp 9333 tab 1` to switch to the app target |
-| `Connection refused` | Electron not running with `--remote-debugging-port`, or wrong port |
-| Blank/empty snapshot | Electron may still be loading. `agent-browser --cdp 9333 wait 2000` then retry |
-| Cannot type in inputs | Try `agent-browser --cdp 9333 keyboard type "text"` instead of `fill` |
+The `validate` CI job runs `turbo run lint typecheck test --affected`, which executes the Vitest suite with coverage thresholds for `@kata/desktop`. Coverage failures block merge.
+
+E2E tests are not yet in CI (they require Electron + display or xvfb). The legacy `apps/electron` e2e-mocked CI job has been removed — `apps/desktop` supersedes it.
+
+The pre-push git hook runs the same `turbo run lint typecheck test --affected` pipeline locally.
