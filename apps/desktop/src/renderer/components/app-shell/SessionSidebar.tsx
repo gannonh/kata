@@ -3,7 +3,6 @@ import {
   createSessionAtom,
   currentSessionIdAtom,
   refreshSessionListAtom,
-  selectSessionAtom,
   sessionListAtom,
   sessionListErrorAtom,
   sessionListLoadingAtom,
@@ -23,7 +22,6 @@ export function SessionSidebar({ open }: SessionSidebarProps) {
   const warnings = useAtomValue(sessionWarningsAtom)
 
   const createSession = useSetAtom(createSessionAtom)
-  const selectSession = useSetAtom(selectSessionAtom)
   const refreshSessions = useSetAtom(refreshSessionListAtom)
 
   if (!open) {
@@ -56,6 +54,8 @@ export function SessionSidebar({ open }: SessionSidebarProps) {
           </button>
         </div>
 
+        <p className="mt-2 text-[10px] text-slate-500">Session switching is not available yet in Desktop.</p>
+
         {warnings.length > 0 && (
           <p className="mt-2 rounded border border-amber-500/50 bg-amber-500/10 px-2 py-1 text-[10px] text-amber-200">
             {warnings.length} corrupted session file{warnings.length === 1 ? '' : 's'} skipped
@@ -82,7 +82,6 @@ export function SessionSidebar({ open }: SessionSidebarProps) {
               key={session.id}
               session={session}
               isCurrent={session.id === currentSessionId}
-              onSelect={selectSession}
             />
           ))}
         </div>

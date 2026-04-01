@@ -153,18 +153,28 @@ export class DesktopSessionManager {
     try {
       const dirEntries = await fs.readdir(this.sessionsDirectory, { withFileTypes: true })
 
-      entries = await Promise.all(
-        dirEntries
-          .filter((entry) => entry.isFile() && entry.name.endsWith('.jsonl'))
-          .map(async (entry) => {
-            const filePath = path.join(this.sessionsDirectory, entry.name)
-            const stat = await fs.stat(filePath)
-            return {
-              filePath,
-              modified: stat.mtimeMs,
-            }
-          }),
-      )
+      for (const dirEntry of dirEntries) {
+        if (!dirEntry.isFile() || !dirEntry.name.endsWith('.jsonl')) {
+          continue
+        }
+
+        const filePath = path.join(this.sessionsDirectory, dirEntry.name)
+
+        try {
+          const stat = await fs.stat(filePath)
+          entries.push({
+            filePath,
+            modified: stat.mtimeMs,
+          })
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error)
+          warnings.push(`${path.basename(filePath)}: ${message}`)
+          log.warn('[desktop-session-manager] skipped unreadable session file', {
+            path: filePath,
+            error: message,
+          })
+        }
+      }
     } catch (error) {
       if (
         typeof error === 'object' &&

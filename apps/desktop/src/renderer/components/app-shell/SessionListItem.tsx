@@ -3,7 +3,6 @@ import type { SessionListItem as SessionListItemType } from '@shared/types'
 interface SessionListItemProps {
   session: SessionListItemType
   isCurrent: boolean
-  onSelect: (sessionId: string) => void
 }
 
 function formatRelativeTime(value: string): string {
@@ -52,18 +51,16 @@ function sessionModelLabel(session: SessionListItemType): string {
   return 'Unknown model'
 }
 
-export function SessionListItem({ session, isCurrent, onSelect }: SessionListItemProps) {
+export function SessionListItem({ session, isCurrent }: SessionListItemProps) {
   const model = sessionModelLabel(session)
 
   return (
-    <button
-      type="button"
-      onClick={() => onSelect(session.id)}
+    <div
       title={session.title}
-      className={`w-full rounded-md border px-2 py-2 text-left transition ${
+      className={`w-full rounded-md border px-2 py-2 text-left ${
         isCurrent
           ? 'border-sky-500/80 bg-sky-500/15'
-          : 'border-slate-800 bg-slate-900/70 hover:border-slate-700 hover:bg-slate-800/70'
+          : 'border-slate-800 bg-slate-900/70'
       }`}
     >
       <div className="space-y-1.5">
@@ -106,6 +103,6 @@ export function SessionListItem({ session, isCurrent, onSelect }: SessionListIte
           <span>{session.messageCount} msgs</span>
         </div>
       </div>
-    </button>
+    </div>
   )
 }
