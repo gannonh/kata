@@ -56,7 +56,7 @@ export class PiAgentBridge extends EventEmitter {
   private selectedModel: string | null
 
   constructor(
-    private readonly workspacePath: string,
+    private workspacePath: string,
     private readonly commandHint = 'kata',
     private readonly commandTimeoutMs = 30_000,
     initialModel: string | null = null,
@@ -360,6 +360,24 @@ export class PiAgentBridge extends EventEmitter {
 
   public getSelectedModel(): string | null {
     return this.selectedModel
+  }
+
+  public getWorkspacePath(): string {
+    return this.workspacePath
+  }
+
+  public async switchWorkspace(nextWorkspacePath: string): Promise<void> {
+    const normalized = nextWorkspacePath.trim()
+    if (!normalized) {
+      throw new Error('Workspace path is required')
+    }
+
+    if (normalized === this.workspacePath) {
+      return
+    }
+
+    this.workspacePath = normalized
+    await this.restart()
   }
 
   public async restart(): Promise<void> {
