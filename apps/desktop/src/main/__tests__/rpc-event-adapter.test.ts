@@ -417,13 +417,14 @@ describe('RpcEventAdapter', () => {
       },
     ])
 
-    expect(adapter.adapt({ type: 'message_end' })).toEqual([
-      {
-        type: 'message_end',
-        messageId: 'message:unknown',
-        text: undefined,
-      },
-    ])
+    // message_end with no message object generates a unique ID
+    const endEvents = adapter.adapt({ type: 'message_end' })
+    expect(endEvents).toHaveLength(1)
+    expect(endEvents[0]).toMatchObject({
+      type: 'message_end',
+      text: undefined,
+    })
+    expect(typeof (endEvents[0] as Record<string, unknown>).messageId).toBe('string')
   })
 
   test('maps tool_execution_start for bash/read/write/search tools with null-safe args', () => {
@@ -456,7 +457,7 @@ describe('RpcEventAdapter', () => {
       toolCallId: 'tool-read-start',
       toolName: 'read',
       args: {
-        path: 'unknown-file',
+        path: '',
         offset: 10,
         limit: undefined,
       },
@@ -476,7 +477,7 @@ describe('RpcEventAdapter', () => {
       toolCallId: 'tool-write-from-message',
       toolName: 'write',
       args: {
-        path: 'unknown-file',
+        path: '',
         content: '',
       },
     })

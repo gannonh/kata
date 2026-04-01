@@ -92,11 +92,18 @@ export class RpcEventAdapter {
           return []
         }
 
+        // For assistant messages, assign and track a unique ID so that
+        // subsequent text_delta and message_end events can resolve to it
+        // even when the RPC events don't carry an explicit message ID.
+        const messageId = role === 'assistant'
+          ? this.assignAssistantMessageId(event.message as Record<string, unknown>)
+          : this.extractMessageId(event.message)
+
         return [
           {
             type: 'message_start',
             role,
-            messageId: this.extractMessageId(event.message),
+            messageId,
           },
         ]
       }
@@ -110,7 +117,7 @@ export class RpcEventAdapter {
         return [
           {
             type: 'text_delta',
-            messageId: this.extractMessageId(event.message),
+            messageId: this.resolveAssistantMessageId(event.message as Record<string, unknown>),
             delta,
           },
         ]
@@ -127,7 +134,7 @@ export class RpcEventAdapter {
           return [
             {
               type: 'message_end',
-              messageId: this.extractMessageId(message),
+              messageId: this.resolveAssistantMessageId(message),
               text: text || undefined,
             },
             {
@@ -140,7 +147,7 @@ export class RpcEventAdapter {
         return [
           {
             type: 'message_end',
-            messageId: this.extractMessageId(message),
+            messageId: this.resolveAssistantMessageId(message),
             text: text || undefined,
           },
         ]
@@ -210,7 +217,7 @@ export class RpcEventAdapter {
     switch (toolName) {
       case 'edit': {
         const typed: EditArgs = {
-          path: asString(argRecord?.path) ?? 'unknown-file',
+          path: asString(argRecord?.path) ?? '',
         }
 
         if (typeof argRecord?.oldText === 'string') {
@@ -237,14 +244,14 @@ export class RpcEventAdapter {
 
       case 'read':
         return {
-          path: asString(argRecord?.path) ?? asString(argRecord?.file_path) ?? asString(argRecord?.filePath) ?? (typeof args === 'string' ? args : 'unknown-file'),
+          path: asString(argRecord?.path) ?? asString(argRecord?.file_path) ?? asString(argRecord?.filePath) ?? (typeof args === 'string' ? args : ''),
           offset: asNumber(argRecord?.offset),
           limit: asNumber(argRecord?.limit),
         } satisfies ReadArgs
 
       case 'write':
         return {
-          path: asString(argRecord?.path) ?? asString(argRecord?.file_path) ?? asString(argRecord?.filePath) ?? (typeof args === 'string' ? args : 'unknown-file'),
+          path: asString(argRecord?.path) ?? asString(argRecord?.file_path) ?? asString(argRecord?.filePath) ?? (typeof args === 'string' ? args : ''),
           content: asString(argRecord?.content) ?? '',
         } satisfies WriteArgs
 
@@ -481,17 +488,55 @@ export class RpcEventAdapter {
     return undefined
   }
 
+  private messageIdCounter = 0
+  private currentAssistantMessageId: string | null = null
+
   private extractMessageId(message?: Record<string, unknown>): string {
     if (!message) {
-      return 'message:unknown'
+      return `message:${++this.messageIdCounter}`
     }
 
+    // Try explicit id field
     const id = message.id
     if (typeof id === 'string' && id.length > 0) {
       return id
     }
 
-    return 'message:unknown'
+    // Try responseId (set by Anthropic/OpenAI on message_update events)
+    const responseId = message.responseId
+    if (typeof responseId === 'string' && responseId.length > 0) {
+      return responseId
+    }
+
+    // Generate unique ID — critical to prevent messages from different turns
+    // sharing the same ID and overwriting each other's content
+    return `message:${++this.messageIdCounter}`
+  }
+
+  /**
+   * Get the message ID for a message_start event, generating a unique one
+   * and tracking it as the current streaming assistant message.
+   */
+  private assignAssistantMessageId(message?: Record<string, unknown>): string {
+    const extracted = this.extractMessageId(message)
+    this.currentAssistantMessageId = extracted
+    return extracted
+  }
+
+  /**
+   * Get the message ID for text_delta/message_end events.
+   * Falls back to the current streaming assistant message ID when the
+   * event's message doesn't have an ID (common with Anthropic API).
+   */
+  private resolveAssistantMessageId(message?: Record<string, unknown>): string {
+    if (message) {
+      const id = message.id
+      if (typeof id === 'string' && id.length > 0) return id
+      const responseId = message.responseId
+      if (typeof responseId === 'string' && responseId.length > 0) return responseId
+    }
+    // Fall back to the last assigned assistant message ID
+    return this.currentAssistantMessageId ?? `message:${++this.messageIdCounter}`
   }
 
   private extractToolCallId(event: RpcEvent): string {
