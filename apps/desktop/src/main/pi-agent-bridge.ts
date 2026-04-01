@@ -2,8 +2,8 @@ import { EventEmitter } from 'node:events'
 import { accessSync, constants } from 'node:fs'
 import path from 'node:path'
 import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from 'node:child_process'
+import { createRequire } from 'node:module'
 import readline from 'node:readline'
-import { app } from 'electron'
 import log from './logger'
 import {
   type AvailableModel,
@@ -556,7 +556,13 @@ export class PiAgentBridge extends EventEmitter {
   }
 
   private isElectronPackaged(): boolean {
-    return Boolean(app?.isPackaged)
+    try {
+      const require = createRequire(import.meta.url)
+      const electron = require('electron') as { app?: { isPackaged?: boolean } }
+      return Boolean(electron?.app?.isPackaged)
+    } catch {
+      return false
+    }
   }
 
   private isExecutableFile(filePath: string): boolean {

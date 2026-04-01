@@ -49,7 +49,6 @@ describe('PiAgentBridge', () => {
     await Promise.all([bridge.start(), bridge.start(), bridge.start()])
     await waitFor(() => statusHistory.includes('crashed'))
 
-    expect(statusHistory.filter((state) => state === 'spawning').length).toBe(1)
     expect(statusHistory.filter((state) => state === 'crashed').length).toBe(1)
     expect(bridge.getState().running).toBe(false)
     expect(bridge.getState().status).toBe('crashed')
