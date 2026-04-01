@@ -116,14 +116,35 @@ export class RpcEventAdapter {
         ]
       }
 
-      case 'message_end':
+      case 'message_end': {
+        const message = event.message as Record<string, unknown> | undefined
+        const text = this.extractText(message)
+        const errorMessage = typeof message?.errorMessage === 'string' ? message.errorMessage : undefined
+        const stopReason = typeof message?.stopReason === 'string' ? message.stopReason : undefined
+
+        // If the API returned an error (stopReason: "error"), surface it
+        if (stopReason === 'error' && errorMessage) {
+          return [
+            {
+              type: 'message_end',
+              messageId: this.extractMessageId(message),
+              text: text || undefined,
+            },
+            {
+              type: 'agent_error',
+              message: errorMessage,
+            },
+          ]
+        }
+
         return [
           {
             type: 'message_end',
-            messageId: this.extractMessageId(event.message),
-            text: this.extractText(event.message),
+            messageId: this.extractMessageId(message),
+            text: text || undefined,
           },
         ]
+      }
 
       case 'tool_execution_start': {
         const toolName = this.extractToolName(event)
@@ -402,8 +423,10 @@ export class RpcEventAdapter {
       return assistantMessageEvent.text
     }
 
-    const fromMessage = this.extractText(event.message)
-    return fromMessage ?? ''
+    // Don't fall back to extracting full message text — that would inject user message
+    // content or stale assistant content as a text_delta, corrupting the chat stream.
+    // Only actual text_delta events produce deltas.
+    return ''
   }
 
   private extractText(message?: Record<string, unknown>): string | undefined {

@@ -312,15 +312,16 @@ describe('PiAgentBridge additional coverage', () => {
   test('setModel validates input and updates selected model', async () => {
     const bridge = new PiAgentBridge(process.cwd())
 
-    await expect(bridge.setModel('   ')).rejects.toThrow('Model is required')
+    await expect(bridge.setModel('', '   ')).rejects.toThrow('Provider and model ID are required')
+    await expect(bridge.setModel('   ', '')).rejects.toThrow('Provider and model ID are required')
 
     const sendSpy = vi
       .spyOn(bridge, 'send')
       .mockResolvedValue({ command: 'set_model', success: true } as CommandResult)
 
-    await bridge.setModel('  anthropic/claude-sonnet-4-5  ')
+    await bridge.setModel('  anthropic  ', '  claude-sonnet-4-5  ')
 
-    expect(sendSpy).toHaveBeenCalledWith({ type: 'set_model', model: 'anthropic/claude-sonnet-4-5' })
+    expect(sendSpy).toHaveBeenCalledWith({ type: 'set_model', provider: 'anthropic', modelId: 'claude-sonnet-4-5' })
     expect(bridge.getSelectedModel()).toBe('anthropic/claude-sonnet-4-5')
   })
 

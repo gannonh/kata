@@ -365,7 +365,13 @@ export class PiAgentBridge extends EventEmitter {
 
   public async getAvailableModels(): Promise<AvailableModel[]> {
     const result = await this.send({ type: 'get_available_models' })
-    const payload = result.data
+    // The CLI returns { models: [...] } as the data payload
+    const rawPayload = result.data
+    const payload = Array.isArray(rawPayload)
+      ? rawPayload
+      : (rawPayload && typeof rawPayload === 'object' && Array.isArray((rawPayload as Record<string, unknown>).models))
+        ? (rawPayload as Record<string, unknown>).models as unknown[]
+        : null
 
     if (!Array.isArray(payload)) {
       return []
@@ -395,14 +401,15 @@ export class PiAgentBridge extends EventEmitter {
     return models
   }
 
-  public async setModel(model: string): Promise<void> {
-    const trimmed = model.trim()
-    if (!trimmed) {
-      throw new Error('Model is required')
+  public async setModel(provider: string, modelId: string): Promise<void> {
+    const trimmedProvider = provider.trim()
+    const trimmedModel = modelId.trim()
+    if (!trimmedProvider || !trimmedModel) {
+      throw new Error('Provider and model ID are required')
     }
 
-    await this.send({ type: 'set_model', model: trimmed })
-    this.selectedModel = trimmed
+    await this.send({ type: 'set_model', provider: trimmedProvider, modelId: trimmedModel })
+    this.selectedModel = `${trimmedProvider}/${trimmedModel}`
   }
 
   public getSelectedModel(): string | null {

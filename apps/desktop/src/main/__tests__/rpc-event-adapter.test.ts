@@ -373,19 +373,15 @@ describe('RpcEventAdapter', () => {
       },
     ])
 
+    // When assistantMessageEvent is not a text_delta (e.g. tool_result), no text delta
+    // should be produced — falling back to message.text would inject stale/user content
     expect(
       adapter.adapt({
         type: 'message_update',
         message: { id: 'm3', text: 'from message text' },
         assistantMessageEvent: { type: 'tool_result' },
       }),
-    ).toEqual([
-      {
-        type: 'text_delta',
-        messageId: 'm3',
-        delta: 'from message text',
-      },
-    ])
+    ).toEqual([])
 
     expect(
       adapter.adapt({

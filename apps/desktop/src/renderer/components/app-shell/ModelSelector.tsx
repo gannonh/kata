@@ -70,19 +70,13 @@ export function ModelSelector() {
         return
       }
 
-      const first = response.models[0]
-      if (!first) {
-        return
+      // Don't auto-select a model — the CLI subprocess uses its own configured default.
+      // The model selector will show "Select model" until the user explicitly picks one,
+      // and the CLI will use whatever model it's configured with (from settings.json).
+      if (bridgeModel) {
+        // If the bridge already has a model but it's not in our list, just show it anyway
+        setSelectedModel(bridgeModel)
       }
-
-      const fallbackModel = toModelIdentifier(first.provider, first.id)
-      const setResult = await window.api.setModel(fallbackModel)
-      if (!setResult.success) {
-        setError(setResult.error ?? 'Unable to set default model')
-        return
-      }
-
-      setSelectedModel(fallbackModel)
     } catch (refreshError) {
       setError(refreshError instanceof Error ? refreshError.message : String(refreshError))
     } finally {

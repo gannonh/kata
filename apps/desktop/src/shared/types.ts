@@ -165,6 +165,8 @@ export interface RpcCommand {
   id?: string
   message?: string
   model?: string
+  provider?: string
+  modelId?: string
 }
 
 export interface CommandResult {

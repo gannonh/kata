@@ -204,7 +204,11 @@ export function registerSessionIpc({
     }
 
     try {
-      await bridge.setModel(model)
+      // Model comes as "provider/modelId" — split for the CLI's set_model command
+      const slashIndex = model.indexOf('/')
+      const provider = slashIndex > 0 ? model.slice(0, slashIndex) : model
+      const modelId = slashIndex > 0 ? model.slice(slashIndex + 1) : model
+      await bridge.setModel(provider, modelId)
 
       if (onModelSelected) {
         try {
