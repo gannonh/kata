@@ -533,11 +533,17 @@ export class PiAgentBridge extends EventEmitter {
       const discovered = whichResult.stdout.trim().split(/\r?\n/)[0]?.trim()
       if (discovered) {
         checkedPaths.push(discovered)
-        return {
-          source: 'path',
-          resolvedPath: discovered,
-          checkedPaths,
+        if (this.isExecutableFile(discovered)) {
+          return {
+            source: 'path',
+            resolvedPath: discovered,
+            checkedPaths,
+          }
         }
+
+        log.warn('[PiAgentBridge] PATH lookup returned a non-executable binary candidate', {
+          discovered,
+        })
       }
     }
 

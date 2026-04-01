@@ -186,7 +186,7 @@ app.whenReady().then(async () => {
     model: persistedModel,
     appVersion: app.getVersion(),
     isPackaged: app.isPackaged,
-    buildDate: new Date().toISOString(),
+    startedAt: new Date().toISOString(),
   })
 })
 
