@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest'
+import { beforeEach, describe, expect, test } from 'vitest'
 import { RpcEventAdapter } from '../rpc-event-adapter'
 
 describe('RpcEventAdapter', () => {
@@ -798,5 +798,208 @@ describe('RpcEventAdapter', () => {
         message: 'Unknown extension error',
       },
     ])
+  })
+})
+
+describe('Real RPC event shapes', () => {
+  // Fresh adapter per test — isolates counter state
+  let adapter: RpcEventAdapter
+
+  beforeEach(() => {
+    adapter = new RpcEventAdapter()
+  })
+
+  test('turn 1 (text only): all text_deltas and message_end use the single assigned messageId', () => {
+    // message_start has no id — adapter assigns counter ID
+    const [startEvent] = adapter.adapt({
+      type: 'message_start',
+      message: { role: 'assistant', content: [], stopReason: 'stop' },
+    })
+    expect(startEvent).toMatchObject({ type: 'message_start', role: 'assistant' })
+    const assignedId = (startEvent as { messageId: string }).messageId
+    expect(assignedId).toBeTruthy()
+
+    // First text_delta must use the assigned ID, NOT a responseId from the event
+    const [delta1] = adapter.adapt({
+      type: 'message_update',
+      assistantMessageEvent: { type: 'text_delta', delta: 'Hello ' },
+      message: { role: 'assistant', responseId: 'msg_DIFFERENT_ID', content: [] },
+    })
+    expect(delta1).toEqual({ type: 'text_delta', messageId: assignedId, delta: 'Hello ' })
+
+    const [delta2] = adapter.adapt({
+      type: 'message_update',
+      assistantMessageEvent: { type: 'text_delta', delta: 'world' },
+      message: { role: 'assistant', responseId: 'msg_DIFFERENT_ID', content: [] },
+    })
+    expect(delta2).toEqual({ type: 'text_delta', messageId: assignedId, delta: 'world' })
+
+    // message_end must also use assigned ID
+    const [endEvent] = adapter.adapt({
+      type: 'message_end',
+      message: {
+        role: 'assistant',
+        content: [{ type: 'text', text: 'Hello world' }],
+        responseId: 'msg_DIFFERENT_ID',
+        stopReason: 'stop',
+      },
+    })
+    expect(endEvent).toEqual({ type: 'message_end', messageId: assignedId, text: 'Hello world' })
+  })
+
+  test('message_end with role=user emits nothing', () => {
+    const events = adapter.adapt({
+      type: 'message_end',
+      message: {
+        role: 'user',
+        content: [{ type: 'text', text: 'tell me about the electron skill' }],
+      },
+    })
+    expect(events).toEqual([])
+  })
+
+  test('message_end with role=toolResult emits nothing', () => {
+    const events = adapter.adapt({
+      type: 'message_end',
+      message: {
+        role: 'toolResult',
+        toolCallId: 'toolu_01V5QHe2CxbEe7dytnAYbWrT',
+        toolName: 'read',
+        content: [{ type: 'text', text: '---\nname: electron\n...' }],
+        isError: false,
+      },
+    })
+    expect(events).toEqual([])
+  })
+
+  test('tool_execution_end with no args falls back to cached args from tool_execution_start', () => {
+    // Start event has the path
+    const [toolStart] = adapter.adapt({
+      type: 'tool_execution_start',
+      toolCallId: 'toolu_01V5QHe2CxbEe7dytnAYbWrT',
+      toolName: 'read',
+      args: { path: '/Users/gannonhall/.agents/skills/electron/SKILL.md' },
+    })
+    expect(toolStart).toMatchObject({ type: 'tool_start', args: { path: '/Users/gannonhall/.agents/skills/electron/SKILL.md' } })
+
+    // End event has NO args field at all — real CLI shape
+    const [toolEnd] = adapter.adapt({
+      type: 'tool_execution_end',
+      toolCallId: 'toolu_01V5QHe2CxbEe7dytnAYbWrT',
+      toolName: 'read',
+      result: {
+        content: [{ type: 'text', text: '# Electron Skill content here' }],
+      },
+      isError: false,
+      // no 'args' key at all
+    })
+    expect(toolEnd).toMatchObject({
+      type: 'tool_end',
+      toolCallId: 'toolu_01V5QHe2CxbEe7dytnAYbWrT',
+      result: {
+        path: '/Users/gannonhall/.agents/skills/electron/SKILL.md',
+        content: '# Electron Skill content here',
+      },
+    })
+  })
+
+  test('thinking events are emitted with correct types and messageId', () => {
+    // Establish current assistant message
+    adapter.adapt({
+      type: 'message_start',
+      message: { role: 'assistant', content: [] },
+    })
+
+    const [thinkStart] = adapter.adapt({
+      type: 'message_update',
+      assistantMessageEvent: { type: 'thinking_start', contentIndex: 0 },
+      message: { role: 'assistant', content: [] },
+    })
+    expect(thinkStart).toMatchObject({ type: 'thinking_start' })
+    const thinkingId = (thinkStart as { messageId: string }).messageId
+
+    const [thinkDelta] = adapter.adapt({
+      type: 'message_update',
+      assistantMessageEvent: { type: 'thinking_delta', contentIndex: 0, delta: 'The user wants' },
+      message: { role: 'assistant', content: [] },
+    })
+    expect(thinkDelta).toEqual({ type: 'thinking_delta', messageId: thinkingId, delta: 'The user wants' })
+
+    const [thinkEnd] = adapter.adapt({
+      type: 'message_update',
+      assistantMessageEvent: {
+        type: 'thinking_end',
+        contentIndex: 0,
+        content: 'The user wants to know about the electron skill.',
+      },
+      message: { role: 'assistant', content: [] },
+    })
+    expect(thinkEnd).toEqual({
+      type: 'thinking_end',
+      messageId: thinkingId,
+      content: 'The user wants to know about the electron skill.',
+    })
+  })
+
+  test('turn 2 (thinking + tool + text): second message_start gets new ID because hadContent=true after thinking', () => {
+    // message_start for thinking+tool phase
+    const [start1] = adapter.adapt({
+      type: 'message_start',
+      message: { role: 'assistant', content: [] },
+    })
+    const id1 = (start1 as { messageId: string }).messageId
+
+    // thinking_delta sets hadContent = true
+    adapter.adapt({
+      type: 'message_update',
+      assistantMessageEvent: { type: 'thinking_start', contentIndex: 0 },
+      message: { role: 'assistant', content: [] },
+    })
+    adapter.adapt({
+      type: 'message_update',
+      assistantMessageEvent: { type: 'thinking_delta', contentIndex: 0, delta: 'The user wants to know.' },
+      message: { role: 'assistant', content: [] },
+    })
+    adapter.adapt({
+      type: 'message_update',
+      assistantMessageEvent: { type: 'thinking_end', contentIndex: 0, content: 'The user wants to know.' },
+      message: { role: 'assistant', content: [] },
+    })
+
+    // toolResult message_start (should emit [] — role is not user or assistant)
+    const toolResultStart = adapter.adapt({
+      type: 'message_start',
+      message: { role: 'toolResult', content: [] },
+    })
+    expect(toolResultStart).toEqual([])
+
+    // second assistant message_start — hadContent was true, so gets NEW ID
+    const [start2] = adapter.adapt({
+      type: 'message_start',
+      message: { role: 'assistant', content: [] },
+    })
+    const id2 = (start2 as { messageId: string }).messageId
+    expect(id2).not.toEqual(id1)
+
+    // text deltas for the final response use id2
+    const [delta] = adapter.adapt({
+      type: 'message_update',
+      assistantMessageEvent: { type: 'text_delta', delta: '## The electron Skill' },
+      message: { role: 'assistant', content: [] },
+    })
+    expect(delta).toMatchObject({ type: 'text_delta', messageId: id2 })
+  })
+
+  test('non-text-delta message_update types (toolcall_start/delta/end, text_start/end) emit nothing', () => {
+    adapter.adapt({ type: 'message_start', message: { role: 'assistant', content: [] } })
+
+    for (const ameType of ['toolcall_start', 'toolcall_delta', 'toolcall_end', 'text_start', 'text_end']) {
+      const events = adapter.adapt({
+        type: 'message_update',
+        assistantMessageEvent: { type: ameType, contentIndex: 0 },
+        message: { role: 'assistant', content: [] },
+      })
+      expect(events, `expected [] for ame type ${ameType}`).toEqual([])
+    }
   })
 })
