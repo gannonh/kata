@@ -1,0 +1,43 @@
+appId: sh.kata.desktop
+productName: Kata Desktop
+copyright: Copyright © 2026 Kata Contributors
+
+directories:
+  app: .bundle-app
+  output: release
+  buildResources: resources
+
+files:
+  - dist/**/*
+  - package.json
+  - "!**/*.map"
+  - "!**/*.test.*"
+  - "!**/__tests__/**"
+
+extraMetadata:
+  main: dist/main.cjs
+
+publish: null
+
+# Runtime resources (kata, kata-runtime, bun) are copied into
+# Contents/Resources by scripts/package-mac.sh before --prepackaged DMG creation.
+mac:
+  category: public.app-category.developer-tools
+  icon: ../electron/resources/AppIcon.icns
+  target:
+    - dmg
+
+# Keep a simple Finder drag-to-install experience.
+dmg:
+  icon: ../electron/resources/AppIcon.icns
+  title: Kata Desktop
+  contents:
+    - x: 130
+      y: 200
+    - x: 410
+      y: 200
+      type: link
+      path: /Applications
+  window:
+    width: 540
+    height: 380

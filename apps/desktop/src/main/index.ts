@@ -184,6 +184,9 @@ app.whenReady().then(async () => {
   log.info('[desktop-main] ready', {
     workspacePath,
     model: persistedModel,
+    appVersion: app.getVersion(),
+    isPackaged: app.isPackaged,
+    startedAt: new Date().toISOString(),
   })
 })
 

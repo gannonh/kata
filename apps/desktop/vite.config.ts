@@ -8,6 +8,7 @@ const rootDir = fileURLToPath(new URL('.', import.meta.url))
 
 export default defineConfig({
   root: path.join(rootDir, 'src/renderer'),
+  base: './',
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {

@@ -1,5 +1,8 @@
 import { EventEmitter } from 'node:events'
+import { accessSync, constants } from 'node:fs'
+import path from 'node:path'
 import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from 'node:child_process'
+import { createRequire } from 'node:module'
 import readline from 'node:readline'
 import log from './logger'
 import {
@@ -40,6 +43,12 @@ interface BridgeEvents {
   crash: (payload: { exitCode: number | null; signal: NodeJS.Signals | null; stderrLines: string[] }) => void
   status: (payload: BridgeStatusEvent) => void
   debug: (payload: Record<string, unknown>) => void
+}
+
+interface BinaryDiscoveryResult {
+  source: 'bundled' | 'path' | 'not_found'
+  resolvedPath: string | null
+  checkedPaths: string[]
 }
 
 export class PiAgentBridge extends EventEmitter {
@@ -106,8 +115,46 @@ export class PiAgentBridge extends EventEmitter {
     this.shuttingDown = false
     this.stderrLines.length = 0
 
-    const command = this.resolveCommand()
-    this.resolvedCommand = command
+    const isPackaged = this.isElectronPackaged()
+    const discovery = this.discoverBinary(isPackaged)
+    this.resolvedCommand = discovery.resolvedPath
+
+    log.info('[PiAgentBridge] binary discovery', {
+      source: discovery.source,
+      path: discovery.resolvedPath,
+      checkedPaths: discovery.checkedPaths,
+      isPackaged,
+    })
+
+    this.emit('debug', {
+      type: 'bridge:binary-discovery',
+      source: discovery.source,
+      path: discovery.resolvedPath,
+      checkedPaths: discovery.checkedPaths,
+      isPackaged,
+    })
+
+    if (discovery.source === 'not_found' || !discovery.resolvedPath) {
+      const message =
+        'Kata CLI not found. Install via: npm install -g @kata-sh/cli. Checked: ' +
+        discovery.checkedPaths.join(', ')
+
+      this.emit('crash', {
+        exitCode: null,
+        signal: null,
+        stderrLines: [message],
+      })
+      this.emitStatus({
+        state: 'crashed',
+        pid: null,
+        message,
+        exitCode: null,
+        signal: null,
+      })
+      return
+    }
+
+    const command = discovery.resolvedPath
 
     this.emitStatus({
       state: 'spawning',
@@ -441,10 +488,39 @@ export class PiAgentBridge extends EventEmitter {
     })
   }
 
-  private resolveCommand(): string {
+  private discoverBinary(isPackaged: boolean): BinaryDiscoveryResult {
+    const checkedPaths: string[] = []
+
+    if (isPackaged) {
+      const bundledPath = path.join(process.resourcesPath, 'kata')
+      checkedPaths.push(bundledPath)
+      if (this.isExecutableFile(bundledPath)) {
+        return {
+          source: 'bundled',
+          resolvedPath: bundledPath,
+          checkedPaths,
+        }
+      }
+    }
+
     const fromEnv = process.env.KATA_BIN_PATH?.trim()
     if (fromEnv) {
-      return fromEnv
+      checkedPaths.push(fromEnv)
+      if (this.isExecutableFile(fromEnv)) {
+        return {
+          source: 'path',
+          resolvedPath: fromEnv,
+          checkedPaths,
+        }
+      }
+
+      log.warn('[PiAgentBridge] KATA_BIN_PATH is set but not executable, falling back to PATH lookup', {
+        fromEnv,
+      })
+      this.emit('debug', {
+        type: 'bridge:binary-discovery-env-not-executable',
+        fromEnv,
+      })
     }
 
     const lookupCommand = process.platform === 'win32' ? 'where' : 'which'
@@ -456,11 +532,46 @@ export class PiAgentBridge extends EventEmitter {
     if (whichResult.status === 0) {
       const discovered = whichResult.stdout.trim().split(/\r?\n/)[0]?.trim()
       if (discovered) {
-        return discovered
+        checkedPaths.push(discovered)
+        if (this.isExecutableFile(discovered)) {
+          return {
+            source: 'path',
+            resolvedPath: discovered,
+            checkedPaths,
+          }
+        }
+
+        log.warn('[PiAgentBridge] PATH lookup returned a non-executable binary candidate', {
+          discovered,
+        })
       }
     }
 
-    return this.commandHint
+    checkedPaths.push(this.commandHint)
+    return {
+      source: 'not_found',
+      resolvedPath: null,
+      checkedPaths,
+    }
+  }
+
+  private isElectronPackaged(): boolean {
+    try {
+      const require = createRequire(import.meta.url)
+      const electron = require('electron') as { app?: { isPackaged?: boolean } }
+      return Boolean(electron?.app?.isPackaged)
+    } catch {
+      return false
+    }
+  }
+
+  private isExecutableFile(filePath: string): boolean {
+    try {
+      accessSync(filePath, constants.X_OK)
+      return true
+    } catch {
+      return false
+    }
   }
 
   private handleStdoutLine(line: string): void {
