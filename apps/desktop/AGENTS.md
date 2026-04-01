@@ -141,3 +141,140 @@ Borrow patterns and components selectively. **Import from shared packages**, not
 | D007 | Right pane | Split-pane layout with contextual right pane (planning view, kanban) |
 
 See the `DECISIONS` document in Linear for full rationale and revisability notes.
+
+## Automating and Testing the Electron App
+
+Kata Desktop is an Electron app. The renderer runs inside Electron's Chromium shell with a preload bridge (`window.api`) — it **cannot** be tested by opening `http://127.0.0.1:5174` in a standalone browser or Playwright instance. The preload bridge won't exist and every component that touches IPC will crash.
+
+Use **agent-browser** connected to the Electron process via Chrome DevTools Protocol (CDP). This is the only supported way to snapshot, interact with, and screenshot the running app from an agent session.
+
+### Prerequisites
+
+- `agent-browser` installed globally (`npm i -g agent-browser`)
+- The Electron app launched with `--remote-debugging-port=<port>`
+
+### Launching for Automation
+
+The standard `desktop:dev` script does NOT enable CDP. Launch the pieces separately:
+
+```bash
+# 1. Build main + preload, then start the Vite renderer dev server
+cd apps/desktop
+bun run build:main && bun run build:preload
+bun run dev:renderer  # Starts Vite on http://127.0.0.1:5174
+
+# 2. In a separate terminal (or via bg_shell), launch Electron with CDP enabled
+VITE_DEV_SERVER_URL=http://127.0.0.1:5174 npx electron . --remote-debugging-port=9333
+```
+
+Use port **9333** (not 9222, which Chrome often occupies). Confirm the port is free first: `lsof -i :9333`.
+
+For agent sessions, use `bg_shell` to manage both processes:
+
+```bash
+# Start renderer
+bg_shell start "cd apps/desktop && bun run build:main && bun run build:preload && bun run dev:renderer" \
+  --label desktop-renderer --type server --ready-port 5174
+
+# Start Electron with CDP
+bg_shell start "cd apps/desktop && VITE_DEV_SERVER_URL=http://127.0.0.1:5174 npx electron . --remote-debugging-port=9333" \
+  --label desktop-electron --type server --ready-port 9333
+```
+
+### Connecting agent-browser
+
+Electron exposes multiple CDP targets (the main app window and DevTools). You must select the correct one.
+
+```bash
+# List available targets
+agent-browser --cdp 9333 tab
+# Output:
+#   → [0] DevTools - devtools://devtools/bundled/...
+#     [1] Kata Desktop - http://127.0.0.1:5174/
+
+# Switch to the app window (index 1)
+agent-browser --cdp 9333 tab 1
+
+# Now all commands target the Kata Desktop renderer
+```
+
+After switching tabs once, subsequent `--cdp 9333` commands stay on that target.
+
+### Core Workflow: Snapshot → Interact → Re-snapshot
+
+```bash
+# 1. Snapshot interactive elements (returns refs like @e1, @e2, ...)
+agent-browser --cdp 9333 snapshot -i
+
+# 2. Interact using refs
+agent-browser --cdp 9333 click @e15        # e.g. "Get started" button
+agent-browser --cdp 9333 fill @e3 "sk-..."  # Fill an input
+agent-browser --cdp 9333 press Enter
+
+# 3. Re-snapshot after navigation or DOM changes (refs are invalidated)
+agent-browser --cdp 9333 snapshot -i
+
+# 4. Screenshot for visual verification
+agent-browser --cdp 9333 screenshot /tmp/kata-desktop.png
+```
+
+**Important:** Refs (`@e1`, `@e2`) are invalidated whenever the DOM changes (navigation, modal open/close, state transitions). Always re-snapshot after any action that changes the page.
+
+### Common UAT Patterns
+
+**Walk through onboarding:**
+```bash
+agent-browser --cdp 9333 snapshot -i          # See step 1
+agent-browser --cdp 9333 click @e15           # "Get started"
+agent-browser --cdp 9333 snapshot -i          # See step 2 (provider selection)
+agent-browser --cdp 9333 screenshot /tmp/onboarding-step2.png
+```
+
+**Check for errors:**
+```bash
+# Evaluate JS in the Electron renderer context
+agent-browser --cdp 9333 eval 'document.querySelectorAll("[role=alert]").length'
+
+# Get console errors
+agent-browser --cdp 9333 eval 'window.__console_errors || "no error capture"'
+```
+
+**Test chat interaction:**
+```bash
+agent-browser --cdp 9333 snapshot -i
+agent-browser --cdp 9333 fill @e12 "Hello, what can you do?"
+agent-browser --cdp 9333 click @e14           # Send button
+agent-browser --cdp 9333 wait 3000            # Wait for streaming response
+agent-browser --cdp 9333 snapshot -i          # See response
+agent-browser --cdp 9333 screenshot /tmp/chat-response.png
+```
+
+**Full-page screenshot:**
+```bash
+agent-browser --cdp 9333 screenshot --full /tmp/full-page.png
+```
+
+**Annotated screenshot (numbered element labels):**
+```bash
+agent-browser --cdp 9333 screenshot --annotate /tmp/annotated.png
+```
+
+### What NOT to Do
+
+| ❌ Don't | ✅ Do instead |
+|----------|--------------|
+| Open `http://127.0.0.1:5174` in Playwright or a browser | Use `agent-browser --cdp 9333` to connect to Electron |
+| Use `browser_navigate`, `browser_click`, etc. (Playwright tools) | Use `agent-browser` via `bash` commands |
+| Use `mac_screenshot` (requires Screen Recording permission) | Use `agent-browser --cdp 9333 screenshot` |
+| Assume refs persist after clicking/navigating | Always `snapshot -i` again after any DOM change |
+| Launch with `desktop:dev` for automation | Launch renderer + Electron separately with `--remote-debugging-port` |
+
+### Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| `bind() failed: Address already in use` | Port already taken. Check `lsof -i :9333` and pick a different port |
+| Snapshot shows DevTools elements, not app UI | Run `agent-browser --cdp 9333 tab 1` to switch to the app target |
+| `Connection refused` | Electron not running with `--remote-debugging-port`, or wrong port |
+| Blank/empty snapshot | Electron may still be loading. `agent-browser --cdp 9333 wait 2000` then retry |
+| Cannot type in inputs | Try `agent-browser --cdp 9333 keyboard type "text"` instead of `fill` |
