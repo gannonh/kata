@@ -2,7 +2,7 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
-    "types": ["node", "vite/client", "electron", "react", "react-dom", "bun"],
+    "types": ["node", "vite/client", "electron", "react", "react-dom"],
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/renderer/*"],

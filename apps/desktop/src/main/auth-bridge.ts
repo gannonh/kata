@@ -86,6 +86,10 @@ const UNSUPPORTED_PROVIDER_MESSAGES: Partial<Record<AuthProvider, string>> = {
 export class AuthBridge {
   constructor(private readonly authFilePath = DEFAULT_AUTH_PATH) {}
 
+  public getAuthFilePath(): string {
+    return this.authFilePath
+  }
+
   public async getProviders(): Promise<AuthProvidersResponse> {
     try {
       const auth = await this.readAuthFile()

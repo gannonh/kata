@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { RpcEventAdapter } from '../rpc-event-adapter'
 
 describe('RpcEventAdapter', () => {
@@ -349,5 +349,457 @@ describe('RpcEventAdapter', () => {
 
   test('ignores unknown event types', () => {
     expect(adapter.adapt({ type: 'totally_unknown' })).toEqual([])
+  })
+
+  test('handles message edge cases for roles, updates, and empty content', () => {
+    expect(
+      adapter.adapt({
+        type: 'message_start',
+        message: { id: 'm-invalid', role: 'system' },
+      }),
+    ).toEqual([])
+
+    expect(
+      adapter.adapt({
+        type: 'message_update',
+        message: { id: 'm2' },
+        assistantMessageEvent: { type: 'tool_use', text: 'fallback text' },
+      }),
+    ).toEqual([
+      {
+        type: 'text_delta',
+        messageId: 'm2',
+        delta: 'fallback text',
+      },
+    ])
+
+    expect(
+      adapter.adapt({
+        type: 'message_update',
+        message: { id: 'm3', text: 'from message text' },
+        assistantMessageEvent: { type: 'tool_result' },
+      }),
+    ).toEqual([
+      {
+        type: 'text_delta',
+        messageId: 'm3',
+        delta: 'from message text',
+      },
+    ])
+
+    expect(
+      adapter.adapt({
+        type: 'message_update',
+        message: { id: 'm4', content: [{ type: 'image', url: 'x' }] },
+        assistantMessageEvent: { type: 'tool_result' },
+      }),
+    ).toEqual([])
+
+    expect(
+      adapter.adapt({
+        type: 'message_end',
+        message: { id: 'm5', content: [] },
+      }),
+    ).toEqual([
+      {
+        type: 'message_end',
+        messageId: 'm5',
+        text: undefined,
+      },
+    ])
+
+    expect(
+      adapter.adapt({
+        type: 'message_end',
+        message: { id: 'm6', content: [{ type: 'tool_use' }, null] },
+      }),
+    ).toEqual([
+      {
+        type: 'message_end',
+        messageId: 'm6',
+        text: undefined,
+      },
+    ])
+
+    expect(adapter.adapt({ type: 'message_end' })).toEqual([
+      {
+        type: 'message_end',
+        messageId: 'message:unknown',
+        text: undefined,
+      },
+    ])
+  })
+
+  test('maps tool_execution_start for bash/read/write/search tools with null-safe args', () => {
+    const [bashStart] = adapter.adapt({
+      type: 'tool_execution_start',
+      toolCallId: 'tool-bash-start',
+      toolName: 'bash',
+      args: { command: null, timeout: 'oops' },
+    })
+
+    expect(bashStart).toEqual({
+      type: 'tool_start',
+      toolCallId: 'tool-bash-start',
+      toolName: 'bash',
+      args: {
+        command: '',
+        timeout: undefined,
+      },
+    })
+
+    const [readStart] = adapter.adapt({
+      type: 'tool_execution_start',
+      toolCallId: 'tool-read-start',
+      toolName: 'read',
+      args: { path: undefined, offset: 10, limit: Number.NaN },
+    })
+
+    expect(readStart).toEqual({
+      type: 'tool_start',
+      toolCallId: 'tool-read-start',
+      toolName: 'read',
+      args: {
+        path: 'unknown-file',
+        offset: 10,
+        limit: undefined,
+      },
+    })
+
+    const [writeStart] = adapter.adapt({
+      type: 'tool_execution_start',
+      message: {
+        toolCallId: 'tool-write-from-message',
+        toolName: 'write',
+      },
+      args: { path: null, content: null },
+    })
+
+    expect(writeStart).toEqual({
+      type: 'tool_start',
+      toolCallId: 'tool-write-from-message',
+      toolName: 'write',
+      args: {
+        path: 'unknown-file',
+        content: '',
+      },
+    })
+
+    const [searchStart] = adapter.adapt({
+      type: 'tool_execution_start',
+      toolCallId: 'tool-search-start',
+      toolName: 'search-the-web',
+      args: { query: 'kata desktop', count: 3 },
+    })
+
+    expect(searchStart).toEqual({
+      type: 'tool_start',
+      toolCallId: 'tool-search-start',
+      toolName: 'search-the-web',
+      args: {
+        raw: { query: 'kata desktop', count: 3 },
+      },
+    })
+  })
+
+  test('handles tool_execution_update for non-bash and all bash partial stdout fallbacks', () => {
+    const [nonBashUpdate] = adapter.adapt({
+      type: 'tool_execution_update',
+      toolCallId: 'tool-read-update',
+      toolName: 'read',
+      stdout: 'should be ignored',
+      status: 123,
+    })
+
+    expect(nonBashUpdate).toEqual({
+      type: 'tool_update',
+      toolCallId: 'tool-read-update',
+      toolName: 'read',
+      status: undefined,
+      partialStdout: undefined,
+    })
+
+    const [fromTopLevelArray] = adapter.adapt({
+      type: 'tool_execution_update',
+      toolCallId: 'tool-bash-update-top-level-array',
+      toolName: 'bash',
+      stdout: ['line1', 2],
+    })
+    expect(fromTopLevelArray).toMatchObject({ partialStdout: 'line1\n2' })
+
+    const circular: { self?: unknown } = {}
+    circular.self = circular
+    const [fromTopLevelCircular] = adapter.adapt({
+      type: 'tool_execution_update',
+      toolCallId: 'tool-bash-update-top-level-circular',
+      toolName: 'bash',
+      stdout: circular,
+    })
+    expect(fromTopLevelCircular).toMatchObject({ partialStdout: '[object Object]' })
+
+    const [fromResult] = adapter.adapt({
+      type: 'tool_execution_update',
+      toolCallId: 'tool-bash-update-result',
+      toolName: 'bash',
+      result: { stdout: 'from result' },
+    })
+    expect(fromResult).toMatchObject({ partialStdout: 'from result' })
+
+    const [fromResultPartial] = adapter.adapt({
+      type: 'tool_execution_update',
+      toolCallId: 'tool-bash-update-result-partial',
+      toolName: 'bash',
+      result: { partialResult: { output: 'from result partial' } },
+    })
+    expect(fromResultPartial).toMatchObject({ partialStdout: 'from result partial' })
+
+    const [fromMessage] = adapter.adapt({
+      type: 'tool_execution_update',
+      toolCallId: 'tool-bash-update-message',
+      toolName: 'bash',
+      message: { output: { level: 'info' } },
+    })
+    expect(fromMessage).toMatchObject({ partialStdout: '{\n  "level": "info"\n}' })
+
+    const [fromMessagePartial] = adapter.adapt({
+      type: 'tool_execution_update',
+      toolCallId: 'tool-bash-update-message-partial',
+      toolName: 'bash',
+      message: { partialResult: { stdout: 'from message partial' } },
+    })
+    expect(fromMessagePartial).toMatchObject({ partialStdout: 'from message partial' })
+
+    const [noStdout] = adapter.adapt({
+      type: 'tool_execution_update',
+      toolCallId: 'tool-bash-update-none',
+      toolName: 'bash',
+    })
+    expect(noStdout).toMatchObject({ partialStdout: undefined })
+  })
+
+  test('marks tool_execution_end as error for each tool type and supports message-level error/result', () => {
+    const [bashEnd] = adapter.adapt({
+      type: 'tool_execution_end',
+      toolCallId: 'tool-bash-error',
+      toolName: 'bash',
+      args: { command: undefined },
+      result: { command: 'echo hi', output: ['a', 'b'] },
+      isError: true,
+      error: 'bash failed',
+    })
+    expect(bashEnd).toMatchObject({
+      type: 'tool_end',
+      toolCallId: 'tool-bash-error',
+      toolName: 'bash',
+      isError: true,
+      error: 'bash failed',
+      result: {
+        command: '',
+        stdout: 'a\nb',
+      },
+    })
+
+    const [readEnd] = adapter.adapt({
+      type: 'tool_execution_end',
+      toolCallId: 'tool-read-error',
+      toolName: 'read',
+      args: { path: 'script.TSX' },
+      result: { text: 'first\nsecond', numLines: 5 },
+      isError: true,
+      error: 'read failed',
+    })
+    expect(readEnd).toMatchObject({
+      type: 'tool_end',
+      toolCallId: 'tool-read-error',
+      toolName: 'read',
+      isError: true,
+      error: 'read failed',
+      result: {
+        path: 'script.TSX',
+        language: 'typescript',
+        totalLines: 5,
+        truncated: true,
+      },
+    })
+
+    const [writeEndFromMessage] = adapter.adapt({
+      type: 'tool_execution_end',
+      toolCallId: 'tool-write-error',
+      toolName: 'write',
+      message: {
+        result: { path: 'out.txt', content: 'done', bytesWritten: 4 },
+        error: 'write failed from message',
+      },
+      isError: false,
+    })
+    expect(writeEndFromMessage).toMatchObject({
+      type: 'tool_end',
+      toolCallId: 'tool-write-error',
+      toolName: 'write',
+      isError: true,
+      error: 'write failed from message',
+      result: {
+        path: 'out.txt',
+        content: 'done',
+        bytesWritten: 4,
+      },
+    })
+
+    const [searchEnd] = adapter.adapt({
+      type: 'tool_execution_end',
+      toolCallId: 'tool-search-error',
+      toolName: 'search-the-web',
+      result: { query: 'latest kata', results: [{ title: 'Kata' }] },
+      isError: true,
+      error: 'search failed',
+    })
+    expect(searchEnd).toEqual({
+      type: 'tool_end',
+      toolCallId: 'tool-search-error',
+      toolName: 'search-the-web',
+      result: {
+        raw: { query: 'latest kata', results: [{ title: 'Kata' }] },
+      },
+      isError: true,
+      error: 'search failed',
+    })
+  })
+
+  test('reconstructs edit result from multiple edits when diff is missing and keeps parseError', () => {
+    const [startEvent] = adapter.adapt({
+      type: 'tool_execution_start',
+      toolCallId: 'tool-edit-multi',
+      toolName: 'edit',
+      args: {
+        path: 'apps/desktop/src/main/rpc-event-adapter.ts',
+        oldText: 7,
+        newText: null,
+        edits: [{}, { oldText: 'x', newText: 'y' }],
+      },
+    })
+
+    expect(startEvent).toEqual({
+      type: 'tool_start',
+      toolCallId: 'tool-edit-multi',
+      toolName: 'edit',
+      args: {
+        path: 'apps/desktop/src/main/rpc-event-adapter.ts',
+        edits: [{ oldText: 'x', newText: 'y' }],
+      },
+    })
+
+    const [endEvent] = adapter.adapt({
+      type: 'tool_execution_end',
+      toolCallId: 'tool-edit-multi',
+      toolName: 'edit',
+      args: {
+        path: 'apps/desktop/src/main/rpc-event-adapter.ts',
+        edits: [
+          { oldText: 'a\r\nb\r\n', newText: 'a\r\nb\r\nc\r\n' },
+          { oldText: 'x', newText: '' },
+          {},
+        ],
+      },
+      result: {},
+      isError: true,
+      error: 'edit failed',
+    })
+
+    expect(endEvent).toMatchObject({
+      type: 'tool_end',
+      toolCallId: 'tool-edit-multi',
+      toolName: 'edit',
+      isError: true,
+      error: 'edit failed',
+      result: {
+        path: 'apps/desktop/src/main/rpc-event-adapter.ts',
+        diff: '',
+        linesAdded: 3,
+        linesRemoved: 3,
+        linesChanged: 6,
+        parseError: 'No diff returned by edit tool result',
+      },
+    })
+  })
+
+  test('covers read fallbacks and language detection for mixed extensions', () => {
+    const [readFromFile] = adapter.adapt({
+      type: 'tool_execution_end',
+      toolCallId: 'tool-read-from-file',
+      toolName: 'read',
+      args: { path: 'docs/README.MD' },
+      result: {
+        file: {
+          content: 'line one\nline two',
+          totalLines: 2,
+          truncated: false,
+        },
+      },
+      isError: false,
+    })
+
+    expect(readFromFile).toMatchObject({
+      result: {
+        path: 'docs/README.MD',
+        content: 'line one\nline two',
+        language: 'markdown',
+        totalLines: 2,
+        truncated: false,
+      },
+    })
+
+    const [readFromPrimitive] = adapter.adapt({
+      type: 'tool_execution_end',
+      toolCallId: 'tool-read-primitive',
+      toolName: 'read',
+      args: { path: 'LICENSE' },
+      result: 123,
+      isError: false,
+    })
+
+    expect(readFromPrimitive).toMatchObject({
+      result: {
+        path: 'LICENSE',
+        content: '123',
+        language: 'text',
+        totalLines: 1,
+        truncated: false,
+      },
+    })
+  })
+
+  test('uses fallback tool metadata and extension error defaults', () => {
+    const [fallbackToolStart] = adapter.adapt({
+      type: 'tool_execution_start',
+      args: null,
+    })
+
+    expect(fallbackToolStart).toEqual({
+      type: 'tool_start',
+      toolCallId: 'tool:unknown',
+      toolName: 'unknown_tool',
+      args: {
+        raw: null,
+      },
+    })
+
+    expect(
+      adapter.adapt({
+        type: 'extension_error',
+        message: { error: 'message-level extension error' },
+      }),
+    ).toEqual([
+      {
+        type: 'agent_error',
+        message: 'message-level extension error',
+      },
+    ])
+
+    expect(adapter.adapt({ type: 'extension_error' })).toEqual([
+      {
+        type: 'agent_error',
+        message: 'Unknown extension error',
+      },
+    ])
   })
 })

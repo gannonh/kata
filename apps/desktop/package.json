@@ -19,7 +19,8 @@
     "dev:electron": "wait-on tcp:5174 file:dist/main.cjs file:dist/preload.cjs && VITE_DEV_SERVER_URL=http://127.0.0.1:5174 electron .",
     "desktop:dev": "concurrently -k -n MAIN,PRELOAD,RENDERER,ELECTRON -c green,cyan,magenta,yellow \"bun run dev:main\" \"bun run dev:preload\" \"bun run dev:renderer\" \"bun run dev:electron\"",
     "typecheck": "tsc --noEmit",
-    "test": "bun test src/"
+    "test": "npx vitest run --coverage",
+    "test:watch": "npx vitest"
   },
   "dependencies": {},
   "devDependencies": {
@@ -29,6 +30,7 @@
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "@vitejs/plugin-react": "^6.0.1",
+    "@vitest/coverage-v8": "^4.1.2",
     "concurrently": "^9.2.1",
     "electron": "^41.0.3",
     "electron-builder": "^26.0.12",
@@ -41,6 +43,7 @@
     "tailwindcss": "^4.1.18",
     "typescript": "^5.9.0",
     "vite": "^8.0.2",
+    "vitest": "^4.1.2",
     "wait-on": "^8.0.1"
   }
 }
