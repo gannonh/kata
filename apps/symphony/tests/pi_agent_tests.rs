@@ -295,8 +295,12 @@ echo '{"type":"response","command":"get_state","success":true,"data":{"sessionId
 while read -r line; do
   if [[ "$line" == *'"type":"prompt"'* ]]; then
     echo '{"type":"response","command":"prompt","success":true}'
-    # Simulate a transient API error followed by agent retry and completion
+    # Simulate a transient API error followed by pi-agent internal retry and
+    # successful completion — mirrors what happens in production: message_end
+    # with stopReason="error" is intermediate, pi-agent retries, then emits a
+    # successful message_end before agent_end.
     echo '{"type":"message_end","message":{"stopReason":"error","errorMessage":"Rate limit exceeded. Retry after 12s.","content":[]}}'
+    echo '{"type":"message_end","message":{"stopReason":"toolUse","content":[{"type":"text","text":"retried successfully"}]}}'
     echo '{"type":"agent_end","messages":[]}'
   elif [[ "$line" == *'"type":"get_session_stats"'* ]]; then
     echo '{"type":"response","command":"get_session_stats","success":true,"data":{"session_id":"sess-error","tokens":{"input":5,"output":2,"total":7}}}'
@@ -682,6 +686,13 @@ async fn rpc_bridge_turn_continues_past_message_end_error_stop_reason() {
             .iter()
             .any(|event| matches!(event, symphony::domain::AgentEvent::TurnCompleted { .. })),
         "TurnCompleted event should be emitted after agent retry succeeds"
+    );
+
+    // output_text should come from the successful retry, not the failed attempt
+    assert_eq!(
+        result.output_text.as_deref(),
+        Some("retried successfully"),
+        "output_text should be captured from the successful retry message_end"
     );
 
     assert_eq!(result.total_tokens, 7, "tokens from stats response");
