@@ -1,4 +1,6 @@
 import type { SessionListItem as SessionListItemType } from '@shared/types'
+import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 
 interface SessionListItemProps {
   session: SessionListItemType
@@ -57,15 +59,14 @@ export function SessionListItem({ session, isCurrent }: SessionListItemProps) {
   return (
     <div
       title={session.title}
-      className={`w-full rounded-md border px-2 py-2 text-left ${
-        isCurrent
-          ? 'border-sky-500/80 bg-sky-500/15'
-          : 'border-slate-800 bg-slate-900/70'
-      }`}
+      className={cn(
+        'w-full rounded-md border bg-card/70 px-2 py-2 text-left',
+        isCurrent ? 'border-primary/60 bg-accent/40' : 'border-border',
+      )}
     >
-      <div className="space-y-1.5">
+      <div className="flex flex-col gap-1.5">
         <p
-          className="text-xs font-medium text-slate-100"
+          className="text-xs font-medium text-card-foreground"
           style={{
             display: '-webkit-box',
             overflow: 'hidden',
@@ -78,7 +79,7 @@ export function SessionListItem({ session, isCurrent }: SessionListItemProps) {
 
         {session.firstMessagePreview && (
           <p
-            className="text-[11px] text-slate-400"
+            className="text-[11px] text-muted-foreground"
             style={{
               display: '-webkit-box',
               overflow: 'hidden',
@@ -91,16 +92,18 @@ export function SessionListItem({ session, isCurrent }: SessionListItemProps) {
         )}
 
         <div className="flex items-center justify-between gap-2">
-          <span className="max-w-[9rem] truncate rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-300">
+          <Badge variant="secondary" className="max-w-[9rem] truncate font-normal">
             {model}
-          </span>
+          </Badge>
 
-          <span className="text-[10px] text-slate-400">{formatRelativeTime(session.modified)}</span>
+          <span className="text-[10px] text-muted-foreground">{formatRelativeTime(session.modified)}</span>
         </div>
 
-        <div className="flex items-center justify-between text-[10px] text-slate-400">
-          <span>{session.provider ?? 'provider: n/a'}</span>
-          <span>{session.messageCount} msgs</span>
+        <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+          <span className="truncate">{session.provider ?? 'provider: n/a'}</span>
+          <Badge variant="outline" className="text-[10px] font-normal">
+            {session.messageCount} msgs
+          </Badge>
         </div>
       </div>
     </div>

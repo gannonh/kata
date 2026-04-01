@@ -1,3 +1,6 @@
+import { ChevronRight } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+
 interface WelcomeStepProps {
   onNext: () => void
 }
@@ -5,23 +8,21 @@ interface WelcomeStepProps {
 export function WelcomeStep({ onNext }: WelcomeStepProps) {
   return (
     <div className="flex h-full flex-col justify-between">
-      <div>
-        <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Kata Desktop</p>
-        <h2 className="mt-3 text-3xl font-semibold text-slate-100">Welcome to your coding co-pilot</h2>
-        <p className="mt-3 max-w-xl text-sm text-slate-300">
+      <div className="flex flex-col gap-3">
+        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Kata Desktop</p>
+        <h2 className="text-3xl font-semibold text-foreground">Welcome to your coding co-pilot</h2>
+        <p className="max-w-xl text-sm text-muted-foreground">
           Connect an AI provider, pick a model, and start chatting in under a minute.
         </p>
       </div>
 
       <div className="mt-8 flex items-center justify-between">
-        <p className="text-xs text-slate-400">Step 1 of 4</p>
-        <button
-          type="button"
-          onClick={onNext}
-          className="rounded-md bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-900"
-        >
+        <p className="text-xs text-muted-foreground">Step 1 of 4</p>
+
+        <Button type="button" onClick={onNext} size="lg">
           Get started
-        </button>
+          <ChevronRight data-icon="inline-end" />
+        </Button>
       </div>
     </div>
   )

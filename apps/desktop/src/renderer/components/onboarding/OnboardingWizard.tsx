@@ -7,7 +7,10 @@ import {
 } from '@shared/types'
 import { onboardingCompleteAtom } from '@/atoms/onboarding'
 import { selectedModelAtom } from '@/atoms/model'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Separator } from '@/components/ui/separator'
 import { MODELS_REFRESH_EVENT } from '@/constants/providers'
+import { cn } from '@/lib/utils'
 import { CompletionStep } from './CompletionStep'
 import { KeyInputStep } from './KeyInputStep'
 import { ProviderStep } from './ProviderStep'
@@ -91,10 +94,10 @@ export function OnboardingWizard() {
   )
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/85 p-6 backdrop-blur-sm">
-      <div className="flex h-[min(42rem,92vh)] w-[min(56rem,94vw)] flex-col rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl">
-        <div className="mb-5">
-          <div className="mb-3 flex items-center justify-between text-xs text-slate-400">
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-background/85 p-6 backdrop-blur-sm">
+      <Card className="flex h-[min(42rem,92vh)] w-[min(56rem,94vw)] border border-border bg-card py-0 shadow-2xl">
+        <CardHeader className="flex flex-col gap-3 px-6 pt-6 pb-0">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>Onboarding</span>
             <span>Step {progress} of 4</span>
           </div>
@@ -103,13 +106,18 @@ export function OnboardingWizard() {
             {Array.from({ length: 4 }).map((_, index) => (
               <div
                 key={index}
-                className={`h-1.5 rounded-full ${index < progress ? 'bg-slate-200' : 'bg-slate-700'}`}
+                className={cn(
+                  'h-1.5 rounded-full bg-muted',
+                  index < progress && 'bg-primary',
+                )}
               />
             ))}
           </div>
-        </div>
+        </CardHeader>
 
-        <div className="flex-1 overflow-auto">
+        <Separator className="mt-5" />
+
+        <CardContent className="flex-1 overflow-auto p-6">
           {step === 'welcome' && <WelcomeStep onNext={() => setStep('provider')} />}
 
           {step === 'provider' && (
@@ -149,8 +157,8 @@ export function OnboardingWizard() {
               onFinish={() => setOnboardingComplete(true)}
             />
           )}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

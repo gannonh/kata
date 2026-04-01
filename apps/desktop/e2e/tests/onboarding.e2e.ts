@@ -67,7 +67,7 @@ test.describe('Onboarding wizard', () => {
 
     await completeOnboarding(window)
 
-    await expect(window.getByRole('button', { name: /\+ New Session/i })).toBeVisible()
+    await expect(window.getByRole('button', { name: /New Session/i })).toBeVisible()
     await expect(window.getByText('Onboarding')).toHaveCount(0)
 
     const onboardingStorage = await window.evaluate(() =>
@@ -78,7 +78,7 @@ test.describe('Onboarding wizard', () => {
     await window.reload()
     await window.waitForLoadState('domcontentloaded')
 
-    await expect(window.getByRole('button', { name: /\+ New Session/i })).toBeVisible()
+    await expect(window.getByRole('button', { name: /New Session/i })).toBeVisible()
     await expect(window.getByText('Onboarding')).toHaveCount(0)
   })
 })

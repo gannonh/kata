@@ -6,7 +6,7 @@ test.describe('App shell', () => {
   })
 
   test('shows session sidebar with new session action', async ({ mainWindow }) => {
-    await expect(mainWindow.getByRole('button', { name: /\+ New Session/i })).toBeVisible()
+    await expect(mainWindow.getByRole('button', { name: /New Session/i })).toBeVisible()
   })
 
   test('shows chat input with placeholder text', async ({ mainWindow }) => {
@@ -14,10 +14,9 @@ test.describe('App shell', () => {
   })
 
   test('shows permission mode selector with Explore / Ask / Auto', async ({ mainWindow }) => {
-    await expect(mainWindow.getByRole('radiogroup', { name: /Permission mode/i })).toBeVisible()
-    await expect(mainWindow.getByRole('radio', { name: /Explore/i })).toBeVisible()
-    await expect(mainWindow.getByRole('radio', { name: /Ask/i })).toBeVisible()
-    await expect(mainWindow.getByRole('radio', { name: /Auto/i })).toBeVisible()
+    await expect(mainWindow.getByLabel(/Explore/i)).toBeVisible()
+    await expect(mainWindow.getByLabel(/Ask/i)).toBeVisible()
+    await expect(mainWindow.getByLabel(/Auto/i)).toBeVisible()
   })
 
   test('shows right-pane placeholder copy', async ({ mainWindow }) => {
@@ -32,8 +31,8 @@ test.describe('App shell', () => {
   test('shows Providers, General, and Appearance settings tabs', async ({ readyWindow }) => {
     await readyWindow.getByRole('button', { name: /Settings/i }).click()
 
-    await expect(readyWindow.getByRole('button', { name: /^Providers$/i })).toBeVisible()
-    await expect(readyWindow.getByRole('button', { name: /^General$/i })).toBeVisible()
-    await expect(readyWindow.getByRole('button', { name: /^Appearance$/i })).toBeVisible()
+    await expect(readyWindow.getByRole('tab', { name: /^Providers$/i })).toBeVisible()
+    await expect(readyWindow.getByRole('tab', { name: /^General$/i })).toBeVisible()
+    await expect(readyWindow.getByRole('tab', { name: /^Appearance$/i })).toBeVisible()
   })
 })

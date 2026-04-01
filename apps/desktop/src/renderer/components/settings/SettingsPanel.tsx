@@ -1,4 +1,16 @@
 import { useState } from 'react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Separator } from '@/components/ui/separator'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ProviderAuthPanel } from './ProviderAuthPanel'
 
 type SettingsTab = 'providers' | 'general' | 'appearance'
@@ -8,79 +20,87 @@ interface SettingsPanelProps {
   onOpenChange: (open: boolean) => void
 }
 
+const SETTINGS_TABS: Array<{ id: SettingsTab; label: string }> = [
+  { id: 'providers', label: 'Providers' },
+  { id: 'general', label: 'General' },
+  { id: 'appearance', label: 'Appearance' },
+]
+
 export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>('providers')
 
-  if (!open) {
-    return null
-  }
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-6 backdrop-blur-sm">
-      <div className="flex h-[min(48rem,90vh)] w-[min(70rem,95vw)] flex-col rounded-xl border border-slate-700 bg-slate-900 shadow-2xl">
-        <header className="flex items-center justify-between border-b border-slate-700 px-5 py-3">
-          <div>
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-100">Settings</h2>
-            <p className="text-xs text-slate-400">Manage providers, preferences, and desktop defaults.</p>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => onOpenChange(false)}
-            className="rounded-md border border-slate-600 px-3 py-1 text-xs text-slate-200 hover:bg-slate-800"
-          >
-            Close
-          </button>
-        </header>
-
-        <div className="grid flex-1 overflow-hidden md:grid-cols-[12rem_minmax(0,1fr)]">
-          <nav className="border-r border-slate-700 bg-slate-950/40 p-3">
-            <div className="space-y-1 text-xs">
-              {[
-                { id: 'providers', label: 'Providers' },
-                { id: 'general', label: 'General' },
-                { id: 'appearance', label: 'Appearance' },
-              ].map((tab) => {
-                const id = tab.id as SettingsTab
-                const active = activeTab === id
-
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setActiveTab(id)}
-                    className={`w-full rounded-md px-3 py-2 text-left transition ${
-                      active
-                        ? 'bg-slate-800 text-slate-100'
-                        : 'text-slate-300 hover:bg-slate-800/50'
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                )
-              })}
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        showCloseButton={false}
+        className="h-[min(48rem,90vh)] w-[min(70rem,95vw)] max-w-[min(70rem,95vw)] gap-0 overflow-hidden p-0"
+      >
+        <DialogHeader className="px-5 py-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col gap-1">
+              <DialogTitle className="text-sm font-semibold uppercase tracking-wide text-foreground">
+                Settings
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                Manage providers, preferences, and desktop defaults.
+              </DialogDescription>
             </div>
-          </nav>
 
-          <section className="overflow-auto p-4">
-            {activeTab === 'providers' && <ProviderAuthPanel />}
+            <DialogClose asChild>
+              <Button type="button" variant="outline" size="sm">
+                Close
+              </Button>
+            </DialogClose>
+          </div>
+        </DialogHeader>
 
-            {activeTab === 'general' && (
-              <div className="rounded-lg border border-slate-700 bg-slate-950/40 p-4 text-sm text-slate-300">
-                <p className="font-semibold text-slate-100">General settings</p>
-                <p className="mt-2 text-xs text-slate-400">Additional preferences will be added in a future slice.</p>
-              </div>
-            )}
+        <Separator />
 
-            {activeTab === 'appearance' && (
-              <div className="rounded-lg border border-slate-700 bg-slate-950/40 p-4 text-sm text-slate-300">
-                <p className="font-semibold text-slate-100">Appearance</p>
-                <p className="mt-2 text-xs text-slate-400">Theme and typography controls are coming in a future slice.</p>
-              </div>
-            )}
-          </section>
-        </div>
-      </div>
-    </div>
+        <Tabs
+          orientation="vertical"
+          value={activeTab}
+          onValueChange={(value) => setActiveTab(value as SettingsTab)}
+          className="flex-1 gap-0 overflow-hidden"
+        >
+          <TabsList className="h-full w-48 shrink-0 items-stretch rounded-none bg-background/40 p-3" variant="line">
+            {SETTINGS_TABS.map((tab) => (
+              <TabsTrigger key={tab.id} value={tab.id} className="justify-start text-xs">
+                {tab.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+
+          <Separator orientation="vertical" />
+
+          <div className="flex-1 overflow-hidden">
+            <TabsContent value="providers" className="mt-0 h-full overflow-auto p-4">
+              <ProviderAuthPanel />
+            </TabsContent>
+
+            <TabsContent value="general" className="mt-0 h-full overflow-auto p-4">
+              <Card className="border border-border bg-card/60 py-0">
+                <CardHeader className="px-4 pt-4 pb-0">
+                  <CardTitle className="text-sm text-foreground">General settings</CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 pt-2 text-xs text-muted-foreground">
+                  Additional preferences will be added in a future slice.
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="appearance" className="mt-0 h-full overflow-auto p-4">
+              <Card className="border border-border bg-card/60 py-0">
+                <CardHeader className="px-4 pt-4 pb-0">
+                  <CardTitle className="text-sm text-foreground">Appearance</CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 pt-2 text-xs text-muted-foreground">
+                  Theme and typography controls are coming in a future slice.
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </div>
+        </Tabs>
+      </DialogContent>
+    </Dialog>
   )
 }

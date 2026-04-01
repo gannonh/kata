@@ -1,4 +1,6 @@
 import { useRef, useState } from 'react'
+import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
 
 interface MessageInputProps {
   disabled?: boolean
@@ -42,9 +44,9 @@ export function MessageInput({ disabled = false, stopDisabled = disabled, onSubm
   }
 
   return (
-    <div className="border-t border-slate-800 p-4">
-      <div className="rounded-lg border border-slate-700 bg-slate-900 p-2">
-        <textarea
+    <div className="border-t border-border p-4">
+      <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-2">
+        <Textarea
           value={value}
           onChange={(event) => setValue(event.target.value)}
           onKeyDown={(event) => {
@@ -57,29 +59,30 @@ export function MessageInput({ disabled = false, stopDisabled = disabled, onSubm
               handleSend()
             }
           }}
-          className="h-20 w-full resize-none border-none bg-transparent text-sm text-slate-100 outline-none disabled:opacity-50"
+          className="h-20 resize-none border-0 bg-transparent px-0 py-0 text-sm text-foreground shadow-none focus-visible:border-transparent focus-visible:ring-0"
           placeholder="Ask Kata to help with your code..."
           disabled={disabled || submitting}
         />
 
-        <div className="mt-2 flex justify-end gap-2">
-          <button
+        <div className="flex justify-end gap-2">
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={handleStop}
             disabled={stopDisabled}
-            className="rounded border border-slate-600 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800 disabled:opacity-50"
           >
             Stop
-          </button>
+          </Button>
 
-          <button
+          <Button
             type="button"
+            size="sm"
             onClick={handleSend}
             disabled={disabled || submitting}
-            className="rounded bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-900 disabled:opacity-50"
           >
             Send
-          </button>
+          </Button>
         </div>
       </div>
     </div>
