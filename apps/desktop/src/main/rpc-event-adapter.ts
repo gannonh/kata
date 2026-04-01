@@ -168,12 +168,16 @@ export class RpcEventAdapter {
         const messageId = this.currentAssistantMessageId ?? `message:${++this.messageIdCounter}`
 
         if (stopReason === 'error' && errorMessage) {
+          this.currentAssistantMessageHadContent = true
           return [
             { type: 'message_end', messageId, text: text || undefined },
             { type: 'agent_error', message: errorMessage },
           ]
         }
 
+        // After emitting message_end, mark content as seen so the next message_start(assistant)
+        // always allocates a new ID — prevents tool-only turns from leaking their ID into the next turn.
+        this.currentAssistantMessageHadContent = true
         return [{ type: 'message_end', messageId, text: text || undefined }]
       }
 
@@ -203,7 +207,7 @@ export class RpcEventAdapter {
       case 'tool_execution_end': {
         const toolName = this.extractToolName(event)
         const toolCallId = this.extractToolCallId(event)
-        // event.args is absent (not null) in real CLI output — fall back to cached start args
+        // event.args is absent or null in real CLI output — fall back to cached start args
         const rawArgs = event.args != null ? event.args : (this.toolArgsCache.get(toolCallId) ?? null)
         const args = this.extractToolArgs(toolName, rawArgs)
         const rawResult = event.result ?? event.message?.result
@@ -442,26 +446,6 @@ export class RpcEventAdapter {
     return undefined
   }
 
-  private extractTextDelta(event: RpcEvent): string {
-    const assistantMessageEvent = event.assistantMessageEvent
-    if (
-      assistantMessageEvent &&
-      assistantMessageEvent.type === 'text_delta' &&
-      typeof assistantMessageEvent.delta === 'string'
-    ) {
-      return assistantMessageEvent.delta
-    }
-
-    if (assistantMessageEvent && typeof assistantMessageEvent.text === 'string') {
-      return assistantMessageEvent.text
-    }
-
-    // Don't fall back to extracting full message text — that would inject user message
-    // content or stale assistant content as a text_delta, corrupting the chat stream.
-    // Only actual text_delta events produce deltas.
-    return ''
-  }
-
   private extractText(message?: Record<string, unknown>): string | undefined {
     if (!message) {
       return undefined
@@ -516,29 +500,6 @@ export class RpcEventAdapter {
   private currentAssistantMessageId: string | null = null
   private currentAssistantMessageHadContent = false
   private readonly toolArgsCache = new Map<string, ToolArgs>()
-
-  private extractMessageId(message?: Record<string, unknown>): string {
-    if (!message) {
-      return `message:${++this.messageIdCounter}`
-    }
-
-    // Try explicit id field
-    const id = message.id
-    if (typeof id === 'string' && id.length > 0) {
-      return id
-    }
-
-    // Try responseId (set by Anthropic/OpenAI on message_update events)
-    const responseId = message.responseId
-    if (typeof responseId === 'string' && responseId.length > 0) {
-      return responseId
-    }
-
-    // Generate unique ID — critical to prevent messages from different turns
-    // sharing the same ID and overwriting each other's content
-    return `message:${++this.messageIdCounter}`
-  }
-
 
   private extractToolCallId(event: RpcEvent): string {
     if (typeof event.toolCallId === 'string' && event.toolCallId.length > 0) {

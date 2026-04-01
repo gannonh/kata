@@ -966,6 +966,58 @@ describe('Real RPC event shapes', () => {
     expect(delta).toMatchObject({ type: 'text_delta', messageId: id2 })
   })
 
+  test('tool-only turn followed by text turn: second turn gets a new message ID', () => {
+    // Turn 1: assistant message with only a tool call (no text_delta, no thinking_delta)
+    const [start1] = adapter.adapt({
+      type: 'message_start',
+      message: { role: 'assistant', content: [] },
+    })
+    const id1 = (start1 as { messageId: string }).messageId
+
+    // Tool executes — no text content emitted
+    adapter.adapt({
+      type: 'tool_execution_start',
+      toolCallId: 'tool-only-1',
+      toolName: 'bash',
+      args: { command: 'ls' },
+    })
+    adapter.adapt({
+      type: 'tool_execution_end',
+      toolCallId: 'tool-only-1',
+      toolName: 'bash',
+      result: { stdout: 'file.txt', stderr: '', exitCode: 0 },
+      isError: false,
+    })
+
+    // message_end for the tool-only assistant turn
+    adapter.adapt({
+      type: 'message_end',
+      message: {
+        role: 'assistant',
+        content: [],
+        stopReason: 'toolUse',
+      },
+    })
+
+    // Turn 2: new assistant message with text
+    const [start2] = adapter.adapt({
+      type: 'message_start',
+      message: { role: 'assistant', content: [] },
+    })
+    const id2 = (start2 as { messageId: string }).messageId
+
+    // Must get a NEW ID — not the same as id1
+    expect(id2).not.toEqual(id1)
+
+    // Text delta uses the new ID
+    const [delta] = adapter.adapt({
+      type: 'message_update',
+      assistantMessageEvent: { type: 'text_delta', delta: 'Done!' },
+      message: { role: 'assistant', content: [] },
+    })
+    expect(delta).toMatchObject({ type: 'text_delta', messageId: id2 })
+  })
+
   test('non-text-delta message_update types (toolcall_start/delta/end, text_start/end) emit nothing', () => {
     adapter.adapt({ type: 'message_start', message: { role: 'assistant', content: [] } })
 
