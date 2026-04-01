@@ -12,6 +12,7 @@ export const sessionWarningsAtom = atom<string[]>([])
 export const sessionDirectoryAtom = atom<string>('')
 export const sessionListLoadingAtom = atom<boolean>(false)
 export const sessionListErrorAtom = atom<string | null>(null)
+export const sessionCreatingAtom = atom<boolean>(false)
 
 export const currentSessionIdAtom = atomWithStorage<string | null>(
   CURRENT_SESSION_STORAGE_KEY,
@@ -80,26 +81,31 @@ export const initializeSessionsAtom = atom(null, async (_get, set) => {
   }
 })
 
-export const createSessionAtom = atom(null, async (_get, set) => {
-  set(sessionListErrorAtom, null)
-
-  const response = await window.api.sessions.create()
-  if (!response.success) {
-    set(sessionListErrorAtom, response.error ?? 'Unable to create session')
+export const createSessionAtom = atom(null, async (get, set) => {
+  if (get(sessionCreatingAtom)) {
     return
   }
 
-  set(resetChatStateAtom)
+  set(sessionCreatingAtom, true)
+  set(sessionListErrorAtom, null)
 
-  await set(refreshSessionListAtom)
+  try {
+    const response = await window.api.sessions.create()
+    if (!response.success) {
+      set(sessionListErrorAtom, response.error ?? 'Unable to create session')
+      return
+    }
 
-  if (response.sessionId) {
-    set(currentSessionIdAtom, response.sessionId)
+    set(resetChatStateAtom)
+
+    await set(refreshSessionListAtom)
+
+    if (response.sessionId) {
+      set(currentSessionIdAtom, response.sessionId)
+    }
+  } finally {
+    set(sessionCreatingAtom, false)
   }
-})
-
-export const selectSessionAtom = atom(null, (_get, set, sessionId: string) => {
-  set(currentSessionIdAtom, sessionId)
 })
 
 export const pickWorkspaceAtom = atom(null, async () => {
@@ -107,9 +113,16 @@ export const pickWorkspaceAtom = atom(null, async () => {
 })
 
 export const switchWorkspaceAtom = atom(null, async (_get, set, workspacePath: string) => {
-  const response = await window.api.workspace.set(workspacePath)
-  set(workingDirectoryAtom, response.path)
-  set(currentSessionIdAtom, null)
-  set(resetChatStateAtom)
-  await set(refreshSessionListAtom)
+  set(sessionListErrorAtom, null)
+
+  try {
+    const response = await window.api.workspace.set(workspacePath)
+    set(workingDirectoryAtom, response.path)
+    set(currentSessionIdAtom, null)
+    set(resetChatStateAtom)
+    await set(refreshSessionListAtom)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    set(sessionListErrorAtom, `Unable to switch workspace to ${workspacePath}: ${message}`)
+  }
 })

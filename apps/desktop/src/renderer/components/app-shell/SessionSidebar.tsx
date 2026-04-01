@@ -3,6 +3,7 @@ import {
   createSessionAtom,
   currentSessionIdAtom,
   refreshSessionListAtom,
+  sessionCreatingAtom,
   sessionListAtom,
   sessionListErrorAtom,
   sessionListLoadingAtom,
@@ -18,6 +19,7 @@ export function SessionSidebar({ open }: SessionSidebarProps) {
   const sessions = useAtomValue(sessionListAtom)
   const currentSessionId = useAtomValue(currentSessionIdAtom)
   const loading = useAtomValue(sessionListLoadingAtom)
+  const creatingSession = useAtomValue(sessionCreatingAtom)
   const error = useAtomValue(sessionListErrorAtom)
   const warnings = useAtomValue(sessionWarningsAtom)
 
@@ -36,9 +38,10 @@ export function SessionSidebar({ open }: SessionSidebarProps) {
           onClick={() => {
             void createSession()
           }}
-          className="inline-flex w-full items-center justify-center rounded-md bg-slate-100 px-2 py-1.5 text-xs font-medium text-slate-900 hover:bg-white"
+          disabled={creatingSession}
+          className="inline-flex w-full items-center justify-center rounded-md bg-slate-100 px-2 py-1.5 text-xs font-medium text-slate-900 hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
         >
-          + New Session
+          {creatingSession ? 'Creating…' : '+ New Session'}
         </button>
 
         <div className="mt-2 flex items-center justify-between text-[10px] text-slate-400">

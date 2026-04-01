@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import {
   pickWorkspaceAtom,
+  sessionListErrorAtom,
   switchWorkspaceAtom,
   workingDirectoryAtom,
 } from '@/atoms/session'
@@ -25,6 +26,7 @@ export function WorkspaceIndicator() {
   const workingDirectory = useAtomValue(workingDirectoryAtom)
   const pickWorkspace = useSetAtom(pickWorkspaceAtom)
   const switchWorkspace = useSetAtom(switchWorkspaceAtom)
+  const setSessionError = useSetAtom(sessionListErrorAtom)
 
   const workspaceLabel = useMemo(
     () => formatWorkspaceLabel(workingDirectory),
@@ -32,12 +34,17 @@ export function WorkspaceIndicator() {
   )
 
   const handlePickWorkspace = async (): Promise<void> => {
-    const selected = await pickWorkspace()
-    if (!selected) {
-      return
-    }
+    try {
+      const selected = await pickWorkspace()
+      if (!selected) {
+        return
+      }
 
-    await switchWorkspace(selected.path)
+      await switchWorkspace(selected.path)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      setSessionError(`Unable to switch workspace: ${message}`)
+    }
   }
 
   return (

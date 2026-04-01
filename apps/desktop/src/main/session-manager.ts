@@ -147,7 +147,7 @@ export class DesktopSessionManager {
   public async listSessions(cwd: string): Promise<SessionListResponse> {
     const normalizedCwd = normalizePath(cwd)
 
-    let entries: Array<{ filePath: string; modified: number }> = []
+    let entries: Array<{ filePath: string }> = []
     const warnings: string[] = []
 
     try {
@@ -160,20 +160,9 @@ export class DesktopSessionManager {
 
         const filePath = path.join(this.sessionsDirectory, dirEntry.name)
 
-        try {
-          const stat = await fs.stat(filePath)
-          entries.push({
-            filePath,
-            modified: stat.mtimeMs,
-          })
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error)
-          warnings.push(`${path.basename(filePath)}: ${message}`)
-          log.warn('[desktop-session-manager] skipped unreadable session file', {
-            path: filePath,
-            error: message,
-          })
-        }
+        entries.push({
+          filePath,
+        })
       }
     } catch (error) {
       if (
