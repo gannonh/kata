@@ -15,11 +15,13 @@ let bridge: PiAgentBridge | null = null
 let unregisterSessionIpc: (() => void) | null = null
 
 function createWindow(): BrowserWindow {
+  const isTestMode = process.env.KATA_TEST_MODE === '1'
   const window = new BrowserWindow({
     width: 1400,
     height: 900,
     minWidth: 1024,
     minHeight: 640,
+    show: !isTestMode,
     title: 'Kata Desktop',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -32,7 +34,7 @@ function createWindow(): BrowserWindow {
   const devServerUrl = process.env.VITE_DEV_SERVER_URL
   if (devServerUrl) {
     void window.loadURL(devServerUrl)
-    window.webContents.openDevTools({ mode: 'detach' })
+    if (!isTestMode) window.webContents.openDevTools({ mode: 'detach' })
   } else {
     void window.loadFile(path.join(__dirname, 'renderer', 'index.html'))
   }

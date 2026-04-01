@@ -20,10 +20,13 @@
     "desktop:dev": "concurrently -k -n MAIN,PRELOAD,RENDERER,ELECTRON -c green,cyan,magenta,yellow \"bun run dev:main\" \"bun run dev:preload\" \"bun run dev:renderer\" \"bun run dev:electron\"",
     "typecheck": "tsc --noEmit",
     "test": "npx vitest run --coverage",
-    "test:watch": "npx vitest"
+    "test:watch": "npx vitest",
+    "test:e2e": "npx playwright test",
+    "test:e2e:headed": "npx playwright test --headed"
   },
   "dependencies": {},
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@radix-ui/react-collapsible": "^1.1.12",
     "@tailwindcss/vite": "^4.1.18",
     "@types/node": "^25.0.8",
