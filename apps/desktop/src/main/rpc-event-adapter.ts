@@ -16,6 +16,8 @@ interface AssistantMessageEvent {
   type?: string
   delta?: string
   text?: string
+  content?: string
+  contentIndex?: number
 }
 
 interface RpcEvent {
@@ -92,77 +94,96 @@ export class RpcEventAdapter {
           return []
         }
 
-        // For assistant messages, assign and track a unique ID so that
-        // subsequent text_delta and message_end events can resolve to it
-        // even when the RPC events don't carry an explicit message ID.
-        const messageId = role === 'assistant'
-          ? this.assignAssistantMessageId(event.message as Record<string, unknown>)
-          : this.extractMessageId(event.message)
+        if (role === 'user') {
+          const messageId = `message:${++this.messageIdCounter}`
+          return [{ type: 'message_start', role: 'user', messageId }]
+        }
 
-        return [
-          {
-            type: 'message_start',
-            role,
-            messageId,
-          },
-        ]
+        // role === 'assistant'
+        // If the previous assistant message has not yet had any content (text or thinking),
+        // reuse its ID — handles the multi-start pattern where thinking+tool phase starts
+        // a message but the real text comes in a later message_start(assistant).
+        let messageId: string
+        if (!this.currentAssistantMessageHadContent && this.currentAssistantMessageId !== null) {
+          messageId = this.currentAssistantMessageId
+        } else {
+          messageId = `message:${++this.messageIdCounter}`
+          this.currentAssistantMessageId = messageId
+          this.currentAssistantMessageHadContent = false
+        }
+
+        return [{ type: 'message_start', role: 'assistant', messageId }]
       }
 
       case 'message_update': {
-        const delta = this.extractTextDelta(event)
-        if (!delta) {
-          return []
-        }
+        const ameType = event.assistantMessageEvent?.type
+        const messageId = this.currentAssistantMessageId ?? `message:${++this.messageIdCounter}`
 
-        return [
-          {
-            type: 'text_delta',
-            messageId: this.resolveAssistantMessageId(event.message as Record<string, unknown>),
-            delta,
-          },
-        ]
+        switch (ameType) {
+          case 'text_delta': {
+            const delta = event.assistantMessageEvent?.delta
+            if (typeof delta === 'string' && delta.length > 0) {
+              this.currentAssistantMessageHadContent = true
+              return [{ type: 'text_delta', messageId, delta }]
+            }
+            return []
+          }
+
+          case 'thinking_start': {
+            return [{ type: 'thinking_start', messageId }]
+          }
+
+          case 'thinking_delta': {
+            const delta = event.assistantMessageEvent?.delta
+            if (typeof delta === 'string' && delta.length > 0) {
+              this.currentAssistantMessageHadContent = true
+              return [{ type: 'thinking_delta', messageId, delta }]
+            }
+            return []
+          }
+
+          case 'thinking_end': {
+            const content = event.assistantMessageEvent?.content ?? ''
+            return [{ type: 'thinking_end', messageId, content: typeof content === 'string' ? content : '' }]
+          }
+
+          // toolcall_start/delta/end, text_start, text_end — silently dropped
+          default:
+            return []
+        }
       }
 
       case 'message_end': {
         const message = event.message as Record<string, unknown> | undefined
+        const role = this.extractRole(message)
+
+        // Only emit for assistant messages — user and toolResult ends are ignored
+        if (role !== 'assistant') {
+          return []
+        }
+
         const text = this.extractText(message)
         const errorMessage = typeof message?.errorMessage === 'string' ? message.errorMessage : undefined
         const stopReason = typeof message?.stopReason === 'string' ? message.stopReason : undefined
+        const messageId = this.currentAssistantMessageId ?? `message:${++this.messageIdCounter}`
 
-        // If the API returned an error (stopReason: "error"), surface it
         if (stopReason === 'error' && errorMessage) {
           return [
-            {
-              type: 'message_end',
-              messageId: this.resolveAssistantMessageId(message),
-              text: text || undefined,
-            },
-            {
-              type: 'agent_error',
-              message: errorMessage,
-            },
+            { type: 'message_end', messageId, text: text || undefined },
+            { type: 'agent_error', message: errorMessage },
           ]
         }
 
-        return [
-          {
-            type: 'message_end',
-            messageId: this.resolveAssistantMessageId(message),
-            text: text || undefined,
-          },
-        ]
+        return [{ type: 'message_end', messageId, text: text || undefined }]
       }
 
       case 'tool_execution_start': {
         const toolName = this.extractToolName(event)
-        return [
-          {
-            type: 'tool_start',
-            toolCallId: this.extractToolCallId(event),
-            toolName,
-            args: this.extractToolArgs(toolName, event.args),
-          },
-        ]
+        const toolCallId = this.extractToolCallId(event)
+        const args = this.extractToolArgs(toolName, event.args)
+        // Cache args so tool_execution_end can use them when event.args is absent
+        this.toolArgsCache.set(toolCallId, args)
+        return [{ type: 'tool_start', toolCallId, toolName, args }]
       }
 
       case 'tool_execution_update': {
@@ -181,7 +202,10 @@ export class RpcEventAdapter {
 
       case 'tool_execution_end': {
         const toolName = this.extractToolName(event)
-        const args = this.extractToolArgs(toolName, event.args)
+        const toolCallId = this.extractToolCallId(event)
+        // event.args is absent (not null) in real CLI output — fall back to cached start args
+        const rawArgs = event.args != null ? event.args : (this.toolArgsCache.get(toolCallId) ?? null)
+        const args = this.extractToolArgs(toolName, rawArgs)
         const rawResult = event.result ?? event.message?.result
         const result = this.extractToolResult(toolName, args, rawResult)
         const error = typeof event.error === 'string' ? event.error : this.extractToolError(event.message)
@@ -189,7 +213,7 @@ export class RpcEventAdapter {
         return [
           {
             type: 'tool_end',
-            toolCallId: this.extractToolCallId(event),
+            toolCallId,
             toolName,
             result,
             isError: Boolean(event.isError || error),
@@ -490,6 +514,8 @@ export class RpcEventAdapter {
 
   private messageIdCounter = 0
   private currentAssistantMessageId: string | null = null
+  private currentAssistantMessageHadContent = false
+  private readonly toolArgsCache = new Map<string, ToolArgs>()
 
   private extractMessageId(message?: Record<string, unknown>): string {
     if (!message) {
@@ -513,31 +539,6 @@ export class RpcEventAdapter {
     return `message:${++this.messageIdCounter}`
   }
 
-  /**
-   * Get the message ID for a message_start event, generating a unique one
-   * and tracking it as the current streaming assistant message.
-   */
-  private assignAssistantMessageId(message?: Record<string, unknown>): string {
-    const extracted = this.extractMessageId(message)
-    this.currentAssistantMessageId = extracted
-    return extracted
-  }
-
-  /**
-   * Get the message ID for text_delta/message_end events.
-   * Falls back to the current streaming assistant message ID when the
-   * event's message doesn't have an ID (common with Anthropic API).
-   */
-  private resolveAssistantMessageId(message?: Record<string, unknown>): string {
-    if (message) {
-      const id = message.id
-      if (typeof id === 'string' && id.length > 0) return id
-      const responseId = message.responseId
-      if (typeof responseId === 'string' && responseId.length > 0) return responseId
-    }
-    // Fall back to the last assigned assistant message ID
-    return this.currentAssistantMessageId ?? `message:${++this.messageIdCounter}`
-  }
 
   private extractToolCallId(event: RpcEvent): string {
     if (typeof event.toolCallId === 'string' && event.toolCallId.length > 0) {

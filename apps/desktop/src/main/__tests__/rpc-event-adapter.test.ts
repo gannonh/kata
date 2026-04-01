@@ -12,49 +12,32 @@ describe('RpcEventAdapter', () => {
   })
 
   test('maps message start/update/end into chat events', () => {
-    expect(
-      adapter.adapt({
-        type: 'message_start',
-        message: { id: 'm1', role: 'assistant' },
-      }),
-    ).toEqual([
-      {
-        type: 'message_start',
-        messageId: 'm1',
+    // New behavior: adapter assigns counter IDs; explicit id field is ignored
+    const [startEvent] = adapter.adapt({
+      type: 'message_start',
+      message: { id: 'm1', role: 'assistant' },
+    })
+    expect(startEvent).toMatchObject({ type: 'message_start', role: 'assistant' })
+    const assignedId = (startEvent as { messageId: string }).messageId
+    expect(typeof assignedId).toBe('string')
+    expect(assignedId.length).toBeGreaterThan(0)
+
+    const [deltaEvent] = adapter.adapt({
+      type: 'message_update',
+      message: { id: 'm1', role: 'assistant' },
+      assistantMessageEvent: { type: 'text_delta', delta: 'Hello ' },
+    })
+    expect(deltaEvent).toEqual({ type: 'text_delta', messageId: assignedId, delta: 'Hello ' })
+
+    const [endEvent] = adapter.adapt({
+      type: 'message_end',
+      message: {
+        id: 'm1',
         role: 'assistant',
+        content: [{ type: 'text', text: 'Hello world' }],
       },
-    ])
-
-    expect(
-      adapter.adapt({
-        type: 'message_update',
-        message: { id: 'm1', role: 'assistant' },
-        assistantMessageEvent: { type: 'text_delta', delta: 'Hello ' },
-      }),
-    ).toEqual([
-      {
-        type: 'text_delta',
-        messageId: 'm1',
-        delta: 'Hello ',
-      },
-    ])
-
-    expect(
-      adapter.adapt({
-        type: 'message_end',
-        message: {
-          id: 'm1',
-          role: 'assistant',
-          content: [{ type: 'text', text: 'Hello world' }],
-        },
-      }),
-    ).toEqual([
-      {
-        type: 'message_end',
-        messageId: 'm1',
-        text: 'Hello world',
-      },
-    ])
+    })
+    expect(endEvent).toEqual({ type: 'message_end', messageId: assignedId, text: 'Hello world' })
   })
 
   test('extracts typed edit args and result metadata', () => {
@@ -359,19 +342,14 @@ describe('RpcEventAdapter', () => {
       }),
     ).toEqual([])
 
+    // tool_use and other non-handled ame types emit nothing (new behavior)
     expect(
       adapter.adapt({
         type: 'message_update',
         message: { id: 'm2' },
         assistantMessageEvent: { type: 'tool_use', text: 'fallback text' },
       }),
-    ).toEqual([
-      {
-        type: 'text_delta',
-        messageId: 'm2',
-        delta: 'fallback text',
-      },
-    ])
+    ).toEqual([])
 
     // When assistantMessageEvent is not a text_delta (e.g. tool_result), no text delta
     // should be produced — falling back to message.text would inject stale/user content
@@ -391,40 +369,38 @@ describe('RpcEventAdapter', () => {
       }),
     ).toEqual([])
 
+    // message_end with assistant role emits message_end
+    // First set up an assistant message so we have an ID
+    const [startForM5] = adapter.adapt({
+      type: 'message_start',
+      message: { role: 'assistant' },
+    })
+    const idForM5 = (startForM5 as { messageId: string }).messageId
+
     expect(
       adapter.adapt({
         type: 'message_end',
-        message: { id: 'm5', content: [] },
+        message: { id: 'm5', role: 'assistant', content: [] },
       }),
     ).toEqual([
       {
         type: 'message_end',
-        messageId: 'm5',
+        messageId: idForM5,
         text: undefined,
       },
     ])
 
+    // message_end with no role emits nothing (new behavior: role filtering)
     expect(
       adapter.adapt({
         type: 'message_end',
         message: { id: 'm6', content: [{ type: 'tool_use' }, null] },
       }),
-    ).toEqual([
-      {
-        type: 'message_end',
-        messageId: 'm6',
-        text: undefined,
-      },
-    ])
+    ).toEqual([])
 
-    // message_end with no message object generates a unique ID
+    // message_end with no message object: role is undefined, emits nothing
     const endEvents = adapter.adapt({ type: 'message_end' })
-    expect(endEvents).toHaveLength(1)
-    expect(endEvents[0]).toMatchObject({
-      type: 'message_end',
-      text: undefined,
-    })
-    expect(typeof (endEvents[0] as Record<string, unknown>).messageId).toBe('string')
+    expect(endEvents).toEqual([])
   })
 
   test('maps tool_execution_start for bash/read/write/search tools with null-safe args', () => {
