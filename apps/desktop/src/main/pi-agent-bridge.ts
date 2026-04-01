@@ -503,7 +503,8 @@ export class PiAgentBridge extends EventEmitter {
       }
     }
 
-    const fromEnv = process.env.KATA_BIN_PATH?.trim()
+    const fromEnvRaw = process.env.KATA_BIN_PATH?.trim()
+    const fromEnv = fromEnvRaw ? path.resolve(fromEnvRaw) : undefined
     if (fromEnv) {
       checkedPaths.push(fromEnv)
       if (this.isExecutableFile(fromEnv)) {

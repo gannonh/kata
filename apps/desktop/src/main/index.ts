@@ -1,7 +1,30 @@
+import { readFileSync } from 'node:fs'
 import { promises as fs } from 'node:fs'
 import { homedir } from 'node:os'
 import path from 'node:path'
 import { app, BrowserWindow } from 'electron'
+
+// Load .env.development in dev mode — provides KATA_BIN_PATH for monorepo dev.
+// Must run before any code reads process.env.
+if (!app.isPackaged) {
+  try {
+    const envPath = path.join(__dirname, '..', '.env.development')
+    const envContent = readFileSync(envPath, 'utf8')
+    for (const line of envContent.split('\n')) {
+      const trimmed = line.trim()
+      if (!trimmed || trimmed.startsWith('#')) continue
+      const eqIndex = trimmed.indexOf('=')
+      if (eqIndex <= 0) continue
+      const key = trimmed.slice(0, eqIndex).trim()
+      const value = trimmed.slice(eqIndex + 1).trim()
+      if (!process.env[key]) {
+        process.env[key] = value
+      }
+    }
+  } catch {
+    // No .env.development — that's fine, KATA_BIN_PATH can be set externally
+  }
+}
 import { AuthBridge } from './auth-bridge'
 import log from './logger'
 import { PiAgentBridge } from './pi-agent-bridge'
