@@ -70,6 +70,28 @@ const api: DesktopApi = {
   setModel: async (model: string) => {
     return ipcRenderer.invoke(IPC_CHANNELS.sessionSetModel, model)
   },
+  sessions: {
+    list: async () => {
+      return ipcRenderer.invoke(IPC_CHANNELS.sessionList)
+    },
+    create: async () => {
+      return ipcRenderer.invoke(IPC_CHANNELS.sessionNew)
+    },
+    getInfo: async (sessionPath: string) => {
+      return ipcRenderer.invoke(IPC_CHANNELS.sessionGetInfo, sessionPath)
+    },
+  },
+  workspace: {
+    get: async () => {
+      return ipcRenderer.invoke(IPC_CHANNELS.workspaceGet)
+    },
+    set: async (workspacePath: string) => {
+      return ipcRenderer.invoke(IPC_CHANNELS.workspaceSet, workspacePath)
+    },
+    pick: async () => {
+      return ipcRenderer.invoke(IPC_CHANNELS.workspacePick)
+    },
+  },
   auth: {
     getProviders: async () => {
       return ipcRenderer.invoke(IPC_CHANNELS.authGetProviders)

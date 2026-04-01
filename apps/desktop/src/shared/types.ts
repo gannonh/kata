@@ -10,6 +10,12 @@ export const IPC_CHANNELS = {
   sessionPermissionMode: 'session:permission-mode',
   sessionGetAvailableModels: 'session:get-available-models',
   sessionSetModel: 'session:set-model',
+  sessionList: 'session:list',
+  sessionNew: 'session:new',
+  sessionGetInfo: 'session:get-info',
+  workspaceGet: 'workspace:get',
+  workspaceSet: 'workspace:set',
+  workspacePick: 'workspace:pick',
   authGetProviders: 'auth:get-providers',
   authSetKey: 'auth:set-key',
   authRemoveKey: 'auth:remove-key',
@@ -102,12 +108,54 @@ export interface SetModelResponse {
   error?: string
 }
 
+export interface SessionTokenUsage {
+  input?: number
+  output?: number
+  cacheRead?: number
+  cacheWrite?: number
+  total?: number
+}
+
+export interface SessionListItem {
+  id: string
+  path: string
+  name: string | null
+  title: string
+  model: string | null
+  provider: string | null
+  created: string
+  modified: string
+  messageCount: number
+  firstMessagePreview: string | null
+}
+
+export interface SessionInfo extends SessionListItem {
+  tokenUsage?: SessionTokenUsage
+}
+
+export interface SessionListResponse {
+  sessions: SessionListItem[]
+  warnings: string[]
+  directory: string
+}
+
+export interface CreateSessionResponse {
+  success: boolean
+  sessionId: string | null
+  error?: string
+}
+
+export interface WorkspaceInfo {
+  path: string
+}
+
 export type RpcCommandType =
   | 'prompt'
   | 'abort'
   | 'shutdown'
   | 'get_state'
   | 'get_session_stats'
+  | 'new_session'
   | 'follow_up'
   | 'get_available_models'
   | 'set_model'
@@ -323,6 +371,16 @@ export interface DesktopApi {
   setPermissionMode: (mode: PermissionMode) => Promise<void>
   getAvailableModels: () => Promise<AvailableModelsResponse>
   setModel: (model: string) => Promise<SetModelResponse>
+  sessions: {
+    list: () => Promise<SessionListResponse>
+    create: () => Promise<CreateSessionResponse>
+    getInfo: (sessionPath: string) => Promise<SessionInfo>
+  }
+  workspace: {
+    get: () => Promise<WorkspaceInfo>
+    set: (workspacePath: string) => Promise<WorkspaceInfo>
+    pick: () => Promise<WorkspaceInfo | null>
+  }
   auth: {
     getProviders: () => Promise<AuthProvidersResponse>
     setKey: (provider: AuthProvider, key: string) => Promise<AuthSetKeyResponse>

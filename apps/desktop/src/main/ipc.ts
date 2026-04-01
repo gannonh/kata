@@ -1,8 +1,11 @@
-import { ipcMain, type BrowserWindow } from 'electron'
+import { promises as fs } from 'node:fs'
+import path from 'node:path'
+import { dialog, ipcMain, type BrowserWindow } from 'electron'
 import log from './logger'
 import { AuthBridge } from './auth-bridge'
 import { PiAgentBridge } from './pi-agent-bridge'
 import { RpcEventAdapter } from './rpc-event-adapter'
+import { DesktopSessionManager } from './session-manager'
 import {
   IPC_CHANNELS,
   type AuthProvider,
@@ -14,23 +17,31 @@ import {
   type AuthSetKeyResponse,
   type AuthRemoveKeyResponse,
   type AuthValidationResult,
+  type CreateSessionResponse,
   type ExtensionUIRequest,
   type ExtensionUIResponse,
   type PermissionMode,
+  type SessionInfo,
+  type SessionListResponse,
+  type WorkspaceInfo,
 } from '../shared/types'
 
 interface RegisterIpcOptions {
   bridge: PiAgentBridge
   authBridge: AuthBridge
+  sessionManager: DesktopSessionManager
   window: BrowserWindow
   onModelSelected?: (model: string) => Promise<void> | void
+  onWorkspaceSelected?: (workspacePath: string) => Promise<void> | void
 }
 
 export function registerSessionIpc({
   bridge,
   authBridge,
+  sessionManager,
   window,
   onModelSelected,
+  onWorkspaceSelected,
 }: RegisterIpcOptions): () => void {
   const adapter = new RpcEventAdapter()
 
@@ -116,6 +127,12 @@ export function registerSessionIpc({
   ipcMain.removeHandler(IPC_CHANNELS.sessionPermissionMode)
   ipcMain.removeHandler(IPC_CHANNELS.sessionGetAvailableModels)
   ipcMain.removeHandler(IPC_CHANNELS.sessionSetModel)
+  ipcMain.removeHandler(IPC_CHANNELS.sessionList)
+  ipcMain.removeHandler(IPC_CHANNELS.sessionNew)
+  ipcMain.removeHandler(IPC_CHANNELS.sessionGetInfo)
+  ipcMain.removeHandler(IPC_CHANNELS.workspaceGet)
+  ipcMain.removeHandler(IPC_CHANNELS.workspaceSet)
+  ipcMain.removeHandler(IPC_CHANNELS.workspacePick)
   ipcMain.removeHandler(IPC_CHANNELS.authGetProviders)
   ipcMain.removeHandler(IPC_CHANNELS.authSetKey)
   ipcMain.removeHandler(IPC_CHANNELS.authRemoveKey)
@@ -222,6 +239,136 @@ export function registerSessionIpc({
     }
   })
 
+  ipcMain.handle(IPC_CHANNELS.sessionList, async (): Promise<SessionListResponse> => {
+    const workspacePath = bridge.getWorkspacePath()
+
+    try {
+      return await sessionManager.listSessions(workspacePath)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      log.error('[desktop-ipc] session list failed', {
+        workspacePath,
+        error: message,
+      })
+
+      throw new Error(`Unable to load sessions for ${workspacePath}: ${message}`)
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.sessionNew, async (): Promise<CreateSessionResponse> => {
+    try {
+      const result = await bridge.send({ type: 'new_session' })
+      const payload = result.data
+      const sessionId =
+        payload &&
+        typeof payload === 'object' &&
+        'sessionId' in payload &&
+        typeof (payload as { sessionId?: unknown }).sessionId === 'string'
+          ? (payload as { sessionId: string }).sessionId
+          : payload &&
+                typeof payload === 'object' &&
+                'session_id' in payload &&
+                typeof (payload as { session_id?: unknown }).session_id === 'string'
+              ? (payload as { session_id: string }).session_id
+              : null
+
+      log.info('[desktop-ipc] new session created', {
+        sessionId,
+        workspacePath: bridge.getWorkspacePath(),
+      })
+
+      return {
+        success: true,
+        sessionId,
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      log.error('[desktop-ipc] new session failed', {
+        workspacePath: bridge.getWorkspacePath(),
+        error: message,
+      })
+
+      return {
+        success: false,
+        sessionId: null,
+        error: message,
+      }
+    }
+  })
+
+  ipcMain.handle(
+    IPC_CHANNELS.sessionGetInfo,
+    async (_event, sessionPath: string): Promise<SessionInfo> => {
+      return sessionManager.getSessionInfo(sessionPath)
+    },
+  )
+
+  ipcMain.handle(IPC_CHANNELS.workspaceGet, async (): Promise<WorkspaceInfo> => {
+    return {
+      path: bridge.getWorkspacePath(),
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.workspaceSet, async (_event, workspacePath: string): Promise<WorkspaceInfo> => {
+    const trimmedWorkspacePath = workspacePath?.trim()
+    if (!trimmedWorkspacePath) {
+      throw new Error('Workspace path is required')
+    }
+
+    const nextWorkspacePath = path.resolve(trimmedWorkspacePath)
+    const stat = await fs.stat(nextWorkspacePath)
+    if (!stat.isDirectory()) {
+      throw new Error(`Workspace path is not a directory: ${nextWorkspacePath}`)
+    }
+
+    const previousWorkspacePath = bridge.getWorkspacePath()
+
+    await bridge.switchWorkspace(nextWorkspacePath)
+
+    if (onWorkspaceSelected) {
+      try {
+        await onWorkspaceSelected(nextWorkspacePath)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        log.warn('[desktop-ipc] workspace persistence failed after switch', {
+          workspacePath: nextWorkspacePath,
+          error: message,
+        })
+      }
+    }
+
+    log.info('[desktop-ipc] workspace switched', {
+      previousWorkspacePath,
+      nextWorkspacePath,
+    })
+
+    return {
+      path: nextWorkspacePath,
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.workspacePick, async (): Promise<WorkspaceInfo | null> => {
+    const result = await dialog.showOpenDialog(window, {
+      properties: ['openDirectory'],
+      defaultPath: bridge.getWorkspacePath(),
+      title: 'Select working directory',
+      buttonLabel: 'Use Directory',
+    })
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return null
+    }
+
+    const selectedPath = result.filePaths[0]
+    if (!selectedPath) {
+      return null
+    }
+
+    return {
+      path: selectedPath,
+    }
+  })
+
   ipcMain.handle(IPC_CHANNELS.authGetProviders, async (): Promise<AuthProvidersResponse> => {
     return authBridge.getProviders()
   })
@@ -288,6 +435,12 @@ export function registerSessionIpc({
     ipcMain.removeHandler(IPC_CHANNELS.sessionPermissionMode)
     ipcMain.removeHandler(IPC_CHANNELS.sessionGetAvailableModels)
     ipcMain.removeHandler(IPC_CHANNELS.sessionSetModel)
+    ipcMain.removeHandler(IPC_CHANNELS.sessionList)
+    ipcMain.removeHandler(IPC_CHANNELS.sessionNew)
+    ipcMain.removeHandler(IPC_CHANNELS.sessionGetInfo)
+    ipcMain.removeHandler(IPC_CHANNELS.workspaceGet)
+    ipcMain.removeHandler(IPC_CHANNELS.workspaceSet)
+    ipcMain.removeHandler(IPC_CHANNELS.workspacePick)
     ipcMain.removeHandler(IPC_CHANNELS.authGetProviders)
     ipcMain.removeHandler(IPC_CHANNELS.authSetKey)
     ipcMain.removeHandler(IPC_CHANNELS.authRemoveKey)
