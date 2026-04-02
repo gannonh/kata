@@ -399,17 +399,18 @@ function buildHeaderIndexMap(headers: string[]): Map<string, number> {
 }
 
 function parseRevisableCell(value: string): { value: boolean | null; condition: string | null } {
-  const normalized = value.toLowerCase()
+  const trimmed = value.trim()
+  const normalized = trimmed.toLowerCase()
 
   if (normalized.startsWith('no')) {
     return { value: false, condition: null }
   }
 
   if (normalized.startsWith('yes')) {
-    const condition = value.split(/[—-]/).slice(1).join('—').trim()
+    const conditionMatch = trimmed.match(/^yes\s*[—-]\s*(.+)$/i)
     return {
       value: true,
-      condition: condition || null,
+      condition: conditionMatch?.[1]?.trim() || null,
     }
   }
 

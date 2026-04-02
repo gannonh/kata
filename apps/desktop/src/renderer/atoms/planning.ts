@@ -34,10 +34,10 @@ export const lastViewedPlanningArtifactAtom = atom<Record<string, string>>({})
 
 export const markPlanningArtifactViewedAtom = atom(
   null,
-  (get, set, artifact: { title: string; updatedAt: string }) => {
+  (get, set, artifact: { artifactKey: string; updatedAt: string }) => {
     set(lastViewedPlanningArtifactAtom, {
       ...get(lastViewedPlanningArtifactAtom),
-      [artifact.title]: artifact.updatedAt,
+      [artifact.artifactKey]: artifact.updatedAt,
     })
   },
 )

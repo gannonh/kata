@@ -5,7 +5,7 @@ import { detectArtifactType } from '@/lib/artifact-parser'
 export interface ArtifactTabsProps {
   artifacts: PlanningArtifactState[]
   activeArtifactKey: string | null
-  hasUnviewedUpdatesByTitle: Record<string, boolean>
+  hasUnviewedUpdatesByKey: Record<string, boolean>
   onSelect: (artifact: PlanningArtifactState) => void
 }
 
@@ -19,7 +19,7 @@ const TYPE_SORT_ORDER: Record<string, number> = {
 export function ArtifactTabs({
   artifacts,
   activeArtifactKey,
-  hasUnviewedUpdatesByTitle,
+  hasUnviewedUpdatesByKey,
   onSelect,
 }: ArtifactTabsProps) {
   const sortedArtifacts = [...artifacts].sort((left, right) => {
@@ -40,7 +40,7 @@ export function ArtifactTabs({
     <div className="flex min-h-10 items-end gap-1 overflow-x-auto px-4 pb-2">
       {sortedArtifacts.map((artifact) => {
         const isActive = artifact.artifactKey === activeArtifactKey
-        const hasUnviewedUpdate = hasUnviewedUpdatesByTitle[artifact.title] === true
+        const hasUnviewedUpdate = hasUnviewedUpdatesByKey[artifact.artifactKey] === true
 
         return (
           <button

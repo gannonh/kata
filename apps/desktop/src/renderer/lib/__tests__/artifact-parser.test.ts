@@ -194,6 +194,12 @@ describe('artifact-parser', () => {
       revisable: false,
       revisableCondition: null,
     })
+
+    expect(parsed?.rows[2]).toMatchObject({
+      id: 'D010',
+      revisable: true,
+      revisableCondition: 'if auto-switch is disruptive',
+    })
   })
 
   test('parseContext returns section objects for ## and ### headings', () => {

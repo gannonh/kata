@@ -36,7 +36,7 @@ export function PlanningPane() {
   const activeArtifactRef = useAtomValue(activePlanningArtifactAtom)
   const loading = useAtomValue(planningLoadingAtom)
   const error = useAtomValue(planningErrorAtom)
-  const lastViewedByTitle = useAtomValue(lastViewedPlanningArtifactAtom)
+  const lastViewedByArtifactKey = useAtomValue(lastViewedPlanningArtifactAtom)
 
   const applyPlanningArtifact = useSetAtom(applyPlanningArtifactAtom)
   const setActiveArtifact = useSetAtom(activePlanningArtifactAtom)
@@ -115,7 +115,7 @@ export function PlanningPane() {
     }
 
     markPlanningArtifactViewed({
-      title: activeArtifact.title,
+      artifactKey: activeArtifact.artifactKey,
       updatedAt: activeArtifact.updatedAt,
     })
   }, [activeArtifact, markPlanningArtifactViewed])
@@ -175,13 +175,14 @@ export function PlanningPane() {
     })
   }, [activeArtifact, parseFailed, parsedArtifact])
 
-  const hasUnviewedUpdatesByTitle = useMemo(() => {
+  const hasUnviewedUpdatesByKey = useMemo(() => {
     return artifacts.reduce<Record<string, boolean>>((result, artifact) => {
-      const viewedAt = lastViewedByTitle[artifact.title]
-      result[artifact.title] = !viewedAt || new Date(artifact.updatedAt).getTime() > new Date(viewedAt).getTime()
+      const viewedAt = lastViewedByArtifactKey[artifact.artifactKey]
+      result[artifact.artifactKey] =
+        !viewedAt || new Date(artifact.updatedAt).getTime() > new Date(viewedAt).getTime()
       return result
     }, {})
-  }, [artifacts, lastViewedByTitle])
+  }, [artifacts, lastViewedByArtifactKey])
 
   const handleScroll = (): void => {
     if (!activeArtifactRef || !scrollContainerRef.current) {
@@ -236,7 +237,7 @@ export function PlanningPane() {
           <ArtifactTabs
             artifacts={artifacts}
             activeArtifactKey={activeArtifactRef?.artifactKey ?? null}
-            hasUnviewedUpdatesByTitle={hasUnviewedUpdatesByTitle}
+            hasUnviewedUpdatesByKey={hasUnviewedUpdatesByKey}
             onSelect={(artifact) => handleArtifactSelect(artifact.artifactKey, artifact.title)}
           />
         ) : null}
