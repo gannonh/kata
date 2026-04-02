@@ -30,7 +30,8 @@ export const rightPaneModeAtom = atomWithStorage<'planning' | 'default'>(
 )
 export const autoSwitchTriggeredAtom = atom<boolean>(false)
 export const planningLoadingAtom = atom<boolean>(false)
-export const isFetchingAtom = atom<boolean>(false)
+export const artifactFetchInFlightCountAtom = atom<number>(0)
+export const isFetchingAtom = atom((get) => get(artifactFetchInFlightCountAtom) > 0)
 export const planningErrorAtom = atom<string | null>(null)
 export const lastViewedPlanningArtifactAtom = atom<Record<string, string>>({})
 
@@ -49,7 +50,7 @@ export const resetPlanningSessionStateAtom = atom(null, (_get, set) => {
   set(activePlanningArtifactAtom, null)
   set(autoSwitchTriggeredAtom, false)
   set(planningLoadingAtom, false)
-  set(isFetchingAtom, false)
+  set(artifactFetchInFlightCountAtom, 0)
   set(planningErrorAtom, null)
   set(lastViewedPlanningArtifactAtom, {})
 })
@@ -89,12 +90,17 @@ export function usePlanningArtifactBridge(): void {
   const applyPlanningArtifact = useSetAtom(applyPlanningArtifactAtom)
   const setArtifacts = useSetAtom(planningArtifactsAtom)
   const pendingTriggerToolNameByArtifactKeyRef = useRef<Record<string, string>>({})
+  const rightPaneModeRef = useRef(rightPaneMode)
+  const autoSwitchTriggeredRef = useRef(autoSwitchTriggered)
   const setActiveArtifactTitle = useSetAtom(activePlanningArtifactAtom)
   const setRightPaneMode = useSetAtom(rightPaneModeAtom)
   const setAutoSwitchTriggered = useSetAtom(autoSwitchTriggeredAtom)
   const setLoading = useSetAtom(planningLoadingAtom)
-  const setIsFetching = useSetAtom(isFetchingAtom)
+  const setArtifactFetchInFlightCount = useSetAtom(artifactFetchInFlightCountAtom)
   const setError = useSetAtom(planningErrorAtom)
+
+  rightPaneModeRef.current = rightPaneMode
+  autoSwitchTriggeredRef.current = autoSwitchTriggered
 
   useEffect(() => {
     setLoading(true)
@@ -150,14 +156,14 @@ export function usePlanningArtifactBridge(): void {
 
     const unsubscribeFetchState = window.api.planning.onArtifactFetchState((event) => {
       if (event.state === 'start') {
-        setIsFetching(true)
+        setArtifactFetchInFlightCount((current) => current + 1)
         setError(null)
         pendingTriggerToolNameByArtifactKeyRef.current[event.artifactKey] =
           event.toolName ?? 'unknown'
         return
       }
 
-      setIsFetching(false)
+      setArtifactFetchInFlightCount((current) => Math.max(0, current - 1))
       delete pendingTriggerToolNameByArtifactKeyRef.current[event.artifactKey]
 
       if (event.error) {
@@ -166,19 +172,21 @@ export function usePlanningArtifactBridge(): void {
     })
 
     const unsubscribeArtifactUpdated = window.api.planning.onArtifactUpdated((artifact) => {
-      if (rightPaneMode === 'default' && !autoSwitchTriggered) {
+      if (rightPaneModeRef.current === 'default' && !autoSwitchTriggeredRef.current) {
         console.info('Planning pane auto-switch triggered', {
           triggerToolName:
             pendingTriggerToolNameByArtifactKeyRef.current[artifact.artifactKey] ?? 'unknown',
           title: artifact.title,
         })
 
+        rightPaneModeRef.current = 'planning'
+        autoSwitchTriggeredRef.current = true
+
         setRightPaneMode('planning')
         setAutoSwitchTriggered(true)
       }
 
       delete pendingTriggerToolNameByArtifactKeyRef.current[artifact.artifactKey]
-      setIsFetching(false)
       applyPlanningArtifact(artifact)
     })
 
@@ -188,13 +196,11 @@ export function usePlanningArtifactBridge(): void {
     }
   }, [
     applyPlanningArtifact,
-    autoSwitchTriggered,
-    rightPaneMode,
     setActiveArtifactTitle,
     setArtifacts,
+    setArtifactFetchInFlightCount,
     setAutoSwitchTriggered,
     setError,
-    setIsFetching,
     setLoading,
     setRightPaneMode,
   ])
