@@ -1,6 +1,15 @@
+import { useAtomValue } from 'jotai'
+import { rightPaneModeAtom } from '@/atoms/planning'
+import { PlanningPane } from '@/components/planning/PlanningPane'
 import { Separator } from '@/components/ui/separator'
 
 export function RightPane() {
+  const rightPaneMode = useAtomValue(rightPaneModeAtom)
+
+  if (rightPaneMode === 'planning') {
+    return <PlanningPane />
+  }
+
   return (
     <aside className="flex h-full flex-col bg-muted/40">
       <div className="flex h-14 items-center px-4">
