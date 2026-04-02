@@ -139,14 +139,28 @@ export function PlanningPane() {
 
     setIsContentVisible(false)
 
-    let animationFrame = window.requestAnimationFrame(() => {
-      animationFrame = window.requestAnimationFrame(() => {
-        setIsContentVisible(true)
+    let cancelled = false
+    let outerFrame: number | null = null
+    let innerFrame: number | null = null
+
+    outerFrame = window.requestAnimationFrame(() => {
+      innerFrame = window.requestAnimationFrame(() => {
+        if (!cancelled) {
+          setIsContentVisible(true)
+        }
       })
     })
 
     return () => {
-      window.cancelAnimationFrame(animationFrame)
+      cancelled = true
+
+      if (outerFrame !== null) {
+        window.cancelAnimationFrame(outerFrame)
+      }
+
+      if (innerFrame !== null) {
+        window.cancelAnimationFrame(innerFrame)
+      }
     }
   }, [activeArtifactVersion])
 
