@@ -27,6 +27,7 @@ import {
   type PlanningArtifact,
   type PlanningArtifactEvent,
   type PlanningArtifactFetchResponse,
+  type PlanningArtifactFetchStateEvent,
   type PlanningArtifactListResponse,
   type SessionInfo,
   type SessionListResponse,
@@ -97,6 +98,16 @@ export function registerSessionIpc({
       projectId: artifact.projectId,
       issueId: artifact.issueId,
     })
+  }
+
+  const sendPlanningFetchStateToRenderer = (event: PlanningArtifactFetchStateEvent): void => {
+    if (!canSendToRenderer()) {
+      log.warn('[desktop-ipc] skipping planning fetch state dispatch: renderer window is destroyed')
+      return
+    }
+
+    window.webContents.send(IPC_CHANNELS.planningArtifactFetchState, event)
+    log.debug('[desktop-ipc] planning fetch state', event)
   }
 
   const getPlanningFetchContext = (
@@ -195,13 +206,39 @@ export function registerSessionIpc({
     planningMetadataByKey.set(planningEvent.artifactKey, planningEvent)
     planningLatestKeyByTitle.set(planningEvent.title, planningEvent.artifactKey)
 
-    void fetchPlanningArtifact(planningEvent.title, {
-      projectId: planningEvent.projectId,
-      issueId: planningEvent.issueId,
-      scope: planningEvent.scope,
+    sendPlanningFetchStateToRenderer({
+      state: 'start',
+      title: planningEvent.title,
       artifactKey: planningEvent.artifactKey,
-      pushUpdate: true,
+      toolName: planningEvent.toolName,
     })
+
+    void (async () => {
+      const response = await fetchPlanningArtifact(planningEvent.title, {
+        projectId: planningEvent.projectId,
+        issueId: planningEvent.issueId,
+        scope: planningEvent.scope,
+        artifactKey: planningEvent.artifactKey,
+        pushUpdate: true,
+      })
+
+      sendPlanningFetchStateToRenderer({
+        state: 'end',
+        title: planningEvent.title,
+        artifactKey: planningEvent.artifactKey,
+        toolName: planningEvent.toolName,
+        error: response.success ? undefined : response.error,
+      })
+
+      if (!response.success) {
+        log.warn('[desktop-ipc] planning artifact fetch failed', {
+          title: planningEvent.title,
+          artifactKey: planningEvent.artifactKey,
+          toolName: planningEvent.toolName,
+          error: response.error,
+        })
+      }
+    })()
   }
 
   planningToolDetector.on('artifact', onPlanningArtifactEvent)

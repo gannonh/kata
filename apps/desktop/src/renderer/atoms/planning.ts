@@ -1,6 +1,6 @@
-import { atom, useSetAtom } from 'jotai'
+import { atom, useAtomValue, useSetAtom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import type { PlanningArtifact } from '@shared/types'
 
 export const RIGHT_PANE_MODE_STORAGE_KEY = 'kata-desktop:right-pane-mode'
@@ -28,7 +28,10 @@ export const rightPaneModeAtom = atomWithStorage<'planning' | 'default'>(
   RIGHT_PANE_MODE_STORAGE_KEY,
   'default',
 )
+export const autoSwitchTriggeredAtom = atom<boolean>(false)
 export const planningLoadingAtom = atom<boolean>(false)
+export const artifactFetchInFlightCountAtom = atom<number>(0)
+export const isFetchingAtom = atom((get) => get(artifactFetchInFlightCountAtom) > 0)
 export const planningErrorAtom = atom<string | null>(null)
 export const lastViewedPlanningArtifactAtom = atom<Record<string, string>>({})
 
@@ -41,6 +44,16 @@ export const markPlanningArtifactViewedAtom = atom(
     })
   },
 )
+
+export const resetPlanningSessionStateAtom = atom(null, (_get, set) => {
+  set(planningArtifactsAtom, {})
+  set(activePlanningArtifactAtom, null)
+  set(autoSwitchTriggeredAtom, false)
+  set(planningLoadingAtom, false)
+  set(artifactFetchInFlightCountAtom, 0)
+  set(planningErrorAtom, null)
+  set(lastViewedPlanningArtifactAtom, {})
+})
 
 export const applyPlanningArtifactAtom = atom(null, (get, set, artifact: PlanningArtifact) => {
   const nextArtifacts: PlanningArtifactsMap = {
@@ -66,17 +79,28 @@ export const applyPlanningArtifactAtom = atom(null, (get, set, artifact: Plannin
     })
   }
 
-  set(rightPaneModeAtom, 'planning')
   set(planningLoadingAtom, false)
   set(planningErrorAtom, null)
 })
 
 export function usePlanningArtifactBridge(): void {
+  const rightPaneMode = useAtomValue(rightPaneModeAtom)
+  const autoSwitchTriggered = useAtomValue(autoSwitchTriggeredAtom)
+
   const applyPlanningArtifact = useSetAtom(applyPlanningArtifactAtom)
   const setArtifacts = useSetAtom(planningArtifactsAtom)
+  const pendingTriggerToolNameByArtifactKeyRef = useRef<Record<string, string>>({})
+  const rightPaneModeRef = useRef(rightPaneMode)
+  const autoSwitchTriggeredRef = useRef(autoSwitchTriggered)
   const setActiveArtifactTitle = useSetAtom(activePlanningArtifactAtom)
+  const setRightPaneMode = useSetAtom(rightPaneModeAtom)
+  const setAutoSwitchTriggered = useSetAtom(autoSwitchTriggeredAtom)
   const setLoading = useSetAtom(planningLoadingAtom)
+  const setArtifactFetchInFlightCount = useSetAtom(artifactFetchInFlightCountAtom)
   const setError = useSetAtom(planningErrorAtom)
+
+  rightPaneModeRef.current = rightPaneMode
+  autoSwitchTriggeredRef.current = autoSwitchTriggered
 
   useEffect(() => {
     setLoading(true)
@@ -130,12 +154,54 @@ export function usePlanningArtifactBridge(): void {
         setLoading(false)
       })
 
-    const unsubscribe = window.api.planning.onArtifactUpdated((artifact) => {
+    const unsubscribeFetchState = window.api.planning.onArtifactFetchState((event) => {
+      if (event.state === 'start') {
+        setArtifactFetchInFlightCount((current) => current + 1)
+        setError(null)
+        pendingTriggerToolNameByArtifactKeyRef.current[event.artifactKey] =
+          event.toolName ?? 'unknown'
+        return
+      }
+
+      setArtifactFetchInFlightCount((current) => Math.max(0, current - 1))
+      delete pendingTriggerToolNameByArtifactKeyRef.current[event.artifactKey]
+
+      if (event.error) {
+        setError(event.error.message)
+      }
+    })
+
+    const unsubscribeArtifactUpdated = window.api.planning.onArtifactUpdated((artifact) => {
+      if (rightPaneModeRef.current === 'default' && !autoSwitchTriggeredRef.current) {
+        console.info('Planning pane auto-switch triggered', {
+          triggerToolName:
+            pendingTriggerToolNameByArtifactKeyRef.current[artifact.artifactKey] ?? 'unknown',
+          title: artifact.title,
+        })
+
+        rightPaneModeRef.current = 'planning'
+        autoSwitchTriggeredRef.current = true
+
+        setRightPaneMode('planning')
+        setAutoSwitchTriggered(true)
+      }
+
+      delete pendingTriggerToolNameByArtifactKeyRef.current[artifact.artifactKey]
       applyPlanningArtifact(artifact)
     })
 
     return () => {
-      unsubscribe()
+      unsubscribeFetchState()
+      unsubscribeArtifactUpdated()
     }
-  }, [applyPlanningArtifact, setActiveArtifactTitle, setArtifacts, setError, setLoading])
+  }, [
+    applyPlanningArtifact,
+    setActiveArtifactTitle,
+    setArtifacts,
+    setArtifactFetchInFlightCount,
+    setAutoSwitchTriggered,
+    setError,
+    setLoading,
+    setRightPaneMode,
+  ])
 }

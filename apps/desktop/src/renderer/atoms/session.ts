@@ -2,6 +2,7 @@ import { atom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
 import type { SessionListResponse, SessionListItem } from '@shared/types'
 import { resetChatStateAtom } from './chat'
+import { resetPlanningSessionStateAtom } from './planning'
 
 const CURRENT_SESSION_STORAGE_KEY = 'kata-desktop:current-session-id'
 const WORKING_DIRECTORY_STORAGE_KEY = 'kata-desktop:working-directory'
@@ -97,6 +98,7 @@ export const createSessionAtom = atom(null, async (get, set) => {
     }
 
     set(resetChatStateAtom)
+    set(resetPlanningSessionStateAtom)
 
     await set(refreshSessionListAtom)
 
@@ -120,6 +122,7 @@ export const switchWorkspaceAtom = atom(null, async (_get, set, workspacePath: s
     set(workingDirectoryAtom, response.path)
     set(currentSessionIdAtom, null)
     set(resetChatStateAtom)
+    set(resetPlanningSessionStateAtom)
     await set(refreshSessionListAtom)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)

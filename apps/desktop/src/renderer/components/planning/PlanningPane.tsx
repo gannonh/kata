@@ -1,6 +1,6 @@
 import { useAtomValue, useSetAtom } from 'jotai'
-import { Loader2 } from 'lucide-react'
-import { useEffect, useMemo, useRef } from 'react'
+import { Loader2, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type {
   ParsedContext,
   ParsedDecisions,
@@ -11,17 +11,20 @@ import { Markdown } from '@kata-ui/components/markdown/Markdown'
 import {
   activePlanningArtifactAtom,
   applyPlanningArtifactAtom,
+  isFetchingAtom,
   lastViewedPlanningArtifactAtom,
   markPlanningArtifactViewedAtom,
   planningArtifactsAtom,
   planningErrorAtom,
   planningLoadingAtom,
+  rightPaneModeAtom,
 } from '@/atoms/planning'
 import { ArtifactTabs } from '@/components/planning/ArtifactTabs'
 import { ContextView } from '@/components/planning/ContextView'
 import { DecisionsView } from '@/components/planning/DecisionsView'
 import { RequirementsView } from '@/components/planning/RequirementsView'
 import { RoadmapView } from '@/components/planning/RoadmapView'
+import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import {
   detectArtifactType,
@@ -30,16 +33,19 @@ import {
   parseRequirements,
   parseRoadmap,
 } from '@/lib/artifact-parser'
+import { cn } from '@/lib/utils'
 
 export function PlanningPane() {
   const artifactsByKey = useAtomValue(planningArtifactsAtom)
   const activeArtifactRef = useAtomValue(activePlanningArtifactAtom)
   const loading = useAtomValue(planningLoadingAtom)
+  const isFetching = useAtomValue(isFetchingAtom)
   const error = useAtomValue(planningErrorAtom)
   const lastViewedByArtifactKey = useAtomValue(lastViewedPlanningArtifactAtom)
 
   const applyPlanningArtifact = useSetAtom(applyPlanningArtifactAtom)
   const setActiveArtifact = useSetAtom(activePlanningArtifactAtom)
+  const setRightPaneMode = useSetAtom(rightPaneModeAtom)
   const markPlanningArtifactViewed = useSetAtom(markPlanningArtifactViewedAtom)
   const setPlanningLoading = useSetAtom(planningLoadingAtom)
   const setPlanningError = useSetAtom(planningErrorAtom)
@@ -50,6 +56,11 @@ export function PlanningPane() {
   const scrollPositionsByKeyRef = useRef<Record<string, number>>({})
 
   const activeArtifact = activeArtifactRef ? artifactsByKey[activeArtifactRef.artifactKey] : null
+  const activeArtifactVersion = activeArtifact
+    ? `${activeArtifact.artifactKey}:${activeArtifact.updatedAt}`
+    : null
+
+  const [isContentVisible, setIsContentVisible] = useState(true)
 
   useEffect(() => {
     if (!activeArtifactRef || activeArtifact) {
@@ -119,6 +130,39 @@ export function PlanningPane() {
       updatedAt: activeArtifact.updatedAt,
     })
   }, [activeArtifact, markPlanningArtifactViewed])
+
+  useEffect(() => {
+    if (!activeArtifactVersion) {
+      setIsContentVisible(true)
+      return
+    }
+
+    setIsContentVisible(false)
+
+    let cancelled = false
+    let outerFrame: number | null = null
+    let innerFrame: number | null = null
+
+    outerFrame = window.requestAnimationFrame(() => {
+      innerFrame = window.requestAnimationFrame(() => {
+        if (!cancelled) {
+          setIsContentVisible(true)
+        }
+      })
+    })
+
+    return () => {
+      cancelled = true
+
+      if (outerFrame !== null) {
+        window.cancelAnimationFrame(outerFrame)
+      }
+
+      if (innerFrame !== null) {
+        window.cancelAnimationFrame(innerFrame)
+      }
+    }
+  }, [activeArtifactVersion])
 
   const parsedArtifact = useMemo(() => {
     if (!activeArtifact) {
@@ -216,7 +260,7 @@ export function PlanningPane() {
   return (
     <aside className="flex h-full flex-col bg-muted/20">
       <div className="flex flex-col py-2">
-        <div className="flex items-center justify-between px-4">
+        <div className="flex items-center justify-between gap-2 px-4">
           <div className="flex min-w-0 flex-col">
             <h2 className="text-xs font-semibold tracking-wide uppercase text-muted-foreground">
               Planning View
@@ -226,11 +270,30 @@ export function PlanningPane() {
             </p>
           </div>
 
-          {activeArtifact ? (
-            <span className="text-xs text-muted-foreground">
-              {new Date(activeArtifact.updatedAt).toLocaleTimeString()}
-            </span>
-          ) : null}
+          <div className="flex items-center gap-2">
+            {activeArtifact ? (
+              <span className="text-xs text-muted-foreground">
+                {new Date(activeArtifact.updatedAt).toLocaleTimeString()}
+              </span>
+            ) : null}
+
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              aria-label="Close planning view"
+              onClick={() => {
+                console.info('Right pane mode toggled', {
+                  trigger: 'manual',
+                  from: 'planning',
+                  to: 'default',
+                })
+                setRightPaneMode('default')
+              }}
+            >
+              <X className="size-4" />
+            </Button>
+          </div>
         </div>
 
         {artifacts.length > 0 ? (
@@ -257,45 +320,60 @@ export function PlanningPane() {
         </div>
       ) : null}
 
-      <div
-        ref={scrollContainerRef}
-        onScroll={handleScroll}
-        className="flex-1 overflow-auto px-4 py-3"
-      >
-        {loading && !activeArtifact ? (
-          <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
-            <Loader2 className="size-5 animate-spin" />
-            <p>Loading planning artifact…</p>
-          </div>
-        ) : null}
+      <div className="relative flex-1 overflow-hidden">
+        <div
+          ref={scrollContainerRef}
+          onScroll={handleScroll}
+          className="h-full overflow-auto px-4 py-3"
+        >
+          {loading && !activeArtifact ? (
+            <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
+              <Loader2 className="size-5 animate-spin" />
+              <p>Loading planning artifacts…</p>
+            </div>
+          ) : null}
 
-        {!loading && !activeArtifact ? (
-          <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
-            <p className="font-medium text-foreground">No artifacts yet</p>
-            <p>Start a planning session with `/kata plan` to populate this pane.</p>
-          </div>
-        ) : null}
+          {!loading && artifacts.length === 0 ? (
+            <div className="flex h-full flex-col items-center justify-center px-4 text-center text-sm text-muted-foreground">
+              <p className="font-medium text-foreground">
+                No planning artifacts yet — start planning with /kata plan
+              </p>
+            </div>
+          ) : null}
 
-        {activeArtifact ? (
-          <div
-            role="tabpanel"
-            id={`panel-${activeArtifact.artifactKey}`}
-            aria-labelledby={`tab-${activeArtifact.artifactKey}`}
-            className="text-sm leading-relaxed"
-          >
-            {parsedArtifact?.type === 'roadmap' && parsedArtifact.parsed ? (
-              <RoadmapView roadmap={parsedArtifact.parsed as ParsedRoadmap} />
-            ) : parsedArtifact?.type === 'requirements' && parsedArtifact.parsed ? (
-              <RequirementsView requirements={parsedArtifact.parsed as ParsedRequirements} />
-            ) : parsedArtifact?.type === 'decisions' && parsedArtifact.parsed ? (
-              <DecisionsView decisions={parsedArtifact.parsed as ParsedDecisions} />
-            ) : parsedArtifact?.type === 'context' && parsedArtifact.parsed ? (
-              <ContextView context={parsedArtifact.parsed as ParsedContext} />
-            ) : (
-              <Markdown mode="full" className="text-sm leading-relaxed">
-                {activeArtifact.content}
-              </Markdown>
-            )}
+          {activeArtifact ? (
+            <div
+              role="tabpanel"
+              id={`panel-${activeArtifact.artifactKey}`}
+              aria-labelledby={`tab-${activeArtifact.artifactKey}`}
+              className={cn(
+                'text-sm leading-relaxed transition-[opacity,transform] duration-200 ease-out',
+                isContentVisible ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0',
+              )}
+            >
+              {parsedArtifact?.type === 'roadmap' && parsedArtifact.parsed ? (
+                <RoadmapView roadmap={parsedArtifact.parsed as ParsedRoadmap} />
+              ) : parsedArtifact?.type === 'requirements' && parsedArtifact.parsed ? (
+                <RequirementsView requirements={parsedArtifact.parsed as ParsedRequirements} />
+              ) : parsedArtifact?.type === 'decisions' && parsedArtifact.parsed ? (
+                <DecisionsView decisions={parsedArtifact.parsed as ParsedDecisions} />
+              ) : parsedArtifact?.type === 'context' && parsedArtifact.parsed ? (
+                <ContextView context={parsedArtifact.parsed as ParsedContext} />
+              ) : (
+                <Markdown mode="full" className="text-sm leading-relaxed">
+                  {activeArtifact.content}
+                </Markdown>
+              )}
+            </div>
+          ) : null}
+        </div>
+
+        {isFetching ? (
+          <div className="pointer-events-none absolute inset-x-4 top-3 z-10 flex justify-end">
+            <div className="inline-flex items-center gap-2 rounded-md border border-border bg-background/95 px-2.5 py-1 text-xs text-muted-foreground shadow-sm backdrop-blur-sm">
+              <Loader2 className="size-3.5 animate-spin" />
+              <span>Fetching...</span>
+            </div>
           </div>
         ) : null}
       </div>
