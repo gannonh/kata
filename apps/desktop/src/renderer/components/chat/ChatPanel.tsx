@@ -1,0 +1,125 @@
+import { useEffect, useRef } from 'react'
+import { useAtomValue, useSetAtom } from 'jotai'
+import {
+  appendUserMessageAtom,
+  applyBridgeStatusAtom,
+  applyChatEventAtom,
+  bridgeStatusAtom,
+  errorAtom,
+  isStreamingAtom,
+  messagesAtom,
+  toolCallsAtom,
+} from '@/atoms/chat'
+import { refreshSessionListAtom } from '@/atoms/session'
+import { ErrorBanner } from './ErrorBanner'
+import { ExtensionUIHandler } from './ExtensionUIHandler'
+import { MessageInput } from './MessageInput'
+import { MessageList } from './MessageList'
+import { PermissionModeSelector } from './PermissionModeSelector'
+
+export function ChatPanel() {
+  const messages = useAtomValue(messagesAtom)
+  const tools = useAtomValue(toolCallsAtom)
+  const error = useAtomValue(errorAtom)
+  const isStreaming = useAtomValue(isStreamingAtom)
+  const bridgeStatus = useAtomValue(bridgeStatusAtom)
+
+  const appendUserMessage = useSetAtom(appendUserMessageAtom)
+  const applyChatEvent = useSetAtom(applyChatEventAtom)
+  const applyBridgeStatus = useSetAtom(applyBridgeStatusAtom)
+  const refreshSessions = useSetAtom(refreshSessionListAtom)
+
+  const scrollRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    const unsubscribeChatEvents = window.api.onChatEvent((event) => {
+      applyChatEvent(event)
+
+      if (event.type === 'agent_end') {
+        void refreshSessions()
+      }
+    })
+
+    const unsubscribeBridgeStatus = window.api.onBridgeStatus((status) => {
+      applyBridgeStatus(status)
+    })
+
+    void window.api.getBridgeState().then((state) => {
+      applyBridgeStatus({
+        state: state.status,
+        pid: state.pid,
+        updatedAt: Date.now(),
+      })
+    })
+
+    return () => {
+      unsubscribeChatEvents()
+      unsubscribeBridgeStatus()
+    }
+  }, [applyBridgeStatus, applyChatEvent, refreshSessions])
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({
+      top: scrollRef.current.scrollHeight,
+      behavior: 'smooth',
+    })
+  }, [messages, tools])
+
+  const bridgeAvailable = bridgeStatus.state === 'running'
+  const inputDisabled = isStreaming || !bridgeAvailable
+  const stopDisabled = !isStreaming || !bridgeAvailable
+  const errorMessage = error ?? bridgeStatus.message ?? null
+  const errorTitle = bridgeStatus.state === 'crashed' ? 'Agent process crashed' : 'Agent error'
+
+  return (
+    <div className="relative flex h-full min-h-0 flex-col">
+      <ExtensionUIHandler />
+
+      {errorMessage && (
+        <ErrorBanner
+          title={errorTitle}
+          message={errorMessage}
+          onRestart={bridgeStatus.state !== 'spawning' ? () => window.api.restartAgent() : undefined}
+        />
+      )}
+
+      <div className="flex items-center justify-between border-b border-slate-800 px-4 py-2">
+        <p className="text-[11px] uppercase tracking-wide text-slate-400">Permission mode</p>
+        <PermissionModeSelector />
+      </div>
+
+      <div ref={scrollRef} className="flex-1 overflow-auto">
+        <MessageList messages={messages} tools={tools} />
+      </div>
+
+      <MessageInput
+        disabled={inputDisabled}
+        stopDisabled={stopDisabled}
+        onSubmit={async (value) => {
+          appendUserMessage(value)
+
+          try {
+            await window.api.sendMessage(value)
+          } catch (sendError) {
+            const message = sendError instanceof Error ? sendError.message : String(sendError)
+            applyChatEvent({
+              type: 'agent_error',
+              message,
+            })
+          }
+        }}
+        onStop={async () => {
+          await window.api.stopAgent()
+        }}
+      />
+
+      <div className="border-t border-slate-800 px-4 py-2 text-[11px] text-slate-500">
+        {isStreaming
+          ? 'Streaming response…'
+          : bridgeStatus.state === 'running'
+            ? 'Ready'
+            : `Bridge ${bridgeStatus.state}`}
+      </div>
+    </div>
+  )
+}

@@ -145,15 +145,15 @@ fn test_repo_workflow_requires_publish_gate_before_agent_review() {
 
 #[test]
 fn test_repo_workflow_example_uses_per_state_prompts() {
-    let workflow_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("docs/WORKFLOW-symphony.md");
-    let def = parse_workflow(&workflow_path).expect("example WORKFLOW-symphony.md should parse");
+    let workflow_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("docs/WORKFLOW-linear.md");
+    let def = parse_workflow(&workflow_path).expect("example WORKFLOW-linear.md should parse");
 
     // When using per-state prompts, the body after --- should be empty or minimal
     // The config should have a prompts section
     let config = from_workflow(&def.config).expect("config should parse");
     assert!(
         config.prompts.is_some(),
-        "example WORKFLOW-symphony.md should use per-state prompts config"
+        "example WORKFLOW-linear.md should use per-state prompts config"
     );
     let prompts = config.prompts.unwrap();
     assert!(prompts.system.is_some(), "should have system prompt");

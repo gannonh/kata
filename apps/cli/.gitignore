@@ -44,3 +44,6 @@ pkg/CHANGELOG.md
 
 # ── Kata baseline (auto-generated) ──
 dist/
+
+# ── Session exports ──
+kata-session-*.html
