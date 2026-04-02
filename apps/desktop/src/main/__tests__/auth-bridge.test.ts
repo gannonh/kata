@@ -310,4 +310,24 @@ describe('AuthBridge', () => {
 
     expect(bridge.getAuthFilePath()).toBe(authFilePath)
   })
+
+  test('resolves openai-codex alias to openai provider status', async () => {
+    await fs.writeFile(
+      authFilePath,
+      JSON.stringify(
+        {
+          'openai-codex': { type: 'api_key', key: 'sk-codex-test-1234567890' },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    )
+
+    const bridge = new AuthBridge(authFilePath)
+    const response = await bridge.getProviders()
+
+    expect(response.providers.openai.status).toBe('valid')
+    expect(response.providers.openai.maskedKey).toBe('••••7890')
+  })
 })
