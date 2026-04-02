@@ -450,6 +450,76 @@ export interface PlanningArtifactListResponse {
   error?: PlanningArtifactError
 }
 
+export type ArtifactType = 'roadmap' | 'requirements' | 'decisions' | 'context'
+
+export type RoadmapRisk = 'high' | 'medium' | 'low'
+
+export interface ParsedRoadmapSlice {
+  id: string
+  title: string
+  risk: RoadmapRisk
+  depends: string[]
+  demo: string | null
+  done: boolean
+}
+
+export interface ParsedRoadmapBoundarySection {
+  heading: string
+  content: string
+}
+
+export interface ParsedRoadmap {
+  vision: string | null
+  successCriteria: string[]
+  slices: ParsedRoadmapSlice[]
+  boundaryMap: ParsedRoadmapBoundarySection[]
+}
+
+export type RequirementStatus = 'active' | 'validated' | 'deferred' | 'outOfScope'
+
+export interface ParsedRequirement {
+  id: string
+  title: string
+  class: string
+  status: string
+  description: string
+  owner: string
+  validation: string
+}
+
+export interface ParsedRequirements {
+  active: ParsedRequirement[]
+  validated: ParsedRequirement[]
+  deferred: ParsedRequirement[]
+  outOfScope: ParsedRequirement[]
+}
+
+export interface ParsedDecision {
+  id: string
+  when: string
+  scope: string
+  decision: string
+  choice: string
+  rationale: string
+  revisable: boolean | null
+  revisableCondition: string | null
+  revisableLabel: string
+}
+
+export interface ParsedDecisions {
+  rows: ParsedDecision[]
+}
+
+export interface ParsedContextSection {
+  heading: string
+  content: string
+  level: number
+}
+
+export interface ParsedContext {
+  sections: ParsedContextSection[]
+}
+
 export interface DesktopApi {
   sendMessage: (message: string) => Promise<void>
   stopAgent: () => Promise<void>
