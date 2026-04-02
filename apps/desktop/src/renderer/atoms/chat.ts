@@ -246,6 +246,46 @@ export const applyChatEventAtom = atom(null, (get, set, event: ChatEvent) => {
       return
     }
 
+    case 'thinking_start': {
+      set(
+        messagesAtom,
+        get(messagesAtom).map((message) =>
+          message.id === event.messageId
+            ? { ...message, isThinking: true }
+            : message,
+        ),
+      )
+      return
+    }
+
+    case 'thinking_delta': {
+      set(
+        messagesAtom,
+        get(messagesAtom).map((message) =>
+          message.id === event.messageId
+            ? { ...message, thinking: (message.thinking ?? '') + event.delta }
+            : message,
+        ),
+      )
+      return
+    }
+
+    case 'thinking_end': {
+      set(
+        messagesAtom,
+        get(messagesAtom).map((message) =>
+          message.id === event.messageId
+            ? {
+                ...message,
+                thinking: event.content.length > 0 ? event.content : (message.thinking ?? ''),
+                isThinking: false,
+              }
+            : message,
+        ),
+      )
+      return
+    }
+
     case 'agent_error': {
       set(errorAtom, event.message)
       set(isStreamingAtom, false)
