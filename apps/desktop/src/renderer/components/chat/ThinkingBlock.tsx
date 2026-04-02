@@ -25,8 +25,19 @@ export function ThinkingBlock({ content, isThinking }: ThinkingBlockProps) {
     }
   }, [isThinking])
 
-  // Still streaming — show "Thinking…"
+  // Still streaming
   if (isThinking) {
+    // No content yet — just show a minimal non-collapsible label
+    if (!hasContent) {
+      return (
+        <div className="flex items-center gap-1.5 px-2 py-1 text-xs text-amber-700 dark:text-amber-400">
+          <Brain className="h-3 w-3 shrink-0 animate-pulse" />
+          <span>Thinking…</span>
+        </div>
+      )
+    }
+
+    // Has content streaming in — show collapsible with live text
     return (
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger asChild>
@@ -54,7 +65,7 @@ export function ThinkingBlock({ content, isThinking }: ThinkingBlockProps) {
             'text-xs italic leading-relaxed text-amber-800/80 dark:text-amber-300/70',
             'max-h-48 overflow-y-auto whitespace-pre-wrap font-mono',
           )}>
-            {content || '…'}
+            {content}
           </div>
         </CollapsibleContent>
       </Collapsible>
