@@ -4,3 +4,36 @@
 # These directories are created by CI before packaging and are never committed.
 release/
 node_modules/@anthropic-ai/
+
+# ── Kata baseline (auto-generated) ──
+.kata/activity/
+.kata/runtime/
+.kata/auto.lock
+.kata/debug.log
+.kata/metrics.json
+.kata/STATE.md
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+*.code-workspace
+.env
+.env.*
+!.env.example
+node_modules/
+.next/
+dist/
+build/
+__pycache__/
+*.pyc
+.venv/
+venv/
+target/
+vendor/
+*.log
+coverage/
+.cache/
+tmp/

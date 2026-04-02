@@ -304,12 +304,17 @@ impl ProjectsV2Client {
             ))
         })?;
 
-        if let Some(errors) = envelope.errors.filter(|errors| !errors.is_empty()) {
-            let message = &errors[0].message;
-            return Err(SymphonyError::GithubProjectsV2Error(format!(
-                "{message}; response={}",
-                truncate_preview(&body)
-            )));
+        // GitHub GraphQL returns partial errors when one of several top-level
+        // fields fails (e.g. `organization` not found but `user` succeeds).
+        // Only treat errors as fatal when `data` is absent.
+        if envelope.data.is_none() {
+            if let Some(errors) = envelope.errors.filter(|errors| !errors.is_empty()) {
+                let message = &errors[0].message;
+                return Err(SymphonyError::GithubProjectsV2Error(format!(
+                    "{message}; response={}",
+                    truncate_preview(&body)
+                )));
+            }
         }
 
         envelope.data.ok_or_else(|| {

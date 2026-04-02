@@ -1,5 +1,43 @@
 # Changelog
 
+## 2.2.0 — GitHub Issues Backend
+
+Full drop-in alternative to Linear as a tracker backend. Both label-based and Projects v2 state management modes supported.
+
+### Features
+
+- **GitHub Issues tracker backend** — `tracker.kind: github` enables Symphony to poll, dispatch, and reconcile against GitHub Issues instead of Linear. PAT authentication via `GH_TOKEN` / `GITHUB_TOKEN`.
+- **Label-based state management** — Issues transition via label swaps (`symphony:todo` → `symphony:in-progress` → `symphony:done`). Configurable label prefix via `tracker.label_prefix`.
+- **Projects v2 state management** — When `tracker.github_project_number` is set, Symphony reads and writes the board's Status field via GraphQL mutations. Auto-detects mode from config.
+- **`tracker.exclude_labels`** — New config field to prevent issues with specific labels from being dispatched. Use `["kata:task"]` to block sub-task dispatch. Case-insensitive matching.
+- **GitHub-specific `symphony doctor` checks** — PAT authentication, repo accessibility, Projects v2 project/status-field validation, and label existence checks.
+- **Dashboard GitHub parity** — `#N` identifiers rendered as clickable links to `https://github.com/{owner}/{repo}/issues/N`. Project card links to GitHub. All surfaces (TUI, HTTP dashboard, Slack notifications, `/api/v1/state` JSON) show GitHub identifiers and URLs.
+- **`tracker_project_url` generalization** — Renamed from `linear_project_url` in the orchestrator snapshot. Dispatches to GitHub or Linear URL format based on `tracker.kind`.
+- **`GithubOrchestratorPort`** — Full `OrchestratorPort` implementation wired in `main.rs`. Port selection based on `tracker.kind` at startup.
+- **Rate-limit-aware GitHub API client** — Tracks `X-RateLimit-Remaining` headers, logs warnings at 10% budget, delays requests when exhausted.
+- **Reference WORKFLOW configs** — `docs/WORKFLOW-github-labels.md` and `docs/WORKFLOW-github-projects.md` for quick setup.
+
+### Bug Fixes
+
+- **Inter-turn issue state refresh** — Was hardcoded to `LinearClient`, causing 403 errors when running with GitHub tracker. Now uses `build_tracker_adapter()` which dispatches to the correct backend.
+- **Projects v2 GraphQL partial errors** — GitHub returns errors for the `organization` path when the owner is a user account, but the `user` path succeeds. The `graphql_request` helper now only treats errors as fatal when `data` is absent.
+- **`/symphony config` validator** — `$VAR` env references in `webhook_url` no longer trigger URL validation errors.
+- **`/symphony config` module loading** — `config-parser.ts` and `config-writer.ts` now load `js-yaml` via `createRequire` instead of static imports, fixing load failures in agent context.
+- **Blank label filtering** — `issue_has_excluded_label` now filters empty/whitespace labels from both the config and issue sides.
+
+### Config
+
+New `tracker` fields for GitHub mode:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `tracker.kind` | `"linear"` \| `"github"` | Tracker backend selection |
+| `tracker.repo_owner` | string | GitHub repository owner |
+| `tracker.repo_name` | string | GitHub repository name |
+| `tracker.github_project_number` | u64 | Projects v2 board number (omit for label mode) |
+| `tracker.label_prefix` | string | Label prefix for state labels (default: `symphony`) |
+| `tracker.exclude_labels` | string[] | Labels that disqualify issues from dispatch |
+
 ## 2.1.0
 
 ### Features
