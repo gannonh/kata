@@ -15,6 +15,8 @@ function wordCount(text: string): number {
 
 export function ThinkingBlock({ content, isThinking }: ThinkingBlockProps) {
   const [isOpen, setIsOpen] = useState(isThinking)
+  const words = wordCount(content)
+  const hasContent = words > 0
 
   // Auto-collapse when thinking stream completes
   useEffect(() => {
@@ -23,10 +25,53 @@ export function ThinkingBlock({ content, isThinking }: ThinkingBlockProps) {
     }
   }, [isThinking])
 
-  const label = isThinking
-    ? 'Thinking…'
-    : `Thought for ${wordCount(content)} words`
+  // Still streaming — show "Thinking…"
+  if (isThinking) {
+    return (
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <CollapsibleTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className={cn(
+              'flex h-auto items-center gap-1.5 rounded-md px-2 py-1 text-xs font-normal',
+              'text-amber-700 dark:text-amber-400',
+              'hover:bg-amber-500/10',
+            )}
+          >
+            <Brain className="h-3 w-3 shrink-0" />
+            <span>Thinking…</span>
+            {isOpen
+              ? <ChevronDown className="h-3 w-3 shrink-0 opacity-60" />
+              : <ChevronRight className="h-3 w-3 shrink-0 opacity-60" />
+            }
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className={cn(
+            'mt-1 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2',
+            'text-xs italic leading-relaxed text-amber-800/80 dark:text-amber-300/70',
+            'max-h-48 overflow-y-auto whitespace-pre-wrap font-mono',
+          )}>
+            {content || '…'}
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+    )
+  }
 
+  // Done thinking, no summary content (e.g. OpenAI codex — model reasoned but didn't stream summary)
+  if (!hasContent) {
+    return (
+      <div className="flex items-center gap-1.5 px-2 py-1 text-xs text-amber-700/60 dark:text-amber-400/50">
+        <Brain className="h-3 w-3 shrink-0" />
+        <span>Reasoned</span>
+      </div>
+    )
+  }
+
+  // Done thinking, has content — collapsible with word count
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <CollapsibleTrigger asChild>
@@ -41,23 +86,20 @@ export function ThinkingBlock({ content, isThinking }: ThinkingBlockProps) {
           )}
         >
           <Brain className="h-3 w-3 shrink-0" />
-          <span>{label}</span>
+          <span>Thought for {words} words</span>
           {isOpen
             ? <ChevronDown className="h-3 w-3 shrink-0 opacity-60" />
             : <ChevronRight className="h-3 w-3 shrink-0 opacity-60" />
           }
         </Button>
       </CollapsibleTrigger>
-
       <CollapsibleContent>
-        <div
-          className={cn(
-            'mt-1 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2',
-            'text-xs italic leading-relaxed text-amber-800/80 dark:text-amber-300/70',
-            'max-h-48 overflow-y-auto whitespace-pre-wrap font-mono',
-          )}
-        >
-          {content || (isThinking ? '…' : '')}
+        <div className={cn(
+          'mt-1 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2',
+          'text-xs italic leading-relaxed text-amber-800/80 dark:text-amber-300/70',
+          'max-h-48 overflow-y-auto whitespace-pre-wrap font-mono',
+        )}>
+          {content}
         </div>
       </CollapsibleContent>
     </Collapsible>
