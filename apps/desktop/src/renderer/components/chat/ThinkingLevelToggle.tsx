@@ -42,7 +42,7 @@ export function ThinkingLevelToggle() {
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-3 border-t border-border px-4 py-1.5">
       <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Thinking</span>
       <ToggleGroup
         type="single"

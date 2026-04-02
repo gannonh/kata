@@ -93,9 +93,7 @@ export function ChatPanel() {
         <MessageList messages={messages} tools={tools} />
       </div>
 
-      <div className="flex items-center gap-3 border-t border-border px-4 py-1.5">
-        <ThinkingLevelToggle />
-      </div>
+      <ThinkingLevelToggle />
 
       <MessageInput
         disabled={inputDisabled}

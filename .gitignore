@@ -104,7 +104,7 @@ Thumbs.db
 .vscode/
 .env.*
 !.env.example
-!.env.development
+!/apps/desktop/.env.development
 .next/
 build/
 __pycache__/

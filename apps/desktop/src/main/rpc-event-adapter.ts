@@ -117,7 +117,12 @@ export class RpcEventAdapter {
 
       case 'message_update': {
         const ameType = event.assistantMessageEvent?.type
-        const messageId = this.currentAssistantMessageId ?? `message:${++this.messageIdCounter}`
+        // Persist the ID if we had to synthesize one (recovery for missing message_start)
+        if (this.currentAssistantMessageId === null) {
+          this.currentAssistantMessageId = `message:${++this.messageIdCounter}`
+          this.currentAssistantMessageHadContent = false
+        }
+        const messageId = this.currentAssistantMessageId
 
         switch (ameType) {
           case 'text_delta': {
@@ -165,7 +170,12 @@ export class RpcEventAdapter {
         const text = this.extractText(message)
         const errorMessage = typeof message?.errorMessage === 'string' ? message.errorMessage : undefined
         const stopReason = typeof message?.stopReason === 'string' ? message.stopReason : undefined
-        const messageId = this.currentAssistantMessageId ?? `message:${++this.messageIdCounter}`
+        // Persist the ID if we had to synthesize one (recovery for missing message_start)
+        if (this.currentAssistantMessageId === null) {
+          this.currentAssistantMessageId = `message:${++this.messageIdCounter}`
+          this.currentAssistantMessageHadContent = false
+        }
+        const messageId = this.currentAssistantMessageId
 
         if (stopReason === 'error' && errorMessage) {
           this.currentAssistantMessageHadContent = true
@@ -209,6 +219,7 @@ export class RpcEventAdapter {
         const toolCallId = this.extractToolCallId(event)
         // event.args is absent or null in real CLI output — fall back to cached start args
         const rawArgs = event.args != null ? event.args : (this.toolArgsCache.get(toolCallId) ?? null)
+        this.toolArgsCache.delete(toolCallId)
         const args = this.extractToolArgs(toolName, rawArgs)
         const rawResult = event.result ?? event.message?.result
         const result = this.extractToolResult(toolName, args, rawResult)
