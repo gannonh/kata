@@ -36,38 +36,38 @@ export function MessageList({ messages, tools }: MessageListProps) {
           ownedTools.length === 0
         if (isGhost) return null
 
+        if (message.role === 'user') {
+          return (
+            <article key={message.id} className="flex justify-end">
+              <div className="max-w-[80%] rounded-2xl bg-muted px-4 py-2.5 text-sm text-foreground">
+                {message.content}
+              </div>
+            </article>
+          )
+        }
+
+        // Assistant messages — no container, flat against background
         return (
           <article key={message.id} className="flex flex-col gap-1">
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{message.role}</p>
-
-            {message.role === 'assistant' ? (
-              <>
-                {(message.thinking !== undefined || message.isThinking) && (
-                  <ThinkingBlock
-                    content={message.thinking ?? ''}
-                    isThinking={message.isThinking}
-                  />
-                )}
-                {/* Skip the text bubble for pure-tool messages with no text content */}
-                {(message.content.length > 0 || message.streaming || message.thinking !== undefined || message.isThinking) && (
-                  <StreamingMessage content={message.content} isStreaming={message.streaming} />
-                )}
-                {/* Tool cards owned by this message, rendered inline after any text */}
-                {ownedTools.length > 0 && (
-                  <div className="flex flex-col gap-2 pt-1">
-                    {ownedTools.map((tool) => (
-                      <ToolCallCard key={tool.id} tool={tool} />
-                    ))}
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="rounded-lg bg-muted px-3 py-2 text-sm text-foreground">{message.content}</div>
+            {(message.thinking !== undefined || message.isThinking) && (
+              <ThinkingBlock
+                content={message.thinking ?? ''}
+                isThinking={message.isThinking}
+              />
+            )}
+            {(message.content.length > 0 || message.streaming) && (
+              <StreamingMessage content={message.content} isStreaming={message.streaming} />
+            )}
+            {ownedTools.length > 0 && (
+              <div className="flex flex-col gap-2 pt-1">
+                {ownedTools.map((tool) => (
+                  <ToolCallCard key={tool.id} tool={tool} />
+                ))}
+              </div>
             )}
           </article>
         )
       })}
-
     </div>
   )
 }
