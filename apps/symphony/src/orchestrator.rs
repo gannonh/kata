@@ -2678,27 +2678,35 @@ impl Orchestrator {
 
         if let Some(run_attempt) = self.state.running.get_mut(issue_id) {
             match event {
-                AgentEvent::TurnFailed { error, .. }
-                | AgentEvent::TurnEndedWithError { error, .. }
-                | AgentEvent::StartupFailed { error, .. } => {
+                AgentEvent::TurnFailed { error, .. } | AgentEvent::StartupFailed { error, .. } => {
                     run_attempt.status = "failed".to_string();
                     run_attempt.error = Some(error.clone());
                 }
                 AgentEvent::TurnCancelled { .. } => {
                     run_attempt.status = "cancelled".to_string();
                 }
+                // TurnEndedWithError is non-fatal: pi-agent retries internally.
+                // Don't mark the run as failed — just surface the error transiently.
                 _ => {}
             }
         }
 
         let event_error = match event {
-            AgentEvent::TurnFailed { error, .. }
-            | AgentEvent::TurnEndedWithError { error, .. }
-            | AgentEvent::StartupFailed { error, .. } => Some(error.as_str()),
+            AgentEvent::TurnFailed { error, .. } | AgentEvent::StartupFailed { error, .. } => {
+                Some(error.as_str())
+            }
             _ => None,
         };
 
         if let Some(error) = event_error {
+            if let Some(info) = self.worker_session_info.get_mut(issue_id) {
+                info.last_error = Some(format_rate_limit_error(error));
+            }
+        }
+
+        // TurnEndedWithError: surface the error transiently in the TUI
+        // but don't mark the run as failed — pi-agent retries internally.
+        if let AgentEvent::TurnEndedWithError { error, .. } = event {
             if let Some(info) = self.worker_session_info.get_mut(issue_id) {
                 info.last_error = Some(format_rate_limit_error(error));
             }
