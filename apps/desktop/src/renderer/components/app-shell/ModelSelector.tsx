@@ -147,6 +147,14 @@ export function ModelSelector() {
       ? 'No models available'
       : 'Select a model'
 
+  const selectedModelSupportsThinking = useMemo(() => {
+    if (!selectedModel) return false
+    const match = availableModels.find(
+      (m) => `${m.provider}/${m.id}` === selectedModel,
+    )
+    return match?.reasoning === true
+  }, [selectedModel, availableModels])
+
   const handleThinkingChange = async (nextLevel: string): Promise<void> => {
     if (!nextLevel) return  // ToggleGroup sends empty string on deselect
     const level = nextLevel as ThinkingLevel
@@ -195,6 +203,7 @@ export function ModelSelector() {
       {error && <p className="text-[11px] text-destructive">{error}</p>}
     </div>
 
+    {selectedModelSupportsThinking && (
     <div className="flex flex-col gap-1">
       <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Thinking</Label>
       <ToggleGroup
@@ -215,6 +224,7 @@ export function ModelSelector() {
         ))}
       </ToggleGroup>
     </div>
+    )}
     </div>
   )
 }
