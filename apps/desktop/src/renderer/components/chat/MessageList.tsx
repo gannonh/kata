@@ -1,5 +1,6 @@
 import type { ChatMessageView, ToolCallView } from '@/atoms/chat'
 import { StreamingMessage } from './StreamingMessage'
+import { ThinkingBlock } from './ThinkingBlock'
 import { ToolCallCard } from './ToolCallCard'
 
 interface MessageListProps {
@@ -15,7 +16,18 @@ export function MessageList({ messages, tools }: MessageListProps) {
           <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{message.role}</p>
 
           {message.role === 'assistant' ? (
-            <StreamingMessage content={message.content} isStreaming={message.streaming} />
+            <>
+              {(message.thinking !== undefined || message.isThinking) && (
+                <ThinkingBlock
+                  content={message.thinking ?? ''}
+                  isThinking={message.isThinking}
+                />
+              )}
+              {/* Skip the text bubble entirely for ghost entries: no content, not streaming, no thinking */}
+              {(message.content.length > 0 || message.streaming || message.thinking !== undefined || message.isThinking) && (
+                <StreamingMessage content={message.content} isStreaming={message.streaming} />
+              )}
+            </>
           ) : (
             <div className="rounded-lg bg-muted px-3 py-2 text-sm text-foreground">{message.content}</div>
           )}
