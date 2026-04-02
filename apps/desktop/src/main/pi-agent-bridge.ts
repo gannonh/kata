@@ -412,6 +412,15 @@ export class PiAgentBridge extends EventEmitter {
     this.selectedModel = `${trimmedProvider}/${trimmedModel}`
   }
 
+  public async setThinkingLevel(level: string): Promise<void> {
+    const trimmed = level.trim()
+    if (!trimmed) {
+      throw new Error('Thinking level is required')
+    }
+
+    await this.send({ type: 'set_thinking_level', level: trimmed as import('../shared/types').ThinkingLevel })
+  }
+
   public getSelectedModel(): string | null {
     return this.selectedModel
   }

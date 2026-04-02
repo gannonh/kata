@@ -23,6 +23,8 @@ import {
   type PermissionMode,
   type SessionInfo,
   type SessionListResponse,
+  type SetThinkingLevelResponse,
+  type ThinkingLevel,
   type WorkspaceInfo,
 } from '../shared/types'
 
@@ -127,6 +129,7 @@ export function registerSessionIpc({
   ipcMain.removeHandler(IPC_CHANNELS.sessionPermissionMode)
   ipcMain.removeHandler(IPC_CHANNELS.sessionGetAvailableModels)
   ipcMain.removeHandler(IPC_CHANNELS.sessionSetModel)
+  ipcMain.removeHandler(IPC_CHANNELS.sessionSetThinkingLevel)
   ipcMain.removeHandler(IPC_CHANNELS.sessionList)
   ipcMain.removeHandler(IPC_CHANNELS.sessionNew)
   ipcMain.removeHandler(IPC_CHANNELS.sessionGetInfo)
@@ -240,6 +243,22 @@ export function registerSessionIpc({
         success: false,
         error: message,
       }
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.sessionSetThinkingLevel, async (_event, level: ThinkingLevel): Promise<SetThinkingLevelResponse> => {
+    if (!level?.trim()) {
+      return { success: false, error: 'Thinking level is required' }
+    }
+
+    try {
+      await bridge.setThinkingLevel(level)
+      log.info('[desktop-ipc] thinking level switch', { level })
+      return { success: true, level }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      log.error('[desktop-ipc] thinking level switch failed', { level, error: message })
+      return { success: false, error: message }
     }
   })
 
@@ -439,6 +458,7 @@ export function registerSessionIpc({
     ipcMain.removeHandler(IPC_CHANNELS.sessionPermissionMode)
     ipcMain.removeHandler(IPC_CHANNELS.sessionGetAvailableModels)
     ipcMain.removeHandler(IPC_CHANNELS.sessionSetModel)
+    ipcMain.removeHandler(IPC_CHANNELS.sessionSetThinkingLevel)
     ipcMain.removeHandler(IPC_CHANNELS.sessionList)
     ipcMain.removeHandler(IPC_CHANNELS.sessionNew)
     ipcMain.removeHandler(IPC_CHANNELS.sessionGetInfo)

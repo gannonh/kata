@@ -10,6 +10,7 @@ export const IPC_CHANNELS = {
   sessionPermissionMode: 'session:permission-mode',
   sessionGetAvailableModels: 'session:get-available-models',
   sessionSetModel: 'session:set-model',
+  sessionSetThinkingLevel: 'session:set-thinking-level',
   sessionList: 'session:list',
   sessionNew: 'session:new',
   sessionGetInfo: 'session:get-info',
@@ -23,6 +24,8 @@ export const IPC_CHANNELS = {
 } as const
 
 export type PermissionMode = 'explore' | 'ask' | 'auto'
+
+export type ThinkingLevel = 'off' | 'think' | 'max'
 
 export const ALL_AUTH_PROVIDERS = [
   'anthropic',
@@ -108,6 +111,12 @@ export interface SetModelResponse {
   error?: string
 }
 
+export interface SetThinkingLevelResponse {
+  success: boolean
+  level?: ThinkingLevel
+  error?: string
+}
+
 export interface SessionTokenUsage {
   input?: number
   output?: number
@@ -159,6 +168,7 @@ export type RpcCommandType =
   | 'follow_up'
   | 'get_available_models'
   | 'set_model'
+  | 'set_thinking_level'
 
 export interface RpcCommand {
   type: RpcCommandType
@@ -167,6 +177,7 @@ export interface RpcCommand {
   model?: string
   provider?: string
   modelId?: string
+  level?: ThinkingLevel
 }
 
 export interface CommandResult {
@@ -376,6 +387,7 @@ export interface DesktopApi {
   setPermissionMode: (mode: PermissionMode) => Promise<void>
   getAvailableModels: () => Promise<AvailableModelsResponse>
   setModel: (model: string) => Promise<SetModelResponse>
+  setThinkingLevel: (level: ThinkingLevel) => Promise<SetThinkingLevelResponse>
   sessions: {
     list: () => Promise<SessionListResponse>
     create: () => Promise<CreateSessionResponse>
