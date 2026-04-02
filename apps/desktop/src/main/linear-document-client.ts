@@ -9,6 +9,7 @@ import {
 } from '../shared/types'
 
 const LINEAR_GRAPHQL_URL = 'https://api.linear.app/graphql'
+const LINEAR_REQUEST_TIMEOUT_MS = 10_000
 
 interface FetchByTitleOptions {
   title: string
@@ -56,6 +57,7 @@ export class LinearDocumentClient {
   constructor(
     private readonly authBridge: AuthBridge,
     private readonly apiUrl = LINEAR_GRAPHQL_URL,
+    private readonly requestTimeoutMs = LINEAR_REQUEST_TIMEOUT_MS,
   ) {}
 
   public async fetchByTitle(options: FetchByTitleOptions): Promise<PlanningArtifact | null> {
@@ -117,31 +119,48 @@ export class LinearDocumentClient {
         }
       `
 
-      const response = await fetch(this.apiUrl, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          authorization: apiKey,
-        },
-        body: JSON.stringify({
-          query,
-          variables,
-        }),
-      })
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => {
+        controller.abort()
+      }, this.requestTimeoutMs)
+
+      let response: Response
+      try {
+        response = await fetch(this.apiUrl, {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            authorization: apiKey,
+          },
+          signal: controller.signal,
+          body: JSON.stringify({
+            query,
+            variables,
+          }),
+        })
+      } finally {
+        clearTimeout(timeoutId)
+      }
 
       if (response.status === 401 || response.status === 403) {
         throw new LinearDocumentClientError('UNAUTHORIZED', 'Invalid Linear API key', response.status)
       }
 
       if (response.status === 404) {
-        throw new LinearDocumentClientError('NOT_FOUND', `Artifact "${title}" not found`, response.status)
+        throw new LinearDocumentClientError(
+          'NETWORK',
+          'Linear API endpoint not found (HTTP 404). Verify endpoint configuration.',
+          response.status,
+        )
       }
 
       if (response.status === 429) {
         throw new LinearDocumentClientError('RATE_LIMITED', 'Linear API rate limit exceeded', response.status)
       }
 
-      const payload = (await response.json()) as GraphQLResponse<DocumentsQueryData>
+      const payload = (await response
+        .json()
+        .catch(() => ({}))) as GraphQLResponse<DocumentsQueryData>
 
       if (!response.ok) {
         const firstErrorMessage = payload.errors?.[0]?.message
@@ -275,6 +294,14 @@ function toTimestamp(value: string | undefined): number {
 function toLinearDocumentClientError(error: unknown): LinearDocumentClientError {
   if (error instanceof LinearDocumentClientError) {
     return error
+  }
+
+  if (error instanceof DOMException && error.name === 'AbortError') {
+    return new LinearDocumentClientError('NETWORK', 'Linear API request timed out')
+  }
+
+  if (error instanceof TypeError) {
+    return new LinearDocumentClientError('NETWORK', error.message)
   }
 
   if (error instanceof Error) {

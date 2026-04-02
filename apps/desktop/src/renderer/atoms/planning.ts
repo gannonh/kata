@@ -88,14 +88,20 @@ export function usePlanningArtifactBridge(): void {
           }
         }
 
-        setArtifacts(nextArtifacts)
+        setArtifacts((currentArtifacts) => ({
+          ...nextArtifacts,
+          ...currentArtifacts,
+        }))
 
         const mostRecentArtifact = response.artifacts[0]
         if (mostRecentArtifact) {
-          setActiveArtifactTitle({
-            artifactKey: mostRecentArtifact.artifactKey,
-            title: mostRecentArtifact.title,
-          })
+          setActiveArtifactTitle(
+            (currentActiveArtifact) =>
+              currentActiveArtifact ?? {
+                artifactKey: mostRecentArtifact.artifactKey,
+                title: mostRecentArtifact.title,
+              },
+          )
         }
       })
       .catch((error: unknown) => {

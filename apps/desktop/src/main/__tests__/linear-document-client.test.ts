@@ -95,7 +95,7 @@ describe('LinearDocumentClient', () => {
     await expect(client.fetchByTitle({ title: 'NOT-FOUND' })).resolves.toBeNull()
   })
 
-  test('maps unauthorized and rate limit failures to structured errors', async () => {
+  test('maps unauthorized, endpoint, and rate limit failures to structured errors', async () => {
     process.env.LINEAR_API_KEY = 'linear-test-key'
 
     globalThis.fetch = (async () => new Response('{}', { status: 401 })) as unknown as typeof fetch
@@ -105,6 +105,13 @@ describe('LinearDocumentClient', () => {
     await expect(client.fetchByTitle({ title: 'M001-ROADMAP' })).rejects.toMatchObject({
       code: 'UNAUTHORIZED',
       status: 401,
+    })
+
+    globalThis.fetch = (async () => new Response('{}', { status: 404 })) as unknown as typeof fetch
+
+    await expect(client.fetchByTitle({ title: 'M001-ROADMAP' })).rejects.toMatchObject({
+      code: 'NETWORK',
+      status: 404,
     })
 
     globalThis.fetch = (async () => new Response('{}', { status: 429 })) as unknown as typeof fetch
@@ -131,6 +138,12 @@ describe('LinearDocumentClient', () => {
     expect(structured).toEqual({
       code: 'UNAUTHORIZED',
       message: 'bad key',
+    })
+
+    const transportError = LinearDocumentClient.toPlanningArtifactError(new TypeError('fetch failed'))
+    expect(transportError).toEqual({
+      code: 'NETWORK',
+      message: 'fetch failed',
     })
   })
 })

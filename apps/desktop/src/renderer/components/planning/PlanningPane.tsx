@@ -31,12 +31,18 @@ export function PlanningPane() {
       return
     }
 
+    let cancelled = false
+
     setPlanningLoading(true)
     setPlanningError(null)
 
     void window.api.planning
       .fetchArtifact(activeArtifactRef.title, activeArtifactRef.artifactKey)
       .then((response) => {
+        if (cancelled) {
+          return
+        }
+
         if (!response.success || !response.artifact) {
           setPlanningError(response.error?.message ?? 'Unable to fetch artifact')
           return
@@ -45,12 +51,24 @@ export function PlanningPane() {
         applyPlanningArtifact(response.artifact)
       })
       .catch((fetchError: unknown) => {
+        if (cancelled) {
+          return
+        }
+
         const message = fetchError instanceof Error ? fetchError.message : String(fetchError)
         setPlanningError(message)
       })
       .finally(() => {
+        if (cancelled) {
+          return
+        }
+
         setPlanningLoading(false)
       })
+
+    return () => {
+      cancelled = true
+    }
   }, [activeArtifact, activeArtifactRef, applyPlanningArtifact, setPlanningError, setPlanningLoading])
 
   useEffect(() => {
