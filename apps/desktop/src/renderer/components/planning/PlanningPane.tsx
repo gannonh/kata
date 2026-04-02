@@ -1,30 +1,55 @@
 import { useAtomValue, useSetAtom } from 'jotai'
 import { Loader2 } from 'lucide-react'
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
+import type {
+  ParsedContext,
+  ParsedDecisions,
+  ParsedRequirements,
+  ParsedRoadmap,
+} from '@shared/types'
 import { Markdown } from '@kata-ui/components/markdown/Markdown'
 import {
   activePlanningArtifactAtom,
   applyPlanningArtifactAtom,
+  lastViewedPlanningArtifactAtom,
+  markPlanningArtifactViewedAtom,
   planningArtifactsAtom,
   planningErrorAtom,
   planningLoadingAtom,
 } from '@/atoms/planning'
+import { ArtifactTabs } from '@/components/planning/ArtifactTabs'
+import { ContextView } from '@/components/planning/ContextView'
+import { DecisionsView } from '@/components/planning/DecisionsView'
+import { RequirementsView } from '@/components/planning/RequirementsView'
+import { RoadmapView } from '@/components/planning/RoadmapView'
 import { Separator } from '@/components/ui/separator'
+import {
+  detectArtifactType,
+  parseContext,
+  parseDecisions,
+  parseRequirements,
+  parseRoadmap,
+} from '@/lib/artifact-parser'
 
 export function PlanningPane() {
-  const artifacts = useAtomValue(planningArtifactsAtom)
+  const artifactsByKey = useAtomValue(planningArtifactsAtom)
   const activeArtifactRef = useAtomValue(activePlanningArtifactAtom)
   const loading = useAtomValue(planningLoadingAtom)
   const error = useAtomValue(planningErrorAtom)
+  const lastViewedByArtifactKey = useAtomValue(lastViewedPlanningArtifactAtom)
 
   const applyPlanningArtifact = useSetAtom(applyPlanningArtifactAtom)
+  const setActiveArtifact = useSetAtom(activePlanningArtifactAtom)
+  const markPlanningArtifactViewed = useSetAtom(markPlanningArtifactViewedAtom)
   const setPlanningLoading = useSetAtom(planningLoadingAtom)
   const setPlanningError = useSetAtom(planningErrorAtom)
+
+  const artifacts = useMemo(() => Object.values(artifactsByKey), [artifactsByKey])
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
   const scrollPositionsByKeyRef = useRef<Record<string, number>>({})
 
-  const activeArtifact = activeArtifactRef ? artifacts[activeArtifactRef.artifactKey] : null
+  const activeArtifact = activeArtifactRef ? artifactsByKey[activeArtifactRef.artifactKey] : null
 
   useEffect(() => {
     if (!activeArtifactRef || activeArtifact) {
@@ -84,6 +109,81 @@ export function PlanningPane() {
     container.scrollTop = scrollPositionsByKeyRef.current[activeArtifactRef.artifactKey] ?? 0
   }, [activeArtifactRef])
 
+  useEffect(() => {
+    if (!activeArtifact) {
+      return
+    }
+
+    markPlanningArtifactViewed({
+      artifactKey: activeArtifact.artifactKey,
+      updatedAt: activeArtifact.updatedAt,
+    })
+  }, [activeArtifact, markPlanningArtifactViewed])
+
+  const parsedArtifact = useMemo(() => {
+    if (!activeArtifact) {
+      return null
+    }
+
+    const type = detectArtifactType(activeArtifact.title)
+
+    if (type === 'roadmap') {
+      return {
+        type,
+        parsed: parseRoadmap(activeArtifact.content) as ParsedRoadmap | null,
+      }
+    }
+
+    if (type === 'requirements') {
+      return {
+        type,
+        parsed: parseRequirements(activeArtifact.content) as ParsedRequirements | null,
+      }
+    }
+
+    if (type === 'decisions') {
+      return {
+        type,
+        parsed: parseDecisions(activeArtifact.content) as ParsedDecisions | null,
+      }
+    }
+
+    if (type === 'context') {
+      return {
+        type,
+        parsed: parseContext(activeArtifact.content) as ParsedContext | null,
+      }
+    }
+
+    return {
+      type: null,
+      parsed: null,
+    }
+  }, [activeArtifact])
+
+  const parseFailed = Boolean(activeArtifact && parsedArtifact?.type && !parsedArtifact.parsed)
+
+  useEffect(() => {
+    if (!activeArtifact || !parseFailed || !parsedArtifact?.type) {
+      return
+    }
+
+    console.warn('Unable to parse planning artifact as structured view', {
+      title: activeArtifact.title,
+      expectedFormat: parsedArtifact.type,
+      sample: activeArtifact.content.slice(0, 280),
+    })
+  }, [activeArtifact, parseFailed, parsedArtifact])
+
+  const hasUnviewedUpdatesByKey = useMemo(() => {
+    return artifacts.reduce<Record<string, boolean>>((result, artifact) => {
+      const viewedAt = lastViewedByArtifactKey[artifact.artifactKey]
+      result[artifact.artifactKey] =
+        !viewedAt || new Date(artifact.updatedAt).getTime() > new Date(viewedAt).getTime()
+      return result
+    }, {})
+  }, [artifacts, lastViewedByArtifactKey])
+
   const handleScroll = (): void => {
     if (!activeArtifactRef || !scrollContainerRef.current) {
       return
@@ -93,22 +193,53 @@ export function PlanningPane() {
       scrollContainerRef.current.scrollTop
   }
 
+  const handleArtifactSelect = (artifactKey: string, title: string): void => {
+    if (!activeArtifactRef || !scrollContainerRef.current) {
+      setActiveArtifact({ artifactKey, title })
+      return
+    }
+
+    scrollPositionsByKeyRef.current[activeArtifactRef.artifactKey] = scrollContainerRef.current.scrollTop
+
+    if (artifactKey === activeArtifactRef.artifactKey) {
+      return
+    }
+
+    console.debug('Planning tab switched', {
+      from: activeArtifactRef.title,
+      to: title,
+    })
+
+    setActiveArtifact({ artifactKey, title })
+  }
+
   return (
     <aside className="flex h-full flex-col bg-muted/20">
-      <div className="flex h-14 items-center justify-between px-4">
-        <div className="flex min-w-0 flex-col">
-          <h2 className="text-xs font-semibold tracking-wide uppercase text-muted-foreground">
-            Planning View
-          </h2>
-          <p className="truncate text-sm font-medium text-foreground">
-            {activeArtifact?.title ?? activeArtifactRef?.title ?? 'No active artifact'}
-          </p>
+      <div className="flex flex-col py-2">
+        <div className="flex items-center justify-between px-4">
+          <div className="flex min-w-0 flex-col">
+            <h2 className="text-xs font-semibold tracking-wide uppercase text-muted-foreground">
+              Planning View
+            </h2>
+            <p className="truncate text-sm font-medium text-foreground">
+              {activeArtifact?.title ?? activeArtifactRef?.title ?? 'No active artifact'}
+            </p>
+          </div>
+
+          {activeArtifact ? (
+            <span className="text-xs text-muted-foreground">
+              {new Date(activeArtifact.updatedAt).toLocaleTimeString()}
+            </span>
+          ) : null}
         </div>
 
-        {activeArtifact ? (
-          <span className="text-xs text-muted-foreground">
-            {new Date(activeArtifact.updatedAt).toLocaleTimeString()}
-          </span>
+        {artifacts.length > 0 ? (
+          <ArtifactTabs
+            artifacts={artifacts}
+            activeArtifactKey={activeArtifactRef?.artifactKey ?? null}
+            hasUnviewedUpdatesByKey={hasUnviewedUpdatesByKey}
+            onSelect={(artifact) => handleArtifactSelect(artifact.artifactKey, artifact.title)}
+          />
         ) : null}
       </div>
 
@@ -117,6 +248,12 @@ export function PlanningPane() {
       {error ? (
         <div className="border-b border-border bg-destructive/10 px-4 py-3 text-xs text-destructive">
           Unable to fetch artifact: {error}
+        </div>
+      ) : null}
+
+      {parseFailed ? (
+        <div className="border-b border-border bg-amber-100/60 px-4 py-3 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+          Unable to parse as structured view. Displaying raw markdown fallback.
         </div>
       ) : null}
 
@@ -140,9 +277,26 @@ export function PlanningPane() {
         ) : null}
 
         {activeArtifact ? (
-          <Markdown mode="full" className="text-sm leading-relaxed">
-            {activeArtifact.content}
-          </Markdown>
+          <div
+            role="tabpanel"
+            id={`panel-${activeArtifact.artifactKey}`}
+            aria-labelledby={`tab-${activeArtifact.artifactKey}`}
+            className="text-sm leading-relaxed"
+          >
+            {parsedArtifact?.type === 'roadmap' && parsedArtifact.parsed ? (
+              <RoadmapView roadmap={parsedArtifact.parsed as ParsedRoadmap} />
+            ) : parsedArtifact?.type === 'requirements' && parsedArtifact.parsed ? (
+              <RequirementsView requirements={parsedArtifact.parsed as ParsedRequirements} />
+            ) : parsedArtifact?.type === 'decisions' && parsedArtifact.parsed ? (
+              <DecisionsView decisions={parsedArtifact.parsed as ParsedDecisions} />
+            ) : parsedArtifact?.type === 'context' && parsedArtifact.parsed ? (
+              <ContextView context={parsedArtifact.parsed as ParsedContext} />
+            ) : (
+              <Markdown mode="full" className="text-sm leading-relaxed">
+                {activeArtifact.content}
+              </Markdown>
+            )}
+          </div>
         ) : null}
       </div>
     </aside>
