@@ -22,6 +22,7 @@ export const IPC_CHANNELS = {
   authRemoveKey: 'auth:remove-key',
   authValidateKey: 'auth:validate-key',
   planningArtifactUpdated: 'planning:artifact-updated',
+  planningArtifactFetchState: 'planning:artifact-fetch-state',
   planningFetchArtifact: 'planning:fetch-artifact',
   planningListArtifacts: 'planning:list-artifacts',
 } as const
@@ -418,6 +419,14 @@ export interface PlanningArtifact {
   issueId?: string
 }
 
+export interface PlanningArtifactFetchStateEvent {
+  state: 'start' | 'end'
+  title: string
+  artifactKey: string
+  toolName?: string
+  error?: PlanningArtifactError
+}
+
 export function buildPlanningArtifactKey({
   title,
   scope,
@@ -551,6 +560,7 @@ export interface DesktopApi {
   }
   planning: {
     onArtifactUpdated: (listener: (artifact: PlanningArtifact) => void) => () => void
+    onArtifactFetchState: (listener: (event: PlanningArtifactFetchStateEvent) => void) => () => void
     fetchArtifact: (title: string, artifactKey?: string) => Promise<PlanningArtifactFetchResponse>
     listArtifacts: () => Promise<PlanningArtifactListResponse>
   }

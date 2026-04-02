@@ -8,6 +8,7 @@ import {
   type ExtensionUIRequest,
   type PermissionMode,
   type PlanningArtifact,
+  type PlanningArtifactFetchStateEvent,
   type ThinkingLevel,
 } from '../shared/types'
 
@@ -121,6 +122,17 @@ const api: DesktopApi = {
 
       return () => {
         ipcRenderer.removeListener(IPC_CHANNELS.planningArtifactUpdated, wrapped)
+      }
+    },
+    onArtifactFetchState: (listener: (event: PlanningArtifactFetchStateEvent) => void) => {
+      const wrapped = (_event: Electron.IpcRendererEvent, event: PlanningArtifactFetchStateEvent) => {
+        listener(event)
+      }
+
+      ipcRenderer.on(IPC_CHANNELS.planningArtifactFetchState, wrapped)
+
+      return () => {
+        ipcRenderer.removeListener(IPC_CHANNELS.planningArtifactFetchState, wrapped)
       }
     },
     fetchArtifact: async (title: string, artifactKey?: string) => {
