@@ -1,0 +1,274 @@
+import { AuthBridge } from './auth-bridge'
+import log from './logger'
+import {
+  type PlanningArtifact,
+  type PlanningArtifactError,
+  type PlanningArtifactErrorCode,
+  type PlanningArtifactScope,
+} from '../shared/types'
+
+const LINEAR_GRAPHQL_URL = 'https://api.linear.app/graphql'
+
+interface FetchByTitleOptions {
+  title: string
+  projectId?: string
+  issueId?: string
+}
+
+interface LinearDocumentNode {
+  title?: string
+  content?: string
+  updatedAt?: string
+  project?: {
+    id?: string
+  } | null
+  issue?: {
+    id?: string
+  } | null
+}
+
+interface GraphQLResponse<TData> {
+  data?: TData
+  errors?: Array<{
+    message?: string
+  }>
+}
+
+interface DocumentsQueryData {
+  documents?: {
+    nodes?: LinearDocumentNode[]
+  }
+}
+
+export class LinearDocumentClientError extends Error {
+  constructor(
+    public readonly code: PlanningArtifactErrorCode,
+    message: string,
+    public readonly status?: number,
+  ) {
+    super(message)
+    this.name = 'LinearDocumentClientError'
+  }
+}
+
+export class LinearDocumentClient {
+  constructor(
+    private readonly authBridge: AuthBridge,
+    private readonly apiUrl = LINEAR_GRAPHQL_URL,
+  ) {}
+
+  public async fetchByTitle(options: FetchByTitleOptions): Promise<PlanningArtifact | null> {
+    const title = options.title.trim()
+    if (!title) {
+      throw new LinearDocumentClientError('UNKNOWN', 'Document title is required')
+    }
+
+    const startedAt = Date.now()
+
+    try {
+      const apiKey = await this.resolveApiKey()
+      if (!apiKey) {
+        throw new LinearDocumentClientError(
+          'MISSING_API_KEY',
+          'Linear API key required. Configure provider "linear" in auth.json or set LINEAR_API_KEY.',
+        )
+      }
+
+      const variables: Record<string, string> = {
+        title,
+      }
+
+      const filterConditions: string[] = ['title: { eq: $title }']
+
+      if (options.projectId) {
+        variables.projectId = options.projectId
+        filterConditions.push('project: { id: { eq: $projectId } }')
+      }
+
+      if (options.issueId) {
+        variables.issueId = options.issueId
+        filterConditions.push('issue: { id: { eq: $issueId } }')
+      }
+
+      const variableDefinitions = [
+        '$title: String!',
+        options.projectId ? '$projectId: ID!' : null,
+        options.issueId ? '$issueId: ID!' : null,
+      ]
+        .filter((value): value is string => Boolean(value))
+        .join(', ')
+
+      const query = `
+        query PlanningDocumentByTitle(${variableDefinitions}) {
+          documents(first: 20, filter: { ${filterConditions.join(', ')} }) {
+            nodes {
+              title
+              content
+              updatedAt
+              project {
+                id
+              }
+              issue {
+                id
+              }
+            }
+          }
+        }
+      `
+
+      const response = await fetch(this.apiUrl, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: apiKey,
+        },
+        body: JSON.stringify({
+          query,
+          variables,
+        }),
+      })
+
+      if (response.status === 401 || response.status === 403) {
+        throw new LinearDocumentClientError('UNAUTHORIZED', 'Invalid Linear API key', response.status)
+      }
+
+      if (response.status === 404) {
+        throw new LinearDocumentClientError('NOT_FOUND', `Artifact "${title}" not found`, response.status)
+      }
+
+      if (response.status === 429) {
+        throw new LinearDocumentClientError('RATE_LIMITED', 'Linear API rate limit exceeded', response.status)
+      }
+
+      const payload = (await response.json()) as GraphQLResponse<DocumentsQueryData>
+
+      if (!response.ok) {
+        const firstErrorMessage = payload.errors?.[0]?.message
+        if (firstErrorMessage) {
+          throw new LinearDocumentClientError('GRAPHQL', firstErrorMessage, response.status)
+        }
+
+        throw new LinearDocumentClientError(
+          'NETWORK',
+          `Linear API request failed with status ${response.status}`,
+          response.status,
+        )
+      }
+
+      if (Array.isArray(payload.errors) && payload.errors.length > 0) {
+        const firstErrorMessage = payload.errors[0]?.message ?? 'Unknown GraphQL error'
+        if (/rate\s*limit/i.test(firstErrorMessage)) {
+          throw new LinearDocumentClientError('RATE_LIMITED', firstErrorMessage, response.status)
+        }
+
+        throw new LinearDocumentClientError('GRAPHQL', firstErrorMessage, response.status)
+      }
+
+      const nodes = payload.data?.documents?.nodes ?? []
+      if (nodes.length === 0) {
+        log.info('[linear-document-client] planning:fetch', {
+          title,
+          status: 'not_found',
+          latencyMs: Date.now() - startedAt,
+          projectId: options.projectId,
+          issueId: options.issueId,
+        })
+        return null
+      }
+
+      const exactMatches = nodes.filter((node) => node.title === title)
+      const selectedNode = (exactMatches.length > 0 ? exactMatches : nodes)
+        .slice()
+        .sort((a, b) => toTimestamp(b.updatedAt) - toTimestamp(a.updatedAt))[0]
+
+      if (!selectedNode?.title) {
+        log.info('[linear-document-client] planning:fetch', {
+          title,
+          status: 'not_found',
+          latencyMs: Date.now() - startedAt,
+          projectId: options.projectId,
+          issueId: options.issueId,
+        })
+        return null
+      }
+
+      const artifact: PlanningArtifact = {
+        title: selectedNode.title,
+        content: selectedNode.content ?? '',
+        updatedAt: selectedNode.updatedAt ?? new Date().toISOString(),
+        scope: this.resolveScope(options, selectedNode),
+        projectId: options.projectId ?? selectedNode.project?.id,
+        issueId: options.issueId ?? selectedNode.issue?.id,
+      }
+
+      log.info('[linear-document-client] planning:fetch', {
+        title,
+        status: 'ok',
+        latencyMs: Date.now() - startedAt,
+        projectId: artifact.projectId,
+        issueId: artifact.issueId,
+      })
+
+      return artifact
+    } catch (error) {
+      const clientError = toLinearDocumentClientError(error)
+
+      log.warn('[linear-document-client] planning:fetch', {
+        title,
+        status: clientError.code.toLowerCase(),
+        latencyMs: Date.now() - startedAt,
+        projectId: options.projectId,
+        issueId: options.issueId,
+        error: clientError.message,
+      })
+
+      throw clientError
+    }
+  }
+
+  public static toPlanningArtifactError(error: unknown): PlanningArtifactError {
+    const clientError = toLinearDocumentClientError(error)
+    return {
+      code: clientError.code,
+      message: clientError.message,
+    }
+  }
+
+  private async resolveApiKey(): Promise<string | null> {
+    const envKey = process.env.LINEAR_API_KEY?.trim()
+    if (envKey) {
+      return envKey
+    }
+
+    return this.authBridge.getApiKey('linear')
+  }
+
+  private resolveScope(options: FetchByTitleOptions, node: LinearDocumentNode): PlanningArtifactScope {
+    if (options.issueId || node.issue?.id) {
+      return 'issue'
+    }
+
+    return 'project'
+  }
+}
+
+function toTimestamp(value: string | undefined): number {
+  if (!value) {
+    return 0
+  }
+
+  const timestamp = Date.parse(value)
+  return Number.isFinite(timestamp) ? timestamp : 0
+}
+
+function toLinearDocumentClientError(error: unknown): LinearDocumentClientError {
+  if (error instanceof LinearDocumentClientError) {
+    return error
+  }
+
+  if (error instanceof Error) {
+    return new LinearDocumentClientError('UNKNOWN', error.message)
+  }
+
+  return new LinearDocumentClientError('UNKNOWN', String(error))
+}

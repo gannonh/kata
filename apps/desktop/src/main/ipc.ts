@@ -3,7 +3,9 @@ import path from 'node:path'
 import { dialog, ipcMain, type BrowserWindow } from 'electron'
 import log from './logger'
 import { AuthBridge } from './auth-bridge'
+import { LinearDocumentClient } from './linear-document-client'
 import { PiAgentBridge } from './pi-agent-bridge'
+import { PlanningToolDetector } from './planning-tool-detector'
 import { RpcEventAdapter } from './rpc-event-adapter'
 import { DesktopSessionManager } from './session-manager'
 import {
@@ -21,6 +23,10 @@ import {
   type ExtensionUIRequest,
   type ExtensionUIResponse,
   type PermissionMode,
+  type PlanningArtifact,
+  type PlanningArtifactEvent,
+  type PlanningArtifactFetchResponse,
+  type PlanningArtifactListResponse,
   type SessionInfo,
   type SessionListResponse,
   type SetThinkingLevelResponse,
@@ -46,6 +52,11 @@ export function registerSessionIpc({
   onWorkspaceSelected,
 }: RegisterIpcOptions): () => void {
   const adapter = new RpcEventAdapter()
+  const planningToolDetector = new PlanningToolDetector()
+  const linearDocumentClient = new LinearDocumentClient(authBridge)
+
+  const planningArtifactsByTitle = new Map<string, PlanningArtifact>()
+  const planningMetadataByTitle = new Map<string, PlanningArtifactEvent>()
 
   const canSendToRenderer = (): boolean => !window.isDestroyed() && !window.webContents.isDestroyed()
 
@@ -69,10 +80,112 @@ export function registerSessionIpc({
     log.debug('[desktop-ipc] bridge status', status)
   }
 
+  const sendPlanningArtifactToRenderer = (artifact: PlanningArtifact): void => {
+    if (!canSendToRenderer()) {
+      log.warn('[desktop-ipc] skipping planning artifact dispatch: renderer window is destroyed')
+      return
+    }
+
+    window.webContents.send(IPC_CHANNELS.planningArtifactUpdated, artifact)
+    log.debug('[desktop-ipc] planning artifact pushed', {
+      title: artifact.title,
+      updatedAt: artifact.updatedAt,
+      scope: artifact.scope,
+      projectId: artifact.projectId,
+      issueId: artifact.issueId,
+    })
+  }
+
+  const getPlanningFetchContext = (title: string): { projectId?: string; issueId?: string } => {
+    const metadata = planningMetadataByTitle.get(title)
+    if (!metadata) {
+      return {}
+    }
+
+    return {
+      projectId: metadata.projectId,
+      issueId: metadata.issueId,
+    }
+  }
+
+  const fetchPlanningArtifact = async (
+    title: string,
+    options?: {
+      projectId?: string
+      issueId?: string
+      pushUpdate?: boolean
+      scope?: PlanningArtifact['scope']
+    },
+  ): Promise<PlanningArtifactFetchResponse> => {
+    const trimmedTitle = title.trim()
+    if (!trimmedTitle) {
+      return {
+        success: false,
+        error: {
+          code: 'UNKNOWN',
+          message: 'Artifact title is required',
+        },
+      }
+    }
+
+    try {
+      const fetchedArtifact = await linearDocumentClient.fetchByTitle({
+        title: trimmedTitle,
+        projectId: options?.projectId,
+        issueId: options?.issueId,
+      })
+
+      if (!fetchedArtifact) {
+        return {
+          success: false,
+          error: {
+            code: 'NOT_FOUND',
+            message: `Artifact "${trimmedTitle}" not found`,
+          },
+        }
+      }
+
+      const artifact: PlanningArtifact = {
+        ...fetchedArtifact,
+        scope: options?.scope ?? fetchedArtifact.scope,
+      }
+
+      planningArtifactsByTitle.set(trimmedTitle, artifact)
+
+      if (options?.pushUpdate) {
+        sendPlanningArtifactToRenderer(artifact)
+      }
+
+      return {
+        success: true,
+        artifact,
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: LinearDocumentClient.toPlanningArtifactError(error),
+      }
+    }
+  }
+
+  const onPlanningArtifactEvent = (planningEvent: PlanningArtifactEvent): void => {
+    planningMetadataByTitle.set(planningEvent.title, planningEvent)
+
+    void fetchPlanningArtifact(planningEvent.title, {
+      projectId: planningEvent.projectId,
+      issueId: planningEvent.issueId,
+      scope: planningEvent.scope,
+      pushUpdate: true,
+    })
+  }
+
+  planningToolDetector.on('artifact', onPlanningArtifactEvent)
+
   const onRpcEvent = (rpcEvent: Record<string, unknown>): void => {
     log.debug('[desktop-ipc] inbound rpc event', rpcEvent)
     for (const chatEvent of adapter.adapt(rpcEvent)) {
       sendEventToRenderer(chatEvent)
+      planningToolDetector.handleChatEvent(chatEvent)
     }
   }
 
@@ -140,6 +253,8 @@ export function registerSessionIpc({
   ipcMain.removeHandler(IPC_CHANNELS.authSetKey)
   ipcMain.removeHandler(IPC_CHANNELS.authRemoveKey)
   ipcMain.removeHandler(IPC_CHANNELS.authValidateKey)
+  ipcMain.removeHandler(IPC_CHANNELS.planningFetchArtifact)
+  ipcMain.removeHandler(IPC_CHANNELS.planningListArtifacts)
 
   ipcMain.handle(IPC_CHANNELS.sessionSend, async (_event, message: string) => {
     if (!message?.trim()) {
@@ -446,12 +561,35 @@ export function registerSessionIpc({
     },
   )
 
+  ipcMain.handle(
+    IPC_CHANNELS.planningFetchArtifact,
+    async (_event, title: string): Promise<PlanningArtifactFetchResponse> => {
+      const context = getPlanningFetchContext(title)
+      return fetchPlanningArtifact(title, {
+        ...context,
+        pushUpdate: false,
+      })
+    },
+  )
+
+  ipcMain.handle(IPC_CHANNELS.planningListArtifacts, async (): Promise<PlanningArtifactListResponse> => {
+    const artifacts = Array.from(planningArtifactsByTitle.values()).sort((left, right) => {
+      return Date.parse(right.updatedAt) - Date.parse(left.updatedAt)
+    })
+
+    return {
+      success: true,
+      artifacts,
+    }
+  })
+
   return () => {
     bridge.off('rpc-event', onRpcEvent)
     bridge.off('extension-ui-request', onExtensionUiRequest)
     bridge.off('status', onStatus)
     bridge.off('debug', onDebug)
     bridge.off('crash', onCrash)
+    planningToolDetector.off('artifact', onPlanningArtifactEvent)
 
     ipcMain.removeHandler(IPC_CHANNELS.sessionSend)
     ipcMain.removeHandler(IPC_CHANNELS.sessionStop)
@@ -472,5 +610,7 @@ export function registerSessionIpc({
     ipcMain.removeHandler(IPC_CHANNELS.authSetKey)
     ipcMain.removeHandler(IPC_CHANNELS.authRemoveKey)
     ipcMain.removeHandler(IPC_CHANNELS.authValidateKey)
+    ipcMain.removeHandler(IPC_CHANNELS.planningFetchArtifact)
+    ipcMain.removeHandler(IPC_CHANNELS.planningListArtifacts)
   }
 }

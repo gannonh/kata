@@ -98,6 +98,34 @@ export class AuthBridge {
     return this.authFilePath
   }
 
+  public async getApiKey(provider: string): Promise<string | null> {
+    const normalizedProvider = provider.trim()
+    if (!normalizedProvider) {
+      return null
+    }
+
+    try {
+      const auth = await this.readAuthFile()
+
+      const record = ALL_AUTH_PROVIDERS.includes(normalizedProvider as AuthProvider)
+        ? this.resolveAuthRecord(auth, normalizedProvider as AuthProvider)
+        : auth[normalizedProvider]
+
+      if (record?.type !== 'api_key' || typeof record.key !== 'string') {
+        return null
+      }
+
+      const trimmedKey = record.key.trim()
+      return trimmedKey.length > 0 ? trimmedKey : null
+    } catch (error) {
+      log.warn('[auth-bridge] auth:get-api-key failed', {
+        provider: normalizedProvider,
+        error: this.toErrorMessage(error),
+      })
+      return null
+    }
+  }
+
   public async getProviders(): Promise<AuthProvidersResponse> {
     try {
       const auth = await this.readAuthFile()

@@ -21,6 +21,9 @@ export const IPC_CHANNELS = {
   authSetKey: 'auth:set-key',
   authRemoveKey: 'auth:remove-key',
   authValidateKey: 'auth:validate-key',
+  planningArtifactUpdated: 'planning:artifact-updated',
+  planningFetchArtifact: 'planning:fetch-artifact',
+  planningListArtifacts: 'planning:list-artifacts',
 } as const
 
 export type PermissionMode = 'explore' | 'ask' | 'auto'
@@ -376,6 +379,55 @@ export interface BridgeState {
   selectedModel: string | null
 }
 
+export type PlanningArtifactScope = 'project' | 'issue'
+
+export type PlanningArtifactAction = 'created' | 'updated'
+
+export type PlanningArtifactErrorCode =
+  | 'MISSING_API_KEY'
+  | 'UNAUTHORIZED'
+  | 'NOT_FOUND'
+  | 'RATE_LIMITED'
+  | 'NETWORK'
+  | 'GRAPHQL'
+  | 'UNKNOWN'
+
+export interface PlanningArtifactError {
+  code: PlanningArtifactErrorCode
+  message: string
+}
+
+export interface PlanningArtifactEvent {
+  toolName: string
+  toolCallId: string
+  title: string
+  scope: PlanningArtifactScope
+  action: PlanningArtifactAction
+  projectId?: string
+  issueId?: string
+}
+
+export interface PlanningArtifact {
+  title: string
+  content: string
+  updatedAt: string
+  scope: PlanningArtifactScope
+  projectId?: string
+  issueId?: string
+}
+
+export interface PlanningArtifactFetchResponse {
+  success: boolean
+  artifact?: PlanningArtifact
+  error?: PlanningArtifactError
+}
+
+export interface PlanningArtifactListResponse {
+  success: boolean
+  artifacts: PlanningArtifact[]
+  error?: PlanningArtifactError
+}
+
 export interface DesktopApi {
   sendMessage: (message: string) => Promise<void>
   stopAgent: () => Promise<void>
@@ -404,6 +456,11 @@ export interface DesktopApi {
     setKey: (provider: AuthProvider, key: string) => Promise<AuthSetKeyResponse>
     removeKey: (provider: AuthProvider) => Promise<AuthRemoveKeyResponse>
     validateKey: (provider: AuthProvider, key: string) => Promise<AuthValidationResult>
+  }
+  planning: {
+    onArtifactUpdated: (listener: (artifact: PlanningArtifact) => void) => () => void
+    fetchArtifact: (title: string) => Promise<PlanningArtifactFetchResponse>
+    listArtifacts: () => Promise<PlanningArtifactListResponse>
   }
 }
 

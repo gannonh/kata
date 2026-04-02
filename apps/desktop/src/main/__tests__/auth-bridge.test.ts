@@ -330,4 +330,44 @@ describe('AuthBridge', () => {
     expect(response.providers.openai.status).toBe('valid')
     expect(response.providers.openai.maskedKey).toBe('••••7890')
   })
+
+  test('getApiKey reads canonical and custom provider keys', async () => {
+    await fs.writeFile(
+      authFilePath,
+      JSON.stringify(
+        {
+          openai: { type: 'api_key', key: '  sk-openai-live  ' },
+          linear: { type: 'api_key', key: '  lin_api_test_123  ' },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    )
+
+    const bridge = new AuthBridge(authFilePath)
+
+    await expect(bridge.getApiKey('openai')).resolves.toBe('sk-openai-live')
+    await expect(bridge.getApiKey('linear')).resolves.toBe('lin_api_test_123')
+  })
+
+  test('getApiKey returns null for non-api-key records and missing provider names', async () => {
+    await fs.writeFile(
+      authFilePath,
+      JSON.stringify(
+        {
+          google: { type: 'oauth', access: 'token-123' },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    )
+
+    const bridge = new AuthBridge(authFilePath)
+
+    await expect(bridge.getApiKey('google')).resolves.toBeNull()
+    await expect(bridge.getApiKey('')).resolves.toBeNull()
+    await expect(bridge.getApiKey('linear')).resolves.toBeNull()
+  })
 })
