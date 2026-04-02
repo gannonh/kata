@@ -72,7 +72,6 @@ export function usePlanningArtifactBridge(): void {
         }
 
         if (response.artifacts.length === 0) {
-          setLoading(false)
           return
         }
 

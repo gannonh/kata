@@ -32,6 +32,7 @@ export function PlanningPane() {
     }
 
     setPlanningLoading(true)
+    setPlanningError(null)
 
     void window.api.planning
       .fetchArtifact(activeArtifactRef.title, activeArtifactRef.artifactKey)
