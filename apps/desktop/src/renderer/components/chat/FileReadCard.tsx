@@ -25,7 +25,9 @@ function buildReadViewModel(tool: ToolCallView): ReadViewModel {
   const args = asRecord(tool.args)
   const result = asRecord(tool.result)
 
-  const filePath = asString(result?.path) ?? asString(args?.path) ?? 'unknown-file'
+  // Use || not ?? so empty string ('') falls through to args.path
+  // The root fix is in the adapter (tool args cache), but this guards against any future regression
+  const filePath = (asString(result?.path) || asString(args?.path)) ?? 'unknown-file'
   const content = asString(result?.content) ?? asString(result?.text) ?? ''
   const lineCount = asNumber(result?.totalLines) ?? content.split('\n').length
   const language = asString(result?.language) ?? getLanguageFromPath(filePath)
