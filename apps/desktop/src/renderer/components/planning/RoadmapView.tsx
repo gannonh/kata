@@ -36,8 +36,8 @@ export function RoadmapView({ roadmap }: RoadmapViewProps) {
             Success Criteria
           </p>
           <ul className="mt-2 list-disc space-y-1 pl-4 text-sm">
-            {roadmap.successCriteria.map((criterion) => (
-              <li key={criterion}>{criterion}</li>
+            {roadmap.successCriteria.map((criterion, index) => (
+              <li key={`criterion-${index}`}>{criterion}</li>
             ))}
           </ul>
         </section>
@@ -99,8 +99,8 @@ export function RoadmapView({ roadmap }: RoadmapViewProps) {
           </CollapsibleTrigger>
 
           <CollapsibleContent className="space-y-2 border-t border-border px-3 py-2">
-            {roadmap.boundaryMap.map((section) => (
-              <div key={section.heading} className="space-y-1">
+            {roadmap.boundaryMap.map((section, index) => (
+              <div key={`boundary-${index}`} className="space-y-1">
                 <p className="text-sm font-medium">{section.heading}</p>
                 <pre className="overflow-x-auto whitespace-pre-wrap text-xs text-muted-foreground">
                   {section.content}

@@ -11,9 +11,9 @@ export interface ContextViewProps {
 export function ContextView({ context }: ContextViewProps) {
   return (
     <div className="space-y-3">
-      {context.sections.map((section) => (
+      {context.sections.map((section, index) => (
         <Collapsible
-          key={`${section.level}-${section.heading}`}
+          key={`context-section-${index}`}
           defaultOpen
           className="group/section overflow-hidden rounded-lg border border-border"
         >
