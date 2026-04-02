@@ -6,7 +6,6 @@ import {
   modelLoadingAtom,
   selectedModelAtom,
 } from '@/atoms/model'
-import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
@@ -139,8 +138,6 @@ export function ModelSelector() {
 
   return (
     <div className="flex min-w-[16rem] flex-col gap-1">
-      <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Model</Label>
-
       <Select
         value={selectedModel ?? undefined}
         disabled={loading || availableModels.length === 0}
