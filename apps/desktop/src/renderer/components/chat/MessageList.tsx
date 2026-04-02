@@ -10,18 +10,14 @@ interface MessageListProps {
 
 export function MessageList({ messages, tools }: MessageListProps) {
   // Index tool calls by parentMessageId so we can render them inline after their
-  // triggering assistant message. Tools without a parentMessageId (older format or
-  // edge cases) fall into the 'unparented' bucket rendered after all messages.
+  // triggering assistant message.
   const toolsByParent = new Map<string, ToolCallView[]>()
-  const unparentedTools: ToolCallView[] = []
 
   for (const tool of tools) {
     if (tool.parentMessageId) {
       const existing = toolsByParent.get(tool.parentMessageId) ?? []
       existing.push(tool)
       toolsByParent.set(tool.parentMessageId, existing)
-    } else {
-      unparentedTools.push(tool)
     }
   }
 
@@ -72,15 +68,6 @@ export function MessageList({ messages, tools }: MessageListProps) {
         )
       })}
 
-      {/* Fallback section for tool calls without a parent message (pre-parentMessageId data) */}
-      {unparentedTools.length > 0 && (
-        <section className="flex flex-col gap-2">
-          <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Tool calls</p>
-          {unparentedTools.map((tool) => (
-            <ToolCallCard key={tool.id} tool={tool} />
-          ))}
-        </section>
-      )}
     </div>
   )
 }
