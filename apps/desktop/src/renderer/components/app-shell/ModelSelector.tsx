@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useMemo } from 'react'
 import { useAtom } from 'jotai'
-import type { ThinkingLevel } from '@shared/types'
 import {
   availableModelsAtom,
   modelErrorAtom,
   modelLoadingAtom,
   selectedModelAtom,
-  thinkingLevelAtom,
 } from '@/atoms/model'
 import { Label } from '@/components/ui/label'
 import {
@@ -18,14 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { MODELS_REFRESH_EVENT, PROVIDER_METADATA } from '@/constants/providers'
-
-const THINKING_LEVELS: { value: ThinkingLevel; label: string }[] = [
-  { value: 'off', label: 'Off' },
-  { value: 'think', label: 'Think' },
-  { value: 'max', label: 'Max' },
-]
 
 function toModelIdentifier(provider: string, id: string): string {
   return `${provider}/${id}`
@@ -42,7 +33,6 @@ export function ModelSelector() {
   const [availableModels, setAvailableModels] = useAtom(availableModelsAtom)
   const [loading, setLoading] = useAtom(modelLoadingAtom)
   const [error, setError] = useAtom(modelErrorAtom)
-  const [thinkingLevel, setThinkingLevel] = useAtom(thinkingLevelAtom)
 
   const refreshModels = useCallback(async () => {
     setLoading(true)
@@ -147,28 +137,7 @@ export function ModelSelector() {
       ? 'No models available'
       : 'Select a model'
 
-  const selectedModelSupportsThinking = useMemo(() => {
-    if (!selectedModel) return false
-    const match = availableModels.find(
-      (m) => `${m.provider}/${m.id}` === selectedModel,
-    )
-    return match?.reasoning === true
-  }, [selectedModel, availableModels])
-
-  const handleThinkingChange = async (nextLevel: string): Promise<void> => {
-    if (!nextLevel) return  // ToggleGroup sends empty string on deselect
-    const level = nextLevel as ThinkingLevel
-    const response = await window.api.setThinkingLevel(level)
-    if (response.success) {
-      setThinkingLevel(level)
-      setError(null)
-    } else {
-      setError(response.error ?? 'Unable to set thinking level')
-    }
-  }
-
   return (
-    <div className="flex items-end gap-3">
     <div className="flex min-w-[16rem] flex-col gap-1">
       <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Model</Label>
 
@@ -201,30 +170,6 @@ export function ModelSelector() {
       </Select>
 
       {error && <p className="text-[11px] text-destructive">{error}</p>}
-    </div>
-
-    {selectedModelSupportsThinking && (
-    <div className="flex flex-col gap-1">
-      <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Thinking</Label>
-      <ToggleGroup
-        type="single"
-        value={thinkingLevel}
-        onValueChange={(value) => { void handleThinkingChange(value) }}
-        size="sm"
-        className="h-8"
-      >
-        {THINKING_LEVELS.map(({ value, label }) => (
-          <ToggleGroupItem
-            key={value}
-            value={value}
-            className="px-2.5 text-xs"
-          >
-            {label}
-          </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
-    </div>
-    )}
     </div>
   )
 }

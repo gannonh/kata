@@ -16,6 +16,7 @@ import { ExtensionUIHandler } from './ExtensionUIHandler'
 import { MessageInput } from './MessageInput'
 import { MessageList } from './MessageList'
 import { PermissionModeSelector } from './PermissionModeSelector'
+import { ThinkingLevelToggle } from './ThinkingLevelToggle'
 
 export function ChatPanel() {
   const messages = useAtomValue(messagesAtom)
@@ -90,6 +91,10 @@ export function ChatPanel() {
 
       <div ref={scrollRef} className="flex-1 overflow-auto">
         <MessageList messages={messages} tools={tools} />
+      </div>
+
+      <div className="flex items-center gap-3 border-t border-border px-4 py-1.5">
+        <ThinkingLevelToggle />
       </div>
 
       <MessageInput

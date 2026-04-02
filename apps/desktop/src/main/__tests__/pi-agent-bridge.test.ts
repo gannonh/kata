@@ -283,8 +283,8 @@ describe('PiAgentBridge additional coverage', () => {
     })
 
     await expect(bridge.getAvailableModels()).resolves.toEqual([
-      { provider: 'anthropic', id: 'claude-sonnet', contextWindow: 200000, reasoning: true },
-      { provider: 'openai', id: 'gpt-4.1', contextWindow: undefined, reasoning: undefined },
+      { provider: 'anthropic', id: 'claude-sonnet', contextWindow: 200000, reasoning: true, supportsXhigh: false },
+      { provider: 'openai', id: 'gpt-4.1', contextWindow: undefined, reasoning: undefined, supportsXhigh: false },
     ])
   })
 

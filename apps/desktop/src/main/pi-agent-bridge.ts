@@ -384,7 +384,7 @@ export class PiAgentBridge extends EventEmitter {
         continue
       }
 
-      const candidate = entry as Partial<AvailableModel>
+      const candidate = entry as Record<string, unknown>
       if (typeof candidate.provider !== 'string' || typeof candidate.id !== 'string') {
         continue
       }
@@ -395,6 +395,7 @@ export class PiAgentBridge extends EventEmitter {
         contextWindow:
           typeof candidate.contextWindow === 'number' ? candidate.contextWindow : undefined,
         reasoning: typeof candidate.reasoning === 'boolean' ? candidate.reasoning : undefined,
+        supportsXhigh: modelSupportsXhigh(candidate.id, candidate.api),
       })
     }
 
@@ -790,4 +791,18 @@ export class PiAgentBridge extends EventEmitter {
     const candidate = value as Record<string, unknown>
     return typeof candidate.type === 'string'
   }
+}
+
+/**
+ * Check if a model supports the xhigh thinking level.
+ * Mirrors the logic in pi-ai's `supportsXhigh()`.
+ */
+function modelSupportsXhigh(modelId: string, api?: unknown): boolean {
+  if (modelId.includes('gpt-5.2') || modelId.includes('gpt-5.3') || modelId.includes('gpt-5.4')) {
+    return true
+  }
+  if (api === 'anthropic-messages') {
+    return modelId.includes('opus-4-6') || modelId.includes('opus-4.6')
+  }
+  return false
 }

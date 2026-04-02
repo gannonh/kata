@@ -25,7 +25,7 @@ export const IPC_CHANNELS = {
 
 export type PermissionMode = 'explore' | 'ask' | 'auto'
 
-export type ThinkingLevel = 'off' | 'think' | 'max'
+export type ThinkingLevel = 'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'
 
 export const ALL_AUTH_PROVIDERS = [
   'anthropic',
@@ -97,6 +97,7 @@ export interface AvailableModel {
   id: string
   contextWindow?: number
   reasoning?: boolean
+  supportsXhigh?: boolean
 }
 
 export interface AvailableModelsResponse {

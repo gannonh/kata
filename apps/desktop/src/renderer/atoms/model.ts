@@ -12,7 +12,7 @@ export const selectedModelAtom = atomWithStorage<string | null>(
 
 export const thinkingLevelAtom = atomWithStorage<ThinkingLevel>(
   THINKING_LEVEL_STORAGE_KEY,
-  'off',
+  'medium',
 )
 
 export const availableModelsAtom = atom<AvailableModel[]>([])
