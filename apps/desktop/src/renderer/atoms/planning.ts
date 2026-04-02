@@ -30,9 +30,20 @@ export const rightPaneModeAtom = atomWithStorage<'planning' | 'default'>(
 )
 export const planningLoadingAtom = atom<boolean>(false)
 export const planningErrorAtom = atom<string | null>(null)
+export const lastViewedPlanningArtifactAtom = atom<Record<string, string>>({})
+
+export const markPlanningArtifactViewedAtom = atom(
+  null,
+  (get, set, artifact: { title: string; updatedAt: string }) => {
+    set(lastViewedPlanningArtifactAtom, {
+      ...get(lastViewedPlanningArtifactAtom),
+      [artifact.title]: artifact.updatedAt,
+    })
+  },
+)
 
 export const applyPlanningArtifactAtom = atom(null, (get, set, artifact: PlanningArtifact) => {
-  set(planningArtifactsAtom, {
+  const nextArtifacts: PlanningArtifactsMap = {
     ...get(planningArtifactsAtom),
     [artifact.artifactKey]: {
       artifactKey: artifact.artifactKey,
@@ -43,11 +54,18 @@ export const applyPlanningArtifactAtom = atom(null, (get, set, artifact: Plannin
       projectId: artifact.projectId,
       issueId: artifact.issueId,
     },
-  })
-  set(activePlanningArtifactAtom, {
-    artifactKey: artifact.artifactKey,
-    title: artifact.title,
-  })
+  }
+
+  set(planningArtifactsAtom, nextArtifacts)
+
+  const currentActiveArtifact = get(activePlanningArtifactAtom)
+  if (!currentActiveArtifact || !nextArtifacts[currentActiveArtifact.artifactKey]) {
+    set(activePlanningArtifactAtom, {
+      artifactKey: artifact.artifactKey,
+      title: artifact.title,
+    })
+  }
+
   set(rightPaneModeAtom, 'planning')
   set(planningLoadingAtom, false)
   set(planningErrorAtom, null)
