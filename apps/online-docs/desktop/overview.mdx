@@ -1,0 +1,125 @@
+---
+title: "Kata Desktop"
+description: "Electron-based desktop app for working with AI agents. Multi-session management, MCP integrations, permission controls, and a document-centric workflow."
+---
+
+Kata Desktop is a productivity app for working with AI agents. Built on the Claude Agent SDK, it enables intuitive multitasking, seamless connection to APIs and services, and a document-centric workflow in a polished, natural language driven UI. It's like Claude Code meets Slack.
+
+## Features
+
+<CardGroup cols={2}>
+  <Card title="Multi-session inbox" icon="inbox">
+    Manage sessions by workflow status with flagging, archiving, and a full status lifecycle from Todo to Done.
+  </Card>
+  <Card title="Claude Code experience" icon="bolt">
+    Streaming responses, tool call visualization, and real-time updates in a familiar coding-focused interface.
+  </Card>
+  <Card title="Git integration" icon="code-branch">
+    Live branch badge, PR status display, real-time updates via file watching, and worktree/submodule support.
+  </Card>
+  <Card title="Agent skills" icon="graduation-cap">
+    Specialized agent instructions stored per-workspace to tailor behavior for each project.
+  </Card>
+  <Card title="MCP integration" icon="plug">
+    Connect to any MCP server — Linear, GitHub, Notion, and custom servers — directly from the app.
+  </Card>
+  <Card title="Sources" icon="database">
+    Connect to REST APIs (Google, Slack, Microsoft) and local filesystems to give agents live context.
+  </Card>
+  <Card title="Permission modes" icon="shield">
+    Three-level system (Explore, Ask to Edit, Auto) to control how much the agent can do autonomously.
+  </Card>
+  <Card title="Background tasks" icon="clock">
+    Run long-running operations with progress tracking while continuing other work.
+  </Card>
+  <Card title="Dynamic status system" icon="list-check">
+    Customizable session workflow states — Todo, In Progress, Needs Review, Done, and more.
+  </Card>
+  <Card title="Theme system" icon="palette">
+    Cascading themes set at the app level or overridden per workspace.
+  </Card>
+  <Card title="Multi-file diff" icon="code-compare">
+    VS Code-style diff window to review all file changes produced in a single agent turn.
+  </Card>
+  <Card title="File attachments" icon="paperclip">
+    Drag and drop images, PDFs, and Office documents with automatic conversion.
+  </Card>
+</CardGroup>
+
+## Installation
+
+### Download from GitHub Releases
+
+Download the latest release for your platform from [GitHub Releases](https://github.com/gannonh/kata/releases).
+
+<Tabs>
+  <Tab title="macOS (Apple Silicon)">
+    Download `Kata-Desktop-arm64.dmg` and open the installer.
+  </Tab>
+  <Tab title="macOS (Intel)">
+    Download `Kata-Desktop-x64.dmg` and open the installer.
+  </Tab>
+  <Tab title="Windows">
+    Download `Kata-Desktop-x64.exe` and run the installer.
+  </Tab>
+  <Tab title="Linux">
+    Download `Kata-Desktop-x64.AppImage`, make it executable, and run it:
+
+    ```bash
+    chmod +x Kata-Desktop-x64.AppImage
+    ./Kata-Desktop-x64.AppImage
+    ```
+  </Tab>
+</Tabs>
+
+### Build from source
+
+```bash
+git clone https://github.com/gannonh/kata.git
+cd kata
+bun install
+bun run githooks:install
+bun run electron:start
+```
+
+## Quick start
+
+<Steps>
+  <Step title="Launch the app">
+    Open Kata Desktop after installation.
+  </Step>
+  <Step title="Choose an API connection">
+    Connect your Anthropic API key or Claude Max subscription when prompted.
+  </Step>
+  <Step title="Create a workspace">
+    Set up a workspace to organize your sessions and store per-project configuration.
+  </Step>
+  <Step title="Connect sources (optional)">
+    Add MCP servers, REST APIs, or local filesystems to give agents additional context.
+  </Step>
+  <Step title="Start chatting">
+    Create a session and start interacting with Claude.
+  </Step>
+</Steps>
+
+## Tech stack
+
+| Layer | Technology |
+|---|---|
+| Runtime | [Bun](https://bun.sh/) |
+| AI | [@anthropic-ai/claude-agent-sdk](https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk) |
+| Desktop | [Electron](https://www.electronjs.org/) + React |
+| UI | [shadcn/ui](https://ui.shadcn.com/) + Tailwind CSS v4 |
+| Build | esbuild (main) + Vite (renderer) |
+| Credentials | AES-256-GCM encrypted file storage |
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Sessions and workspaces" icon="window" href="/desktop/sessions-workspaces">
+    Session management, permission modes, Git integration, and keyboard shortcuts.
+  </Card>
+  <Card title="Sources and MCP" icon="plug" href="/desktop/sources-mcp">
+    Connect MCP servers, REST APIs, local filesystems, and Slack channels.
+  </Card>
+</CardGroup>

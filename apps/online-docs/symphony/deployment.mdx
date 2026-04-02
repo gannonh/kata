@@ -1,0 +1,283 @@
+---
+title: "Deployment"
+description: "Run Symphony locally with bare processes, in Docker containers, on a remote server, or distributed across SSH worker pools."
+---
+
+Symphony supports four deployment configurations: local bare processes, Docker-isolated containers, a server deployment via Docker Compose, and SSH remote worker pools. The right choice depends on your isolation requirements and where you want agents to run.
+
+---
+
+## Local mode (default)
+
+Workers run as bare processes on your machine. Symphony creates an isolated workspace for each issue and spawns the agent directly. Fast, simple, no Docker required.
+
+```yaml
+workspace:
+  isolation: local    # default — you can omit this
+  repo: /path/to/local/repo
+  git_strategy: worktree
+```
+
+### Git strategies
+
+Select a git strategy with `workspace.git_strategy`. The recommended strategy for local repos is `worktree`.
+
+| Strategy | What it does | Best for |
+| --- | --- | --- |
+| `worktree` **(recommended)** | `git worktree add` — instant, shares object store | Local repos — visible in git clients, no disk duplication |
+| `auto` **(default)** | Picks `clone-local` or `clone-remote` based on whether `repo` is a path or URL | When you're not sure |
+| `clone-local` | `git clone --local` with hard links | Same volume, full isolation from main repo |
+| `clone-remote` | `git clone --single-branch` | Remote repos, CI environments |
+
+<Note>
+  Git worktrees are instant to create, share the object store with your main repo, and show up in git clients so you can inspect agent work in progress.
+</Note>
+
+### Running Symphony locally
+
+```bash
+# Validate your setup first
+symphony doctor WORKFLOW.md
+
+# Start Symphony
+symphony WORKFLOW.md
+
+# With options
+symphony WORKFLOW.md --port 8080 --logs-root ./logs
+```
+
+---
+
+## Docker mode
+
+Each issue gets a disposable container. You do not create or manage containers — Symphony handles the full container lifecycle.
+
+```yaml
+workspace:
+  isolation: docker
+  repo: https://github.com/you/your-repo.git    # must be a remote URL
+  docker:
+    image: node:22-bookworm        # base Docker image
+    setup: docker/setups/bun.sh    # optional: script to install extra tooling
+    codex_auth: auto               # how the agent authenticates inside the container
+```
+
+<Warning>
+  Docker mode requires `workspace.repo` to be a remote URL — local paths are not accessible inside containers. The `git_strategy` must be `auto` or `clone-remote`; `worktree` and `clone-local` require host filesystem access.
+</Warning>
+
+### How Symphony manages containers
+
+<Steps>
+  <Step title="Resolve the worker image">
+    Symphony builds a derived Docker image from your base image plus the optional setup script. The derived image is cached by content hash of the base image name and setup script, so rebuilds only happen when the script changes.
+  </Step>
+  <Step title="Start a container per issue">
+    For each issue, Symphony runs `docker run --rm -d` to start a disposable container from the derived image.
+  </Step>
+  <Step title="Clone and bootstrap">
+    Symphony clones your repo inside the container into `/workspace` and runs lifecycle hooks via `docker exec`.
+  </Step>
+  <Step title="Run the agent">
+    The agent session runs inside the container via `docker exec`. Token usage and turn counts stream back to the orchestrator.
+  </Step>
+  <Step title="Stop and remove">
+    When the issue is done, Symphony removes the container with `docker rm -f`.
+  </Step>
+</Steps>
+
+### Setup scripts
+
+Setup scripts install language toolchains or extra dependencies on top of your base image. Bundled scripts are available in `docker/setups/`:
+
+| Script | What it installs |
+| --- | --- |
+| `bun.sh` | Bun runtime |
+| `python.sh` | Python 3, pip, venv |
+| `rust.sh` | Rust via rustup (stable toolchain) |
+| `go.sh` | Go (version configurable via `GO_VERSION` env var) |
+
+Reference a bundled script or provide your own:
+
+```yaml
+workspace:
+  docker:
+    image: node:22-bookworm
+    setup: docker/setups/bun.sh
+```
+
+### Docker auth modes
+
+Interactive browser login is not available inside containers. Use an API key in your `.env` for the simplest setup.
+
+| Mode | What it does |
+| --- | --- |
+| `auto` **(default)** | Uses `OPENAI_API_KEY` env var if set, otherwise mounts `~/.codex/auth.json` |
+| `env` | Passes `OPENAI_API_KEY` into the container. Fails if not set |
+| `mount` | Bind-mounts `~/.codex/auth.json` into the container. Fails if file does not exist |
+
+### Extra container configuration
+
+Pass additional environment variables or bind mounts into each worker container:
+
+```yaml
+workspace:
+  docker:
+    env:                              # additional env vars passed to the container
+      - CARGO_HOME=/usr/local/cargo
+    volumes:                          # additional bind mounts
+      - ~/.ssh:/root/.ssh:ro
+```
+
+---
+
+## Server deployment
+
+To run Symphony on a VPS or remote machine, use the provided Docker Compose setup in the `docker/` directory. This runs Symphony itself inside a container with access to the Docker socket so it can manage worker containers as siblings.
+
+<Steps>
+  <Step title="Configure the workflow">
+    Edit `WORKFLOW-docker.md` with your project slug and repo URL:
+
+    ```bash
+    vi docker/WORKFLOW-docker.md
+    ```
+  </Step>
+  <Step title="Set environment variables">
+    ```bash
+    cp docker/.env.example docker/.env
+    vi docker/.env    # set LINEAR_API_KEY and agent auth key
+    ```
+  </Step>
+  <Step title="Build and start">
+    ```bash
+    docker compose -f docker/docker-compose.yml up -d --build
+    ```
+
+    The web dashboard is available at `http://localhost:8080` (or the port configured in your workflow file).
+  </Step>
+  <Step title="Monitor and stop">
+    ```bash
+    # Follow logs
+    docker compose -f docker/docker-compose.yml logs -f
+
+    # Stop
+    docker compose -f docker/docker-compose.yml down
+    ```
+  </Step>
+</Steps>
+
+<Note>
+  The Docker socket is mounted so Symphony can create and manage worker containers as sibling containers, not nested containers. Symphony watches `WORKFLOW-docker.md` for changes and reloads automatically.
+</Note>
+
+---
+
+## SSH remote workers
+
+Distribute agent sessions across multiple machines by configuring a pool of SSH hosts.
+
+```yaml
+worker:
+  ssh_hosts:
+    - worker1.example.com
+    - worker2.example.com:2222
+    - alice@worker3.example.com
+  max_concurrent_agents_per_host: 3
+```
+
+Each host must have the agent backend (Kata CLI or Codex) installed and on `PATH`. Symphony connects via `ssh -T` and spawns the agent remotely.
+
+### Host selection behavior
+
+- When `ssh_hosts` is empty, all sessions run locally.
+- When hosts are configured, Symphony selects the least-loaded eligible host for each dispatch (deterministic tiebreak by configuration order).
+- If a prior run attempt was on a specific host, Symphony prefers that host for continuation when it is still under the concurrency cap.
+- When all hosts are at or above `max_concurrent_agents_per_host`, the issue stays in the candidate queue until a slot opens.
+
+### Custom SSH config
+
+Set `SYMPHONY_SSH_CONFIG` to a custom SSH config file path. Symphony passes `-F <path>` to every `ssh` invocation, enabling per-host `IdentityFile`, `ProxyJump`, `StrictHostKeyChecking`, and other OpenSSH options:
+
+```bash
+export SYMPHONY_SSH_CONFIG=~/.ssh/symphony_config
+symphony WORKFLOW.md
+```
+
+---
+
+## Doctor preflight checks
+
+Before launching the orchestrator, validate your setup with:
+
+```bash
+symphony doctor WORKFLOW.md
+```
+
+Doctor prints traffic-light output:
+
+```text
+Symphony Doctor
+✅ Config Parse: Parsed WORKFLOW.md
+✅ Config Validate: Required workflow settings are present
+✅ Linear Project: Resolved project "sym" (sym)
+🚨 Backend: 'kata' not found on PATH
+⚠️  Orphans: Workspace /tmp/symphony-workspaces/KAT-999 has no matching active issue (KAT-999)
+```
+
+| Indicator | Meaning |
+| --- | --- |
+| `✅` | Pass |
+| `⚠️` | Warning (non-fatal) |
+| `🚨` | Error (fatal — Symphony will not start) |
+| `⏭️` | Skipped |
+
+Doctor checks cover: config parse and validation, `$ENV_VAR` resolution, prompt path existence, tracker auth, backend command availability, workspace and Docker daemon checks, and orphan workspace detection.
+
+Exit codes: `0` when no errors, `1` when any `🚨` error is found. Doctor is diagnostic only and does not auto-fix problems.
+
+---
+
+## CLI reference
+
+```bash
+symphony [WORKFLOW.md] [--port PORT] [--logs-root PATH] [--no-tui]
+```
+
+| Flag | Default | Description |
+| --- | --- | --- |
+| `WORKFLOW.md` (positional) | `WORKFLOW.md` | Path to the workflow configuration file |
+| `--port <PORT>` | `8080` | HTTP dashboard and API port |
+| `--logs-root <PATH>` | *(none)* | Directory for rotating log files |
+| `--no-tui` | `false` | Disable the terminal dashboard; stream JSON logs to stdout instead |
+| `-h, --help` | | Print help |
+
+### Log verbosity
+
+Control log verbosity with `RUST_LOG`:
+
+```bash
+RUST_LOG=info symphony WORKFLOW.md                    # default
+RUST_LOG=debug symphony WORKFLOW.md                   # verbose
+RUST_LOG=symphony=trace,info symphony WORKFLOW.md     # trace Symphony, info everything else
+```
+
+When `--logs-root` is set, logs write to rotating files under `<logs-root>/log/symphony.log` and stdout shows only the startup banner. Without `--logs-root`, stdout logs are suppressed while the TUI is active. Pass `--no-tui` to stream structured JSON logs to stdout instead.
+
+---
+
+## Slack notifications
+
+To receive Slack notifications when issues need human attention, configure a Slack incoming webhook:
+
+```yaml
+notifications:
+  slack:
+    webhook_url: $SLACK_WEBHOOK_URL
+    events:
+      - human_review     # PR ready for approval
+      - stalled          # agent exceeded stall timeout
+      - failed           # agent failed after max retries
+```
+
+Set `SLACK_WEBHOOK_URL` in your environment or `.env` file. Use `"all"` in the `events` list to subscribe to every event. Messages include a clickable link to the Linear issue.

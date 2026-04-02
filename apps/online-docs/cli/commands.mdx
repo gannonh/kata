@@ -1,0 +1,94 @@
+---
+title: "Commands"
+description: "Complete reference for all Kata CLI slash commands, organized by category."
+---
+
+Kata commands are slash commands typed directly in the chat interface. They fall into three categories: workflow commands that drive the Kata planning and execution cycle, session and model commands for managing your working context, and utility commands for tools and integrations.
+
+## Kata workflow
+
+Use these commands to drive the Kata planning and execution cycle. Start with `/kata` if you're not sure what to do next — it reads the current project state and suggests the appropriate action.
+
+| Command | Description |
+|---------|-------------|
+| `/kata` | Contextual wizard — suggests the next step based on project state |
+| `/kata step` | Execute one step (research, plan, task, etc.) then stop |
+| `/kata auto` | Start autonomous mode |
+| `/kata stop` | Stop auto-mode after the current task completes |
+| `/kata status` | Progress dashboard |
+| `/kata queue` | View and manage the milestone queue |
+| `/kata discuss` | Discuss gray areas before planning |
+| `/kata plan` | Enriched planning mode (plan/pick/add/resequence/revise/discuss) |
+| `/kata prefs` | Manage preferences (global or project-local) |
+| `/kata pr` | PR lifecycle management (create, review, address, merge) |
+| `/audit` | Audit the codebase against a goal — writes a report to `.kata/audits/` |
+
+<Tip>
+  Use `/kata step` to walk through the workflow one phase at a time, or `/kata auto` to let Kata run the full slice lifecycle unattended.
+</Tip>
+
+## PR subcommands
+
+`/kata pr` has its own set of subcommands for the full pull request lifecycle. See [PR Mode](/cli/pr-mode) for setup and a detailed walkthrough.
+
+| Command | Description |
+|---------|-------------|
+| `/kata pr status` | Show PR lifecycle state (no LLM call) |
+| `/kata pr create` | Create a PR for the current slice branch |
+| `/kata pr review` | Run parallel multi-agent code review |
+| `/kata pr address` | Address review comments |
+| `/kata pr merge` | Merge PR and sync local state |
+
+## Session and model
+
+Use these commands to manage your session context, switch models, and navigate session history.
+
+| Command | Description |
+|---------|-------------|
+| `/login` | Authenticate with an AI provider (OAuth) |
+| `/model` | Select a model |
+| `/scoped-models` | Enable or disable models for `Ctrl+P` cycling |
+| `/new` | Start a new session |
+| `/resume` | Resume a previous session |
+| `/compact` | Manually compact the session context |
+| `/fork` | Create a new fork from a previous message |
+| `/tree` | Navigate the session tree (switch branches) |
+| `/session` | Show session info and stats |
+
+<Note>
+  You can set your API key directly in the environment instead of using `/login`:
+
+  ```bash
+  ANTHROPIC_API_KEY=sk-ant-... npx @kata-sh/cli
+  ```
+</Note>
+
+## Utilities
+
+Helper commands for tools, integrations, and general productivity.
+
+| Command | Description |
+|---------|-------------|
+| `/mcp` | Show MCP server status and available tools |
+| `/gh` | GitHub helper — issues, PRs, labels, milestones, status |
+| `/symphony` | Symphony operator workflows (`status`, `watch`, `console`, `config`) |
+| `/subagent` | List available subagents |
+| `/export` | Export the session to an HTML file |
+| `/share` | Share the session as a secret GitHub gist |
+| `/copy` | Copy the last agent message to clipboard |
+| `/hotkeys` | Show all keyboard shortcuts |
+| `/create-extension` | Scaffold a new extension with interview-driven setup |
+| `/create-slash-command` | Generate a new slash command from a plain-English description |
+
+## Symphony subcommands
+
+`/symphony` provides a live operator surface for the Symphony orchestration server. Requires a running Symphony instance and `symphony.url` set in preferences.
+
+| Command | Description |
+|---------|-------------|
+| `/symphony status` | Fetch live worker and queue state |
+| `/symphony watch <issue>` | Stream live issue-scoped events (e.g. `KAT-920`) |
+| `/symphony console` | Toggle the live in-chat operator dashboard panel |
+| `/symphony console off` | Close the panel and disconnect the live stream |
+| `/symphony console refresh` | Force a manual snapshot refresh (`Ctrl+Alt+S`) |
+| `/symphony config [WORKFLOW.md]` | Open the guided config editor for WORKFLOW frontmatter |

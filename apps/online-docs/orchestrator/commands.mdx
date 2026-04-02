@@ -1,0 +1,78 @@
+---
+title: "Commands"
+description: "All Kata Orchestrator slash commands organized by category."
+---
+
+Kata Orchestrator installs slash commands into your runtime. The command syntax varies by runtime:
+
+- **Claude Code / Gemini CLI:** `/kata:command-name`
+- **OpenCode:** `/kata-command-name`
+- **Codex:** `$kata-command-name`
+
+The tables below use the Claude Code / Gemini CLI syntax. Substitute the prefix for your runtime.
+
+## Core workflow
+
+These commands drive the main discuss → plan → execute → verify cycle.
+
+| Command | What it does |
+|---|---|
+| `/kata:new-project [--auto]` | Run an interview to capture goals, constraints, and tech preferences. Produces `PROJECT.md`, `REQUIREMENTS.md`, `ROADMAP.md`, and `STATE.md`. |
+| `/kata:discuss-phase [N] [--auto]` | Capture implementation decisions before planning. Produces `{N}-CONTEXT.md`. |
+| `/kata:plan-phase [N] [--auto]` | Research the implementation domain, produce 2–3 atomic task plans, and validate against requirements. |
+| `/kata:execute-phase <N>` | Group plans into dependency waves and execute in parallel subagents. Each task gets an atomic git commit. |
+| `/kata:verify-work [N]` | Walk through testable deliverables. Failures trigger debug agents that produce fix plans. |
+| `/kata:audit-milestone` | Verify the milestone definition of done before closing out. |
+| `/kata:complete-milestone` | Archive the milestone and tag the release. |
+| `/kata:new-milestone [name]` | Start the next iteration. |
+
+## Navigation
+
+Use these to check where you are and what to do next.
+
+| Command | What it does |
+|---|---|
+| `/kata:progress` | Show your current position in the roadmap and the next recommended action. |
+| `/kata:help` | List all available commands. |
+| `/kata:update` | Update Kata Orchestrator with a preview of the changelog. |
+
+## Brownfield
+
+For projects with an existing codebase.
+
+| Command | What it does |
+|---|---|
+| `/kata:map-codebase` | Analyze the existing stack, file structure, and conventions. Run this before `/kata:new-project` on an existing codebase. |
+
+## Phase management
+
+Modify the roadmap after it has been created.
+
+| Command | What it does |
+|---|---|
+| `/kata:add-phase` | Append a new phase to the end of the roadmap. |
+| `/kata:insert-phase [N]` | Insert a new phase between existing phases and renumber. |
+| `/kata:remove-phase [N]` | Remove a phase and renumber the remaining phases. |
+| `/kata:list-phase-assumptions [N]` | Preview the planned approach for a phase before running `/kata:plan-phase`. |
+| `/kata:plan-milestone-gaps` | Create phases to close gaps identified by `/kata:audit-milestone`. |
+
+## Session
+
+Save and restore work across sessions.
+
+| Command | What it does |
+|---|---|
+| `/kata:pause-work` | Save a handoff state so you can resume in a new session. |
+| `/kata:resume-work` | Restore context from the last saved session. |
+
+## Utilities
+
+| Command | What it does |
+|---|---|
+| `/kata:settings` | Configure the model profile, workflow agents, and git branching strategy. |
+| `/kata:set-profile <profile>` | Switch between `quality`, `balanced`, and `budget` model profiles. |
+| `/kata:add-todo [desc]` | Capture an idea or task for later without interrupting the current phase. |
+| `/kata:check-todos` | List all pending todos. |
+| `/kata:debug [desc]` | Run systematic debugging with persistent state across steps. |
+| `/kata:quick [--full] [--discuss]` | Execute an ad-hoc task. `--full` adds plan checking and verification. `--discuss` adds a discussion step first. |
+| `/kata:health [--repair]` | Validate `.planning/` directory integrity. Pass `--repair` to fix issues automatically. |

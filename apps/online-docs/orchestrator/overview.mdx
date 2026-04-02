@@ -1,0 +1,141 @@
+---
+title: "Kata Orchestrator"
+description: "A spec-driven workflow harness that installs slash commands into AI coding runtimes, structuring development into discuss, plan, execute, and verify phases."
+---
+
+Kata Orchestrator installs a set of slash commands and subagents into your AI coding runtime. It structures development work into phases — discuss, plan, execute, verify — so that each phase runs in a fresh context window and completed work accumulates as structured files on disk rather than inside the context window.
+
+Each execution phase runs in a dedicated subagent with a **200k token context window**. The main session stays lightweight. State is written to `.planning/` as structured Markdown files.
+
+## Supported runtimes
+
+- Claude Code
+- OpenCode
+- Gemini CLI
+- Codex
+
+## Installation
+
+Run the installer from any directory:
+
+```bash
+npx @kata-sh/orc@latest
+```
+
+The interactive installer prompts for two things:
+
+1. **Runtime** — Claude Code, OpenCode, Gemini CLI, Codex, or all runtimes
+2. **Scope** — global (all projects) or local (current project only)
+
+### Non-interactive install
+
+Pass flags to skip the prompts:
+
+```bash
+# Claude Code
+npx @kata-sh/orc --claude --global
+npx @kata-sh/orc --claude --local
+
+# OpenCode
+npx @kata-sh/orc --opencode --global
+
+# Gemini CLI
+npx @kata-sh/orc --gemini --global
+
+# Codex
+npx @kata-sh/orc --codex --global
+npx @kata-sh/orc --codex --local
+
+# All runtimes
+npx @kata-sh/orc --all --global
+```
+
+### Verify the install
+
+After installation, confirm the commands are available:
+
+<Tabs>
+  <Tab title="Claude Code">
+    ```
+    /kata:help
+    ```
+  </Tab>
+  <Tab title="OpenCode">
+    ```
+    /kata-help
+    ```
+  </Tab>
+  <Tab title="Gemini CLI">
+    ```
+    /kata:help
+    ```
+  </Tab>
+  <Tab title="Codex">
+    ```
+    $kata-help
+    ```
+  </Tab>
+</Tabs>
+
+<Note>
+  Codex installation uses skills (`skills/kata-*/SKILL.md`) rather than custom prompts.
+</Note>
+
+## Permissions
+
+Run Claude Code with `--dangerously-skip-permissions` to avoid approval prompts on every file operation. Alternatively, add a specific allow list to `.claude/settings.json`:
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(date:*)", "Bash(echo:*)", "Bash(cat:*)", "Bash(ls:*)",
+      "Bash(mkdir:*)", "Bash(wc:*)", "Bash(head:*)", "Bash(tail:*)",
+      "Bash(sort:*)", "Bash(grep:*)", "Bash(tr:*)",
+      "Bash(git add:*)", "Bash(git commit:*)", "Bash(git status:*)",
+      "Bash(git log:*)", "Bash(git diff:*)", "Bash(git tag:*)"
+    ]
+  }
+}
+```
+
+To protect sensitive files from being read during codebase analysis, add a deny list:
+
+```json
+{
+  "permissions": {
+    "deny": [
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(**/secrets/*)",
+      "Read(**/*credential*)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)"
+    ]
+  }
+}
+```
+
+## Uninstall
+
+```bash
+npx @kata-sh/orc --claude --global --uninstall
+npx @kata-sh/orc --claude --local --uninstall
+npx @kata-sh/orc --opencode --global --uninstall
+npx @kata-sh/orc --codex --global --uninstall
+npx @kata-sh/orc --codex --local --uninstall
+```
+
+Uninstalling removes all commands, agents, hooks, and settings without affecting other configurations.
+
+## Troubleshooting
+
+**Commands not found after install** — Restart your runtime. Verify files exist in `~/.claude/commands/kata/` (global) or `./.claude/commands/kata/` (local). For Codex, check `~/.codex/skills/kata-*/SKILL.md`.
+
+**Commands not working as expected** — Run the help command to verify installation. Re-run `npx @kata-sh/orc` to reinstall.
+
+**Docker or containerized environments** — If tilde paths fail, set `CLAUDE_CONFIG_DIR` before installing:
+
+```bash
+CLAUDE_CONFIG_DIR=/home/youruser/.claude npx @kata-sh/orc --global
+```

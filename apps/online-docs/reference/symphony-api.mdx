@@ -1,0 +1,403 @@
+---
+title: "Symphony HTTP API"
+description: "Complete reference for the Symphony HTTP dashboard and REST/WebSocket API."
+---
+
+The Symphony HTTP server starts automatically when you run `symphony WORKFLOW.md`. By default it binds to `http://127.0.0.1:8080`. Override the port with `--port` or `server.port` in your WORKFLOW.md. Set `server.host: 0.0.0.0` to bind all interfaces.
+
+**Base URL:** `http://localhost:<port>` (default `8080`)
+
+---
+
+## Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/` | HTML dashboard — auto-refreshes every 2 seconds |
+| `GET` | `/api/v1/state` | Full orchestrator state snapshot |
+| `GET` | `/api/v1/events` | WebSocket live event stream |
+| `GET` | `/api/v1/escalations` | Pending escalation list |
+| `POST` | `/api/v1/escalations/:request_id/respond` | Resolve a pending escalation |
+| `GET` | `/api/v1/:issue_identifier` | Per-issue running/retry projection |
+| `POST` | `/api/v1/refresh` | Trigger an immediate poll |
+| `GET` | `/api/v1/context` | List shared context entries |
+| `POST` | `/api/v1/context` | Write a shared context entry |
+| `DELETE` | `/api/v1/context/{id}` | Delete a specific context entry |
+| `DELETE` | `/api/v1/context` | Clear context (optionally by scope) |
+
+---
+
+## `GET /`
+
+HTML dashboard. Auto-refreshes every 2 seconds.
+
+Shows: running sessions with turn count, token usage, and last activity; retry queue; shared context table (author, scope, preview, age, TTL); supervisor status and counters; completed issues; polling stats; rate limits; and a link to the Linear project.
+
+---
+
+## `GET /api/v1/state`
+
+Full orchestrator state snapshot as JSON.
+
+### Response
+
+```json
+{
+  "poll_interval_ms": 30000,
+  "max_concurrent_agents": 10,
+  "running": {
+    "issue-id-123": {
+      "issue_id": "issue-id-123",
+      "issue_identifier": "ENG-42",
+      "issue_title": "Ship dashboard metrics",
+      "status": "running",
+      "attempt": 1,
+      "error": null,
+      "worker_host": null,
+      "workspace_path": "/tmp/symphony_workspaces/ENG-42",
+      "started_at": "2026-03-22T15:40:00Z",
+      "linear_state": "In Progress"
+    }
+  },
+  "running_session_info": {
+    "issue-id-123": {
+      "turn_count": 3,
+      "max_turns": 20,
+      "last_activity_ms": 1760000000000,
+      "session_tokens": {
+        "input_tokens": 1200,
+        "output_tokens": 430,
+        "total_tokens": 1630
+      }
+    }
+  },
+  "claimed": ["issue-id-456"],
+  "retry_queue": [
+    {
+      "issue_id": "issue-id-789",
+      "identifier": "ENG-99",
+      "attempt": 2,
+      "due_in_ms": 30000,
+      "error": "stall timeout exceeded",
+      "worker_host": null,
+      "workspace_path": "/tmp/symphony_workspaces/ENG-99"
+    }
+  ],
+  "completed": [
+    {
+      "issue_id": "issue-id-001",
+      "identifier": "ENG-12",
+      "title": "Initial bootstrap",
+      "completed_at": "2026-03-22T15:20:00Z"
+    }
+  ],
+  "codex_totals": {
+    "total_tokens": 148230,
+    "input_tokens": 120000,
+    "output_tokens": 28230
+  },
+  "polling": {
+    "checking": false,
+    "next_poll_in_ms": 15000,
+    "poll_interval_ms": 30000,
+    "last_poll_at": "2026-03-22T15:45:00Z",
+    "poll_count": 12
+  }
+}
+```
+
+<ResponseField name="poll_interval_ms" type="number">
+  Configured polling interval in milliseconds.
+</ResponseField>
+
+<ResponseField name="max_concurrent_agents" type="number">
+  Configured concurrency cap.
+</ResponseField>
+
+<ResponseField name="running" type="object">
+  Map of issue UUID to `RunAttempt` records for currently running sessions.
+
+  <Expandable title="RunAttempt fields">
+    <ResponseField name="issue_id" type="string">Linear issue UUID.</ResponseField>
+    <ResponseField name="issue_identifier" type="string">Human-readable identifier, e.g. `ENG-42`.</ResponseField>
+    <ResponseField name="issue_title" type="string">Issue title.</ResponseField>
+    <ResponseField name="status" type="string">Current status: `running`.</ResponseField>
+    <ResponseField name="attempt" type="number">Current attempt number (1-indexed).</ResponseField>
+    <ResponseField name="error" type="string | null">Error message from the last failed attempt, or `null`.</ResponseField>
+    <ResponseField name="worker_host" type="string | null">SSH host running this session, or `null` for local.</ResponseField>
+    <ResponseField name="workspace_path" type="string">Absolute path to the workspace directory.</ResponseField>
+    <ResponseField name="started_at" type="string">ISO 8601 timestamp when the session started.</ResponseField>
+    <ResponseField name="linear_state" type="string">Current Linear state name.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="running_session_info" type="object">
+  Map of issue UUID to live observability data for running sessions.
+
+  <Expandable title="Session info fields">
+    <ResponseField name="turn_count" type="number">Number of prompt turns completed so far.</ResponseField>
+    <ResponseField name="max_turns" type="number">Configured turn limit.</ResponseField>
+    <ResponseField name="last_activity_ms" type="number">Unix timestamp (ms) of last activity.</ResponseField>
+    <ResponseField name="session_tokens" type="object">
+      <Expandable title="Token fields">
+        <ResponseField name="input_tokens" type="number">Total input tokens used.</ResponseField>
+        <ResponseField name="output_tokens" type="number">Total output tokens used.</ResponseField>
+        <ResponseField name="total_tokens" type="number">Sum of input and output tokens.</ResponseField>
+      </Expandable>
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="retry_queue" type="array">
+  Issues waiting for their next retry attempt.
+</ResponseField>
+
+<ResponseField name="completed" type="array">
+  Issues that have reached a terminal state in this session.
+</ResponseField>
+
+<ResponseField name="polling" type="object">
+  Polling diagnostic data.
+
+  <Expandable title="Polling fields">
+    <ResponseField name="checking" type="boolean">Whether a poll is in progress.</ResponseField>
+    <ResponseField name="next_poll_in_ms" type="number">Milliseconds until the next scheduled poll.</ResponseField>
+    <ResponseField name="last_poll_at" type="string">ISO 8601 timestamp of the most recent poll.</ResponseField>
+    <ResponseField name="poll_count" type="number">Total polls since startup.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+## `GET /api/v1/events`
+
+WebSocket live event stream of `SymphonyEventEnvelope` values. Connect with any WebSocket client.
+
+```bash
+websocat "ws://127.0.0.1:8080/api/v1/events?issue=KAT-920&type=worker,tool&severity=info"
+```
+
+### Query parameters
+
+<ParamField query="issue" type="string">
+  Comma-separated issue identifiers to filter events to. Example: `KAT-920,KAT-921`.
+</ParamField>
+
+<ParamField query="type" type="string">
+  Comma-separated event type names to include. Example: `worker,tool,escalation_created`.
+</ParamField>
+
+<ParamField query="severity" type="string">
+  Comma-separated severity levels to include. Example: `warn,error`.
+</ParamField>
+
+### Filter semantics
+
+Filters are **OR within each field** and **AND across fields**:
+
+- `issue=KAT-920,KAT-921` matches either issue
+- `type=worker,tool` matches either event kind
+- `severity=warn,error` matches either severity level
+- When multiple fields are provided, all field filters must match
+
+### Connection events
+
+| Event | Description |
+|-------|-------------|
+| `ws_client_connected` | New WebSocket client connected |
+| `ws_client_disconnected` | Client disconnected; `reason` field gives the cause |
+| `ws_event_dropped` | Event dropped due to backpressure |
+| `ws_heartbeat_sent` | Periodic heartbeat emitted |
+
+Disconnect reasons: `backpressure`, `server_shutdown`, `client_closed`, `protocol_error`.
+
+---
+
+## `GET /api/v1/escalations`
+
+Returns the list of pending escalation requests for polling clients.
+
+### Response
+
+```json
+{
+  "pending_escalations": [
+    {
+      "request_id": "escalation-1743076800000-1",
+      "issue_id": "8f1...",
+      "issue_identifier": "KAT-1161",
+      "method": "ask_user_questions",
+      "preview": "Pick one option",
+      "timeout_ms": 300000
+    }
+  ]
+}
+```
+
+<ResponseField name="pending_escalations" type="array">
+  List of pending escalation requests awaiting human response.
+
+  <Expandable title="Escalation fields">
+    <ResponseField name="request_id" type="string">Unique request identifier. Required for the respond endpoint.</ResponseField>
+    <ResponseField name="issue_id" type="string">Linear issue UUID.</ResponseField>
+    <ResponseField name="issue_identifier" type="string">Human-readable issue identifier.</ResponseField>
+    <ResponseField name="method" type="string">Escalation method type, e.g. `ask_user_questions`.</ResponseField>
+    <ResponseField name="preview" type="string">Short preview of the escalation prompt.</ResponseField>
+    <ResponseField name="timeout_ms" type="number">Milliseconds until the escalation times out and is auto-cancelled.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+## `POST /api/v1/escalations/:request_id/respond`
+
+Resolve a pending escalation. The waiting worker resumes its session with the provided response — no restart required.
+
+### Path parameters
+
+<ParamField path="request_id" type="string" required>
+  The `request_id` from the escalation record.
+</ParamField>
+
+### Request body
+
+```json
+{
+  "response": "Use the PostgreSQL approach",
+  "responder_id": "alice"
+}
+```
+
+<ParamField body="response" type="any" required>
+  The response to forward to the waiting worker.
+</ParamField>
+
+<ParamField body="responder_id" type="string">
+  Optional identifier of the person responding.
+</ParamField>
+
+### Response codes
+
+| Code | Meaning |
+|------|---------|
+| `200` | Escalation resolved successfully |
+| `404` | Escalation not found or already expired |
+| `409` | Escalation already resolved |
+
+### Escalation lifecycle
+
+1. Worker emits an interactive `extension_ui_request`
+2. Symphony emits `escalation_created` on `/api/v1/events`
+3. Escalation appears in `/api/v1/escalations` and the dashboard/TUI
+4. Client calls `POST /api/v1/escalations/:request_id/respond`
+5. Symphony emits `escalation_responded`, `escalation_timed_out`, or `escalation_cancelled`
+6. Response is forwarded to the waiting worker
+
+---
+
+## `GET /api/v1/:issue_identifier`
+
+Per-issue running or retry projection.
+
+`:issue_identifier` must match the pattern `TEAM-NNN` (uppercase prefix, hyphen, digits). Returns `404` when the issue is not currently running or in the retry queue.
+
+### Response
+
+```json
+{
+  "issue": {
+    "issue_id": "issue-id-123",
+    "issue_identifier": "ENG-42",
+    "status": "running",
+    "attempt": 1,
+    "error": null,
+    "worker_host": "worker1.example.com",
+    "workspace_path": "/tmp/symphony_workspaces/ENG-42"
+  }
+}
+```
+
+---
+
+## `POST /api/v1/refresh`
+
+Request an immediate poll. Multiple concurrent requests are coalesced into a single poll.
+
+Returns `202 Accepted`.
+
+### Response
+
+```json
+{
+  "queued": true,
+  "coalesced": false,
+  "pending_requests": 1
+}
+```
+
+<ResponseField name="queued" type="boolean">Whether the poll was queued.</ResponseField>
+<ResponseField name="coalesced" type="boolean">Whether this request was merged with an already-pending poll.</ResponseField>
+<ResponseField name="pending_requests" type="number">Number of requests that were coalesced into this poll.</ResponseField>
+
+---
+
+## `GET /api/v1/context`
+
+List active shared context entries.
+
+### Query parameters
+
+<ParamField query="scope" type="string">
+  Filter by scope. Example: `project` or `label:backend`.
+</ParamField>
+
+---
+
+## `POST /api/v1/context`
+
+Write a shared context entry. Workers automatically receive the most relevant recent entries in their prompt preamble.
+
+### Request body
+
+```json
+{
+  "author_issue": "KAT-42",
+  "scope": "project",
+  "content": "Use the v2 API endpoint for all new integrations.",
+  "ttl_ms": 86400000
+}
+```
+
+<ParamField body="author_issue" type="string" required>
+  Identifier of the issue writing this entry.
+</ParamField>
+
+<ParamField body="scope" type="string" required>
+  Scope for this entry. Used to match relevant entries to workers.
+</ParamField>
+
+<ParamField body="content" type="string" required>
+  The context content.
+</ParamField>
+
+<ParamField body="ttl_ms" type="number">
+  Time-to-live in milliseconds. Defaults to `shared_context.ttl_ms` from WORKFLOW.md (default: 24 hours).
+</ParamField>
+
+---
+
+## `DELETE /api/v1/context/{id}`
+
+Delete a specific shared context entry by ID.
+
+---
+
+## `DELETE /api/v1/context`
+
+Clear shared context entries. When a `scope` query parameter is provided, only entries matching that scope are deleted. When omitted, all entries are cleared.
+
+### Query parameters
+
+<ParamField query="scope" type="string">
+  Scope to clear. Omit to clear all entries.
+</ParamField>

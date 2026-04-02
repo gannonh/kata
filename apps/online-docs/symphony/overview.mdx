@@ -1,0 +1,153 @@
+---
+title: "Kata Symphony"
+description: "Headless orchestrator that polls Linear or GitHub for issues and dispatches parallel agent sessions to implement, review, and merge them autonomously."
+---
+
+Kata Symphony is a headless orchestrator. You point it at a Linear or GitHub project, and it picks up tickets, clones your repo into isolated workspaces, runs an agent on each issue, creates pull requests, addresses review feedback, and merges — all without human intervention.
+
+All configuration lives in a single `WORKFLOW.md` file: the YAML front-matter is your config, and the body is a [Liquid](https://shopify.github.io/liquid/) prompt template rendered per issue.
+
+## How it works
+
+<Steps>
+  <Step title="Poll for issues">
+    Symphony polls your Linear project (or GitHub Issues) on a configurable interval (default: 30 seconds) for issues in active states such as `Todo` or `In Progress`.
+  </Step>
+  <Step title="Create an isolated workspace">
+    For each new issue, Symphony creates an isolated workspace — a clone or worktree of your repo — in the configured `workspace.root` directory.
+  </Step>
+  <Step title="Run an agent session">
+    The agent reads the issue, writes code, runs tests, and pushes a branch. The Liquid prompt template is rendered with issue and workspace variables for each session.
+  </Step>
+  <Step title="Manage the PR lifecycle">
+    Symphony moves the issue through Linear states (`In Progress` → `Agent Review` → `Human Review` → `Merging` → `Done`) as the agent progresses. Review feedback triggers new agent sessions that address comments on the open PR.
+  </Step>
+  <Step title="Clean up">
+    When the issue reaches a terminal state (`Done`, `Closed`), Symphony optionally removes the workspace. Multiple issues run in parallel up to your configured concurrency limit.
+  </Step>
+</Steps>
+
+## Ticket lifecycle
+
+```
+Todo → In Progress → Agent Review → Human Review → Merging → Done
+                         ↑               |
+                         └── Rework ←────┘
+```
+
+| Status | Who sets it | What happens |
+| --- | --- | --- |
+| **Todo** | Human | Issue is queued — Symphony picks it up on the next poll |
+| **In Progress** | Orchestrator | Agent is working — writing code, running tests |
+| **Agent Review** | Agent or Human | Agent addresses PR review comments |
+| **Human Review** | Agent | PR is ready for human approval |
+| **Merging** | Human | Agent merges the approved PR |
+| **Rework** | Human | Agent scraps current approach, starts fresh on a new branch |
+| **Done** | Agent | Terminal — PR merged, workspace cleaned up |
+
+<Warning>
+  The state names in `active_states`, `terminal_states`, and other state-keyed fields must match the workflow state names configured in your Linear team. State matching is case-insensitive, but the names must exist in your Linear workflow. To see your team's states, go to **Linear → Settings → Teams → [your team] → Workflow**.
+</Warning>
+
+## Key features
+
+- **Linear and GitHub integration** — poll Linear projects or GitHub Issues; move issues through states as work progresses
+- **Parallel agents** — run multiple agent sessions concurrently, up to a configurable limit
+- **Multi-turn sessions** — agents work across many turns with full context; each PR review cycle is a continuation
+- **Full PR lifecycle** — open PR, address review comments, merge — all automated
+- **Real-time streaming** — live terminal dashboard (Ratatui) and web dashboard with event stream
+- **Dynamic config reload** — edit `WORKFLOW.md` while Symphony is running; changes apply without restart
+- **SSH worker pools** — distribute sessions across multiple remote machines
+- **HTTP dashboard and API** — web UI at `http://localhost:8080`, REST and WebSocket API for observability
+
+## Installation
+
+Download a pre-built binary from [GitHub Releases](https://github.com/gannonh/kata/releases):
+
+| Platform | Binary |
+| --- | --- |
+| macOS (Apple Silicon) | `symphony-macos-arm64` |
+| Linux (x86\_64) | `symphony-linux-x86_64` |
+| Windows (x86\_64) | `symphony-windows-x86_64.exe` |
+
+```bash
+# macOS Apple Silicon
+curl -L https://github.com/gannonh/kata/releases/latest/download/symphony-macos-arm64 -o symphony
+chmod +x symphony
+```
+
+To build from source (requires [Rust](https://rustup.rs/)):
+
+```bash
+git clone https://github.com/gannonh/kata.git
+cd kata/apps/symphony
+cargo build --release
+# Binary at: target/release/symphony
+```
+
+## Quick start
+
+**1. Set environment variables**
+
+```bash
+export LINEAR_API_KEY=lin_api_...
+# For Kata CLI backend:
+export ANTHROPIC_API_KEY=sk-ant-...
+```
+
+**2. Create a `WORKFLOW.md`**
+
+```yaml
+---
+tracker:
+  kind: linear
+  api_key: $LINEAR_API_KEY
+  project_slug: your-project-slug
+
+workspace:
+  root: ~/symphony-workspaces
+  repo: https://github.com/you/your-repo.git
+  branch_prefix: symphony
+  base_branch: main
+  cleanup_on_done: true
+
+agent:
+  backend: kata-cli
+  max_concurrent_agents: 3
+  max_turns: 20
+
+kata_agent:
+  command: kata
+  model: anthropic/claude-sonnet-4-6
+---
+
+You are working on {{ issue.identifier }}: {{ issue.title }}.
+
+{{ issue.description }}
+
+Work on branch origin/{{ workspace.base_branch }}.
+Complete the task described in the issue.
+```
+
+**3. Run Symphony**
+
+```bash
+symphony WORKFLOW.md
+```
+
+Open `http://localhost:8080` for the web dashboard, or watch the built-in terminal dashboard.
+
+**4. Create issues in Linear**
+
+Create issues in your Linear project and set them to `Todo`. Symphony picks them up on the next poll cycle.
+
+## When to use Symphony
+
+Symphony is designed for autonomous, asynchronous software delivery. It is the right tool when:
+
+- You want to parallelize work across many issues without manual intervention
+- Your workflow maps naturally onto a linear state machine (Todo → Done)
+- You want agents to handle the full cycle: implement → PR → review → merge
+- You are running on a server or CI machine without an interactive UI
+
+For interactive, single-session agent work, use **Kata CLI** or **Kata Desktop** directly instead.

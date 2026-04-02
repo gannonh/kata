@@ -1,0 +1,170 @@
+---
+title: "Workflow"
+description: "The discuss → plan → execute → verify cycle that structures Kata Orchestrator development phases."
+---
+
+Kata Orchestrator structures development into four repeating phases: discuss, plan, execute, and verify. Each phase produces structured files in `.planning/` that carry state forward without bloating the context window.
+
+## File structure
+
+All planning artifacts live in `.planning/`:
+
+```
+.planning/
+  config.json
+  PROJECT.md
+  REQUIREMENTS.md
+  ROADMAP.md
+  STATE.md
+  1-CONTEXT.md
+  1-RESEARCH.md
+  1-1-PLAN.md
+  1-1-SUMMARY.md
+  1-VERIFICATION.md
+  1-UAT.md
+  quick/
+    001-task-name/
+      PLAN.md
+      SUMMARY.md
+```
+
+## Phases
+
+<Steps>
+  <Step title="Initialize project">
+    Run `/kata:new-project` to start. The command runs an interview to capture your goals, constraints, and technology preferences. It optionally spawns parallel research agents, then produces scoped requirements and a phase roadmap.
+
+    ```
+    /kata:new-project
+    ```
+
+    **Output:** `PROJECT.md`, `REQUIREMENTS.md`, `ROADMAP.md`, `STATE.md`
+
+    <Tip>
+      For existing codebases, run `/kata:map-codebase` first. It analyzes your stack and conventions so the planning questions focus on what you're adding rather than re-discovering what's already there.
+    </Tip>
+  </Step>
+
+  <Step title="Discuss phase">
+    Run `/kata:discuss-phase` with a phase number before planning. The command identifies gray areas based on what's being built and asks targeted questions. Your answers feed directly into the research and planning steps.
+
+    ```
+    /kata:discuss-phase 1
+    ```
+
+    **Output:** `1-CONTEXT.md`
+  </Step>
+
+  <Step title="Plan phase">
+    Run `/kata:plan-phase` to research the implementation domain and produce 2–3 atomic task plans. Plans are sized to fit a single context window. Each plan is validated against your requirements before execution begins.
+
+    ```
+    /kata:plan-phase 1
+    ```
+
+    **Output:** `1-RESEARCH.md`, `1-1-PLAN.md`, `1-2-PLAN.md`, ...
+  </Step>
+
+  <Step title="Execute phase">
+    Run `/kata:execute-phase` to run the plans. The orchestrator groups plans into waves by dependency. Plans in the same wave run in parallel; waves run sequentially. Each plan runs in a fresh subagent context. Each completed task gets an atomic git commit.
+
+    ```
+    /kata:execute-phase 1
+    ```
+
+    **Output:** `1-1-SUMMARY.md`, `1-VERIFICATION.md`
+
+    Wave execution example:
+
+    ```
+    WAVE 1 (parallel)        WAVE 2 (parallel)      WAVE 3
+      Plan 01: User Model      Plan 03: Orders API    Plan 05: Checkout UI
+      Plan 02: Product Model   Plan 04: Cart API
+    ```
+
+    Plans 03 and 04 wait for their respective model plans. Plan 05 waits for both APIs.
+  </Step>
+
+  <Step title="Verify work">
+    Run `/kata:verify-work` to walk through testable deliverables from the phase one at a time. Failures trigger automated debug agents that diagnose root causes and produce fix plans ready for re-execution.
+
+    ```
+    /kata:verify-work 1
+    ```
+
+    **Output:** `1-UAT.md`, fix plans if issues found
+  </Step>
+
+  <Step title="Continue to next phase">
+    Repeat discuss, plan, execute, and verify for each phase. When all phases in a milestone are complete, archive and start the next iteration.
+
+    ```
+    /kata:discuss-phase 2
+    /kata:plan-phase 2
+    /kata:execute-phase 2
+    /kata:verify-work 2
+    ...
+    /kata:complete-milestone
+    /kata:new-milestone
+    ```
+
+    `/kata:complete-milestone` archives the milestone and tags the release. `/kata:new-milestone` starts the next iteration.
+  </Step>
+</Steps>
+
+## Quick mode
+
+For ad-hoc tasks that don't need full planning, use `/kata:quick`. It skips research, plan checking, and verification while still using the same agents and producing the same git commits and summaries.
+
+```
+/kata:quick
+> What do you want to do? "Add dark mode toggle to settings"
+```
+
+**Output:** `.planning/quick/001-task-name/PLAN.md`, `SUMMARY.md`
+
+Add `--full` to include plan checking and verification. Add `--discuss` to run a discussion step first.
+
+## Configuration
+
+Settings are stored in `.planning/config.json`. You can configure them during `/kata:new-project` or update them later with `/kata:settings`.
+
+### Core settings
+
+| Setting | Options | Default | Description |
+|---|---|---|---|
+| `mode` | `yolo`, `interactive` | `interactive` | Auto-approve steps vs. confirm each step |
+| `granularity` | `coarse`, `standard`, `fine` | `standard` | Phase and plan granularity |
+
+### Model profiles
+
+| Profile | Planning | Execution | Verification |
+|---|---|---|---|
+| `quality` | Opus | Opus | Sonnet |
+| `balanced` (default) | Opus | Sonnet | Sonnet |
+| `budget` | Sonnet | Sonnet | Haiku |
+
+Switch profiles at any time:
+
+```
+/kata:set-profile budget
+```
+
+### Workflow agents
+
+| Setting | Default | Description |
+|---|---|---|
+| `workflow.research` | `true` | Research before planning |
+| `workflow.plan_check` | `true` | Validate plans before execution |
+| `workflow.verifier` | `true` | Confirm deliverables after execution |
+| `workflow.auto_advance` | `false` | Chain steps without stopping |
+
+Override per-invocation with `--skip-research` or `--skip-verify`.
+
+### Git branching
+
+| Setting | Options | Default | Description |
+|---|---|---|---|
+| `git.branching_strategy` | `none`, `phase`, `milestone` | `none` | When to create branches |
+| `git.phase_branch_template` | string | `kata/phase-{phase}-{slug}` | Phase branch name pattern |
+| `git.milestone_branch_template` | string | `kata/{milestone}-{slug}` | Milestone branch name pattern |
