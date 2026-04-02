@@ -277,7 +277,12 @@ export function PlanningPane() {
         ) : null}
 
         {activeArtifact ? (
-          <div className="text-sm leading-relaxed">
+          <div
+            role="tabpanel"
+            id={`panel-${activeArtifact.artifactKey}`}
+            aria-labelledby={`tab-${activeArtifact.artifactKey}`}
+            className="text-sm leading-relaxed"
+          >
             {parsedArtifact?.type === 'roadmap' && parsedArtifact.parsed ? (
               <RoadmapView roadmap={parsedArtifact.parsed as ParsedRoadmap} />
             ) : parsedArtifact?.type === 'requirements' && parsedArtifact.parsed ? (

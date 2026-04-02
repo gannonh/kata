@@ -16,6 +16,13 @@ const TYPE_SORT_ORDER: Record<string, number> = {
   context: 3,
 }
 
+const TYPE_LABEL: Record<string, string> = {
+  roadmap: 'Roadmap',
+  requirements: 'Requirements',
+  decisions: 'Decisions',
+  context: 'Context',
+}
+
 export function ArtifactTabs({
   artifacts,
   activeArtifactKey,
@@ -36,8 +43,16 @@ export function ArtifactTabs({
     return left.title.localeCompare(right.title)
   })
 
+  const typeCounts = sortedArtifacts.reduce<Record<string, number>>((result, artifact) => {
+    const type = detectArtifactType(artifact.title)
+    if (type) {
+      result[type] = (result[type] ?? 0) + 1
+    }
+    return result
+  }, {})
+
   return (
-    <div className="flex min-h-10 items-end gap-1 overflow-x-auto px-4 pb-2">
+    <div role="tablist" className="flex min-h-10 items-end gap-1 overflow-x-auto px-4 pb-2">
       {sortedArtifacts.map((artifact) => {
         const isActive = artifact.artifactKey === activeArtifactKey
         const hasUnviewedUpdate = hasUnviewedUpdatesByKey[artifact.artifactKey] === true
@@ -46,13 +61,18 @@ export function ArtifactTabs({
           <button
             key={artifact.artifactKey}
             type="button"
+            role="tab"
+            aria-selected={isActive}
+            id={`tab-${artifact.artifactKey}`}
+            aria-controls={`panel-${artifact.artifactKey}`}
+            tabIndex={isActive ? 0 : -1}
             onClick={() => onSelect(artifact)}
             className={cn(
               'relative shrink-0 rounded-t-md border border-transparent px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground',
               isActive && 'border-border border-b-background bg-background text-foreground',
             )}
           >
-            <span>{formatArtifactTitle(artifact.title)}</span>
+            <span>{formatArtifactTitle(artifact.title, typeCounts)}</span>
             {hasUnviewedUpdate ? (
               <span className="absolute top-1 right-1 size-1.5 rounded-full bg-primary" aria-label="updated" />
             ) : null}
@@ -63,24 +83,15 @@ export function ArtifactTabs({
   )
 }
 
-function formatArtifactTitle(title: string): string {
+function formatArtifactTitle(title: string, typeCounts: Record<string, number>): string {
   const detectedType = detectArtifactType(title)
-
-  if (detectedType === 'roadmap') {
-    return 'Roadmap'
+  if (!detectedType) {
+    return title
   }
 
-  if (detectedType === 'requirements') {
-    return 'Requirements'
+  if ((typeCounts[detectedType] ?? 0) > 1) {
+    return title
   }
 
-  if (detectedType === 'decisions') {
-    return 'Decisions'
-  }
-
-  if (detectedType === 'context') {
-    return 'Context'
-  }
-
-  return title
+  return TYPE_LABEL[detectedType] ?? title
 }
