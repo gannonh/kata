@@ -33,7 +33,7 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="h-[min(48rem,90vh)] w-[min(70rem,95vw)] max-w-[min(70rem,95vw)] sm:max-w-[min(70rem,95vw)] gap-0 overflow-hidden p-0"
+        className="h-[min(48rem,90vh)] w-[min(70rem,95vw)] max-w-[min(70rem,95vw)] sm:max-w-[min(70rem,95vw)] grid-rows-[auto_auto_1fr] gap-0 overflow-hidden p-0"
       >
         <DialogHeader className="px-5 py-4">
           <div className="flex items-start justify-between gap-4">
@@ -60,9 +60,9 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
           orientation="vertical"
           value={activeTab}
           onValueChange={(value) => setActiveTab(value as SettingsTab)}
-          className="flex-1 gap-0 overflow-hidden"
+          className="flex min-h-0 flex-1 gap-0 overflow-hidden"
         >
-          <TabsList className="h-full w-48 shrink-0 items-stretch rounded-none bg-background/40 p-3" variant="line">
+          <TabsList className="h-full w-48 shrink-0 items-start rounded-none bg-background/40 p-3" variant="line">
             {SETTINGS_TABS.map((tab) => (
               <TabsTrigger key={tab.id} value={tab.id} className="justify-start text-xs">
                 {tab.label}
