@@ -15,6 +15,7 @@ export interface ToolCallView {
   result?: ToolResult
   error?: string
   partialStdout?: string
+  parentMessageId?: string  // ID of the assistant message that triggered this tool call
 }
 
 export interface ChatMessageView {
@@ -201,6 +202,7 @@ export const applyChatEventAtom = atom(null, (get, set, event: ChatEvent) => {
           name: event.toolName,
           args: event.args,
           status: 'running',
+          parentMessageId: event.parentMessageId,
         },
       ])
       return

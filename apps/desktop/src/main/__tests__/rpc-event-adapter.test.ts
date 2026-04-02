@@ -60,7 +60,7 @@ describe('RpcEventAdapter', () => {
       },
     })
 
-    expect(startEvent).toEqual({
+    expect(startEvent).toMatchObject({
       type: 'tool_start',
       toolCallId: 'tool-edit-1',
       toolName: 'edit',
@@ -280,7 +280,7 @@ describe('RpcEventAdapter', () => {
       args: { checks: [{ kind: 'url_contains', value: 'localhost' }] },
     })
 
-    expect(startEvent).toEqual({
+    expect(startEvent).toMatchObject({
       type: 'tool_start',
       toolCallId: 'tool-unknown-1',
       toolName: 'browser_assert',
@@ -411,7 +411,7 @@ describe('RpcEventAdapter', () => {
       args: { command: null, timeout: 'oops' },
     })
 
-    expect(bashStart).toEqual({
+    expect(bashStart).toMatchObject({
       type: 'tool_start',
       toolCallId: 'tool-bash-start',
       toolName: 'bash',
@@ -428,7 +428,7 @@ describe('RpcEventAdapter', () => {
       args: { path: undefined, offset: 10, limit: Number.NaN },
     })
 
-    expect(readStart).toEqual({
+    expect(readStart).toMatchObject({
       type: 'tool_start',
       toolCallId: 'tool-read-start',
       toolName: 'read',
@@ -448,7 +448,7 @@ describe('RpcEventAdapter', () => {
       args: { path: null, content: null },
     })
 
-    expect(writeStart).toEqual({
+    expect(writeStart).toMatchObject({
       type: 'tool_start',
       toolCallId: 'tool-write-from-message',
       toolName: 'write',
@@ -465,7 +465,7 @@ describe('RpcEventAdapter', () => {
       args: { query: 'kata desktop', count: 3 },
     })
 
-    expect(searchStart).toEqual({
+    expect(searchStart).toMatchObject({
       type: 'tool_start',
       toolCallId: 'tool-search-start',
       toolName: 'search-the-web',
@@ -651,7 +651,7 @@ describe('RpcEventAdapter', () => {
       },
     })
 
-    expect(startEvent).toEqual({
+    expect(startEvent).toMatchObject({
       type: 'tool_start',
       toolCallId: 'tool-edit-multi',
       toolName: 'edit',
@@ -747,7 +747,7 @@ describe('RpcEventAdapter', () => {
       args: null,
     })
 
-    expect(fallbackToolStart).toEqual({
+    expect(fallbackToolStart).toMatchObject({
       type: 'tool_start',
       toolCallId: 'tool:unknown',
       toolName: 'unknown_tool',

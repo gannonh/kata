@@ -187,7 +187,7 @@ export class RpcEventAdapter {
         const args = this.extractToolArgs(toolName, event.args)
         // Cache args so tool_execution_end can use them when event.args is absent
         this.toolArgsCache.set(toolCallId, args)
-        return [{ type: 'tool_start', toolCallId, toolName, args }]
+        return [{ type: 'tool_start', toolCallId, toolName, args, parentMessageId: this.currentAssistantMessageId ?? undefined }]
       }
 
       case 'tool_execution_update': {

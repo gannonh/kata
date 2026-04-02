@@ -327,7 +327,7 @@ export type ChatEvent =
   | { type: 'message_start'; messageId: string; role: 'assistant' | 'user' }
   | { type: 'text_delta'; messageId: string; delta: string }
   | { type: 'message_end'; messageId: string; text?: string }
-  | { type: 'tool_start'; toolCallId: string; toolName: string; args: ToolArgs }
+  | { type: 'tool_start'; toolCallId: string; toolName: string; args: ToolArgs; parentMessageId?: string }
   | {
       type: 'tool_update'
       toolCallId: string
