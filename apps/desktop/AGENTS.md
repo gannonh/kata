@@ -24,28 +24,31 @@ Desktop wraps the Kata CLI as a subprocess in JSON-RPC mode (`kata --mode rpc`).
 ```
 apps/desktop/
 ├── src/
-│   ├── main/                # Electron main process (Node.js)
-│   │   ├── index.ts         # App entry, window lifecycle
-│   │   ├── ipc.ts           # IPC handlers for renderer communication
+│   ├── main/                    # Electron main process (Node.js)
+│   │   ├── index.ts             # App entry, window lifecycle
+│   │   ├── ipc.ts               # IPC handlers for renderer communication
 │   │   ├── pi-agent-bridge.ts   # Spawns `kata --mode rpc`, manages subprocess lifecycle
-│   │   └── rpc-event-adapter.ts # Maps pi-coding-agent RPC events → renderer types
-│   ├── preload/             # Context bridge (exposes IPC to renderer)
-│   └── renderer/            # React UI (Vite)
-│       ├── atoms/           # Jotai state atoms
-│       ├── components/      # React components
-│       │   ├── chat/        # Chat UI, message rendering, tool cards
-│       │   ├── app-shell/   # Layout, panels, navigation
-│       │   ├── onboarding/  # First-launch wizard
-│       │   ├── settings/    # Auth, model, preferences panels
-│       │   ├── planning/    # Right-pane planning artifact viewer (M002)
-│       │   ├── kanban/      # Right-pane kanban board (M003)
-│       │   └── symphony/    # Worker dashboard, escalation panel (M004)
-│       ├── hooks/           # Custom React hooks
-│       └── lib/             # Utilities
-├── e2e/                     # Playwright e2e tests
+│   │   ├── rpc-event-adapter.ts # Stateful adapter: RPC events → ChatEvent types (see below)
+│   │   ├── auth-bridge.ts       # Reads/writes ~/.kata-cli/agent/auth.json, provider validation
+│   │   ├── session-manager.ts   # Lists/reads session JSONL files for the sidebar
+│   │   └── logger.ts            # electron-log wrapper
+│   ├── preload/                 # Context bridge (exposes IPC to renderer)
+│   └── renderer/                # React UI (Vite)
+│       ├── atoms/               # Jotai state atoms (chat, model, session, onboarding, permissions)
+│       ├── components/
+│       │   ├── chat/            # Chat UI, message rendering, tool cards, thinking blocks
+│       │   ├── app-shell/       # Layout, panels, navigation, model selector
+│       │   ├── onboarding/      # First-launch wizard
+│       │   ├── settings/        # Auth, model, preferences panels
+│       │   ├── planning/        # Right-pane planning artifact viewer (M002)
+│       │   ├── kanban/          # Right-pane kanban board (M003)
+│       │   └── symphony/        # Worker dashboard, escalation panel (M004)
+│       ├── hooks/               # Custom React hooks
+│       └── lib/                 # Utilities
+├── e2e/                         # Playwright e2e tests
 ├── package.json
 ├── tsconfig.json
-└── AGENTS.md                # This file
+└── AGENTS.md                    # This file
 ```
 
 ## Key Integration Points
@@ -58,9 +61,25 @@ The core integration. Desktop spawns `kata --mode rpc` as a child process:
 - **Messages:** Send user messages, receive streaming events (text deltas, tool starts, tool results, errors, turn boundaries)
 - **Lifecycle:** Graceful shutdown on session close and app quit, crash detection with error surfaced to renderer
 - **Auth:** Reads `~/.kata-cli/agent/auth.json` — shared with CLI
-- **Model selection:** Passed via `--model` flag on spawn
+- **Model selection:** Passed via `--model` flag on spawn, `set_model` RPC command at runtime
+- **Thinking level:** `set_thinking_level` RPC command — levels are `off | minimal | low | medium | high | xhigh` (model-dependent)
 
-Reference: `apps/cli/src/cli.ts` (RPC mode entry), `apps/electron/src/main/daemon-manager.ts` (subprocess lifecycle pattern)
+Reference: `apps/cli/src/cli.ts` (RPC mode entry)
+
+### RPC Event Adapter (`rpc-event-adapter.ts`)
+
+The adapter is a **stateful class** — not a pure function. It tracks state across events within a session:
+
+- **`currentAssistantMessageId`** — counter-based ID assigned at `message_start`. All subsequent `text_delta`, `thinking_delta`, and `message_end` events resolve to this ID. The adapter ignores `responseId` from the CLI's event payloads.
+- **`currentAssistantMessageHadContent`** — tracks whether the current assistant message has received any text or thinking content. When a new `message_start(assistant)` arrives and `hadContent` is false, the adapter reuses the existing ID (handles multi-start turns where thinking+tool and text response are separate messages). Reset to `true` on `message_end`.
+- **`toolArgsCache`** — `Map<toolCallId, ToolArgs>`. Populated at `tool_execution_start`, consumed at `tool_execution_end` when `event.args` is absent (which is the real CLI behavior — the end event doesn't carry args).
+
+**Event filtering:**
+- `message_end` only emits for `role === 'assistant'`. User and toolResult message_end events are silently dropped.
+- `message_update` with `toolcall_start/delta/end` and `text_start/text_end` subtypes emit nothing — tool calls flow through `tool_execution_*` events, and text content flows through `text_delta`.
+- `thinking_start/delta/end` are emitted as new ChatEvent types.
+
+**Key gotcha:** The CLI sends multiple `message_start(assistant)` events per turn when thinking+tools are involved. The adapter coalesces these via the `hadContent` flag to prevent ghost empty message entries in the chat.
 
 ### Symphony API
 
@@ -141,6 +160,14 @@ Borrow patterns and components selectively. **Import from shared packages**, not
 | D007 | Right pane | Split-pane layout with contextual right pane (planning view, kanban) |
 
 See the `DECISIONS` document in Linear for full rationale and revisability notes.
+
+## Gotchas
+
+- **Auth provider aliases:** The CLI stores OpenAI keys under `openai-codex` in `auth.json`, not `openai`. The `AuthBridge.resolveAuthRecord()` method checks alias keys (`AUTH_PROVIDER_ALIASES` map) so the settings panel shows the correct status. If a new provider alias appears, add it to the map in `auth-bridge.ts`.
+- **Tool cards are associated to messages via `parentMessageId`:** `tool_start` events carry `parentMessageId` (set to `currentAssistantMessageId` at emission time). The chat atom stores this on `ToolCallView`, and `MessageList` groups tools by their parent to render them inline after the triggering assistant message. Without this, tool cards would appear disconnected from their context.
+- **Thinking content varies by provider:** Anthropic models stream full thinking text via `thinking_delta` events. OpenAI codex models emit `thinking_start/end` but may not stream summary text (depends on the API's `summary: "auto"` setting). The `ThinkingBlock` component handles both: shows "Thinking…" (minimal label) while streaming with no content, "Reasoned" when done with no content, and the full collapsible with word count when content exists.
+- **Thinking levels are model-specific:** Standard reasoning models get `off | minimal | low | medium | high`. Models that support xhigh (opus-4-6, gpt-5.2+) additionally get `xhigh`. The `supportsXhigh` flag is computed in the bridge from model ID patterns (mirrors `pi-ai`'s `supportsXhigh()` function). The `ThinkingLevelToggle` component only renders when the selected model has `reasoning: true`.
+- **Chat layout:** User messages render as right-aligned bubbles. Assistant messages render flat against the background (no container). Tool cards and thinking blocks render inline within their parent assistant message article. No role labels — visual layout distinguishes the roles.
 
 ## Testing
 
