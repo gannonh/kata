@@ -1,8 +1,8 @@
 import { EventEmitter } from 'node:events'
 import log from './logger'
 import {
+  buildPlanningArtifactKey,
   type ChatEvent,
-  type PlanningArtifactAction,
   type PlanningArtifactEvent,
   type PlanningArtifactScope,
   type ToolArgs,
@@ -19,9 +19,6 @@ interface PlanningToolDetectorEvents {
 
 const PLANNING_TOOL_NAMES = new Set([
   'kata_write_document',
-  'kata_create_milestone',
-  'kata_create_slice',
-  'kata_create_task',
   'kata_read_document',
 ])
 
@@ -98,13 +95,20 @@ export class PlanningToolDetector extends EventEmitter {
 
     const issueId = this.extractIssueId(args)
     const projectId = asString(args.projectId)
+    const scope = this.extractScope(args)
 
     return {
       toolCallId,
       toolName,
       title,
-      scope: this.extractScope(args),
-      action: this.extractAction(toolName),
+      artifactKey: buildPlanningArtifactKey({
+        title,
+        scope,
+        projectId,
+        issueId,
+      }),
+      scope,
+      action: 'updated',
       projectId,
       issueId,
     }
@@ -126,28 +130,17 @@ export class PlanningToolDetector extends EventEmitter {
     return {}
   }
 
-  private extractTitle(toolName: string, args: Record<string, unknown>): string | null {
+  private extractTitle(_toolName: string, args: Record<string, unknown>): string | null {
     const directTitle = asString(args.title)
-
-    if (toolName === 'kata_write_document' || toolName === 'kata_read_document') {
-      if (directTitle) {
-        return directTitle
-      }
-
-      if (Array.isArray(args.args) && typeof args.args[0] === 'string') {
-        return args.args[0]
-      }
-
-      return null
+    if (directTitle) {
+      return directTitle
     }
 
-    const kataId = asString(args.kataId)
-
-    if (kataId && directTitle) {
-      return `[${kataId}] ${directTitle}`
+    if (Array.isArray(args.args) && typeof args.args[0] === 'string') {
+      return args.args[0]
     }
 
-    return directTitle ?? kataId ?? null
+    return null
   }
 
   private extractScope(args: Record<string, unknown>): PlanningArtifactScope {
@@ -173,16 +166,6 @@ export class PlanningToolDetector extends EventEmitter {
     return undefined
   }
 
-  private extractAction(toolName: string): PlanningArtifactAction {
-    switch (toolName) {
-      case 'kata_create_milestone':
-      case 'kata_create_slice':
-      case 'kata_create_task':
-        return 'created'
-      default:
-        return 'updated'
-    }
-  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

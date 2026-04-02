@@ -401,6 +401,7 @@ export interface PlanningArtifactEvent {
   toolName: string
   toolCallId: string
   title: string
+  artifactKey: string
   scope: PlanningArtifactScope
   action: PlanningArtifactAction
   projectId?: string
@@ -409,11 +410,32 @@ export interface PlanningArtifactEvent {
 
 export interface PlanningArtifact {
   title: string
+  artifactKey: string
   content: string
   updatedAt: string
   scope: PlanningArtifactScope
   projectId?: string
   issueId?: string
+}
+
+export function buildPlanningArtifactKey({
+  title,
+  scope,
+  projectId,
+  issueId,
+}: {
+  title: string
+  scope: PlanningArtifactScope
+  projectId?: string
+  issueId?: string
+}): string {
+  const normalizedTitle = title.trim()
+
+  if (scope === 'issue') {
+    return `issue:${issueId?.trim() || projectId?.trim() || 'unknown'}:${normalizedTitle}`
+  }
+
+  return `project:${projectId?.trim() || 'global'}:${normalizedTitle}`
 }
 
 export interface PlanningArtifactFetchResponse {
@@ -459,7 +481,7 @@ export interface DesktopApi {
   }
   planning: {
     onArtifactUpdated: (listener: (artifact: PlanningArtifact) => void) => () => void
-    fetchArtifact: (title: string) => Promise<PlanningArtifactFetchResponse>
+    fetchArtifact: (title: string, artifactKey?: string) => Promise<PlanningArtifactFetchResponse>
     listArtifacts: () => Promise<PlanningArtifactListResponse>
   }
 }

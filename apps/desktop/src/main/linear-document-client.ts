@@ -1,6 +1,7 @@
 import { AuthBridge } from './auth-bridge'
 import log from './logger'
 import {
+  buildPlanningArtifactKey,
   type PlanningArtifact,
   type PlanningArtifactError,
   type PlanningArtifactErrorCode,
@@ -192,13 +193,23 @@ export class LinearDocumentClient {
         return null
       }
 
+      const scope = this.resolveScope(options, selectedNode)
+      const projectId = options.projectId ?? selectedNode.project?.id
+      const issueId = options.issueId ?? selectedNode.issue?.id
+
       const artifact: PlanningArtifact = {
         title: selectedNode.title,
+        artifactKey: buildPlanningArtifactKey({
+          title: selectedNode.title,
+          scope,
+          projectId,
+          issueId,
+        }),
         content: selectedNode.content ?? '',
         updatedAt: selectedNode.updatedAt ?? new Date().toISOString(),
-        scope: this.resolveScope(options, selectedNode),
-        projectId: options.projectId ?? selectedNode.project?.id,
-        issueId: options.issueId ?? selectedNode.issue?.id,
+        scope,
+        projectId,
+        issueId,
       }
 
       log.info('[linear-document-client] planning:fetch', {

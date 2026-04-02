@@ -123,8 +123,8 @@ const api: DesktopApi = {
         ipcRenderer.removeListener(IPC_CHANNELS.planningArtifactUpdated, wrapped)
       }
     },
-    fetchArtifact: async (title: string) => {
-      return ipcRenderer.invoke(IPC_CHANNELS.planningFetchArtifact, title)
+    fetchArtifact: async (title: string, artifactKey?: string) => {
+      return ipcRenderer.invoke(IPC_CHANNELS.planningFetchArtifact, title, artifactKey)
     },
     listArtifacts: async () => {
       return ipcRenderer.invoke(IPC_CHANNELS.planningListArtifacts)

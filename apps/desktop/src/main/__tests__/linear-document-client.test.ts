@@ -66,6 +66,7 @@ describe('LinearDocumentClient', () => {
 
     expect(artifact).toEqual({
       title: 'M001-ROADMAP',
+      artifactKey: 'project:project-123:M001-ROADMAP',
       content: '# Hello planning world',
       updatedAt: '2026-04-02T10:00:00.000Z',
       scope: 'project',

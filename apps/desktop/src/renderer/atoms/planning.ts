@@ -6,6 +6,8 @@ import type { PlanningArtifact } from '@shared/types'
 export const RIGHT_PANE_MODE_STORAGE_KEY = 'kata-desktop:right-pane-mode'
 
 export interface PlanningArtifactState {
+  artifactKey: string
+  title: string
   content: string
   updatedAt: string
   scope: PlanningArtifact['scope']
@@ -15,8 +17,13 @@ export interface PlanningArtifactState {
 
 export type PlanningArtifactsMap = Record<string, PlanningArtifactState>
 
+export interface ActivePlanningArtifactRef {
+  artifactKey: string
+  title: string
+}
+
 export const planningArtifactsAtom = atom<PlanningArtifactsMap>({})
-export const activePlanningArtifactAtom = atom<string | null>(null)
+export const activePlanningArtifactAtom = atom<ActivePlanningArtifactRef | null>(null)
 export const rightPaneModeAtom = atomWithStorage<'planning' | 'default'>(
   RIGHT_PANE_MODE_STORAGE_KEY,
   'default',
@@ -27,7 +34,9 @@ export const planningErrorAtom = atom<string | null>(null)
 export const applyPlanningArtifactAtom = atom(null, (get, set, artifact: PlanningArtifact) => {
   set(planningArtifactsAtom, {
     ...get(planningArtifactsAtom),
-    [artifact.title]: {
+    [artifact.artifactKey]: {
+      artifactKey: artifact.artifactKey,
+      title: artifact.title,
       content: artifact.content,
       updatedAt: artifact.updatedAt,
       scope: artifact.scope,
@@ -35,7 +44,10 @@ export const applyPlanningArtifactAtom = atom(null, (get, set, artifact: Plannin
       issueId: artifact.issueId,
     },
   })
-  set(activePlanningArtifactAtom, artifact.title)
+  set(activePlanningArtifactAtom, {
+    artifactKey: artifact.artifactKey,
+    title: artifact.title,
+  })
   set(rightPaneModeAtom, 'planning')
   set(planningLoadingAtom, false)
   set(planningErrorAtom, null)
@@ -66,7 +78,9 @@ export function usePlanningArtifactBridge(): void {
 
         const nextArtifacts: PlanningArtifactsMap = {}
         for (const artifact of response.artifacts) {
-          nextArtifacts[artifact.title] = {
+          nextArtifacts[artifact.artifactKey] = {
+            artifactKey: artifact.artifactKey,
+            title: artifact.title,
             content: artifact.content,
             updatedAt: artifact.updatedAt,
             scope: artifact.scope,
@@ -79,7 +93,10 @@ export function usePlanningArtifactBridge(): void {
 
         const mostRecentArtifact = response.artifacts[0]
         if (mostRecentArtifact) {
-          setActiveArtifactTitle(mostRecentArtifact.title)
+          setActiveArtifactTitle({
+            artifactKey: mostRecentArtifact.artifactKey,
+            title: mostRecentArtifact.title,
+          })
         }
       })
       .catch((error: unknown) => {

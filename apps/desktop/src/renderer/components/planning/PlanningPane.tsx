@@ -13,7 +13,7 @@ import { Separator } from '@/components/ui/separator'
 
 export function PlanningPane() {
   const artifacts = useAtomValue(planningArtifactsAtom)
-  const activeArtifactTitle = useAtomValue(activePlanningArtifactAtom)
+  const activeArtifactRef = useAtomValue(activePlanningArtifactAtom)
   const loading = useAtomValue(planningLoadingAtom)
   const error = useAtomValue(planningErrorAtom)
 
@@ -22,19 +22,19 @@ export function PlanningPane() {
   const setPlanningError = useSetAtom(planningErrorAtom)
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
-  const scrollPositionsByTitleRef = useRef<Record<string, number>>({})
+  const scrollPositionsByKeyRef = useRef<Record<string, number>>({})
 
-  const activeArtifact = activeArtifactTitle ? artifacts[activeArtifactTitle] : null
+  const activeArtifact = activeArtifactRef ? artifacts[activeArtifactRef.artifactKey] : null
 
   useEffect(() => {
-    if (!activeArtifactTitle || activeArtifact) {
+    if (!activeArtifactRef || activeArtifact) {
       return
     }
 
     setPlanningLoading(true)
 
     void window.api.planning
-      .fetchArtifact(activeArtifactTitle)
+      .fetchArtifact(activeArtifactRef.title, activeArtifactRef.artifactKey)
       .then((response) => {
         if (!response.success || !response.artifact) {
           setPlanningError(response.error?.message ?? 'Unable to fetch artifact')
@@ -50,10 +50,10 @@ export function PlanningPane() {
       .finally(() => {
         setPlanningLoading(false)
       })
-  }, [activeArtifact, activeArtifactTitle, applyPlanningArtifact, setPlanningError, setPlanningLoading])
+  }, [activeArtifact, activeArtifactRef, applyPlanningArtifact, setPlanningError, setPlanningLoading])
 
   useEffect(() => {
-    if (!activeArtifactTitle) {
+    if (!activeArtifactRef) {
       return
     }
 
@@ -62,15 +62,16 @@ export function PlanningPane() {
       return
     }
 
-    container.scrollTop = scrollPositionsByTitleRef.current[activeArtifactTitle] ?? 0
-  }, [activeArtifactTitle])
+    container.scrollTop = scrollPositionsByKeyRef.current[activeArtifactRef.artifactKey] ?? 0
+  }, [activeArtifactRef])
 
   const handleScroll = (): void => {
-    if (!activeArtifactTitle || !scrollContainerRef.current) {
+    if (!activeArtifactRef || !scrollContainerRef.current) {
       return
     }
 
-    scrollPositionsByTitleRef.current[activeArtifactTitle] = scrollContainerRef.current.scrollTop
+    scrollPositionsByKeyRef.current[activeArtifactRef.artifactKey] =
+      scrollContainerRef.current.scrollTop
   }
 
   return (
@@ -81,7 +82,7 @@ export function PlanningPane() {
             Planning View
           </h2>
           <p className="truncate text-sm font-medium text-foreground">
-            {activeArtifactTitle ?? 'No active artifact'}
+            {activeArtifact?.title ?? activeArtifactRef?.title ?? 'No active artifact'}
           </p>
         </div>
 

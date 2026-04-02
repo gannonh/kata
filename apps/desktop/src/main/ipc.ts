@@ -23,6 +23,7 @@ import {
   type ExtensionUIRequest,
   type ExtensionUIResponse,
   type PermissionMode,
+  buildPlanningArtifactKey,
   type PlanningArtifact,
   type PlanningArtifactEvent,
   type PlanningArtifactFetchResponse,
@@ -55,8 +56,9 @@ export function registerSessionIpc({
   const planningToolDetector = new PlanningToolDetector()
   const linearDocumentClient = new LinearDocumentClient(authBridge)
 
-  const planningArtifactsByTitle = new Map<string, PlanningArtifact>()
-  const planningMetadataByTitle = new Map<string, PlanningArtifactEvent>()
+  const planningArtifactsByKey = new Map<string, PlanningArtifact>()
+  const planningMetadataByKey = new Map<string, PlanningArtifactEvent>()
+  const planningLatestKeyByTitle = new Map<string, string>()
 
   const canSendToRenderer = (): boolean => !window.isDestroyed() && !window.webContents.isDestroyed()
 
@@ -89,6 +91,7 @@ export function registerSessionIpc({
     window.webContents.send(IPC_CHANNELS.planningArtifactUpdated, artifact)
     log.debug('[desktop-ipc] planning artifact pushed', {
       title: artifact.title,
+      artifactKey: artifact.artifactKey,
       updatedAt: artifact.updatedAt,
       scope: artifact.scope,
       projectId: artifact.projectId,
@@ -96,8 +99,14 @@ export function registerSessionIpc({
     })
   }
 
-  const getPlanningFetchContext = (title: string): { projectId?: string; issueId?: string } => {
-    const metadata = planningMetadataByTitle.get(title)
+  const getPlanningFetchContext = (
+    title: string,
+    artifactKey?: string,
+  ): { projectId?: string; issueId?: string } => {
+    const metadata =
+      (artifactKey ? planningMetadataByKey.get(artifactKey) : undefined) ??
+      planningMetadataByKey.get(planningLatestKeyByTitle.get(title) ?? '')
+
     if (!metadata) {
       return {}
     }
@@ -115,6 +124,7 @@ export function registerSessionIpc({
       issueId?: string
       pushUpdate?: boolean
       scope?: PlanningArtifact['scope']
+      artifactKey?: string
     },
   ): Promise<PlanningArtifactFetchResponse> => {
     const trimmedTitle = title.trim()
@@ -145,12 +155,25 @@ export function registerSessionIpc({
         }
       }
 
+      const scope = options?.scope ?? fetchedArtifact.scope
+      const artifactKey =
+        options?.artifactKey ??
+        fetchedArtifact.artifactKey ??
+        buildPlanningArtifactKey({
+          title: fetchedArtifact.title,
+          scope,
+          projectId: fetchedArtifact.projectId,
+          issueId: fetchedArtifact.issueId,
+        })
+
       const artifact: PlanningArtifact = {
         ...fetchedArtifact,
-        scope: options?.scope ?? fetchedArtifact.scope,
+        scope,
+        artifactKey,
       }
 
-      planningArtifactsByTitle.set(trimmedTitle, artifact)
+      planningArtifactsByKey.set(artifactKey, artifact)
+      planningLatestKeyByTitle.set(trimmedTitle, artifactKey)
 
       if (options?.pushUpdate) {
         sendPlanningArtifactToRenderer(artifact)
@@ -169,12 +192,14 @@ export function registerSessionIpc({
   }
 
   const onPlanningArtifactEvent = (planningEvent: PlanningArtifactEvent): void => {
-    planningMetadataByTitle.set(planningEvent.title, planningEvent)
+    planningMetadataByKey.set(planningEvent.artifactKey, planningEvent)
+    planningLatestKeyByTitle.set(planningEvent.title, planningEvent.artifactKey)
 
     void fetchPlanningArtifact(planningEvent.title, {
       projectId: planningEvent.projectId,
       issueId: planningEvent.issueId,
       scope: planningEvent.scope,
+      artifactKey: planningEvent.artifactKey,
       pushUpdate: true,
     })
   }
@@ -563,17 +588,18 @@ export function registerSessionIpc({
 
   ipcMain.handle(
     IPC_CHANNELS.planningFetchArtifact,
-    async (_event, title: string): Promise<PlanningArtifactFetchResponse> => {
-      const context = getPlanningFetchContext(title)
+    async (_event, title: string, artifactKey?: string): Promise<PlanningArtifactFetchResponse> => {
+      const context = getPlanningFetchContext(title, artifactKey)
       return fetchPlanningArtifact(title, {
         ...context,
+        artifactKey,
         pushUpdate: false,
       })
     },
   )
 
   ipcMain.handle(IPC_CHANNELS.planningListArtifacts, async (): Promise<PlanningArtifactListResponse> => {
-    const artifacts = Array.from(planningArtifactsByTitle.values()).sort((left, right) => {
+    const artifacts = Array.from(planningArtifactsByKey.values()).sort((left, right) => {
       return Date.parse(right.updatedAt) - Date.parse(left.updatedAt)
     })
 

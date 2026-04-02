@@ -35,6 +35,7 @@ describe('PlanningToolDetector', () => {
       toolCallId: 'tool-1',
       toolName: 'kata_write_document',
       title: 'M001-ROADMAP',
+      artifactKey: 'project:project-123:M001-ROADMAP',
       scope: 'project',
       action: 'updated',
       projectId: 'project-123',
@@ -42,48 +43,7 @@ describe('PlanningToolDetector', () => {
     })
   })
 
-  test('formats title and scope for kata_create_task events', () => {
-    const detector = new PlanningToolDetector()
-    const events: PlanningArtifactEvent[] = []
-
-    detector.on('artifact', (event) => {
-      events.push(event)
-    })
-
-    detector.handleChatEvent({
-      type: 'tool_start',
-      toolCallId: 'tool-2',
-      toolName: 'kata_create_task',
-      args: {
-        raw: {
-          kataId: 'T02',
-          title: 'Render markdown pane',
-          projectId: 'project-123',
-          sliceIssueId: 'issue-456',
-        },
-      },
-    })
-
-    detector.handleChatEvent({
-      type: 'tool_end',
-      toolCallId: 'tool-2',
-      toolName: 'kata_create_task',
-      isError: false,
-    })
-
-    expect(events).toHaveLength(1)
-    expect(events[0]).toEqual({
-      toolCallId: 'tool-2',
-      toolName: 'kata_create_task',
-      title: '[T02] Render markdown pane',
-      scope: 'issue',
-      action: 'created',
-      projectId: 'project-123',
-      issueId: 'issue-456',
-    })
-  })
-
-  test('emits for kata_read_document and ignores failed or unrelated tools', () => {
+  test('emits for kata_read_document and ignores failed, unrelated, or non-document planning tools', () => {
     const detector = new PlanningToolDetector()
     const events: PlanningArtifactEvent[] = []
 
@@ -132,10 +92,30 @@ describe('PlanningToolDetector', () => {
       isError: false,
     })
 
+    detector.handleChatEvent({
+      type: 'tool_start',
+      toolCallId: 'tool-6',
+      toolName: 'kata_create_task',
+      args: {
+        raw: {
+          title: 'Should not emit as document artifact',
+          sliceIssueId: 'issue-should-not-fetch',
+        },
+      },
+    })
+
+    detector.handleChatEvent({
+      type: 'tool_end',
+      toolCallId: 'tool-6',
+      toolName: 'kata_create_task',
+      isError: false,
+    })
+
     expect(events).toHaveLength(1)
     expect(events[0]).toMatchObject({
       toolName: 'kata_read_document',
       title: 'DECISIONS',
+      artifactKey: 'issue:issue-789:DECISIONS',
       scope: 'issue',
       action: 'updated',
       issueId: 'issue-789',
