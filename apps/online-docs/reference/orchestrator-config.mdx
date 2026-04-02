@@ -1,0 +1,137 @@
+---
+title: "Orchestrator configuration"
+description: "Reference for Kata Orchestrator configuration settings stored in .planning/config.json."
+---
+
+Orchestrator configuration is stored in `.planning/config.json`. Settings are configured during `/kata:new-project` or updated at any time with `/kata:settings`.
+
+---
+
+## Core settings
+
+<ParamField path="mode" type="string" default="interactive">
+  Execution mode.
+
+  Options:
+  - `interactive` — confirms each step before proceeding (recommended for most users)
+  - `yolo` — auto-approves all steps without confirmation
+</ParamField>
+
+<ParamField path="granularity" type="string" default="standard">
+  Controls how finely phases and plans are decomposed.
+
+  Options:
+  - `coarse` — fewer, larger phases and plans
+  - `standard` — balanced decomposition
+  - `fine` — more phases and plans, smaller units of work
+</ParamField>
+
+---
+
+## Model profiles
+
+Model profiles control which models are used for planning, execution, and verification. Switch profiles with `/kata:set-profile <profile>`.
+
+| Profile | Planning | Execution | Verification |
+|---------|----------|-----------|--------------|
+| `quality` | Opus | Opus | Sonnet |
+| `balanced` (default) | Opus | Sonnet | Sonnet |
+| `budget` | Sonnet | Sonnet | Haiku |
+
+```
+/kata:set-profile budget
+```
+
+---
+
+## Workflow agents
+
+<ParamField path="workflow.research" type="boolean" default="true">
+  Run a research step before planning each phase. Disable to skip codebase and domain research. Can be overridden per-invocation with `--skip-research`.
+</ParamField>
+
+<ParamField path="workflow.plan_check" type="boolean" default="true">
+  Validate plans against requirements before execution begins.
+</ParamField>
+
+<ParamField path="workflow.verifier" type="boolean" default="true">
+  Run the verification agent after execution to confirm deliverables. Disable to skip UAT. Can be overridden per-invocation with `--skip-verify`.
+</ParamField>
+
+<ParamField path="workflow.auto_advance" type="boolean" default="false">
+  Automatically chain steps without stopping between phases. When `false`, each step completes and waits for you to invoke the next command.
+</ParamField>
+
+### Per-invocation overrides
+
+Some workflow settings can be overridden for a single invocation without changing `config.json`:
+
+| Flag | Description |
+|------|-------------|
+| `--skip-research` | Skip the research step for this invocation only |
+| `--skip-verify` | Skip the verification step for this invocation only |
+| `--auto` | Chain steps automatically for this invocation only (available on `new-project`, `discuss-phase`, `plan-phase`) |
+
+---
+
+## Git branching
+
+<ParamField path="git.branching_strategy" type="string" default="none">
+  When and how to create branches during the workflow.
+
+  Options:
+  - `none` — no automatic branch creation; all work commits to the current branch
+  - `phase` — create a new branch at the start of each phase
+  - `milestone` — create a new branch at the start of each milestone
+</ParamField>
+
+<ParamField path="git.phase_branch_template" type="string" default="kata/phase-{phase}-{slug}">
+  Template for phase branch names. Used when `git.branching_strategy` is `phase`.
+
+  Variables: `{phase}` — phase number, `{slug}` — slugified phase name.
+</ParamField>
+
+<ParamField path="git.milestone_branch_template" type="string" default="kata/{milestone}-{slug}">
+  Template for milestone branch names. Used when `git.branching_strategy` is `milestone`.
+
+  Variables: `{milestone}` — milestone identifier, `{slug}` — slugified milestone name.
+</ParamField>
+
+---
+
+## How to configure
+
+<Steps>
+  <Step title="During project setup">
+    Run `/kata:new-project`. The setup interview prompts for mode, granularity, model profile, and git branching strategy.
+  </Step>
+  <Step title="After setup">
+    Run `/kata:settings` at any time to change configuration. The settings editor walks through the same options interactively.
+  </Step>
+  <Step title="Switch model profile">
+    Run `/kata:set-profile <quality|balanced|budget>` to switch profiles without going through the full settings editor.
+  </Step>
+</Steps>
+
+---
+
+## Example `config.json`
+
+```json
+{
+  "mode": "interactive",
+  "granularity": "standard",
+  "profile": "balanced",
+  "workflow": {
+    "research": true,
+    "plan_check": true,
+    "verifier": true,
+    "auto_advance": false
+  },
+  "git": {
+    "branching_strategy": "none",
+    "phase_branch_template": "kata/phase-{phase}-{slug}",
+    "milestone_branch_template": "kata/{milestone}-{slug}"
+  }
+}
+```

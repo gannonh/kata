@@ -1,0 +1,97 @@
+---
+title: "Sources and MCP"
+description: "Connect MCP servers, REST APIs, local filesystems, and Slack channels to your Kata Desktop workspaces."
+---
+
+Sources let you connect external data and services to a workspace so that agents can read, query, and act on live information beyond the local filesystem.
+
+## Source types
+
+| Type | Examples |
+|---|---|
+| **MCP servers** | Linear, GitHub, Notion, custom servers |
+| **REST APIs** | Google (Gmail, Calendar, Drive), Slack, Microsoft |
+| **Local files** | Filesystem directories, Obsidian vaults, Git repos |
+
+Sources are configured per workspace and stored at `~/.kata/workspaces/{id}/sources/`.
+
+## MCP server setup
+
+Kata Desktop supports both stdio-based (local subprocess) and HTTP/SSE-based (remote) MCP servers.
+
+<Steps>
+  <Step title="Open Sources settings">
+    Navigate to **Settings → Sources** in the app.
+  </Step>
+  <Step title="Add an MCP server">
+    Click **Add source**, select **MCP Server**, and provide the server command or URL.
+  </Step>
+  <Step title="Configure environment variables (if needed)">
+    Use the `env` field in the source config to pass any variables the server requires. See the security note below for which variables are blocked by default.
+  </Step>
+  <Step title="Save and connect">
+    Save the source. Kata Desktop will start the server and make its tools available to agents in this workspace.
+  </Step>
+</Steps>
+
+## REST API sources
+
+Google (Gmail, Calendar, Drive), Slack, and Microsoft services are connected via OAuth. OAuth credentials are stored encrypted at `~/.kata/credentials.enc`.
+
+To enable these integrations when building from source, add the required OAuth credentials to a `.env` file:
+
+```bash
+GOOGLE_OAUTH_CLIENT_ID=your-client-id.apps.googleusercontent.com
+GOOGLE_OAUTH_CLIENT_SECRET=your-google-client-secret
+SLACK_OAUTH_CLIENT_ID=your-slack-client-id
+SLACK_OAUTH_CLIENT_SECRET=your-slack-client-secret
+MICROSOFT_OAUTH_CLIENT_ID=your-client-id
+```
+
+See the [Google Cloud Console](https://console.cloud.google.com/apis/credentials) to create OAuth credentials for Google integrations.
+
+## Channels
+
+Channels connect communication platforms for always-on, background message processing.
+
+| Channel | Mode | Features |
+|---|---|---|
+| **Slack** | Poll + Subscribe | Channel messages, slash commands |
+
+Slack channels can be connected to a workspace to allow agents to monitor and respond to messages in the background. When a message matches a configured trigger, Kata Desktop creates or resumes a session automatically.
+
+## Agent skills
+
+Agent skills are workspace-scoped Markdown files stored at `~/.kata/workspaces/{id}/skills/`. Each skill file contains specialized instructions that are automatically included in the agent's system prompt for sessions in that workspace.
+
+Use skills to encode project-specific conventions, preferred tools, or recurring task patterns without repeating them in every session.
+
+## Security: MCP server isolation
+
+<Warning>
+  When Kata Desktop spawns a local MCP server (stdio transport), it filters sensitive environment variables from the subprocess environment to prevent credential leakage.
+</Warning>
+
+The following variables are blocked by default:
+
+- `ANTHROPIC_API_KEY`, `CLAUDE_CODE_OAUTH_TOKEN`
+- `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`
+- `GITHUB_TOKEN`, `GH_TOKEN`
+- `OPENAI_API_KEY`, `GOOGLE_API_KEY`
+- `STRIPE_SECRET_KEY`, `NPM_TOKEN`
+
+To pass a variable to a specific MCP server, add it explicitly using the `env` field in that server's source config. This grants access only to that server and does not affect the rest of the environment.
+
+## Deep linking
+
+External apps and scripts can navigate directly to Kata Desktop views using `kata://` URLs:
+
+| URL | Destination |
+|---|---|
+| `kata://allChats` | All chats view |
+| `kata://allChats/chat/{sessionId}` | Specific chat session |
+| `kata://settings` | Settings |
+| `kata://sources/source/{sourceId}` | Source detail view |
+| `kata://action/new-chat` | Create a new chat |
+
+These URLs can be used from browser links, scripts, or other applications to open specific views in the running Kata Desktop instance.

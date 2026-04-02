@@ -26,13 +26,13 @@ The repo also contains shared packages that support the product apps.
 
 ## Products
 
-| Product                                          | Path                | Use it for                                                                                   | Quick start                                                 |
-| ------------------------------------------------ | ------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| [Kata CLI](apps/cli/README.md)                   | `apps/cli`          | Terminal-based coding work with guided and autonomous execution modes                        | `npx @kata-sh/cli`                                          |
-| [Kata Symphony](apps/symphony/README.md)         | `apps/symphony`     | Headless orchestrator: polls Linear, dispatches parallel agent sessions, manages full PR lifecycle | `cargo build --release`                               |
-| [Kata Desktop](apps/electron/README.md)          | `apps/electron`     | Desktop-based agent work with workspaces, session management, sources, and approval controls | [GitHub Releases](https://github.com/gannonh/kata/releases) |
-| [Kata Orchestrator](apps/orchestrator/README.md) | `apps/orchestrator` | Spec-driven workflows for Claude Code, OpenCode, Gemini CLI, and Codex                       | `npx @kata-sh/orc@latest`                                   |
-| Kata Context                                     | `apps/context`      | Structural, semantic, and memory-based codebase understanding for AI coding agents           | `npx @kata/context`                                         |
+| Product                                          | Path                | Use it for                                                                                         | Quick start                                                 |
+| ------------------------------------------------ | ------------------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| [Kata CLI](apps/cli/README.md)                   | `apps/cli`          | Terminal-based coding work with guided and autonomous execution modes                              | `npx @kata-sh/cli`                                          |
+| [Kata Symphony](apps/symphony/README.md)         | `apps/symphony`     | Headless orchestrator: polls Linear, dispatches parallel agent sessions, manages full PR lifecycle | `cargo build --release`                                     |
+| [Kata Desktop](apps/electron/README.md)          | `apps/electron`     | Desktop-based agent work with workspaces, session management, sources, and approval controls       | [GitHub Releases](https://github.com/gannonh/kata/releases) |
+| [Kata Orchestrator](apps/orchestrator/README.md) | `apps/orchestrator` | Spec-driven workflows for Claude Code, OpenCode, Gemini CLI, and Codex                             | `npx @kata-sh/orc@latest`                                   |
+| Kata Context                                     | `apps/context`      | Structural, semantic, and memory-based codebase understanding for AI coding agents                 | `npx @kata/context`                                         |
 
 ## Kata CLI
 
@@ -154,7 +154,7 @@ npx @kata/context
 | `apps/context`      | Kata Context                                               |
 | `apps/electron`     | Kata Desktop                                               |
 | `apps/orchestrator` | Kata Orchestrator                                          |
-| `apps/online-docs`  | Documentation site (Fumadocs/Next.js)                      |
+| `apps/online-docs`  | Documentation site                                         |
 | `apps/viewer`       | Session viewer                                             |
 | `packages/core`     | Shared types                                               |
 | `packages/shared`   | Shared agent, auth, config, git, session, and source logic |
@@ -177,29 +177,29 @@ bun run githooks:install
 
 Common commands:
 
-| Command                              | Purpose                                        |
-| ------------------------------------ | ---------------------------------------------- |
-| `bun run validate`                   | Lint + typecheck + test all packages via Turbo  |
-| `bun run validate:affected`          | Same, only changed packages                    |
-| `bun run electron:dev`               | Start Kata Desktop in development mode         |
-| `cd apps/symphony && cargo build`    | Build Kata Symphony                            |
+| Command                           | Purpose                                        |
+| --------------------------------- | ---------------------------------------------- |
+| `bun run validate`                | Lint + typecheck + test all packages via Turbo |
+| `bun run validate:affected`       | Same, only changed packages                    |
+| `bun run electron:dev`            | Start Kata Desktop in development mode         |
+| `cd apps/symphony && cargo build` | Build Kata Symphony                            |
 
 ## Testing
 
 All testing is orchestrated by Turborepo. Each package owns its test runner.
 
-| Command                    | Runs                                           |
-| -------------------------- | ---------------------------------------------- |
-| `bun run test`             | All package tests via Turborepo                |
-| `bun run test:affected`    | Only changed packages                          |
-| `bun run test:e2e`         | Desktop Playwright E2E (mocked)                |
-| `bun run test:e2e:live`    | Desktop Playwright E2E (real accounts, local)  |
+| Command                 | Runs                                          |
+| ----------------------- | --------------------------------------------- |
+| `bun run test`          | All package tests via Turborepo               |
+| `bun run test:affected` | Only changed packages                         |
+| `bun run test:e2e`      | Desktop Playwright E2E (mocked)               |
+| `bun run test:e2e:live` | Desktop Playwright E2E (real accounts, local) |
 
-| Package      | Test runner | Notes                                     |
-| ------------ | ----------- | ----------------------------------------- |
-| context      | Vitest      | Uses better-sqlite3 (native Node addon)   |
-| symphony     | cargo test  | Rust, runs through package.json shim      |
-| all others   | Bun test    | Default for JS/TS packages                |
+| Package    | Test runner | Notes                                   |
+| ---------- | ----------- | --------------------------------------- |
+| context    | Vitest      | Uses better-sqlite3 (native Node addon) |
+| symphony   | cargo test  | Rust, runs through package.json shim    |
+| all others | Bun test    | Default for JS/TS packages              |
 
 A pre-push git hook runs `turbo run lint typecheck test --affected` before every push.
 

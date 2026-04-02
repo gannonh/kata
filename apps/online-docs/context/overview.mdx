@@ -1,0 +1,130 @@
+---
+title: "Kata Context"
+description: "Structural, semantic, and memory-based codebase understanding for AI coding agents."
+---
+
+Kata Context is a codebase intelligence tool for AI coding agents. It indexes your source files, builds a dependency graph, and exposes structural and semantic queries so agents can understand your codebase before executing tasks.
+
+## How it works
+
+Kata Context parses source files using [tree-sitter](https://tree-sitter.github.io/) and stores the resulting symbol graph in a SQLite database. Vector embeddings are stored using [sqlite-vec](https://github.com/asg017/sqlite-vec) for semantic search. File changes are monitored with [chokidar](https://github.com/paulmillr/chokidar) for incremental re-indexing.
+
+**Supported languages:** TypeScript, Python
+
+## Installation
+
+Run Kata Context with `npx`:
+
+```bash
+npx @kata/context
+```
+
+Or install globally:
+
+```bash
+npm install -g @kata/context
+kata-context
+```
+
+The index is stored at `.kata/index/graph.db` inside your project directory by default. Pass `--db <path>` to override.
+
+## Commands
+
+### Index your project
+
+```bash
+kata-context index [path]
+```
+
+Parses source files, extracts symbols, and builds the dependency graph. Run `--full` to force a complete re-index and ignore the incremental cache.
+
+### Check index status
+
+```bash
+kata-context status
+```
+
+Shows symbol counts, edge counts, file counts, and the last indexed commit SHA.
+
+### Query the graph
+
+```bash
+# Find all symbols that depend on a given symbol
+kata-context graph dependents <symbol>
+
+# Find all symbols that a given symbol depends on
+kata-context graph dependencies <symbol>
+
+# List all symbols in a file with edge counts
+kata-context graph symbols <file>
+```
+
+### Search
+
+```bash
+# Regex search across source files (via ripgrep)
+kata-context grep <pattern> [--glob <pattern>] [--context <n>] [--case-sensitive] [--max-results <n>]
+
+# Fuzzy find symbols and files by name
+kata-context find <query> [--kind <kind>] [--limit <n>]
+
+# Semantic search over indexed symbol embeddings
+kata-context search <query> [--top-k <n>] [--kind <kind>]
+```
+
+### Combined retrieval
+
+```bash
+kata-context get <query> [--budget <tokens>]
+```
+
+Returns a combined context bundle from structural, semantic, and memory retrieval. Results are weighted to fit within a token budget (default: 4000 tokens). Use this when you want a single call that surfaces relevant symbols, files, and memories for a task description.
+
+### Memory
+
+Kata Context includes a persistent memory store for capturing decisions, patterns, and learnings across sessions.
+
+```bash
+# Store a memory
+kata-context remember "use lazy loading for all dashboard widgets" --category decision --tags "performance,ui" [--source <file-refs>]
+
+# Recall memories by similarity
+kata-context recall "dashboard performance" --top-k 5
+
+# Delete a memory
+kata-context forget <id>
+
+# Merge multiple memories into one
+kata-context consolidate <id1> <id2> ...
+```
+
+### Watch mode
+
+```bash
+kata-context watch [path] [--debounce <ms>]
+```
+
+Watches for file changes and triggers incremental re-indexing automatically. Use `--debounce <ms>` to control the debounce window (default: 300ms). Useful when running alongside an agent that is actively modifying code.
+
+## When to use Kata Context
+
+Use Kata Context when you need an agent to:
+
+- Understand which files or symbols are affected by a planned change before writing code
+- Find all callers of a function before modifying its signature
+- Discover existing patterns in your codebase before introducing new ones
+- Carry forward architectural decisions across sessions using memory
+
+<Tip>
+  Run `kata-context index` at the start of a Kata Orchestrator session to give subagents accurate structural context before the plan and execute phases.
+</Tip>
+
+## Global options
+
+All commands support these flags:
+
+| Flag | Description |
+|---|---|
+| `--json` | Output structured JSON instead of human-readable text |
+| `--quiet` | Minimal output — names and paths only |
+| `--db <path>` | Path to the SQLite database (overrides the default `.kata/index/graph.db`) |

@@ -1,0 +1,124 @@
+{
+  "projectType": "saas",
+  "projectName": "Kata",
+  "projectDescription": "Kata is a multi-agent orchestration platform offering a terminal CLI, headless orchestrator, desktop app, and context indexer for autonomous AI-driven software development.",
+  "theme": "palm",
+  "primaryColor": "#d0a172",
+  "lightColor": "#6c5c44",
+  "darkColor": "#0d0c0c",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Kata CLI",
+            "pages": [
+              "cli/overview",
+              "cli/commands",
+              "cli/pr-mode",
+              "cli/linear-integration",
+              "cli/mcp-support"
+            ]
+          },
+          {
+            "group": "Kata Symphony",
+            "pages": [
+              "symphony/overview",
+              "symphony/workflow-config",
+              "symphony/agent-backends",
+              "symphony/deployment"
+            ]
+          },
+          {
+            "group": "Kata Desktop",
+            "pages": [
+              "desktop/overview",
+              "desktop/sessions-workspaces",
+              "desktop/sources-mcp"
+            ]
+          },
+          {
+            "group": "Kata Orchestrator",
+            "pages": [
+              "orchestrator/overview",
+              "orchestrator/workflow",
+              "orchestrator/commands"
+            ]
+          },
+          {
+            "group": "Kata Context",
+            "pages": [
+              "context/overview"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Reference",
+        "groups": [
+          {
+            "group": "CLI Reference",
+            "pages": [
+              "reference/cli-commands",
+              "reference/cli-preferences"
+            ]
+          },
+          {
+            "group": "Symphony Reference",
+            "pages": [
+              "reference/symphony-workflow",
+              "reference/symphony-api"
+            ]
+          },
+          {
+            "group": "Orchestrator Reference",
+            "pages": [
+              "reference/orchestrator-commands",
+              "reference/orchestrator-config"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Terminal-based coding agent with guided and autonomous execution modes (Kata CLI)",
+    "Headless orchestrator that polls Linear/GitHub and dispatches parallel agent sessions (Kata Symphony)",
+    "Desktop app for multi-session AI agent management with MCP integrations (Kata Desktop)",
+    "Spec-driven development harness for Claude Code, OpenCode, Gemini CLI, and Codex (Kata Orchestrator)",
+    "Structural, semantic, and memory-based codebase indexing with tree-sitter and SQLite (Kata Context)",
+    "Linear-backed project state: milestones, slices, tasks stored as Linear entities",
+    "PR lifecycle management: create, review, address feedback, and merge via GitHub CLI",
+    "Docker and SSH remote worker pools for distributed agent sessions (Symphony)",
+    "Real-time event streaming and HTTP dashboard for observability (Symphony)",
+    "MCP (Model Context Protocol) support for connecting external services"
+  ],
+  "publicApiSurface": [
+    "npx @kata-sh/cli — Kata CLI",
+    "npx @kata-sh/orc@latest — Kata Orchestrator installer",
+    "npx @kata/context — Kata Context indexer",
+    "symphony WORKFLOW.md — Kata Symphony binary",
+    "/kata — CLI contextual wizard command",
+    "/kata auto — autonomous execution mode",
+    "/kata step — single-step execution mode",
+    "/kata plan — enriched planning mode",
+    "/kata pr — PR lifecycle management",
+    "/symphony status|watch|console|config — Symphony operator commands",
+    "GET /api/v1/state — Symphony orchestrator snapshot",
+    "GET /api/v1/events — Symphony live WebSocket event stream",
+    "POST /api/v1/escalations/:id/respond — respond to escalation",
+    "/kata:new-project — Orchestrator: initialize project",
+    "/kata:plan-phase N — Orchestrator: plan phase",
+    "/kata:execute-phase N — Orchestrator: execute phase",
+    "/kata:verify-work N — Orchestrator: verify phase",
+    "/kata:quick — Orchestrator: ad-hoc quick mode"
+  ]
+}

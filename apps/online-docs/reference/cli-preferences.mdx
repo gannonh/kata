@@ -1,0 +1,189 @@
+---
+title: "CLI preferences"
+description: "Reference for the Kata CLI preferences file — global and project-local settings."
+---
+
+Kata reads preferences from two locations, merged at startup with project-local values taking precedence:
+
+- `~/.kata-cli/preferences.md` — global preferences (apply to all projects)
+- `.kata/preferences.md` — project-local preferences (apply to the current project only)
+
+Manage preferences interactively with the `/kata prefs` command.
+
+<Note>
+The legacy path `.kata/PREFERENCES.md` (uppercase) is still read for backward compatibility.
+</Note>
+
+---
+
+## Example preferences file
+
+```yaml
+---
+version: 1
+models:
+  research: claude-sonnet-4-6
+  planning: claude-opus-4-6
+  execution: claude-sonnet-4-6
+  completion: claude-sonnet-4-6
+pr:
+  enabled: true
+  auto_create: true
+  base_branch: main
+  review_on_create: false
+  linear_link: false
+symphony:
+  url: http://127.0.0.1:8080
+  workflow_path: ./apps/symphony/WORKFLOW.md
+  console_position: below-output
+skill_discovery: suggest
+auto_supervisor:
+  soft_timeout_minutes: 20
+  idle_timeout_minutes: 10
+  hard_timeout_minutes: 30
+budget_ceiling: 50.00
+uat_dispatch: false
+workflow:
+  mode: linear
+linear:
+  teamKey: KAT
+  projectSlug: my-project-slug
+---
+```
+
+---
+
+## Models
+
+<ParamField path="models.research" type="string">
+  Model used during the research phase. Example: `claude-sonnet-4-6`.
+</ParamField>
+
+<ParamField path="models.planning" type="string">
+  Model used during the planning phase. Typically a more capable model (e.g. Opus) for higher-quality decomposition.
+</ParamField>
+
+<ParamField path="models.execution" type="string">
+  Model used during the execution phase (running tasks).
+</ParamField>
+
+<ParamField path="models.completion" type="string">
+  Model used during the completion phase (writing summaries, UAT scripts, marking the roadmap).
+</ParamField>
+
+---
+
+## PR mode
+
+<ParamField path="pr.enabled" type="boolean" default="false">
+  Enable PR mode. When enabled, auto-mode pauses at slice boundaries so you can review changes before merging.
+</ParamField>
+
+<ParamField path="pr.auto_create" type="boolean" default="false">
+  Automatically create a PR via `gh` after each slice completes. When `false`, auto-mode stops and prompts you to run `/kata pr create` manually.
+</ParamField>
+
+<ParamField path="pr.base_branch" type="string" default="main">
+  Target branch for pull requests.
+</ParamField>
+
+<ParamField path="pr.review_on_create" type="boolean" default="false">
+  Run a parallel multi-agent code review automatically after a PR is created.
+</ParamField>
+
+<ParamField path="pr.linear_link" type="boolean" default="false">
+  Add Linear issue references to the PR body. Requires Linear workflow mode.
+</ParamField>
+
+<Note>
+Slice branches use the namespaced format `kata/<scope>/<M>/<S>` (for example `kata/apps-cli/M003/S05`).
+</Note>
+
+---
+
+## Symphony
+
+<ParamField path="symphony.url" type="string">
+  Base URL for the Symphony server. Example: `http://127.0.0.1:8080`.
+
+  Can also be set via the `KATA_SYMPHONY_URL` or `SYMPHONY_URL` environment variables (`KATA_SYMPHONY_URL` takes precedence when both are set).
+</ParamField>
+
+<ParamField path="symphony.workflow_path" type="string">
+  Default path to the WORKFLOW.md file used by `/symphony config`. Example: `./apps/symphony/WORKFLOW.md`.
+</ParamField>
+
+<ParamField path="symphony.console_position" type="string" default="below-output">
+  Placement of the live Symphony console panel in the terminal UI.
+
+  Options: `below-output`, `above-status`.
+</ParamField>
+
+---
+
+## Skill discovery
+
+<ParamField path="skill_discovery" type="string" default="suggest">
+  Controls how Kata finds and applies skills.
+
+  Options:
+  - `auto` — automatically load and apply relevant skills
+  - `suggest` — suggest skills but require confirmation before loading
+  - `off` — disable skill discovery
+</ParamField>
+
+---
+
+## Auto supervisor
+
+<ParamField path="auto_supervisor.soft_timeout_minutes" type="number" default="20">
+  Minutes of continuous operation before the supervisor emits a soft warning and prompts for confirmation.
+</ParamField>
+
+<ParamField path="auto_supervisor.idle_timeout_minutes" type="number" default="10">
+  Minutes of idle time (no tool calls or model activity) before auto-mode pauses.
+</ParamField>
+
+<ParamField path="auto_supervisor.hard_timeout_minutes" type="number" default="30">
+  Absolute maximum minutes before auto-mode stops, regardless of activity.
+</ParamField>
+
+---
+
+## Budget
+
+<ParamField path="budget_ceiling" type="number">
+  USD spending ceiling for auto mode. Auto-mode pauses when this limit is reached. Example: `50.00`.
+</ParamField>
+
+---
+
+## UAT dispatch
+
+<ParamField path="uat_dispatch" type="boolean" default="false">
+  Enable automatic UAT (user acceptance testing) runs after each slice completes.
+</ParamField>
+
+---
+
+## Workflow mode
+
+<ParamField path="workflow.mode" type="string" default="file">
+  Planning storage backend.
+
+  Options:
+  - `linear` — milestones, slices, tasks, plans, and summaries are stored in Linear issues and documents
+  - `file` — planning artifacts are stored as local files in `.kata/`
+</ParamField>
+
+---
+
+## Linear integration
+
+<ParamField path="linear.teamKey" type="string">
+  Linear team key (issue prefix). Example: `KAT`.
+</ParamField>
+
+<ParamField path="linear.projectSlug" type="string">
+  Linear project slug. Found in your Linear project URL.
+</ParamField>

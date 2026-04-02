@@ -1,0 +1,88 @@
+---
+title: "Kata — Multi-Agent Orchestration"
+description: "AI coding agents that plan, execute, and ship. Five products for terminal, desktop, headless, and IDE-native workflows."
+---
+
+Kata is a suite of AI coding tools built for developers who want structured, autonomous execution — not just chat. Whether you're working solo in a terminal or running a fleet of agents across a Linear backlog, Kata has a product for the job.
+
+<CardGroup cols={2}>
+  <Card title="Kata CLI" icon="terminal" href="/cli/overview">
+    Terminal coding agent with guided and autonomous execution modes. Breaks work into milestones, slices, and tasks.
+  </Card>
+  <Card title="Kata Symphony" icon="music" href="/symphony/overview">
+    Headless orchestrator that polls Linear or GitHub and runs parallel agent sessions to close tickets end-to-end.
+  </Card>
+  <Card title="Kata Desktop" icon="desktop" href="/desktop/overview">
+    Electron app for multi-session agent work with MCP integrations, permission controls, and workspace management.
+  </Card>
+  <Card title="Kata Orchestrator" icon="diagram-project" href="/orchestrator/overview">
+    Spec-driven workflow harness for Claude Code, OpenCode, Gemini CLI, and Codex. Installs slash commands into your existing runtime.
+  </Card>
+</CardGroup>
+
+## Choose your product
+
+<CardGroup cols={2}>
+  <Card title="I want a terminal agent" icon="rocket" href="/quickstart">
+    Start with Kata CLI — the fastest way to get autonomous coding in your terminal.
+  </Card>
+  <Card title="I want to run agents at scale" icon="server" href="/symphony/overview">
+    Use Kata Symphony to dispatch parallel agents across your Linear backlog.
+  </Card>
+  <Card title="I want a desktop workspace" icon="window" href="/desktop/overview">
+    Download Kata Desktop for a visual, multi-session agent interface.
+  </Card>
+  <Card title="I already use Claude Code / Codex" icon="code" href="/orchestrator/overview">
+    Install Kata Orchestrator to add structured planning and execution phases to your existing runtime.
+  </Card>
+</CardGroup>
+
+## Quick start
+
+<Steps>
+  <Step title="Install Kata CLI">
+    Run Kata CLI directly with npx — no global install required:
+    ```bash
+    npx @kata-sh/cli
+    ```
+  </Step>
+  <Step title="Authenticate">
+    On first launch, Kata prompts you to log in. Run `/login` and choose your AI provider (Anthropic, OpenAI, Google, and more).
+  </Step>
+  <Step title="Start a project">
+    Tell Kata what you want to build. Use `/kata` to let it suggest the next step, or `/kata auto` to start autonomous execution.
+  </Step>
+  <Step title="Review and ship">
+    Kata breaks your work into milestones and slices, executes each in a fresh context window, and optionally manages the full PR lifecycle with GitHub.
+  </Step>
+</Steps>
+
+## What makes Kata different
+
+<AccordionGroup>
+  <Accordion title="Structured execution, not just chat">
+    Kata decomposes work into milestones, slices, and tasks — each sized to fit a single context window. Fresh context per task means the agent stays focused and doesn't accumulate noise.
+  </Accordion>
+  <Accordion title="Linear-backed project state">
+    All planning artifacts — milestones, slices, tasks, research, summaries — live in Linear. Your team can see exactly what the agent is working on alongside their own issues.
+  </Accordion>
+  <Accordion title="Full PR lifecycle management">
+    Kata creates branches, opens PRs, runs code review, addresses feedback, and merges — all autonomously or with approval gates you control.
+  </Accordion>
+  <Accordion title="Multi-runtime support">
+    Kata Orchestrator installs into Claude Code, OpenCode, Gemini CLI, and Codex. Same structured workflow regardless of which AI runtime you prefer.
+  </Accordion>
+  <Accordion title="Scale from one agent to many">
+    Start with Kata CLI in your terminal. When your backlog grows, connect Kata Symphony to run dozens of parallel agent sessions against your Linear project.
+  </Accordion>
+</AccordionGroup>
+
+## All products at a glance
+
+| Product | Install | Best for |
+|---|---|---|
+| [Kata CLI](/cli/overview) | `npx @kata-sh/cli` | Terminal-first coding with guided or autonomous execution |
+| [Kata Symphony](/symphony/overview) | Binary download or `cargo build` | Headless ticket-to-merge at scale |
+| [Kata Desktop](/desktop/overview) | GitHub Releases | Visual multi-session agent management |
+| [Kata Orchestrator](/orchestrator/overview) | `npx @kata-sh/orc@latest` | Structured phases inside Claude Code / Codex / Gemini |
+| [Kata Context](/context/overview) | `npx @kata/context` | Codebase indexing for AI agents |
