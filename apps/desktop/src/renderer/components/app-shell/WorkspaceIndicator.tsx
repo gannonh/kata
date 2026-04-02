@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { FolderOpen } from 'lucide-react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import {
   pickWorkspaceAtom,
@@ -6,6 +7,7 @@ import {
   switchWorkspaceAtom,
   workingDirectoryAtom,
 } from '@/atoms/session'
+import { Button } from '@/components/ui/button'
 
 function formatWorkspaceLabel(workspacePath: string): string {
   if (!workspacePath) {
@@ -48,15 +50,18 @@ export function WorkspaceIndicator() {
   }
 
   return (
-    <button
+    <Button
       type="button"
+      variant="outline"
+      size="sm"
       onClick={() => {
         void handlePickWorkspace()
       }}
       title={workingDirectory || 'Select working directory'}
-      className="max-w-[18rem] truncate rounded border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800"
+      className="max-w-[18rem] justify-start"
     >
-      📁 {workspaceLabel}
-    </button>
+      <FolderOpen data-icon="inline-start" />
+      <span className="truncate">{workspaceLabel}</span>
+    </Button>
   )
 }

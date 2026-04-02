@@ -7,6 +7,7 @@ import {
   type DesktopApi,
   type ExtensionUIRequest,
   type PermissionMode,
+  type ThinkingLevel,
 } from '../shared/types'
 
 const api: DesktopApi = {
@@ -69,6 +70,9 @@ const api: DesktopApi = {
   },
   setModel: async (model: string) => {
     return ipcRenderer.invoke(IPC_CHANNELS.sessionSetModel, model)
+  },
+  setThinkingLevel: async (level: ThinkingLevel) => {
+    return ipcRenderer.invoke(IPC_CHANNELS.sessionSetThinkingLevel, level)
   },
   sessions: {
     list: async () => {

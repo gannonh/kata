@@ -1,5 +1,10 @@
 import { useMemo } from 'react'
-import { Group, Panel, Separator, type Layout } from 'react-resizable-panels'
+import {
+  Group,
+  Panel,
+  Separator as PanelSeparator,
+  type Layout,
+} from 'react-resizable-panels'
 import { LeftPane } from './LeftPane'
 import { RightPane } from './RightPane'
 
@@ -50,10 +55,10 @@ export function AppShell() {
   const defaultLayout = useMemo(readInitialLayout, [])
 
   return (
-    <main className="h-full w-full bg-slate-950 text-slate-100">
+    <main className="size-full bg-background text-foreground">
       <Group
         orientation="horizontal"
-        className="h-full"
+        className="size-full"
         defaultLayout={defaultLayout}
         onLayoutChanged={(layout) => {
           try {
@@ -67,7 +72,7 @@ export function AppShell() {
           <LeftPane />
         </Panel>
 
-        <Separator className="w-px bg-slate-800 hover:bg-slate-600 transition-colors" />
+        <PanelSeparator className="w-px bg-border transition-colors hover:bg-accent" />
 
         <Panel id={RIGHT_PANEL_ID} defaultSize={defaultLayout[RIGHT_PANEL_ID]} minSize={20}>
           <RightPane />

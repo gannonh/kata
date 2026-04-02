@@ -1,33 +1,41 @@
 import { useEffect } from 'react'
 import { useAtom } from 'jotai'
+import { HelpCircle, Search, Zap } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import type { PermissionMode } from '@shared/types'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { cn } from '@/lib/utils'
 import { permissionModeAtom } from '@/atoms/permissions'
 
 const OPTIONS: Array<{
   value: PermissionMode
   label: string
-  icon: string
+  icon: LucideIcon
   description: string
 }> = [
   {
     value: 'explore',
     label: 'Explore',
-    icon: '🔍',
+    icon: Search,
     description: 'Block file-changing confirms',
   },
   {
     value: 'ask',
     label: 'Ask',
-    icon: '❓',
+    icon: HelpCircle,
     description: 'Prompt for confirm requests',
   },
   {
     value: 'auto',
     label: 'Auto',
-    icon: '⚡',
+    icon: Zap,
     description: 'Auto-approve confirm requests',
   },
 ]
+
+function isPermissionMode(value: string): value is PermissionMode {
+  return value === 'explore' || value === 'ask' || value === 'auto'
+}
 
 export function PermissionModeSelector() {
   const [mode, setMode] = useAtom(permissionModeAtom)
@@ -39,31 +47,37 @@ export function PermissionModeSelector() {
   }, [mode])
 
   return (
-    <div className="inline-flex rounded-lg border border-slate-700 bg-slate-900 p-1" role="radiogroup" aria-label="Permission mode">
+    <ToggleGroup
+      type="single"
+      value={mode}
+      variant="outline"
+      size="sm"
+      spacing={1}
+      className="rounded-lg border border-border bg-card p-1"
+      aria-label="Permission mode"
+      onValueChange={(value) => {
+        if (isPermissionMode(value)) {
+          setMode(value)
+        }
+      }}
+    >
       {OPTIONS.map((option) => {
         const selected = option.value === mode
+        const Icon = option.icon
 
         return (
-          <button
+          <ToggleGroupItem
             key={option.value}
-            type="button"
-            role="radio"
-            aria-checked={selected}
+            value={option.value}
+            aria-label={option.label}
             title={option.description}
-            onClick={() => setMode(option.value)}
-            className={`rounded px-2.5 py-1 text-xs transition ${
-              selected
-                ? 'bg-slate-100 text-slate-900'
-                : 'text-slate-300 hover:bg-slate-800 hover:text-slate-100'
-            }`}
+            className={cn('px-2.5 text-xs', selected && 'bg-muted text-foreground')}
           >
-            <span className="mr-1" aria-hidden="true">
-              {option.icon}
-            </span>
+            <Icon data-icon="inline-start" />
             {option.label}
-          </button>
-        )}
-      )}
-    </div>
+          </ToggleGroupItem>
+        )
+      })}
+    </ToggleGroup>
   )
 }

@@ -1,7 +1,11 @@
 import { useMemo, useState } from 'react'
-import * as Collapsible from '@radix-ui/react-collapsible'
 import { ShikiDiffViewer } from '@kata-ui/components/code-viewer/ShikiDiffViewer'
 import { getLanguageFromPath, truncateFilePath } from '@kata-ui/components/code-viewer/language-map'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { cn } from '@/lib/utils'
 import type { ToolCallView } from '@/atoms/chat'
 import { asNumber, asRecord, asString, countTextLines } from './toolCardUtils'
 
@@ -189,63 +193,73 @@ function createDiffViewModel(tool: ToolCallView): DiffViewModel {
   }
 }
 
+function getStatusBadgeClass(status: ToolCallView['status']): string {
+  return cn(
+    'border uppercase tracking-wide text-[10px]',
+    status === 'error' && 'border-red-500/40 bg-red-500/15 text-red-700 dark:text-red-300',
+    status === 'done' && 'border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
+    status === 'running' && 'border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-300',
+  )
+}
+
 export function FileEditCard({ tool }: FileEditCardProps) {
   const diffModel = useMemo(() => createDiffViewModel(tool), [tool])
   const [isOpen, setIsOpen] = useState(tool.status !== 'done')
-
-  const statusClass =
-    tool.status === 'error'
-      ? 'border-red-500/40 bg-red-500/20 text-red-100'
-      : tool.status === 'done'
-        ? 'border-emerald-500/40 bg-emerald-500/20 text-emerald-100'
-        : 'border-amber-500/40 bg-amber-500/20 text-amber-100'
 
   const fileLabel = truncateFilePath(diffModel.filePath, 68)
   const language = getLanguageFromPath(diffModel.filePath)
 
   return (
-    <Collapsible.Root
-      className="rounded-md border border-slate-700 bg-slate-900/60"
-      open={isOpen}
-      onOpenChange={setIsOpen}
-    >
-      <Collapsible.Trigger className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left">
-        <div className="min-w-0">
-          <p className="truncate text-xs font-semibold text-slate-100">edit · {fileLabel}</p>
-          <p className="text-[11px] text-slate-400">
-            +{diffModel.additions} / -{diffModel.deletions} · {language}
-          </p>
-        </div>
-        <span className={`rounded border px-2 py-0.5 text-[10px] uppercase tracking-wide ${statusClass}`}>
-          {tool.status}
-        </span>
-      </Collapsible.Trigger>
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <Card className="gap-0 py-0">
+        <CardHeader className="px-0 py-0">
+          <CollapsibleTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-auto w-full justify-between rounded-none px-3 py-2 hover:bg-accent"
+            >
+              <div className="min-w-0 text-left">
+                <p className="truncate text-xs font-semibold text-foreground">edit · {fileLabel}</p>
+                <p className="text-[11px] text-muted-foreground">
+                  +{diffModel.additions} / -{diffModel.deletions} · {language}
+                </p>
+              </div>
+              <Badge variant="outline" className={getStatusBadgeClass(tool.status)}>
+                {tool.status}
+              </Badge>
+            </Button>
+          </CollapsibleTrigger>
+        </CardHeader>
 
-      <Collapsible.Content className="space-y-2 border-t border-slate-700 px-3 py-2">
-        {diffModel.parseError && (
-          <p className="rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-xs text-amber-200">
-            rendering failed: {diffModel.parseError}
-          </p>
-        )}
+        <CollapsibleContent>
+          <CardContent className="flex flex-col gap-2 border-t border-border px-3 py-2">
+            {diffModel.parseError && (
+              <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-xs text-amber-700 dark:text-amber-300">
+                rendering failed: {diffModel.parseError}
+              </p>
+            )}
 
-        {diffModel.original || diffModel.modified ? (
-          <div className="h-[20rem] overflow-hidden rounded border border-slate-700 bg-slate-950">
-            <ShikiDiffViewer
-              filePath={diffModel.filePath}
-              language={language}
-              original={diffModel.original}
-              modified={diffModel.modified}
-              diffStyle="unified"
-              theme="dark"
-              disableFileHeader={false}
-            />
-          </div>
-        ) : (
-          <pre className="max-h-60 overflow-auto rounded bg-slate-950 p-2 text-xs text-slate-200">
-            {JSON.stringify({ args: tool.args, result: tool.result, error: tool.error }, null, 2)}
-          </pre>
-        )}
-      </Collapsible.Content>
-    </Collapsible.Root>
+            {diffModel.original || diffModel.modified ? (
+              <div className="h-[20rem] overflow-hidden rounded-md border border-border bg-background">
+                <ShikiDiffViewer
+                  filePath={diffModel.filePath}
+                  language={language}
+                  original={diffModel.original}
+                  modified={diffModel.modified}
+                  diffStyle="unified"
+                  theme="dark"
+                  disableFileHeader={false}
+                />
+              </div>
+            ) : (
+              <pre className="max-h-60 overflow-auto rounded-md border border-border bg-background p-2 text-xs text-foreground">
+                {JSON.stringify({ args: tool.args, result: tool.result, error: tool.error }, null, 2)}
+              </pre>
+            )}
+          </CardContent>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
   )
 }

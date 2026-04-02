@@ -7,6 +7,10 @@ import {
   type ExtensionUIResponse,
   type ExtensionUISelectRequest,
 } from '@shared/types'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
+import { cn } from '@/lib/utils'
 import { permissionModeAtom } from '@/atoms/permissions'
 import { ToolApprovalDialog } from './ToolApprovalDialog'
 
@@ -87,6 +91,26 @@ function normalizeOptions(request: ExtensionUISelectRequest): Array<{ label: str
 
 function makeToastId(prefix: string): string {
   return `${prefix}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`
+}
+
+function getToastClass(level: ToastItem['level']): string {
+  return cn(
+    'rounded-md border px-3 py-2 text-xs shadow-xl',
+    level === 'error' && 'border-red-500/50 bg-red-500/15 text-red-700 dark:text-red-200',
+    level === 'warning' && 'border-amber-500/50 bg-amber-500/15 text-amber-700 dark:text-amber-200',
+    level === 'success' && 'border-emerald-500/50 bg-emerald-500/15 text-emerald-700 dark:text-emerald-200',
+    level === 'info' && 'border-border bg-card text-foreground',
+  )
+}
+
+function getToastBadgeClass(level: ToastItem['level']): string {
+  return cn(
+    'border text-[10px] uppercase tracking-wide',
+    level === 'error' && 'border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-200',
+    level === 'warning' && 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-200',
+    level === 'success' && 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200',
+    level === 'info' && 'border-border bg-muted text-muted-foreground',
+  )
 }
 
 export function ExtensionUIHandler() {
@@ -299,18 +323,18 @@ export function ExtensionUIHandler() {
       />
 
       {activeSelectRequest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 px-4">
-          <div className="w-full max-w-xl rounded-xl border border-slate-700 bg-slate-900 shadow-2xl">
-            <header className="border-b border-slate-700 px-4 py-3">
-              <p className="text-[11px] uppercase tracking-wide text-slate-400">Select value</p>
-              <h2 className="mt-1 text-sm font-semibold text-slate-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-xl rounded-xl border border-border bg-card shadow-2xl">
+            <header className="border-b border-border px-4 py-3">
+              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Select value</p>
+              <h2 className="mt-1 text-sm font-semibold text-foreground">
                 {activeSelectRequest.title ?? activeSelectRequest.message ?? 'Choose an option'}
               </h2>
             </header>
 
-            <div className="max-h-72 space-y-2 overflow-auto p-4">
+            <div className="flex max-h-72 flex-col gap-2 overflow-auto p-4">
               {selectOptions.length === 0 && (
-                <p className="rounded border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-300">
+                <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
                   No options were provided for this select request.
                 </p>
               )}
@@ -318,7 +342,7 @@ export function ExtensionUIHandler() {
               {selectOptions.map((option) => (
                 <label
                   key={option.value}
-                  className="flex cursor-pointer items-start gap-2 rounded border border-slate-700 bg-slate-950 px-3 py-2"
+                  className="flex cursor-pointer items-start gap-2 rounded-md border border-border bg-background px-3 py-2"
                 >
                   <input
                     type="radio"
@@ -329,19 +353,20 @@ export function ExtensionUIHandler() {
                     className="mt-0.5"
                   />
                   <span>
-                    <span className="block text-sm text-slate-100">{option.label}</span>
+                    <span className="block text-sm text-foreground">{option.label}</span>
                     {option.description && (
-                      <span className="block text-xs text-slate-400">{option.description}</span>
+                      <span className="block text-xs text-muted-foreground">{option.description}</span>
                     )}
                   </span>
                 </label>
               ))}
             </div>
 
-            <footer className="flex items-center justify-end gap-2 border-t border-slate-700 px-4 py-3">
-              <button
+            <footer className="flex items-center justify-end gap-2 border-t border-border px-4 py-3">
+              <Button
                 type="button"
-                className="rounded border border-slate-600 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800"
+                size="sm"
+                variant="outline"
                 onClick={() => {
                   void (async () => {
                     const requestId = activeSelectRequest.id
@@ -353,10 +378,12 @@ export function ExtensionUIHandler() {
                 }}
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
-                className="rounded border border-emerald-500/50 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-100 hover:bg-emerald-500/20"
+                size="sm"
+                variant="secondary"
+                className="border-emerald-500/40 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-200"
                 onClick={() => {
                   void (async () => {
                     const requestId = activeSelectRequest.id
@@ -369,35 +396,36 @@ export function ExtensionUIHandler() {
                 disabled={!selectedValue}
               >
                 Submit
-              </button>
+              </Button>
             </footer>
           </div>
         </div>
       )}
 
       {activeInputRequest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 px-4">
-          <div className="w-full max-w-xl rounded-xl border border-slate-700 bg-slate-900 shadow-2xl">
-            <header className="border-b border-slate-700 px-4 py-3">
-              <p className="text-[11px] uppercase tracking-wide text-slate-400">Input requested</p>
-              <h2 className="mt-1 text-sm font-semibold text-slate-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-xl rounded-xl border border-border bg-card shadow-2xl">
+            <header className="border-b border-border px-4 py-3">
+              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Input requested</p>
+              <h2 className="mt-1 text-sm font-semibold text-foreground">
                 {activeInputRequest.title ?? activeInputRequest.message ?? 'Provide input'}
               </h2>
             </header>
 
-            <div className="space-y-2 p-4">
-              <textarea
+            <div className="flex flex-col gap-2 p-4">
+              <Textarea
                 value={inputValue}
                 onChange={(event) => setInputValue(event.target.value)}
                 placeholder={typeof activeInputRequest.placeholder === 'string' ? activeInputRequest.placeholder : 'Type a response...'}
-                className="h-28 w-full resize-none rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-slate-500"
+                className="h-28 resize-none bg-background"
               />
             </div>
 
-            <footer className="flex items-center justify-end gap-2 border-t border-slate-700 px-4 py-3">
-              <button
+            <footer className="flex items-center justify-end gap-2 border-t border-border px-4 py-3">
+              <Button
                 type="button"
-                className="rounded border border-slate-600 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800"
+                size="sm"
+                variant="outline"
                 onClick={() => {
                   void (async () => {
                     const requestId = activeInputRequest.id
@@ -409,10 +437,12 @@ export function ExtensionUIHandler() {
                 }}
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
-                className="rounded border border-emerald-500/50 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-100 hover:bg-emerald-500/20"
+                size="sm"
+                variant="secondary"
+                className="border-emerald-500/40 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-200"
                 onClick={() => {
                   void (async () => {
                     const requestId = activeInputRequest.id
@@ -424,31 +454,25 @@ export function ExtensionUIHandler() {
                 }}
               >
                 Submit
-              </button>
+              </Button>
             </footer>
           </div>
         </div>
       )}
 
       {toasts.length > 0 && (
-        <div className="pointer-events-none fixed bottom-4 right-4 z-50 flex w-96 max-w-[calc(100vw-2rem)] flex-col gap-2">
-          {toasts.map((toast) => {
-            const levelClass =
-              toast.level === 'error'
-                ? 'border-red-500/50 bg-red-500/20 text-red-100'
-                : toast.level === 'warning'
-                  ? 'border-amber-500/50 bg-amber-500/20 text-amber-100'
-                  : toast.level === 'success'
-                    ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-100'
-                    : 'border-slate-600 bg-slate-800/95 text-slate-100'
-
-            return (
-              <div key={toast.id} className={`rounded border px-3 py-2 text-xs shadow-xl ${levelClass}`}>
+        <div className="pointer-events-none fixed right-4 bottom-4 z-50 flex w-96 max-w-[calc(100vw-2rem)] flex-col gap-2">
+          {toasts.map((toast) => (
+            <div key={toast.id} className={getToastClass(toast.level)}>
+              <div className="flex items-center justify-between gap-2">
                 <p className="font-semibold">{toast.title}</p>
-                <p className="mt-0.5 text-[11px] opacity-90">{toast.message}</p>
+                <Badge variant="outline" className={getToastBadgeClass(toast.level)}>
+                  {toast.level}
+                </Badge>
               </div>
-            )
-          })}
+              <p className="mt-0.5 text-[11px] opacity-90">{toast.message}</p>
+            </div>
+          ))}
         </div>
       )}
     </>

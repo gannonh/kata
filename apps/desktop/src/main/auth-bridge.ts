@@ -17,6 +17,14 @@ import {
 
 const DEFAULT_AUTH_PATH = path.join(homedir(), '.kata-cli', 'agent', 'auth.json')
 
+/**
+ * The CLI stores some providers under variant key names in auth.json.
+ * Map canonical AuthProvider → alternate keys to check.
+ */
+const AUTH_PROVIDER_ALIASES: Partial<Record<AuthProvider, string[]>> = {
+  openai: ['openai-codex'],
+}
+
 interface ValidationConfig {
   url: (key: string) => string
   init: (key: string) => RequestInit
@@ -85,6 +93,10 @@ const UNSUPPORTED_PROVIDER_MESSAGES: Partial<Record<AuthProvider, string>> = {
 
 export class AuthBridge {
   constructor(private readonly authFilePath = DEFAULT_AUTH_PATH) {}
+
+  public getAuthFilePath(): string {
+    return this.authFilePath
+  }
 
   public async getProviders(): Promise<AuthProvidersResponse> {
     try {
@@ -322,10 +334,32 @@ export class AuthBridge {
   private toProviderStatusMap(auth: AuthRecord): ProviderStatusMap {
     const entries = ALL_AUTH_PROVIDERS.map((provider) => [
       provider,
-      this.toProviderInfo(provider, auth[provider]),
+      this.toProviderInfo(provider, this.resolveAuthRecord(auth, provider)),
     ])
 
     return Object.fromEntries(entries) as ProviderStatusMap
+  }
+
+  /**
+   * Resolve the auth record for a canonical provider, checking alias keys.
+   * The CLI stores some providers under variant names (e.g. 'openai-codex'
+   * instead of 'openai'). Check the canonical key first, then known aliases.
+   */
+  private resolveAuthRecord(auth: AuthRecord, provider: AuthProvider): AuthRecordEntry | undefined {
+    if (auth[provider]) {
+      return auth[provider]
+    }
+
+    const aliases = AUTH_PROVIDER_ALIASES[provider]
+    if (aliases) {
+      for (const alias of aliases) {
+        if (auth[alias]) {
+          return auth[alias]
+        }
+      }
+    }
+
+    return undefined
   }
 
   private emptyProviderStatusMap(): ProviderStatusMap {

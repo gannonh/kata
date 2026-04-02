@@ -1,6 +1,10 @@
 import { useMemo, useState } from 'react'
-import * as Collapsible from '@radix-ui/react-collapsible'
 import { TerminalOutput } from '@kata-ui/components/terminal/TerminalOutput'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { cn } from '@/lib/utils'
 import type { ToolCallView } from '@/atoms/chat'
 import { asNumber, asRecord, asString } from './toolCardUtils'
 
@@ -44,52 +48,65 @@ function buildBashViewModel(tool: ToolCallView): BashViewModel {
   }
 }
 
+function getStatusBadgeClass(status: ToolCallView['status']): string {
+  return cn(
+    'border uppercase tracking-wide text-[10px]',
+    status === 'error' && 'border-red-500/40 bg-red-500/15 text-red-700 dark:text-red-300',
+    status === 'done' && 'border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
+    status === 'running' && 'border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-300',
+  )
+}
+
 export function BashOutputCard({ tool }: BashOutputCardProps) {
   const [isOpen, setIsOpen] = useState(tool.status !== 'done')
   const view = useMemo(() => buildBashViewModel(tool), [tool])
 
-  const statusClass =
-    tool.status === 'error'
-      ? 'border-red-500/40 bg-red-500/20 text-red-100'
-      : tool.status === 'done'
-        ? 'border-emerald-500/40 bg-emerald-500/20 text-emerald-100'
-        : 'border-amber-500/40 bg-amber-500/20 text-amber-100'
-
-  const exitClass =
+  const exitClass = cn(
+    'border text-[10px]',
     view.exitCode === undefined || view.exitCode === 0
-      ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-200'
-      : 'border-red-500/40 bg-red-500/15 text-red-200'
+      ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+      : 'border-red-500/40 bg-red-500/15 text-red-700 dark:text-red-300',
+  )
 
   return (
-    <Collapsible.Root
-      className="rounded-md border border-slate-700 bg-slate-900/60"
-      open={isOpen}
-      onOpenChange={setIsOpen}
-    >
-      <Collapsible.Trigger className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left">
-        <div className="min-w-0">
-          <p className="truncate text-xs font-semibold text-slate-100">bash · {view.command}</p>
-          <div className="mt-1 flex items-center gap-2">
-            {view.exitCode !== undefined && (
-              <span className={`rounded border px-1.5 py-0.5 text-[10px] ${exitClass}`}>
-                exit {view.exitCode}
-              </span>
-            )}
-            <span className="text-[11px] text-slate-400">
-              {(view.output || '').split('\n').filter(Boolean).length} lines
-            </span>
-          </div>
-        </div>
-        <span className={`rounded border px-2 py-0.5 text-[10px] uppercase tracking-wide ${statusClass}`}>
-          {tool.status}
-        </span>
-      </Collapsible.Trigger>
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <Card className="gap-0 py-0">
+        <CardHeader className="px-0 py-0">
+          <CollapsibleTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-auto w-full justify-between rounded-none px-3 py-2 hover:bg-accent"
+            >
+              <div className="min-w-0 text-left">
+                <p className="truncate text-xs font-semibold text-foreground">bash · {view.command}</p>
+                <div className="mt-1 flex items-center gap-2">
+                  {view.exitCode !== undefined && (
+                    <Badge variant="outline" className={exitClass}>
+                      exit {view.exitCode}
+                    </Badge>
+                  )}
+                  <span className="text-[11px] text-muted-foreground">
+                    {(view.output || '').split('\n').filter(Boolean).length} lines
+                  </span>
+                </div>
+              </div>
 
-      <Collapsible.Content className="border-t border-slate-700 px-3 py-2">
-        <div className="max-h-[24rem] overflow-auto rounded border border-slate-700 bg-slate-950">
-          <TerminalOutput command={view.command} output={view.output} exitCode={view.exitCode} theme="dark" toolType="bash" />
-        </div>
-      </Collapsible.Content>
-    </Collapsible.Root>
+              <Badge variant="outline" className={getStatusBadgeClass(tool.status)}>
+                {tool.status}
+              </Badge>
+            </Button>
+          </CollapsibleTrigger>
+        </CardHeader>
+
+        <CollapsibleContent>
+          <CardContent className="border-t border-border px-3 py-2">
+            <div className="max-h-[24rem] overflow-auto rounded-md border border-border bg-background">
+              <TerminalOutput command={view.command} output={view.output} exitCode={view.exitCode} theme="dark" toolType="bash" />
+            </div>
+          </CardContent>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
   )
 }

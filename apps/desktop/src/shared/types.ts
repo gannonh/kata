@@ -10,6 +10,7 @@ export const IPC_CHANNELS = {
   sessionPermissionMode: 'session:permission-mode',
   sessionGetAvailableModels: 'session:get-available-models',
   sessionSetModel: 'session:set-model',
+  sessionSetThinkingLevel: 'session:set-thinking-level',
   sessionList: 'session:list',
   sessionNew: 'session:new',
   sessionGetInfo: 'session:get-info',
@@ -23,6 +24,8 @@ export const IPC_CHANNELS = {
 } as const
 
 export type PermissionMode = 'explore' | 'ask' | 'auto'
+
+export type ThinkingLevel = 'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'
 
 export const ALL_AUTH_PROVIDERS = [
   'anthropic',
@@ -94,6 +97,7 @@ export interface AvailableModel {
   id: string
   contextWindow?: number
   reasoning?: boolean
+  supportsXhigh?: boolean
 }
 
 export interface AvailableModelsResponse {
@@ -105,6 +109,12 @@ export interface AvailableModelsResponse {
 export interface SetModelResponse {
   success: boolean
   model?: string
+  error?: string
+}
+
+export interface SetThinkingLevelResponse {
+  success: boolean
+  level?: ThinkingLevel
   error?: string
 }
 
@@ -159,12 +169,16 @@ export type RpcCommandType =
   | 'follow_up'
   | 'get_available_models'
   | 'set_model'
+  | 'set_thinking_level'
 
 export interface RpcCommand {
   type: RpcCommandType
   id?: string
   message?: string
   model?: string
+  provider?: string
+  modelId?: string
+  level?: ThinkingLevel
 }
 
 export interface CommandResult {
@@ -219,7 +233,7 @@ export interface UnknownToolArgs {
 export type ToolArgs = EditArgs | BashArgs | ReadArgs | WriteArgs | UnknownToolArgs
 
 export interface EditResult {
-  path: string
+  path?: string
   diff: string
   linesAdded: number
   linesRemoved: number
@@ -239,7 +253,7 @@ export interface BashResult {
 }
 
 export interface ReadResult {
-  path: string
+  path?: string
   content: string
   language: string
   totalLines: number
@@ -248,7 +262,7 @@ export interface ReadResult {
 }
 
 export interface WriteResult {
-  path: string
+  path?: string
   content: string
   bytesWritten: number
   raw?: unknown
@@ -325,7 +339,7 @@ export type ChatEvent =
   | { type: 'message_start'; messageId: string; role: 'assistant' | 'user' }
   | { type: 'text_delta'; messageId: string; delta: string }
   | { type: 'message_end'; messageId: string; text?: string }
-  | { type: 'tool_start'; toolCallId: string; toolName: string; args: ToolArgs }
+  | { type: 'tool_start'; toolCallId: string; toolName: string; args: ToolArgs; parentMessageId?: string }
   | {
       type: 'tool_update'
       toolCallId: string
@@ -349,6 +363,9 @@ export type ChatEvent =
       signal: NodeJS.Signals | null
       stderrLines: string[]
     }
+  | { type: 'thinking_start'; messageId: string }
+  | { type: 'thinking_delta'; messageId: string; delta: string }
+  | { type: 'thinking_end'; messageId: string; content: string }
 
 export interface BridgeState {
   running: boolean
@@ -371,6 +388,7 @@ export interface DesktopApi {
   setPermissionMode: (mode: PermissionMode) => Promise<void>
   getAvailableModels: () => Promise<AvailableModelsResponse>
   setModel: (model: string) => Promise<SetModelResponse>
+  setThinkingLevel: (level: ThinkingLevel) => Promise<SetThinkingLevelResponse>
   sessions: {
     list: () => Promise<SessionListResponse>
     create: () => Promise<CreateSessionResponse>

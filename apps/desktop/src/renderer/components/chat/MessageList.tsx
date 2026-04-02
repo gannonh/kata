@@ -1,5 +1,6 @@
 import type { ChatMessageView, ToolCallView } from '@/atoms/chat'
 import { StreamingMessage } from './StreamingMessage'
+import { ThinkingBlock } from './ThinkingBlock'
 import { ToolCallCard } from './ToolCallCard'
 
 interface MessageListProps {
@@ -8,28 +9,65 @@ interface MessageListProps {
 }
 
 export function MessageList({ messages, tools }: MessageListProps) {
+  // Index tool calls by parentMessageId so we can render them inline after their
+  // triggering assistant message.
+  const toolsByParent = new Map<string, ToolCallView[]>()
+
+  for (const tool of tools) {
+    if (tool.parentMessageId) {
+      const existing = toolsByParent.get(tool.parentMessageId) ?? []
+      existing.push(tool)
+      toolsByParent.set(tool.parentMessageId, existing)
+    }
+  }
+
   return (
-    <div className="space-y-4 px-4 py-4">
-      {messages.map((message) => (
-        <article key={message.id} className="space-y-1">
-          <p className="text-[11px] uppercase tracking-wide text-slate-400">{message.role}</p>
+    <div className="flex flex-col gap-4 px-4 py-4">
+      {messages.map((message) => {
+        const ownedTools = toolsByParent.get(message.id) ?? []
 
-          {message.role === 'assistant' ? (
-            <StreamingMessage content={message.content} isStreaming={message.streaming} />
-          ) : (
-            <div className="rounded-lg bg-slate-700/80 px-3 py-2 text-sm text-slate-100">{message.content}</div>
-          )}
-        </article>
-      ))}
+        // Filter ghost entries: assistant messages with no visible content and no tool calls
+        const isGhost =
+          message.role === 'assistant' &&
+          message.content.length === 0 &&
+          !message.streaming &&
+          message.thinking === undefined &&
+          !message.isThinking &&
+          ownedTools.length === 0
+        if (isGhost) return null
 
-      {tools.length > 0 && (
-        <section className="space-y-2">
-          <p className="text-[11px] uppercase tracking-wide text-slate-400">Tool calls</p>
-          {tools.map((tool) => (
-            <ToolCallCard key={tool.id} tool={tool} />
-          ))}
-        </section>
-      )}
+        if (message.role === 'user') {
+          return (
+            <article key={message.id} className="flex justify-end">
+              <div className="max-w-[80%] whitespace-pre-wrap break-words rounded-2xl bg-muted px-4 py-2.5 text-sm text-foreground">
+                {message.content}
+              </div>
+            </article>
+          )
+        }
+
+        // Assistant messages — no container, flat against background
+        return (
+          <article key={message.id} className="flex flex-col gap-1">
+            {(message.thinking !== undefined || message.isThinking) && (
+              <ThinkingBlock
+                content={message.thinking ?? ''}
+                isThinking={message.isThinking}
+              />
+            )}
+            {(message.content.length > 0 || message.streaming) && (
+              <StreamingMessage content={message.content} isStreaming={message.streaming} />
+            )}
+            {ownedTools.length > 0 && (
+              <div className="flex flex-col gap-2 pt-1">
+                {ownedTools.map((tool) => (
+                  <ToolCallCard key={tool.id} tool={tool} />
+                ))}
+              </div>
+            )}
+          </article>
+        )
+      })}
     </div>
   )
 }
