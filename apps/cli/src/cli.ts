@@ -84,7 +84,7 @@ if (!isPrintMode && !isRpcMode) {
   await runWizardIfNeeded(authStorage)
 }
 
-const modelRegistry = new ModelRegistry(authStorage)
+const modelRegistry = ModelRegistry.create(authStorage)
 
 const settingsManager = SettingsManager.create(agentDir)
 
