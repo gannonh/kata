@@ -10,7 +10,7 @@ import {
   messagesAtom,
   toolCallsAtom,
 } from '@/atoms/chat'
-import { refreshSessionListAtom } from '@/atoms/session'
+import { refreshSessionListAtom, sessionHistoryErrorAtom } from '@/atoms/session'
 import { ErrorBanner } from './ErrorBanner'
 import { ExtensionUIHandler } from './ExtensionUIHandler'
 import { MessageInput } from './MessageInput'
@@ -24,6 +24,7 @@ export function ChatPanel() {
   const error = useAtomValue(errorAtom)
   const isStreaming = useAtomValue(isStreamingAtom)
   const bridgeStatus = useAtomValue(bridgeStatusAtom)
+  const sessionHistoryError = useAtomValue(sessionHistoryErrorAtom)
 
   const appendUserMessage = useSetAtom(appendUserMessageAtom)
   const applyChatEvent = useSetAtom(applyChatEventAtom)
@@ -90,6 +91,11 @@ export function ChatPanel() {
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-auto">
+        {sessionHistoryError && (
+          <div className="border-b border-rose-500/30 bg-rose-500/10 px-4 py-2 text-xs text-rose-200">
+            Unable to load session history: {sessionHistoryError}
+          </div>
+        )}
         <MessageList messages={messages} tools={tools} />
       </div>
 

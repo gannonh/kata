@@ -92,6 +92,20 @@ export const applyChatEventAtom = atom(null, (get, set, event: ChatEvent) => {
       return
     }
 
+    case 'history_user_message': {
+      set(messagesAtom, [
+        ...get(messagesAtom),
+        {
+          id: event.messageId,
+          role: 'user',
+          content: event.text,
+          streaming: false,
+          isThinking: false,
+        },
+      ])
+      return
+    }
+
     case 'message_start': {
       if (event.role !== 'assistant') {
         return

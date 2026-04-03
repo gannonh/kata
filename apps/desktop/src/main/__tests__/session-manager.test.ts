@@ -228,6 +228,43 @@ describe('DesktopSessionManager', () => {
     expect(result.warnings.join('\n')).toContain('Invalid JSON at line 2')
   })
 
+  test('resolveSessionPathById returns matching session path for workspace-scoped ID', async () => {
+    const manager = new DesktopSessionManager(sessionsDir)
+    const workspaceA = path.join(tempDir, 'workspace-a')
+    const workspaceB = path.join(tempDir, 'workspace-b')
+
+    await fs.mkdir(workspaceA, { recursive: true })
+    await fs.mkdir(workspaceB, { recursive: true })
+
+    const targetPath = path.join(sessionsDir, 'target-session.jsonl')
+    const otherPath = path.join(sessionsDir, 'other-session.jsonl')
+
+    await writeJsonl(targetPath, [
+      {
+        id: 'target-session',
+        cwd: workspaceA,
+      },
+    ])
+
+    await writeJsonl(otherPath, [
+      {
+        id: 'target-session',
+        cwd: workspaceB,
+      },
+    ])
+
+    await expect(manager.resolveSessionPathById('target-session', workspaceA)).resolves.toBe(
+      targetPath,
+    )
+    await expect(manager.resolveSessionPathById('target-session', workspaceB)).resolves.toBe(
+      otherPath,
+    )
+    await expect(manager.resolveSessionPathById('missing', workspaceA)).resolves.toBeNull()
+    await expect(manager.resolveSessionPathById('   ', workspaceA)).rejects.toThrow(
+      'Session ID is required',
+    )
+  })
+
   test('getSessionInfo resolves relative paths and extracts model/provider/token usage from message payload', async () => {
     const manager = new DesktopSessionManager(sessionsDir)
     const filePath = path.join(sessionsDir, 'nested', 'rich-session.jsonl')
