@@ -26,6 +26,7 @@ import {
   buildPlanningArtifactKey,
   type PlanningArtifact,
   type PlanningArtifactEvent,
+  type PlanningSliceData,
   type PlanningArtifactFetchResponse,
   type PlanningArtifactFetchStateEvent,
   type PlanningArtifactListResponse,
@@ -34,6 +35,7 @@ import {
   type SetThinkingLevelResponse,
   type ThinkingLevel,
   type WorkspaceInfo,
+  type ArtifactType,
 } from '../shared/types'
 
 interface RegisterIpcOptions {
@@ -181,6 +183,7 @@ export function registerSessionIpc({
         ...fetchedArtifact,
         scope,
         artifactKey,
+        artifactType: detectArtifactTypeFromTitle(fetchedArtifact.title),
       }
 
       planningArtifactsByKey.set(artifactKey, artifact)
@@ -202,9 +205,91 @@ export function registerSessionIpc({
     }
   }
 
+  const upsertPlanningArtifact = (artifact: PlanningArtifact): void => {
+    planningArtifactsByKey.set(artifact.artifactKey, artifact)
+    planningLatestKeyByTitle.set(artifact.title, artifact.artifactKey)
+    sendPlanningArtifactToRenderer(artifact)
+  }
+
   const onPlanningArtifactEvent = (planningEvent: PlanningArtifactEvent): void => {
     planningMetadataByKey.set(planningEvent.artifactKey, planningEvent)
     planningLatestKeyByTitle.set(planningEvent.title, planningEvent.artifactKey)
+
+    if (planningEvent.eventType === 'slice_created' && planningEvent.slice) {
+      const existingArtifact = planningArtifactsByKey.get(planningEvent.artifactKey)
+      const existingSliceData = existingArtifact?.sliceData
+      const tasks = existingSliceData?.tasks ?? []
+
+      const sliceData: PlanningSliceData = {
+        id: planningEvent.slice.id,
+        title: planningEvent.slice.title,
+        description: planningEvent.slice.description,
+        issueId: planningEvent.slice.issueId ?? planningEvent.issueId,
+        tasks,
+      }
+
+      upsertPlanningArtifact({
+        title: planningEvent.title,
+        artifactKey: planningEvent.artifactKey,
+        content: sliceData.description,
+        updatedAt: new Date().toISOString(),
+        scope: planningEvent.scope,
+        projectId: planningEvent.projectId,
+        issueId: planningEvent.issueId,
+        artifactType: 'slice',
+        sliceData,
+      })
+
+      return
+    }
+
+    if (planningEvent.eventType === 'task_created' && planningEvent.task) {
+      const targetSliceIssueId = planningEvent.targetSliceIssueId ?? planningEvent.issueId
+      const targetSliceArtifact = Array.from(planningArtifactsByKey.values()).find((artifact) => {
+        if (artifact.artifactType !== 'slice') {
+          return false
+        }
+
+        return (
+          artifact.issueId === targetSliceIssueId || artifact.sliceData?.issueId === targetSliceIssueId
+        )
+      })
+
+      if (!targetSliceArtifact) {
+        log.warn('[desktop-ipc] unable to append task: slice artifact not found', {
+          taskId: planningEvent.task.id,
+          targetSliceIssueId,
+          artifactKey: planningEvent.artifactKey,
+        })
+        return
+      }
+
+      const currentSliceData =
+        targetSliceArtifact.sliceData ??
+        ({
+          id: extractSliceIdFromTitle(targetSliceArtifact.title) ?? 'S00',
+          title: targetSliceArtifact.title,
+          description: targetSliceArtifact.content,
+          issueId: targetSliceIssueId,
+          tasks: [],
+        } satisfies PlanningSliceData)
+
+      const existingTasks = currentSliceData.tasks
+      const hasTask = existingTasks.some((task) => task.id === planningEvent.task?.id)
+      const nextTasks = hasTask ? existingTasks : [...existingTasks, planningEvent.task]
+
+      upsertPlanningArtifact({
+        ...targetSliceArtifact,
+        updatedAt: new Date().toISOString(),
+        artifactType: 'slice',
+        sliceData: {
+          ...currentSliceData,
+          tasks: nextTasks,
+        },
+      })
+
+      return
+    }
 
     sendPlanningFetchStateToRenderer({
       state: 'start',
@@ -676,4 +761,35 @@ export function registerSessionIpc({
     ipcMain.removeHandler(IPC_CHANNELS.planningFetchArtifact)
     ipcMain.removeHandler(IPC_CHANNELS.planningListArtifacts)
   }
+}
+
+function detectArtifactTypeFromTitle(title: string): ArtifactType | undefined {
+  const normalized = title.trim().toUpperCase()
+
+  if (/-ROADMAP(?:\b|$)/.test(normalized) || normalized === 'ROADMAP') {
+    return 'roadmap'
+  }
+
+  if (normalized === 'REQUIREMENTS' || /-REQUIREMENTS(?:\b|$)/.test(normalized)) {
+    return 'requirements'
+  }
+
+  if (normalized === 'DECISIONS' || /-DECISIONS(?:\b|$)/.test(normalized)) {
+    return 'decisions'
+  }
+
+  if (/-CONTEXT(?:\b|$)/.test(normalized) || normalized === 'CONTEXT') {
+    return 'context'
+  }
+
+  if (/^\[S\d+\]\s+/.test(title.trim()) || /^S\d+[:\-\s]/.test(title.trim())) {
+    return 'slice'
+  }
+
+  return undefined
+}
+
+function extractSliceIdFromTitle(title: string): string | undefined {
+  const match = title.match(/S\d+/i)
+  return match?.[0]?.toUpperCase()
 }

@@ -11,9 +11,10 @@ export interface ArtifactTabsProps {
 
 const TYPE_SORT_ORDER: Record<string, number> = {
   roadmap: 0,
-  requirements: 1,
-  decisions: 2,
-  context: 3,
+  slice: 1,
+  requirements: 2,
+  decisions: 3,
+  context: 4,
 }
 
 const TYPE_LABEL: Record<string, string> = {
@@ -86,6 +87,10 @@ export function ArtifactTabs({
 function formatArtifactTitle(title: string, typeCounts: Record<string, number>): string {
   const detectedType = detectArtifactType(title)
   if (!detectedType) {
+    return title
+  }
+
+  if (detectedType === 'slice') {
     return title
   }
 
