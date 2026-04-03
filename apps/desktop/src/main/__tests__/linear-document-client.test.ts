@@ -182,7 +182,7 @@ describe('LinearDocumentClient', () => {
     const firstRequestInit = fetchSpy.mock.calls[0]?.[1] as RequestInit | undefined
     const firstRequestBody = JSON.parse(String(firstRequestInit?.body)) as { query: string }
 
-    expect(firstRequestBody.query).toContain('query ResolveProjectId($projectRef: ID!)')
+    expect(firstRequestBody.query).toContain('query ResolveProjectId($projectRef: String!)')
   })
 
   test('paginates project documents and requests updatedAt-desc ordering', async () => {
@@ -264,7 +264,7 @@ describe('LinearDocumentClient', () => {
       query: string
       variables: Record<string, string>
     }
-    expect(firstDocumentsBody.query).toContain('orderBy: { updatedAt: DESC }')
+    expect(firstDocumentsBody.query).toContain('orderBy: updatedAt')
     expect(firstDocumentsBody.variables).toEqual({ projectId: 'project-uuid-123' })
 
     const secondDocumentsBody = JSON.parse(

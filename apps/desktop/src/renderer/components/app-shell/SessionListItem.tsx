@@ -1,5 +1,4 @@
 import type { SessionListItem as SessionListItemType } from '@shared/types'
-import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 
 interface SessionListItemProps {
@@ -43,16 +42,19 @@ function formatRelativeTime(value: string): string {
   }).format(date)
 }
 
-function sessionModelLabel(session: SessionListItemType): string {
-  if (session.model) {
-    return session.model
+/**
+ * Extract a short model display name from the full model string.
+ * "anthropic/claude-sonnet-4-6" → "claude-sonnet-4-6"
+ * "openai-codex/gpt-5.4" → "gpt-5.4"
+ */
+function shortModelName(session: SessionListItemType): string {
+  const model = session.model ?? session.provider ?? null
+  if (!model) {
+    return ''
   }
 
-  if (session.provider) {
-    return session.provider
-  }
-
-  return 'Unknown model'
+  const slashIndex = model.indexOf('/')
+  return slashIndex >= 0 ? model.slice(slashIndex + 1) : model
 }
 
 export function SessionListItem({
@@ -61,7 +63,7 @@ export function SessionListItem({
   disabled = false,
   onSelect,
 }: SessionListItemProps) {
-  const model = sessionModelLabel(session)
+  const model = shortModelName(session)
 
   return (
     <button
@@ -70,55 +72,30 @@ export function SessionListItem({
       disabled={disabled}
       onClick={() => onSelect(session.id)}
       className={cn(
-        'w-full rounded-md border bg-card/70 px-2 py-2 text-left transition-colors',
+        'w-full min-w-0 overflow-hidden rounded-lg px-2.5 py-2 text-left transition-colors',
         isCurrent
-          ? 'border-primary/60 bg-accent/40'
-          : 'border-border hover:border-primary/40 hover:bg-accent/20',
-        disabled && 'cursor-not-allowed opacity-60',
+          ? 'bg-accent/50'
+          : 'hover:bg-accent/20',
+        disabled && 'cursor-not-allowed opacity-50',
       )}
     >
-      <div className="flex flex-col gap-1.5">
-        <p
-          className="text-xs font-medium text-card-foreground"
-          style={{
-            display: '-webkit-box',
-            overflow: 'hidden',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical',
-          }}
-        >
-          {session.title}
-        </p>
+      <p
+        className="text-xs font-medium leading-snug text-card-foreground"
+        style={{
+          display: '-webkit-box',
+          overflow: 'hidden',
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: 'vertical',
+        }}
+      >
+        {session.title}
+      </p>
 
-        {session.firstMessagePreview && (
-          <p
-            className="text-[11px] text-muted-foreground"
-            style={{
-              display: '-webkit-box',
-              overflow: 'hidden',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
-            }}
-          >
-            {session.firstMessagePreview}
-          </p>
-        )}
-
-        <div className="flex items-center justify-between gap-2">
-          <Badge variant="secondary" className="max-w-[9rem] truncate font-normal">
-            {model}
-          </Badge>
-
-          <span className="text-[10px] text-muted-foreground">{formatRelativeTime(session.modified)}</span>
-        </div>
-
-        <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-          <span className="truncate">{session.provider ?? 'provider: n/a'}</span>
-          <Badge variant="outline" className="text-[10px] font-normal">
-            {session.messageCount} msgs
-          </Badge>
-        </div>
-      </div>
+      <p className="mt-1 truncate text-[10px] text-muted-foreground">
+        {[model, formatRelativeTime(session.modified), `${session.messageCount} msgs`]
+          .filter(Boolean)
+          .join(' · ')}
+      </p>
     </button>
   )
 }

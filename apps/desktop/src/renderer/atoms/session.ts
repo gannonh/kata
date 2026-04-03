@@ -1,7 +1,7 @@
 import { atom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
 import type { SessionListResponse, SessionListItem } from '@shared/types'
-import { applyChatEventAtom, resetChatStateAtom } from './chat'
+import { applyChatEventAtom, isStreamingAtom, messagesAtom, resetChatStateAtom } from './chat'
 import { requestPlanningReloadAtom, resetPlanningSessionStateAtom } from './planning'
 
 const CURRENT_SESSION_STORAGE_KEY = 'kata-desktop:current-session-id'
@@ -93,6 +93,18 @@ const hydrateSessionHistoryAtom = atom(
         set(applyChatEventAtom, event)
       }
 
+      // History replay may leave isStreamingAtom true if the session ended
+      // without a terminal event (agent_end/turn_end). Force it off — 
+      // replayed history is never streaming. Also clear per-message streaming
+      // flags so UI elements don't appear "in progress" after replay.
+      set(isStreamingAtom, false)
+      set(
+        messagesAtom,
+        get(messagesAtom).map((message) =>
+          message.streaming ? { ...message, streaming: false } : message,
+        ),
+      )
+
       if (historyResponse.warnings.length > 0) {
         set(sessionWarningsAtom, (currentWarnings) => {
           const merged = [
@@ -177,11 +189,14 @@ export const createSessionAtom = atom(null, async (get, set) => {
     set(resetChatStateAtom)
     set(resetPlanningSessionStateAtom)
 
-    await set(refreshSessionListAtom)
-
+    // Set the new session ID BEFORE refreshing the list so
+    // applySessionListResponseAtom sees it as current and doesn't
+    // fall back to sessions[0] (which would be the old session).
     if (response.sessionId) {
       set(currentSessionIdAtom, response.sessionId)
     }
+
+    await set(refreshSessionListAtom)
 
     set(requestPlanningReloadAtom)
   } finally {

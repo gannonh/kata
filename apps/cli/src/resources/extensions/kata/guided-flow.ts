@@ -572,6 +572,13 @@ export async function showPlan(
   const unplannedSlices = (
     await Promise.all(
       pendingSlices.map(async (slice) => {
+        // A slice is "planned" when it has task sub-issues.
+        // Plans live in issue descriptions, not LinearDocuments.
+        if (backend.isSlicePlanned) {
+          const planned = await backend.isSlicePlanned(mid, slice.id);
+          return planned ? null : slice;
+        }
+        // File-backend fallback: check for plan document
         const scope = backend.resolveSliceScope
           ? await backend.resolveSliceScope(mid, slice.id)
           : undefined;

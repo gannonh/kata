@@ -329,6 +329,52 @@ export class PlanningToolDetector extends EventEmitter {
       return asString(result.data.issue.id)
     }
 
+    // CLI tool results wrap responses as { content: [{ type: "text", text: "..." }] }.
+    // The text may contain a JSON-serialized object with the issue ID.
+    const textContent = this.extractTextFromContent(result)
+    if (textContent) {
+      try {
+        const parsed = JSON.parse(textContent)
+        if (isRecord(parsed)) {
+          const found =
+            asString(parsed.id) ??
+            asString(parsed.issueId) ??
+            (isRecord(parsed.issue) ? asString(parsed.issue.id) : undefined) ??
+            (isRecord(parsed.data) && isRecord(parsed.data.issue)
+              ? asString(parsed.data.issue.id)
+              : undefined)
+          if (found) {
+            return found
+          }
+        }
+      } catch {
+        // Ignore parse failures — fall through to regex extraction.
+      }
+
+      // Text content may contain the issue ID as a UUID pattern
+      const uuidMatch = textContent.match(
+        /\b(?:id|issueId|issue_id)["']?\s*[:=]\s*["']?([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i,
+      )
+      if (uuidMatch?.[1]) {
+        return uuidMatch[1]
+      }
+    }
+
+    return undefined
+  }
+
+  private extractTextFromContent(result: Record<string, unknown>): string | undefined {
+    const content = result.content
+    if (!Array.isArray(content)) {
+      return undefined
+    }
+
+    for (const item of content) {
+      if (isRecord(item) && item.type === 'text' && typeof item.text === 'string') {
+        return item.text
+      }
+    }
+
     return undefined
   }
 }

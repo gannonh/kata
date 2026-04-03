@@ -26,6 +26,8 @@
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.2.8",
+    "@hugeicons/core-free-icons": "^4.1.1",
+    "@hugeicons/react": "^1.1.6",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.7.0",
@@ -37,6 +39,7 @@
   "devDependencies": {
     "@playwright/test": "^1.59.1",
     "@radix-ui/react-collapsible": "^1.1.12",
+    "@tailwindcss/typography": "^0.5.19",
     "@tailwindcss/vite": "^4.1.18",
     "@types/node": "^25.0.8",
     "@types/react": "^19.1.0",

@@ -22,7 +22,7 @@ export function MessageList({ messages, tools }: MessageListProps) {
   }
 
   return (
-    <div className="flex flex-col gap-4 px-4 py-4">
+    <div className="flex flex-col gap-6 px-5 py-6">
       {messages.map((message) => {
         const ownedTools = toolsByParent.get(message.id) ?? []
 
@@ -39,7 +39,7 @@ export function MessageList({ messages, tools }: MessageListProps) {
         if (message.role === 'user') {
           return (
             <article key={message.id} className="flex justify-end">
-              <div className="max-w-[80%] whitespace-pre-wrap break-words rounded-2xl bg-muted px-4 py-2.5 text-sm text-foreground">
+              <div className="max-w-[80%] whitespace-pre-wrap break-words rounded-2xl bg-muted px-4 py-3 text-sm text-foreground">
                 {message.content}
               </div>
             </article>
@@ -48,7 +48,7 @@ export function MessageList({ messages, tools }: MessageListProps) {
 
         // Assistant messages — no container, flat against background
         return (
-          <article key={message.id} className="flex flex-col gap-1">
+          <article key={message.id} className="flex flex-col gap-3">
             {(message.thinking !== undefined || message.isThinking) && (
               <ThinkingBlock
                 content={message.thinking ?? ''}
@@ -59,7 +59,7 @@ export function MessageList({ messages, tools }: MessageListProps) {
               <StreamingMessage content={message.content} isStreaming={message.streaming} />
             )}
             {ownedTools.length > 0 && (
-              <div className="flex flex-col gap-2 pt-1">
+              <div className="flex flex-col gap-2.5 pt-2">
                 {ownedTools.map((tool) => (
                   <ToolCallCard key={tool.id} tool={tool} />
                 ))}

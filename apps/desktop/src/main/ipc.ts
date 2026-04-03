@@ -250,9 +250,36 @@ export function registerSessionIpc({
     planningLatestKeyByTitle.set(planningEvent.title, planningEvent.artifactKey)
 
     if (planningEvent.eventType === 'slice_created' && planningEvent.slice) {
+      // When a slice is created successfully after a prior failed attempt, the
+      // first (errored) event may have stored a project-scoped artifact without
+      // an issueId. The successful retry produces a different (issue-scoped) key.
+      // Migrate: find any existing artifact with the same title but missing issueId,
+      // remove it, and carry its tasks forward into the new artifact.
       const existingArtifact = planningArtifactsByKey.get(planningEvent.artifactKey)
+      let migratedTasks: PlanningSliceData['tasks'] = []
+
+      if (!existingArtifact && planningEvent.issueId) {
+        const staleArtifact = Array.from(planningArtifactsByKey.values()).find(
+          (a) =>
+            a.artifactType === 'slice' &&
+            a.title === planningEvent.title &&
+            !a.issueId &&
+            (!a.projectId || a.projectId === planningEvent.projectId),
+        )
+        if (staleArtifact) {
+          migratedTasks = staleArtifact.sliceData?.tasks ?? []
+          planningArtifactsByKey.delete(staleArtifact.artifactKey)
+          planningMetadataByKey.delete(staleArtifact.artifactKey)
+          log.info('[desktop-ipc] migrated stale project-scoped slice artifact to issue-scoped', {
+            oldKey: staleArtifact.artifactKey,
+            newKey: planningEvent.artifactKey,
+            issueId: planningEvent.issueId,
+          })
+        }
+      }
+
       const existingSliceData = existingArtifact?.sliceData
-      const tasks = existingSliceData?.tasks ?? []
+      const tasks = existingSliceData?.tasks ?? migratedTasks
 
       const sliceData: PlanningSliceData = {
         id: planningEvent.slice.id,
@@ -601,18 +628,46 @@ export function registerSessionIpc({
     try {
       const result = await bridge.send({ type: 'new_session' })
       const payload = result.data
-      const sessionId =
+
+      // The RPC new_session response returns { cancelled: boolean } — no sessionId.
+      // Check if the session was cancelled (user declined).
+      if (
         payload &&
         typeof payload === 'object' &&
-        'sessionId' in payload &&
-        typeof (payload as { sessionId?: unknown }).sessionId === 'string'
-          ? (payload as { sessionId: string }).sessionId
-          : payload &&
-                typeof payload === 'object' &&
-                'session_id' in payload &&
-                typeof (payload as { session_id?: unknown }).session_id === 'string'
-              ? (payload as { session_id: string }).session_id
-              : null
+        'cancelled' in payload &&
+        (payload as { cancelled?: boolean }).cancelled
+      ) {
+        return { success: false, sessionId: null, error: 'Session creation cancelled' }
+      }
+
+      // After new_session, query get_state for the actual session ID.
+      let sessionId: string | null = null
+      try {
+        const stateResult = await bridge.send({ type: 'get_state' })
+        const statePayload = stateResult.data
+        if (
+          statePayload &&
+          typeof statePayload === 'object' &&
+          'sessionId' in statePayload &&
+          typeof (statePayload as { sessionId?: unknown }).sessionId === 'string'
+        ) {
+          sessionId = (statePayload as { sessionId: string }).sessionId
+        }
+      } catch {
+        // get_state failure is non-fatal — session was still created
+        log.warn('[desktop-ipc] get_state after new_session failed')
+      }
+
+      if (!sessionId) {
+        log.warn('[desktop-ipc] new session created but sessionId could not be resolved', {
+          workspacePath: bridge.getWorkspacePath(),
+        })
+        return {
+          success: false,
+          sessionId: null,
+          error: 'Session created but ID could not be resolved',
+        }
+      }
 
       log.info('[desktop-ipc] new session created', {
         sessionId,

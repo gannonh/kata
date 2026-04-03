@@ -229,7 +229,7 @@ export class LinearDocumentClient {
               documents(
                 first: 100
                 after: $after
-                orderBy: { updatedAt: DESC }
+                orderBy: updatedAt
                 filter: { project: { id: { eq: $projectId } } }
               ) {
                 nodes {
@@ -347,7 +347,7 @@ export class LinearDocumentClient {
     const data = await this.request<ResolveProjectQueryData>(
       apiKey,
       `
-        query ResolveProjectId($projectRef: ID!) {
+        query ResolveProjectId($projectRef: String!) {
           project(id: $projectRef) {
             id
           }

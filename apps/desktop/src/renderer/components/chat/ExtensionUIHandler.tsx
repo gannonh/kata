@@ -327,9 +327,19 @@ export function ExtensionUIHandler() {
           <div className="w-full max-w-xl rounded-xl border border-border bg-card shadow-2xl">
             <header className="border-b border-border px-4 py-3">
               <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Select value</p>
-              <h2 className="mt-1 text-sm font-semibold text-foreground">
-                {activeSelectRequest.title ?? activeSelectRequest.message ?? 'Choose an option'}
-              </h2>
+              {(() => {
+                const raw = activeSelectRequest.title ?? activeSelectRequest.message ?? 'Choose an option'
+                const [heading, ...subtitleParts] = raw.split('\n')
+                const subtitle = subtitleParts.join(' ').trim()
+                return (
+                  <>
+                    <h2 className="mt-1 text-sm font-semibold text-foreground">{heading}</h2>
+                    {subtitle && (
+                      <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>
+                    )}
+                  </>
+                )
+              })()}
             </header>
 
             <div className="flex max-h-72 flex-col gap-2 overflow-auto p-4">
