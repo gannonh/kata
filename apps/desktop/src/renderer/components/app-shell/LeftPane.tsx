@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Menu, Settings } from 'lucide-react'
-import { useAtom, useSetAtom } from 'jotai'
-import { initializeSessionsAtom, sessionSidebarOpenAtom } from '@/atoms/session'
+import { useAtom } from 'jotai'
+import { sessionSidebarOpenAtom } from '@/atoms/session'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { SettingsPanel } from '../settings/SettingsPanel'
@@ -13,11 +13,6 @@ import { WorkspaceIndicator } from './WorkspaceIndicator'
 export function LeftPane() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [sessionSidebarOpen, setSessionSidebarOpen] = useAtom(sessionSidebarOpenAtom)
-  const initializeSessions = useSetAtom(initializeSessionsAtom)
-
-  useEffect(() => {
-    void initializeSessions()
-  }, [initializeSessions])
 
   return (
     <section className="flex h-full flex-col border-r border-border bg-background">

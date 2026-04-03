@@ -1,10 +1,12 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
+import { useSetAtom } from 'jotai'
 import {
   Group,
   Panel,
   Separator as PanelSeparator,
   type Layout,
 } from 'react-resizable-panels'
+import { initializeSessionsAtom } from '@/atoms/session'
 import { LeftPane } from './LeftPane'
 import { RightPane } from './RightPane'
 
@@ -53,6 +55,11 @@ function readInitialLayout(): Layout {
 
 export function AppShell() {
   const defaultLayout = useMemo(readInitialLayout, [])
+  const initializeSessions = useSetAtom(initializeSessionsAtom)
+
+  useEffect(() => {
+    void initializeSessions()
+  }, [initializeSessions])
 
   return (
     <main className="size-full bg-background text-foreground">

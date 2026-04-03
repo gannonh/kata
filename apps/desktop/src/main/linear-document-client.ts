@@ -39,7 +39,17 @@ interface GraphQLResponse<TData> {
 interface DocumentsQueryData {
   documents?: {
     nodes?: LinearDocumentNode[]
+    pageInfo?: {
+      hasNextPage?: boolean
+      endCursor?: string | null
+    }
   }
+}
+
+interface ResolveProjectQueryData {
+  project?: {
+    id?: string
+  } | null
 }
 
 export class LinearDocumentClientError extends Error {
@@ -69,13 +79,7 @@ export class LinearDocumentClient {
     const startedAt = Date.now()
 
     try {
-      const apiKey = await this.resolveApiKey()
-      if (!apiKey) {
-        throw new LinearDocumentClientError(
-          'MISSING_API_KEY',
-          'Linear API key required. Configure provider "linear" in auth.json or set LINEAR_API_KEY.',
-        )
-      }
+      const apiKey = await this.requireApiKey()
 
       const variables: Record<string, string> = {
         title,
@@ -101,90 +105,29 @@ export class LinearDocumentClient {
         .filter((value): value is string => Boolean(value))
         .join(', ')
 
-      const query = `
-        query PlanningDocumentByTitle(${variableDefinitions}) {
-          documents(first: 20, filter: { ${filterConditions.join(', ')} }) {
-            nodes {
-              title
-              content
-              updatedAt
-              project {
-                id
-              }
-              issue {
-                id
+      const data = await this.request<DocumentsQueryData>(
+        apiKey,
+        `
+          query PlanningDocumentByTitle(${variableDefinitions}) {
+            documents(first: 20, filter: { ${filterConditions.join(', ')} }) {
+              nodes {
+                title
+                content
+                updatedAt
+                project {
+                  id
+                }
+                issue {
+                  id
+                }
               }
             }
           }
-        }
-      `
+        `,
+        variables,
+      )
 
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => {
-        controller.abort()
-      }, this.requestTimeoutMs)
-
-      let response: Response
-      try {
-        response = await fetch(this.apiUrl, {
-          method: 'POST',
-          headers: {
-            'content-type': 'application/json',
-            authorization: apiKey,
-          },
-          signal: controller.signal,
-          body: JSON.stringify({
-            query,
-            variables,
-          }),
-        })
-      } finally {
-        clearTimeout(timeoutId)
-      }
-
-      if (response.status === 401 || response.status === 403) {
-        throw new LinearDocumentClientError('UNAUTHORIZED', 'Invalid Linear API key', response.status)
-      }
-
-      if (response.status === 404) {
-        throw new LinearDocumentClientError(
-          'NETWORK',
-          'Linear API endpoint not found (HTTP 404). Verify endpoint configuration.',
-          response.status,
-        )
-      }
-
-      if (response.status === 429) {
-        throw new LinearDocumentClientError('RATE_LIMITED', 'Linear API rate limit exceeded', response.status)
-      }
-
-      const payload = (await response
-        .json()
-        .catch(() => ({}))) as GraphQLResponse<DocumentsQueryData>
-
-      if (!response.ok) {
-        const firstErrorMessage = payload.errors?.[0]?.message
-        if (firstErrorMessage) {
-          throw new LinearDocumentClientError('GRAPHQL', firstErrorMessage, response.status)
-        }
-
-        throw new LinearDocumentClientError(
-          'NETWORK',
-          `Linear API request failed with status ${response.status}`,
-          response.status,
-        )
-      }
-
-      if (Array.isArray(payload.errors) && payload.errors.length > 0) {
-        const firstErrorMessage = payload.errors[0]?.message ?? 'Unknown GraphQL error'
-        if (/rate\s*limit/i.test(firstErrorMessage)) {
-          throw new LinearDocumentClientError('RATE_LIMITED', firstErrorMessage, response.status)
-        }
-
-        throw new LinearDocumentClientError('GRAPHQL', firstErrorMessage, response.status)
-      }
-
-      const nodes = payload.data?.documents?.nodes ?? []
+      const nodes = data.documents?.nodes ?? []
       if (nodes.length === 0) {
         log.info('[linear-document-client] planning:fetch', {
           title,
@@ -256,12 +199,139 @@ export class LinearDocumentClient {
     }
   }
 
+  public async listByProject(projectRef: string): Promise<PlanningArtifact[]> {
+    const normalizedProjectRef = projectRef.trim()
+    if (!normalizedProjectRef) {
+      throw new LinearDocumentClientError('UNKNOWN', 'Project reference is required')
+    }
+
+    const startedAt = Date.now()
+
+    try {
+      const apiKey = await this.requireApiKey()
+      const projectId = await this.resolveProjectId(apiKey, normalizedProjectRef)
+
+      if (!projectId) {
+        throw new LinearDocumentClientError(
+          'NOT_FOUND',
+          `Linear project "${normalizedProjectRef}" was not found`,
+        )
+      }
+
+      const nodes: LinearDocumentNode[] = []
+      let afterCursor: string | null = null
+
+      while (true) {
+        const data: DocumentsQueryData = await this.request<DocumentsQueryData>(
+          apiKey,
+          `
+            query PlanningDocumentsByProject($projectId: ID!, $after: String) {
+              documents(
+                first: 100
+                after: $after
+                orderBy: { updatedAt: DESC }
+                filter: { project: { id: { eq: $projectId } } }
+              ) {
+                nodes {
+                  title
+                  content
+                  updatedAt
+                  project {
+                    id
+                  }
+                  issue {
+                    id
+                  }
+                }
+                pageInfo {
+                  hasNextPage
+                  endCursor
+                }
+              }
+            }
+          `,
+          {
+            projectId,
+            ...(afterCursor ? { after: afterCursor } : {}),
+          },
+        )
+
+        nodes.push(...(data.documents?.nodes ?? []))
+
+        const hasNextPage = data.documents?.pageInfo?.hasNextPage === true
+        const nextCursor: string | null = data.documents?.pageInfo?.endCursor?.trim() || null
+
+        if (!hasNextPage || !nextCursor) {
+          break
+        }
+
+        afterCursor = nextCursor
+      }
+
+      const artifacts = nodes
+        .filter((node): node is LinearDocumentNode & { title: string } => Boolean(node.title?.trim()))
+        .map((node) => {
+          const scope: PlanningArtifactScope = node.issue?.id ? 'issue' : 'project'
+          const resolvedProjectId = node.project?.id ?? projectId
+          const resolvedIssueId = node.issue?.id
+
+          return {
+            title: node.title,
+            artifactKey: buildPlanningArtifactKey({
+              title: node.title,
+              scope,
+              projectId: resolvedProjectId,
+              issueId: resolvedIssueId,
+            }),
+            content: node.content ?? '',
+            updatedAt: node.updatedAt ?? new Date().toISOString(),
+            scope,
+            projectId: resolvedProjectId,
+            issueId: resolvedIssueId,
+          } satisfies PlanningArtifact
+        })
+        .sort((left, right) => toTimestamp(right.updatedAt) - toTimestamp(left.updatedAt))
+
+      log.info('[linear-document-client] planning:list-by-project', {
+        projectRef: normalizedProjectRef,
+        projectId,
+        artifactCount: artifacts.length,
+        latencyMs: Date.now() - startedAt,
+      })
+
+      return artifacts
+    } catch (error) {
+      const clientError = toLinearDocumentClientError(error)
+
+      log.warn('[linear-document-client] planning:list-by-project', {
+        projectRef: normalizedProjectRef,
+        status: clientError.code.toLowerCase(),
+        error: clientError.message,
+        latencyMs: Date.now() - startedAt,
+      })
+
+      throw clientError
+    }
+  }
+
   public static toPlanningArtifactError(error: unknown): PlanningArtifactError {
     const clientError = toLinearDocumentClientError(error)
     return {
       code: clientError.code,
       message: clientError.message,
     }
+  }
+
+  private async requireApiKey(): Promise<string> {
+    const apiKey = await this.resolveApiKey()
+    if (!apiKey) {
+      throw new LinearDocumentClientError(
+        'MISSING_API_KEY',
+        'Linear API key required. Configure provider "linear" in auth.json or set LINEAR_API_KEY.',
+      )
+    }
+
+    return apiKey
   }
 
   private async resolveApiKey(): Promise<string | null> {
@@ -273,12 +343,99 @@ export class LinearDocumentClient {
     return this.authBridge.getApiKey('linear')
   }
 
+  private async resolveProjectId(apiKey: string, projectRef: string): Promise<string | null> {
+    const data = await this.request<ResolveProjectQueryData>(
+      apiKey,
+      `
+        query ResolveProjectId($projectRef: ID!) {
+          project(id: $projectRef) {
+            id
+          }
+        }
+      `,
+      {
+        projectRef,
+      },
+    )
+
+    return data.project?.id?.trim() || null
+  }
+
   private resolveScope(options: FetchByTitleOptions, node: LinearDocumentNode): PlanningArtifactScope {
     if (options.issueId || node.issue?.id) {
       return 'issue'
     }
 
     return 'project'
+  }
+
+  private async request<TData>(
+    apiKey: string,
+    query: string,
+    variables: Record<string, string>,
+  ): Promise<TData> {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => {
+      controller.abort()
+    }, this.requestTimeoutMs)
+
+    let response: Response
+    try {
+      response = await fetch(this.apiUrl, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: apiKey,
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
+          query,
+          variables,
+        }),
+      })
+    } finally {
+      clearTimeout(timeoutId)
+    }
+
+    if (response.status === 401 || response.status === 403) {
+      throw new LinearDocumentClientError('UNAUTHORIZED', 'Invalid Linear API key', response.status)
+    }
+
+    if (response.status === 404) {
+      throw new LinearDocumentClientError(
+        'NETWORK',
+        'Linear API endpoint not found (HTTP 404). Verify endpoint configuration.',
+        response.status,
+      )
+    }
+
+    if (response.status === 429) {
+      throw new LinearDocumentClientError('RATE_LIMITED', 'Linear API rate limit exceeded', response.status)
+    }
+
+    const payload = (await response
+      .json()
+      .catch(() => ({}))) as GraphQLResponse<TData>
+
+    if (!response.ok) {
+      const firstErrorMessage = payload.errors?.[0]?.message
+      if (firstErrorMessage) {
+        throw toGraphqlError(firstErrorMessage, response.status)
+      }
+
+      throw new LinearDocumentClientError(
+        'NETWORK',
+        `Linear API request failed with status ${response.status}`,
+        response.status,
+      )
+    }
+
+    if (Array.isArray(payload.errors) && payload.errors.length > 0) {
+      const firstErrorMessage = payload.errors[0]?.message ?? 'Unknown GraphQL error'
+      throw toGraphqlError(firstErrorMessage, response.status)
+    }
+
+    return (payload.data ?? {}) as TData
   }
 }
 
@@ -289,6 +446,18 @@ function toTimestamp(value: string | undefined): number {
 
   const timestamp = Date.parse(value)
   return Number.isFinite(timestamp) ? timestamp : 0
+}
+
+function toGraphqlError(message: string, status?: number): LinearDocumentClientError {
+  if (/rate\s*limit/i.test(message)) {
+    return new LinearDocumentClientError('RATE_LIMITED', message, status)
+  }
+
+  if (/not\s*found/i.test(message)) {
+    return new LinearDocumentClientError('NOT_FOUND', message, status)
+  }
+
+  return new LinearDocumentClientError('GRAPHQL', message, status)
 }
 
 function toLinearDocumentClientError(error: unknown): LinearDocumentClientError {
