@@ -764,14 +764,13 @@ export async function showPlan(
   }
 
   if (choice === "pick_slice") {
-    const firstUnplannedId = unplannedSlices[0]?.id;
-    const sliceActions = pendingSlices.map((slice) => ({
+    const sliceActions = pendingSlices.map((slice, i) => ({
       id: slice.id,
       label: `${slice.id}: ${slice.title}`,
       description: unplannedSlices.some((s) => s.id === slice.id)
         ? "unplanned"
         : "has plan — replan",
-      recommended: firstUnplannedId ? slice.id === firstUnplannedId : false,
+      recommended: i === 0,
     }));
 
     const sliceChoice = await showNextAction(ctx as any, {
