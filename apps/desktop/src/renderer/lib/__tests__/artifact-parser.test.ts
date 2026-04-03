@@ -125,6 +125,8 @@ describe('artifact-parser', () => {
     expect(detectArtifactType('REQUIREMENTS')).toBe('requirements')
     expect(detectArtifactType('DECISIONS')).toBe('decisions')
     expect(detectArtifactType('M002-CONTEXT')).toBe('context')
+    expect(detectArtifactType('[S01] Slice and Task Detection')).toBe('slice')
+    expect(detectArtifactType('SLICE: Legacy slice artifact')).toBe('slice')
     expect(detectArtifactType('PROJECT')).toBeNull()
   })
 

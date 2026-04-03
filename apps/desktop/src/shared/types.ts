@@ -419,7 +419,29 @@ export interface PlanningArtifactError {
   message: string
 }
 
+export interface PlanningSliceTask {
+  id: string
+  title: string
+  description: string
+  status: 'todo' | 'in_progress' | 'done'
+}
+
+export interface PlanningSliceData {
+  id: string
+  title: string
+  description: string
+  issueId?: string
+  tasks: PlanningSliceTask[]
+}
+
+export type PlanningArtifactEventType =
+  | 'document'
+  | 'slice_created'
+  | 'task_created'
+  | 'milestone_created'
+
 export interface PlanningArtifactEvent {
+  eventType: PlanningArtifactEventType
   toolName: string
   toolCallId: string
   title: string
@@ -428,6 +450,9 @@ export interface PlanningArtifactEvent {
   action: PlanningArtifactAction
   projectId?: string
   issueId?: string
+  slice?: Omit<PlanningSliceData, 'tasks'>
+  task?: PlanningSliceTask
+  targetSliceIssueId?: string
 }
 
 export interface PlanningArtifact {
@@ -438,6 +463,8 @@ export interface PlanningArtifact {
   scope: PlanningArtifactScope
   projectId?: string
   issueId?: string
+  artifactType?: ArtifactType
+  sliceData?: PlanningSliceData
 }
 
 export interface PlanningArtifactFetchStateEvent {
@@ -480,7 +507,7 @@ export interface PlanningArtifactListResponse {
   error?: PlanningArtifactError
 }
 
-export type ArtifactType = 'roadmap' | 'requirements' | 'decisions' | 'context'
+export type ArtifactType = 'roadmap' | 'requirements' | 'decisions' | 'context' | 'slice'
 
 export type RoadmapRisk = 'high' | 'medium' | 'low'
 

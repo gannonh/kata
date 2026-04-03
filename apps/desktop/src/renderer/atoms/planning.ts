@@ -1,7 +1,7 @@
 import { atom, useAtomValue, useSetAtom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
 import { useEffect, useRef } from 'react'
-import type { PlanningArtifact } from '@shared/types'
+import type { PlanningArtifact, PlanningSliceData } from '@shared/types'
 
 export const RIGHT_PANE_MODE_STORAGE_KEY = 'kata-desktop:right-pane-mode'
 
@@ -13,6 +13,8 @@ export interface PlanningArtifactState {
   scope: PlanningArtifact['scope']
   projectId?: string
   issueId?: string
+  artifactType?: PlanningArtifact['artifactType']
+  sliceData?: PlanningSliceData
 }
 
 export type PlanningArtifactsMap = Record<string, PlanningArtifactState>
@@ -23,6 +25,7 @@ export interface ActivePlanningArtifactRef {
 }
 
 export const planningArtifactsAtom = atom<PlanningArtifactsMap>({})
+export const slicePlanningAtom = atom<Record<string, PlanningSliceData>>({})
 export const activePlanningArtifactAtom = atom<ActivePlanningArtifactRef | null>(null)
 export const rightPaneModeAtom = atomWithStorage<'planning' | 'default'>(
   RIGHT_PANE_MODE_STORAGE_KEY,
@@ -48,6 +51,7 @@ export const markPlanningArtifactViewedAtom = atom(
 export const resetPlanningSessionStateAtom = atom(null, (_get, set) => {
   set(planningArtifactsAtom, {})
   set(activePlanningArtifactAtom, null)
+  set(slicePlanningAtom, {})
   set(autoSwitchTriggeredAtom, false)
   set(planningLoadingAtom, false)
   set(artifactFetchInFlightCountAtom, 0)
@@ -66,10 +70,19 @@ export const applyPlanningArtifactAtom = atom(null, (get, set, artifact: Plannin
       scope: artifact.scope,
       projectId: artifact.projectId,
       issueId: artifact.issueId,
+      artifactType: artifact.artifactType,
+      sliceData: artifact.sliceData,
     },
   }
 
   set(planningArtifactsAtom, nextArtifacts)
+
+  if (artifact.artifactType === 'slice' && artifact.sliceData) {
+    set(slicePlanningAtom, {
+      ...get(slicePlanningAtom),
+      [artifact.artifactKey]: artifact.sliceData,
+    })
+  }
 
   const currentActiveArtifact = get(activePlanningArtifactAtom)
   if (!currentActiveArtifact || !nextArtifacts[currentActiveArtifact.artifactKey]) {
@@ -93,6 +106,7 @@ export function usePlanningArtifactBridge(): void {
   const rightPaneModeRef = useRef(rightPaneMode)
   const autoSwitchTriggeredRef = useRef(autoSwitchTriggered)
   const setActiveArtifactTitle = useSetAtom(activePlanningArtifactAtom)
+  const setSlices = useSetAtom(slicePlanningAtom)
   const setRightPaneMode = useSetAtom(rightPaneModeAtom)
   const setAutoSwitchTriggered = useSetAtom(autoSwitchTriggeredAtom)
   const setLoading = useSetAtom(planningLoadingAtom)
@@ -127,12 +141,29 @@ export function usePlanningArtifactBridge(): void {
             scope: artifact.scope,
             projectId: artifact.projectId,
             issueId: artifact.issueId,
+            artifactType: artifact.artifactType,
+            sliceData: artifact.sliceData,
           }
         }
 
         setArtifacts((currentArtifacts) => ({
           ...nextArtifacts,
           ...currentArtifacts,
+        }))
+
+        const nextSlices = response.artifacts.reduce<Record<string, PlanningSliceData>>(
+          (result, artifact) => {
+            if (artifact.artifactType === 'slice' && artifact.sliceData) {
+              result[artifact.artifactKey] = artifact.sliceData
+            }
+            return result
+          },
+          {},
+        )
+
+        setSlices((currentSlices) => ({
+          ...nextSlices,
+          ...currentSlices,
         }))
 
         const mostRecentArtifact = response.artifacts[0]
@@ -203,5 +234,6 @@ export function usePlanningArtifactBridge(): void {
     setError,
     setLoading,
     setRightPaneMode,
+    setSlices,
   ])
 }

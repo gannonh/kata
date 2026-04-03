@@ -18,12 +18,14 @@ import {
   planningErrorAtom,
   planningLoadingAtom,
   rightPaneModeAtom,
+  slicePlanningAtom,
 } from '@/atoms/planning'
 import { ArtifactTabs } from '@/components/planning/ArtifactTabs'
 import { ContextView } from '@/components/planning/ContextView'
 import { DecisionsView } from '@/components/planning/DecisionsView'
 import { RequirementsView } from '@/components/planning/RequirementsView'
 import { RoadmapView } from '@/components/planning/RoadmapView'
+import { SliceView } from '@/components/planning/SliceView'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -42,6 +44,7 @@ export function PlanningPane() {
   const isFetching = useAtomValue(isFetchingAtom)
   const error = useAtomValue(planningErrorAtom)
   const lastViewedByArtifactKey = useAtomValue(lastViewedPlanningArtifactAtom)
+  const slicesByArtifactKey = useAtomValue(slicePlanningAtom)
 
   const applyPlanningArtifact = useSetAtom(applyPlanningArtifactAtom)
   const setActiveArtifact = useSetAtom(activePlanningArtifactAtom)
@@ -169,7 +172,7 @@ export function PlanningPane() {
       return null
     }
 
-    const type = detectArtifactType(activeArtifact.title)
+    const type = activeArtifact.artifactType ?? detectArtifactType(activeArtifact.title)
 
     if (type === 'roadmap') {
       return {
@@ -199,13 +202,25 @@ export function PlanningPane() {
       }
     }
 
+    if (type === 'slice') {
+      return {
+        type,
+        parsed: null,
+      }
+    }
+
     return {
       type: null,
       parsed: null,
     }
   }, [activeArtifact])
 
-  const parseFailed = Boolean(activeArtifact && parsedArtifact?.type && !parsedArtifact.parsed)
+  const parseFailed = Boolean(
+    activeArtifact &&
+      parsedArtifact?.type &&
+      parsedArtifact.type !== 'slice' &&
+      !parsedArtifact.parsed,
+  )
 
   useEffect(() => {
     if (!activeArtifact || !parseFailed || !parsedArtifact?.type) {
@@ -359,6 +374,10 @@ export function PlanningPane() {
                 <DecisionsView decisions={parsedArtifact.parsed as ParsedDecisions} />
               ) : parsedArtifact?.type === 'context' && parsedArtifact.parsed ? (
                 <ContextView context={parsedArtifact.parsed as ParsedContext} />
+              ) : parsedArtifact?.type === 'slice' ? (
+                <SliceView
+                  slice={activeArtifact.sliceData ?? slicesByArtifactKey[activeArtifact.artifactKey]}
+                />
               ) : (
                 <Markdown mode="full" className="text-sm leading-relaxed">
                   {activeArtifact.content}

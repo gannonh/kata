@@ -35,6 +35,10 @@ export function detectArtifactType(title: string): ArtifactType | null {
     return 'context'
   }
 
+  if (/^\[S\d+\]\s+/.test(title.trim()) || /^S\d+[:\-\s]/.test(title.trim()) || /^SLICE:/.test(normalized)) {
+    return 'slice'
+  }
+
   return null
 }
 

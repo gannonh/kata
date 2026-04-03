@@ -6,6 +6,7 @@ import {
   type PlanningArtifactEvent,
   type PlanningArtifactScope,
   type ToolArgs,
+  type ToolResult,
 } from '../shared/types'
 
 interface PendingToolCall {
@@ -20,6 +21,9 @@ interface PlanningToolDetectorEvents {
 const PLANNING_TOOL_NAMES = new Set([
   'kata_write_document',
   'kata_read_document',
+  'kata_create_slice',
+  'kata_create_task',
+  'kata_create_milestone',
 ])
 
 export class PlanningToolDetector extends EventEmitter {
@@ -59,11 +63,12 @@ export class PlanningToolDetector extends EventEmitter {
       return
     }
 
-    const artifactEvent = this.toPlanningArtifactEvent(
-      event.toolCallId,
-      event.toolName,
-      pending?.args,
-    )
+    const artifactEvent = this.toPlanningArtifactEvent({
+      toolCallId: event.toolCallId,
+      toolName: event.toolName,
+      toolArgs: pending?.args,
+      toolResult: event.result,
+    })
 
     if (!artifactEvent) {
       return
@@ -71,47 +76,175 @@ export class PlanningToolDetector extends EventEmitter {
 
     log.info('[planning-tool-detector] planning:tool-detected', {
       toolName: artifactEvent.toolName,
+      eventType: artifactEvent.eventType,
       documentTitle: artifactEvent.title,
       scope: artifactEvent.scope,
       action: artifactEvent.action,
       projectId: artifactEvent.projectId,
       issueId: artifactEvent.issueId,
+      targetSliceIssueId: artifactEvent.targetSliceIssueId,
     })
 
     this.emit('artifact', artifactEvent)
   }
 
-  private toPlanningArtifactEvent(
-    toolCallId: string,
-    toolName: string,
-    toolArgs: ToolArgs | undefined,
-  ): PlanningArtifactEvent | null {
+  private toPlanningArtifactEvent({
+    toolCallId,
+    toolName,
+    toolArgs,
+    toolResult,
+  }: {
+    toolCallId: string
+    toolName: string
+    toolArgs: ToolArgs | undefined
+    toolResult: ToolResult | undefined
+  }): PlanningArtifactEvent | null {
     const args = this.extractRawArgs(toolArgs)
-    const title = this.extractTitle(toolName, args)
+    const result = this.extractRawResult(toolResult)
 
-    if (!title) {
-      return null
-    }
-
-    const issueId = this.extractIssueId(args)
     const projectId = asString(args.projectId)
-    const scope = this.extractScope(args)
 
-    return {
-      toolCallId,
-      toolName,
-      title,
-      artifactKey: buildPlanningArtifactKey({
+    if (toolName === 'kata_write_document' || toolName === 'kata_read_document') {
+      const title = this.extractDocumentTitle(args)
+      if (!title) {
+        return null
+      }
+
+      const issueId = this.extractIssueId(args)
+      const scope = issueId ? 'issue' : 'project'
+
+      return {
+        eventType: 'document',
+        toolCallId,
+        toolName,
         title,
+        artifactKey: buildPlanningArtifactKey({
+          title,
+          scope,
+          projectId,
+          issueId,
+        }),
         scope,
+        action: 'updated',
         projectId,
         issueId,
-      }),
-      scope,
-      action: 'updated',
-      projectId,
-      issueId,
+      }
     }
+
+    if (toolName === 'kata_create_slice') {
+      const rawTitle = asString(args.title)
+      if (!rawTitle) {
+        return null
+      }
+
+      const sliceId = asString(args.kataId) ?? extractKataId(rawTitle, 'S')
+      if (!sliceId) {
+        return null
+      }
+
+      const normalizedSliceTitle = stripKataIdPrefix(rawTitle, sliceId)
+      const displayTitle = `[${sliceId}] ${normalizedSliceTitle || rawTitle}`
+      const description = asString(args.description) ?? ''
+
+      const sliceIssueId =
+        this.extractIssueId(result) ?? this.extractIssueId(args) ?? this.extractIssueFromCreateResult(result)
+
+      const scope: PlanningArtifactScope = sliceIssueId ? 'issue' : 'project'
+
+      return {
+        eventType: 'slice_created',
+        toolCallId,
+        toolName,
+        title: displayTitle,
+        artifactKey: buildPlanningArtifactKey({
+          title: displayTitle,
+          scope,
+          projectId,
+          issueId: sliceIssueId,
+        }),
+        scope,
+        action: 'created',
+        projectId,
+        issueId: sliceIssueId,
+        slice: {
+          id: sliceId,
+          title: normalizedSliceTitle || rawTitle,
+          description,
+          issueId: sliceIssueId,
+        },
+      }
+    }
+
+    if (toolName === 'kata_create_task') {
+      const rawTitle = asString(args.title)
+      if (!rawTitle) {
+        return null
+      }
+
+      const taskId = asString(args.kataId) ?? extractKataId(rawTitle, 'T')
+      if (!taskId) {
+        return null
+      }
+
+      const sliceIssueId = this.extractIssueId(args)
+      if (!sliceIssueId) {
+        return null
+      }
+
+      const taskTitle = stripKataIdPrefix(rawTitle, taskId) || rawTitle
+      const description = asString(args.description) ?? ''
+      const taskStatus = resolveTaskStatus(args, result)
+
+      return {
+        eventType: 'task_created',
+        toolCallId,
+        toolName,
+        title: `slice:${sliceIssueId}`,
+        artifactKey: buildPlanningArtifactKey({
+          title: `slice:${sliceIssueId}`,
+          scope: 'issue',
+          issueId: sliceIssueId,
+          projectId,
+        }),
+        scope: 'issue',
+        action: 'updated',
+        projectId,
+        issueId: sliceIssueId,
+        targetSliceIssueId: sliceIssueId,
+        task: {
+          id: taskId,
+          title: taskTitle,
+          description,
+          status: taskStatus,
+        },
+      }
+    }
+
+    if (toolName === 'kata_create_milestone') {
+      const milestoneId = asString(args.kataId) ?? extractKataId(asString(args.title), 'M')
+      if (!milestoneId) {
+        return null
+      }
+
+      const roadmapTitle = `${milestoneId}-ROADMAP`
+
+      return {
+        eventType: 'milestone_created',
+        toolCallId,
+        toolName,
+        title: roadmapTitle,
+        artifactKey: buildPlanningArtifactKey({
+          title: roadmapTitle,
+          scope: 'project',
+          projectId,
+        }),
+        scope: 'project',
+        action: 'updated',
+        projectId,
+      }
+    }
+
+    return null
   }
 
   private extractRawArgs(toolArgs: ToolArgs | undefined): Record<string, unknown> {
@@ -130,7 +263,23 @@ export class PlanningToolDetector extends EventEmitter {
     return {}
   }
 
-  private extractTitle(_toolName: string, args: Record<string, unknown>): string | null {
+  private extractRawResult(toolResult: ToolResult | undefined): Record<string, unknown> {
+    if (!toolResult) {
+      return {}
+    }
+
+    if ('raw' in toolResult && isRecord(toolResult.raw)) {
+      return toolResult.raw
+    }
+
+    if (isRecord(toolResult)) {
+      return toolResult
+    }
+
+    return {}
+  }
+
+  private extractDocumentTitle(args: Record<string, unknown>): string | null {
     const directTitle = asString(args.title)
     if (directTitle) {
       return directTitle
@@ -141,10 +290,6 @@ export class PlanningToolDetector extends EventEmitter {
     }
 
     return null
-  }
-
-  private extractScope(args: Record<string, unknown>): PlanningArtifactScope {
-    return this.extractIssueId(args) ? 'issue' : 'project'
   }
 
   private extractIssueId(args: Record<string, unknown>): string | undefined {
@@ -166,6 +311,26 @@ export class PlanningToolDetector extends EventEmitter {
     return undefined
   }
 
+  private extractIssueFromCreateResult(result: Record<string, unknown>): string | undefined {
+    const directIssueId = asString(result.id) ?? asString(result.issueId)
+    if (directIssueId) {
+      return directIssueId
+    }
+
+    if (isRecord(result.issue)) {
+      return asString(result.issue.id)
+    }
+
+    if (isRecord(result.sliceIssue)) {
+      return asString(result.sliceIssue.id)
+    }
+
+    if (isRecord(result.data) && isRecord(result.data.issue)) {
+      return asString(result.data.issue.id)
+    }
+
+    return undefined
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -174,4 +339,99 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function asString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined
+}
+
+function extractKataId(rawValue: string | undefined, prefix: 'M' | 'S' | 'T'): string | undefined {
+  if (!rawValue) {
+    return undefined
+  }
+
+  const trimmed = rawValue.trim()
+  const leadingPattern = new RegExp(`^\\[?(${prefix}\\d+)\\]?(?=\\b|[:\\-\\s])`, 'i')
+  const leadingMatch = trimmed.match(leadingPattern)
+  if (!leadingMatch?.[1]) {
+    return undefined
+  }
+
+  return leadingMatch[1].toUpperCase()
+}
+
+function stripKataIdPrefix(rawTitle: string, kataId: string): string {
+  const escapedKataId = kataId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return rawTitle
+    .replace(new RegExp(`^\\[${escapedKataId}\\]\\s*`, 'i'), '')
+    .replace(new RegExp(`^${escapedKataId}[:\\-\\s]+`, 'i'), '')
+    .trim()
+}
+
+function resolveTaskStatus(
+  args: Record<string, unknown>,
+  result: Record<string, unknown>,
+): 'todo' | 'in_progress' | 'done' {
+  const candidates: Array<string | undefined> = [
+    asString(result.initialPhase),
+    asString(result.phase),
+    asString(result.status),
+  ]
+
+  const issuePayload = isRecord(result.issue) ? result.issue : undefined
+  const taskPayload = isRecord(result.task) ? result.task : undefined
+  const statePayload = isRecord(issuePayload?.state) ? issuePayload.state : undefined
+
+  candidates.push(
+    asString(issuePayload?.status),
+    asString(issuePayload?.phase),
+    asString(issuePayload?.state),
+    asString(statePayload?.name),
+    asString(statePayload?.type),
+    asString(taskPayload?.status),
+    asString(taskPayload?.phase),
+    asString(args.initialPhase),
+    asString(args.phase),
+    asString(args.status),
+  )
+
+  for (const candidate of candidates) {
+    const normalized = normalizePhase(candidate)
+    if (!normalized) {
+      continue
+    }
+
+    if (
+      normalized === 'done' ||
+      normalized === 'completed' ||
+      normalized === 'complete' ||
+      normalized === 'closed'
+    ) {
+      return 'done'
+    }
+
+    if (
+      normalized === 'in_progress' ||
+      normalized === 'progress' ||
+      normalized === 'started' ||
+      normalized === 'starting' ||
+      normalized === 'executing' ||
+      normalized === 'doing' ||
+      normalized === 'active' ||
+      normalized === 'in_review' ||
+      normalized === 'review'
+    ) {
+      return 'in_progress'
+    }
+  }
+
+  return 'todo'
+}
+
+function normalizePhase(value: string | undefined): string | undefined {
+  if (!value) {
+    return undefined
+  }
+
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
 }

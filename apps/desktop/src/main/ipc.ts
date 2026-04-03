@@ -29,6 +29,7 @@ import {
   buildPlanningArtifactKey,
   type PlanningArtifact,
   type PlanningArtifactEvent,
+  type PlanningSliceData,
   type PlanningArtifactFetchResponse,
   type PlanningArtifactFetchStateEvent,
   type PlanningArtifactListResponse,
@@ -37,6 +38,7 @@ import {
   type SetThinkingLevelResponse,
   type ThinkingLevel,
   type WorkspaceInfo,
+  type ArtifactType,
 } from '../shared/types'
 
 interface RegisterIpcOptions {
@@ -64,6 +66,7 @@ export function registerSessionIpc({
   const planningArtifactsByKey = new Map<string, PlanningArtifact>()
   const planningMetadataByKey = new Map<string, PlanningArtifactEvent>()
   const planningLatestKeyByTitle = new Map<string, string>()
+  const pendingTasksBySliceIssueId = new Map<string, PlanningSliceData['tasks']>()
 
   const canSendToRenderer = (): boolean => !window.isDestroyed() && !window.webContents.isDestroyed()
 
@@ -185,6 +188,7 @@ export function registerSessionIpc({
         ...fetchedArtifact,
         scope,
         artifactKey,
+        artifactType: detectArtifactTypeFromTitle(fetchedArtifact.title),
       }
 
       planningArtifactsByKey.set(artifactKey, artifact)
@@ -206,9 +210,138 @@ export function registerSessionIpc({
     }
   }
 
+  const upsertPlanningArtifact = (artifact: PlanningArtifact): void => {
+    let artifactToStore = artifact
+
+    if (artifact.artifactType === 'slice') {
+      const sliceIssueId = artifact.sliceData?.issueId ?? artifact.issueId
+      const pendingTasks = sliceIssueId ? pendingTasksBySliceIssueId.get(sliceIssueId) ?? [] : []
+
+      if (sliceIssueId && pendingTasks.length > 0) {
+        pendingTasksBySliceIssueId.delete(sliceIssueId)
+
+        const baseSliceData: PlanningSliceData =
+          artifact.sliceData ??
+          ({
+            id: extractSliceIdFromTitle(artifact.title) ?? 'S00',
+            title: artifact.title,
+            description: artifact.content,
+            issueId: sliceIssueId,
+            tasks: [],
+          } satisfies PlanningSliceData)
+
+        artifactToStore = {
+          ...artifact,
+          sliceData: {
+            ...baseSliceData,
+            tasks: mergeSliceTasks(baseSliceData.tasks, pendingTasks),
+          },
+        }
+      }
+    }
+
+    planningArtifactsByKey.set(artifactToStore.artifactKey, artifactToStore)
+    planningLatestKeyByTitle.set(artifactToStore.title, artifactToStore.artifactKey)
+    sendPlanningArtifactToRenderer(artifactToStore)
+  }
+
   const onPlanningArtifactEvent = (planningEvent: PlanningArtifactEvent): void => {
     planningMetadataByKey.set(planningEvent.artifactKey, planningEvent)
     planningLatestKeyByTitle.set(planningEvent.title, planningEvent.artifactKey)
+
+    if (planningEvent.eventType === 'slice_created' && planningEvent.slice) {
+      const existingArtifact = planningArtifactsByKey.get(planningEvent.artifactKey)
+      const existingSliceData = existingArtifact?.sliceData
+      const tasks = existingSliceData?.tasks ?? []
+
+      const sliceData: PlanningSliceData = {
+        id: planningEvent.slice.id,
+        title: planningEvent.slice.title,
+        description: planningEvent.slice.description,
+        issueId: planningEvent.slice.issueId ?? planningEvent.issueId,
+        tasks,
+      }
+
+      upsertPlanningArtifact({
+        title: planningEvent.title,
+        artifactKey: planningEvent.artifactKey,
+        content: sliceData.description,
+        updatedAt: new Date().toISOString(),
+        scope: planningEvent.scope,
+        projectId: planningEvent.projectId,
+        issueId: planningEvent.issueId,
+        artifactType: 'slice',
+        sliceData,
+      })
+
+      return
+    }
+
+    if (planningEvent.eventType === 'task_created' && planningEvent.task) {
+      const targetSliceIssueId = planningEvent.targetSliceIssueId ?? planningEvent.issueId
+      const targetSliceArtifact = Array.from(planningArtifactsByKey.values()).find((artifact) => {
+        if (artifact.artifactType !== 'slice') {
+          return false
+        }
+
+        return (
+          artifact.issueId === targetSliceIssueId || artifact.sliceData?.issueId === targetSliceIssueId
+        )
+      })
+
+      if (!targetSliceArtifact) {
+        if (targetSliceIssueId) {
+          const existingPendingTasks = pendingTasksBySliceIssueId.get(targetSliceIssueId) ?? []
+          const hasTask = existingPendingTasks.some((task) => task.id === planningEvent.task?.id)
+
+          if (!hasTask) {
+            pendingTasksBySliceIssueId.set(targetSliceIssueId, [
+              ...existingPendingTasks,
+              planningEvent.task,
+            ])
+          }
+
+          log.warn('[desktop-ipc] queued task for unresolved slice artifact', {
+            taskId: planningEvent.task.id,
+            targetSliceIssueId,
+            queuedTasks: hasTask ? existingPendingTasks.length : existingPendingTasks.length + 1,
+            artifactKey: planningEvent.artifactKey,
+          })
+        } else {
+          log.warn('[desktop-ipc] unable to append task: missing target slice issue id', {
+            taskId: planningEvent.task.id,
+            artifactKey: planningEvent.artifactKey,
+          })
+        }
+
+        return
+      }
+
+      const currentSliceData =
+        targetSliceArtifact.sliceData ??
+        ({
+          id: extractSliceIdFromTitle(targetSliceArtifact.title) ?? 'S00',
+          title: targetSliceArtifact.title,
+          description: targetSliceArtifact.content,
+          issueId: targetSliceIssueId,
+          tasks: [],
+        } satisfies PlanningSliceData)
+
+      const existingTasks = currentSliceData.tasks
+      const nextTasks = mergeSliceTasks(existingTasks, [planningEvent.task])
+
+      upsertPlanningArtifact({
+        ...targetSliceArtifact,
+        updatedAt: new Date().toISOString(),
+        artifactType: 'slice',
+        sliceData: {
+          ...currentSliceData,
+          tasks: nextTasks,
+        },
+      })
+
+      return
+    }
 
     sendPlanningFetchStateToRenderer({
       state: 'start',
@@ -808,4 +941,54 @@ export function registerSessionIpc({
     ipcMain.removeHandler(IPC_CHANNELS.planningFetchArtifact)
     ipcMain.removeHandler(IPC_CHANNELS.planningListArtifacts)
   }
+}
+
+function detectArtifactTypeFromTitle(title: string): ArtifactType | undefined {
+  const normalized = title.trim().toUpperCase()
+
+  if (/-ROADMAP(?:\b|$)/.test(normalized) || normalized === 'ROADMAP') {
+    return 'roadmap'
+  }
+
+  if (normalized === 'REQUIREMENTS' || /-REQUIREMENTS(?:\b|$)/.test(normalized)) {
+    return 'requirements'
+  }
+
+  if (normalized === 'DECISIONS' || /-DECISIONS(?:\b|$)/.test(normalized)) {
+    return 'decisions'
+  }
+
+  if (/-CONTEXT(?:\b|$)/.test(normalized) || normalized === 'CONTEXT') {
+    return 'context'
+  }
+
+  if (
+    /^\[S\d+\]\s+/.test(title.trim()) ||
+    /^S\d+[:\-\s]/.test(title.trim()) ||
+    /^SLICE:/.test(normalized)
+  ) {
+    return 'slice'
+  }
+
+  return undefined
+}
+
+function extractSliceIdFromTitle(title: string): string | undefined {
+  const match = title.match(/S\d+/i)
+  return match?.[0]?.toUpperCase()
+}
+
+function mergeSliceTasks(
+  existingTasks: PlanningSliceData['tasks'],
+  newTasks: PlanningSliceData['tasks'],
+): PlanningSliceData['tasks'] {
+  const mergedTasks = [...existingTasks]
+
+  for (const task of newTasks) {
+    if (!mergedTasks.some((existingTask) => existingTask.id === task.id)) {
+      mergedTasks.push(task)
+    }
+  }
+
+  return mergedTasks
 }
