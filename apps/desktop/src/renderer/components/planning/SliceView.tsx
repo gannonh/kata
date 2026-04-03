@@ -63,6 +63,12 @@ export function SliceView({ slice }: SliceViewProps) {
                         readOnly
                         aria-label={`${task.id} completion state`}
                         className="size-4 rounded border-border"
+                        onClick={(event) => {
+                          event.stopPropagation()
+                        }}
+                        onMouseDown={(event) => {
+                          event.stopPropagation()
+                        }}
                       />
 
                       <Badge variant="outline">{task.id}</Badge>
