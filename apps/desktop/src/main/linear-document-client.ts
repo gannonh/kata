@@ -317,7 +317,7 @@ export class LinearDocumentClient {
     const data = await this.request<ResolveProjectQueryData>(
       apiKey,
       `
-        query ResolveProjectId($projectRef: String!) {
+        query ResolveProjectId($projectRef: ID!) {
           project(id: $projectRef) {
             id
           }

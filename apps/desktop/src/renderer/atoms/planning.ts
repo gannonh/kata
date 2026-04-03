@@ -119,15 +119,43 @@ export const applyPlanningArtifactAtom = atom(null, (get, set, artifact: Plannin
   set(planningStaleReasonAtom, null)
 })
 
+export const applyBulkPlanningArtifactsAtom = atom(
+  null,
+  (
+    get,
+    set,
+    options: {
+      nextArtifacts: PlanningArtifactsMap
+      mergeWithExisting: boolean
+    },
+  ) => {
+    const resolvedArtifacts = options.mergeWithExisting
+      ? {
+          ...get(planningArtifactsAtom),
+          ...options.nextArtifacts,
+        }
+      : options.nextArtifacts
+
+    set(planningArtifactsAtom, resolvedArtifacts)
+    set(planningArtifactKeysAtom, deriveArtifactKeys(resolvedArtifacts))
+  },
+)
+
+export const clearPlanningArtifactsAtom = atom(null, (_get, set) => {
+  set(planningArtifactsAtom, {})
+  set(planningArtifactKeysAtom, [])
+  set(slicePlanningAtom, {})
+  set(activePlanningArtifactAtom, null)
+})
+
 export function usePlanningArtifactBridge(): void {
   const rightPaneMode = useAtomValue(rightPaneModeAtom)
   const autoSwitchTriggered = useAtomValue(autoSwitchTriggeredAtom)
   const planningReloadNonce = useAtomValue(planningReloadNonceAtom)
 
-  const currentArtifacts = useAtomValue(planningArtifactsAtom)
   const applyPlanningArtifact = useSetAtom(applyPlanningArtifactAtom)
-  const setArtifacts = useSetAtom(planningArtifactsAtom)
-  const setArtifactKeys = useSetAtom(planningArtifactKeysAtom)
+  const applyBulkPlanningArtifacts = useSetAtom(applyBulkPlanningArtifactsAtom)
+  const clearPlanningArtifacts = useSetAtom(clearPlanningArtifactsAtom)
   const pendingTriggerToolNameByArtifactKeyRef = useRef<Record<string, string>>({})
   const rightPaneModeRef = useRef(rightPaneMode)
   const autoSwitchTriggeredRef = useRef(autoSwitchTriggered)
@@ -168,11 +196,14 @@ export function usePlanningArtifactBridge(): void {
         setStale(response.stale === true)
         setStaleReason(response.stale ? response.error?.message ?? 'Using cached planning artifacts' : null)
 
-        if (response.stale && response.artifacts.length > 0) {
+        if (response.stale) {
           setError(null)
         }
 
         if (response.artifacts.length === 0) {
+          if (!response.stale) {
+            clearPlanningArtifacts()
+          }
           return
         }
 
@@ -191,13 +222,10 @@ export function usePlanningArtifactBridge(): void {
           }
         }
 
-        const mergedArtifacts: PlanningArtifactsMap = {
-          ...currentArtifacts,
-          ...nextArtifacts,
-        }
-
-        setArtifacts(mergedArtifacts)
-        setArtifactKeys(deriveArtifactKeys(mergedArtifacts))
+        applyBulkPlanningArtifacts({
+          nextArtifacts,
+          mergeWithExisting: response.stale === true,
+        })
 
         const nextSlices = response.artifacts.reduce<Record<string, PlanningSliceData>>(
           (result, artifact) => {
@@ -209,20 +237,41 @@ export function usePlanningArtifactBridge(): void {
           {},
         )
 
-        setSlices((currentSlices) => ({
-          ...nextSlices,
-          ...currentSlices,
-        }))
+        if (response.stale) {
+          setSlices((currentSlices) => ({
+            ...nextSlices,
+            ...currentSlices,
+          }))
+        } else {
+          setSlices(nextSlices)
+        }
 
         const mostRecentArtifact = response.artifacts[0]
-        if (mostRecentArtifact) {
-          setActiveArtifactTitle((currentActiveArtifact) =>
-            currentActiveArtifact ?? {
-              artifactKey: mostRecentArtifact.artifactKey,
-              title: mostRecentArtifact.title,
-            },
-          )
-        }
+        setActiveArtifactTitle((currentActiveArtifact) => {
+          if (!currentActiveArtifact) {
+            return mostRecentArtifact
+              ? {
+                  artifactKey: mostRecentArtifact.artifactKey,
+                  title: mostRecentArtifact.title,
+                }
+              : null
+          }
+
+          if (response.stale) {
+            return currentActiveArtifact
+          }
+
+          if (nextArtifacts[currentActiveArtifact.artifactKey]) {
+            return currentActiveArtifact
+          }
+
+          return mostRecentArtifact
+            ? {
+                artifactKey: mostRecentArtifact.artifactKey,
+                title: mostRecentArtifact.title,
+              }
+            : null
+        })
       })
       .catch((error: unknown) => {
         if (cancelled) {
@@ -244,11 +293,10 @@ export function usePlanningArtifactBridge(): void {
       cancelled = true
     }
   }, [
-    currentArtifacts,
+    applyBulkPlanningArtifacts,
+    clearPlanningArtifacts,
     planningReloadNonce,
     setActiveArtifactTitle,
-    setArtifactKeys,
-    setArtifacts,
     setError,
     setLoading,
     setSlices,

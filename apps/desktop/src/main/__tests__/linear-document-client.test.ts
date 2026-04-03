@@ -144,6 +144,47 @@ describe('LinearDocumentClient', () => {
     ])
   })
 
+  test('uses ID variable typing when resolving project references', async () => {
+    process.env.LINEAR_API_KEY = 'linear-test-key'
+
+    const fetchSpy = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              project: {
+                id: 'project-uuid-123',
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              documents: {
+                nodes: [],
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+
+    globalThis.fetch = fetchSpy as unknown as typeof fetch
+
+    const client = new LinearDocumentClient({ getApiKey: vi.fn(async () => null) } as never)
+    await client.listByProject('project-ref')
+
+    const firstRequestInit = fetchSpy.mock.calls[0]?.[1] as RequestInit | undefined
+    const firstRequestBody = JSON.parse(String(firstRequestInit?.body)) as { query: string }
+
+    expect(firstRequestBody.query).toContain('query ResolveProjectId($projectRef: ID!)')
+  })
+
   test('returns NOT_FOUND when project reference cannot be resolved', async () => {
     process.env.LINEAR_API_KEY = 'linear-test-key'
 
