@@ -1,7 +1,11 @@
 import { useMemo, useState } from 'react'
-import * as Collapsible from '@radix-ui/react-collapsible'
 import { ShikiCodeViewer } from '@kata-ui/components/code-viewer/ShikiCodeViewer'
 import { getLanguageFromPath, truncateFilePath } from '@kata-ui/components/code-viewer/language-map'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { cn } from '@/lib/utils'
 import type { ToolCallView } from '@/atoms/chat'
 import { asNumber, asRecord, asString } from './toolCardUtils'
 
@@ -35,61 +39,73 @@ function toPreview(content: string, lines = 20): string {
   return `${split.slice(0, lines).join('\n')}\n… (${split.length - lines} more lines)`
 }
 
+function getStatusBadgeClass(status: ToolCallView['status']): string {
+  return cn(
+    'border uppercase tracking-wide text-[10px]',
+    status === 'error' && 'border-red-500/40 bg-red-500/15 text-red-700 dark:text-red-300',
+    status === 'done' && 'border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
+    status === 'running' && 'border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-300',
+  )
+}
+
 export function WriteCard({ tool }: WriteCardProps) {
   const view = useMemo(() => buildWriteViewModel(tool), [tool])
   const [isOpen, setIsOpen] = useState(tool.status !== 'done')
   const [showFullContent, setShowFullContent] = useState(false)
-
-  const statusClass =
-    tool.status === 'error'
-      ? 'border-red-500/40 bg-red-500/20 text-red-100'
-      : tool.status === 'done'
-        ? 'border-emerald-500/40 bg-emerald-500/20 text-emerald-100'
-        : 'border-amber-500/40 bg-amber-500/20 text-amber-100'
 
   const isLarge = view.content.split('\n').length > 20
   const language = getLanguageFromPath(view.filePath)
   const contentToShow = showFullContent ? view.content : toPreview(view.content, 20)
 
   return (
-    <Collapsible.Root
-      className="rounded-md border border-slate-700 bg-slate-900/60"
-      open={isOpen}
-      onOpenChange={setIsOpen}
-    >
-      <Collapsible.Trigger className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left">
-        <div className="min-w-0">
-          <p className="truncate text-xs font-semibold text-slate-100">write · {truncateFilePath(view.filePath, 68)}</p>
-          <p className="text-[11px] text-slate-400">
-            {tool.status === 'done' ? 'created/overwritten' : 'pending write'}
-            {view.bytesWritten !== undefined ? ` · ${view.bytesWritten} bytes` : ''}
-          </p>
-        </div>
-        <span className={`rounded border px-2 py-0.5 text-[10px] uppercase tracking-wide ${statusClass}`}>
-          {tool.status}
-        </span>
-      </Collapsible.Trigger>
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <Card className="gap-0 py-0">
+        <CardHeader className="px-0 py-0">
+          <CollapsibleTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-auto w-full justify-between rounded-none px-3 py-2 hover:bg-accent"
+            >
+              <div className="min-w-0 text-left">
+                <p className="truncate text-xs font-semibold text-foreground">write · {truncateFilePath(view.filePath, 68)}</p>
+                <p className="text-[11px] text-muted-foreground">
+                  {tool.status === 'done' ? 'created/overwritten' : 'pending write'}
+                  {view.bytesWritten !== undefined ? ` · ${view.bytesWritten} bytes` : ''}
+                </p>
+              </div>
+              <Badge variant="outline" className={getStatusBadgeClass(tool.status)}>
+                {tool.status}
+              </Badge>
+            </Button>
+          </CollapsibleTrigger>
+        </CardHeader>
 
-      <Collapsible.Content className="space-y-2 border-t border-slate-700 px-3 py-2">
-        <div className="h-[18rem] overflow-hidden rounded border border-slate-700 bg-slate-950">
-          <ShikiCodeViewer
-            code={contentToShow}
-            language={language}
-            filePath={view.filePath}
-            theme="dark"
-          />
-        </div>
+        <CollapsibleContent>
+          <CardContent className="flex flex-col gap-2 border-t border-border px-3 py-2">
+            <div className="h-[18rem] overflow-hidden rounded-md border border-border bg-background">
+              <ShikiCodeViewer
+                code={contentToShow}
+                language={language}
+                filePath={view.filePath}
+                theme="dark"
+              />
+            </div>
 
-        {isLarge && (
-          <button
-            type="button"
-            className="text-xs text-slate-300 underline decoration-dotted underline-offset-2 hover:text-slate-100"
-            onClick={() => setShowFullContent((value) => !value)}
-          >
-            {showFullContent ? 'Show preview' : 'Show full content'}
-          </button>
-        )}
-      </Collapsible.Content>
-    </Collapsible.Root>
+            {isLarge && (
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                className="h-auto w-fit px-0 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => setShowFullContent((value) => !value)}
+              >
+                {showFullContent ? 'Show preview' : 'Show full content'}
+              </Button>
+            )}
+          </CardContent>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
   )
 }

@@ -1,3 +1,6 @@
+import { Alert, AlertAction, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+
 interface ErrorBannerProps {
   title?: string
   message: string
@@ -6,22 +9,24 @@ interface ErrorBannerProps {
 
 export function ErrorBanner({ title = 'Agent error', message, onRestart }: ErrorBannerProps) {
   return (
-    <div className="mx-4 mb-3 rounded-md border border-red-500/50 bg-red-500/10 px-3 py-2 text-sm text-red-200">
-      <div className="flex items-center justify-between gap-3">
-        <p className="font-medium">{title}</p>
-        {onRestart && (
-          <button
+    <Alert variant="destructive" className="mx-4 mb-3">
+      <AlertTitle>{title}</AlertTitle>
+      <AlertDescription>{message}</AlertDescription>
+      {onRestart && (
+        <AlertAction>
+          <Button
             type="button"
+            variant="outline"
+            size="xs"
+            className="border-destructive/40 text-destructive hover:bg-destructive/10"
             onClick={() => {
               void onRestart()
             }}
-            className="rounded border border-red-300/60 px-2 py-1 text-xs font-medium text-red-100 hover:bg-red-500/20"
           >
             Restart
-          </button>
-        )}
-      </div>
-      <p className="mt-1 text-red-100/90">{message}</p>
-    </div>
+          </Button>
+        </AlertAction>
+      )}
+    </Alert>
   )
 }

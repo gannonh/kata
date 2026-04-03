@@ -1,0 +1,105 @@
+---
+title: "MCP support"
+description: "Connect Kata to any Model Context Protocol server — Linear, Figma, or any MCP-compatible service — via the built-in pi-mcp-adapter."
+---
+
+Kata integrates with [Model Context Protocol](https://modelcontextprotocol.io/) servers via [`pi-mcp-adapter`](https://github.com/nicobailon/pi-mcp-adapter), which is auto-installed on first launch. MCP servers extend Kata with additional tools from any MCP-compatible service.
+
+## Adding a server
+
+Edit `~/.kata-cli/agent/mcp.json` and add your server under `mcpServers`:
+
+```json
+{
+  "mcpServers": {
+    "linear": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://mcp.linear.app/mcp"]
+    }
+  }
+}
+```
+
+Restart Kata, then connect to the server:
+
+```
+mcp({ connect: "linear" })
+```
+
+<Note>
+  OAuth servers (such as Linear) open a browser window for authorization on first connect. Tokens are cached for subsequent sessions.
+</Note>
+
+## Project-local config
+
+Kata also supports a project-local MCP config at `<project-root>/.kata-cli/mcp.json`. At startup, Kata merges the global and project-local configs.
+
+<CodeGroup>
+
+```json ~/.kata-cli/agent/mcp.json
+{
+  "mcpServers": {
+    "linear": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://mcp.linear.app/mcp"]
+    }
+  }
+}
+```
+
+```json <project-root>/.kata-cli/mcp.json
+{
+  "mcpServers": {
+    "figma": {
+      "command": "npx",
+      "args": ["-y", "@figma/mcp-server"]
+    }
+  }
+}
+```
+
+</CodeGroup>
+
+### Merge rules
+
+| Key | Behavior |
+|-----|----------|
+| `mcpServers` | Merged by server name — project-local wins on name collisions |
+| `settings` | Shallow-merged — project-local wins on collisions |
+| `imports` | Concatenated — global first, then project-local |
+
+<Warning>
+  On first use of a project's local MCP config, Kata asks for confirmation before trusting and loading it. If the project's `mcp.json` content changes later, Kata asks again.
+</Warning>
+
+## Importing from other tools
+
+Pull in MCP server configurations from other tools you already use:
+
+```json
+{
+  "imports": ["claude-code", "cursor"],
+  "mcpServers": {}
+}
+```
+
+Supported import sources:
+
+- `cursor`
+- `claude-code`
+- `claude-desktop`
+- `vscode`
+- `windsurf`
+- `codex`
+
+## Usage
+
+Call MCP tools directly from the agent using the `mcp()` function, or use the interactive `/mcp` panel.
+
+| Command | Description |
+|---------|-------------|
+| `mcp({ })` | Show server status |
+| `mcp({ server: "name" })` | List tools from a specific server |
+| `mcp({ search: "query" })` | Search tools across all connected servers |
+| `mcp({ tool: "name", args: '{}' })` | Call a specific tool with arguments |
+| `/mcp` | Open the interactive MCP panel |

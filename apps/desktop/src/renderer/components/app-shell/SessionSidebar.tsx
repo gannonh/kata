@@ -1,3 +1,4 @@
+import { Plus, RefreshCw } from 'lucide-react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import {
   createSessionAtom,
@@ -7,8 +8,14 @@ import {
   sessionListAtom,
   sessionListErrorAtom,
   sessionListLoadingAtom,
+  sessionSwitchingAtom,
   sessionWarningsAtom,
+  switchSessionAtom,
 } from '@/atoms/session'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Separator } from '@/components/ui/separator'
 import { SessionListItem } from './SessionListItem'
 
 interface SessionSidebarProps {
@@ -20,10 +27,12 @@ export function SessionSidebar({ open }: SessionSidebarProps) {
   const currentSessionId = useAtomValue(currentSessionIdAtom)
   const loading = useAtomValue(sessionListLoadingAtom)
   const creatingSession = useAtomValue(sessionCreatingAtom)
+  const switchingSession = useAtomValue(sessionSwitchingAtom)
   const error = useAtomValue(sessionListErrorAtom)
   const warnings = useAtomValue(sessionWarningsAtom)
 
   const createSession = useSetAtom(createSessionAtom)
+  const switchSession = useSetAtom(switchSessionAtom)
   const refreshSessions = useSetAtom(refreshSessionListAtom)
 
   if (!open) {
@@ -31,64 +40,78 @@ export function SessionSidebar({ open }: SessionSidebarProps) {
   }
 
   return (
-    <aside className="flex h-full w-[16rem] shrink-0 flex-col border-r border-slate-800 bg-slate-950/80">
-      <div className="border-b border-slate-800 p-3">
-        <button
+    <aside className="flex h-full w-[18rem] min-w-0 shrink-0 flex-col overflow-hidden border-r border-border bg-background/80">
+      <div className="flex min-w-0 flex-col gap-2 p-3">
+        <Button
           type="button"
           onClick={() => {
             void createSession()
           }}
-          disabled={creatingSession}
-          className="inline-flex w-full items-center justify-center rounded-md bg-slate-100 px-2 py-1.5 text-xs font-medium text-slate-900 hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={creatingSession || switchingSession}
+          className="w-full"
         >
-          {creatingSession ? 'Creating…' : '+ New Session'}
-        </button>
+          <Plus data-icon="inline-start" />
+          {creatingSession ? 'Creating…' : 'New Session'}
+        </Button>
 
-        <div className="mt-2 flex items-center justify-between text-[10px] text-slate-400">
-          <span>{sessions.length} sessions</span>
-          <button
+        <div className="flex items-center justify-between gap-2">
+          <Badge variant="secondary" className="font-normal">
+            {sessions.length} sessions
+          </Badge>
+          <Button
             type="button"
+            variant="outline"
+            size="xs"
             onClick={() => {
               void refreshSessions()
             }}
-            className="rounded border border-slate-700 px-1.5 py-0.5 hover:bg-slate-800"
+            disabled={switchingSession}
           >
+            <RefreshCw data-icon="inline-start" />
             Refresh
-          </button>
+          </Button>
         </div>
 
-        <p className="mt-2 text-[10px] text-slate-500">Session switching is not available yet in Desktop.</p>
+        {switchingSession && (
+          <p className="text-[10px] text-muted-foreground">Switching session…</p>
+        )}
 
         {warnings.length > 0 && (
-          <p className="mt-2 rounded border border-amber-500/50 bg-amber-500/10 px-2 py-1 text-[10px] text-amber-200">
+          <p className="rounded border border-amber-500/50 bg-amber-500/10 px-2 py-1 text-[10px] text-amber-200">
             {warnings.length} corrupted session file{warnings.length === 1 ? '' : 's'} skipped
           </p>
         )}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-2">
-        {loading && <p className="p-2 text-xs text-slate-400">Loading sessions…</p>}
+      <Separator />
 
-        {!loading && error && (
-          <p className="rounded border border-rose-500/40 bg-rose-500/10 p-2 text-xs text-rose-200">
-            Unable to load sessions: {error}
-          </p>
-        )}
+      <ScrollArea className="min-h-0 flex-1">
+        <div className="flex min-w-0 flex-col gap-1.5 overflow-hidden p-2">
+          {loading && <p className="p-2 text-xs text-muted-foreground">Loading sessions…</p>}
 
-        {!loading && !error && sessions.length === 0 && (
-          <p className="p-2 text-xs text-slate-400">No sessions for this workspace yet.</p>
-        )}
+          {!loading && error && (
+            <p className="rounded border border-rose-500/40 bg-rose-500/10 p-2 text-xs text-rose-200">
+              Unable to load sessions: {error}
+            </p>
+          )}
 
-        <div className="space-y-2">
+          {!loading && !error && sessions.length === 0 && (
+            <p className="p-2 text-xs text-muted-foreground">No sessions for this workspace yet.</p>
+          )}
+
           {sessions.map((session) => (
             <SessionListItem
               key={session.id}
               session={session}
               isCurrent={session.id === currentSessionId}
+              disabled={switchingSession || creatingSession}
+              onSelect={(sessionId) => {
+                void switchSession(sessionId)
+              }}
             />
           ))}
         </div>
-      </div>
+      </ScrollArea>
     </aside>
   )
 }

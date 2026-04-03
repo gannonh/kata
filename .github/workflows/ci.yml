@@ -115,68 +115,12 @@ jobs:
           path: apps/symphony/coverage/
           retention-days: 30
 
-  e2e-mocked:
-    needs: validate
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Check if desktop version bumped
-        id: version-check
-        run: |
-          CURRENT_VERSION=$(node -p "require('./apps/electron/package.json').version")
-          if git ls-remote --tags origin | grep -q "refs/tags/desktop-v$CURRENT_VERSION"; then
-            echo "Version $CURRENT_VERSION already tagged, skipping E2E"
-            echo "should_run=false" >> $GITHUB_OUTPUT
-          else
-            echo "New version $CURRENT_VERSION detected, running E2E"
-            echo "should_run=true" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Setup Bun
-        if: steps.version-check.outputs.should_run == 'true'
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: '1.3.8'
-
-      - name: Setup Node.js
-        if: steps.version-check.outputs.should_run == 'true'
-        uses: actions/setup-node@v6
-        with:
-          node-version: '22'
-
-      - name: Install dependencies
-        if: steps.version-check.outputs.should_run == 'true'
-        run: bun install
-
-      - name: Install Playwright browsers
-        if: steps.version-check.outputs.should_run == 'true'
-        run: npx playwright install --with-deps chromium
-
-      - name: Build Electron app
-        if: steps.version-check.outputs.should_run == 'true'
-        run: bun run electron:build
-
-      - name: Run mocked E2E tests
-        if: steps.version-check.outputs.should_run == 'true'
-        run: xvfb-run --auto-servernum -- bun run test:e2e
-        env:
-          CI: 'true'
-          KATA_TEST_MODE: '1'
-
-      - name: Upload Playwright report
-        uses: actions/upload-artifact@v7
-        if: failure()
-        with:
-          name: playwright-report
-          path: apps/electron/playwright-report/
-          retention-days: 7
+  # Legacy e2e-mocked job removed — apps/electron is superseded by apps/desktop.
+  # Desktop unit tests run via Turborepo in the validate job (npx vitest run --coverage).
+  # Desktop e2e tests will be added in a future milestone.
 
   gate:
-    needs: [validate, symphony-coverage, e2e-mocked]
+    needs: [validate, symphony-coverage]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -184,11 +128,9 @@ jobs:
         run: |
           echo "validate: ${{ needs.validate.result }}"
           echo "symphony-coverage: ${{ needs.symphony-coverage.result }}"
-          echo "e2e-mocked: ${{ needs.e2e-mocked.result }}"
 
           if [[ "${{ needs.validate.result }}" == "failure" || \
-                "${{ needs.symphony-coverage.result }}" == "failure" || \
-                "${{ needs.e2e-mocked.result }}" == "failure" ]]; then
+                "${{ needs.symphony-coverage.result }}" == "failure" ]]; then
             echo "One or more jobs failed"
             exit 1
           fi

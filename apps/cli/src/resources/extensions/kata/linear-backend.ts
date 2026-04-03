@@ -220,6 +220,22 @@ export class LinearBackend implements KataBackend {
     return undefined;
   }
 
+  async isSlicePlanned(milestoneId: string, sliceId: string): Promise<boolean> {
+    try {
+      const allSlices = await listKataSlices(this.client, this.config.projectId, this.config.sliceLabelId);
+      const sliceIssue = allSlices.find((s) => {
+        const parsed = parseKataEntityTitle(s.title);
+        const mParsed = s.projectMilestone
+          ? parseKataEntityTitle(s.projectMilestone.name)
+          : null;
+        return parsed?.kataId === sliceId && mParsed?.kataId === milestoneId;
+      });
+      return (sliceIssue?.children?.nodes?.length ?? 0) > 0;
+    } catch {
+      return false;
+    }
+  }
+
   // ── Lifecycle ─────────────────────────────────────────────────────────
 
   async bootstrap(): Promise<void> {

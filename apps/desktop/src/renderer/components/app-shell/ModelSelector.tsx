@@ -6,6 +6,15 @@ import {
   modelLoadingAtom,
   selectedModelAtom,
 } from '@/atoms/model'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { MODELS_REFRESH_EVENT, PROVIDER_METADATA } from '@/constants/providers'
 
 function toModelIdentifier(provider: string, id: string): string {
@@ -60,19 +69,13 @@ export function ModelSelector() {
         return
       }
 
-      const first = response.models[0]
-      if (!first) {
-        return
+      // Don't auto-select a model — the CLI subprocess uses its own configured default.
+      // The model selector will show "Select model" until the user explicitly picks one,
+      // and the CLI will use whatever model it's configured with (from settings.json).
+      if (bridgeModel) {
+        // If the bridge already has a model but it's not in our list, just show it anyway
+        setSelectedModel(bridgeModel)
       }
-
-      const fallbackModel = toModelIdentifier(first.provider, first.id)
-      const setResult = await window.api.setModel(fallbackModel)
-      if (!setResult.success) {
-        setError(setResult.error ?? 'Unable to set default model')
-        return
-      }
-
-      setSelectedModel(fallbackModel)
     } catch (refreshError) {
       setError(refreshError instanceof Error ? refreshError.message : String(refreshError))
     } finally {
@@ -127,37 +130,43 @@ export function ModelSelector() {
     setError(null)
   }
 
+  const modelPlaceholder = loading
+    ? 'Loading models…'
+    : availableModels.length === 0
+      ? 'No models available'
+      : 'Select a model'
+
   return (
     <div className="flex min-w-[16rem] flex-col gap-1">
-      <label className="text-[10px] uppercase tracking-wide text-slate-400">Model</label>
-
-      <select
-        value={selectedModel ?? ''}
+      <Select
+        value={selectedModel ?? undefined}
         disabled={loading || availableModels.length === 0}
-        onChange={(event) => {
-          void handleChange(event.target.value)
+        onValueChange={(value) => {
+          void handleChange(value)
         }}
-        className="h-8 rounded-md border border-slate-700 bg-slate-900 px-2 text-xs text-slate-100 focus:border-slate-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
       >
-        {availableModels.length === 0 && (
-          <option value="">{loading ? 'Loading models…' : 'No models available'}</option>
-        )}
+        <SelectTrigger className="w-full" size="sm">
+          <SelectValue placeholder={modelPlaceholder} />
+        </SelectTrigger>
 
-        {groupedModels.map(([provider, models]) => (
-          <optgroup key={provider} label={formatProviderLabel(provider)}>
-            {models.map((model) => {
-              const value = toModelIdentifier(model.provider, model.id)
-              return (
-                <option key={value} value={value}>
-                  {value}
-                </option>
-              )
-            })}
-          </optgroup>
-        ))}
-      </select>
+        <SelectContent>
+          {groupedModels.map(([provider, models]) => (
+            <SelectGroup key={provider}>
+              <SelectLabel>{formatProviderLabel(provider)}</SelectLabel>
+              {models.map((model) => {
+                const value = toModelIdentifier(model.provider, model.id)
+                return (
+                  <SelectItem key={value} value={value}>
+                    {value}
+                  </SelectItem>
+                )
+              })}
+            </SelectGroup>
+          ))}
+        </SelectContent>
+      </Select>
 
-      {error && <p className="text-[11px] text-rose-300">{error}</p>}
+      {error && <p className="text-[11px] text-destructive">{error}</p>}
     </div>
   )
 }

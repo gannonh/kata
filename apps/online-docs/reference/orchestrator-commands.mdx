@@ -1,0 +1,141 @@
+---
+title: "Orchestrator command reference"
+description: "Complete reference for all Kata Orchestrator slash commands."
+---
+
+Kata Orchestrator installs slash commands into your AI coding runtime. The command syntax varies by runtime:
+
+| Runtime | Syntax | Example |
+|---------|--------|---------|
+| Claude Code | `/kata:<cmd>` | `/kata:new-project` |
+| OpenCode | `/kata-<cmd>` | `/kata-new-project` |
+| Codex | `$kata-<cmd>` | `$kata-new-project` |
+| Gemini CLI | `/kata:<cmd>` | `/kata:new-project` |
+
+The examples below use Claude Code syntax (`/kata:<cmd>`).
+
+---
+
+## Core workflow
+
+Commands for the main Kata development lifecycle.
+
+| Command | Description |
+|---------|-------------|
+| `/kata:new-project [--auto]` | Run an interview to capture goals, constraints, and tech preferences. Optionally spawns parallel research agents. Produces `PROJECT.md`, `REQUIREMENTS.md`, `ROADMAP.md`, and `STATE.md`. |
+| `/kata:discuss-phase [N] [--auto]` | Capture implementation decisions before planning. Identifies gray areas and asks targeted questions. Output feeds into research and planning. Produces `{N}-CONTEXT.md`. |
+| `/kata:plan-phase [N] [--auto]` | Research the implementation domain, produce 2–3 atomic task plans, and validate plans against requirements. Plans are sized to fit a single context window. Produces `{N}-RESEARCH.md` and `{N}-{N}-PLAN.md` files. |
+| `/kata:execute-phase <N>` | Group plans into dependency waves. Plans in the same wave run in parallel; waves run sequentially. Each plan executes in a fresh subagent context window with a dedicated 200k token budget. Each completed task gets an atomic git commit. Produces `{N}-{N}-SUMMARY.md` and `{N}-VERIFICATION.md`. |
+| `/kata:verify-work [N]` | Extract testable deliverables and walk through them one at a time. Failures trigger automated debug agents that diagnose root causes and produce fix plans ready for re-execution. Produces `{N}-UAT.md`. |
+| `/kata:audit-milestone` | Verify the milestone definition of done. Identifies gaps between planned and implemented work. |
+| `/kata:complete-milestone` | Archive the current milestone and tag the release. |
+| `/kata:new-milestone [name]` | Start the next iteration with a fresh milestone. |
+
+### Typical workflow
+
+```
+/kata:new-project
+/kata:discuss-phase 1
+/kata:plan-phase 1
+/kata:execute-phase 1
+/kata:verify-work 1
+/kata:discuss-phase 2
+/kata:plan-phase 2
+/kata:execute-phase 2
+/kata:verify-work 2
+...
+/kata:complete-milestone
+/kata:new-milestone
+```
+
+---
+
+## Navigation
+
+| Command | Description |
+|---------|-------------|
+| `/kata:progress` | Show current position in the workflow and the recommended next action |
+| `/kata:help` | List all installed commands |
+| `/kata:update` | Update the orchestrator with a changelog preview |
+
+---
+
+## Brownfield
+
+| Command | Description |
+|---------|-------------|
+| `/kata:map-codebase` | Analyze an existing codebase before planning. Captures the stack and conventions so planning questions focus on what's being added. Run this before `/kata:new-project` for existing projects. |
+
+---
+
+## Phase management
+
+Commands for adjusting the roadmap after it has been generated.
+
+| Command | Description |
+|---------|-------------|
+| `/kata:add-phase` | Append a new phase to the end of the roadmap |
+| `/kata:insert-phase [N]` | Insert a new phase between existing phases |
+| `/kata:remove-phase [N]` | Remove a phase and renumber subsequent phases |
+| `/kata:list-phase-assumptions [N]` | Preview the implementation approach for a phase before planning begins |
+| `/kata:plan-milestone-gaps` | Create phases to close gaps identified by `/kata:audit-milestone` |
+
+---
+
+## Session
+
+| Command | Description |
+|---------|-------------|
+| `/kata:pause-work` | Save current handoff state so work can be resumed later |
+| `/kata:resume-work` | Restore state from the last saved session |
+
+---
+
+## Utilities
+
+| Command | Description |
+|---------|-------------|
+| `/kata:settings` | Configure model profile and workflow agent toggles |
+| `/kata:set-profile <profile>` | Switch between `quality`, `balanced`, and `budget` model profiles |
+| `/kata:add-todo [desc]` | Capture an idea or task for later without interrupting current work |
+| `/kata:check-todos` | List all pending todos |
+| `/kata:debug [desc]` | Systematic debugging with persistent state tracking |
+| `/kata:quick [--full] [--discuss]` | Ad-hoc task that skips research, plan checking, and verification. `--full` adds plan checking and verification. `--discuss` adds a discussion step. |
+| `/kata:health [--repair]` | Validate `.planning/` directory integrity. `--repair` attempts automatic fixes. |
+
+### Quick mode
+
+`/kata:quick` is useful for ad-hoc tasks that don't need full planning. It uses the same subagents and produces the same git commits and summaries as the full workflow.
+
+```
+/kata:quick
+> What do you want to do? "Add dark mode toggle to settings"
+```
+
+Output is written to `.planning/quick/001-task-name/PLAN.md` and `SUMMARY.md`.
+
+---
+
+## Planning artifacts
+
+All planning artifacts are stored in `.planning/`:
+
+```
+.planning/
+  config.json
+  PROJECT.md
+  REQUIREMENTS.md
+  ROADMAP.md
+  STATE.md
+  research/
+  1-CONTEXT.md
+  1-RESEARCH.md
+  1-1-PLAN.md
+  1-1-SUMMARY.md
+  1-VERIFICATION.md
+  1-UAT.md
+  quick/
+    001-task-name/
+      PLAN.md
+      SUMMARY.md
+```

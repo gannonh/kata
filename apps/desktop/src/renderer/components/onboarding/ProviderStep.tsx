@@ -1,4 +1,10 @@
+import { ArrowLeft, Check, ChevronRight, KeyRound } from 'lucide-react'
 import type { AuthProvider, ProviderStatusMap } from '@shared/types'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Separator } from '@/components/ui/separator'
+import { cn } from '@/lib/utils'
 import { ONBOARDING_PROVIDER_IDS, PROVIDER_METADATA } from '@/constants/providers'
 
 interface ProviderStepProps {
@@ -22,74 +28,81 @@ export function ProviderStep({
 }: ProviderStepProps) {
   return (
     <div className="flex h-full flex-col justify-between">
-      <div>
-        <h2 className="text-2xl font-semibold text-slate-100">Choose a provider</h2>
-        <p className="mt-2 text-sm text-slate-300">
-          You can add more providers later in Settings. Start with one that already has a key.
-        </p>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
+          <h2 className="text-2xl font-semibold text-foreground">Choose a provider</h2>
+          <p className="text-sm text-muted-foreground">
+            You can add more providers later in Settings. Start with one that already has a key.
+          </p>
+        </div>
 
         {loadError && (
-          <div className="mt-3 rounded-md border border-rose-500/50 bg-rose-950/40 px-3 py-2 text-xs text-rose-200">
+          <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
             {loadError}
           </div>
         )}
 
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2">
           {ONBOARDING_PROVIDER_IDS.map((provider) => {
             const metadata = PROVIDER_METADATA[provider]
             const info = providers[provider]
             const configured = info.status === 'valid'
+            const selected = selectedProvider === provider
 
             return (
-              <button
+              <Card
                 key={provider}
-                type="button"
+                role="button"
+                tabIndex={0}
                 onClick={() => onSelect(provider)}
-                className={`rounded-lg border p-3 text-left transition ${
-                  selectedProvider === provider
-                    ? 'border-slate-400 bg-slate-800/80'
-                    : 'border-slate-700 bg-slate-900/70 hover:border-slate-600'
-                }`}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    onSelect(provider)
+                  }
+                }}
+                className={cn(
+                  'cursor-pointer border border-border bg-card/70 py-0 transition hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                  selected && 'border-ring bg-accent',
+                )}
               >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-100">{metadata.name}</p>
-                    <p className="mt-1 text-xs text-slate-400">{metadata.description}</p>
+                <CardContent className="flex items-start justify-between gap-3 p-3">
+                  <div className="flex flex-col gap-1">
+                    <p className="text-sm font-semibold text-foreground">{metadata.name}</p>
+                    <p className="text-xs text-muted-foreground">{metadata.description}</p>
                   </div>
 
-                  <span
-                    className={`ml-3 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                      configured
-                        ? 'bg-emerald-500/20 text-emerald-200'
-                        : 'bg-slate-700 text-slate-300'
-                    }`}
-                  >
+                  <Badge variant={configured ? 'secondary' : 'outline'} className="shrink-0">
+                    {configured ? <Check data-icon="inline-start" /> : <KeyRound data-icon="inline-start" />}
                     {configured ? 'Configured' : 'Add key'}
-                  </span>
-                </div>
-              </button>
+                  </Badge>
+                </CardContent>
+              </Card>
             )
           })}
         </div>
       </div>
 
-      <div className="mt-6 flex items-center justify-between">
-        <button
-          type="button"
-          onClick={onBack}
-          className="rounded-md border border-slate-600 px-3 py-1.5 text-xs text-slate-200"
-        >
-          Back
-        </button>
+      <div className="mt-6 flex flex-col gap-4">
+        <Separator />
 
-        <button
-          type="button"
-          disabled={!selectedProvider || loading}
-          onClick={onContinue}
-          className="rounded-md bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-900 disabled:opacity-60"
-        >
-          {loading ? 'Loading…' : 'Continue'}
-        </button>
+        <div className="flex items-center justify-between">
+          <Button type="button" variant="outline" onClick={onBack}>
+            <ArrowLeft data-icon="inline-start" />
+            Back
+          </Button>
+
+          <Button type="button" disabled={!selectedProvider || loading} onClick={onContinue} size="lg">
+            {loading ? (
+              'Loading…'
+            ) : (
+              <>
+                Continue
+                <ChevronRight data-icon="inline-end" />
+              </>
+            )}
+          </Button>
+        </div>
       </div>
     </div>
   )

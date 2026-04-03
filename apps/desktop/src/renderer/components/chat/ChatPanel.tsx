@@ -10,12 +10,13 @@ import {
   messagesAtom,
   toolCallsAtom,
 } from '@/atoms/chat'
-import { refreshSessionListAtom } from '@/atoms/session'
+import { refreshSessionListAtom, sessionHistoryErrorAtom } from '@/atoms/session'
 import { ErrorBanner } from './ErrorBanner'
 import { ExtensionUIHandler } from './ExtensionUIHandler'
 import { MessageInput } from './MessageInput'
 import { MessageList } from './MessageList'
 import { PermissionModeSelector } from './PermissionModeSelector'
+import { ThinkingLevelToggle } from './ThinkingLevelToggle'
 
 export function ChatPanel() {
   const messages = useAtomValue(messagesAtom)
@@ -23,6 +24,7 @@ export function ChatPanel() {
   const error = useAtomValue(errorAtom)
   const isStreaming = useAtomValue(isStreamingAtom)
   const bridgeStatus = useAtomValue(bridgeStatusAtom)
+  const sessionHistoryError = useAtomValue(sessionHistoryErrorAtom)
 
   const appendUserMessage = useSetAtom(appendUserMessageAtom)
   const applyChatEvent = useSetAtom(applyChatEventAtom)
@@ -72,7 +74,7 @@ export function ChatPanel() {
   const errorTitle = bridgeStatus.state === 'crashed' ? 'Agent process crashed' : 'Agent error'
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col">
+    <div className="relative flex h-full min-h-0 flex-col bg-background">
       <ExtensionUIHandler />
 
       {errorMessage && (
@@ -83,14 +85,21 @@ export function ChatPanel() {
         />
       )}
 
-      <div className="flex items-center justify-between border-b border-slate-800 px-4 py-2">
-        <p className="text-[11px] uppercase tracking-wide text-slate-400">Permission mode</p>
+      <div className="flex items-center justify-between border-b border-border px-4 py-2">
+        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Permission mode</p>
         <PermissionModeSelector />
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-auto">
+        {sessionHistoryError && (
+          <div className="border-b border-rose-500/30 bg-rose-500/10 px-4 py-2 text-xs text-rose-200">
+            Unable to load session history: {sessionHistoryError}
+          </div>
+        )}
         <MessageList messages={messages} tools={tools} />
       </div>
+
+      <ThinkingLevelToggle />
 
       <MessageInput
         disabled={inputDisabled}
@@ -113,7 +122,7 @@ export function ChatPanel() {
         }}
       />
 
-      <div className="border-t border-slate-800 px-4 py-2 text-[11px] text-slate-500">
+      <div className="border-t border-border px-4 py-2 text-[11px] text-muted-foreground">
         {isStreaming
           ? 'Streaming response…'
           : bridgeStatus.state === 'running'

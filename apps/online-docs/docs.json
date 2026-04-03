@@ -1,0 +1,106 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "name": "Kata",
+  "theme": "palm",
+  "colors": {
+    "primary": "#d0a172",
+    "light": "#6c5c44",
+    "dark": "#0d0c0c"
+  },
+  "favicon": "https://media.brand.dev/9cfb575f-84a7-4a0f-a021-8284dbfbd9ba.svg",
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/gannonh/kata"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/gannonh/kata"
+    }
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "index",
+              "introduction",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Kata CLI",
+            "pages": [
+              "cli/overview",
+              "cli/commands",
+              "cli/pr-mode",
+              "cli/linear-integration",
+              "cli/mcp-support"
+            ]
+          },
+          {
+            "group": "Kata Symphony",
+            "pages": [
+              "symphony/overview",
+              "symphony/workflow-config",
+              "symphony/agent-backends",
+              "symphony/deployment"
+            ]
+          },
+          {
+            "group": "Kata Desktop",
+            "pages": [
+              "desktop/overview",
+              "desktop/sessions-workspaces",
+              "desktop/sources-mcp"
+            ]
+          },
+          {
+            "group": "Kata Orchestrator",
+            "pages": [
+              "orchestrator/overview",
+              "orchestrator/workflow",
+              "orchestrator/commands"
+            ]
+          },
+          {
+            "group": "Kata Context",
+            "pages": [
+              "context/overview"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Reference",
+        "groups": [
+          {
+            "group": "CLI Reference",
+            "pages": [
+              "reference/cli-commands",
+              "reference/cli-preferences"
+            ]
+          },
+          {
+            "group": "Symphony Reference",
+            "pages": [
+              "reference/symphony-workflow",
+              "reference/symphony-api"
+            ]
+          },
+          {
+            "group": "Orchestrator Reference",
+            "pages": [
+              "reference/orchestrator-commands",
+              "reference/orchestrator-config"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

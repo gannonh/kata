@@ -1,5 +1,10 @@
 import { useState } from 'react'
+import { ArrowLeft, KeyRound } from 'lucide-react'
 import type { AuthProvider } from '@shared/types'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Separator } from '@/components/ui/separator'
 import { PROVIDER_METADATA } from '@/constants/providers'
 
 interface KeyInputStepProps {
@@ -51,16 +56,21 @@ export function KeyInputStep({ provider, onBack, onSaved, onSkip }: KeyInputStep
 
   return (
     <div className="flex h-full flex-col justify-between">
-      <div>
-        <h2 className="text-2xl font-semibold text-slate-100">Add your {metadata.name} key</h2>
-        <p className="mt-2 text-sm text-slate-300">
-          Keys are stored in <code className="rounded bg-slate-800 px-1">~/.kata-cli/agent/auth.json</code>{' '}
-          and shared with Kata CLI.
-        </p>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
+          <h2 className="text-2xl font-semibold text-foreground">Add your {metadata.name} key</h2>
+          <p className="text-sm text-muted-foreground">
+            Keys are stored in <code className="rounded bg-accent px-1">~/.kata-cli/agent/auth.json</code> and
+            shared with Kata CLI.
+          </p>
+        </div>
 
-        <div className="mt-4 space-y-2">
-          <label className="text-xs uppercase tracking-wide text-slate-400">API key</label>
-          <input
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="provider-api-key" className="text-xs uppercase tracking-wide text-muted-foreground">
+            API key
+          </Label>
+          <Input
+            id="provider-api-key"
             type="password"
             value={keyValue}
             onChange={(event) => {
@@ -69,43 +79,47 @@ export function KeyInputStep({ provider, onBack, onSaved, onSkip }: KeyInputStep
               setSuccessMessage(null)
             }}
             placeholder={`Enter ${metadata.shortName} API key`}
-            className="h-10 w-full rounded-md border border-slate-700 bg-slate-900 px-3 text-sm text-slate-100 outline-none focus:border-slate-500"
+            className="h-10"
           />
         </div>
 
-        {busy && <p className="mt-3 text-xs text-slate-300">Validating key…</p>}
-        {error && <p className="mt-3 text-xs text-rose-300">{error}</p>}
-        {successMessage && <p className="mt-3 text-xs text-emerald-300">{successMessage}</p>}
+        {busy && <p className="text-xs text-muted-foreground">Validating key…</p>}
+        {error && <p className="text-xs text-destructive">{error}</p>}
+        {successMessage && <p className="text-xs text-primary">{successMessage}</p>}
       </div>
 
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
-        <button
-          type="button"
-          onClick={onBack}
-          className="rounded-md border border-slate-600 px-3 py-1.5 text-xs text-slate-200"
-        >
-          Back
-        </button>
+      <div className="mt-6 flex flex-col gap-4">
+        <Separator />
 
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onSkip}
-            className="text-xs text-slate-400 underline-offset-2 hover:underline"
-          >
-            Skip for now
-          </button>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <Button type="button" variant="outline" onClick={onBack}>
+            <ArrowLeft data-icon="inline-start" />
+            Back
+          </Button>
 
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => {
-              void validateAndSave()
-            }}
-            className="rounded-md bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-900 disabled:opacity-60"
-          >
-            {busy ? 'Validating…' : 'Validate & Save'}
-          </button>
+          <div className="flex items-center gap-2">
+            <Button type="button" variant="ghost" onClick={onSkip} className="text-muted-foreground">
+              Skip for now
+            </Button>
+
+            <Button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                void validateAndSave()
+              }}
+              size="lg"
+            >
+              {busy ? (
+                'Validating…'
+              ) : (
+                <>
+                  <KeyRound data-icon="inline-start" />
+                  Validate & Save
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </div>
     </div>

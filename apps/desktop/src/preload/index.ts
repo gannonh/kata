@@ -7,6 +7,9 @@ import {
   type DesktopApi,
   type ExtensionUIRequest,
   type PermissionMode,
+  type PlanningArtifact,
+  type PlanningArtifactFetchStateEvent,
+  type ThinkingLevel,
 } from '../shared/types'
 
 const api: DesktopApi = {
@@ -70,6 +73,9 @@ const api: DesktopApi = {
   setModel: async (model: string) => {
     return ipcRenderer.invoke(IPC_CHANNELS.sessionSetModel, model)
   },
+  setThinkingLevel: async (level: ThinkingLevel) => {
+    return ipcRenderer.invoke(IPC_CHANNELS.sessionSetThinkingLevel, level)
+  },
   sessions: {
     list: async () => {
       return ipcRenderer.invoke(IPC_CHANNELS.sessionList)
@@ -79,6 +85,12 @@ const api: DesktopApi = {
     },
     getInfo: async (sessionPath: string) => {
       return ipcRenderer.invoke(IPC_CHANNELS.sessionGetInfo, sessionPath)
+    },
+    switch: async (sessionId: string) => {
+      return ipcRenderer.invoke(IPC_CHANNELS.sessionSwitch, sessionId)
+    },
+    getHistory: async (sessionId: string, sessionPath?: string) => {
+      return ipcRenderer.invoke(IPC_CHANNELS.sessionGetHistory, sessionId, sessionPath)
     },
   },
   workspace: {
@@ -104,6 +116,36 @@ const api: DesktopApi = {
     },
     validateKey: async (provider: AuthProvider, key: string) => {
       return ipcRenderer.invoke(IPC_CHANNELS.authValidateKey, provider, key)
+    },
+  },
+  planning: {
+    onArtifactUpdated: (listener: (artifact: PlanningArtifact) => void) => {
+      const wrapped = (_event: Electron.IpcRendererEvent, artifact: PlanningArtifact) => {
+        listener(artifact)
+      }
+
+      ipcRenderer.on(IPC_CHANNELS.planningArtifactUpdated, wrapped)
+
+      return () => {
+        ipcRenderer.removeListener(IPC_CHANNELS.planningArtifactUpdated, wrapped)
+      }
+    },
+    onArtifactFetchState: (listener: (event: PlanningArtifactFetchStateEvent) => void) => {
+      const wrapped = (_event: Electron.IpcRendererEvent, event: PlanningArtifactFetchStateEvent) => {
+        listener(event)
+      }
+
+      ipcRenderer.on(IPC_CHANNELS.planningArtifactFetchState, wrapped)
+
+      return () => {
+        ipcRenderer.removeListener(IPC_CHANNELS.planningArtifactFetchState, wrapped)
+      }
+    },
+    fetchArtifact: async (title: string, artifactKey?: string) => {
+      return ipcRenderer.invoke(IPC_CHANNELS.planningFetchArtifact, title, artifactKey)
+    },
+    listArtifacts: async () => {
+      return ipcRenderer.invoke(IPC_CHANNELS.planningListArtifacts)
     },
   },
 }

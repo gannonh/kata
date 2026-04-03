@@ -365,7 +365,13 @@ export class PiAgentBridge extends EventEmitter {
 
   public async getAvailableModels(): Promise<AvailableModel[]> {
     const result = await this.send({ type: 'get_available_models' })
-    const payload = result.data
+    // The CLI returns { models: [...] } as the data payload
+    const rawPayload = result.data
+    const payload = Array.isArray(rawPayload)
+      ? rawPayload
+      : (rawPayload && typeof rawPayload === 'object' && Array.isArray((rawPayload as Record<string, unknown>).models))
+        ? (rawPayload as Record<string, unknown>).models as unknown[]
+        : null
 
     if (!Array.isArray(payload)) {
       return []
@@ -378,7 +384,7 @@ export class PiAgentBridge extends EventEmitter {
         continue
       }
 
-      const candidate = entry as Partial<AvailableModel>
+      const candidate = entry as Record<string, unknown>
       if (typeof candidate.provider !== 'string' || typeof candidate.id !== 'string') {
         continue
       }
@@ -389,20 +395,50 @@ export class PiAgentBridge extends EventEmitter {
         contextWindow:
           typeof candidate.contextWindow === 'number' ? candidate.contextWindow : undefined,
         reasoning: typeof candidate.reasoning === 'boolean' ? candidate.reasoning : undefined,
+        supportsXhigh: modelSupportsXhigh(candidate.id, candidate.api),
       })
     }
 
     return models
   }
 
-  public async setModel(model: string): Promise<void> {
-    const trimmed = model.trim()
-    if (!trimmed) {
-      throw new Error('Model is required')
+  public async setModel(provider: string, modelId: string): Promise<void> {
+    const trimmedProvider = provider.trim()
+    const trimmedModel = modelId.trim()
+    if (!trimmedProvider || !trimmedModel) {
+      throw new Error('Provider and model ID are required')
     }
 
-    await this.send({ type: 'set_model', model: trimmed })
-    this.selectedModel = trimmed
+    await this.send({ type: 'set_model', provider: trimmedProvider, modelId: trimmedModel })
+    this.selectedModel = `${trimmedProvider}/${trimmedModel}`
+  }
+
+  public async setThinkingLevel(level: string): Promise<void> {
+    const trimmed = level.trim()
+    if (!trimmed) {
+      throw new Error('Thinking level is required')
+    }
+
+    await this.send({ type: 'set_thinking_level', level: trimmed as import('../shared/types').ThinkingLevel })
+  }
+
+  public async switchSession(sessionPath: string): Promise<boolean> {
+    const trimmed = sessionPath.trim()
+    if (!trimmed) {
+      throw new Error('Session path is required')
+    }
+
+    const result = await this.send({ type: 'switch_session', sessionPath: trimmed })
+    const payload = result.data
+    const cancelled =
+      payload &&
+      typeof payload === 'object' &&
+      'cancelled' in payload &&
+      typeof (payload as { cancelled?: unknown }).cancelled === 'boolean'
+        ? (payload as { cancelled: boolean }).cancelled
+        : false
+
+    return !cancelled
   }
 
   public getSelectedModel(): string | null {
@@ -503,7 +539,8 @@ export class PiAgentBridge extends EventEmitter {
       }
     }
 
-    const fromEnv = process.env.KATA_BIN_PATH?.trim()
+    const fromEnvRaw = process.env.KATA_BIN_PATH?.trim()
+    const fromEnv = fromEnvRaw ? path.resolve(fromEnvRaw) : undefined
     if (fromEnv) {
       checkedPaths.push(fromEnv)
       if (this.isExecutableFile(fromEnv)) {
@@ -773,4 +810,18 @@ export class PiAgentBridge extends EventEmitter {
     const candidate = value as Record<string, unknown>
     return typeof candidate.type === 'string'
   }
+}
+
+/**
+ * Check if a model supports the xhigh thinking level.
+ * Mirrors the logic in pi-ai's `supportsXhigh()`.
+ */
+function modelSupportsXhigh(modelId: string, api?: unknown): boolean {
+  if (modelId.includes('gpt-5.2') || modelId.includes('gpt-5.3') || modelId.includes('gpt-5.4')) {
+    return true
+  }
+  if (api === 'anthropic-messages') {
+    return modelId.includes('opus-4-6') || modelId.includes('opus-4.6')
+  }
+  return false
 }

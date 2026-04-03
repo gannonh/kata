@@ -1,104 +1,55 @@
-# @kata/online-docs
+# Mintlify Starter Kit
 
-Documentation site for the Kata monorepo. Built with [Fumadocs](https://fumadocs.dev/) (Next.js 16 + MDX).
+Use the starter kit to get your docs deployed and ready to customize.
+
+Click the green **Use this template** button at the top of this repo to copy the Mintlify starter kit. The starter kit contains examples with
+
+- Guide pages
+- Navigation
+- Customizations
+- API reference pages
+- Use of popular components
+
+**[Follow the full quickstart guide](https://starter.mintlify.com/quickstart)**
+
+## AI-assisted writing
+
+Set up your AI coding tool to work with Mintlify:
+
+```bash
+npx skills add https://mintlify.com/docs
+```
+
+This command installs Mintlify's documentation skill for your configured AI tools like Claude Code, Cursor, Windsurf, and others. The skill includes component reference, writing standards, and workflow guidance.
+
+See the [AI tools guides](/ai-tools) for tool-specific setup.
 
 ## Development
 
-```bash
-# From repo root
-bun run docs:dev          # starts at http://localhost:3001
-
-# From this directory
-bun run dev --port 3001
-```
-
-## Adding pages
-
-Drop an MDX file in `content/docs/` and it auto-routes:
+Install the [Mintlify CLI](https://www.npmjs.com/package/mint) to preview your documentation changes locally. To install, use the following command:
 
 ```
-content/docs/cli/commands.mdx  →  /docs/cli/commands
+npm i -g mint
 ```
 
-Every page needs frontmatter:
-
-```mdx
----
-title: Page Title
-description: Brief description.
----
-
-# Page Title
-
-Content here.
-```
-
-## Navigation ordering
-
-Each section has a `meta.json` that controls page order in the sidebar:
-
-```json
-{
-  "title": "CLI",
-  "pages": ["index", "commands", "kata-workflow", "extensions", "agents", "preferences"]
-}
-```
-
-The root `content/docs/meta.json` controls section order. Sections use `---Label---` separators.
-
-## Content structure
+Run the following command at the root of your documentation, where your `docs.json` is located:
 
 ```
-content/docs/
-  index.mdx                  # Landing page
-  getting-started/            # Installation, quickstart
-  cli/                        # CLI commands, workflow, extensions, agents, preferences
-  symphony/                   # Rust binary
-  desktop/                    # Electron app + session viewer
-  context/                    # Codebase analysis tool
-  orchestrator/               # Meta-prompting system
-  architecture/               # Monorepo structure, packages, conventions
-  visual-explainers/          # Embedded interactive HTML pages
+mint dev
 ```
 
-## Visual explainers
+View your local preview at `http://localhost:3000`.
 
-Interactive HTML pages live in `public/visual-explainers/` and are embedded via the `VisualExplainerEmbed` component:
+## Publishing changes
 
-```mdx
-import { VisualExplainerEmbed } from '@/components/visual-explainer-embed';
+Install our GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app) to propagate changes from your repo to your deployment. Changes are deployed to production automatically after pushing to the default branch.
 
-<VisualExplainerEmbed
-  src="/visual-explainers/kata-step-auto-journeys.html"
-  height={800}
-  title="Kata Step and Auto mode journey visualization"
-/>
-```
+## Need help?
 
-The component syncs the Fumadocs dark/light theme to the iframe via `postMessage`.
+### Troubleshooting
 
-## Key files
+- If your dev environment isn't running: Run `mint update` to ensure you have the most recent version of the CLI.
+- If a page loads as a 404: Make sure you are running in a folder with a valid `docs.json`.
 
-| File | Purpose |
-|---|---|
-| `geistdocs.tsx` | Site identity (logo, title, nav links) |
-| `source.config.ts` | Fumadocs MDX source definition |
-| `next.config.ts` | Next.js config with Fumadocs MDX plugin |
-| `app/layout.tsx` | Root layout (Geist fonts, RootProvider) |
-| `app/docs/layout.tsx` | Docs layout (DocsLayout, nav config) |
-| `app/docs/[[...slug]]/page.tsx` | MDX page renderer |
-| `lib/source.ts` | Source loader |
-| `postcss.config.mjs` | PostCSS with @tailwindcss/postcss |
-| `app/global.css` | Tailwind + Fumadocs styles + @source directives |
-
-## Tailwind v4 + Bun monorepo note
-
-Fumadocs v16 ships `@source inline()` directives in its CSS to tell Tailwind which utilities to generate. These directives don't get processed when nested inside `@import` chains in Bun monorepos (symlinked `node_modules`). The workaround: `global.css` includes all 1500+ `@source inline()` directives extracted from fumadocs-ui's generated CSS. This is ugly but functional. Track [fumadocs#1338](https://github.com/fuma-nama/fumadocs/discussions/1338) for upstream fixes.
-
-## Build
-
-```bash
-bun run build    # next build (included in turbo run build)
-```
-
-The `@kata/online-docs#build` task in `turbo.json` has custom inputs for MDX content, components, and config files.
+### Resources
+- [Mintlify documentation](https://mintlify.com/docs)

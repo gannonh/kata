@@ -16,6 +16,8 @@ interface AssistantMessageEvent {
   type?: string
   delta?: string
   text?: string
+  content?: string
+  contentIndex?: number
 }
 
 interface RpcEvent {
@@ -92,49 +94,110 @@ export class RpcEventAdapter {
           return []
         }
 
-        return [
-          {
-            type: 'message_start',
-            role,
-            messageId: this.extractMessageId(event.message),
-          },
-        ]
+        if (role === 'user') {
+          const messageId = `message:${++this.messageIdCounter}`
+          return [{ type: 'message_start', role: 'user', messageId }]
+        }
+
+        // role === 'assistant'
+        // If the previous assistant message has not yet had any content (text or thinking),
+        // reuse its ID — handles the multi-start pattern where thinking+tool phase starts
+        // a message but the real text comes in a later message_start(assistant).
+        let messageId: string
+        if (!this.currentAssistantMessageHadContent && this.currentAssistantMessageId !== null) {
+          messageId = this.currentAssistantMessageId
+        } else {
+          messageId = `message:${++this.messageIdCounter}`
+          this.currentAssistantMessageId = messageId
+          this.currentAssistantMessageHadContent = false
+        }
+
+        return [{ type: 'message_start', role: 'assistant', messageId }]
       }
 
       case 'message_update': {
-        const delta = this.extractTextDelta(event)
-        if (!delta) {
+        const ameType = event.assistantMessageEvent?.type
+        // Persist the ID if we had to synthesize one (recovery for missing message_start)
+        if (this.currentAssistantMessageId === null) {
+          this.currentAssistantMessageId = `message:${++this.messageIdCounter}`
+          this.currentAssistantMessageHadContent = false
+        }
+        const messageId = this.currentAssistantMessageId
+
+        switch (ameType) {
+          case 'text_delta': {
+            const delta = event.assistantMessageEvent?.delta
+            if (typeof delta === 'string' && delta.length > 0) {
+              this.currentAssistantMessageHadContent = true
+              return [{ type: 'text_delta', messageId, delta }]
+            }
+            return []
+          }
+
+          case 'thinking_start': {
+            return [{ type: 'thinking_start', messageId }]
+          }
+
+          case 'thinking_delta': {
+            const delta = event.assistantMessageEvent?.delta
+            if (typeof delta === 'string' && delta.length > 0) {
+              this.currentAssistantMessageHadContent = true
+              return [{ type: 'thinking_delta', messageId, delta }]
+            }
+            return []
+          }
+
+          case 'thinking_end': {
+            const content = event.assistantMessageEvent?.content ?? ''
+            return [{ type: 'thinking_end', messageId, content: typeof content === 'string' ? content : '' }]
+          }
+
+          // toolcall_start/delta/end, text_start, text_end — silently dropped
+          default:
+            return []
+        }
+      }
+
+      case 'message_end': {
+        const message = event.message as Record<string, unknown> | undefined
+        const role = this.extractRole(message)
+
+        // Only emit for assistant messages — user and toolResult ends are ignored
+        if (role !== 'assistant') {
           return []
         }
 
-        return [
-          {
-            type: 'text_delta',
-            messageId: this.extractMessageId(event.message),
-            delta,
-          },
-        ]
-      }
+        const text = this.extractText(message)
+        const errorMessage = typeof message?.errorMessage === 'string' ? message.errorMessage : undefined
+        const stopReason = typeof message?.stopReason === 'string' ? message.stopReason : undefined
+        // Persist the ID if we had to synthesize one (recovery for missing message_start)
+        if (this.currentAssistantMessageId === null) {
+          this.currentAssistantMessageId = `message:${++this.messageIdCounter}`
+          this.currentAssistantMessageHadContent = false
+        }
+        const messageId = this.currentAssistantMessageId
 
-      case 'message_end':
-        return [
-          {
-            type: 'message_end',
-            messageId: this.extractMessageId(event.message),
-            text: this.extractText(event.message),
-          },
-        ]
+        if (stopReason === 'error' && errorMessage) {
+          this.currentAssistantMessageHadContent = true
+          return [
+            { type: 'message_end', messageId, text: text || undefined },
+            { type: 'agent_error', message: errorMessage },
+          ]
+        }
+
+        // After emitting message_end, mark content as seen so the next message_start(assistant)
+        // always allocates a new ID — prevents tool-only turns from leaking their ID into the next turn.
+        this.currentAssistantMessageHadContent = true
+        return [{ type: 'message_end', messageId, text: text || undefined }]
+      }
 
       case 'tool_execution_start': {
         const toolName = this.extractToolName(event)
-        return [
-          {
-            type: 'tool_start',
-            toolCallId: this.extractToolCallId(event),
-            toolName,
-            args: this.extractToolArgs(toolName, event.args),
-          },
-        ]
+        const toolCallId = this.extractToolCallId(event)
+        const args = this.extractToolArgs(toolName, event.args)
+        // Cache args so tool_execution_end can use them when event.args is absent
+        this.toolArgsCache.set(toolCallId, args)
+        return [{ type: 'tool_start', toolCallId, toolName, args, parentMessageId: this.currentAssistantMessageId ?? undefined }]
       }
 
       case 'tool_execution_update': {
@@ -153,7 +216,11 @@ export class RpcEventAdapter {
 
       case 'tool_execution_end': {
         const toolName = this.extractToolName(event)
-        const args = this.extractToolArgs(toolName, event.args)
+        const toolCallId = this.extractToolCallId(event)
+        // event.args is absent or null in real CLI output — fall back to cached start args
+        const rawArgs = event.args != null ? event.args : (this.toolArgsCache.get(toolCallId) ?? null)
+        this.toolArgsCache.delete(toolCallId)
+        const args = this.extractToolArgs(toolName, rawArgs)
         const rawResult = event.result ?? event.message?.result
         const result = this.extractToolResult(toolName, args, rawResult)
         const error = typeof event.error === 'string' ? event.error : this.extractToolError(event.message)
@@ -161,7 +228,7 @@ export class RpcEventAdapter {
         return [
           {
             type: 'tool_end',
-            toolCallId: this.extractToolCallId(event),
+            toolCallId,
             toolName,
             result,
             isError: Boolean(event.isError || error),
@@ -189,7 +256,7 @@ export class RpcEventAdapter {
     switch (toolName) {
       case 'edit': {
         const typed: EditArgs = {
-          path: asString(argRecord?.path) ?? 'unknown-file',
+          path: asString(argRecord?.path) ?? '',
         }
 
         if (typeof argRecord?.oldText === 'string') {
@@ -216,14 +283,14 @@ export class RpcEventAdapter {
 
       case 'read':
         return {
-          path: asString(argRecord?.path) ?? 'unknown-file',
+          path: asString(argRecord?.path) ?? asString(argRecord?.file_path) ?? asString(argRecord?.filePath) ?? (typeof args === 'string' ? args : ''),
           offset: asNumber(argRecord?.offset),
           limit: asNumber(argRecord?.limit),
         } satisfies ReadArgs
 
       case 'write':
         return {
-          path: asString(argRecord?.path) ?? 'unknown-file',
+          path: asString(argRecord?.path) ?? asString(argRecord?.file_path) ?? asString(argRecord?.filePath) ?? (typeof args === 'string' ? args : ''),
           content: asString(argRecord?.content) ?? '',
         } satisfies WriteArgs
 
@@ -255,7 +322,7 @@ export class RpcEventAdapter {
     const argRecord = asRecord(args)
     const resultRecord = asRecord(result)
 
-    const path = asString(resultRecord?.path) ?? asString(argRecord?.path) ?? 'unknown-file'
+    const path = asString(resultRecord?.path) ?? asString(argRecord?.path)
     const diff = asString(resultRecord?.diff) ?? asString(resultRecord?.content) ?? ''
 
     const { additions, deletions } = diff ? countDiffLines(diff) : countFromEdits(toEditsArray(argRecord?.edits))
@@ -301,11 +368,13 @@ export class RpcEventAdapter {
     const argRecord = asRecord(args)
     const resultRecord = asRecord(result)
 
-    const path = asString(resultRecord?.path) ?? asString(argRecord?.path) ?? 'unknown-file'
+    const path = asString(resultRecord?.path) ?? asString(argRecord?.path)
     const content =
       asString(resultRecord?.content) ??
       asString(resultRecord?.text) ??
       asString(asRecord(resultRecord?.file)?.content) ??
+      // Handle CLI's content array format: {content: [{type: "text", text: "..."}]}
+      extractTextFromContentArray(resultRecord?.content) ??
       stringifyField(result) ??
       ''
 
@@ -324,7 +393,7 @@ export class RpcEventAdapter {
     return {
       path,
       content,
-      language: detectLanguage(path),
+      language: path ? detectLanguage(path) : 'text',
       totalLines,
       truncated,
       raw: result,
@@ -335,7 +404,7 @@ export class RpcEventAdapter {
     const argRecord = asRecord(args)
     const resultRecord = asRecord(result)
 
-    const path = asString(resultRecord?.path) ?? asString(argRecord?.path) ?? 'unknown-file'
+    const path = asString(resultRecord?.path) ?? asString(argRecord?.path)
     const content = asString(resultRecord?.content) ?? asString(argRecord?.content) ?? ''
 
     return {
@@ -388,24 +457,6 @@ export class RpcEventAdapter {
     return undefined
   }
 
-  private extractTextDelta(event: RpcEvent): string {
-    const assistantMessageEvent = event.assistantMessageEvent
-    if (
-      assistantMessageEvent &&
-      assistantMessageEvent.type === 'text_delta' &&
-      typeof assistantMessageEvent.delta === 'string'
-    ) {
-      return assistantMessageEvent.delta
-    }
-
-    if (assistantMessageEvent && typeof assistantMessageEvent.text === 'string') {
-      return assistantMessageEvent.text
-    }
-
-    const fromMessage = this.extractText(event.message)
-    return fromMessage ?? ''
-  }
-
   private extractText(message?: Record<string, unknown>): string | undefined {
     if (!message) {
       return undefined
@@ -456,18 +507,10 @@ export class RpcEventAdapter {
     return undefined
   }
 
-  private extractMessageId(message?: Record<string, unknown>): string {
-    if (!message) {
-      return 'message:unknown'
-    }
-
-    const id = message.id
-    if (typeof id === 'string' && id.length > 0) {
-      return id
-    }
-
-    return 'message:unknown'
-  }
+  private messageIdCounter = 0
+  private currentAssistantMessageId: string | null = null
+  private currentAssistantMessageHadContent = false
+  private readonly toolArgsCache = new Map<string, ToolArgs>()
 
   private extractToolCallId(event: RpcEvent): string {
     if (typeof event.toolCallId === 'string' && event.toolCallId.length > 0) {
@@ -520,6 +563,28 @@ export class RpcEventAdapter {
 
     return 'Unknown extension error'
   }
+}
+
+/**
+ * Extract text from a Claude-style content array: [{type: "text", text: "..."}]
+ * The CLI wraps tool results in this format.
+ */
+function extractTextFromContentArray(value: unknown): string | undefined {
+  if (!Array.isArray(value)) {
+    return undefined
+  }
+
+  const texts: string[] = []
+  for (const item of value) {
+    if (item && typeof item === 'object') {
+      const block = item as Record<string, unknown>
+      if (block.type === 'text' && typeof block.text === 'string') {
+        texts.push(block.text)
+      }
+    }
+  }
+
+  return texts.length > 0 ? texts.join('\n') : undefined
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {

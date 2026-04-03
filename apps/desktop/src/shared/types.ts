@@ -10,9 +10,12 @@ export const IPC_CHANNELS = {
   sessionPermissionMode: 'session:permission-mode',
   sessionGetAvailableModels: 'session:get-available-models',
   sessionSetModel: 'session:set-model',
+  sessionSetThinkingLevel: 'session:set-thinking-level',
   sessionList: 'session:list',
   sessionNew: 'session:new',
   sessionGetInfo: 'session:get-info',
+  sessionSwitch: 'session:switch',
+  sessionGetHistory: 'session:get-history',
   workspaceGet: 'workspace:get',
   workspaceSet: 'workspace:set',
   workspacePick: 'workspace:pick',
@@ -20,9 +23,15 @@ export const IPC_CHANNELS = {
   authSetKey: 'auth:set-key',
   authRemoveKey: 'auth:remove-key',
   authValidateKey: 'auth:validate-key',
+  planningArtifactUpdated: 'planning:artifact-updated',
+  planningArtifactFetchState: 'planning:artifact-fetch-state',
+  planningFetchArtifact: 'planning:fetch-artifact',
+  planningListArtifacts: 'planning:list-artifacts',
 } as const
 
 export type PermissionMode = 'explore' | 'ask' | 'auto'
+
+export type ThinkingLevel = 'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'
 
 export const ALL_AUTH_PROVIDERS = [
   'anthropic',
@@ -94,6 +103,7 @@ export interface AvailableModel {
   id: string
   contextWindow?: number
   reasoning?: boolean
+  supportsXhigh?: boolean
 }
 
 export interface AvailableModelsResponse {
@@ -105,6 +115,12 @@ export interface AvailableModelsResponse {
 export interface SetModelResponse {
   success: boolean
   model?: string
+  error?: string
+}
+
+export interface SetThinkingLevelResponse {
+  success: boolean
+  level?: ThinkingLevel
   error?: string
 }
 
@@ -145,6 +161,13 @@ export interface CreateSessionResponse {
   error?: string
 }
 
+export interface SessionSwitchResponse {
+  success: boolean
+  sessionId: string | null
+  sessionPath?: string | null
+  error?: string
+}
+
 export interface WorkspaceInfo {
   path: string
 }
@@ -159,12 +182,18 @@ export type RpcCommandType =
   | 'follow_up'
   | 'get_available_models'
   | 'set_model'
+  | 'set_thinking_level'
+  | 'switch_session'
 
 export interface RpcCommand {
   type: RpcCommandType
   id?: string
   message?: string
   model?: string
+  provider?: string
+  modelId?: string
+  level?: ThinkingLevel
+  sessionPath?: string
 }
 
 export interface CommandResult {
@@ -219,7 +248,7 @@ export interface UnknownToolArgs {
 export type ToolArgs = EditArgs | BashArgs | ReadArgs | WriteArgs | UnknownToolArgs
 
 export interface EditResult {
-  path: string
+  path?: string
   diff: string
   linesAdded: number
   linesRemoved: number
@@ -239,7 +268,7 @@ export interface BashResult {
 }
 
 export interface ReadResult {
-  path: string
+  path?: string
   content: string
   language: string
   totalLines: number
@@ -248,7 +277,7 @@ export interface ReadResult {
 }
 
 export interface WriteResult {
-  path: string
+  path?: string
   content: string
   bytesWritten: number
   raw?: unknown
@@ -325,7 +354,7 @@ export type ChatEvent =
   | { type: 'message_start'; messageId: string; role: 'assistant' | 'user' }
   | { type: 'text_delta'; messageId: string; delta: string }
   | { type: 'message_end'; messageId: string; text?: string }
-  | { type: 'tool_start'; toolCallId: string; toolName: string; args: ToolArgs }
+  | { type: 'tool_start'; toolCallId: string; toolName: string; args: ToolArgs; parentMessageId?: string }
   | {
       type: 'tool_update'
       toolCallId: string
@@ -349,6 +378,10 @@ export type ChatEvent =
       signal: NodeJS.Signals | null
       stderrLines: string[]
     }
+  | { type: 'thinking_start'; messageId: string }
+  | { type: 'thinking_delta'; messageId: string; delta: string }
+  | { type: 'thinking_end'; messageId: string; content: string }
+  | { type: 'history_user_message'; messageId: string; text: string }
 
 export interface BridgeState {
   running: boolean
@@ -357,6 +390,192 @@ export interface BridgeState {
   status: BridgeLifecycleState
   permissionMode: PermissionMode
   selectedModel: string | null
+}
+
+export interface SessionHistoryResponse {
+  success: boolean
+  sessionId: string | null
+  sessionPath?: string | null
+  events: ChatEvent[]
+  warnings: string[]
+  error?: string
+}
+
+export type PlanningArtifactScope = 'project' | 'issue'
+
+export type PlanningArtifactAction = 'created' | 'updated'
+
+export type PlanningArtifactErrorCode =
+  | 'MISSING_API_KEY'
+  | 'UNAUTHORIZED'
+  | 'NOT_FOUND'
+  | 'RATE_LIMITED'
+  | 'NETWORK'
+  | 'GRAPHQL'
+  | 'UNKNOWN'
+
+export interface PlanningArtifactError {
+  code: PlanningArtifactErrorCode
+  message: string
+}
+
+export interface PlanningSliceTask {
+  id: string
+  title: string
+  description: string
+  status: 'todo' | 'in_progress' | 'done'
+}
+
+export interface PlanningSliceData {
+  id: string
+  title: string
+  description: string
+  issueId?: string
+  tasks: PlanningSliceTask[]
+}
+
+export type PlanningArtifactEventType =
+  | 'document'
+  | 'slice_created'
+  | 'task_created'
+  | 'milestone_created'
+
+export interface PlanningArtifactEvent {
+  eventType: PlanningArtifactEventType
+  toolName: string
+  toolCallId: string
+  title: string
+  artifactKey: string
+  scope: PlanningArtifactScope
+  action: PlanningArtifactAction
+  projectId?: string
+  issueId?: string
+  slice?: Omit<PlanningSliceData, 'tasks'>
+  task?: PlanningSliceTask
+  targetSliceIssueId?: string
+}
+
+export interface PlanningArtifact {
+  title: string
+  artifactKey: string
+  content: string
+  updatedAt: string
+  scope: PlanningArtifactScope
+  projectId?: string
+  issueId?: string
+  artifactType?: ArtifactType
+  sliceData?: PlanningSliceData
+}
+
+export interface PlanningArtifactFetchStateEvent {
+  state: 'start' | 'end'
+  title: string
+  artifactKey: string
+  toolName?: string
+  error?: PlanningArtifactError
+}
+
+export function buildPlanningArtifactKey({
+  title,
+  scope,
+  projectId,
+  issueId,
+}: {
+  title: string
+  scope: PlanningArtifactScope
+  projectId?: string
+  issueId?: string
+}): string {
+  const normalizedTitle = title.trim()
+
+  if (scope === 'issue') {
+    return `issue:${issueId?.trim() || projectId?.trim() || 'unknown'}:${normalizedTitle}`
+  }
+
+  return `project:${projectId?.trim() || 'global'}:${normalizedTitle}`
+}
+
+export interface PlanningArtifactFetchResponse {
+  success: boolean
+  artifact?: PlanningArtifact
+  error?: PlanningArtifactError
+}
+
+export interface PlanningArtifactListResponse {
+  success: boolean
+  artifacts: PlanningArtifact[]
+  stale?: boolean
+  error?: PlanningArtifactError
+}
+
+export type ArtifactType = 'roadmap' | 'requirements' | 'decisions' | 'context' | 'slice'
+
+export type RoadmapRisk = 'high' | 'medium' | 'low'
+
+export interface ParsedRoadmapSlice {
+  id: string
+  title: string
+  risk: RoadmapRisk
+  depends: string[]
+  demo: string | null
+  done: boolean
+}
+
+export interface ParsedRoadmapBoundarySection {
+  heading: string
+  content: string
+}
+
+export interface ParsedRoadmap {
+  vision: string | null
+  successCriteria: string[]
+  slices: ParsedRoadmapSlice[]
+  boundaryMap: ParsedRoadmapBoundarySection[]
+}
+
+export type RequirementStatus = 'active' | 'validated' | 'deferred' | 'outOfScope'
+
+export interface ParsedRequirement {
+  id: string
+  title: string
+  class: string
+  status: string
+  description: string
+  owner: string
+  validation: string
+}
+
+export interface ParsedRequirements {
+  active: ParsedRequirement[]
+  validated: ParsedRequirement[]
+  deferred: ParsedRequirement[]
+  outOfScope: ParsedRequirement[]
+}
+
+export interface ParsedDecision {
+  id: string
+  when: string
+  scope: string
+  decision: string
+  choice: string
+  rationale: string
+  revisable: boolean | null
+  revisableCondition: string | null
+  revisableLabel: string
+}
+
+export interface ParsedDecisions {
+  rows: ParsedDecision[]
+}
+
+export interface ParsedContextSection {
+  heading: string
+  content: string
+  level: number
+}
+
+export interface ParsedContext {
+  sections: ParsedContextSection[]
 }
 
 export interface DesktopApi {
@@ -371,10 +590,13 @@ export interface DesktopApi {
   setPermissionMode: (mode: PermissionMode) => Promise<void>
   getAvailableModels: () => Promise<AvailableModelsResponse>
   setModel: (model: string) => Promise<SetModelResponse>
+  setThinkingLevel: (level: ThinkingLevel) => Promise<SetThinkingLevelResponse>
   sessions: {
     list: () => Promise<SessionListResponse>
     create: () => Promise<CreateSessionResponse>
     getInfo: (sessionPath: string) => Promise<SessionInfo>
+    switch: (sessionId: string) => Promise<SessionSwitchResponse>
+    getHistory: (sessionId: string, sessionPath?: string) => Promise<SessionHistoryResponse>
   }
   workspace: {
     get: () => Promise<WorkspaceInfo>
@@ -386,6 +608,12 @@ export interface DesktopApi {
     setKey: (provider: AuthProvider, key: string) => Promise<AuthSetKeyResponse>
     removeKey: (provider: AuthProvider) => Promise<AuthRemoveKeyResponse>
     validateKey: (provider: AuthProvider, key: string) => Promise<AuthValidationResult>
+  }
+  planning: {
+    onArtifactUpdated: (listener: (artifact: PlanningArtifact) => void) => () => void
+    onArtifactFetchState: (listener: (event: PlanningArtifactFetchStateEvent) => void) => () => void
+    fetchArtifact: (title: string, artifactKey?: string) => Promise<PlanningArtifactFetchResponse>
+    listArtifacts: () => Promise<PlanningArtifactListResponse>
   }
 }
 

@@ -253,6 +253,17 @@ export class DesktopSessionManager {
     }
   }
 
+  public async resolveSessionPathById(sessionId: string, cwd: string): Promise<string | null> {
+    const trimmedSessionId = sessionId.trim()
+    if (!trimmedSessionId) {
+      throw new Error('Session ID is required')
+    }
+
+    const response = await this.listSessions(cwd)
+    const match = response.sessions.find((session) => session.id === trimmedSessionId)
+    return match?.path ?? null
+  }
+
   private resolveSessionPath(sessionPath: string): string {
     const trimmed = sessionPath.trim()
     if (!trimmed) {

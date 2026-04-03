@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.15.2
+
+### Bug Fixes
+
+- **Fix `ask_user_questions` crash in RPC/Desktop mode** — `showInterviewRound` uses `ctx.ui.custom()` which returns `undefined` in RPC mode. Previously caused "Cannot read properties of undefined (reading 'answers')" crash. Now returns a clear error instead of crashing.
+- **Fix `/kata plan` slice planned detection** — The guided-flow checked for `S01-PLAN` LinearDocuments to determine if a slice was planned. But slice plans live in issue descriptions, not documents — plan docs are never created. Now checks whether the slice issue has task sub-issues, which is the actual signal that planning was completed.
+
+### Features
+
+- **RPC fallback for `showNextAction` and `showInterviewRound`** — Both interactive UI functions used `ctx.ui.custom()` which is unsupported in pi-coding-agent's RPC mode (returns `undefined`). Now detect when `custom()` is unavailable and fall back to `ctx.ui.select()`/`ctx.ui.confirm()`, which are supported over RPC. This unblocks `/kata plan` guided wizard and `ask_user_questions` tool in Kata Desktop.
+
 ## 0.15.1
 
 ### Bug Fixes

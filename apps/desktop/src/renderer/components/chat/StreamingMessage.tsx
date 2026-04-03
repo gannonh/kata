@@ -7,9 +7,11 @@ interface StreamingMessageProps {
 
 export function StreamingMessage({ content, isStreaming }: StreamingMessageProps) {
   return (
-    <div className="rounded-lg bg-slate-800/70 px-3 py-2 text-sm text-slate-100">
+    <div className="prose prose-sm prose-invert max-w-none text-foreground prose-headings:text-foreground prose-strong:text-foreground prose-a:text-foreground prose-code:text-foreground">
       <Markdown mode="minimal">{content || (isStreaming ? '…' : '')}</Markdown>
-      {isStreaming && <span className="ml-1 inline-block h-3 w-1 animate-pulse rounded bg-slate-300 align-middle" />}
+      {isStreaming && (
+        <span className="ml-1 inline-block h-3 w-1 animate-pulse rounded bg-muted-foreground align-middle" />
+      )}
     </div>
   )
 }

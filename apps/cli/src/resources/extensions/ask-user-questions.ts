@@ -124,8 +124,17 @@ export default function AskUserQuestions(pi: ExtensionAPI) {
 				return errorResult("Error: UI not available (non-interactive mode)", params.questions);
 			}
 
-			// Delegate to shared interview UI
+			// Delegate to shared interview UI.
+			// In RPC mode, ctx.ui.custom() is not supported and returns undefined,
+			// which causes showInterviewRound to return undefined. Handle gracefully.
 			const result = await showInterviewRound(params.questions, {}, ctx);
+
+			if (!result || !result.answers) {
+				return errorResult(
+					"Error: interview UI is not supported in this mode (RPC/Desktop). The host does not implement ctx.ui.custom().",
+					params.questions,
+				);
+			}
 
 			// Check if cancelled (empty answers = user exited)
 			const hasAnswers = Object.keys(result.answers).length > 0;

@@ -1,0 +1,77 @@
+---
+title: "Introduction"
+description: "Kata is a multi-agent orchestration platform — five products for terminal, desktop, headless, and IDE-native AI coding workflows."
+---
+
+Kata is a suite of AI coding tools built for developers who want structured, autonomous execution. Each product targets a different workflow, from a solo developer in a terminal to a team running parallel agents against a Linear backlog.
+
+<CardGroup cols={2}>
+  <Card title="Kata CLI" icon="terminal" href="/cli/overview">
+    Terminal coding agent with step, autonomous, and steering execution modes. Decomposes work into milestones, slices, and tasks.
+  </Card>
+  <Card title="Kata Symphony" icon="music" href="/symphony/overview">
+    Headless orchestrator that polls Linear, dispatches parallel agent sessions, and manages the full ticket-to-merge lifecycle.
+  </Card>
+  <Card title="Kata Desktop" icon="desktop" href="/desktop/overview">
+    Electron app for multi-session agent work with workspaces, permission controls, MCP integrations, and external sources.
+  </Card>
+  <Card title="Kata Orchestrator" icon="diagram-project" href="/orchestrator/overview">
+    Spec-driven workflow harness for Claude Code, OpenCode, Gemini CLI, and Codex. Installs slash commands into your existing runtime.
+  </Card>
+  <Card title="Kata Context" icon="database" href="/context/overview">
+    Structural, semantic, and memory-based codebase understanding for AI coding agents. Indexes source files with tree-sitter and SQLite.
+  </Card>
+</CardGroup>
+
+## Which product should I use?
+
+| If you want to… | Use |
+|---|---|
+| Code autonomously in a terminal with full control over each step | [Kata CLI](/cli/overview) |
+| Run agents against a Linear backlog with no human in the loop | [Kata Symphony](/symphony/overview) |
+| Manage multiple agent sessions visually with approval controls | [Kata Desktop](/desktop/overview) |
+| Add structured planning phases to Claude Code, Codex, or Gemini | [Kata Orchestrator](/orchestrator/overview) |
+| Give AI agents deep understanding of your codebase structure | [Kata Context](/context/overview) |
+
+## Product overviews
+
+### Kata CLI
+
+Kata CLI is a terminal coding agent. It breaks work into milestones, slices, and tasks, then executes with structured planning, verification, and fresh context windows per task. It supports step-by-step operation, fully autonomous execution, and a two-terminal steering workflow where you observe and redirect without interrupting the agent.
+
+Project state is Linear-backed: milestones, slices, tasks, plans, and summaries are stored as Linear issues and documents so your team can see exactly what the agent is working on.
+
+### Kata Symphony
+
+Kata Symphony is a headless orchestrator written in Rust. It polls a Linear project for candidate issues, dispatches parallel agent sessions to work on them, and manages the full ticket lifecycle — from Todo through implementation, PR creation, automated code review, human review, and merge.
+
+Symphony runs on a server or in CI. Kata CLI provides a built-in operator surface for monitoring and steering it in real time via `/symphony status`, `/symphony watch`, and the live console dashboard.
+
+### Kata Desktop
+
+Kata Desktop is an Electron app for working with AI agents across multiple sessions and workspaces. It includes Git context, permission modes for read, edit, and autonomous actions, MCP server integrations, external sources, background tasks, file attachments, and persistent session state.
+
+### Kata Orchestrator
+
+Kata Orchestrator installs a set of slash commands into your AI coding runtime — Claude Code, OpenCode, Gemini CLI, or Codex — that structure work into discuss, plan, execute, and verify phases. Each execution phase runs in a fresh subagent context with a dedicated 200k token window. Planning artifacts accumulate as structured files on disk rather than in the context window.
+
+### Kata Context
+
+Kata Context indexes source files using tree-sitter, builds a dependency graph stored in SQLite, and exposes commands for graph queries, grep, and file discovery. It provides structural, semantic, and memory-based codebase understanding to AI coding agents.
+
+<Note>
+  Kata CLI and Kata Orchestrator are MIT licensed. Kata Desktop is Apache 2.0 licensed. Check the LICENSE file in each app directory for details.
+</Note>
+
+## Next steps
+
+If you're new to Kata, start with the CLI quickstart. It's the fastest path to autonomous coding in your terminal.
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Get Kata CLI running in under five minutes.
+  </Card>
+  <Card title="Kata CLI overview" icon="terminal" href="/cli/overview">
+    Full overview of CLI features, commands, and configuration.
+  </Card>
+</CardGroup>
