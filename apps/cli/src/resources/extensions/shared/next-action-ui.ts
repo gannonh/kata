@@ -245,7 +245,8 @@ export async function showNextAction(
     return `${a.label}${suffix}`;
   });
 
-  const title = `${opts.title}${opts.summary?.length ? ` — ${opts.summary.join(". ")}` : ""}`;
+  const summaryLine = opts.summary?.length ? opts.summary.join(". ") : "";
+  const title = `${opts.title}${summaryLine ? `\n${summaryLine}` : ""}`;
   const selected = await ctx.ui.select(title, options);
 
   if (selected === undefined) {
