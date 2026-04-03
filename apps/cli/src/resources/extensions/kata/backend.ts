@@ -75,6 +75,12 @@ export interface KataBackend {
   listDocuments(scope?: DocumentScope): Promise<string[]>;
 
   /**
+   * Check if a slice has been planned (i.e. has task sub-issues).
+   * Returns true if the slice issue has at least one child sub-issue.
+   */
+  isSlicePlanned?(milestoneId: string, sliceId: string): Promise<boolean>;
+
+  /**
    * Resolve a slice's document scope (for Linear: { issueId }, for file: undefined).
    * Used to correctly scope readDocument calls for slice-level docs (S##-PLAN, etc.).
    */
