@@ -205,7 +205,34 @@ describe('PlanningToolDetector', () => {
       },
     })
 
-    expect(events).toHaveLength(2)
+    detector.handleChatEvent({
+      type: 'tool_start',
+      toolCallId: 'tool-task-status-result-overrides-args',
+      toolName: 'kata_create_task',
+      args: {
+        raw: {
+          kataId: 'T04',
+          title: '[T04] Result precedence task',
+          description: 'task body',
+          sliceIssueId: 'slice-issue-1',
+          initialPhase: 'executing',
+        },
+      },
+    })
+
+    detector.handleChatEvent({
+      type: 'tool_end',
+      toolCallId: 'tool-task-status-result-overrides-args',
+      toolName: 'kata_create_task',
+      isError: false,
+      result: {
+        raw: {
+          status: 'completed',
+        },
+      },
+    })
+
+    expect(events).toHaveLength(3)
     expect(events[0]).toMatchObject({
       eventType: 'task_created',
       task: {
@@ -217,6 +244,13 @@ describe('PlanningToolDetector', () => {
       eventType: 'task_created',
       task: {
         id: 'T03',
+        status: 'done',
+      },
+    })
+    expect(events[2]).toMatchObject({
+      eventType: 'task_created',
+      task: {
+        id: 'T04',
         status: 'done',
       },
     })

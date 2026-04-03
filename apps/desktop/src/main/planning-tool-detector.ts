@@ -369,9 +369,6 @@ function resolveTaskStatus(
   result: Record<string, unknown>,
 ): 'todo' | 'in_progress' | 'done' {
   const candidates: Array<string | undefined> = [
-    asString(args.initialPhase),
-    asString(args.phase),
-    asString(args.status),
     asString(result.initialPhase),
     asString(result.phase),
     asString(result.status),
@@ -389,6 +386,9 @@ function resolveTaskStatus(
     asString(statePayload?.type),
     asString(taskPayload?.status),
     asString(taskPayload?.phase),
+    asString(args.initialPhase),
+    asString(args.phase),
+    asString(args.status),
   )
 
   for (const candidate of candidates) {
