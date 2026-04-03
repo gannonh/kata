@@ -126,36 +126,40 @@ function extractToolResultFromMessage(message: Record<string, unknown>, toolName
   return normalizeToolResultPayload(toolName, '')
 }
 
+type AssistantContentBlock =
+  | {
+      type: 'text'
+      text: string
+    }
+  | {
+      type: 'thinking'
+      text: string
+    }
+  | {
+      type: 'tool_use'
+      toolCallId: string
+      toolName: string
+      args: Record<string, unknown>
+    }
+
 interface AssistantContentParseResult {
-  textBlocks: string[]
-  thinkingBlocks: string[]
-  toolUses: Array<{
-    toolCallId: string
-    toolName: string
-    args: Record<string, unknown>
-  }>
+  blocks: AssistantContentBlock[]
 }
 
 function parseAssistantContent(content: unknown, fallbackLine: number): AssistantContentParseResult {
   if (typeof content === 'string') {
     return {
-      textBlocks: [content],
-      thinkingBlocks: [],
-      toolUses: [],
+      blocks: [{ type: 'text', text: content }],
     }
   }
 
   if (!Array.isArray(content)) {
     return {
-      textBlocks: [],
-      thinkingBlocks: [],
-      toolUses: [],
+      blocks: [],
     }
   }
 
-  const textBlocks: string[] = []
-  const thinkingBlocks: string[] = []
-  const toolUses: AssistantContentParseResult['toolUses'] = []
+  const blocks: AssistantContentBlock[] = []
 
   for (let index = 0; index < content.length; index += 1) {
     const block = asRecord(content[index])
@@ -177,7 +181,8 @@ function parseAssistantContent(content: unknown, fallbackLine: number): Assistan
         asRecord(block.args) ??
         {}
 
-      toolUses.push({
+      blocks.push({
+        type: 'tool_use',
         toolCallId,
         toolName,
         args,
@@ -188,23 +193,21 @@ function parseAssistantContent(content: unknown, fallbackLine: number): Assistan
     const text = asString(block.text)
     if (text) {
       if (blockType === 'thinking' || blockType === 'reasoning') {
-        thinkingBlocks.push(text)
+        blocks.push({ type: 'thinking', text })
       } else {
-        textBlocks.push(text)
+        blocks.push({ type: 'text', text })
       }
       continue
     }
 
     const thinking = asString(block.thinking)
     if (thinking) {
-      thinkingBlocks.push(thinking)
+      blocks.push({ type: 'thinking', text: thinking })
     }
   }
 
   return {
-    textBlocks,
-    thinkingBlocks,
-    toolUses,
+    blocks,
   }
 }
 
@@ -251,7 +254,7 @@ export class SessionHistoryLoader {
         continue
       }
 
-      if (index === 0) {
+      if (index === 0 && asString(entry.type) === 'session') {
         sessionId = asString(entry.id)
       }
 
@@ -293,51 +296,53 @@ export class SessionHistoryLoader {
 
         const parsedContent = parseAssistantContent(message.content, index + 1)
 
-        for (const thinking of parsedContent.thinkingBlocks) {
-          events.push(...adapter.adapt({
-            type: 'message_update',
-            assistantMessageEvent: {
-              type: 'thinking_start',
-            },
-          }))
-          events.push(...adapter.adapt({
-            type: 'message_update',
-            assistantMessageEvent: {
-              type: 'thinking_delta',
-              delta: thinking,
-            },
-          }))
-          events.push(...adapter.adapt({
-            type: 'message_update',
-            assistantMessageEvent: {
-              type: 'thinking_end',
-              content: thinking,
-            },
-          }))
-        }
+        for (const block of parsedContent.blocks) {
+          if (block.type === 'thinking') {
+            events.push(...adapter.adapt({
+              type: 'message_update',
+              assistantMessageEvent: {
+                type: 'thinking_start',
+              },
+            }))
+            events.push(...adapter.adapt({
+              type: 'message_update',
+              assistantMessageEvent: {
+                type: 'thinking_delta',
+                delta: block.text,
+              },
+            }))
+            events.push(...adapter.adapt({
+              type: 'message_update',
+              assistantMessageEvent: {
+                type: 'thinking_end',
+                content: block.text,
+              },
+            }))
+            continue
+          }
 
-        for (const text of parsedContent.textBlocks) {
-          events.push(...adapter.adapt({
-            type: 'message_update',
-            assistantMessageEvent: {
-              type: 'text_delta',
-              delta: text,
-            },
-          }))
-        }
+          if (block.type === 'text') {
+            events.push(...adapter.adapt({
+              type: 'message_update',
+              assistantMessageEvent: {
+                type: 'text_delta',
+                delta: block.text,
+              },
+            }))
+            continue
+          }
 
-        for (const toolUse of parsedContent.toolUses) {
-          toolMetaByCallId.set(toolUse.toolCallId, {
-            name: toolUse.toolName,
-            args: toolUse.args,
+          toolMetaByCallId.set(block.toolCallId, {
+            name: block.toolName,
+            args: block.args,
           })
-          unresolvedToolOrder.push(toolUse.toolCallId)
+          unresolvedToolOrder.push(block.toolCallId)
 
           events.push(...adapter.adapt({
             type: 'tool_execution_start',
-            toolCallId: toolUse.toolCallId,
-            toolName: toolUse.toolName,
-            args: toolUse.args,
+            toolCallId: block.toolCallId,
+            toolName: block.toolName,
+            args: block.args,
           }))
         }
 

@@ -554,6 +554,7 @@ export function registerSessionIpc({
         return {
           success: true,
           sessionId: trimmedSessionId,
+          sessionPath,
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
@@ -574,12 +575,13 @@ export function registerSessionIpc({
 
   ipcMain.handle(
     IPC_CHANNELS.sessionGetHistory,
-    async (_event, sessionId: string): Promise<SessionHistoryResponse> => {
+    async (_event, sessionId: string, sessionPath?: string): Promise<SessionHistoryResponse> => {
       const trimmedSessionId = sessionId?.trim()
       if (!trimmedSessionId) {
         return {
           success: false,
           sessionId: null,
+          sessionPath: null,
           events: [],
           warnings: [],
           error: 'Session ID is required',
@@ -589,22 +591,28 @@ export function registerSessionIpc({
       const workspacePath = bridge.getWorkspacePath()
 
       try {
-        const sessionPath = await sessionManager.resolveSessionPathById(trimmedSessionId, workspacePath)
-        if (!sessionPath) {
+        const explicitSessionPath = sessionPath?.trim() || null
+        const resolvedSessionPath =
+          explicitSessionPath ??
+          await sessionManager.resolveSessionPathById(trimmedSessionId, workspacePath)
+
+        if (!resolvedSessionPath) {
           return {
             success: false,
             sessionId: null,
+            sessionPath: null,
             events: [],
             warnings: [],
             error: `Session ${trimmedSessionId} was not found in the current workspace`,
           }
         }
 
-        const loaded = await sessionHistoryLoader.load(sessionPath)
+        const loaded = await sessionHistoryLoader.load(resolvedSessionPath)
 
         return {
           success: true,
           sessionId: loaded.sessionId ?? trimmedSessionId,
+          sessionPath: resolvedSessionPath,
           events: loaded.events,
           warnings: loaded.warnings,
         }
@@ -619,6 +627,7 @@ export function registerSessionIpc({
         return {
           success: false,
           sessionId: trimmedSessionId,
+          sessionPath: sessionPath?.trim() || null,
           events: [],
           warnings: [],
           error: message,

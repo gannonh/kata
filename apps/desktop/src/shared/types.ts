@@ -164,6 +164,7 @@ export interface CreateSessionResponse {
 export interface SessionSwitchResponse {
   success: boolean
   sessionId: string | null
+  sessionPath?: string | null
   error?: string
 }
 
@@ -394,6 +395,7 @@ export interface BridgeState {
 export interface SessionHistoryResponse {
   success: boolean
   sessionId: string | null
+  sessionPath?: string | null
   events: ChatEvent[]
   warnings: string[]
   error?: string
@@ -566,7 +568,7 @@ export interface DesktopApi {
     create: () => Promise<CreateSessionResponse>
     getInfo: (sessionPath: string) => Promise<SessionInfo>
     switch: (sessionId: string) => Promise<SessionSwitchResponse>
-    getHistory: (sessionId: string) => Promise<SessionHistoryResponse>
+    getHistory: (sessionId: string, sessionPath?: string) => Promise<SessionHistoryResponse>
   }
   workspace: {
     get: () => Promise<WorkspaceInfo>

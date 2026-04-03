@@ -87,6 +87,18 @@ describe('SessionHistoryLoader', () => {
     expect(result.events.some((event) => event.type === 'thinking_delta')).toBe(true)
     expect(result.events.some((event) => event.type === 'tool_start')).toBe(true)
 
+    const toolStartIndex = result.events.findIndex(
+      (event) => event.type === 'tool_start' && event.toolCallId === 'tool-read-1',
+    )
+    const summaryTextIndex = result.events.findIndex(
+      (event) =>
+        event.type === 'text_delta' &&
+        event.delta.includes('summarized it below'),
+    )
+
+    expect(toolStartIndex).toBeGreaterThanOrEqual(0)
+    expect(summaryTextIndex).toBeGreaterThan(toolStartIndex)
+
     const toolEnd = result.events.find(
       (event) => event.type === 'tool_end' && event.toolCallId === 'tool-read-1',
     )
@@ -140,6 +152,26 @@ describe('SessionHistoryLoader', () => {
     expect(result.events).toEqual([])
     expect(result.warnings).toEqual(['Session file is empty'])
     expect(result.sessionId).toBe('2026-04-03_empty')
+  })
+
+  test('ignores non-session first-line ids when determining session id', async () => {
+    const loader = new SessionHistoryLoader()
+    const filePath = path.join(tempDir, '2026-04-03_fallback-from-filename.jsonl')
+
+    await writeJsonl(filePath, [
+      {
+        type: 'message',
+        id: 'not-a-session-header-id',
+        message: {
+          role: 'assistant',
+          content: [{ type: 'text', text: 'hello' }],
+        },
+      },
+    ])
+
+    const result = await loader.load(filePath)
+
+    expect(result.sessionId).toBe('2026-04-03_fallback-from-filename')
   })
 
   test('maps toolResult without explicit toolCallId to most recent unresolved tool', async () => {

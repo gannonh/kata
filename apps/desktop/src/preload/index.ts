@@ -89,8 +89,8 @@ const api: DesktopApi = {
     switch: async (sessionId: string) => {
       return ipcRenderer.invoke(IPC_CHANNELS.sessionSwitch, sessionId)
     },
-    getHistory: async (sessionId: string) => {
-      return ipcRenderer.invoke(IPC_CHANNELS.sessionGetHistory, sessionId)
+    getHistory: async (sessionId: string, sessionPath?: string) => {
+      return ipcRenderer.invoke(IPC_CHANNELS.sessionGetHistory, sessionId, sessionPath)
     },
   },
   workspace: {

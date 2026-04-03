@@ -13,6 +13,7 @@ export const sessionWarningsAtom = atom<string[]>([])
 export const sessionDirectoryAtom = atom<string>('')
 export const sessionListLoadingAtom = atom<boolean>(false)
 export const sessionListErrorAtom = atom<string | null>(null)
+export const sessionHistoryErrorAtom = atom<string | null>(null)
 export const sessionCreatingAtom = atom<boolean>(false)
 export const sessionSwitchingAtom = atom<boolean>(false)
 export const sessionHistoryLoadingAtom = atom<boolean>(false)
@@ -51,45 +52,58 @@ const applySessionListResponseAtom = atom(
   },
 )
 
-const hydrateSessionHistoryAtom = atom(null, async (_get, set, sessionId: string) => {
-  const trimmedSessionId = sessionId.trim()
-  if (!trimmedSessionId) {
-    return
-  }
-
-  set(sessionHistoryLoadingAtom, true)
-  set(sessionListErrorAtom, null)
-  set(resetChatStateAtom)
-  set(resetPlanningSessionStateAtom)
-
-  try {
-    const historyResponse = await window.api.sessions.getHistory(trimmedSessionId)
-
-    if (!historyResponse.success) {
-      set(sessionListErrorAtom, historyResponse.error ?? 'Unable to load session history')
+const hydrateSessionHistoryAtom = atom(
+  null,
+  async (
+    get,
+    set,
+    { sessionId, sessionPath }: { sessionId: string; sessionPath?: string | null },
+  ) => {
+    const trimmedSessionId = sessionId.trim()
+    if (!trimmedSessionId) {
       return
     }
 
-    for (const event of historyResponse.events) {
-      set(applyChatEventAtom, event)
-    }
+    set(sessionHistoryLoadingAtom, true)
+    set(sessionHistoryErrorAtom, null)
+    set(resetChatStateAtom)
+    set(resetPlanningSessionStateAtom)
 
-    if (historyResponse.warnings.length > 0) {
-      set(sessionWarningsAtom, (currentWarnings) => {
-        const merged = [
-          ...currentWarnings,
-          ...historyResponse.warnings.map((warning) => `[history] ${warning}`),
-        ]
-        return Array.from(new Set(merged))
-      })
+    try {
+      const resolvedSessionPath =
+        sessionPath ?? get(sessionListAtom).find((session) => session.id === trimmedSessionId)?.path
+
+      const historyResponse = await window.api.sessions.getHistory(
+        trimmedSessionId,
+        resolvedSessionPath,
+      )
+
+      if (!historyResponse.success) {
+        set(sessionHistoryErrorAtom, historyResponse.error ?? 'Unable to load session history')
+        return
+      }
+
+      for (const event of historyResponse.events) {
+        set(applyChatEventAtom, event)
+      }
+
+      if (historyResponse.warnings.length > 0) {
+        set(sessionWarningsAtom, (currentWarnings) => {
+          const merged = [
+            ...currentWarnings,
+            ...historyResponse.warnings.map((warning) => `[history] ${warning}`),
+          ]
+          return Array.from(new Set(merged))
+        })
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      set(sessionHistoryErrorAtom, `Unable to load history for ${trimmedSessionId}: ${message}`)
+    } finally {
+      set(sessionHistoryLoadingAtom, false)
     }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    set(sessionListErrorAtom, `Unable to load history for ${trimmedSessionId}: ${message}`)
-  } finally {
-    set(sessionHistoryLoadingAtom, false)
-  }
-})
+  },
+)
 
 export const refreshSessionListAtom = atom(null, async (_get, set) => {
   set(sessionListLoadingAtom, true)
@@ -109,6 +123,7 @@ export const refreshSessionListAtom = atom(null, async (_get, set) => {
 export const initializeSessionsAtom = atom(null, async (get, set) => {
   set(sessionListLoadingAtom, true)
   set(sessionListErrorAtom, null)
+  set(sessionHistoryErrorAtom, null)
 
   try {
     const workspace = await window.api.workspace.get()
@@ -119,7 +134,7 @@ export const initializeSessionsAtom = atom(null, async (get, set) => {
 
     const currentSessionId = get(currentSessionIdAtom)
     if (currentSessionId) {
-      await set(hydrateSessionHistoryAtom, currentSessionId)
+      await set(hydrateSessionHistoryAtom, { sessionId: currentSessionId })
     } else {
       set(resetChatStateAtom)
       set(resetPlanningSessionStateAtom)
@@ -139,6 +154,7 @@ export const createSessionAtom = atom(null, async (get, set) => {
 
   set(sessionCreatingAtom, true)
   set(sessionListErrorAtom, null)
+  set(sessionHistoryErrorAtom, null)
 
   try {
     const response = await window.api.sessions.create()
@@ -176,6 +192,7 @@ export const switchSessionAtom = atom(null, async (get, set, sessionId: string) 
 
   set(sessionSwitchingAtom, true)
   set(sessionListErrorAtom, null)
+  set(sessionHistoryErrorAtom, null)
 
   try {
     const switchResponse = await window.api.sessions.switch(trimmedSessionId)
@@ -187,7 +204,10 @@ export const switchSessionAtom = atom(null, async (get, set, sessionId: string) 
     const nextSessionId = switchResponse.sessionId ?? trimmedSessionId
     set(currentSessionIdAtom, nextSessionId)
 
-    await set(hydrateSessionHistoryAtom, nextSessionId)
+    await set(hydrateSessionHistoryAtom, {
+      sessionId: nextSessionId,
+      sessionPath: switchResponse.sessionPath ?? null,
+    })
     await set(refreshSessionListAtom)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
@@ -203,6 +223,7 @@ export const pickWorkspaceAtom = atom(null, async () => {
 
 export const switchWorkspaceAtom = atom(null, async (get, set, workspacePath: string) => {
   set(sessionListErrorAtom, null)
+  set(sessionHistoryErrorAtom, null)
 
   try {
     const response = await window.api.workspace.set(workspacePath)
@@ -215,7 +236,7 @@ export const switchWorkspaceAtom = atom(null, async (get, set, workspacePath: st
 
     const currentSessionId = get(currentSessionIdAtom)
     if (currentSessionId) {
-      await set(hydrateSessionHistoryAtom, currentSessionId)
+      await set(hydrateSessionHistoryAtom, { sessionId: currentSessionId })
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
