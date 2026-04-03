@@ -40,8 +40,8 @@ export function SessionSidebar({ open }: SessionSidebarProps) {
   }
 
   return (
-    <aside className="flex h-full w-[16rem] shrink-0 flex-col border-r border-border bg-background/80">
-      <div className="flex flex-col gap-2 p-3">
+    <aside className="flex h-full w-[18rem] min-w-0 shrink-0 flex-col overflow-hidden border-r border-border bg-background/80">
+      <div className="flex min-w-0 flex-col gap-2 p-3">
         <Button
           type="button"
           onClick={() => {
@@ -86,7 +86,7 @@ export function SessionSidebar({ open }: SessionSidebarProps) {
       <Separator />
 
       <ScrollArea className="min-h-0 flex-1">
-        <div className="flex flex-col gap-2 p-2">
+        <div className="flex min-w-0 flex-col gap-1.5 overflow-hidden p-2">
           {loading && <p className="p-2 text-xs text-muted-foreground">Loading sessions…</p>}
 
           {!loading && error && (
