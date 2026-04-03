@@ -8,7 +8,9 @@ import {
   sessionListAtom,
   sessionListErrorAtom,
   sessionListLoadingAtom,
+  sessionSwitchingAtom,
   sessionWarningsAtom,
+  switchSessionAtom,
 } from '@/atoms/session'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -25,10 +27,12 @@ export function SessionSidebar({ open }: SessionSidebarProps) {
   const currentSessionId = useAtomValue(currentSessionIdAtom)
   const loading = useAtomValue(sessionListLoadingAtom)
   const creatingSession = useAtomValue(sessionCreatingAtom)
+  const switchingSession = useAtomValue(sessionSwitchingAtom)
   const error = useAtomValue(sessionListErrorAtom)
   const warnings = useAtomValue(sessionWarningsAtom)
 
   const createSession = useSetAtom(createSessionAtom)
+  const switchSession = useSetAtom(switchSessionAtom)
   const refreshSessions = useSetAtom(refreshSessionListAtom)
 
   if (!open) {
@@ -43,7 +47,7 @@ export function SessionSidebar({ open }: SessionSidebarProps) {
           onClick={() => {
             void createSession()
           }}
-          disabled={creatingSession}
+          disabled={creatingSession || switchingSession}
           className="w-full"
         >
           <Plus data-icon="inline-start" />
@@ -61,15 +65,16 @@ export function SessionSidebar({ open }: SessionSidebarProps) {
             onClick={() => {
               void refreshSessions()
             }}
+            disabled={switchingSession}
           >
             <RefreshCw data-icon="inline-start" />
             Refresh
           </Button>
         </div>
 
-        <p className="text-[10px] text-muted-foreground">
-          Session switching is not available yet in Desktop.
-        </p>
+        {switchingSession && (
+          <p className="text-[10px] text-muted-foreground">Switching session…</p>
+        )}
 
         {warnings.length > 0 && (
           <p className="rounded border border-amber-500/50 bg-amber-500/10 px-2 py-1 text-[10px] text-amber-200">
@@ -99,6 +104,10 @@ export function SessionSidebar({ open }: SessionSidebarProps) {
               key={session.id}
               session={session}
               isCurrent={session.id === currentSessionId}
+              disabled={switchingSession || creatingSession}
+              onSelect={(sessionId) => {
+                void switchSession(sessionId)
+              }}
             />
           ))}
         </div>

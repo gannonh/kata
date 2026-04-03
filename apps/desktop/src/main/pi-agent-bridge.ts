@@ -422,6 +422,25 @@ export class PiAgentBridge extends EventEmitter {
     await this.send({ type: 'set_thinking_level', level: trimmed as import('../shared/types').ThinkingLevel })
   }
 
+  public async switchSession(sessionPath: string): Promise<boolean> {
+    const trimmed = sessionPath.trim()
+    if (!trimmed) {
+      throw new Error('Session path is required')
+    }
+
+    const result = await this.send({ type: 'switch_session', sessionPath: trimmed })
+    const payload = result.data
+    const cancelled =
+      payload &&
+      typeof payload === 'object' &&
+      'cancelled' in payload &&
+      typeof (payload as { cancelled?: unknown }).cancelled === 'boolean'
+        ? (payload as { cancelled: boolean }).cancelled
+        : false
+
+    return !cancelled
+  }
+
   public getSelectedModel(): string | null {
     return this.selectedModel
   }

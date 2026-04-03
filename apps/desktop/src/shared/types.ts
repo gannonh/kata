@@ -14,6 +14,8 @@ export const IPC_CHANNELS = {
   sessionList: 'session:list',
   sessionNew: 'session:new',
   sessionGetInfo: 'session:get-info',
+  sessionSwitch: 'session:switch',
+  sessionGetHistory: 'session:get-history',
   workspaceGet: 'workspace:get',
   workspaceSet: 'workspace:set',
   workspacePick: 'workspace:pick',
@@ -159,6 +161,12 @@ export interface CreateSessionResponse {
   error?: string
 }
 
+export interface SessionSwitchResponse {
+  success: boolean
+  sessionId: string | null
+  error?: string
+}
+
 export interface WorkspaceInfo {
   path: string
 }
@@ -174,6 +182,7 @@ export type RpcCommandType =
   | 'get_available_models'
   | 'set_model'
   | 'set_thinking_level'
+  | 'switch_session'
 
 export interface RpcCommand {
   type: RpcCommandType
@@ -183,6 +192,7 @@ export interface RpcCommand {
   provider?: string
   modelId?: string
   level?: ThinkingLevel
+  sessionPath?: string
 }
 
 export interface CommandResult {
@@ -370,6 +380,7 @@ export type ChatEvent =
   | { type: 'thinking_start'; messageId: string }
   | { type: 'thinking_delta'; messageId: string; delta: string }
   | { type: 'thinking_end'; messageId: string; content: string }
+  | { type: 'history_user_message'; messageId: string; text: string }
 
 export interface BridgeState {
   running: boolean
@@ -378,6 +389,14 @@ export interface BridgeState {
   status: BridgeLifecycleState
   permissionMode: PermissionMode
   selectedModel: string | null
+}
+
+export interface SessionHistoryResponse {
+  success: boolean
+  sessionId: string | null
+  events: ChatEvent[]
+  warnings: string[]
+  error?: string
 }
 
 export type PlanningArtifactScope = 'project' | 'issue'
@@ -546,6 +565,8 @@ export interface DesktopApi {
     list: () => Promise<SessionListResponse>
     create: () => Promise<CreateSessionResponse>
     getInfo: (sessionPath: string) => Promise<SessionInfo>
+    switch: (sessionId: string) => Promise<SessionSwitchResponse>
+    getHistory: (sessionId: string) => Promise<SessionHistoryResponse>
   }
   workspace: {
     get: () => Promise<WorkspaceInfo>

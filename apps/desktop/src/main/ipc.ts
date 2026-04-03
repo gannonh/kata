@@ -8,6 +8,7 @@ import { PiAgentBridge } from './pi-agent-bridge'
 import { PlanningToolDetector } from './planning-tool-detector'
 import { RpcEventAdapter } from './rpc-event-adapter'
 import { DesktopSessionManager } from './session-manager'
+import { SessionHistoryLoader } from './session-history-loader'
 import {
   IPC_CHANNELS,
   type AuthProvider,
@@ -20,6 +21,8 @@ import {
   type AuthRemoveKeyResponse,
   type AuthValidationResult,
   type CreateSessionResponse,
+  type SessionHistoryResponse,
+  type SessionSwitchResponse,
   type ExtensionUIRequest,
   type ExtensionUIResponse,
   type PermissionMode,
@@ -56,6 +59,7 @@ export function registerSessionIpc({
   const adapter = new RpcEventAdapter()
   const planningToolDetector = new PlanningToolDetector()
   const linearDocumentClient = new LinearDocumentClient(authBridge)
+  const sessionHistoryLoader = new SessionHistoryLoader()
 
   const planningArtifactsByKey = new Map<string, PlanningArtifact>()
   const planningMetadataByKey = new Map<string, PlanningArtifactEvent>()
@@ -308,6 +312,8 @@ export function registerSessionIpc({
   ipcMain.removeHandler(IPC_CHANNELS.sessionList)
   ipcMain.removeHandler(IPC_CHANNELS.sessionNew)
   ipcMain.removeHandler(IPC_CHANNELS.sessionGetInfo)
+  ipcMain.removeHandler(IPC_CHANNELS.sessionSwitch)
+  ipcMain.removeHandler(IPC_CHANNELS.sessionGetHistory)
   ipcMain.removeHandler(IPC_CHANNELS.workspaceGet)
   ipcMain.removeHandler(IPC_CHANNELS.workspaceSet)
   ipcMain.removeHandler(IPC_CHANNELS.workspacePick)
@@ -506,6 +512,121 @@ export function registerSessionIpc({
     },
   )
 
+  ipcMain.handle(
+    IPC_CHANNELS.sessionSwitch,
+    async (_event, sessionId: string): Promise<SessionSwitchResponse> => {
+      const trimmedSessionId = sessionId?.trim()
+      if (!trimmedSessionId) {
+        return {
+          success: false,
+          sessionId: null,
+          error: 'Session ID is required',
+        }
+      }
+
+      const workspacePath = bridge.getWorkspacePath()
+
+      try {
+        const sessionPath = await sessionManager.resolveSessionPathById(trimmedSessionId, workspacePath)
+        if (!sessionPath) {
+          return {
+            success: false,
+            sessionId: null,
+            error: `Session ${trimmedSessionId} was not found in the current workspace`,
+          }
+        }
+
+        const switched = await bridge.switchSession(sessionPath)
+        if (!switched) {
+          return {
+            success: false,
+            sessionId: null,
+            error: `Session switch to ${trimmedSessionId} was cancelled`,
+          }
+        }
+
+        log.info('[desktop-ipc] session switched', {
+          sessionId: trimmedSessionId,
+          workspacePath,
+          sessionPath,
+        })
+
+        return {
+          success: true,
+          sessionId: trimmedSessionId,
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        log.error('[desktop-ipc] session switch failed', {
+          sessionId: trimmedSessionId,
+          workspacePath,
+          error: message,
+        })
+
+        return {
+          success: false,
+          sessionId: null,
+          error: message,
+        }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    IPC_CHANNELS.sessionGetHistory,
+    async (_event, sessionId: string): Promise<SessionHistoryResponse> => {
+      const trimmedSessionId = sessionId?.trim()
+      if (!trimmedSessionId) {
+        return {
+          success: false,
+          sessionId: null,
+          events: [],
+          warnings: [],
+          error: 'Session ID is required',
+        }
+      }
+
+      const workspacePath = bridge.getWorkspacePath()
+
+      try {
+        const sessionPath = await sessionManager.resolveSessionPathById(trimmedSessionId, workspacePath)
+        if (!sessionPath) {
+          return {
+            success: false,
+            sessionId: null,
+            events: [],
+            warnings: [],
+            error: `Session ${trimmedSessionId} was not found in the current workspace`,
+          }
+        }
+
+        const loaded = await sessionHistoryLoader.load(sessionPath)
+
+        return {
+          success: true,
+          sessionId: loaded.sessionId ?? trimmedSessionId,
+          events: loaded.events,
+          warnings: loaded.warnings,
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        log.error('[desktop-ipc] session history load failed', {
+          sessionId: trimmedSessionId,
+          workspacePath,
+          error: message,
+        })
+
+        return {
+          success: false,
+          sessionId: trimmedSessionId,
+          events: [],
+          warnings: [],
+          error: message,
+        }
+      }
+    },
+  )
+
   ipcMain.handle(IPC_CHANNELS.workspaceGet, async (): Promise<WorkspaceInfo> => {
     return {
       path: bridge.getWorkspacePath(),
@@ -666,6 +787,8 @@ export function registerSessionIpc({
     ipcMain.removeHandler(IPC_CHANNELS.sessionList)
     ipcMain.removeHandler(IPC_CHANNELS.sessionNew)
     ipcMain.removeHandler(IPC_CHANNELS.sessionGetInfo)
+    ipcMain.removeHandler(IPC_CHANNELS.sessionSwitch)
+    ipcMain.removeHandler(IPC_CHANNELS.sessionGetHistory)
     ipcMain.removeHandler(IPC_CHANNELS.workspaceGet)
     ipcMain.removeHandler(IPC_CHANNELS.workspaceSet)
     ipcMain.removeHandler(IPC_CHANNELS.workspacePick)

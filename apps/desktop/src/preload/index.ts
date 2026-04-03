@@ -86,6 +86,12 @@ const api: DesktopApi = {
     getInfo: async (sessionPath: string) => {
       return ipcRenderer.invoke(IPC_CHANNELS.sessionGetInfo, sessionPath)
     },
+    switch: async (sessionId: string) => {
+      return ipcRenderer.invoke(IPC_CHANNELS.sessionSwitch, sessionId)
+    },
+    getHistory: async (sessionId: string) => {
+      return ipcRenderer.invoke(IPC_CHANNELS.sessionGetHistory, sessionId)
+    },
   },
   workspace: {
     get: async () => {

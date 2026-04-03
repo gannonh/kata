@@ -325,6 +325,33 @@ describe('PiAgentBridge additional coverage', () => {
     expect(bridge.getSelectedModel()).toBe('anthropic/claude-sonnet-4-5')
   })
 
+  test('switchSession sends switch_session command and maps cancelled payload', async () => {
+    const bridge = new PiAgentBridge(process.cwd())
+    const sendSpy = vi.spyOn(bridge, 'send')
+
+    await expect(bridge.switchSession('   ')).rejects.toThrow('Session path is required')
+
+    sendSpy.mockResolvedValueOnce({
+      command: 'switch_session',
+      success: true,
+      data: { cancelled: false },
+    } as CommandResult)
+
+    await expect(bridge.switchSession('/tmp/session-a.jsonl')).resolves.toBe(true)
+    expect(sendSpy).toHaveBeenCalledWith({
+      type: 'switch_session',
+      sessionPath: '/tmp/session-a.jsonl',
+    })
+
+    sendSpy.mockResolvedValueOnce({
+      command: 'switch_session',
+      success: true,
+      data: { cancelled: true },
+    } as CommandResult)
+
+    await expect(bridge.switchSession('/tmp/session-b.jsonl')).resolves.toBe(false)
+  })
+
   test('getSelectedModel and getWorkspacePath return constructor values', () => {
     const bridge = new PiAgentBridge('/tmp/my-workspace', 'kata', 30_000, '  provider/model  ')
 

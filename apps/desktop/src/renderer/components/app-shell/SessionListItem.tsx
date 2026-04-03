@@ -5,6 +5,8 @@ import { cn } from '@/lib/utils'
 interface SessionListItemProps {
   session: SessionListItemType
   isCurrent: boolean
+  disabled?: boolean
+  onSelect: (sessionId: string) => void
 }
 
 function formatRelativeTime(value: string): string {
@@ -53,15 +55,26 @@ function sessionModelLabel(session: SessionListItemType): string {
   return 'Unknown model'
 }
 
-export function SessionListItem({ session, isCurrent }: SessionListItemProps) {
+export function SessionListItem({
+  session,
+  isCurrent,
+  disabled = false,
+  onSelect,
+}: SessionListItemProps) {
   const model = sessionModelLabel(session)
 
   return (
-    <div
+    <button
+      type="button"
       title={session.title}
+      disabled={disabled}
+      onClick={() => onSelect(session.id)}
       className={cn(
-        'w-full rounded-md border bg-card/70 px-2 py-2 text-left',
-        isCurrent ? 'border-primary/60 bg-accent/40' : 'border-border',
+        'w-full rounded-md border bg-card/70 px-2 py-2 text-left transition-colors',
+        isCurrent
+          ? 'border-primary/60 bg-accent/40'
+          : 'border-border hover:border-primary/40 hover:bg-accent/20',
+        disabled && 'cursor-not-allowed opacity-60',
       )}
     >
       <div className="flex flex-col gap-1.5">
@@ -106,6 +119,6 @@ export function SessionListItem({ session, isCurrent }: SessionListItemProps) {
           </Badge>
         </div>
       </div>
-    </div>
+    </button>
   )
 }
