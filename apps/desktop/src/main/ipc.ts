@@ -623,18 +623,35 @@ export function registerSessionIpc({
     try {
       const result = await bridge.send({ type: 'new_session' })
       const payload = result.data
-      const sessionId =
+
+      // The RPC new_session response returns { cancelled: boolean } — no sessionId.
+      // Check if the session was cancelled (user declined).
+      if (
         payload &&
         typeof payload === 'object' &&
-        'sessionId' in payload &&
-        typeof (payload as { sessionId?: unknown }).sessionId === 'string'
-          ? (payload as { sessionId: string }).sessionId
-          : payload &&
-                typeof payload === 'object' &&
-                'session_id' in payload &&
-                typeof (payload as { session_id?: unknown }).session_id === 'string'
-              ? (payload as { session_id: string }).session_id
-              : null
+        'cancelled' in payload &&
+        (payload as { cancelled?: boolean }).cancelled
+      ) {
+        return { success: false, sessionId: null, error: 'Session creation cancelled' }
+      }
+
+      // After new_session, query get_state for the actual session ID.
+      let sessionId: string | null = null
+      try {
+        const stateResult = await bridge.send({ type: 'get_state' })
+        const statePayload = stateResult.data
+        if (
+          statePayload &&
+          typeof statePayload === 'object' &&
+          'sessionId' in statePayload &&
+          typeof (statePayload as { sessionId?: unknown }).sessionId === 'string'
+        ) {
+          sessionId = (statePayload as { sessionId: string }).sessionId
+        }
+      } catch {
+        // get_state failure is non-fatal — session was still created
+        log.warn('[desktop-ipc] get_state after new_session failed')
+      }
 
       log.info('[desktop-ipc] new session created', {
         sessionId,

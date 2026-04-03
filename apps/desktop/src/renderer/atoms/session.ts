@@ -182,11 +182,14 @@ export const createSessionAtom = atom(null, async (get, set) => {
     set(resetChatStateAtom)
     set(resetPlanningSessionStateAtom)
 
-    await set(refreshSessionListAtom)
-
+    // Set the new session ID BEFORE refreshing the list so
+    // applySessionListResponseAtom sees it as current and doesn't
+    // fall back to sessions[0] (which would be the old session).
     if (response.sessionId) {
       set(currentSessionIdAtom, response.sessionId)
     }
+
+    await set(refreshSessionListAtom)
 
     set(requestPlanningReloadAtom)
   } finally {
