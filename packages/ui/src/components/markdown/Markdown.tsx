@@ -168,6 +168,11 @@ function createComponents(
   // Minimal mode: prose handles all typography spacing (headings, paragraphs,
   // lists, blockquotes, hr, strong, em). We only override code blocks to use
   // our custom Shiki/diff/mermaid/JSON renderers, and tables for custom styling.
+  //
+  // IMPORTANT: Callers using mode="minimal" MUST wrap the output in Tailwind
+  // Typography prose classes (e.g. className="prose prose-sm dark:prose-invert").
+  // Without a prose wrapper, elements like p, ul, ol, headings will receive
+  // only browser defaults (no spacing, no list markers).
   if (mode === 'minimal') {
     return {
       ...baseComponents,

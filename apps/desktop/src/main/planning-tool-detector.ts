@@ -336,16 +336,27 @@ export class PlanningToolDetector extends EventEmitter {
       try {
         const parsed = JSON.parse(textContent)
         if (isRecord(parsed)) {
-          return asString(parsed.id) ?? asString(parsed.issueId)
+          const found =
+            asString(parsed.id) ??
+            asString(parsed.issueId) ??
+            (isRecord(parsed.issue) ? asString(parsed.issue.id) : undefined) ??
+            (isRecord(parsed.data) && isRecord(parsed.data.issue)
+              ? asString(parsed.data.issue.id)
+              : undefined)
+          if (found) {
+            return found
+          }
         }
       } catch {
-        // Text content may contain the issue ID as a UUID pattern
-        const uuidMatch = textContent.match(
-          /\b(?:id|issueId|issue_id)["']?\s*[:=]\s*["']?([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i,
-        )
-        if (uuidMatch?.[1]) {
-          return uuidMatch[1]
-        }
+        // Ignore parse failures — fall through to regex extraction.
+      }
+
+      // Text content may contain the issue ID as a UUID pattern
+      const uuidMatch = textContent.match(
+        /\b(?:id|issueId|issue_id)["']?\s*[:=]\s*["']?([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i,
+      )
+      if (uuidMatch?.[1]) {
+        return uuidMatch[1]
       }
     }
 

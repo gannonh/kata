@@ -851,8 +851,12 @@ export async function showInterviewRound(
         `${question.header}: ${question.question}`,
         allOptions,
       );
+      if (selected === undefined) {
+        // User cancelled the dialog — treat as end of interview
+        return { endInterview: true, answers };
+      }
       answers[question.id] = {
-        selected: selected ?? "None of the above",
+        selected,
         notes: "",
       };
     }

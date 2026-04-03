@@ -260,11 +260,16 @@ export function registerSessionIpc({
 
       if (!existingArtifact && planningEvent.issueId) {
         const staleArtifact = Array.from(planningArtifactsByKey.values()).find(
-          (a) => a.artifactType === 'slice' && a.title === planningEvent.title && !a.issueId,
+          (a) =>
+            a.artifactType === 'slice' &&
+            a.title === planningEvent.title &&
+            !a.issueId &&
+            (!a.projectId || a.projectId === planningEvent.projectId),
         )
         if (staleArtifact) {
           migratedTasks = staleArtifact.sliceData?.tasks ?? []
           planningArtifactsByKey.delete(staleArtifact.artifactKey)
+          planningMetadataByKey.delete(staleArtifact.artifactKey)
           log.info('[desktop-ipc] migrated stale project-scoped slice artifact to issue-scoped', {
             oldKey: staleArtifact.artifactKey,
             newKey: planningEvent.artifactKey,
@@ -651,6 +656,17 @@ export function registerSessionIpc({
       } catch {
         // get_state failure is non-fatal — session was still created
         log.warn('[desktop-ipc] get_state after new_session failed')
+      }
+
+      if (!sessionId) {
+        log.warn('[desktop-ipc] new session created but sessionId could not be resolved', {
+          workspacePath: bridge.getWorkspacePath(),
+        })
+        return {
+          success: false,
+          sessionId: null,
+          error: 'Session created but ID could not be resolved',
+        }
       }
 
       log.info('[desktop-ipc] new session created', {
