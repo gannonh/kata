@@ -70,7 +70,7 @@ export function SessionListItem({
       disabled={disabled}
       onClick={() => onSelect(session.id)}
       className={cn(
-        'w-full rounded-md border bg-card/70 px-2 py-2 text-left transition-colors',
+        'w-full overflow-hidden rounded-md border bg-card/70 px-2 py-2 text-left transition-colors',
         isCurrent
           ? 'border-primary/60 bg-accent/40'
           : 'border-border hover:border-primary/40 hover:bg-accent/20',
@@ -105,7 +105,7 @@ export function SessionListItem({
         )}
 
         <div className="flex items-center justify-between gap-2">
-          <Badge variant="secondary" className="max-w-[9rem] truncate font-normal">
+          <Badge variant="secondary" className="max-w-[7rem] truncate font-normal">
             {model}
           </Badge>
 

@@ -1,7 +1,7 @@
 import { atom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
 import type { SessionListResponse, SessionListItem } from '@shared/types'
-import { applyChatEventAtom, resetChatStateAtom } from './chat'
+import { applyChatEventAtom, isStreamingAtom, resetChatStateAtom } from './chat'
 import { requestPlanningReloadAtom, resetPlanningSessionStateAtom } from './planning'
 
 const CURRENT_SESSION_STORAGE_KEY = 'kata-desktop:current-session-id'
@@ -92,6 +92,11 @@ const hydrateSessionHistoryAtom = atom(
       for (const event of historyResponse.events) {
         set(applyChatEventAtom, event)
       }
+
+      // History replay may leave isStreamingAtom true if the session ended
+      // without a terminal event (agent_end/turn_end). Force it off — 
+      // replayed history is never streaming.
+      set(isStreamingAtom, false)
 
       if (historyResponse.warnings.length > 0) {
         set(sessionWarningsAtom, (currentWarnings) => {

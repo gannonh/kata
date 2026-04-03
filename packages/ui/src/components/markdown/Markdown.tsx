@@ -151,10 +151,10 @@ function createComponents(
         <pre className="font-mono whitespace-pre-wrap my-2">{children}</pre>
       ),
       // Minimal paragraph spacing
-      p: ({ children }) => <p className="my-1">{children}</p>,
+      p: ({ children }) => <p className="my-1.5">{children}</p>,
       // Simple lists
-      ul: ({ children }) => <ul className="list-disc list-inside my-1">{children}</ul>,
-      ol: ({ children }) => <ol className="list-decimal list-inside my-1">{children}</ol>,
+      ul: ({ children }) => <ul className="list-disc list-outside pl-5 my-2">{children}</ul>,
+      ol: ({ children }) => <ol className="list-decimal list-outside pl-5 my-2">{children}</ol>,
       li: ({ children }) => <li className="my-0.5">{children}</li>,
       // Plain tables
       table: ({ children }) => (
@@ -179,11 +179,11 @@ function createComponents(
           const code = String(children).replace(/\n$/, '')
           // Diff code blocks → pierre/diffs for a proper diff viewer
           if (match?.[1] === 'diff') {
-            return <MarkdownDiffBlock code={code} className="my-1" />
+            return <MarkdownDiffBlock code={code} className="my-3" />
           }
           // JSON code blocks → interactive tree viewer
           if (match?.[1] === 'json') {
-            return <MarkdownJsonBlock code={code} className="my-1" />
+            return <MarkdownJsonBlock code={code} className="my-3" />
           }
           // Mermaid code blocks → zinc-styled SVG diagram.
           // Hide the inline expand button when the mermaid block is the first
@@ -195,9 +195,9 @@ function createComponents(
             const isFirstBlock = hideFirstMermaidExpand &&
                                 firstMermaidCodeRef?.current != null &&
                                 code === firstMermaidCodeRef.current
-            return <MarkdownMermaidBlock code={code} className="my-1" showExpandButton={!isFirstBlock} />
+            return <MarkdownMermaidBlock code={code} className="my-3" showExpandButton={!isFirstBlock} />
           }
-          return <CodeBlock code={code} language={match?.[1]} mode="full" className="my-1" />
+          return <CodeBlock code={code} language={match?.[1]} mode="full" className="my-3" />
         }
 
         // Inline code
@@ -208,12 +208,12 @@ function createComponents(
       p: ({ children }) => <p className="my-2 leading-relaxed">{children}</p>,
       // Styled lists - ul uses tighter spacing, ol uses standard for number alignment
       ul: ({ children }) => (
-        <ul className="my-2 space-y-1 ps-[16px] pe-2 list-disc marker:text-[var(--md-bullets)]">
+        <ul className="my-2 space-y-1 ml-6 pl-4 list-disc list-outside marker:text-[var(--md-bullets)]">
           {children}
         </ul>
       ),
       ol: ({ children }) => (
-        <ol className="my-2 space-y-1 pl-6 list-decimal">{children}</ol>
+        <ol className="my-2 space-y-1 ml-6 pl-4 list-decimal list-outside">{children}</ol>
       ),
       li: ({ children }) => <li>{children}</li>,
       // Clean tables
@@ -259,11 +259,11 @@ function createComponents(
         const code = String(children).replace(/\n$/, '')
         // Diff code blocks → pierre/diffs for a proper diff viewer
         if (match?.[1] === 'diff') {
-          return <MarkdownDiffBlock code={code} className="my-1" />
+          return <MarkdownDiffBlock code={code} className="my-3" />
         }
         // JSON code blocks → interactive tree viewer
         if (match?.[1] === 'json') {
-          return <MarkdownJsonBlock code={code} className="my-1" />
+          return <MarkdownJsonBlock code={code} className="my-3" />
         }
         // Mermaid code blocks → zinc-styled SVG diagram.
         // (Same first-block detection as minimal mode — see comment above.)
@@ -271,9 +271,9 @@ function createComponents(
           const isFirstBlock = hideFirstMermaidExpand &&
                               firstMermaidCodeRef?.current != null &&
                               code === firstMermaidCodeRef.current
-          return <MarkdownMermaidBlock code={code} className="my-1" showExpandButton={!isFirstBlock} />
+          return <MarkdownMermaidBlock code={code} className="my-3" showExpandButton={!isFirstBlock} />
         }
-        return <CodeBlock code={code} language={match?.[1]} mode="full" className="my-1" />
+        return <CodeBlock code={code} language={match?.[1]} mode="full" className="my-3" />
       }
 
       return <InlineCode>{children}</InlineCode>
