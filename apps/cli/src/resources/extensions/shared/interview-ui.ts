@@ -226,7 +226,9 @@ export async function showInterviewRound(
   opts: InterviewRoundOptions,
   ctx: ExtensionCommandContext,
 ): Promise<RoundResult> {
-  return ctx.ui.custom<RoundResult>((tui: TUI, theme: Theme, _kb, done) => {
+  // RPC mode: ctx.ui.custom() is not supported — fall back to sequential
+  // ctx.ui.select() calls which work over the RPC protocol.
+  const customResult = await ctx.ui.custom<RoundResult>((tui: TUI, theme: Theme, _kb, done) => {
     interface QuestionState {
       cursorIndex: number;
       committedIndex: number | null;
@@ -819,4 +821,42 @@ export async function showInterviewRound(
       handleInput,
     };
   });
+
+  if (customResult !== undefined) {
+    return customResult;
+  }
+
+  // Fallback for RPC/Desktop mode: present each question as a ctx.ui.select()
+  const answers: Record<string, { selected: string | string[]; notes: string }> = {};
+
+  for (const question of questions) {
+    if (question.allowMultiple) {
+      // Multi-select: present as a series of confirm() calls per option
+      const selected: string[] = [];
+      for (const option of question.options) {
+        const yes = await ctx.ui.confirm(
+          question.header,
+          `${question.question}\n\nInclude "${option.label}"?\n${option.description}`,
+        );
+        if (yes) {
+          selected.push(option.label);
+        }
+      }
+      answers[question.id] = { selected, notes: "" };
+    } else {
+      // Single-select: use ctx.ui.select()
+      const optionLabels = question.options.map((o) => o.label);
+      const allOptions = [...optionLabels, "None of the above"];
+      const selected = await ctx.ui.select(
+        `${question.header}: ${question.question}`,
+        allOptions,
+      );
+      answers[question.id] = {
+        selected: selected ?? "None of the above",
+        notes: "",
+      };
+    }
+  }
+
+  return { endInterview: false, answers };
 }

@@ -120,7 +120,9 @@ export async function showNextAction(
     }
   });
 
-  return ctx.ui.custom<string>((_tui: TUI, theme: Theme, _kb, done) => {
+  // RPC mode: ctx.ui.custom() is not supported — fall back to ctx.ui.select()
+  // which works over the RPC protocol and Desktop renders as a native dialog.
+  const customResult = await ctx.ui.custom<string>((_tui: TUI, theme: Theme, _kb, done) => {
     let cursorIdx = defaultIdx;
     let cachedLines: string[] | undefined;
 
@@ -232,4 +234,28 @@ export async function showNextAction(
       handleInput,
     };
   });
+
+  if (customResult !== undefined) {
+    return customResult;
+  }
+
+  // Fallback for RPC/Desktop mode: use ctx.ui.select() which is supported
+  const options = allActions.map((a) => {
+    const suffix = a.recommended ? " (recommended)" : "";
+    return `${a.label}${suffix}`;
+  });
+
+  const title = `${opts.title}${opts.summary?.length ? ` — ${opts.summary[0]}` : ""}`;
+  const selected = await ctx.ui.select(title, options);
+
+  if (selected === undefined) {
+    return "not_yet";
+  }
+
+  const matchedAction = allActions.find((a) => {
+    const suffix = a.recommended ? " (recommended)" : "";
+    return `${a.label}${suffix}` === selected;
+  });
+
+  return matchedAction?.id ?? "not_yet";
 }
