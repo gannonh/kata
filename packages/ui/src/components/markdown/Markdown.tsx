@@ -165,60 +165,41 @@ function createComponents(
     }
   }
 
-  // Minimal mode: clean with syntax highlighting
+  // Minimal mode: prose handles all typography spacing (headings, paragraphs,
+  // lists, blockquotes, hr, strong, em). We only override code blocks to use
+  // our custom Shiki/diff/mermaid/JSON renderers, and tables for custom styling.
   if (mode === 'minimal') {
     return {
       ...baseComponents,
-      // Inline code
+      // Custom code block renderers (Shiki syntax highlighting, diff viewer, etc.)
       code: ({ className, children, ...props }) => {
         const match = /language-(\w+)/.exec(className || '')
         const isBlock = 'node' in props && props.node?.position?.start.line !== props.node?.position?.end.line
 
-        // Block code
         if (match || isBlock) {
           const code = String(children).replace(/\n$/, '')
-          // Diff code blocks → pierre/diffs for a proper diff viewer
           if (match?.[1] === 'diff') {
-            return <MarkdownDiffBlock code={code} className="my-3" />
+            return <MarkdownDiffBlock code={code} className="my-4" />
           }
-          // JSON code blocks → interactive tree viewer
           if (match?.[1] === 'json') {
-            return <MarkdownJsonBlock code={code} className="my-3" />
+            return <MarkdownJsonBlock code={code} className="my-4" />
           }
-          // Mermaid code blocks → zinc-styled SVG diagram.
-          // Hide the inline expand button when the mermaid block is the first
-          // content in the message — TurnCard's own fullscreen button occupies
-          // the same top-right spot. Detection uses firstMermaidCodeRef (content
-          // match) rather than AST line positions which are unreliable after
-          // preprocessLinks transforms the markdown.
           if (match?.[1] === 'mermaid') {
             const isFirstBlock = hideFirstMermaidExpand &&
                                 firstMermaidCodeRef?.current != null &&
                                 code === firstMermaidCodeRef.current
-            return <MarkdownMermaidBlock code={code} className="my-3" showExpandButton={!isFirstBlock} />
+            return <MarkdownMermaidBlock code={code} className="my-4" showExpandButton={!isFirstBlock} />
           }
-          return <CodeBlock code={code} language={match?.[1]} mode="full" className="my-3" />
+          return <CodeBlock code={code} language={match?.[1]} mode="full" className="my-4" />
         }
 
-        // Inline code
+        // Inline code — let prose handle styling
         return <InlineCode>{children}</InlineCode>
       },
       pre: ({ children }) => <>{children}</>,
-      // Comfortable paragraph spacing
-      p: ({ children }) => <p className="my-2 leading-relaxed">{children}</p>,
-      // Styled lists - ul uses tighter spacing, ol uses standard for number alignment
-      ul: ({ children }) => (
-        <ul className="my-2 space-y-1 ml-6 pl-4 list-disc list-outside marker:text-[var(--md-bullets)]">
-          {children}
-        </ul>
-      ),
-      ol: ({ children }) => (
-        <ol className="my-2 space-y-1 ml-6 pl-4 list-decimal list-outside">{children}</ol>
-      ),
-      li: ({ children }) => <li>{children}</li>,
-      // Clean tables
+      // Custom table styling (prose defaults are fine but we want tighter control)
       table: ({ children }) => (
-        <div className="my-3 overflow-x-auto">
+        <div className="my-4 overflow-x-auto">
           <table className="min-w-full text-sm">{children}</table>
         </div>
       ),
@@ -229,21 +210,8 @@ function createComponents(
       td: ({ children }) => (
         <td className="py-2 px-3 border-b border-border/50">{children}</td>
       ),
-      // Headings - H1/H2 same size, differentiated by weight
-      h1: ({ children }) => <h1 className="font-sans text-[16px] font-bold mt-5 mb-3">{children}</h1>,
-      h2: ({ children }) => <h2 className="font-sans text-[16px] font-semibold mt-4 mb-3">{children}</h2>,
-      h3: ({ children }) => <h3 className="font-sans text-[15px] font-semibold mt-4 mb-2">{children}</h3>,
-      // Blockquotes
-      blockquote: ({ children }) => (
-        <blockquote className="border-l-2 border-muted-foreground/30 pl-3 my-2 text-muted-foreground italic">
-          {children}
-        </blockquote>
-      ),
-      // Horizontal rules
-      hr: () => <hr className="my-4 border-border" />,
-      // Strong/emphasis
-      strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-      em: ({ children }) => <em className="italic">{children}</em>,
+      // Everything else (p, ul, ol, li, h1-h6, blockquote, hr, strong, em)
+      // is handled by Tailwind Typography prose classes on the wrapper.
     }
   }
 
