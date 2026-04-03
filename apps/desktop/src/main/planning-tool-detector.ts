@@ -193,6 +193,7 @@ export class PlanningToolDetector extends EventEmitter {
 
       const taskTitle = stripKataIdPrefix(rawTitle, taskId) || rawTitle
       const description = asString(args.description) ?? ''
+      const taskStatus = resolveTaskStatus(args, result)
 
       return {
         eventType: 'task_created',
@@ -214,7 +215,7 @@ export class PlanningToolDetector extends EventEmitter {
           id: taskId,
           title: taskTitle,
           description,
-          status: 'todo',
+          status: taskStatus,
         },
       }
     }
@@ -346,13 +347,13 @@ function extractKataId(rawValue: string | undefined, prefix: 'M' | 'S' | 'T'): s
   }
 
   const trimmed = rawValue.trim()
-  const pattern = new RegExp(`${prefix}\\d+`, 'i')
-  const match = trimmed.match(pattern)
-  if (!match) {
+  const leadingPattern = new RegExp(`^\\[?(${prefix}\\d+)\\]?(?=\\b|[:\\-\\s])`, 'i')
+  const leadingMatch = trimmed.match(leadingPattern)
+  if (!leadingMatch?.[1]) {
     return undefined
   }
 
-  return match[0].toUpperCase()
+  return leadingMatch[1].toUpperCase()
 }
 
 function stripKataIdPrefix(rawTitle: string, kataId: string): string {
@@ -361,4 +362,76 @@ function stripKataIdPrefix(rawTitle: string, kataId: string): string {
     .replace(new RegExp(`^\\[${escapedKataId}\\]\\s*`, 'i'), '')
     .replace(new RegExp(`^${escapedKataId}[:\\-\\s]+`, 'i'), '')
     .trim()
+}
+
+function resolveTaskStatus(
+  args: Record<string, unknown>,
+  result: Record<string, unknown>,
+): 'todo' | 'in_progress' | 'done' {
+  const candidates: Array<string | undefined> = [
+    asString(args.initialPhase),
+    asString(args.phase),
+    asString(args.status),
+    asString(result.initialPhase),
+    asString(result.phase),
+    asString(result.status),
+  ]
+
+  const issuePayload = isRecord(result.issue) ? result.issue : undefined
+  const taskPayload = isRecord(result.task) ? result.task : undefined
+  const statePayload = isRecord(issuePayload?.state) ? issuePayload.state : undefined
+
+  candidates.push(
+    asString(issuePayload?.status),
+    asString(issuePayload?.phase),
+    asString(issuePayload?.state),
+    asString(statePayload?.name),
+    asString(statePayload?.type),
+    asString(taskPayload?.status),
+    asString(taskPayload?.phase),
+  )
+
+  for (const candidate of candidates) {
+    const normalized = normalizePhase(candidate)
+    if (!normalized) {
+      continue
+    }
+
+    if (
+      normalized === 'done' ||
+      normalized === 'completed' ||
+      normalized === 'complete' ||
+      normalized === 'closed'
+    ) {
+      return 'done'
+    }
+
+    if (
+      normalized === 'in_progress' ||
+      normalized === 'progress' ||
+      normalized === 'started' ||
+      normalized === 'starting' ||
+      normalized === 'executing' ||
+      normalized === 'doing' ||
+      normalized === 'active' ||
+      normalized === 'in_review' ||
+      normalized === 'review'
+    ) {
+      return 'in_progress'
+    }
+  }
+
+  return 'todo'
+}
+
+function normalizePhase(value: string | undefined): string | undefined {
+  if (!value) {
+    return undefined
+  }
+
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
 }

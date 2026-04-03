@@ -149,6 +149,79 @@ describe('PlanningToolDetector', () => {
     })
   })
 
+  test('maps task status from create_task phase payloads', () => {
+    const detector = new PlanningToolDetector()
+    const events: PlanningArtifactEvent[] = []
+
+    detector.on('artifact', (event) => {
+      events.push(event)
+    })
+
+    detector.handleChatEvent({
+      type: 'tool_start',
+      toolCallId: 'tool-task-status-progress',
+      toolName: 'kata_create_task',
+      args: {
+        raw: {
+          kataId: 'T02',
+          title: '[T02] In-progress task',
+          description: 'task body',
+          sliceIssueId: 'slice-issue-1',
+          initialPhase: 'executing',
+        },
+      },
+    })
+
+    detector.handleChatEvent({
+      type: 'tool_end',
+      toolCallId: 'tool-task-status-progress',
+      toolName: 'kata_create_task',
+      isError: false,
+    })
+
+    detector.handleChatEvent({
+      type: 'tool_start',
+      toolCallId: 'tool-task-status-done',
+      toolName: 'kata_create_task',
+      args: {
+        raw: {
+          kataId: 'T03',
+          title: '[T03] Completed task',
+          description: 'task body',
+          sliceIssueId: 'slice-issue-1',
+        },
+      },
+    })
+
+    detector.handleChatEvent({
+      type: 'tool_end',
+      toolCallId: 'tool-task-status-done',
+      toolName: 'kata_create_task',
+      isError: false,
+      result: {
+        raw: {
+          status: 'done',
+        },
+      },
+    })
+
+    expect(events).toHaveLength(2)
+    expect(events[0]).toMatchObject({
+      eventType: 'task_created',
+      task: {
+        id: 'T02',
+        status: 'in_progress',
+      },
+    })
+    expect(events[1]).toMatchObject({
+      eventType: 'task_created',
+      task: {
+        id: 'T03',
+        status: 'done',
+      },
+    })
+  })
+
   test('emits milestone_created roadmap refresh event for kata_create_milestone', () => {
     const detector = new PlanningToolDetector()
     const events: PlanningArtifactEvent[] = []
@@ -411,8 +484,27 @@ describe('PlanningToolDetector', () => {
     })
 
     detector.handleChatEvent({
+      type: 'tool_start',
+      toolCallId: 'bad-task-mid-string-id',
+      toolName: 'kata_create_task',
+      args: {
+        raw: {
+          title: 'Retry T2 implementation details',
+          sliceIssueId: 'slice-issue-1',
+        },
+      },
+    })
+
+    detector.handleChatEvent({
       type: 'tool_end',
       toolCallId: 'bad-task',
+      toolName: 'kata_create_task',
+      isError: false,
+    })
+
+    detector.handleChatEvent({
+      type: 'tool_end',
+      toolCallId: 'bad-task-mid-string-id',
       toolName: 'kata_create_task',
       isError: false,
     })

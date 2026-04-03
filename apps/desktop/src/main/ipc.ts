@@ -62,6 +62,7 @@ export function registerSessionIpc({
   const planningArtifactsByKey = new Map<string, PlanningArtifact>()
   const planningMetadataByKey = new Map<string, PlanningArtifactEvent>()
   const planningLatestKeyByTitle = new Map<string, string>()
+  const pendingTasksBySliceIssueId = new Map<string, PlanningSliceData['tasks']>()
 
   const canSendToRenderer = (): boolean => !window.isDestroyed() && !window.webContents.isDestroyed()
 
@@ -206,9 +207,38 @@ export function registerSessionIpc({
   }
 
   const upsertPlanningArtifact = (artifact: PlanningArtifact): void => {
-    planningArtifactsByKey.set(artifact.artifactKey, artifact)
-    planningLatestKeyByTitle.set(artifact.title, artifact.artifactKey)
-    sendPlanningArtifactToRenderer(artifact)
+    let artifactToStore = artifact
+
+    if (artifact.artifactType === 'slice') {
+      const sliceIssueId = artifact.sliceData?.issueId ?? artifact.issueId
+      const pendingTasks = sliceIssueId ? pendingTasksBySliceIssueId.get(sliceIssueId) ?? [] : []
+
+      if (sliceIssueId && pendingTasks.length > 0) {
+        pendingTasksBySliceIssueId.delete(sliceIssueId)
+
+        const baseSliceData: PlanningSliceData =
+          artifact.sliceData ??
+          ({
+            id: extractSliceIdFromTitle(artifact.title) ?? 'S00',
+            title: artifact.title,
+            description: artifact.content,
+            issueId: sliceIssueId,
+            tasks: [],
+          } satisfies PlanningSliceData)
+
+        artifactToStore = {
+          ...artifact,
+          sliceData: {
+            ...baseSliceData,
+            tasks: mergeSliceTasks(baseSliceData.tasks, pendingTasks),
+          },
+        }
+      }
+    }
+
+    planningArtifactsByKey.set(artifactToStore.artifactKey, artifactToStore)
+    planningLatestKeyByTitle.set(artifactToStore.title, artifactToStore.artifactKey)
+    sendPlanningArtifactToRenderer(artifactToStore)
   }
 
   const onPlanningArtifactEvent = (planningEvent: PlanningArtifactEvent): void => {
@@ -256,11 +286,30 @@ export function registerSessionIpc({
       })
 
       if (!targetSliceArtifact) {
-        log.warn('[desktop-ipc] unable to append task: slice artifact not found', {
-          taskId: planningEvent.task.id,
-          targetSliceIssueId,
-          artifactKey: planningEvent.artifactKey,
-        })
+        if (targetSliceIssueId) {
+          const existingPendingTasks = pendingTasksBySliceIssueId.get(targetSliceIssueId) ?? []
+          const hasTask = existingPendingTasks.some((task) => task.id === planningEvent.task?.id)
+
+          if (!hasTask) {
+            pendingTasksBySliceIssueId.set(targetSliceIssueId, [
+              ...existingPendingTasks,
+              planningEvent.task,
+            ])
+          }
+
+          log.warn('[desktop-ipc] queued task for unresolved slice artifact', {
+            taskId: planningEvent.task.id,
+            targetSliceIssueId,
+            queuedTasks: hasTask ? existingPendingTasks.length : existingPendingTasks.length + 1,
+            artifactKey: planningEvent.artifactKey,
+          })
+        } else {
+          log.warn('[desktop-ipc] unable to append task: missing target slice issue id', {
+            taskId: planningEvent.task.id,
+            artifactKey: planningEvent.artifactKey,
+          })
+        }
+
         return
       }
 
@@ -275,8 +324,7 @@ export function registerSessionIpc({
         } satisfies PlanningSliceData)
 
       const existingTasks = currentSliceData.tasks
-      const hasTask = existingTasks.some((task) => task.id === planningEvent.task?.id)
-      const nextTasks = hasTask ? existingTasks : [...existingTasks, planningEvent.task]
+      const nextTasks = mergeSliceTasks(existingTasks, [planningEvent.task])
 
       upsertPlanningArtifact({
         ...targetSliceArtifact,
@@ -782,7 +830,11 @@ function detectArtifactTypeFromTitle(title: string): ArtifactType | undefined {
     return 'context'
   }
 
-  if (/^\[S\d+\]\s+/.test(title.trim()) || /^S\d+[:\-\s]/.test(title.trim())) {
+  if (
+    /^\[S\d+\]\s+/.test(title.trim()) ||
+    /^S\d+[:\-\s]/.test(title.trim()) ||
+    /^SLICE:/.test(normalized)
+  ) {
     return 'slice'
   }
 
@@ -792,4 +844,19 @@ function detectArtifactTypeFromTitle(title: string): ArtifactType | undefined {
 function extractSliceIdFromTitle(title: string): string | undefined {
   const match = title.match(/S\d+/i)
   return match?.[0]?.toUpperCase()
+}
+
+function mergeSliceTasks(
+  existingTasks: PlanningSliceData['tasks'],
+  newTasks: PlanningSliceData['tasks'],
+): PlanningSliceData['tasks'] {
+  const mergedTasks = [...existingTasks]
+
+  for (const task of newTasks) {
+    if (!mergedTasks.some((existingTask) => existingTask.id === task.id)) {
+      mergedTasks.push(task)
+    }
+  }
+
+  return mergedTasks
 }
