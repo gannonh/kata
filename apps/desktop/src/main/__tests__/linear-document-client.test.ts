@@ -185,6 +185,99 @@ describe('LinearDocumentClient', () => {
     expect(firstRequestBody.query).toContain('query ResolveProjectId($projectRef: ID!)')
   })
 
+  test('paginates project documents and requests updatedAt-desc ordering', async () => {
+    process.env.LINEAR_API_KEY = 'linear-test-key'
+
+    const fetchSpy = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              project: {
+                id: 'project-uuid-123',
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              documents: {
+                nodes: [
+                  {
+                    title: 'ROADMAP',
+                    content: '# First page',
+                    updatedAt: '2026-04-03T00:00:00.000Z',
+                    project: { id: 'project-uuid-123' },
+                    issue: null,
+                  },
+                ],
+                pageInfo: {
+                  hasNextPage: true,
+                  endCursor: 'cursor-page-1',
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              documents: {
+                nodes: [
+                  {
+                    title: 'DECISIONS',
+                    content: '# Second page',
+                    updatedAt: '2026-04-03T01:00:00.000Z',
+                    project: { id: 'project-uuid-123' },
+                    issue: null,
+                  },
+                ],
+                pageInfo: {
+                  hasNextPage: false,
+                  endCursor: null,
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+
+    globalThis.fetch = fetchSpy as unknown as typeof fetch
+
+    const client = new LinearDocumentClient({ getApiKey: vi.fn(async () => null) } as never)
+    const artifacts = await client.listByProject('project-ref')
+
+    expect(artifacts.map((artifact) => artifact.title)).toEqual(['DECISIONS', 'ROADMAP'])
+
+    const firstDocumentsBody = JSON.parse(
+      String((fetchSpy.mock.calls[1]?.[1] as RequestInit | undefined)?.body),
+    ) as {
+      query: string
+      variables: Record<string, string>
+    }
+    expect(firstDocumentsBody.query).toContain('orderBy: { updatedAt: DESC }')
+    expect(firstDocumentsBody.variables).toEqual({ projectId: 'project-uuid-123' })
+
+    const secondDocumentsBody = JSON.parse(
+      String((fetchSpy.mock.calls[2]?.[1] as RequestInit | undefined)?.body),
+    ) as {
+      variables: Record<string, string>
+    }
+    expect(secondDocumentsBody.variables).toEqual({
+      projectId: 'project-uuid-123',
+      after: 'cursor-page-1',
+    })
+  })
+
   test('returns NOT_FOUND when project reference cannot be resolved', async () => {
     process.env.LINEAR_API_KEY = 'linear-test-key'
 

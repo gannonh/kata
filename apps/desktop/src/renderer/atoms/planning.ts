@@ -115,8 +115,6 @@ export const applyPlanningArtifactAtom = atom(null, (get, set, artifact: Plannin
 
   set(planningLoadingAtom, false)
   set(planningErrorAtom, null)
-  set(planningArtifactsStaleAtom, false)
-  set(planningStaleReasonAtom, null)
 })
 
 export const applyBulkPlanningArtifactsAtom = atom(
@@ -195,10 +193,7 @@ export function usePlanningArtifactBridge(): void {
 
         setStale(response.stale === true)
         setStaleReason(response.stale ? response.error?.message ?? 'Using cached planning artifacts' : null)
-
-        if (response.stale) {
-          setError(null)
-        }
+        setError(null)
 
         if (response.artifacts.length === 0) {
           if (!response.stale) {
@@ -261,8 +256,16 @@ export function usePlanningArtifactBridge(): void {
             return currentActiveArtifact
           }
 
-          if (nextArtifacts[currentActiveArtifact.artifactKey]) {
-            return currentActiveArtifact
+          const updatedArtifact = nextArtifacts[currentActiveArtifact.artifactKey]
+          if (updatedArtifact) {
+            if (updatedArtifact.title === currentActiveArtifact.title) {
+              return currentActiveArtifact
+            }
+
+            return {
+              artifactKey: updatedArtifact.artifactKey,
+              title: updatedArtifact.title,
+            }
           }
 
           return mostRecentArtifact

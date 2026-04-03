@@ -899,15 +899,32 @@ export function registerSessionIpc({
   )
 
   ipcMain.handle(IPC_CHANNELS.planningListArtifacts, async (): Promise<PlanningArtifactListResponse> => {
-    let stale = false
     let staleError: PlanningArtifactListResponse['error']
 
     const workspacePath = bridge.getWorkspacePath()
     const projectRef = await readLinearProjectReference(workspacePath)
+    const startupScopePrefix = projectRef ? `startup:${workspacePath}:${projectRef}:` : null
+
+    const clearStartupProactiveArtifacts = (): void => {
+      for (const [artifactKey, metadata] of planningMetadataByKey.entries()) {
+        if (metadata.toolName !== 'startup_proactive_load') {
+          continue
+        }
+
+        planningMetadataByKey.delete(artifactKey)
+        planningArtifactsByKey.delete(artifactKey)
+
+        if (planningLatestKeyByTitle.get(metadata.title) === artifactKey) {
+          planningLatestKeyByTitle.delete(metadata.title)
+        }
+      }
+    }
 
     if (projectRef) {
       try {
         const projectArtifacts = await linearDocumentClient.listByProject(projectRef)
+
+        clearStartupProactiveArtifacts()
 
         for (const projectArtifact of projectArtifacts) {
           const artifactType = detectArtifactTypeFromTitle(projectArtifact.title)
@@ -927,7 +944,7 @@ export function registerSessionIpc({
           planningMetadataByKey.set(artifact.artifactKey, {
             eventType: 'document',
             toolName: 'startup_proactive_load',
-            toolCallId: `startup:${artifact.artifactKey}`,
+            toolCallId: `${startupScopePrefix ?? 'startup:'}${artifact.artifactKey}`,
             title: artifact.title,
             artifactKey: artifact.artifactKey,
             scope: artifact.scope,
@@ -937,7 +954,6 @@ export function registerSessionIpc({
           })
         }
       } catch (error) {
-        stale = true
         staleError = LinearDocumentClient.toPlanningArtifactError(error)
 
         log.warn('[desktop-ipc] planning proactive artifact load failed', {
@@ -948,15 +964,45 @@ export function registerSessionIpc({
       }
     }
 
-    const artifacts = Array.from(planningArtifactsByKey.values()).sort((left, right) => {
-      return Date.parse(right.updatedAt) - Date.parse(left.updatedAt)
-    })
+    const artifacts = Array.from(planningArtifactsByKey.values())
+      .filter((artifact) => {
+        if (!startupScopePrefix) {
+          return true
+        }
+
+        const metadata = planningMetadataByKey.get(artifact.artifactKey)
+        if (metadata?.toolName !== 'startup_proactive_load') {
+          return true
+        }
+
+        return metadata.toolCallId.startsWith(startupScopePrefix)
+      })
+      .sort((left, right) => {
+        return Date.parse(right.updatedAt) - Date.parse(left.updatedAt)
+      })
+
+    if (staleError) {
+      if (artifacts.length === 0) {
+        return {
+          success: false,
+          artifacts: [],
+          stale: false,
+          error: staleError,
+        }
+      }
+
+      return {
+        success: true,
+        artifacts,
+        stale: true,
+        error: staleError,
+      }
+    }
 
     return {
       success: true,
       artifacts,
-      stale,
-      error: staleError,
+      stale: false,
     }
   })
 
@@ -1057,7 +1103,7 @@ async function readLinearProjectReference(workspacePath: string): Promise<string
     return null
   }
 
-  const frontmatterMatch = content.match(/^---\s*\n([\s\S]*?)\n---/)
+  const frontmatterMatch = content.match(/^---\s*\r?\n([\s\S]*?)\r?\n---/)
   if (!frontmatterMatch) {
     return null
   }

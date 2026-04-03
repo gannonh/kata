@@ -39,6 +39,10 @@ interface GraphQLResponse<TData> {
 interface DocumentsQueryData {
   documents?: {
     nodes?: LinearDocumentNode[]
+    pageInfo?: {
+      hasNextPage?: boolean
+      endCursor?: string | null
+    }
   }
 }
 
@@ -214,31 +218,57 @@ export class LinearDocumentClient {
         )
       }
 
-      const data = await this.request<DocumentsQueryData>(
-        apiKey,
-        `
-          query PlanningDocumentsByProject($projectId: ID!) {
-            documents(first: 100, filter: { project: { id: { eq: $projectId } } }) {
-              nodes {
-                title
-                content
-                updatedAt
-                project {
-                  id
+      const nodes: LinearDocumentNode[] = []
+      let afterCursor: string | null = null
+
+      while (true) {
+        const data: DocumentsQueryData = await this.request<DocumentsQueryData>(
+          apiKey,
+          `
+            query PlanningDocumentsByProject($projectId: ID!, $after: String) {
+              documents(
+                first: 100
+                after: $after
+                orderBy: { updatedAt: DESC }
+                filter: { project: { id: { eq: $projectId } } }
+              ) {
+                nodes {
+                  title
+                  content
+                  updatedAt
+                  project {
+                    id
+                  }
+                  issue {
+                    id
+                  }
                 }
-                issue {
-                  id
+                pageInfo {
+                  hasNextPage
+                  endCursor
                 }
               }
             }
-          }
-        `,
-        {
-          projectId,
-        },
-      )
+          `,
+          {
+            projectId,
+            ...(afterCursor ? { after: afterCursor } : {}),
+          },
+        )
 
-      const artifacts = (data.documents?.nodes ?? [])
+        nodes.push(...(data.documents?.nodes ?? []))
+
+        const hasNextPage = data.documents?.pageInfo?.hasNextPage === true
+        const nextCursor: string | null = data.documents?.pageInfo?.endCursor?.trim() || null
+
+        if (!hasNextPage || !nextCursor) {
+          break
+        }
+
+        afterCursor = nextCursor
+      }
+
+      const artifacts = nodes
         .filter((node): node is LinearDocumentNode & { title: string } => Boolean(node.title?.trim()))
         .map((node) => {
           const scope: PlanningArtifactScope = node.issue?.id ? 'issue' : 'project'
