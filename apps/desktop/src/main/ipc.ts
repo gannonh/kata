@@ -250,9 +250,31 @@ export function registerSessionIpc({
     planningLatestKeyByTitle.set(planningEvent.title, planningEvent.artifactKey)
 
     if (planningEvent.eventType === 'slice_created' && planningEvent.slice) {
+      // When a slice is created successfully after a prior failed attempt, the
+      // first (errored) event may have stored a project-scoped artifact without
+      // an issueId. The successful retry produces a different (issue-scoped) key.
+      // Migrate: find any existing artifact with the same title but missing issueId,
+      // remove it, and carry its tasks forward into the new artifact.
       const existingArtifact = planningArtifactsByKey.get(planningEvent.artifactKey)
+      let migratedTasks: PlanningSliceData['tasks'] = []
+
+      if (!existingArtifact && planningEvent.issueId) {
+        const staleArtifact = Array.from(planningArtifactsByKey.values()).find(
+          (a) => a.artifactType === 'slice' && a.title === planningEvent.title && !a.issueId,
+        )
+        if (staleArtifact) {
+          migratedTasks = staleArtifact.sliceData?.tasks ?? []
+          planningArtifactsByKey.delete(staleArtifact.artifactKey)
+          log.info('[desktop-ipc] migrated stale project-scoped slice artifact to issue-scoped', {
+            oldKey: staleArtifact.artifactKey,
+            newKey: planningEvent.artifactKey,
+            issueId: planningEvent.issueId,
+          })
+        }
+      }
+
       const existingSliceData = existingArtifact?.sliceData
-      const tasks = existingSliceData?.tasks ?? []
+      const tasks = existingSliceData?.tasks ?? migratedTasks
 
       const sliceData: PlanningSliceData = {
         id: planningEvent.slice.id,
