@@ -899,6 +899,55 @@ export function registerSessionIpc({
   )
 
   ipcMain.handle(IPC_CHANNELS.planningListArtifacts, async (): Promise<PlanningArtifactListResponse> => {
+    let stale = false
+    let staleError: PlanningArtifactListResponse['error']
+
+    const workspacePath = bridge.getWorkspacePath()
+    const projectRef = await readLinearProjectReference(workspacePath)
+
+    if (projectRef) {
+      try {
+        const projectArtifacts = await linearDocumentClient.listByProject(projectRef)
+
+        for (const projectArtifact of projectArtifacts) {
+          const artifactType = detectArtifactTypeFromTitle(projectArtifact.title)
+          if (!isStartupProactiveArtifactType(artifactType)) {
+            continue
+          }
+
+          const existingArtifact = planningArtifactsByKey.get(projectArtifact.artifactKey)
+          const artifact: PlanningArtifact = {
+            ...projectArtifact,
+            artifactType,
+            sliceData: projectArtifact.sliceData ?? existingArtifact?.sliceData,
+          }
+
+          planningArtifactsByKey.set(artifact.artifactKey, artifact)
+          planningLatestKeyByTitle.set(artifact.title, artifact.artifactKey)
+          planningMetadataByKey.set(artifact.artifactKey, {
+            eventType: 'document',
+            toolName: 'startup_proactive_load',
+            toolCallId: `startup:${artifact.artifactKey}`,
+            title: artifact.title,
+            artifactKey: artifact.artifactKey,
+            scope: artifact.scope,
+            action: 'updated',
+            projectId: artifact.projectId,
+            issueId: artifact.issueId,
+          })
+        }
+      } catch (error) {
+        stale = true
+        staleError = LinearDocumentClient.toPlanningArtifactError(error)
+
+        log.warn('[desktop-ipc] planning proactive artifact load failed', {
+          workspacePath,
+          projectRef,
+          error: staleError,
+        })
+      }
+    }
+
     const artifacts = Array.from(planningArtifactsByKey.values()).sort((left, right) => {
       return Date.parse(right.updatedAt) - Date.parse(left.updatedAt)
     })
@@ -906,6 +955,8 @@ export function registerSessionIpc({
     return {
       success: true,
       artifacts,
+      stale,
+      error: staleError,
     }
   })
 
@@ -971,6 +1022,72 @@ function detectArtifactTypeFromTitle(title: string): ArtifactType | undefined {
   }
 
   return undefined
+}
+
+function isStartupProactiveArtifactType(artifactType: ArtifactType | undefined): boolean {
+  return (
+    artifactType === 'roadmap' ||
+    artifactType === 'requirements' ||
+    artifactType === 'decisions' ||
+    artifactType === 'context'
+  )
+}
+
+async function readLinearProjectReference(workspacePath: string): Promise<string | null> {
+  const preferencesPath = path.join(workspacePath, '.kata', 'preferences.md')
+
+  let content: string
+  try {
+    content = await fs.readFile(preferencesPath, 'utf8')
+  } catch (error) {
+    const code =
+      typeof error === 'object' && error !== null && 'code' in error
+        ? String((error as { code?: unknown }).code)
+        : undefined
+
+    if (code === 'ENOENT') {
+      return null
+    }
+
+    log.warn('[desktop-ipc] unable to read .kata/preferences.md for proactive planning load', {
+      workspacePath,
+      preferencesPath,
+      error: error instanceof Error ? error.message : String(error),
+    })
+    return null
+  }
+
+  const frontmatterMatch = content.match(/^---\s*\n([\s\S]*?)\n---/)
+  if (!frontmatterMatch) {
+    return null
+  }
+
+  const frontmatter = frontmatterMatch[1]
+  if (!frontmatter) {
+    return null
+  }
+
+  const projectIdMatch = frontmatter.match(/^\s*projectId:\s*([^\n#]+)$/m)
+  if (projectIdMatch?.[1]) {
+    const projectId = stripYamlWrapping(projectIdMatch[1].trim())
+    if (projectId) {
+      return projectId
+    }
+  }
+
+  const projectSlugMatch = frontmatter.match(/^\s*projectSlug:\s*([^\n#]+)$/m)
+  if (projectSlugMatch?.[1]) {
+    const projectSlug = stripYamlWrapping(projectSlugMatch[1].trim())
+    if (projectSlug) {
+      return projectSlug
+    }
+  }
+
+  return null
+}
+
+function stripYamlWrapping(value: string): string {
+  return value.replace(/^['"]/, '').replace(/['"]$/, '').trim()
 }
 
 function extractSliceIdFromTitle(title: string): string | undefined {

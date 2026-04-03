@@ -2,7 +2,7 @@ import { atom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
 import type { SessionListResponse, SessionListItem } from '@shared/types'
 import { applyChatEventAtom, resetChatStateAtom } from './chat'
-import { resetPlanningSessionStateAtom } from './planning'
+import { requestPlanningReloadAtom, resetPlanningSessionStateAtom } from './planning'
 
 const CURRENT_SESSION_STORAGE_KEY = 'kata-desktop:current-session-id'
 const WORKING_DIRECTORY_STORAGE_KEY = 'kata-desktop:working-directory'
@@ -57,7 +57,11 @@ const hydrateSessionHistoryAtom = atom(
   async (
     get,
     set,
-    { sessionId, sessionPath }: { sessionId: string; sessionPath?: string | null },
+    {
+      sessionId,
+      sessionPath,
+      resetPlanning = true,
+    }: { sessionId: string; sessionPath?: string | null; resetPlanning?: boolean },
   ) => {
     const trimmedSessionId = sessionId.trim()
     if (!trimmedSessionId) {
@@ -67,7 +71,9 @@ const hydrateSessionHistoryAtom = atom(
     set(sessionHistoryLoadingAtom, true)
     set(sessionHistoryErrorAtom, null)
     set(resetChatStateAtom)
-    set(resetPlanningSessionStateAtom)
+    if (resetPlanning) {
+      set(resetPlanningSessionStateAtom)
+    }
 
     try {
       const resolvedSessionPath =
@@ -134,11 +140,16 @@ export const initializeSessionsAtom = atom(null, async (get, set) => {
 
     const currentSessionId = get(currentSessionIdAtom)
     if (currentSessionId) {
-      await set(hydrateSessionHistoryAtom, { sessionId: currentSessionId })
+      await set(hydrateSessionHistoryAtom, {
+        sessionId: currentSessionId,
+        resetPlanning: false,
+      })
     } else {
       set(resetChatStateAtom)
       set(resetPlanningSessionStateAtom)
     }
+
+    set(requestPlanningReloadAtom)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     set(sessionListErrorAtom, message)
@@ -171,6 +182,8 @@ export const createSessionAtom = atom(null, async (get, set) => {
     if (response.sessionId) {
       set(currentSessionIdAtom, response.sessionId)
     }
+
+    set(requestPlanningReloadAtom)
   } finally {
     set(sessionCreatingAtom, false)
   }
@@ -209,6 +222,7 @@ export const switchSessionAtom = atom(null, async (get, set, sessionId: string) 
       sessionPath: switchResponse.sessionPath ?? null,
     })
     await set(refreshSessionListAtom)
+    set(requestPlanningReloadAtom)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     set(sessionListErrorAtom, `Unable to switch session to ${trimmedSessionId}: ${message}`)
@@ -238,6 +252,8 @@ export const switchWorkspaceAtom = atom(null, async (get, set, workspacePath: st
     if (currentSessionId) {
       await set(hydrateSessionHistoryAtom, { sessionId: currentSessionId })
     }
+
+    set(requestPlanningReloadAtom)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     set(sessionListErrorAtom, `Unable to switch workspace to ${workspacePath}: ${message}`)

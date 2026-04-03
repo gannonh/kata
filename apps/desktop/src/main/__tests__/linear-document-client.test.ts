@@ -75,6 +75,96 @@ describe('LinearDocumentClient', () => {
     })
   })
 
+  test('lists project-scoped planning artifacts with project slug resolution', async () => {
+    process.env.LINEAR_API_KEY = 'linear-test-key'
+
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              project: {
+                id: 'project-uuid-123',
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              documents: {
+                nodes: [
+                  {
+                    title: 'DECISIONS',
+                    content: '# Decisions',
+                    updatedAt: '2026-04-03T00:00:00.000Z',
+                    project: { id: 'project-uuid-123' },
+                    issue: null,
+                  },
+                  {
+                    title: 'M002B-ROADMAP',
+                    content: '# Roadmap',
+                    updatedAt: '2026-04-03T01:00:00.000Z',
+                    project: { id: 'project-uuid-123' },
+                    issue: null,
+                  },
+                ],
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      ) as unknown as typeof fetch
+
+    const client = new LinearDocumentClient({ getApiKey: vi.fn(async () => null) } as never)
+
+    await expect(client.listByProject('b0f5a7be6537')).resolves.toEqual([
+      {
+        title: 'M002B-ROADMAP',
+        artifactKey: 'project:project-uuid-123:M002B-ROADMAP',
+        content: '# Roadmap',
+        updatedAt: '2026-04-03T01:00:00.000Z',
+        scope: 'project',
+        projectId: 'project-uuid-123',
+        issueId: undefined,
+      },
+      {
+        title: 'DECISIONS',
+        artifactKey: 'project:project-uuid-123:DECISIONS',
+        content: '# Decisions',
+        updatedAt: '2026-04-03T00:00:00.000Z',
+        scope: 'project',
+        projectId: 'project-uuid-123',
+        issueId: undefined,
+      },
+    ])
+  })
+
+  test('returns NOT_FOUND when project reference cannot be resolved', async () => {
+    process.env.LINEAR_API_KEY = 'linear-test-key'
+
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          data: {
+            project: null,
+          },
+        }),
+        { status: 200 },
+      )) as unknown as typeof fetch
+
+    const client = new LinearDocumentClient({ getApiKey: vi.fn(async () => null) } as never)
+
+    await expect(client.listByProject('missing-project')).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+      message: expect.stringContaining('missing-project'),
+    })
+  })
+
   test('returns null when Linear responds with no matching documents', async () => {
     process.env.LINEAR_API_KEY = 'linear-test-key'
 

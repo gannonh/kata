@@ -504,6 +504,7 @@ export interface PlanningArtifactFetchResponse {
 export interface PlanningArtifactListResponse {
   success: boolean
   artifacts: PlanningArtifact[]
+  stale?: boolean
   error?: PlanningArtifactError
 }
 

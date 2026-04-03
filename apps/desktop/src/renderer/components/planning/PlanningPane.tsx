@@ -15,8 +15,10 @@ import {
   lastViewedPlanningArtifactAtom,
   markPlanningArtifactViewedAtom,
   planningArtifactsAtom,
+  planningArtifactsStaleAtom,
   planningErrorAtom,
   planningLoadingAtom,
+  planningStaleReasonAtom,
   rightPaneModeAtom,
   slicePlanningAtom,
 } from '@/atoms/planning'
@@ -43,6 +45,8 @@ export function PlanningPane() {
   const loading = useAtomValue(planningLoadingAtom)
   const isFetching = useAtomValue(isFetchingAtom)
   const error = useAtomValue(planningErrorAtom)
+  const stale = useAtomValue(planningArtifactsStaleAtom)
+  const staleReason = useAtomValue(planningStaleReasonAtom)
   const lastViewedByArtifactKey = useAtomValue(lastViewedPlanningArtifactAtom)
   const slicesByArtifactKey = useAtomValue(slicePlanningAtom)
 
@@ -326,6 +330,12 @@ export function PlanningPane() {
       {error ? (
         <div className="border-b border-border bg-destructive/10 px-4 py-3 text-xs text-destructive">
           Unable to fetch artifact: {error}
+        </div>
+      ) : null}
+
+      {stale ? (
+        <div className="border-b border-border bg-amber-100/60 px-4 py-3 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+          Showing cached planning artifacts{staleReason ? ` (${staleReason})` : ''}.
         </div>
       ) : null}
 
