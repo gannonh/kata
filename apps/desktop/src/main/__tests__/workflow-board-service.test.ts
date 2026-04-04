@@ -182,6 +182,137 @@ describe('WorkflowBoardService', () => {
     expect(response.snapshot.symphony?.diagnostics.correlationMisses).toContain('worker:KAT-9999')
   })
 
+  test('falls back to issueId correlation when identifiers are missing', async () => {
+    const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-issue-id-correlation-'))
+    mkdirSync(path.join(workspacePath, '.kata'), { recursive: true })
+    writeFileSync(path.join(workspacePath, '.kata', 'preferences.md'), ['---', 'projectSlug: project-ref', '---', ''].join('\n'), 'utf8')
+
+    const symphonySnapshot: SymphonyOperatorSnapshot = {
+      fetchedAt: new Date().toISOString(),
+      queueCount: 0,
+      completedCount: 0,
+      workers: [
+        {
+          issueId: 'slice-issue-id',
+          identifier: 'KAT-0000',
+          issueTitle: 'Issue id join',
+          state: 'in_progress',
+          toolName: 'edit',
+          model: 'claude-sonnet-4-6',
+        },
+      ],
+      escalations: [
+        {
+          requestId: 'req-issue-id',
+          issueId: 'slice-issue-id',
+          issueIdentifier: '',
+          issueTitle: 'Issue id join',
+          questionPreview: 'Need review',
+          createdAt: new Date().toISOString(),
+          timeoutMs: 300000,
+        },
+      ],
+      connection: {
+        state: 'connected',
+        updatedAt: new Date().toISOString(),
+      },
+      freshness: {
+        status: 'fresh',
+      },
+      response: {},
+    }
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => workspacePath,
+      getSymphonySnapshot: () => symphonySnapshot,
+    })
+
+    ;(service as any).linearClient.fetchActiveMilestoneSnapshot = vi.fn(async () => ({
+      backend: 'linear',
+      fetchedAt: '2026-04-04T00:00:00.000Z',
+      status: 'fresh',
+      source: { projectId: 'project-ref', activeMilestoneId: 'm1' },
+      activeMilestone: { id: 'm1', name: '[M001] Demo' },
+      columns: [
+        {
+          id: 'todo',
+          title: 'Todo',
+          cards: [
+            {
+              id: 'slice-issue-id',
+              identifier: '',
+              title: 'Issue id join card',
+              columnId: 'todo',
+              stateName: 'Todo',
+              stateType: 'unstarted',
+              milestoneId: 'm1',
+              milestoneName: '[M001] Demo',
+              taskCounts: { total: 0, done: 0 },
+              tasks: [],
+            },
+          ],
+        },
+      ],
+      poll: { status: 'success', backend: 'linear', lastAttemptAt: '2026-04-04T00:00:00.000Z' },
+    }))
+
+    service.setActive(true)
+    const response = await service.refreshBoard()
+    const matchedCard = response.snapshot.columns[0]?.cards[0]
+
+    expect(matchedCard?.symphony?.assignmentState).toBe('assigned')
+    expect(matchedCard?.symphony?.pendingEscalations).toBe(1)
+    expect(response.snapshot.symphony?.diagnostics.correlationMisses).toEqual([])
+  })
+
+  test('maps reconnecting and unknown connection states to truthful provenance', async () => {
+    process.env.KATA_TEST_WORKFLOW_FIXTURE = '1'
+
+    const reconnectingSnapshot: SymphonyOperatorSnapshot = {
+      fetchedAt: new Date().toISOString(),
+      queueCount: 0,
+      completedCount: 0,
+      workers: [],
+      escalations: [],
+      connection: {
+        state: 'reconnecting',
+        updatedAt: new Date().toISOString(),
+        lastError: 'Retrying stream.',
+      },
+      freshness: {
+        status: 'fresh',
+      },
+      response: {},
+    }
+
+    const unknownConnectionSnapshot: SymphonyOperatorSnapshot = {
+      ...reconnectingSnapshot,
+      connection: {
+        ...(reconnectingSnapshot.connection as any),
+        state: 'mystery',
+      } as any,
+      freshness: {
+        status: 'fresh',
+      },
+    }
+
+    const reconnectingService = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+      getSymphonySnapshot: () => reconnectingSnapshot,
+    })
+
+    const unknownService = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+      getSymphonySnapshot: () => unknownConnectionSnapshot,
+    })
+
+    expect((await reconnectingService.getBoard()).snapshot.symphony?.provenance).toBe('operator-stale')
+    expect((await unknownService.getBoard()).snapshot.symphony?.provenance).toBe('unavailable')
+  })
+
   test('returns NOT_CONFIGURED when preferences are missing', async () => {
     const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-missing-'))
     const service = new WorkflowBoardService({
