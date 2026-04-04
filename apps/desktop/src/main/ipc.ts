@@ -9,6 +9,7 @@ import { PlanningToolDetector } from './planning-tool-detector'
 import { RpcEventAdapter } from './rpc-event-adapter'
 import { DesktopSessionManager } from './session-manager'
 import { SessionHistoryLoader } from './session-history-loader'
+import { WorkflowBoardService } from './workflow-board-service'
 import {
   IPC_CHANNELS,
   type AuthProvider,
@@ -39,6 +40,7 @@ import {
   type ThinkingLevel,
   type WorkspaceInfo,
   type ArtifactType,
+  type WorkflowBoardSnapshotResponse,
 } from '../shared/types'
 
 interface RegisterIpcOptions {
@@ -62,6 +64,10 @@ export function registerSessionIpc({
   const planningToolDetector = new PlanningToolDetector()
   const linearDocumentClient = new LinearDocumentClient(authBridge)
   const sessionHistoryLoader = new SessionHistoryLoader()
+  const workflowBoardService = new WorkflowBoardService({
+    authBridge,
+    getWorkspacePath: () => bridge.getWorkspacePath(),
+  })
 
   const planningArtifactsByKey = new Map<string, PlanningArtifact>()
   const planningMetadataByKey = new Map<string, PlanningArtifactEvent>()
@@ -483,6 +489,8 @@ export function registerSessionIpc({
   ipcMain.removeHandler(IPC_CHANNELS.authValidateKey)
   ipcMain.removeHandler(IPC_CHANNELS.planningFetchArtifact)
   ipcMain.removeHandler(IPC_CHANNELS.planningListArtifacts)
+  ipcMain.removeHandler(IPC_CHANNELS.workflowGetBoard)
+  ipcMain.removeHandler(IPC_CHANNELS.workflowRefreshBoard)
 
   ipcMain.handle(IPC_CHANNELS.sessionSend, async (_event, message: string) => {
     if (!message?.trim()) {
@@ -1061,6 +1069,14 @@ export function registerSessionIpc({
     }
   })
 
+  ipcMain.handle(IPC_CHANNELS.workflowGetBoard, async (): Promise<WorkflowBoardSnapshotResponse> => {
+    return workflowBoardService.getBoard()
+  })
+
+  ipcMain.handle(IPC_CHANNELS.workflowRefreshBoard, async (): Promise<WorkflowBoardSnapshotResponse> => {
+    return workflowBoardService.refreshBoard()
+  })
+
   return () => {
     bridge.off('rpc-event', onRpcEvent)
     bridge.off('extension-ui-request', onExtensionUiRequest)
@@ -1092,6 +1108,8 @@ export function registerSessionIpc({
     ipcMain.removeHandler(IPC_CHANNELS.authValidateKey)
     ipcMain.removeHandler(IPC_CHANNELS.planningFetchArtifact)
     ipcMain.removeHandler(IPC_CHANNELS.planningListArtifacts)
+    ipcMain.removeHandler(IPC_CHANNELS.workflowGetBoard)
+    ipcMain.removeHandler(IPC_CHANNELS.workflowRefreshBoard)
   }
 }
 

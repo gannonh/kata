@@ -1,0 +1,595 @@
+import { AuthBridge } from './auth-bridge'
+import log from './logger'
+import {
+  WORKFLOW_COLUMNS,
+  type WorkflowBoardColumn,
+  type WorkflowBoardErrorCode,
+  type WorkflowBoardSliceCard,
+  type WorkflowBoardSnapshot,
+  type WorkflowBoardTask,
+  type WorkflowColumnId,
+} from '../shared/types'
+
+const LINEAR_GRAPHQL_URL = 'https://api.linear.app/graphql'
+const LINEAR_REQUEST_TIMEOUT_MS = 10_000
+
+const EXACT_NAME_TO_COLUMN_ID: Record<string, WorkflowColumnId> = {
+  backlog: 'backlog',
+  todo: 'todo',
+  'in progress': 'in_progress',
+  'agent review': 'agent_review',
+  'human review': 'human_review',
+  merging: 'merging',
+  done: 'done',
+}
+
+interface GraphQLResponse<TData> {
+  data?: TData
+  errors?: Array<{ message?: string }>
+}
+
+interface LinearWorkflowState {
+  name?: string
+  type?: string
+}
+
+interface LinearWorkflowMilestone {
+  id?: string
+  name?: string
+  sortOrder?: number
+}
+
+interface LinearWorkflowPageInfo {
+  hasNextPage?: boolean
+  endCursor?: string | null
+}
+
+interface LinearWorkflowIssue {
+  id?: string
+  identifier?: string
+  title?: string
+  parent?: { id?: string } | null
+  state?: LinearWorkflowState | null
+  projectMilestone?: LinearWorkflowMilestone | null
+  children?: {
+    nodes?: LinearWorkflowIssue[]
+    pageInfo?: LinearWorkflowPageInfo
+  } | null
+}
+
+interface ResolveProjectQueryData {
+  project?: {
+    id?: string
+  } | null
+}
+
+interface ResolveProjectBySlugQueryData {
+  projects?: {
+    nodes?: Array<{
+      id?: string
+    }>
+  } | null
+}
+
+interface WorkflowIssuesQueryData {
+  issues?: {
+    nodes?: LinearWorkflowIssue[]
+    pageInfo?: LinearWorkflowPageInfo
+  }
+}
+
+interface WorkflowIssueChildrenQueryData {
+  issue?: {
+    children?: {
+      nodes?: LinearWorkflowIssue[]
+      pageInfo?: LinearWorkflowPageInfo
+    } | null
+  } | null
+}
+
+export interface FetchLinearBoardOptions {
+  projectRef: string
+}
+
+export class LinearWorkflowClientError extends Error {
+  constructor(
+    public readonly code: WorkflowBoardErrorCode,
+    message: string,
+    public readonly status?: number,
+  ) {
+    super(message)
+    this.name = 'LinearWorkflowClientError'
+  }
+}
+
+export class LinearWorkflowClient {
+  constructor(
+    private readonly authBridge: AuthBridge,
+    private readonly apiUrl = LINEAR_GRAPHQL_URL,
+    private readonly requestTimeoutMs = LINEAR_REQUEST_TIMEOUT_MS,
+  ) {}
+
+  async fetchActiveMilestoneSnapshot(options: FetchLinearBoardOptions): Promise<WorkflowBoardSnapshot> {
+    const projectRef = options.projectRef.trim()
+    if (!projectRef) {
+      throw new LinearWorkflowClientError('NOT_CONFIGURED', 'Linear project reference is required')
+    }
+
+    const startedAt = Date.now()
+    const apiKey = await this.requireApiKey()
+    const projectId = await this.resolveProjectId(apiKey, projectRef)
+
+    if (!projectId) {
+      throw new LinearWorkflowClientError('NOT_FOUND', `Linear project "${projectRef}" was not found`)
+    }
+
+    const allIssues = await this.fetchAllIssuesForProject(apiKey, projectId)
+    const sliceIssues = allIssues.filter((issue) => !issue.parent?.id)
+
+    const activeMilestone = chooseActiveMilestone(sliceIssues)
+    const snapshot = normalizeLinearBoard({
+      projectId,
+      milestoneId: activeMilestone?.id,
+      milestoneName: activeMilestone?.name,
+      issues: sliceIssues,
+    })
+
+    log.info('[linear-workflow-client] workflow:fetch', {
+      projectRef,
+      projectId,
+      milestoneId: snapshot.activeMilestone?.id,
+      status: snapshot.status,
+      cardCount: snapshot.columns.reduce((count, column) => count + column.cards.length, 0),
+      latencyMs: Date.now() - startedAt,
+    })
+
+    return snapshot
+  }
+
+  static toWorkflowError(error: unknown): { code: WorkflowBoardErrorCode; message: string } {
+    const mapped = toLinearWorkflowClientError(error)
+    return {
+      code: mapped.code,
+      message: mapped.message,
+    }
+  }
+
+  private async requireApiKey(): Promise<string> {
+    const envKey = process.env.LINEAR_API_KEY?.trim()
+    if (envKey) {
+      return envKey
+    }
+
+    const authKey = await this.authBridge.getApiKey('linear')
+    if (authKey?.trim()) {
+      return authKey.trim()
+    }
+
+    throw new LinearWorkflowClientError(
+      'MISSING_API_KEY',
+      'Linear API key required. Configure provider "linear" in auth.json or set LINEAR_API_KEY.',
+    )
+  }
+
+  private async resolveProjectId(apiKey: string, projectRef: string): Promise<string | null> {
+    const byId = await this.request<ResolveProjectQueryData>(
+      apiKey,
+      `
+        query ResolveProjectId($projectRef: String!) {
+          project(id: $projectRef) {
+            id
+          }
+        }
+      `,
+      { projectRef },
+    )
+
+    const idMatch = byId.project?.id?.trim()
+    if (idMatch) {
+      return idMatch
+    }
+
+    const bySlug = await this.request<ResolveProjectBySlugQueryData>(
+      apiKey,
+      `
+        query ResolveProjectBySlug($projectRef: String!) {
+          projects(first: 1, filter: { slug: { eq: $projectRef } }) {
+            nodes {
+              id
+            }
+          }
+        }
+      `,
+      { projectRef },
+    )
+
+    return bySlug.projects?.nodes?.[0]?.id?.trim() || null
+  }
+
+  private async fetchAllIssuesForProject(apiKey: string, projectId: string): Promise<LinearWorkflowIssue[]> {
+    const issues: LinearWorkflowIssue[] = []
+    let after: string | null = null
+
+    do {
+      const page: WorkflowIssuesQueryData = await this.request<WorkflowIssuesQueryData>(
+        apiKey,
+        `
+          query WorkflowIssuesByProject($projectId: ID!, $after: String) {
+            issues(
+              first: 100
+              after: $after
+              filter: {
+                project: { id: { eq: $projectId } }
+              }
+            ) {
+              nodes {
+                id
+                identifier
+                title
+                parent {
+                  id
+                }
+                state {
+                  name
+                  type
+                }
+                projectMilestone {
+                  id
+                  name
+                  sortOrder
+                }
+                children(first: 100) {
+                  nodes {
+                    id
+                    identifier
+                    title
+                    state {
+                      name
+                      type
+                    }
+                  }
+                  pageInfo {
+                    hasNextPage
+                    endCursor
+                  }
+                }
+              }
+              pageInfo {
+                hasNextPage
+                endCursor
+              }
+            }
+          }
+        `,
+        { projectId, after },
+      )
+
+      const pageNodes = page.issues?.nodes ?? []
+      issues.push(...pageNodes)
+
+      after = page.issues?.pageInfo?.hasNextPage ? (page.issues.pageInfo.endCursor ?? null) : null
+    } while (after)
+
+    for (const issue of issues) {
+      const issueId = issue.id?.trim()
+      if (!issueId || !issue.children?.pageInfo?.hasNextPage) {
+        continue
+      }
+
+      const existingChildren = issue.children.nodes ?? []
+      const extraChildren = await this.fetchAllChildrenForIssue(apiKey, issueId, issue.children.pageInfo.endCursor)
+      issue.children = {
+        nodes: [...existingChildren, ...extraChildren],
+        pageInfo: {
+          hasNextPage: false,
+          endCursor: null,
+        },
+      }
+    }
+
+    return issues
+  }
+
+  private async fetchAllChildrenForIssue(
+    apiKey: string,
+    issueId: string,
+    initialCursor?: string | null,
+  ): Promise<LinearWorkflowIssue[]> {
+    const children: LinearWorkflowIssue[] = []
+    let after = initialCursor ?? null
+
+    while (after) {
+      const page: WorkflowIssueChildrenQueryData = await this.request<WorkflowIssueChildrenQueryData>(
+        apiKey,
+        `
+          query WorkflowIssueChildrenPage($issueId: String!, $after: String) {
+            issue(id: $issueId) {
+              children(first: 100, after: $after) {
+                nodes {
+                  id
+                  identifier
+                  title
+                  state {
+                    name
+                    type
+                  }
+                }
+                pageInfo {
+                  hasNextPage
+                  endCursor
+                }
+              }
+            }
+          }
+        `,
+        { issueId, after },
+      )
+
+      children.push(...(page.issue?.children?.nodes ?? []))
+      after = page.issue?.children?.pageInfo?.hasNextPage
+        ? (page.issue.children.pageInfo.endCursor ?? null)
+        : null
+    }
+
+    return children
+  }
+
+  private async request<TData>(
+    apiKey: string,
+    query: string,
+    variables: Record<string, string | null>,
+  ): Promise<TData> {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => {
+      controller.abort()
+    }, this.requestTimeoutMs)
+
+    let response: Response
+    try {
+      response = await fetch(this.apiUrl, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: apiKey,
+        },
+        signal: controller.signal,
+        body: JSON.stringify({ query, variables }),
+      })
+    } finally {
+      clearTimeout(timeoutId)
+    }
+
+    if (response.status === 401 || response.status === 403) {
+      throw new LinearWorkflowClientError('UNAUTHORIZED', 'Invalid Linear API key', response.status)
+    }
+
+    if (response.status === 404) {
+      throw new LinearWorkflowClientError(
+        'NETWORK',
+        'Linear API endpoint not found (HTTP 404). Verify endpoint configuration.',
+        response.status,
+      )
+    }
+
+    if (response.status === 429) {
+      throw new LinearWorkflowClientError('RATE_LIMITED', 'Linear API rate limit exceeded', response.status)
+    }
+
+    const payload = (await response.json().catch(() => ({}))) as GraphQLResponse<TData>
+
+    if (!response.ok) {
+      const firstError = payload.errors?.[0]?.message
+      if (firstError) {
+        throw toGraphqlError(firstError, response.status)
+      }
+
+      throw new LinearWorkflowClientError(
+        'NETWORK',
+        `Linear API request failed with status ${response.status}`,
+        response.status,
+      )
+    }
+
+    if (payload.errors?.length) {
+      throw toGraphqlError(payload.errors[0]?.message ?? 'Unknown GraphQL error', response.status)
+    }
+
+    return (payload.data ?? {}) as TData
+  }
+}
+
+function chooseActiveMilestone(
+  issues: LinearWorkflowIssue[],
+): { id: string; name: string } | null {
+  const milestones = new Map<string, { id: string; name: string; sortOrder: number; hasActive: boolean }>()
+
+  for (const issue of issues) {
+    const milestoneId = issue.projectMilestone?.id?.trim()
+    const milestoneName = issue.projectMilestone?.name?.trim()
+    if (!milestoneId || !milestoneName) {
+      continue
+    }
+
+    const sortOrder = Number(issue.projectMilestone?.sortOrder ?? Number.MAX_SAFE_INTEGER)
+    const columnId = mapLinearStateToColumnId(issue.state?.name, issue.state?.type)
+    const hasActive = columnId !== 'done'
+
+    const existing = milestones.get(milestoneId)
+    if (!existing) {
+      milestones.set(milestoneId, {
+        id: milestoneId,
+        name: milestoneName,
+        sortOrder,
+        hasActive,
+      })
+      continue
+    }
+
+    existing.hasActive = existing.hasActive || hasActive
+    existing.sortOrder = Math.min(existing.sortOrder, sortOrder)
+  }
+
+  if (milestones.size === 0) {
+    return null
+  }
+
+  const sorted = Array.from(milestones.values()).sort((left, right) => right.sortOrder - left.sortOrder)
+  return sorted.find((milestone) => milestone.hasActive) ?? sorted[0] ?? null
+}
+
+export function mapLinearStateToColumnId(
+  stateName: string | undefined,
+  stateType: string | undefined,
+): WorkflowColumnId {
+  const normalizedName = stateName?.trim().toLowerCase()
+  if (normalizedName && normalizedName in EXACT_NAME_TO_COLUMN_ID) {
+    const exactMatch = EXACT_NAME_TO_COLUMN_ID[normalizedName as keyof typeof EXACT_NAME_TO_COLUMN_ID]
+    if (exactMatch) {
+      return exactMatch
+    }
+  }
+
+  const normalizedType = stateType?.trim().toLowerCase()
+  if (normalizedType === 'backlog') {
+    return 'backlog'
+  }
+
+  if (normalizedType === 'unstarted') {
+    return 'todo'
+  }
+
+  if (normalizedType === 'started') {
+    return 'in_progress'
+  }
+
+  if (normalizedType === 'completed' || normalizedType === 'canceled') {
+    return 'done'
+  }
+
+  return 'todo'
+}
+
+export function createEmptyWorkflowColumns(): WorkflowBoardColumn[] {
+  return WORKFLOW_COLUMNS.map((column) => ({
+    id: column.id,
+    title: column.title,
+    cards: [],
+  }))
+}
+
+export function normalizeLinearBoard(input: {
+  projectId: string
+  milestoneId?: string
+  milestoneName?: string
+  issues: LinearWorkflowIssue[]
+}): WorkflowBoardSnapshot {
+  const columns = createEmptyWorkflowColumns()
+
+  const scopedIssues = input.milestoneId
+    ? input.issues.filter((issue) => issue.projectMilestone?.id === input.milestoneId)
+    : []
+
+  const sliceCards = scopedIssues
+    .filter((issue) => issue.id && issue.identifier && issue.title)
+    .map((issue) => {
+      const tasks = (issue.children?.nodes ?? [])
+        .filter((task) => task.id && task.title)
+        .map((task) => {
+          const taskColumnId = mapLinearStateToColumnId(task.state?.name, task.state?.type)
+          return {
+            id: task.id as string,
+            identifier: task.identifier,
+            title: task.title as string,
+            columnId: taskColumnId,
+            stateName: task.state?.name?.trim() || 'Unknown',
+            stateType: task.state?.type?.trim() || 'unknown',
+          } satisfies WorkflowBoardTask
+        })
+
+      const columnId = mapLinearStateToColumnId(issue.state?.name, issue.state?.type)
+      const doneTasks = tasks.filter((task) => task.columnId === 'done').length
+
+      return {
+        id: issue.id as string,
+        identifier: issue.identifier as string,
+        title: issue.title as string,
+        columnId,
+        stateName: issue.state?.name?.trim() || 'Unknown',
+        stateType: issue.state?.type?.trim() || 'unknown',
+        milestoneId: input.milestoneId ?? 'none',
+        milestoneName: input.milestoneName ?? 'No active milestone',
+        taskCounts: {
+          total: tasks.length,
+          done: doneTasks,
+        },
+        tasks,
+      } satisfies WorkflowBoardSliceCard
+    })
+
+  for (const card of sliceCards) {
+    const column = columns.find((entry) => entry.id === card.columnId)
+    column?.cards.push(card)
+  }
+
+  for (const column of columns) {
+    column.cards.sort((left, right) => left.identifier.localeCompare(right.identifier))
+  }
+
+  const hasCards = columns.some((column) => column.cards.length > 0)
+
+  return {
+    backend: 'linear',
+    fetchedAt: new Date().toISOString(),
+    status: hasCards ? 'fresh' : 'empty',
+    source: {
+      projectId: input.projectId,
+      activeMilestoneId: input.milestoneId,
+    },
+    activeMilestone:
+      input.milestoneId && input.milestoneName
+        ? {
+            id: input.milestoneId,
+            name: input.milestoneName,
+          }
+        : null,
+    columns,
+    emptyReason: hasCards ? undefined : 'No slices found in the active milestone.',
+    poll: {
+      status: 'success',
+      backend: 'linear',
+      lastAttemptAt: new Date().toISOString(),
+    },
+  }
+}
+
+function toGraphqlError(message: string, status?: number): LinearWorkflowClientError {
+  if (/rate\s*limit/i.test(message)) {
+    return new LinearWorkflowClientError('RATE_LIMITED', message, status)
+  }
+
+  if (/not\s*found/i.test(message)) {
+    return new LinearWorkflowClientError('NOT_FOUND', message, status)
+  }
+
+  return new LinearWorkflowClientError('GRAPHQL', message, status)
+}
+
+function toLinearWorkflowClientError(error: unknown): LinearWorkflowClientError {
+  if (error instanceof LinearWorkflowClientError) {
+    return error
+  }
+
+  if (error instanceof DOMException && error.name === 'AbortError') {
+    return new LinearWorkflowClientError('NETWORK', 'Linear API request timed out')
+  }
+
+  if (error instanceof TypeError) {
+    return new LinearWorkflowClientError('NETWORK', error.message)
+  }
+
+  if (error instanceof Error) {
+    return new LinearWorkflowClientError('UNKNOWN', error.message)
+  }
+
+  return new LinearWorkflowClientError('UNKNOWN', String(error))
+}
