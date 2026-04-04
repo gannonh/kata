@@ -2,8 +2,8 @@ import { atom, useAtomValue, useSetAtom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
 import { useEffect, useRef } from 'react'
 import type { PlanningArtifact, PlanningSliceData } from '@shared/types'
+import { setRightPaneOverrideAtom } from './right-pane'
 
-export const RIGHT_PANE_MODE_STORAGE_KEY = 'kata-desktop:right-pane-mode'
 const PLANNING_ARTIFACTS_STORAGE_KEY = 'kata-desktop:planning-artifacts'
 const PLANNING_ARTIFACT_KEYS_STORAGE_KEY = 'kata-desktop:planning-artifact-keys'
 const ACTIVE_PLANNING_ARTIFACT_STORAGE_KEY = 'kata-desktop:active-planning-artifact'
@@ -36,10 +36,6 @@ export const slicePlanningAtom = atom<Record<string, PlanningSliceData>>({})
 export const activePlanningArtifactAtom = atomWithStorage<ActivePlanningArtifactRef | null>(
   ACTIVE_PLANNING_ARTIFACT_STORAGE_KEY,
   null,
-)
-export const rightPaneModeAtom = atomWithStorage<'planning' | 'default'>(
-  RIGHT_PANE_MODE_STORAGE_KEY,
-  'default',
 )
 export const autoSwitchTriggeredAtom = atom<boolean>(false)
 export const planningLoadingAtom = atom<boolean>(false)
@@ -147,7 +143,6 @@ export const clearPlanningArtifactsAtom = atom(null, (_get, set) => {
 })
 
 export function usePlanningArtifactBridge(): void {
-  const rightPaneMode = useAtomValue(rightPaneModeAtom)
   const autoSwitchTriggered = useAtomValue(autoSwitchTriggeredAtom)
   const planningReloadNonce = useAtomValue(planningReloadNonceAtom)
 
@@ -155,11 +150,10 @@ export function usePlanningArtifactBridge(): void {
   const applyBulkPlanningArtifacts = useSetAtom(applyBulkPlanningArtifactsAtom)
   const clearPlanningArtifacts = useSetAtom(clearPlanningArtifactsAtom)
   const pendingTriggerToolNameByArtifactKeyRef = useRef<Record<string, string>>({})
-  const rightPaneModeRef = useRef(rightPaneMode)
   const autoSwitchTriggeredRef = useRef(autoSwitchTriggered)
   const setActiveArtifactTitle = useSetAtom(activePlanningArtifactAtom)
   const setSlices = useSetAtom(slicePlanningAtom)
-  const setRightPaneMode = useSetAtom(rightPaneModeAtom)
+  const setRightPaneOverride = useSetAtom(setRightPaneOverrideAtom)
   const setAutoSwitchTriggered = useSetAtom(autoSwitchTriggeredAtom)
   const setLoading = useSetAtom(planningLoadingAtom)
   const setArtifactFetchInFlightCount = useSetAtom(artifactFetchInFlightCountAtom)
@@ -167,7 +161,6 @@ export function usePlanningArtifactBridge(): void {
   const setStale = useSetAtom(planningArtifactsStaleAtom)
   const setStaleReason = useSetAtom(planningStaleReasonAtom)
 
-  rightPaneModeRef.current = rightPaneMode
   autoSwitchTriggeredRef.current = autoSwitchTriggered
 
   useEffect(() => {
@@ -326,17 +319,16 @@ export function usePlanningArtifactBridge(): void {
     })
 
     const unsubscribeArtifactUpdated = window.api.planning.onArtifactUpdated((artifact) => {
-      if (rightPaneModeRef.current === 'default' && !autoSwitchTriggeredRef.current) {
+      if (!autoSwitchTriggeredRef.current) {
         console.info('Planning pane auto-switch triggered', {
           triggerToolName:
             pendingTriggerToolNameByArtifactKeyRef.current[artifact.artifactKey] ?? 'unknown',
           title: artifact.title,
         })
 
-        rightPaneModeRef.current = 'planning'
         autoSwitchTriggeredRef.current = true
 
-        setRightPaneMode('planning')
+        setRightPaneOverride('planning')
         setAutoSwitchTriggered(true)
       }
 
@@ -353,7 +345,7 @@ export function usePlanningArtifactBridge(): void {
     setArtifactFetchInFlightCount,
     setAutoSwitchTriggered,
     setError,
-    setRightPaneMode,
+    setRightPaneOverride,
   ])
 }
 

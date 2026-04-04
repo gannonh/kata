@@ -29,6 +29,9 @@ export const IPC_CHANNELS = {
   planningListArtifacts: 'planning:list-artifacts',
   workflowGetBoard: 'workflow:get-board',
   workflowRefreshBoard: 'workflow:refresh-board',
+  workflowSetBoardActive: 'workflow:set-board-active',
+  workflowSetScope: 'workflow:set-scope',
+  workflowGetContext: 'workflow:get-context',
 } as const
 
 export type PermissionMode = 'explore' | 'ask' | 'auto'
@@ -533,6 +536,34 @@ export type WorkflowBoardBackend = 'linear' | 'github'
 
 export type WorkflowBoardStatus = 'fresh' | 'stale' | 'empty' | 'error'
 
+export type WorkflowContextMode = 'planning' | 'execution' | 'unknown'
+
+export type WorkflowContextReason =
+  | 'planning_activity_detected'
+  | 'tracker_and_board_available'
+  | 'tracker_configured_board_pending'
+  | 'board_available_without_tracker'
+  | 'unknown_context'
+
+export interface WorkflowContextSnapshot {
+  mode: WorkflowContextMode
+  reason: WorkflowContextReason
+  planningActive: boolean
+  trackerConfigured: boolean
+  boardAvailable: boolean
+  updatedAt: string
+}
+
+export type RightPaneMode = 'planning' | 'kanban'
+
+export type RightPaneOverride = RightPaneMode | null
+
+export interface RightPaneResolution {
+  mode: RightPaneMode
+  source: 'manual' | 'automatic'
+  reason: WorkflowContextReason | 'manual_override' | 'default_fallback'
+}
+
 export type WorkflowBoardErrorCode =
   | 'NOT_CONFIGURED'
   | 'MISSING_API_KEY'
@@ -612,6 +643,21 @@ export interface WorkflowBoardSnapshot {
 export interface WorkflowBoardSnapshotResponse {
   success: boolean
   snapshot: WorkflowBoardSnapshot
+}
+
+export interface WorkflowBoardLifecycleResponse {
+  success: boolean
+  active: boolean
+}
+
+export interface WorkflowBoardScopeResponse {
+  success: boolean
+  scopeKey: string
+}
+
+export interface WorkflowContextResponse {
+  success: boolean
+  context: WorkflowContextSnapshot
 }
 
 export type ArtifactType = 'roadmap' | 'requirements' | 'decisions' | 'context' | 'slice'
@@ -724,6 +770,9 @@ export interface DesktopApi {
   workflow: {
     getBoard: () => Promise<WorkflowBoardSnapshotResponse>
     refreshBoard: () => Promise<WorkflowBoardSnapshotResponse>
+    setBoardActive: (active: boolean) => Promise<WorkflowBoardLifecycleResponse>
+    setScope: (scopeKey: string) => Promise<WorkflowBoardScopeResponse>
+    getContext: () => Promise<WorkflowContextResponse>
   }
 }
 
