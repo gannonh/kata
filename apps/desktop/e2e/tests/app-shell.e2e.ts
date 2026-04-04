@@ -19,8 +19,9 @@ test.describe('App shell', () => {
     await expect(mainWindow.getByLabel(/Auto/i)).toBeVisible()
   })
 
-  test('shows right-pane placeholder copy', async ({ mainWindow }) => {
-    await expect(mainWindow.getByText('Planning and kanban views are coming in M002/M003.')).toBeVisible()
+  test('shows workflow board pane in right pane', async ({ mainWindow }) => {
+    await expect(mainWindow.getByRole('heading', { name: /Workflow Board/i })).toBeVisible()
+    await expect(mainWindow.getByTestId('workflow-board-status')).toBeVisible()
   })
 
   test('opens settings panel from the settings button', async ({ readyWindow }) => {
