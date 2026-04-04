@@ -621,6 +621,80 @@ describe('SymphonyOperatorService', () => {
     expect(service.getSnapshot().connection.state).toBe('disconnected')
   })
 
+  test('ignores blank stream messages and tolerates malformed payloads', async () => {
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith('/api/v1/state')) {
+        return {
+          ok: true,
+          json: async () => ({ running: {}, retry_queue: [], completed: [], pending_escalations: [], running_session_info: {} }),
+        } as Response
+      }
+
+      return { ok: true, json: async () => ({ pending: [] }) } as Response
+    })
+
+    const service = new SymphonyOperatorService({ fetchImpl, createWebSocket: () => fakeSocket })
+    await service.syncRuntimeStatus(READY_STATUS)
+
+    fakeSocket.onmessage?.({ data: '   ' })
+    fakeSocket.onmessage?.({ data: '{not-json' })
+
+    expect(service.getSnapshot().connection.state).toBe('connected')
+  })
+
+  test('marks reconnecting when websocket creation throws', async () => {
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith('/api/v1/state')) {
+        return {
+          ok: true,
+          json: async () => ({ running: {}, retry_queue: [], completed: [], pending_escalations: [], running_session_info: {} }),
+        } as Response
+      }
+
+      return { ok: true, json: async () => ({ pending: [] }) } as Response
+    })
+
+    const service = new SymphonyOperatorService({
+      fetchImpl,
+      createWebSocket: () => {
+        throw new Error('socket constructor failed')
+      },
+    })
+
+    await service.syncRuntimeStatus(READY_STATUS)
+
+    expect(service.getSnapshot().connection.state).toBe('reconnecting')
+    expect(service.getSnapshot().connection.lastError).toContain('socket constructor failed')
+  })
+
+  test('dispose clears scheduled reconnect timer', async () => {
+    vi.useFakeTimers()
+
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith('/api/v1/state')) {
+        return {
+          ok: true,
+          json: async () => ({ running: {}, retry_queue: [], completed: [], pending_escalations: [], running_session_info: {} }),
+        } as Response
+      }
+
+      return { ok: true, json: async () => ({ pending: [] }) } as Response
+    })
+
+    const socketFactory = vi.fn(() => fakeSocket)
+    const service = new SymphonyOperatorService({ fetchImpl, createWebSocket: socketFactory })
+    await service.syncRuntimeStatus(READY_STATUS)
+
+    fakeSocket.emitClose()
+    service.dispose()
+    await vi.advanceTimersByTimeAsync(1_200)
+
+    expect(socketFactory).toHaveBeenCalledTimes(1)
+  })
+
   test('disconnects when state endpoint fails and does not open duplicate sockets', async () => {
     const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
