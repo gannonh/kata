@@ -13,7 +13,7 @@ describe('WorkflowBoardService', () => {
   })
 
   afterEach(() => {
-    if (originalFixtureFlag) {
+    if (originalFixtureFlag !== undefined) {
       process.env.KATA_TEST_WORKFLOW_FIXTURE = originalFixtureFlag
     } else {
       delete process.env.KATA_TEST_WORKFLOW_FIXTURE
@@ -167,11 +167,18 @@ describe('WorkflowBoardService', () => {
       poll: { status: 'success' as const, backend: 'linear' as const, lastAttemptAt: '2026-04-04T00:00:00.000Z' },
     }
 
-    ;(service as any).linearClient.fetchActiveMilestoneSnapshot = vi.fn(
-      async () => await new Promise((resolve) => setTimeout(() => resolve(snapshot), 25)),
-    )
+    let resolveFetch!: (value: typeof snapshot) => void
+    const deferredFetch = new Promise<typeof snapshot>((resolve) => {
+      resolveFetch = resolve
+    })
 
-    const [first, second] = await Promise.all([service.refreshBoard(), service.refreshBoard()])
+    ;(service as any).linearClient.fetchActiveMilestoneSnapshot = vi.fn(() => deferredFetch)
+
+    const firstPromise = service.refreshBoard()
+    const secondPromise = service.refreshBoard()
+
+    resolveFetch(snapshot)
+    const [first, second] = await Promise.all([firstPromise, secondPromise])
 
     expect((service as any).linearClient.fetchActiveMilestoneSnapshot).toHaveBeenCalledTimes(1)
     expect(first.snapshot).toEqual(second.snapshot)
