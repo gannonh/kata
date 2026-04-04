@@ -30,11 +30,13 @@ import log from './logger'
 import { PiAgentBridge } from './pi-agent-bridge'
 import { registerSessionIpc } from './ipc'
 import { DesktopSessionManager } from './session-manager'
+import { SymphonySupervisor } from './symphony-supervisor'
 
 const SETTINGS_PATH = path.join(homedir(), '.kata-cli', 'agent', 'settings.json')
 
 let mainWindow: BrowserWindow | null = null
 let bridge: PiAgentBridge | null = null
+let symphonySupervisor: SymphonySupervisor | null = null
 let unregisterSessionIpc: (() => void) | null = null
 
 function createWindow(): BrowserWindow {
@@ -187,6 +189,12 @@ app.whenReady().then(async () => {
   const persistedModel = await loadPersistedModel()
 
   bridge = new PiAgentBridge(workspacePath, 'kata', 30_000, persistedModel)
+  symphonySupervisor = new SymphonySupervisor({
+    workspacePath,
+    appIsPackaged: app.isPackaged,
+    resourcesPath: process.resourcesPath,
+  })
+
   const authBridge = new AuthBridge()
   const sessionManager = new DesktopSessionManager()
   mainWindow = createWindow()
@@ -198,6 +206,7 @@ app.whenReady().then(async () => {
     window: mainWindow,
     onModelSelected: persistSelectedModel,
     onWorkspaceSelected: persistWorkspacePath,
+    symphonySupervisor,
   })
 
   mainWindow.on('closed', () => {
@@ -221,6 +230,12 @@ app.on('before-quit', async (event) => {
   }
 
   event.preventDefault()
+  try {
+    await symphonySupervisor?.stop('app_quit')
+  } catch (error) {
+    log.error('[desktop-main] symphony supervisor shutdown failed', error)
+  }
+
   try {
     await bridge.shutdown()
   } catch (error) {

@@ -10,6 +10,7 @@ import { RpcEventAdapter } from './rpc-event-adapter'
 import { DesktopSessionManager } from './session-manager'
 import { SessionHistoryLoader } from './session-history-loader'
 import { WorkflowBoardService } from './workflow-board-service'
+import type { SymphonySupervisor } from './symphony-supervisor'
 import {
   IPC_CHANNELS,
   type AuthProvider,
@@ -44,6 +45,9 @@ import {
   type WorkflowBoardLifecycleResponse,
   type WorkflowBoardScopeResponse,
   type WorkflowContextResponse,
+  type SymphonyRuntimeStatus,
+  type SymphonyRuntimeCommandResult,
+  type SymphonyRuntimeStatusResponse,
 } from '../shared/types'
 
 interface RegisterIpcOptions {
@@ -53,6 +57,7 @@ interface RegisterIpcOptions {
   window: BrowserWindow
   onModelSelected?: (model: string) => Promise<void> | void
   onWorkspaceSelected?: (workspacePath: string) => Promise<void> | void
+  symphonySupervisor?: SymphonySupervisor
 }
 
 export function registerSessionIpc({
@@ -62,6 +67,7 @@ export function registerSessionIpc({
   window,
   onModelSelected,
   onWorkspaceSelected,
+  symphonySupervisor,
 }: RegisterIpcOptions): () => void {
   const adapter = new RpcEventAdapter()
   const planningToolDetector = new PlanningToolDetector()
@@ -113,6 +119,20 @@ export function registerSessionIpc({
       scope: artifact.scope,
       projectId: artifact.projectId,
       issueId: artifact.issueId,
+    })
+  }
+
+  const sendSymphonyStatusToRenderer = (status: SymphonyRuntimeStatus): void => {
+    if (!canSendToRenderer()) {
+      log.warn('[desktop-ipc] skipping symphony status dispatch: renderer window is destroyed')
+      return
+    }
+
+    window.webContents.send(IPC_CHANNELS.symphonyStatus, status)
+    log.debug('[desktop-ipc] symphony status', {
+      phase: status.phase,
+      pid: status.pid,
+      managedProcessRunning: status.managedProcessRunning,
     })
   }
 
@@ -463,12 +483,22 @@ export function registerSessionIpc({
   bridge.on('debug', onDebug)
   bridge.on('crash', onCrash)
 
+  const onSymphonyStatus = (status: SymphonyRuntimeStatus): void => {
+    sendSymphonyStatusToRenderer(status)
+  }
+
+  symphonySupervisor?.on('status', onSymphonyStatus)
+
   const initialState = bridge.getState()
   sendBridgeStatus({
     state: initialState.status,
     pid: initialState.pid,
     updatedAt: Date.now(),
   })
+
+  if (symphonySupervisor) {
+    sendSymphonyStatusToRenderer(symphonySupervisor.getStatus())
+  }
 
   ipcMain.removeHandler(IPC_CHANNELS.sessionSend)
   ipcMain.removeHandler(IPC_CHANNELS.sessionStop)
@@ -498,6 +528,10 @@ export function registerSessionIpc({
   ipcMain.removeHandler(IPC_CHANNELS.workflowSetBoardActive)
   ipcMain.removeHandler(IPC_CHANNELS.workflowSetScope)
   ipcMain.removeHandler(IPC_CHANNELS.workflowGetContext)
+  ipcMain.removeHandler(IPC_CHANNELS.symphonyGetStatus)
+  ipcMain.removeHandler(IPC_CHANNELS.symphonyStart)
+  ipcMain.removeHandler(IPC_CHANNELS.symphonyStop)
+  ipcMain.removeHandler(IPC_CHANNELS.symphonyRestart)
 
   ipcMain.handle(IPC_CHANNELS.sessionSend, async (_event, message: string) => {
     if (!message?.trim()) {
@@ -862,6 +896,7 @@ export function registerSessionIpc({
     const previousWorkspacePath = bridge.getWorkspacePath()
 
     await bridge.switchWorkspace(nextWorkspacePath)
+    await symphonySupervisor?.setWorkspacePath(nextWorkspacePath)
     workflowBoardService.setPlanningActive(false)
 
     if (onWorkspaceSelected) {
@@ -1108,12 +1143,83 @@ export function registerSessionIpc({
     }
   })
 
+  ipcMain.handle(IPC_CHANNELS.symphonyGetStatus, async (): Promise<SymphonyRuntimeStatusResponse> => {
+    if (!symphonySupervisor) {
+      return {
+        success: true,
+        status: {
+          phase: 'disconnected',
+          managedProcessRunning: false,
+          pid: null,
+          url: null,
+          diagnostics: { stdout: [], stderr: [] },
+          updatedAt: new Date().toISOString(),
+          restartCount: 0,
+          lastError: {
+            code: 'UNKNOWN',
+            phase: 'unknown',
+            message: 'Symphony supervisor is unavailable.',
+          },
+        },
+      }
+    }
+
+    return {
+      success: true,
+      status: symphonySupervisor.getStatus(),
+    }
+  })
+
+  const runSymphonyCommand = async (
+    command: () => Promise<SymphonyRuntimeCommandResult>,
+  ): Promise<SymphonyRuntimeCommandResult> => {
+    if (!symphonySupervisor) {
+      return {
+        success: false,
+        status: {
+          phase: 'disconnected',
+          managedProcessRunning: false,
+          pid: null,
+          url: null,
+          diagnostics: { stdout: [], stderr: [] },
+          updatedAt: new Date().toISOString(),
+          restartCount: 0,
+          lastError: {
+            code: 'UNKNOWN',
+            phase: 'unknown',
+            message: 'Symphony supervisor is unavailable.',
+          },
+        },
+        error: {
+          code: 'UNKNOWN',
+          phase: 'unknown',
+          message: 'Symphony supervisor is unavailable.',
+        },
+      }
+    }
+
+    return command()
+  }
+
+  ipcMain.handle(IPC_CHANNELS.symphonyStart, async (): Promise<SymphonyRuntimeCommandResult> => {
+    return runSymphonyCommand(() => symphonySupervisor!.start())
+  })
+
+  ipcMain.handle(IPC_CHANNELS.symphonyStop, async (): Promise<SymphonyRuntimeCommandResult> => {
+    return runSymphonyCommand(() => symphonySupervisor!.stop())
+  })
+
+  ipcMain.handle(IPC_CHANNELS.symphonyRestart, async (): Promise<SymphonyRuntimeCommandResult> => {
+    return runSymphonyCommand(() => symphonySupervisor!.restart())
+  })
+
   return () => {
     bridge.off('rpc-event', onRpcEvent)
     bridge.off('extension-ui-request', onExtensionUiRequest)
     bridge.off('status', onStatus)
     bridge.off('debug', onDebug)
     bridge.off('crash', onCrash)
+    symphonySupervisor?.off('status', onSymphonyStatus)
     planningToolDetector.off('artifact', onPlanningArtifactEvent)
 
     ipcMain.removeHandler(IPC_CHANNELS.sessionSend)
@@ -1144,6 +1250,10 @@ export function registerSessionIpc({
     ipcMain.removeHandler(IPC_CHANNELS.workflowSetBoardActive)
     ipcMain.removeHandler(IPC_CHANNELS.workflowSetScope)
     ipcMain.removeHandler(IPC_CHANNELS.workflowGetContext)
+    ipcMain.removeHandler(IPC_CHANNELS.symphonyGetStatus)
+    ipcMain.removeHandler(IPC_CHANNELS.symphonyStart)
+    ipcMain.removeHandler(IPC_CHANNELS.symphonyStop)
+    ipcMain.removeHandler(IPC_CHANNELS.symphonyRestart)
   }
 }
 
