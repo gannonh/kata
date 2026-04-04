@@ -42,7 +42,7 @@ Use the built-in Linear tools (`linear_get_issue`, `linear_list_workflow_states`
 
 ## Related skills
 
-Skills are injected into `.agents/skills/` in each workspace by Symphony.
+Skills are injected into `.agents/skills/` in each workspace by Symphony. If any `sym-*` skill files appear as untracked in `git status`, **commit them** — they are part of the project tooling, not temporary artifacts. Never delete them.
 
 - `sym-linear`: interact with Linear. **MANDATORY: read `.agents/skills/sym-linear/SKILL.md` before ANY `linear_graphql` tool call.**
 - `sym-commit`: produce clean, logical commits during implementation.
