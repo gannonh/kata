@@ -37,6 +37,10 @@ export const IPC_CHANNELS = {
   symphonyStop: 'symphony:stop',
   symphonyRestart: 'symphony:restart',
   symphonyStatus: 'symphony:status',
+  symphonyGetDashboard: 'symphony:get-dashboard',
+  symphonyRefreshDashboard: 'symphony:refresh-dashboard',
+  symphonyRespondEscalation: 'symphony:respond-escalation',
+  symphonyDashboardSnapshot: 'symphony:dashboard-snapshot',
 } as const
 
 export type PermissionMode = 'explore' | 'ask' | 'auto'
@@ -763,6 +767,74 @@ export interface SymphonyRuntimeStatusResponse {
   status: SymphonyRuntimeStatus
 }
 
+export type SymphonyOperatorConnectionState = 'connected' | 'reconnecting' | 'disconnected'
+
+export type SymphonyOperatorFreshnessStatus = 'fresh' | 'stale'
+
+export interface SymphonyOperatorWorkerRow {
+  issueId: string
+  identifier: string
+  issueTitle: string
+  state: string
+  toolName: string
+  model: string
+  lastActivityAt?: string
+  lastError?: string
+}
+
+export interface SymphonyOperatorEscalationItem {
+  requestId: string
+  issueId: string
+  issueIdentifier: string
+  issueTitle: string
+  questionPreview: string
+  createdAt: string
+  timeoutMs: number
+}
+
+export interface SymphonyEscalationResponseResult {
+  requestId: string
+  ok: boolean
+  status: number
+  message: string
+  submittedAt: string
+  completedAt: string
+}
+
+export interface SymphonyOperatorSnapshot {
+  fetchedAt: string
+  queueCount: number
+  completedCount: number
+  workers: SymphonyOperatorWorkerRow[]
+  escalations: SymphonyOperatorEscalationItem[]
+  connection: {
+    state: SymphonyOperatorConnectionState
+    updatedAt: string
+    lastError?: string
+    lastEventSequence?: number
+    lastBaselineRefreshAt?: string
+  }
+  freshness: {
+    status: SymphonyOperatorFreshnessStatus
+    staleReason?: string
+  }
+  response: {
+    submittingRequestId?: string
+    lastResult?: SymphonyEscalationResponseResult
+  }
+}
+
+export interface SymphonyOperatorSnapshotResponse {
+  success: boolean
+  snapshot: SymphonyOperatorSnapshot
+}
+
+export interface SymphonyEscalationResponseCommandResult {
+  success: boolean
+  snapshot: SymphonyOperatorSnapshot
+  result?: SymphonyEscalationResponseResult
+}
+
 export type ArtifactType = 'roadmap' | 'requirements' | 'decisions' | 'context' | 'slice'
 
 export type RoadmapRisk = 'high' | 'medium' | 'low'
@@ -883,6 +955,13 @@ export interface DesktopApi {
     stop: () => Promise<SymphonyRuntimeCommandResult>
     restart: () => Promise<SymphonyRuntimeCommandResult>
     onStatus: (listener: (status: SymphonyRuntimeStatus) => void) => () => void
+    getDashboardSnapshot: () => Promise<SymphonyOperatorSnapshotResponse>
+    refreshDashboardSnapshot: () => Promise<SymphonyOperatorSnapshotResponse>
+    respondToEscalation: (
+      requestId: string,
+      responseText: string,
+    ) => Promise<SymphonyEscalationResponseCommandResult>
+    onDashboardSnapshot: (listener: (snapshot: SymphonyOperatorSnapshot) => void) => () => void
   }
 }
 
