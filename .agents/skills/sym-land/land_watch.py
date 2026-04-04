@@ -4,7 +4,7 @@ import json
 import random
 import re
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 POLL_SECONDS = 10
@@ -354,6 +354,8 @@ def latest_codex_reply_by_thread(
 ) -> dict[int, datetime]:
     latest: dict[int, datetime] = {}
     for comment in comments:
+        if not is_codex_bot_user(comment.get("user", {})):
+            continue
         body = (comment.get("body") or "").strip()
         if not is_codex_reply_body(body):
             continue
@@ -526,7 +528,8 @@ async def wait_for_codex(pr_number: int, checks_done: asyncio.Event) -> None:
         if bot_comments:
             latest = max(
                 bot_comments,
-                key=lambda comment: comment_time(comment) or datetime.min,
+                key=lambda comment: comment_time(comment)
+                or datetime.min.replace(tzinfo=timezone.utc),
             )
             body = sanitize_terminal_output(latest.get("body") or "").strip()
             if body:
