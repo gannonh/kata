@@ -378,6 +378,11 @@ fn bootstrap_repository(
 pub fn inject_skills(workflow_dir: &Path, workspace: &Path) -> Result<()> {
     let source_skills = workflow_dir.join("skills");
     if !source_skills.is_dir() {
+        tracing::debug!(
+            workflow_dir = %workflow_dir.display(),
+            source = %source_skills.display(),
+            "no skills/ directory found; skipping injection"
+        );
         return Ok(());
     }
 
@@ -389,6 +394,9 @@ pub fn inject_skills(workflow_dir: &Path, workspace: &Path) -> Result<()> {
             source_skills.display()
         ))
     })?;
+
+    let mut injected_count: u32 = 0;
+    let mut injected_names: Vec<String> = Vec::new();
 
     for entry in entries {
         let entry = entry.map_err(|err| {
@@ -404,15 +412,19 @@ pub fn inject_skills(workflow_dir: &Path, workspace: &Path) -> Result<()> {
         let target_skill_dir = target_skills.join(&skill_name);
 
         copy_dir_recursive(&entry_path, &target_skill_dir)?;
+        injected_count += 1;
+        injected_names.push(skill_name.to_string_lossy().to_string());
     }
 
-    if target_skills.is_dir() {
-        tracing::debug!(
-            source = %source_skills.display(),
-            target = %target_skills.display(),
-            "injected skills into workspace"
-        );
-    }
+    injected_names.sort();
+    tracing::info!(
+        source = %source_skills.display(),
+        target = %target_skills.display(),
+        count = injected_count,
+        skills = %injected_names.join(", "),
+        workspace = %workspace.display(),
+        "injected skills into workspace"
+    );
 
     Ok(())
 }
