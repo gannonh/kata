@@ -63,7 +63,9 @@ export function KanbanPane() {
       <div className="border-b border-border px-4 py-2 text-xs text-muted-foreground" data-testid="workflow-board-status">
         {loading ? 'Loading workflow board…' : null}
         {!loading && !board ? 'Workflow board not loaded' : null}
-        {!loading && board?.status === 'fresh' ? `Live data · ${board.backend}` : null}
+        {!loading && board?.status === 'fresh'
+          ? `Live data · ${board.backend}${board.source.githubStateMode ? ` · ${board.source.githubStateMode}` : ''}${board.source.repoOwner && board.source.repoName ? ` · ${board.source.repoOwner}/${board.source.repoName}` : ''}`
+          : null}
         {!loading && board?.status === 'empty' ? board.emptyReason ?? 'No work items found' : null}
         {!loading && board?.status === 'stale' ? 'Showing stale board snapshot' : null}
         {!loading && board?.status === 'error' ? 'Workflow board unavailable' : null}
