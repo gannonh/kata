@@ -236,6 +236,33 @@ describe('resolveSymphonyLaunch', () => {
     expect(result.error.code).toBe('WORKFLOW_PATH_MISSING')
   })
 
+  test('returns workflow path missing when configured workflow_path points to a directory', async () => {
+    const workspace = createWorkspace()
+    cleanups.push(workspace.cleanup)
+
+    const workflowDir = path.join(workspace.workspacePath, 'workflow-dir')
+    mkdirSync(workflowDir, { recursive: true })
+
+    writeFileSync(
+      path.join(workspace.workspacePath, '.kata', 'preferences.md'),
+      ['---', 'symphony:', '  url: http://localhost:8080', '  workflow_path: ./workflow-dir', '---'].join('\n'),
+      'utf8',
+    )
+
+    const result = await resolveSymphonyLaunch({
+      workspacePath: workspace.workspacePath,
+      appIsPackaged: false,
+      env: process.env,
+    })
+
+    expect(result.ok).toBe(false)
+    if (result.ok) {
+      return
+    }
+
+    expect(result.error.code).toBe('WORKFLOW_PATH_MISSING')
+  })
+
   test('returns config invalid on unsupported protocol', async () => {
     const workspace = createWorkspace()
     cleanups.push(workspace.cleanup)
@@ -292,6 +319,29 @@ describe('resolveSymphonyLaunch', () => {
       '--port',
       '9090',
     ])
+  })
+
+  test('returns workflow path missing when default WORKFLOW.md is a directory', async () => {
+    const workspace = createWorkspace()
+    cleanups.push(workspace.cleanup)
+
+    mkdirSync(path.join(workspace.workspacePath, 'WORKFLOW.md'), { recursive: true })
+
+    const result = await resolveSymphonyLaunch({
+      workspacePath: workspace.workspacePath,
+      appIsPackaged: false,
+      env: {
+        ...process.env,
+        KATA_SYMPHONY_URL: 'http://localhost:8080',
+      },
+    })
+
+    expect(result.ok).toBe(false)
+    if (result.ok) {
+      return
+    }
+
+    expect(result.error.code).toBe('WORKFLOW_PATH_MISSING')
   })
 
   test('returns config missing when no URL is configured', async () => {

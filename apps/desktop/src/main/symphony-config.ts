@@ -1,4 +1,4 @@
-import { accessSync, constants, existsSync } from 'node:fs'
+import { accessSync, constants, existsSync, statSync } from 'node:fs'
 import { promises as fs } from 'node:fs'
 import { homedir } from 'node:os'
 import path from 'node:path'
@@ -217,7 +217,7 @@ function resolveWorkflowPath(
   const configuredPath = normalizeCandidate(preferences?.symphony?.workflow_path)
   if (configuredPath) {
     const resolved = toAbsolutePath(configuredPath, workspacePath)
-    if (existsSync(resolved)) {
+    if (existsSync(resolved) && isExistingFile(resolved)) {
       return {
         ok: true,
         workflowPath: resolved,
@@ -236,7 +236,7 @@ function resolveWorkflowPath(
   }
 
   const workspaceWorkflow = path.join(workspacePath, 'WORKFLOW.md')
-  if (existsSync(workspaceWorkflow)) {
+  if (existsSync(workspaceWorkflow) && isExistingFile(workspaceWorkflow)) {
     return {
       ok: true,
       workflowPath: workspaceWorkflow,
@@ -337,6 +337,14 @@ function toAbsolutePath(target: string, cwd: string): string {
       : normalized
 
   return path.isAbsolute(expanded) ? expanded : path.resolve(cwd, expanded)
+}
+
+function isExistingFile(filePath: string): boolean {
+  try {
+    return statSync(filePath).isFile()
+  } catch {
+    return false
+  }
 }
 
 function isExecutableFile(filePath: string): boolean {
