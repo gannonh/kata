@@ -43,7 +43,7 @@ export function TaskList({ tasks }: TaskListProps) {
             <div className="mt-1 flex flex-wrap items-center gap-1 text-[10px] text-muted-foreground">
               <span>
                 {task.symphony.assignmentState === 'assigned'
-                  ? `Worker ${task.symphony.identifier ?? 'assigned'}`
+                  ? `Worker ${task.symphony.identifier ?? '(unknown)'}`
                   : 'Unassigned'}
               </span>
               {task.symphony.workerState ? <span>· {task.symphony.workerState}</span> : null}

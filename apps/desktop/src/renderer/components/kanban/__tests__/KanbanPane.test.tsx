@@ -74,4 +74,32 @@ describe('KanbanPane status formatting', () => {
       }),
     ).toContain('Symphony: live · 2 workers · 1 escalation · 1 correlation miss')
   })
+
+  test('renders pluralized escalation and correlation miss labels', () => {
+    expect(
+      formatSymphonyBoardStatus({
+        backend: 'linear',
+        fetchedAt: '2026-04-04T00:00:00.000Z',
+        status: 'fresh',
+        source: { projectId: 'test-project' },
+        activeMilestone: null,
+        columns: [],
+        poll: {
+          status: 'success',
+          backend: 'linear',
+          lastAttemptAt: '2026-04-04T00:00:00.000Z',
+        },
+        symphony: {
+          connectionState: 'connected',
+          freshness: 'fresh',
+          provenance: 'dashboard-derived',
+          workerCount: 1,
+          escalationCount: 3,
+          diagnostics: {
+            correlationMisses: ['worker:KAT-1', 'worker:KAT-2'],
+          },
+        },
+      }),
+    ).toContain('Symphony: live · 1 worker · 3 escalations · 2 correlation misses')
+  })
 })

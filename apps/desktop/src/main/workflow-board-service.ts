@@ -224,6 +224,9 @@ export class WorkflowBoardService {
 
   private lastSnapshot: WorkflowBoardSnapshot | null = null
   private lastSuccessSnapshot: WorkflowBoardSnapshot | null = null
+  private lastEnrichedSnapshot: WorkflowBoardSnapshot | null = null
+  private lastEnrichedInputSnapshot: WorkflowBoardSnapshot | null = null
+  private lastEnrichedSymphonyKey: string | null = null
   private inFlightRefresh: Promise<WorkflowBoardSnapshotResponse> | null = null
   private inFlightScopeKey: string | null = null
 
@@ -253,6 +256,9 @@ export class WorkflowBoardService {
       this.testScenario = nextScenario
       this.lastSnapshot = null
       this.lastSuccessSnapshot = null
+      this.lastEnrichedSnapshot = null
+      this.lastEnrichedInputSnapshot = null
+      this.lastEnrichedSymphonyKey = null
     }
 
     this.syncContextSnapshot()
@@ -282,8 +288,7 @@ export class WorkflowBoardService {
 
   async getBoard(): Promise<WorkflowBoardSnapshotResponse> {
     if (this.lastSnapshot) {
-      const snapshot = this.enrichWithSymphonyContext(this.lastSnapshot)
-      this.lastSnapshot = snapshot
+      const snapshot = this.getCachedOrEnrichedSnapshot(this.lastSnapshot)
       this.syncContextSnapshot()
       return { success: true, snapshot }
     }
@@ -517,8 +522,46 @@ export class WorkflowBoardService {
     }
   }
 
-  private enrichWithSymphonyContext(snapshot: WorkflowBoardSnapshot): WorkflowBoardSnapshot {
+  private getCachedOrEnrichedSnapshot(snapshot: WorkflowBoardSnapshot): WorkflowBoardSnapshot {
     const operatorSnapshot = this.options.getSymphonySnapshot?.() ?? null
+    const symphonyKey = this.toSymphonyCacheKey(operatorSnapshot)
+
+    if (
+      this.lastEnrichedSnapshot &&
+      this.lastEnrichedInputSnapshot === snapshot &&
+      this.lastEnrichedSymphonyKey === symphonyKey
+    ) {
+      return this.lastEnrichedSnapshot
+    }
+
+    const enriched = this.enrichWithSymphonyContext(snapshot, operatorSnapshot)
+    this.lastEnrichedSnapshot = enriched
+    this.lastEnrichedInputSnapshot = snapshot
+    this.lastEnrichedSymphonyKey = symphonyKey
+
+    return enriched
+  }
+
+  private toSymphonyCacheKey(operatorSnapshot: SymphonyOperatorSnapshot | null): string {
+    if (!operatorSnapshot) {
+      return 'none'
+    }
+
+    return [
+      operatorSnapshot.fetchedAt,
+      operatorSnapshot.connection.state,
+      operatorSnapshot.connection.updatedAt,
+      operatorSnapshot.freshness.status,
+      operatorSnapshot.workers.length,
+      operatorSnapshot.escalations.length,
+    ].join('|')
+  }
+
+  private enrichWithSymphonyContext(
+    snapshot: WorkflowBoardSnapshot,
+    cachedOperatorSnapshot?: SymphonyOperatorSnapshot | null,
+  ): WorkflowBoardSnapshot {
+    const operatorSnapshot = cachedOperatorSnapshot ?? this.options.getSymphonySnapshot?.() ?? null
 
     if (!operatorSnapshot) {
       return {
