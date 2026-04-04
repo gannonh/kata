@@ -229,9 +229,9 @@ export class WorkflowBoardService {
         message,
       })
 
-      this.trackerConfigured = false
       if (capturedScopeKey === this.scopeKey) {
         this.lastSnapshot = snapshot
+        this.trackerConfigured = false
         this.syncContextSnapshot()
       }
       return { success: true, snapshot }
