@@ -97,7 +97,7 @@ export class WorkflowBoardService {
 
   setActive(active: boolean): { success: true; active: boolean } {
     this.active = active
-    this.emitContext()
+    this.syncContextSnapshot()
     return { success: true, active: this.active }
   }
 
@@ -112,13 +112,13 @@ export class WorkflowBoardService {
       this.lastSuccessSnapshot = null
     }
 
-    this.emitContext()
+    this.syncContextSnapshot()
     return { success: true, scopeKey: this.scopeKey }
   }
 
   setPlanningActive(active: boolean): void {
     this.planningActive = active
-    this.emitContext()
+    this.syncContextSnapshot()
   }
 
   getContext(): WorkflowContextSnapshot {
@@ -139,7 +139,7 @@ export class WorkflowBoardService {
 
   async getBoard(): Promise<WorkflowBoardSnapshotResponse> {
     if (this.lastSnapshot) {
-      this.emitContext()
+      this.syncContextSnapshot()
       return { success: true, snapshot: this.lastSnapshot }
     }
 
@@ -168,7 +168,7 @@ export class WorkflowBoardService {
         this.lastSuccessSnapshot = scenarioSnapshot
       }
       this.trackerConfigured = scenarioSnapshot.lastError?.code !== 'NOT_CONFIGURED'
-      this.emitContext()
+      this.syncContextSnapshot()
       return { success: true, snapshot: scenarioSnapshot }
     }
 
@@ -177,12 +177,12 @@ export class WorkflowBoardService {
       this.lastSnapshot = fixture
       this.lastSuccessSnapshot = fixture
       this.trackerConfigured = true
-      this.emitContext()
+      this.syncContextSnapshot()
       return { success: true, snapshot: fixture }
     }
 
     if (!this.active && this.lastSnapshot) {
-      this.emitContext()
+      this.syncContextSnapshot()
       return { success: true, snapshot: this.lastSnapshot }
     }
 
@@ -194,7 +194,7 @@ export class WorkflowBoardService {
         message: 'Workflow board inactive. Activate kanban pane to fetch execution state.',
       })
       this.lastSnapshot = inactive
-      this.emitContext()
+      this.syncContextSnapshot()
       return { success: true, snapshot: inactive }
     }
 
@@ -216,7 +216,7 @@ export class WorkflowBoardService {
       })
 
       this.lastSnapshot = snapshot
-      this.emitContext()
+      this.syncContextSnapshot()
       return { success: true, snapshot }
     }
 
@@ -228,7 +228,7 @@ export class WorkflowBoardService {
         message: 'Linear project is not configured in .kata/preferences.md (projectId or projectSlug).',
       })
       this.lastSnapshot = snapshot
-      this.emitContext()
+      this.syncContextSnapshot()
       return { success: true, snapshot }
     }
 
@@ -236,7 +236,7 @@ export class WorkflowBoardService {
       const snapshot = await this.linearClient.fetchActiveMilestoneSnapshot({ projectRef })
       this.lastSnapshot = snapshot
       this.lastSuccessSnapshot = snapshot
-      this.emitContext()
+      this.syncContextSnapshot()
       return { success: true, snapshot }
     } catch (error) {
       const workflowError = LinearWorkflowClient.toWorkflowError(error)
@@ -268,12 +268,12 @@ export class WorkflowBoardService {
         error: workflowError,
       })
 
-      this.emitContext()
+      this.syncContextSnapshot()
       return { success: true, snapshot: staleSnapshot }
     }
   }
 
-  private emitContext(): void {
+  private syncContextSnapshot(): void {
     this.contextService.resolve({
       planningActive: this.planningActive,
       trackerConfigured: this.trackerConfigured,

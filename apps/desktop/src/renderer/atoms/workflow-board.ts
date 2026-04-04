@@ -46,6 +46,7 @@ export function useWorkflowBoardBridge(): void {
 
   const intervalIdRef = useRef<number | null>(null)
   const activeRef = useRef(false)
+  const activationVersionRef = useRef(0)
 
   useEffect(() => {
     const syncContext = async () => {
@@ -63,63 +64,103 @@ export function useWorkflowBoardBridge(): void {
   useEffect(() => {
     const scopeKey = `${workspacePath || 'workspace:none'}::${sessionId || 'session:none'}`
 
+    const deactivateInterval = () => {
+      if (intervalIdRef.current !== null) {
+        window.clearInterval(intervalIdRef.current)
+        intervalIdRef.current = null
+      }
+    }
+
+    const deactivatePolling = async () => {
+      activeRef.current = false
+      activationVersionRef.current += 1
+      setActive(false)
+      deactivateInterval()
+      await window.api.workflow.setBoardActive(false)
+    }
+
     const activatePolling = async () => {
+      const activationVersion = ++activationVersionRef.current
+      const isCurrentActivation = () =>
+        activeRef.current && activationVersionRef.current === activationVersion
+
       setActive(true)
       activeRef.current = true
+
       await window.api.workflow.setScope(scopeKey)
+      if (!isCurrentActivation()) {
+        return
+      }
+
       await window.api.workflow.setBoardActive(true)
+      if (!isCurrentActivation()) {
+        return
+      }
 
       setLoading(true)
       try {
         const initial = await window.api.workflow.getBoard()
+        if (!isCurrentActivation()) {
+          return
+        }
+
         setBoard(initial.snapshot)
         setError(initial.snapshot.lastError?.message ?? null)
       } catch (error) {
+        if (!isCurrentActivation()) {
+          return
+        }
+
         setError(error instanceof Error ? error.message : String(error))
       } finally {
-        setLoading(false)
+        if (isCurrentActivation()) {
+          setLoading(false)
+        }
       }
 
-      if (intervalIdRef.current !== null) {
-        window.clearInterval(intervalIdRef.current)
+      if (!isCurrentActivation()) {
+        return
       }
+
+      deactivateInterval()
 
       intervalIdRef.current = window.setInterval(() => {
         void (async () => {
-          if (!activeRef.current) {
+          if (!isCurrentActivation()) {
             return
           }
 
           setRefreshing(true)
           try {
             const refreshed = await window.api.workflow.refreshBoard()
+            if (!isCurrentActivation()) {
+              return
+            }
+
             setBoard(refreshed.snapshot)
             setError(refreshed.snapshot.lastError?.message ?? null)
           } catch (error) {
+            if (!isCurrentActivation()) {
+              return
+            }
+
             setError(error instanceof Error ? error.message : String(error))
           } finally {
-            setRefreshing(false)
+            if (isCurrentActivation()) {
+              setRefreshing(false)
+            }
           }
 
           try {
             const contextResponse = await window.api.workflow.getContext()
-            setWorkflowContext(contextResponse.context)
+            if (isCurrentActivation()) {
+              setWorkflowContext(contextResponse.context)
+            }
           } catch {
             // ignore context sync failures during interval
           }
         })()
       }, REFRESH_INTERVAL_MS)
-    }
-
-    const deactivatePolling = async () => {
-      activeRef.current = false
-      setActive(false)
-      if (intervalIdRef.current !== null) {
-        window.clearInterval(intervalIdRef.current)
-        intervalIdRef.current = null
-      }
-
-      await window.api.workflow.setBoardActive(false)
     }
 
     if (rightPaneMode === 'kanban') {
@@ -130,10 +171,8 @@ export function useWorkflowBoardBridge(): void {
 
     return () => {
       activeRef.current = false
-      if (intervalIdRef.current !== null) {
-        window.clearInterval(intervalIdRef.current)
-        intervalIdRef.current = null
-      }
+      activationVersionRef.current += 1
+      deactivateInterval()
       void window.api.workflow.setBoardActive(false)
       setActive(false)
     }
