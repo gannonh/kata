@@ -38,6 +38,32 @@ describe('resolveSymphonyLaunch', () => {
     expect(loaded).toBeNull()
   })
 
+  test('resolveSymphonyLaunch surfaces preferences read errors beyond ENOENT', async () => {
+    const workspace = createWorkspace()
+    cleanups.push(workspace.cleanup)
+
+    const preferencesPath = path.join(workspace.workspacePath, '.kata', 'preferences.md')
+    mkdirSync(preferencesPath, { recursive: true })
+    writeFileSync(path.join(workspace.workspacePath, 'WORKFLOW.md'), '# workflow\n', 'utf8')
+
+    const result = await resolveSymphonyLaunch({
+      workspacePath: workspace.workspacePath,
+      appIsPackaged: false,
+      env: {
+        ...process.env,
+        KATA_SYMPHONY_URL: 'http://localhost:8080',
+      },
+    })
+
+    expect(result.ok).toBe(false)
+    if (result.ok) {
+      return
+    }
+
+    expect(result.error.code).toBe('CONFIG_INVALID')
+    expect(result.error.details).toBe('preferences_read_failed')
+  })
+
   test('loadWorkspacePreferences returns null without frontmatter/symphony block', async () => {
     const workspace = createWorkspace()
     cleanups.push(workspace.cleanup)
@@ -120,6 +146,42 @@ describe('resolveSymphonyLaunch', () => {
     expect(result.launch.workflowPath).toBe(workflowPath)
     expect(result.launch.resolvedUrl).toBe('http://127.0.0.1:8080')
     expect(result.launch.args).toEqual([workflowPath, '--no-tui', '--port', '8080'])
+  })
+
+  test('normalizes backslash workflow paths when resolving preferences', async () => {
+    const workspace = createWorkspace()
+    cleanups.push(workspace.cleanup)
+
+    const workflowDir = path.join(workspace.workspacePath, 'nested')
+    mkdirSync(workflowDir, { recursive: true })
+    const workflowPath = path.join(workflowDir, 'WORKFLOW.md')
+    writeFileSync(workflowPath, '# workflow\n', 'utf8')
+
+    const executablePath = createExecutable(workspace.workspacePath, 'symphony-bin')
+
+    writeFileSync(
+      path.join(workspace.workspacePath, '.kata', 'preferences.md'),
+      ['---', 'symphony:', '  url: http://127.0.0.1:8080', '  workflow_path: nested\\WORKFLOW.md', '---'].join(
+        '\n',
+      ),
+      'utf8',
+    )
+
+    const result = await resolveSymphonyLaunch({
+      workspacePath: workspace.workspacePath,
+      appIsPackaged: false,
+      env: {
+        ...process.env,
+        KATA_SYMPHONY_BIN_PATH: executablePath,
+      },
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) {
+      return
+    }
+
+    expect(result.launch.workflowPath).toBe(workflowPath)
   })
 
   test('returns config error when URL is malformed', async () => {

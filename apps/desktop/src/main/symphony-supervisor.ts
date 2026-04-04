@@ -41,6 +41,7 @@ export class SymphonySupervisor extends EventEmitter {
   private startInFlight: Promise<SymphonyRuntimeCommandResult> | null = null
   private stopInFlight: Promise<SymphonyRuntimeCommandResult> | null = null
   private restartInFlight: Promise<SymphonyRuntimeCommandResult> | null = null
+  private lifecycleQueue: Promise<void> = Promise.resolve()
   private readonly mockMode: string | null
 
   constructor(private readonly options: SymphonySupervisorOptions) {
@@ -67,70 +68,78 @@ export class SymphonySupervisor extends EventEmitter {
   }
 
   public async setWorkspacePath(workspacePath: string): Promise<void> {
-    const resolved = workspacePath.trim()
-    if (!resolved || resolved === this.workspacePath) {
-      return
-    }
+    await this.withLifecycleGate(async () => {
+      const resolved = workspacePath.trim()
+      if (!resolved || resolved === this.workspacePath) {
+        return
+      }
 
-    await this.stop('workspace_changed')
-    this.workspacePath = resolved
-    this.updateStatus({
-      phase: 'stopped',
-      managedProcessRunning: false,
-      pid: null,
-      url: null,
-      launch: undefined,
-      diagnostics: { stdout: [], stderr: [] },
-      lastError: undefined,
-      restartReason: 'workspace_changed',
+      await this.stopInternal('workspace_changed')
+      this.workspacePath = resolved
+      this.updateStatus({
+        phase: 'stopped',
+        managedProcessRunning: false,
+        pid: null,
+        url: null,
+        launch: undefined,
+        diagnostics: { stdout: [], stderr: [] },
+        lastError: undefined,
+        restartReason: 'workspace_changed',
+      })
     })
   }
 
   public async start(): Promise<SymphonyRuntimeCommandResult> {
-    if (this.restartInFlight) {
-      return this.restartInFlight
-    }
+    return this.withLifecycleGate(async () => {
+      if (this.restartInFlight) {
+        return this.restartInFlight
+      }
 
-    if (this.startInFlight) {
-      return this.startInFlight
-    }
+      if (this.startInFlight) {
+        return this.startInFlight
+      }
 
-    if (this.child && this.status.phase === 'ready') {
-      return { success: true, status: this.status }
-    }
+      if (this.child && this.status.phase === 'ready') {
+        return { success: true, status: this.status }
+      }
 
-    this.startInFlight = this.startInternal()
-    try {
-      return await this.startInFlight
-    } finally {
-      this.startInFlight = null
-    }
+      this.startInFlight = this.startInternal()
+      try {
+        return await this.startInFlight
+      } finally {
+        this.startInFlight = null
+      }
+    })
   }
 
   public async stop(reason = 'user_requested'): Promise<SymphonyRuntimeCommandResult> {
-    if (this.stopInFlight) {
-      return this.stopInFlight
-    }
+    return this.withLifecycleGate(async () => {
+      if (this.stopInFlight) {
+        return this.stopInFlight
+      }
 
-    this.stopInFlight = this.stopInternal(reason)
-    try {
-      return await this.stopInFlight
-    } finally {
-      this.stopInFlight = null
-    }
+      this.stopInFlight = this.stopInternal(reason)
+      try {
+        return await this.stopInFlight
+      } finally {
+        this.stopInFlight = null
+      }
+    })
   }
 
   public async restart(reason = 'user_requested'): Promise<SymphonyRuntimeCommandResult> {
-    if (this.restartInFlight) {
-      return this.restartInFlight
-    }
+    return this.withLifecycleGate(async () => {
+      if (this.restartInFlight) {
+        return this.restartInFlight
+      }
 
-    this.restartInFlight = this.restartInternal(reason)
-    try {
-      return await this.restartInFlight
-    } finally {
-      this.restartInFlight = null
-    }
+      this.restartInFlight = this.restartInternal(reason)
+      try {
+        return await this.restartInFlight
+      } finally {
+        this.restartInFlight = null
+      }
+    })
   }
 
   private async startInternal(): Promise<SymphonyRuntimeCommandResult> {
@@ -352,7 +361,7 @@ export class SymphonySupervisor extends EventEmitter {
       restartReason: reason,
     })
 
-    const stopResult = await this.stop('restart')
+    const stopResult = await this.stopInternal('restart')
     if (!stopResult.success) {
       return stopResult
     }
@@ -469,6 +478,23 @@ export class SymphonySupervisor extends EventEmitter {
         phase: 'readiness',
         message: `Symphony readiness check failed after ${this.readinessTimeoutMs}ms.`,
       },
+    }
+  }
+
+  private async withLifecycleGate<T>(operation: () => Promise<T>): Promise<T> {
+    const waitForTurn = this.lifecycleQueue
+
+    let releaseTurn!: () => void
+    this.lifecycleQueue = new Promise<void>((resolve) => {
+      releaseTurn = resolve
+    })
+
+    await waitForTurn
+
+    try {
+      return await operation()
+    } finally {
+      releaseTurn()
     }
   }
 

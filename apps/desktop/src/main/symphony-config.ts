@@ -43,7 +43,21 @@ export async function resolveSymphonyLaunch(
   options: ResolveSymphonyLaunchOptions,
 ): Promise<SymphonyLaunchResolution> {
   const env = options.env ?? process.env
-  const preferences = options.preferences ?? (await loadWorkspacePreferences(options.workspacePath))
+
+  let preferences: SymphonyPreferences | null
+  try {
+    preferences = options.preferences ?? (await loadWorkspacePreferences(options.workspacePath))
+  } catch (error) {
+    return {
+      ok: false,
+      error: {
+        code: 'CONFIG_INVALID',
+        phase: 'config',
+        message: `Unable to read workspace preferences: ${error instanceof Error ? error.message : String(error)}`,
+        details: 'preferences_read_failed',
+      },
+    }
+  }
 
   const resolvedUrl = resolveConfiguredUrl(preferences, env)
   if (!resolvedUrl.ok) {
@@ -99,7 +113,7 @@ export async function loadWorkspacePreferences(workspacePath: string): Promise<S
       return null
     }
 
-    return null
+    throw error
   }
 
   const frontmatterMatch = content.match(/^\uFEFF?\s*---\s*\r?\n([\s\S]*?)\r?\n---/)
@@ -267,9 +281,16 @@ function resolveBinaryPath(options: {
   }
 
   if (options.appIsPackaged) {
-    const packagedPath = path.join(options.resourcesPath ?? process.resourcesPath, 'symphony')
-    if (isExecutableFile(packagedPath)) {
-      return { ok: true, command: packagedPath, source: 'bundled' }
+    const resourcesPath = options.resourcesPath ?? process.resourcesPath
+    const bundledCandidates =
+      process.platform === 'win32'
+        ? [path.join(resourcesPath, 'symphony.exe'), path.join(resourcesPath, 'symphony')]
+        : [path.join(resourcesPath, 'symphony')]
+
+    for (const bundledPath of bundledCandidates) {
+      if (isExecutableFile(bundledPath)) {
+        return { ok: true, command: bundledPath, source: 'bundled' }
+      }
     }
   }
 
@@ -309,21 +330,31 @@ function normalizeCandidate(value: unknown): string | null {
 }
 
 function toAbsolutePath(target: string, cwd: string): string {
+  const normalized = target.replace(/\\/g, path.sep)
   const expanded =
-    target === '~' || target.startsWith('~/')
-      ? path.join(homedir(), target === '~' ? '' : target.slice(2))
-      : target
+    normalized === '~' || normalized.startsWith(`~${path.sep}`)
+      ? path.join(homedir(), normalized === '~' ? '' : normalized.slice(2))
+      : normalized
 
   return path.isAbsolute(expanded) ? expanded : path.resolve(cwd, expanded)
 }
 
 function isExecutableFile(filePath: string): boolean {
-  try {
-    accessSync(filePath, constants.X_OK)
-    return true
-  } catch {
-    return false
+  const candidates =
+    process.platform === 'win32' && !filePath.toLowerCase().endsWith('.exe')
+      ? [filePath, `${filePath}.exe`]
+      : [filePath]
+
+  for (const candidate of candidates) {
+    try {
+      accessSync(candidate, constants.X_OK)
+      return true
+    } catch {
+      // keep checking candidate variants
+    }
   }
+
+  return false
 }
 
 function extractNestedBlock(frontmatter: string, key: string): string | null {
