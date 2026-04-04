@@ -124,6 +124,92 @@ describe('LinearWorkflowClient', () => {
     )
   })
 
+  test('returns NOT_FOUND when project cannot be resolved', async () => {
+    process.env.LINEAR_API_KEY = 'linear-test-key'
+
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          data: {
+            project: null,
+          },
+        }),
+        { status: 200 },
+      )) as unknown as typeof fetch
+
+    const client = new LinearWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
+
+    await expect(client.fetchActiveMilestoneSnapshot({ projectRef: 'missing-project' })).rejects.toMatchObject(
+      {
+        code: 'NOT_FOUND',
+      },
+    )
+  })
+
+  test('maps unauthorized and rate-limited backend responses', async () => {
+    process.env.LINEAR_API_KEY = 'linear-test-key'
+
+    globalThis.fetch = (async () => new Response('{}', { status: 401 })) as unknown as typeof fetch
+    const client = new LinearWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
+
+    await expect(client.fetchActiveMilestoneSnapshot({ projectRef: 'project-ref' })).rejects.toMatchObject({
+      code: 'UNAUTHORIZED',
+    })
+
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              project: {
+                id: 'project-1',
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(new Response('{}', { status: 429 })) as unknown as typeof fetch
+
+    await expect(client.fetchActiveMilestoneSnapshot({ projectRef: 'project-ref' })).rejects.toMatchObject({
+      code: 'RATE_LIMITED',
+    })
+  })
+
+  test('maps GraphQL error payloads to structured codes', async () => {
+    process.env.LINEAR_API_KEY = 'linear-test-key'
+
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              project: {
+                id: 'project-1',
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            errors: [{ message: 'rate limit hit' }],
+          }),
+          { status: 200 },
+        ),
+      ) as unknown as typeof fetch
+
+    const client = new LinearWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
+
+    await expect(client.fetchActiveMilestoneSnapshot({ projectRef: 'project-ref' })).rejects.toMatchObject({
+      code: 'RATE_LIMITED',
+    })
+  })
+
   test('exposes structured workflow error codes', () => {
     const mapped = LinearWorkflowClient.toWorkflowError(
       new LinearWorkflowClientError('UNAUTHORIZED', 'bad key', 401),
@@ -133,14 +219,24 @@ describe('LinearWorkflowClient', () => {
       code: 'UNAUTHORIZED',
       message: 'bad key',
     })
+
+    const networkMapped = LinearWorkflowClient.toWorkflowError(new TypeError('fetch failed'))
+    expect(networkMapped).toEqual({
+      code: 'NETWORK',
+      message: 'fetch failed',
+    })
   })
 })
 
 describe('mapLinearStateToColumnId', () => {
   test('uses exact Kata state names before state type fallback', () => {
     expect(mapLinearStateToColumnId('Human Review', 'started')).toBe('human_review')
+    expect(mapLinearStateToColumnId('Merging', 'started')).toBe('merging')
     expect(mapLinearStateToColumnId('Unknown', 'backlog')).toBe('backlog')
+    expect(mapLinearStateToColumnId(undefined, 'unstarted')).toBe('todo')
+    expect(mapLinearStateToColumnId(undefined, 'started')).toBe('in_progress')
     expect(mapLinearStateToColumnId(undefined, 'completed')).toBe('done')
+    expect(mapLinearStateToColumnId(undefined, 'canceled')).toBe('done')
     expect(mapLinearStateToColumnId('Unexpected', 'unexpected')).toBe('todo')
   })
 })
@@ -156,5 +252,31 @@ describe('normalizeLinearBoard', () => {
 
     expect(snapshot.status).toBe('empty')
     expect(snapshot.emptyReason).toContain('No slices found')
+  })
+
+  test('normalizes task counts with mixed states', () => {
+    const snapshot = normalizeLinearBoard({
+      projectId: 'project-1',
+      milestoneId: 'milestone-1',
+      milestoneName: 'Milestone 1',
+      issues: [
+        {
+          id: 'slice-1',
+          identifier: 'KAT-1',
+          title: 'Slice',
+          state: { name: 'Todo', type: 'unstarted' },
+          projectMilestone: { id: 'milestone-1', name: 'Milestone 1' },
+          children: {
+            nodes: [
+              { id: 'task-1', title: 'Task 1', state: { name: 'Done', type: 'completed' } },
+              { id: 'task-2', title: 'Task 2', state: { name: 'Todo', type: 'unstarted' } },
+            ],
+          },
+        } as never,
+      ],
+    })
+
+    const todoColumn = snapshot.columns.find((column) => column.id === 'todo')
+    expect(todoColumn?.cards[0]?.taskCounts).toEqual({ total: 2, done: 1 })
   })
 })
