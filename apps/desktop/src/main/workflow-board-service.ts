@@ -7,10 +7,15 @@ import log from './logger'
 import { WorkflowContextService } from './workflow-context-service'
 import { readWorkspaceWorkflowTrackerConfig } from './workflow-config-reader'
 import type {
+  SymphonyOperatorSnapshot,
+  WorkflowBoardSliceCard,
   WorkflowBoardSnapshot,
   WorkflowBoardSnapshotResponse,
+  WorkflowBoardTask,
   WorkflowContextSnapshot,
   WorkflowTrackerConfig,
+  WorkflowSymphonyExecutionFreshness,
+  WorkflowSymphonyExecutionProvenance,
 } from '../shared/types'
 
 const TEST_LINEAR_WORKFLOW_FIXTURE: WorkflowBoardSnapshot = {
@@ -209,6 +214,7 @@ const TEST_GITHUB_PROJECTS_WORKFLOW_FIXTURE: WorkflowBoardSnapshot = {
 interface WorkflowBoardServiceOptions {
   authBridge: AuthBridge
   getWorkspacePath: () => string
+  getSymphonySnapshot?: () => SymphonyOperatorSnapshot | null
 }
 
 export class WorkflowBoardService {
@@ -276,8 +282,10 @@ export class WorkflowBoardService {
 
   async getBoard(): Promise<WorkflowBoardSnapshotResponse> {
     if (this.lastSnapshot) {
+      const snapshot = this.enrichWithSymphonyContext(this.lastSnapshot)
+      this.lastSnapshot = snapshot
       this.syncContextSnapshot()
-      return { success: true, snapshot: this.lastSnapshot }
+      return { success: true, snapshot }
     }
 
     return this.refreshBoard()
@@ -306,7 +314,7 @@ export class WorkflowBoardService {
 
   private async performRefreshBoard(capturedScopeKey: string): Promise<WorkflowBoardSnapshotResponse> {
     if (this.testScenario) {
-      const scenarioSnapshot = this.buildScenarioSnapshot(this.testScenario)
+      const scenarioSnapshot = this.enrichWithSymphonyContext(this.buildScenarioSnapshot(this.testScenario))
       if (capturedScopeKey === this.scopeKey) {
         this.lastSnapshot = scenarioSnapshot
         if (scenarioSnapshot.status === 'fresh' || scenarioSnapshot.status === 'empty') {
@@ -319,7 +327,7 @@ export class WorkflowBoardService {
     }
 
     if (process.env.KATA_TEST_WORKFLOW_FIXTURE === '1') {
-      const fixture = withFreshTimestamps(TEST_LINEAR_WORKFLOW_FIXTURE)
+      const fixture = this.enrichWithSymphonyContext(withFreshTimestamps(TEST_LINEAR_WORKFLOW_FIXTURE))
       if (capturedScopeKey === this.scopeKey) {
         this.lastSnapshot = fixture
         this.lastSuccessSnapshot = fixture
@@ -331,17 +339,19 @@ export class WorkflowBoardService {
 
     if (!this.active && this.lastSnapshot) {
       this.syncContextSnapshot()
-      return { success: true, snapshot: this.lastSnapshot }
+      return { success: true, snapshot: this.enrichWithSymphonyContext(this.lastSnapshot) }
     }
 
     if (!this.active) {
-      const inactive = this.toErrorSnapshot({
-        nowIso: new Date().toISOString(),
-        projectId: 'unknown',
-        backend: 'linear',
-        code: 'UNKNOWN',
-        message: 'Workflow board inactive. Activate kanban pane to fetch execution state.',
-      })
+      const inactive = this.enrichWithSymphonyContext(
+        this.toErrorSnapshot({
+          nowIso: new Date().toISOString(),
+          projectId: 'unknown',
+          backend: 'linear',
+          code: 'UNKNOWN',
+          message: 'Workflow board inactive. Activate kanban pane to fetch execution state.',
+        }),
+      )
       if (capturedScopeKey === this.scopeKey) {
         this.lastSnapshot = inactive
         this.syncContextSnapshot()
@@ -354,13 +364,15 @@ export class WorkflowBoardService {
 
     const trackerResolution = await this.resolveTrackerConfig(workspacePath)
     if (trackerResolution.error) {
-      const snapshot = this.toErrorSnapshot({
-        nowIso,
-        projectId: 'unknown',
-        backend: 'linear',
-        code: trackerResolution.error.code,
-        message: trackerResolution.error.message,
-      })
+      const snapshot = this.enrichWithSymphonyContext(
+        this.toErrorSnapshot({
+          nowIso,
+          projectId: 'unknown',
+          backend: 'linear',
+          code: trackerResolution.error.code,
+          message: trackerResolution.error.message,
+        }),
+      )
 
       if (capturedScopeKey === this.scopeKey) {
         this.lastSnapshot = snapshot
@@ -373,13 +385,15 @@ export class WorkflowBoardService {
     const tracker = trackerResolution.config
 
     if (!tracker) {
-      const snapshot = this.toErrorSnapshot({
-        nowIso,
-        projectId: 'unknown',
-        backend: 'linear',
-        code: 'NOT_CONFIGURED',
-        message: 'Workflow board tracker is not configured in WORKFLOW.md or .kata/preferences.md.',
-      })
+      const snapshot = this.enrichWithSymphonyContext(
+        this.toErrorSnapshot({
+          nowIso,
+          projectId: 'unknown',
+          backend: 'linear',
+          code: 'NOT_CONFIGURED',
+          message: 'Workflow board tracker is not configured in WORKFLOW.md or .kata/preferences.md.',
+        }),
+      )
       if (capturedScopeKey === this.scopeKey) {
         this.lastSnapshot = snapshot
         this.trackerConfigured = false
@@ -389,7 +403,7 @@ export class WorkflowBoardService {
     }
 
     if (isWorkflowFixtureEnabled()) {
-      const fixture = withFreshTimestamps(this.fixtureForTracker(tracker))
+      const fixture = this.enrichWithSymphonyContext(withFreshTimestamps(this.fixtureForTracker(tracker)))
       if (capturedScopeKey === this.scopeKey) {
         this.lastSnapshot = fixture
         this.lastSuccessSnapshot = fixture
@@ -409,22 +423,24 @@ export class WorkflowBoardService {
           ? await this.githubClient.fetchSnapshot({ config: tracker })
           : await this.linearClient.fetchActiveMilestoneSnapshot({ projectRef: tracker.projectRef })
 
-      const snapshot: WorkflowBoardSnapshot = {
+      const snapshot: WorkflowBoardSnapshot = this.enrichWithSymphonyContext({
         ...fetchedSnapshot,
         poll: {
           ...fetchedSnapshot.poll,
           lastSuccessAt: fetchedSnapshot.fetchedAt,
         },
-      }
+      })
 
       if (!this.active) {
-        const inactive = this.toErrorSnapshot({
-          nowIso,
-          projectId: boardProjectId,
-          backend: snapshot.backend,
-          code: 'UNKNOWN',
-          message: 'Workflow board inactive. Activate kanban pane to fetch execution state.',
-        })
+        const inactive = this.enrichWithSymphonyContext(
+          this.toErrorSnapshot({
+            nowIso,
+            projectId: boardProjectId,
+            backend: snapshot.backend,
+            code: 'UNKNOWN',
+            message: 'Workflow board inactive. Activate kanban pane to fetch execution state.',
+          }),
+        )
         if (capturedScopeKey === this.scopeKey) {
           this.lastSnapshot = inactive
           this.syncContextSnapshot()
@@ -441,13 +457,15 @@ export class WorkflowBoardService {
       return { success: true, snapshot }
     } catch (error) {
       if (!this.active) {
-        const inactive = this.toErrorSnapshot({
-          nowIso,
-          projectId: boardProjectId,
-          backend: tracker.kind === 'github' ? 'github' : 'linear',
-          code: 'UNKNOWN',
-          message: 'Workflow board inactive. Activate kanban pane to fetch execution state.',
-        })
+        const inactive = this.enrichWithSymphonyContext(
+          this.toErrorSnapshot({
+            nowIso,
+            projectId: boardProjectId,
+            backend: tracker.kind === 'github' ? 'github' : 'linear',
+            code: 'UNKNOWN',
+            message: 'Workflow board inactive. Activate kanban pane to fetch execution state.',
+          }),
+        )
         if (capturedScopeKey === this.scopeKey) {
           this.lastSnapshot = inactive
           this.syncContextSnapshot()
@@ -460,24 +478,26 @@ export class WorkflowBoardService {
           ? GithubWorkflowClient.toWorkflowError(error)
           : LinearWorkflowClient.toWorkflowError(error)
 
-      const staleSnapshot: WorkflowBoardSnapshot = this.lastSuccessSnapshot
-        ? {
-            ...this.lastSuccessSnapshot,
-            status: 'stale',
-            lastError: workflowError,
-            poll: {
-              ...this.lastSuccessSnapshot.poll,
-              status: 'error',
-              lastAttemptAt: nowIso,
-            },
-          }
-        : this.toErrorSnapshot({
-            nowIso,
-            projectId: boardProjectId,
-            backend: tracker.kind === 'github' ? 'github' : 'linear',
-            code: workflowError.code,
-            message: workflowError.message,
-          })
+      const staleSnapshot: WorkflowBoardSnapshot = this.enrichWithSymphonyContext(
+        this.lastSuccessSnapshot
+          ? {
+              ...this.lastSuccessSnapshot,
+              status: 'stale',
+              lastError: workflowError,
+              poll: {
+                ...this.lastSuccessSnapshot.poll,
+                status: 'error',
+                lastAttemptAt: nowIso,
+              },
+            }
+          : this.toErrorSnapshot({
+              nowIso,
+              projectId: boardProjectId,
+              backend: tracker.kind === 'github' ? 'github' : 'linear',
+              code: workflowError.code,
+              message: workflowError.message,
+            }),
+      )
 
       if (capturedScopeKey === this.scopeKey) {
         this.lastSnapshot = staleSnapshot
@@ -494,6 +514,159 @@ export class WorkflowBoardService {
         this.syncContextSnapshot()
       }
       return { success: true, snapshot: staleSnapshot }
+    }
+  }
+
+  private enrichWithSymphonyContext(snapshot: WorkflowBoardSnapshot): WorkflowBoardSnapshot {
+    const operatorSnapshot = this.options.getSymphonySnapshot?.() ?? null
+
+    if (!operatorSnapshot) {
+      return {
+        ...snapshot,
+        symphony: {
+          connectionState: 'unknown',
+          freshness: 'unknown',
+          provenance: 'unavailable',
+          staleReason: 'Symphony operator snapshot unavailable.',
+          workerCount: 0,
+          escalationCount: 0,
+          diagnostics: {
+            correlationMisses: [],
+          },
+        },
+      }
+    }
+
+    const { freshness, provenance, staleReason } = deriveSymphonyEnvelope(operatorSnapshot)
+
+    const workersByIdentifier = new Map<string, SymphonyOperatorSnapshot['workers'][number]>()
+    const workersByIssueId = new Map<string, SymphonyOperatorSnapshot['workers'][number]>()
+    for (const worker of operatorSnapshot.workers) {
+      const normalizedIdentifier = normalizeIdentifier(worker.identifier)
+      if (normalizedIdentifier) {
+        workersByIdentifier.set(normalizedIdentifier, worker)
+      }
+
+      const normalizedIssueId = normalizeIdentifier(worker.issueId)
+      if (normalizedIssueId) {
+        workersByIssueId.set(normalizedIssueId, worker)
+      }
+    }
+
+    const escalationsByIdentifier = new Map<string, number>()
+    const escalationsByIssueId = new Map<string, number>()
+    for (const escalation of operatorSnapshot.escalations) {
+      const normalizedIdentifier = normalizeIdentifier(escalation.issueIdentifier)
+      if (normalizedIdentifier) {
+        escalationsByIdentifier.set(
+          normalizedIdentifier,
+          (escalationsByIdentifier.get(normalizedIdentifier) ?? 0) + 1,
+        )
+      }
+
+      const normalizedIssueId = normalizeIdentifier(escalation.issueId)
+      if (normalizedIssueId) {
+        escalationsByIssueId.set(normalizedIssueId, (escalationsByIssueId.get(normalizedIssueId) ?? 0) + 1)
+      }
+    }
+
+    const matchedWorkerKeys = new Set<string>()
+    const matchedEscalationKeys = new Set<string>()
+
+    const enrichItem = (
+      item: Pick<WorkflowBoardSliceCard, 'id' | 'identifier'> | Pick<WorkflowBoardTask, 'id' | 'identifier'>,
+    ) => {
+      const normalizedIdentifier = normalizeIdentifier(item.identifier)
+      const normalizedIssueId = normalizeIdentifier(item.id)
+
+      const worker =
+        (normalizedIdentifier ? workersByIdentifier.get(normalizedIdentifier) : undefined) ??
+        (normalizedIssueId ? workersByIssueId.get(normalizedIssueId) : undefined)
+
+      const pendingEscalations =
+        (normalizedIdentifier ? escalationsByIdentifier.get(normalizedIdentifier) : undefined) ??
+        (normalizedIssueId ? escalationsByIssueId.get(normalizedIssueId) : undefined) ??
+        0
+
+      if (worker) {
+        const workerKey = normalizeIdentifier(worker.identifier)
+        if (workerKey) {
+          matchedWorkerKeys.add(workerKey)
+        }
+      }
+
+      if (pendingEscalations > 0) {
+        if (normalizedIdentifier) {
+          matchedEscalationKeys.add(normalizedIdentifier)
+        } else if (normalizedIssueId) {
+          matchedEscalationKeys.add(normalizedIssueId)
+        }
+      }
+
+      return {
+        issueId: worker?.issueId,
+        identifier: worker?.identifier ?? item.identifier,
+        workerState: worker?.state,
+        toolName: worker?.toolName,
+        model: worker?.model,
+        lastActivityAt: worker?.lastActivityAt,
+        lastError: worker?.lastError,
+        pendingEscalations,
+        assignmentState: worker ? ('assigned' as const) : ('unassigned' as const),
+        freshness,
+        provenance,
+        staleReason,
+      }
+    }
+
+    const columns = snapshot.columns.map((column) => ({
+      ...column,
+      cards: column.cards.map((card) => ({
+        ...card,
+        symphony: enrichItem(card),
+        tasks: card.tasks.map((task) => ({
+          ...task,
+          symphony: enrichItem(task),
+        })),
+      })),
+    }))
+
+    const correlationMisses: string[] = []
+
+    for (const worker of operatorSnapshot.workers) {
+      const key = normalizeIdentifier(worker.identifier)
+      if (key && !matchedWorkerKeys.has(key)) {
+        correlationMisses.push(`worker:${worker.identifier}`)
+      }
+    }
+
+    for (const escalation of operatorSnapshot.escalations) {
+      const identifierKey = normalizeIdentifier(escalation.issueIdentifier)
+      const issueKey = normalizeIdentifier(escalation.issueId)
+      if (
+        (identifierKey && matchedEscalationKeys.has(identifierKey)) ||
+        (issueKey && matchedEscalationKeys.has(issueKey))
+      ) {
+        continue
+      }
+      correlationMisses.push(`escalation:${escalation.requestId}`)
+    }
+
+    return {
+      ...snapshot,
+      columns,
+      symphony: {
+        connectionState: operatorSnapshot.connection.state,
+        freshness,
+        provenance,
+        staleReason,
+        fetchedAt: operatorSnapshot.fetchedAt,
+        workerCount: operatorSnapshot.workers.length,
+        escalationCount: operatorSnapshot.escalations.length,
+        diagnostics: {
+          correlationMisses,
+        },
+      },
     }
   }
 
@@ -685,6 +858,55 @@ export class WorkflowBoardService {
       },
     }
   }
+}
+
+function deriveSymphonyEnvelope(operatorSnapshot: SymphonyOperatorSnapshot): {
+  freshness: WorkflowSymphonyExecutionFreshness
+  provenance: WorkflowSymphonyExecutionProvenance
+  staleReason?: string
+} {
+  if (operatorSnapshot.connection.state === 'disconnected') {
+    return {
+      freshness: 'disconnected',
+      provenance: 'runtime-disconnected',
+      staleReason:
+        operatorSnapshot.connection.lastError ??
+        operatorSnapshot.freshness.staleReason ??
+        'Symphony runtime is disconnected.',
+    }
+  }
+
+  if (
+    operatorSnapshot.connection.state === 'reconnecting' ||
+    operatorSnapshot.freshness.status === 'stale'
+  ) {
+    return {
+      freshness: 'stale',
+      provenance: 'operator-stale',
+      staleReason:
+        operatorSnapshot.freshness.staleReason ??
+        operatorSnapshot.connection.lastError ??
+        'Symphony operator data is stale.',
+    }
+  }
+
+  if (operatorSnapshot.connection.state === 'connected') {
+    return {
+      freshness: 'fresh',
+      provenance: 'dashboard-derived',
+    }
+  }
+
+  return {
+    freshness: 'unknown',
+    provenance: 'unavailable',
+    staleReason: operatorSnapshot.connection.lastError ?? operatorSnapshot.freshness.staleReason,
+  }
+}
+
+function normalizeIdentifier(value: string | undefined): string | null {
+  const normalized = value?.trim()
+  return normalized ? normalized.toUpperCase() : null
 }
 
 function isWorkflowFixtureEnabled(): boolean {

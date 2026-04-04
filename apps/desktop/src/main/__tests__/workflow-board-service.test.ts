@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import type { SymphonyOperatorSnapshot } from '@shared/types'
 import { WorkflowBoardService } from '../workflow-board-service'
 
 const originalFixtureFlag = process.env.KATA_TEST_WORKFLOW_FIXTURE
@@ -39,6 +40,146 @@ describe('WorkflowBoardService', () => {
     expect(response.success).toBe(true)
     expect(response.snapshot.status).toBe('fresh')
     expect(response.snapshot.columns.find((column) => column.id === 'todo')?.cards).toHaveLength(1)
+    expect(response.snapshot.symphony?.provenance).toBe('unavailable')
+  })
+
+  test('enriches workflow cards with symphony worker assignments and escalations', async () => {
+    process.env.KATA_TEST_WORKFLOW_FIXTURE = '1'
+
+    const symphonySnapshot: SymphonyOperatorSnapshot = {
+      fetchedAt: new Date().toISOString(),
+      queueCount: 1,
+      completedCount: 0,
+      workers: [
+        {
+          issueId: 'slice-1',
+          identifier: 'KAT-2247',
+          issueTitle: 'Slice',
+          state: 'in_progress',
+          toolName: 'edit',
+          model: 'claude-sonnet-4-6',
+          lastActivityAt: new Date().toISOString(),
+        },
+      ],
+      escalations: [
+        {
+          requestId: 'req-123',
+          issueId: 'slice-1',
+          issueIdentifier: 'KAT-2247',
+          issueTitle: 'Slice',
+          questionPreview: 'Need review',
+          createdAt: new Date().toISOString(),
+          timeoutMs: 300000,
+        },
+      ],
+      connection: {
+        state: 'connected',
+        updatedAt: new Date().toISOString(),
+      },
+      freshness: {
+        status: 'fresh',
+      },
+      response: {},
+    }
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+      getSymphonySnapshot: () => symphonySnapshot,
+    })
+
+    const response = await service.getBoard()
+    const todoCard = response.snapshot.columns.find((column) => column.id === 'todo')?.cards[0]
+
+    expect(response.snapshot.symphony?.provenance).toBe('dashboard-derived')
+    expect(todoCard?.symphony?.assignmentState).toBe('assigned')
+    expect(todoCard?.symphony?.pendingEscalations).toBe(1)
+  })
+
+  test('marks operator-stale and runtime-disconnected symphony board envelopes', async () => {
+    process.env.KATA_TEST_WORKFLOW_FIXTURE = '1'
+
+    const staleSnapshot: SymphonyOperatorSnapshot = {
+      fetchedAt: new Date(Date.now() - 60_000).toISOString(),
+      queueCount: 0,
+      completedCount: 0,
+      workers: [],
+      escalations: [],
+      connection: {
+        state: 'connected',
+        updatedAt: new Date().toISOString(),
+      },
+      freshness: {
+        status: 'stale',
+        staleReason: 'Snapshot is old.',
+      },
+      response: {},
+    }
+
+    const disconnectedSnapshot: SymphonyOperatorSnapshot = {
+      ...staleSnapshot,
+      connection: {
+        state: 'disconnected',
+        updatedAt: new Date().toISOString(),
+        lastError: 'Runtime disconnected.',
+      },
+      freshness: {
+        status: 'stale',
+      },
+    }
+
+    const staleService = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+      getSymphonySnapshot: () => staleSnapshot,
+    })
+
+    const disconnectedService = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+      getSymphonySnapshot: () => disconnectedSnapshot,
+    })
+
+    expect((await staleService.getBoard()).snapshot.symphony?.provenance).toBe('operator-stale')
+    expect((await disconnectedService.getBoard()).snapshot.symphony?.provenance).toBe('runtime-disconnected')
+  })
+
+  test('reports symphony correlation misses for unmatched workers', async () => {
+    process.env.KATA_TEST_WORKFLOW_FIXTURE = '1'
+
+    const symphonySnapshot: SymphonyOperatorSnapshot = {
+      fetchedAt: new Date().toISOString(),
+      queueCount: 0,
+      completedCount: 0,
+      workers: [
+        {
+          issueId: 'unknown',
+          identifier: 'KAT-9999',
+          issueTitle: 'Unknown issue',
+          state: 'in_progress',
+          toolName: 'edit',
+          model: 'claude-sonnet-4-6',
+        },
+      ],
+      escalations: [],
+      connection: {
+        state: 'connected',
+        updatedAt: new Date().toISOString(),
+      },
+      freshness: {
+        status: 'fresh',
+      },
+      response: {},
+    }
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+      getSymphonySnapshot: () => symphonySnapshot,
+    })
+
+    const response = await service.getBoard()
+    expect(response.snapshot.symphony?.diagnostics.correlationMisses).toContain('worker:KAT-9999')
   })
 
   test('returns NOT_CONFIGURED when preferences are missing', async () => {
