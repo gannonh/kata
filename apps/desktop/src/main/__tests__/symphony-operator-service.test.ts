@@ -313,6 +313,31 @@ describe('SymphonyOperatorService', () => {
     expect(service.getSnapshot().connection.lastError).toContain('Runtime exited')
   })
 
+  test('returns failed response result when escalation POST throws transport error', async () => {
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/respond')) {
+        throw new Error('transport down')
+      }
+
+      if (url.endsWith('/api/v1/state')) {
+        return {
+          ok: true,
+          json: async () => ({ running: {}, retry_queue: [], completed: [], pending_escalations: [], running_session_info: {} }),
+        } as Response
+      }
+
+      return { ok: true, json: async () => ({ pending: [] }) } as Response
+    })
+
+    const service = new SymphonyOperatorService({ fetchImpl, createWebSocket: () => fakeSocket })
+    await service.syncRuntimeStatus(READY_STATUS)
+
+    const result = await service.respondToEscalation('req-throw', 'Retry later')
+    expect(result.success).toBe(false)
+    expect(result.result?.message).toContain('transport down')
+  })
+
   test('returns failed response result when escalation POST returns non-OK', async () => {
     const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
@@ -336,5 +361,167 @@ describe('SymphonyOperatorService', () => {
     const result = await service.respondToEscalation('req-9', 'Retry later')
     expect(result.success).toBe(false)
     expect(result.result?.message).toContain('failed (500)')
+  })
+
+  test('handles snapshot stream payload and duplicate escalation creation safely', async () => {
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith('/api/v1/state')) {
+        return {
+          ok: true,
+          json: async () => ({ running: {}, retry_queue: [], completed: [], pending_escalations: [], running_session_info: {} }),
+        } as Response
+      }
+
+      return { ok: true, json: async () => ({ pending: [] }) } as Response
+    })
+
+    const service = new SymphonyOperatorService({ fetchImpl, createWebSocket: () => fakeSocket })
+    await service.syncRuntimeStatus(READY_STATUS)
+
+    fakeSocket.emitMessage({
+      sequence: 8,
+      kind: 'snapshot',
+      payload: {
+        running: {
+          '1': {
+            issue_id: '1',
+            issue_identifier: 'KAT-2338',
+            issue_title: 'Snapshot from stream',
+            status: 'started',
+            model: 'gpt-5',
+          },
+        },
+        retry_queue: [{ id: 'a' }, { id: 'b' }],
+        completed: [{ id: 'done' }],
+        pending_escalations: [
+          {
+            request_id: 'req-stream',
+            issue_id: '1',
+            issue_identifier: 'KAT-2338',
+            preview: 'Need stream answer',
+            created_at: new Date().toISOString(),
+            timeout_ms: 300000,
+          },
+        ],
+      },
+    })
+
+    expect(service.getSnapshot().workers).toHaveLength(1)
+    expect(service.getSnapshot().queueCount).toBe(2)
+
+    fakeSocket.emitMessage({
+      event: 'escalation_created',
+      payload: {
+        request_id: 'req-stream',
+        issue_id: '1',
+        issue_identifier: 'KAT-2338',
+        preview: 'duplicate',
+        created_at: new Date().toISOString(),
+        timeout_ms: 300000,
+      },
+    })
+
+    expect(service.getSnapshot().escalations).toHaveLength(1)
+  })
+
+  test('drops invalid worker/escalation entries from baseline payload', async () => {
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith('/api/v1/state')) {
+        return {
+          ok: true,
+          json: async () => ({
+            running: {
+              invalid: { issue_identifier: 'MISSING_ID' },
+            },
+            retry_queue: [],
+            completed: [],
+            pending_escalations: [],
+            running_session_info: {},
+          }),
+        } as Response
+      }
+
+      return {
+        ok: true,
+        json: async () => ({
+          pending: [{ issue_id: '1', issue_identifier: 'KAT-1' }],
+        }),
+      } as Response
+    })
+
+    const service = new SymphonyOperatorService({ fetchImpl, createWebSocket: () => fakeSocket })
+    await service.syncRuntimeStatus(READY_STATUS)
+
+    expect(service.getSnapshot().workers).toHaveLength(0)
+    expect(service.getSnapshot().escalations).toHaveLength(0)
+  })
+
+  test('uses websocket URL conversion for https and ws URLs', async () => {
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith('/api/v1/state')) {
+        return {
+          ok: true,
+          json: async () => ({ running: {}, retry_queue: [], completed: [], pending_escalations: [], running_session_info: {} }),
+        } as Response
+      }
+
+      return { ok: true, json: async () => ({ pending: [] }) } as Response
+    })
+
+    const openedUrls: string[] = []
+
+    const createWebSocket = (url: string) => {
+      openedUrls.push(url)
+      return new FakeWebSocket()
+    }
+
+    const httpsService = new SymphonyOperatorService({ fetchImpl, createWebSocket })
+    await httpsService.syncRuntimeStatus({ ...READY_STATUS, url: 'https://example.test:8443' })
+
+    const wsService = new SymphonyOperatorService({ fetchImpl, createWebSocket })
+    await wsService.syncRuntimeStatus({ ...READY_STATUS, url: 'ws://example.test:9000' })
+
+    expect(openedUrls[0]).toBe('wss://example.test:8443/api/v1/events')
+    expect(openedUrls[1]).toBe('ws://example.test:9000/api/v1/events')
+  })
+
+  test('disconnects when state endpoint fails and does not open duplicate sockets', async () => {
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith('/api/v1/state')) {
+        return { ok: false, status: 503, json: async () => ({}) } as Response
+      }
+
+      return { ok: true, json: async () => ({ pending: [] }) } as Response
+    })
+
+    const socketFactory = vi.fn(() => fakeSocket)
+    const service = new SymphonyOperatorService({ fetchImpl, createWebSocket: socketFactory })
+
+    await service.syncRuntimeStatus(READY_STATUS)
+    expect(service.getSnapshot().connection.state).toBe('disconnected')
+
+    // ready again should still connect once when runtime remains ready
+    const healthyFetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith('/api/v1/state')) {
+        return {
+          ok: true,
+          json: async () => ({ running: {}, retry_queue: [], completed: [], pending_escalations: [], running_session_info: {} }),
+        } as Response
+      }
+      return { ok: true, json: async () => ({ pending: [] }) } as Response
+    })
+
+    const healthyService = new SymphonyOperatorService({ fetchImpl: healthyFetch, createWebSocket: socketFactory })
+    await healthyService.syncRuntimeStatus(READY_STATUS)
+    await healthyService.syncRuntimeStatus(READY_STATUS)
+    expect(socketFactory).toHaveBeenCalledTimes(2)
+
+    await healthyService.syncRuntimeStatus({ ...READY_STATUS, phase: 'idle' })
+    expect(healthyService.getSnapshot().connection.state).toBe('disconnected')
   })
 })
