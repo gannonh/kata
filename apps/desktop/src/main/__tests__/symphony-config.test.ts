@@ -2,7 +2,7 @@ import { chmodSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:f
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, test } from 'vitest'
-import { resolveSymphonyLaunch } from '../symphony-config'
+import { loadWorkspacePreferences, resolveSymphonyLaunch } from '../symphony-config'
 
 function createWorkspace(): { workspacePath: string; cleanup: () => void } {
   const workspacePath = mkdtempSync(path.join(tmpdir(), 'desktop-symphony-config-'))
@@ -28,6 +28,30 @@ describe('resolveSymphonyLaunch', () => {
     for (const cleanup of cleanups.splice(0)) {
       cleanup()
     }
+  })
+
+  test('loadWorkspacePreferences returns null when preferences file is missing', async () => {
+    const workspace = createWorkspace()
+    cleanups.push(workspace.cleanup)
+
+    const loaded = await loadWorkspacePreferences(workspace.workspacePath)
+    expect(loaded).toBeNull()
+  })
+
+  test('loadWorkspacePreferences returns null without frontmatter/symphony block', async () => {
+    const workspace = createWorkspace()
+    cleanups.push(workspace.cleanup)
+
+    writeFileSync(path.join(workspace.workspacePath, '.kata', 'preferences.md'), 'plain text', 'utf8')
+    expect(await loadWorkspacePreferences(workspace.workspacePath)).toBeNull()
+
+    writeFileSync(
+      path.join(workspace.workspacePath, '.kata', 'preferences.md'),
+      ['---', 'theme: dark', '---'].join('\n'),
+      'utf8',
+    )
+
+    expect(await loadWorkspacePreferences(workspace.workspacePath)).toBeNull()
   })
 
   test('resolves launch descriptor from preferences', async () => {
@@ -146,6 +170,208 @@ describe('resolveSymphonyLaunch', () => {
 
     expect(result.error.code).toBe('CONFIG_INVALID')
     expect(result.error.details).toBe('unsupported_protocol')
+  })
+
+  test('uses env URL and default WORKFLOW path when preferences are missing', async () => {
+    const workspace = createWorkspace()
+    cleanups.push(workspace.cleanup)
+
+    const executablePath = createExecutable(workspace.workspacePath, 'symphony-from-env')
+    writeFileSync(path.join(workspace.workspacePath, 'WORKFLOW.md'), '# workflow\n', 'utf8')
+
+    const result = await resolveSymphonyLaunch({
+      workspacePath: workspace.workspacePath,
+      appIsPackaged: false,
+      env: {
+        ...process.env,
+        KATA_SYMPHONY_URL: 'http://localhost:9090/',
+        KATA_SYMPHONY_BIN_PATH: executablePath,
+      },
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) {
+      return
+    }
+
+    expect(result.launch.urlSource).toBe('env')
+    expect(result.launch.workflowPathSource).toBe('default')
+    expect(result.launch.args).toEqual([
+      path.join(workspace.workspacePath, 'WORKFLOW.md'),
+      '--no-tui',
+      '--port',
+      '9090',
+    ])
+  })
+
+  test('returns config missing when no URL is configured', async () => {
+    const workspace = createWorkspace()
+    cleanups.push(workspace.cleanup)
+
+    writeFileSync(path.join(workspace.workspacePath, 'WORKFLOW.md'), '# workflow\n', 'utf8')
+
+    const result = await resolveSymphonyLaunch({
+      workspacePath: workspace.workspacePath,
+      appIsPackaged: false,
+      env: {
+        ...process.env,
+        KATA_SYMPHONY_URL: '',
+        SYMPHONY_URL: '',
+      },
+    })
+
+    expect(result.ok).toBe(false)
+    if (result.ok) {
+      return
+    }
+
+    expect(result.error.code).toBe('CONFIG_MISSING')
+  })
+
+  test('returns binary not found when env binary path is invalid', async () => {
+    const workspace = createWorkspace()
+    cleanups.push(workspace.cleanup)
+
+    writeFileSync(path.join(workspace.workspacePath, 'WORKFLOW.md'), '# workflow\n', 'utf8')
+
+    const result = await resolveSymphonyLaunch({
+      workspacePath: workspace.workspacePath,
+      appIsPackaged: false,
+      env: {
+        ...process.env,
+        KATA_SYMPHONY_URL: 'http://localhost:8080',
+        KATA_SYMPHONY_BIN_PATH: './missing-binary',
+      },
+    })
+
+    expect(result.ok).toBe(false)
+    if (result.ok) {
+      return
+    }
+
+    expect(result.error.code).toBe('BINARY_NOT_FOUND')
+  })
+
+  test('resolves packaged binary path when running in packaged mode', async () => {
+    const workspace = createWorkspace()
+    cleanups.push(workspace.cleanup)
+
+    const resourcesPath = mkdtempSync(path.join(tmpdir(), 'desktop-symphony-resources-'))
+    cleanups.push(() => rmSync(resourcesPath, { recursive: true, force: true }))
+
+    const packagedBinary = createExecutable(resourcesPath, 'symphony')
+
+    writeFileSync(path.join(workspace.workspacePath, 'WORKFLOW.md'), '# workflow\n', 'utf8')
+
+    const result = await resolveSymphonyLaunch({
+      workspacePath: workspace.workspacePath,
+      appIsPackaged: true,
+      resourcesPath,
+      env: {
+        ...process.env,
+        KATA_SYMPHONY_URL: 'http://localhost:8080',
+      },
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) {
+      return
+    }
+
+    expect(result.launch.command).toBe(packagedBinary)
+    expect(result.launch.source).toBe('bundled')
+  })
+
+  test('parses quoted preference values and strips inline comments', async () => {
+    const workspace = createWorkspace()
+    cleanups.push(workspace.cleanup)
+
+    writeFileSync(path.join(workspace.workspacePath, 'WORKFLOW.md'), '# workflow\n', 'utf8')
+    const executablePath = createExecutable(workspace.workspacePath, 'quoted-symphony-bin')
+
+    writeFileSync(
+      path.join(workspace.workspacePath, '.kata', 'preferences.md'),
+      [
+        '---',
+        'symphony:',
+        '  url: "http://localhost:8082" # inline comment',
+        "  workflow_path: 'WORKFLOW.md'",
+        '---',
+      ].join('\n'),
+      'utf8',
+    )
+
+    const result = await resolveSymphonyLaunch({
+      workspacePath: workspace.workspacePath,
+      appIsPackaged: false,
+      env: {
+        ...process.env,
+        KATA_SYMPHONY_BIN_PATH: executablePath,
+      },
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) {
+      return
+    }
+
+    expect(result.launch.resolvedUrl).toBe('http://localhost:8082')
+  })
+
+  test('falls back to SYMPHONY_URL when KATA_SYMPHONY_URL is missing', async () => {
+    const workspace = createWorkspace()
+    cleanups.push(workspace.cleanup)
+
+    writeFileSync(path.join(workspace.workspacePath, 'WORKFLOW.md'), '# workflow\n', 'utf8')
+    const executablePath = createExecutable(workspace.workspacePath, 'fallback-env-bin')
+
+    const result = await resolveSymphonyLaunch({
+      workspacePath: workspace.workspacePath,
+      appIsPackaged: false,
+      env: {
+        ...process.env,
+        KATA_SYMPHONY_URL: '',
+        SYMPHONY_URL: 'http://localhost:8123',
+        KATA_SYMPHONY_BIN_PATH: executablePath,
+      },
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) {
+      return
+    }
+
+    expect(result.launch.resolvedUrl).toBe('http://localhost:8123')
+  })
+
+  test('resolves binary from PATH discovery when env override is absent', async () => {
+    const workspace = createWorkspace()
+    cleanups.push(workspace.cleanup)
+
+    writeFileSync(path.join(workspace.workspacePath, 'WORKFLOW.md'), '# workflow\n', 'utf8')
+
+    const binDir = mkdtempSync(path.join(tmpdir(), 'desktop-symphony-path-bin-'))
+    cleanups.push(() => rmSync(binDir, { recursive: true, force: true }))
+    const pathBinary = createExecutable(binDir, 'symphony')
+
+    const result = await resolveSymphonyLaunch({
+      workspacePath: workspace.workspacePath,
+      appIsPackaged: false,
+      env: {
+        ...process.env,
+        KATA_SYMPHONY_URL: 'http://localhost:8080',
+        KATA_SYMPHONY_BIN_PATH: '',
+        PATH: `${binDir}:${process.env.PATH ?? ''}`,
+      },
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) {
+      return
+    }
+
+    expect(result.launch.command).toBe(pathBinary)
+    expect(result.launch.source).toBe('path')
   })
 
   test('returns binary not found when command cannot be resolved', async () => {

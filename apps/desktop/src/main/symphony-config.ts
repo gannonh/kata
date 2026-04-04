@@ -277,6 +277,7 @@ function resolveBinaryPath(options: {
   const whichResult = spawnSync(lookupCommand, ['symphony'], {
     stdio: 'pipe',
     encoding: 'utf8',
+    env: options.env,
   })
 
   if (whichResult.status === 0) {

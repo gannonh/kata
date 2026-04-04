@@ -158,4 +158,246 @@ describe('SymphonySupervisor', () => {
     expect(supervisor.getStatus().phase).toBe('stopped')
     expect(supervisor.getStatus().managedProcessRunning).toBe(false)
   })
+
+  test('supports mocked ready mode for deterministic e2e seams', async () => {
+    const workspace = createWorkspace()
+    cleanups.push(workspace.cleanup)
+
+    const supervisor = new SymphonySupervisor({
+      workspacePath: workspace.workspacePath,
+      appIsPackaged: false,
+      env: {
+        ...process.env,
+        KATA_DESKTOP_SYMPHONY_MOCK: 'ready',
+        KATA_SYMPHONY_URL: 'http://127.0.0.1:7000',
+      },
+    })
+
+    const started = await supervisor.start()
+    expect(started.success).toBe(true)
+    expect(supervisor.getStatus().phase).toBe('ready')
+    expect(supervisor.getStatus().pid).toBe(4242)
+
+    const stopped = await supervisor.stop('mock_stop')
+    expect(stopped.success).toBe(true)
+    expect(supervisor.getStatus().phase).toBe('stopped')
+  })
+
+  test('supports mocked config and readiness failure modes', async () => {
+    const workspace = createWorkspace()
+    cleanups.push(workspace.cleanup)
+
+    const configErrorSupervisor = new SymphonySupervisor({
+      workspacePath: workspace.workspacePath,
+      appIsPackaged: false,
+      env: {
+        ...process.env,
+        KATA_DESKTOP_SYMPHONY_MOCK: 'config_error',
+      },
+    })
+
+    const configResult = await configErrorSupervisor.start()
+    expect(configResult.success).toBe(false)
+    expect(configResult.error?.code).toBe('CONFIG_MISSING')
+    expect(configErrorSupervisor.getStatus().phase).toBe('config_error')
+
+    const readinessErrorSupervisor = new SymphonySupervisor({
+      workspacePath: workspace.workspacePath,
+      appIsPackaged: false,
+      env: {
+        ...process.env,
+        KATA_DESKTOP_SYMPHONY_MOCK: 'readiness_error',
+      },
+    })
+
+    const readinessResult = await readinessErrorSupervisor.start()
+    expect(readinessResult.success).toBe(false)
+    expect(readinessResult.error?.code).toBe('READINESS_FAILED')
+    expect(readinessErrorSupervisor.getStatus().phase).toBe('failed')
+  })
+
+  test('captures unexpected process exits as failures', async () => {
+    const workspace = createWorkspace()
+    cleanups.push(workspace.cleanup)
+
+    const child = createMockChild()
+    const supervisor = new SymphonySupervisor({
+      workspacePath: workspace.workspacePath,
+      appIsPackaged: false,
+      env: {
+        ...process.env,
+        KATA_SYMPHONY_BIN_PATH: workspace.executablePath,
+      },
+      spawnImpl: vi.fn(() => child as any) as any,
+      fetchImpl: vi.fn(async () => ({ ok: true } as Response)) as any,
+    })
+
+    await supervisor.start()
+    child.emit('exit', 9, null)
+
+    expect(supervisor.getStatus().phase).toBe('failed')
+    expect(supervisor.getStatus().lastError?.code).toBe('PROCESS_EXITED')
+  })
+
+  test('resets runtime state when workspace path changes', async () => {
+    const workspace = createWorkspace()
+    cleanups.push(workspace.cleanup)
+
+    const supervisor = new SymphonySupervisor({
+      workspacePath: workspace.workspacePath,
+      appIsPackaged: false,
+      env: {
+        ...process.env,
+        KATA_DESKTOP_SYMPHONY_MOCK: 'ready',
+      },
+    })
+
+    await supervisor.start()
+
+    const nextWorkspace = mkdtempSync(path.join(tmpdir(), 'desktop-symphony-next-workspace-'))
+    cleanups.push(() => rmSync(nextWorkspace, { recursive: true, force: true }))
+
+    await supervisor.setWorkspacePath(nextWorkspace)
+
+    expect(supervisor.getStatus().phase).toBe('stopped')
+    expect(supervisor.getStatus().url).toBeNull()
+    expect(supervisor.getStatus().managedProcessRunning).toBe(false)
+  })
+
+  test('captures diagnostics from stdout and stderr streams', async () => {
+    const workspace = createWorkspace()
+    cleanups.push(workspace.cleanup)
+
+    const child = createMockChild()
+
+    const supervisor = new SymphonySupervisor({
+      workspacePath: workspace.workspacePath,
+      appIsPackaged: false,
+      env: {
+        ...process.env,
+        KATA_SYMPHONY_BIN_PATH: workspace.executablePath,
+      },
+      spawnImpl: vi.fn(() => child as any) as any,
+      fetchImpl: vi.fn(async () => ({ ok: true } as Response)) as any,
+    })
+
+    await supervisor.start()
+    child.stdout.emit('data', 'line one\nline two\n')
+    child.stderr.emit('data', 'warn one\n')
+
+    expect(supervisor.getStatus().diagnostics.stdout).toContain('line one')
+    expect(supervisor.getStatus().diagnostics.stdout).toContain('line two')
+    expect(supervisor.getStatus().diagnostics.stderr).toContain('warn one')
+  })
+
+  test('handles spawn implementation failures', async () => {
+    const workspace = createWorkspace()
+    cleanups.push(workspace.cleanup)
+
+    const supervisor = new SymphonySupervisor({
+      workspacePath: workspace.workspacePath,
+      appIsPackaged: false,
+      env: {
+        ...process.env,
+        KATA_SYMPHONY_BIN_PATH: workspace.executablePath,
+      },
+      spawnImpl: vi.fn(() => {
+        throw new Error('spawn exploded')
+      }) as any,
+      fetchImpl: vi.fn(async () => ({ ok: true } as Response)) as any,
+    })
+
+    const result = await supervisor.start()
+    expect(result.success).toBe(false)
+    expect(result.error?.code).toBe('SPAWN_FAILED')
+    expect(supervisor.getStatus().phase).toBe('failed')
+  })
+
+  test('returns stop timeout when process ignores signals', async () => {
+    const workspace = createWorkspace()
+    cleanups.push(workspace.cleanup)
+
+    const child = createMockChild()
+    child.kill = vi.fn(() => true)
+
+    const supervisor = new SymphonySupervisor({
+      workspacePath: workspace.workspacePath,
+      appIsPackaged: false,
+      env: {
+        ...process.env,
+        KATA_SYMPHONY_BIN_PATH: workspace.executablePath,
+      },
+      spawnImpl: vi.fn(() => child as any) as any,
+      fetchImpl: vi.fn(async () => ({ ok: true } as Response)) as any,
+      stopTimeoutMs: 20,
+    })
+
+    await supervisor.start()
+    const stopped = await supervisor.stop('timeout_case')
+
+    expect(stopped.success).toBe(false)
+    expect(stopped.error?.code).toBe('STOP_TIMEOUT')
+    expect(supervisor.getStatus().phase).toBe('failed')
+  })
+
+  test('returns immediately when start is called while already ready', async () => {
+    const workspace = createWorkspace()
+    cleanups.push(workspace.cleanup)
+
+    const spawnImpl = vi.fn(() => createMockChild() as any)
+    const supervisor = new SymphonySupervisor({
+      workspacePath: workspace.workspacePath,
+      appIsPackaged: false,
+      env: {
+        ...process.env,
+        KATA_SYMPHONY_BIN_PATH: workspace.executablePath,
+      },
+      spawnImpl: spawnImpl as any,
+      fetchImpl: vi.fn(async () => ({ ok: true } as Response)) as any,
+    })
+
+    await supervisor.start()
+    const secondStart = await supervisor.start()
+
+    expect(secondStart.success).toBe(true)
+    expect(spawnImpl).toHaveBeenCalledTimes(1)
+  })
+
+  test('stop succeeds when no child process is running', async () => {
+    const workspace = createWorkspace()
+    cleanups.push(workspace.cleanup)
+
+    const supervisor = new SymphonySupervisor({
+      workspacePath: workspace.workspacePath,
+      appIsPackaged: false,
+      env: process.env,
+    })
+
+    const result = await supervisor.stop('idle_stop')
+    expect(result.success).toBe(true)
+    expect(supervisor.getStatus().phase).toBe('stopped')
+  })
+
+  test('marks runtime failed when child emits process error', async () => {
+    const workspace = createWorkspace()
+    cleanups.push(workspace.cleanup)
+
+    const child = createMockChild()
+    const supervisor = new SymphonySupervisor({
+      workspacePath: workspace.workspacePath,
+      appIsPackaged: false,
+      env: {
+        ...process.env,
+        KATA_SYMPHONY_BIN_PATH: workspace.executablePath,
+      },
+      spawnImpl: vi.fn(() => child as any) as any,
+      fetchImpl: vi.fn(async () => ({ ok: true } as Response)) as any,
+    })
+
+    await supervisor.start()
+    child.emit('error', new Error('child failure'))
+
+    expect(supervisor.getStatus().phase).toBe('failed')
+    expect(supervisor.getStatus().lastError?.code).toBe('SPAWN_FAILED')
+  })
 })
