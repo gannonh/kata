@@ -564,8 +564,17 @@ export class WorkflowBoardService {
     const operatorSnapshot = cachedOperatorSnapshot ?? this.options.getSymphonySnapshot?.() ?? null
 
     if (!operatorSnapshot) {
+      const columns = snapshot.columns.map((column) => ({
+        ...column,
+        cards: column.cards.map(({ symphony: _cardSymphony, tasks, ...card }) => ({
+          ...card,
+          tasks: tasks.map(({ symphony: _taskSymphony, ...task }) => task),
+        })),
+      }))
+
       return {
         ...snapshot,
+        columns,
         symphony: {
           connectionState: 'unknown',
           freshness: 'unknown',
@@ -595,25 +604,26 @@ export class WorkflowBoardService {
       }
     }
 
-    const escalationsByIdentifier = new Map<string, number>()
-    const escalationsByIssueId = new Map<string, number>()
+    const escalationsByIdentifier = new Map<string, Set<string>>()
+    const escalationsByIssueId = new Map<string, Set<string>>()
     for (const escalation of operatorSnapshot.escalations) {
       const normalizedIdentifier = normalizeIdentifier(escalation.issueIdentifier)
       if (normalizedIdentifier) {
-        escalationsByIdentifier.set(
-          normalizedIdentifier,
-          (escalationsByIdentifier.get(normalizedIdentifier) ?? 0) + 1,
-        )
+        const requestIds = escalationsByIdentifier.get(normalizedIdentifier) ?? new Set<string>()
+        requestIds.add(escalation.requestId)
+        escalationsByIdentifier.set(normalizedIdentifier, requestIds)
       }
 
       const normalizedIssueId = normalizeIdentifier(escalation.issueId)
       if (normalizedIssueId) {
-        escalationsByIssueId.set(normalizedIssueId, (escalationsByIssueId.get(normalizedIssueId) ?? 0) + 1)
+        const requestIds = escalationsByIssueId.get(normalizedIssueId) ?? new Set<string>()
+        requestIds.add(escalation.requestId)
+        escalationsByIssueId.set(normalizedIssueId, requestIds)
       }
     }
 
     const matchedWorkerKeys = new Set<string>()
-    const matchedEscalationKeys = new Set<string>()
+    const matchedEscalationRequestIds = new Set<string>()
 
     const enrichItem = (
       item: Pick<WorkflowBoardSliceCard, 'id' | 'identifier'> | Pick<WorkflowBoardTask, 'id' | 'identifier'>,
@@ -621,31 +631,27 @@ export class WorkflowBoardService {
       const normalizedIdentifier = normalizeIdentifier(item.identifier)
       const normalizedIssueId = normalizeIdentifier(item.id)
 
-      const worker =
-        (normalizedIdentifier ? workersByIdentifier.get(normalizedIdentifier) : undefined) ??
-        (normalizedIssueId ? workersByIssueId.get(normalizedIssueId) : undefined)
+      const workerByIdentifier = normalizedIdentifier ? workersByIdentifier.get(normalizedIdentifier) : undefined
+      const workerByIssueId = normalizedIssueId ? workersByIssueId.get(normalizedIssueId) : undefined
+      const worker = workerByIdentifier ?? workerByIssueId
 
-      const escalationsMatchedByIdentifier = normalizedIdentifier
-        ? escalationsByIdentifier.get(normalizedIdentifier)
-        : undefined
-      const escalationsMatchedByIssueId = normalizedIssueId ? escalationsByIssueId.get(normalizedIssueId) : undefined
-      const pendingEscalations = escalationsMatchedByIdentifier ?? escalationsMatchedByIssueId ?? 0
+      const escalationRequestIds = new Set<string>()
+      for (const requestId of normalizedIdentifier ? escalationsByIdentifier.get(normalizedIdentifier) ?? [] : []) {
+        escalationRequestIds.add(requestId)
+      }
+      for (const requestId of normalizedIssueId ? escalationsByIssueId.get(normalizedIssueId) ?? [] : []) {
+        escalationRequestIds.add(requestId)
+      }
+      const pendingEscalations = escalationRequestIds.size
 
-      if (worker) {
-        const workerKey = normalizeIdentifier(worker.identifier)
-        if (workerKey) {
-          matchedWorkerKeys.add(workerKey)
-        }
+      if (workerByIdentifier && normalizedIdentifier) {
+        matchedWorkerKeys.add(`identifier:${normalizedIdentifier}`)
+      } else if (workerByIssueId && normalizedIssueId) {
+        matchedWorkerKeys.add(`issue:${normalizedIssueId}`)
       }
 
-      if (pendingEscalations > 0) {
-        if (escalationsMatchedByIdentifier && normalizedIdentifier) {
-          matchedEscalationKeys.add(normalizedIdentifier)
-        }
-
-        if (escalationsMatchedByIssueId && normalizedIssueId) {
-          matchedEscalationKeys.add(normalizedIssueId)
-        }
+      for (const requestId of escalationRequestIds) {
+        matchedEscalationRequestIds.add(requestId)
       }
 
       return {
@@ -679,19 +685,19 @@ export class WorkflowBoardService {
     const correlationMisses: string[] = []
 
     for (const worker of operatorSnapshot.workers) {
-      const key = normalizeIdentifier(worker.identifier)
-      if (key && !matchedWorkerKeys.has(key)) {
-        correlationMisses.push(`worker:${worker.identifier}`)
+      const identifierKey = normalizeIdentifier(worker.identifier)
+      const issueKey = normalizeIdentifier(worker.issueId)
+      if (
+        (identifierKey && matchedWorkerKeys.has(`identifier:${identifierKey}`)) ||
+        (issueKey && matchedWorkerKeys.has(`issue:${issueKey}`))
+      ) {
+        continue
       }
+      correlationMisses.push(`worker:${worker.identifier || worker.issueId}`)
     }
 
     for (const escalation of operatorSnapshot.escalations) {
-      const identifierKey = normalizeIdentifier(escalation.issueIdentifier)
-      const issueKey = normalizeIdentifier(escalation.issueId)
-      if (
-        (identifierKey && matchedEscalationKeys.has(identifierKey)) ||
-        (issueKey && matchedEscalationKeys.has(issueKey))
-      ) {
+      if (matchedEscalationRequestIds.has(escalation.requestId)) {
         continue
       }
       correlationMisses.push(`escalation:${escalation.requestId}`)

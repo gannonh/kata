@@ -2,6 +2,8 @@ import type { Page } from '@playwright/test'
 import { expect, test } from '../fixtures/electron.fixture'
 
 async function startMockRuntime(page: Page) {
+  await expect(page.getByRole('heading', { name: /Workflow Board/i })).toBeVisible()
+
   await page.evaluate(async () => {
     await window.api.symphony.start()
   })
@@ -16,8 +18,6 @@ test.describe('Symphony-aware kanban convergence', () => {
 
     await expect(readyWindow.getByTestId('workflow-board-status')).toContainText('Symphony: live · 2 workers · 1 escalation')
     await expect(readyWindow.getByTestId('slice-symphony-KAT-2247')).toContainText('Execution: edit')
-    await expect(readyWindow.getByText('1 escalation')).toBeVisible()
-
     await readyWindow.getByRole('button', { name: /Show tasks/i }).click()
     await expect(readyWindow.getByText('Worker KAT-2252')).toBeVisible()
   })
@@ -30,7 +30,7 @@ test.describe('Symphony stale and disconnected degradation', () => {
     await startMockRuntime(readyWindow)
 
     await expect(readyWindow.getByTestId('workflow-board-status')).toContainText('Symphony: stale')
-    await expect(readyWindow.getByTestId('workflow-board-symphony-stale')).toContainText('Snapshot is old.')
+    await expect(readyWindow.getByTestId('workflow-board-symphony-stale')).toContainText('No recent updates.')
     await expect(readyWindow.getByText(/KAT-2247 · \[S01\]/i)).toBeVisible()
   })
 })

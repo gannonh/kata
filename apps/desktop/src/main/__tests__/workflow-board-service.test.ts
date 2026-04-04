@@ -58,6 +58,53 @@ describe('WorkflowBoardService', () => {
     expect(response.snapshot.symphony?.staleReason).toBeUndefined()
   })
 
+  test('clears per-item symphony projections when the snapshot becomes unavailable', async () => {
+    process.env.KATA_TEST_WORKFLOW_FIXTURE = '1'
+
+    let symphonySnapshot: SymphonyOperatorSnapshot | null = {
+      fetchedAt: new Date().toISOString(),
+      queueCount: 1,
+      completedCount: 0,
+      workers: [
+        {
+          issueId: 'slice-1',
+          identifier: 'KAT-2247',
+          issueTitle: 'Slice',
+          state: 'in_progress',
+          toolName: 'edit',
+          model: 'claude-sonnet-4-6',
+          lastActivityAt: new Date().toISOString(),
+        },
+      ],
+      escalations: [],
+      connection: {
+        state: 'connected',
+        updatedAt: new Date().toISOString(),
+      },
+      freshness: {
+        status: 'fresh',
+      },
+      response: {},
+    }
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+      getSymphonySnapshot: () => symphonySnapshot,
+    })
+
+    const assigned = await service.getBoard()
+    const assignedCard = assigned.snapshot.columns.flatMap((column) => column.cards)[0]
+    expect(assignedCard?.symphony?.assignmentState).toBe('assigned')
+
+    symphonySnapshot = null
+
+    const unavailable = await service.getBoard()
+    const unavailableCard = unavailable.snapshot.columns.flatMap((column) => column.cards)[0]
+    expect(unavailable.snapshot.symphony?.provenance).toBe('unavailable')
+    expect(unavailableCard?.symphony).toBeUndefined()
+  })
+
   test('enriches workflow cards with symphony worker assignments and escalations', async () => {
     process.env.KATA_TEST_WORKFLOW_FIXTURE = '1'
 
@@ -351,6 +398,88 @@ describe('WorkflowBoardService', () => {
     const response = await service.refreshBoard()
 
     expect(response.snapshot.columns[0]?.cards[0]?.symphony?.pendingEscalations).toBe(1)
+    expect(response.snapshot.symphony?.diagnostics.correlationMisses).toEqual([])
+  })
+
+  test('counts identifier and issue-id escalation matches together without false misses', async () => {
+    const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-escalation-mixed-join-'))
+    mkdirSync(path.join(workspacePath, '.kata'), { recursive: true })
+    writeFileSync(path.join(workspacePath, '.kata', 'preferences.md'), ['---', 'projectSlug: project-ref', '---', ''].join('\n'), 'utf8')
+
+    const symphonySnapshot: SymphonyOperatorSnapshot = {
+      fetchedAt: new Date().toISOString(),
+      queueCount: 0,
+      completedCount: 0,
+      workers: [],
+      escalations: [
+        {
+          requestId: 'req-identifier',
+          issueId: 'slice-issue-id',
+          issueIdentifier: 'KAT-2247',
+          issueTitle: 'Issue id join',
+          questionPreview: 'Need review',
+          createdAt: new Date().toISOString(),
+          timeoutMs: 300000,
+        },
+        {
+          requestId: 'req-issue-id',
+          issueId: 'slice-issue-id',
+          issueIdentifier: '',
+          issueTitle: 'Issue id join',
+          questionPreview: 'Need review',
+          createdAt: new Date().toISOString(),
+          timeoutMs: 300000,
+        },
+      ],
+      connection: {
+        state: 'connected',
+        updatedAt: new Date().toISOString(),
+      },
+      freshness: {
+        status: 'fresh',
+      },
+      response: {},
+    }
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => workspacePath,
+      getSymphonySnapshot: () => symphonySnapshot,
+    })
+
+    ;(service as any).linearClient.fetchActiveMilestoneSnapshot = vi.fn(async () => ({
+      backend: 'linear',
+      fetchedAt: '2026-04-04T00:00:00.000Z',
+      status: 'fresh',
+      source: { projectId: 'project-ref', activeMilestoneId: 'm1' },
+      activeMilestone: { id: 'm1', name: '[M001] Demo' },
+      columns: [
+        {
+          id: 'todo',
+          title: 'Todo',
+          cards: [
+            {
+              id: 'slice-issue-id',
+              identifier: 'KAT-2247',
+              title: 'Issue id join card',
+              columnId: 'todo',
+              stateName: 'Todo',
+              stateType: 'unstarted',
+              milestoneId: 'm1',
+              milestoneName: '[M001] Demo',
+              taskCounts: { total: 0, done: 0 },
+              tasks: [],
+            },
+          ],
+        },
+      ],
+      poll: { status: 'success', backend: 'linear', lastAttemptAt: '2026-04-04T00:00:00.000Z' },
+    }))
+
+    service.setActive(true)
+    const response = await service.refreshBoard()
+
+    expect(response.snapshot.columns[0]?.cards[0]?.symphony?.pendingEscalations).toBe(2)
     expect(response.snapshot.symphony?.diagnostics.correlationMisses).toEqual([])
   })
 
