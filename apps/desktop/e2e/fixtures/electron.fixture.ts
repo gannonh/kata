@@ -80,6 +80,8 @@ type DesktopFixtures = {
     | 'kanban_assigned'
     | 'kanban_stale'
     | 'kanban_disconnected'
+    | 'assembled_healthy'
+    | 'assembled_failure_recovery'
 }
 
 export const test = base.extend<DesktopFixtures>({
