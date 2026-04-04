@@ -63,6 +63,34 @@ export function formatWorkflowBoardStatus(input: {
   return input.refreshing ? `${status} · Refreshing…` : status
 }
 
+export function formatSymphonyBoardStatus(board: WorkflowBoardSnapshot | null): string {
+  if (!board?.symphony || board.symphony.provenance === 'unavailable') {
+    return 'Symphony: unavailable'
+  }
+
+  const symphony = board.symphony
+  const statusLabel =
+    symphony.freshness === 'fresh'
+      ? 'live'
+      : symphony.freshness === 'stale'
+        ? 'stale'
+        : symphony.freshness === 'disconnected'
+          ? 'disconnected'
+          : 'unknown'
+
+  const mismatchLabel =
+    symphony.diagnostics.correlationMisses.length > 0
+      ? ` · ${symphony.diagnostics.correlationMisses.length} correlation miss${
+          symphony.diagnostics.correlationMisses.length === 1 ? '' : 'es'
+        }`
+      : ''
+
+  const workerLabel = `${symphony.workerCount} worker${symphony.workerCount === 1 ? '' : 's'}`
+  const escalationLabel = `${symphony.escalationCount} escalation${symphony.escalationCount === 1 ? '' : 's'}`
+
+  return `Symphony: ${statusLabel} · ${workerLabel} · ${escalationLabel}${mismatchLabel}`
+}
+
 interface KanbanHeaderProps {
   board: WorkflowBoardSnapshot | null
   loading: boolean
@@ -123,7 +151,15 @@ export function KanbanHeader({
           emptyReason: board?.emptyReason,
           refreshing,
         })}
+        {' · '}
+        {formatSymphonyBoardStatus(board)}
       </div>
+
+      {board?.symphony?.staleReason ? (
+        <div className="border-b border-border bg-amber-500/10 px-4 py-2 text-xs text-amber-900 dark:text-amber-200" data-testid="workflow-board-symphony-stale">
+          {board.symphony.staleReason}
+        </div>
+      ) : null}
 
       {rightPaneOverride ? (
         <div className="border-b border-border bg-muted/70 px-4 py-2 text-xs text-muted-foreground">

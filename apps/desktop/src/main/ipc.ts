@@ -82,6 +82,7 @@ export function registerSessionIpc({
   const workflowBoardService = new WorkflowBoardService({
     authBridge,
     getWorkspacePath: () => bridge.getWorkspacePath(),
+    getSymphonySnapshot: () => symphonyOperatorService?.getSnapshot() ?? null,
   })
 
   const planningArtifactsByKey = new Map<string, PlanningArtifact>()

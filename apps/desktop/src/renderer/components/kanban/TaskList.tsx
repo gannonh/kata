@@ -39,6 +39,21 @@ export function TaskList({ tasks }: TaskListProps) {
               {task.stateName}
             </Badge>
           </div>
+          {task.symphony ? (
+            <div className="mt-1 flex flex-wrap items-center gap-1 text-[10px] text-muted-foreground">
+              <span>
+                {task.symphony.assignmentState === 'assigned'
+                  ? `Worker ${task.symphony.identifier ?? '(unknown)'}`
+                  : 'Unassigned'}
+              </span>
+              {task.symphony.workerState ? <span>· {task.symphony.workerState}</span> : null}
+              {task.symphony.pendingEscalations > 0 ? (
+                <Badge variant="destructive" className="text-[10px]">
+                  {task.symphony.pendingEscalations} escalation{task.symphony.pendingEscalations === 1 ? '' : 's'}
+                </Badge>
+              ) : null}
+            </div>
+          ) : null}
         </li>
       ))}
     </ul>

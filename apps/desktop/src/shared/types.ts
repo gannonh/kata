@@ -604,6 +604,42 @@ export interface WorkflowBoardError {
   message: string
 }
 
+export type WorkflowSymphonyExecutionProvenance =
+  | 'dashboard-derived'
+  | 'operator-stale'
+  | 'runtime-disconnected'
+  | 'unavailable'
+
+export type WorkflowSymphonyExecutionFreshness = 'fresh' | 'stale' | 'disconnected' | 'unknown'
+
+export interface WorkflowSymphonyExecutionSummary {
+  issueId?: string
+  identifier?: string
+  workerState?: string
+  toolName?: string
+  model?: string
+  lastActivityAt?: string
+  lastError?: string
+  pendingEscalations: number
+  assignmentState: 'assigned' | 'unassigned'
+  freshness: WorkflowSymphonyExecutionFreshness
+  provenance: WorkflowSymphonyExecutionProvenance
+  staleReason?: string
+}
+
+export interface WorkflowBoardSymphonySnapshot {
+  connectionState: SymphonyOperatorConnectionState | 'unknown'
+  freshness: WorkflowSymphonyExecutionFreshness
+  provenance: WorkflowSymphonyExecutionProvenance
+  staleReason?: string
+  fetchedAt?: string
+  workerCount: number
+  escalationCount: number
+  diagnostics: {
+    correlationMisses: string[]
+  }
+}
+
 export interface WorkflowBoardTask {
   id: string
   identifier?: string
@@ -612,6 +648,7 @@ export interface WorkflowBoardTask {
   stateName: string
   stateType: string
   url?: string
+  symphony?: WorkflowSymphonyExecutionSummary
 }
 
 export interface WorkflowBoardSliceCard {
@@ -629,6 +666,7 @@ export interface WorkflowBoardSliceCard {
     done: number
   }
   tasks: WorkflowBoardTask[]
+  symphony?: WorkflowSymphonyExecutionSummary
 }
 
 export interface WorkflowBoardColumn {
@@ -663,6 +701,7 @@ export interface WorkflowBoardSnapshot {
       }
     | null
   columns: WorkflowBoardColumn[]
+  symphony?: WorkflowBoardSymphonySnapshot
   emptyReason?: string
   lastError?: WorkflowBoardError
   poll: WorkflowBoardPollMetadata
