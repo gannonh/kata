@@ -5,10 +5,11 @@ export default defineConfig({
   resolve: {
     alias: {
       '@shared': path.resolve(__dirname, 'src/shared'),
+      '@': path.resolve(__dirname, 'src/renderer'),
     },
   },
   test: {
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
     passWithNoTests: true,
     testTimeout: 15_000,
     coverage: {

@@ -7,18 +7,54 @@ import {
   workflowBoardLoadingAtom,
   workflowBoardRefreshingAtom,
 } from '@/atoms/workflow-board'
-import { rightPaneModeAtom } from '@/atoms/planning'
+import {
+  clearRightPaneOverrideAtom,
+  rightPaneOverrideAtom,
+  rightPaneResolutionAtom,
+  setRightPaneOverrideAtom,
+  workflowContextAtom,
+} from '@/atoms/right-pane'
 import { KanbanColumn } from '@/components/kanban/KanbanColumn'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { normalizeWorkflowColumns } from '@/lib/workflow-board'
+
+export function formatWorkflowBoardStatus(input: {
+  loading: boolean
+  boardStatus?: 'fresh' | 'stale' | 'empty' | 'error'
+  backend?: string
+  emptyReason?: string
+  refreshing: boolean
+}): string {
+  if (input.loading) {
+    return 'Loading workflow board…'
+  }
+
+  let status = 'Workflow board not loaded'
+
+  if (input.boardStatus === 'fresh') {
+    status = `Live data · ${input.backend ?? 'unknown'}`
+  } else if (input.boardStatus === 'empty') {
+    status = input.emptyReason ?? 'No work items found'
+  } else if (input.boardStatus === 'stale') {
+    status = 'Showing stale board snapshot'
+  } else if (input.boardStatus === 'error') {
+    status = 'Workflow board unavailable'
+  }
+
+  return input.refreshing ? `${status} · Refreshing…` : status
+}
 
 export function KanbanPane() {
   const board = useAtomValue(workflowBoardAtom)
   const loading = useAtomValue(workflowBoardLoadingAtom)
   const refreshing = useAtomValue(workflowBoardRefreshingAtom)
   const error = useAtomValue(workflowBoardErrorAtom)
-  const setRightPaneMode = useSetAtom(rightPaneModeAtom)
+  const setRightPaneOverride = useSetAtom(setRightPaneOverrideAtom)
+  const clearOverride = useSetAtom(clearRightPaneOverrideAtom)
+  const rightPaneOverride = useAtomValue(rightPaneOverrideAtom)
+  const paneResolution = useAtomValue(rightPaneResolutionAtom)
+  const workflowContext = useAtomValue(workflowContextAtom)
   const refreshBoard = useSetAtom(refreshWorkflowBoardAtom)
 
   const columns = board ? normalizeWorkflowColumns(board) : []
@@ -39,7 +75,7 @@ export function KanbanPane() {
             size="icon"
             variant="ghost"
             aria-label="Open planning view"
-            onClick={() => setRightPaneMode('planning')}
+            onClick={() => setRightPaneOverride('planning')}
           >
             <LayoutGrid className="size-4" />
           </Button>
@@ -61,14 +97,32 @@ export function KanbanPane() {
       <Separator />
 
       <div className="border-b border-border px-4 py-2 text-xs text-muted-foreground" data-testid="workflow-board-status">
-        {loading ? 'Loading workflow board…' : null}
-        {!loading && !board ? 'Workflow board not loaded' : null}
-        {!loading && board?.status === 'fresh' ? `Live data · ${board.backend}` : null}
-        {!loading && board?.status === 'empty' ? board.emptyReason ?? 'No work items found' : null}
-        {!loading && board?.status === 'stale' ? 'Showing stale board snapshot' : null}
-        {!loading && board?.status === 'error' ? 'Workflow board unavailable' : null}
-        {refreshing ? ' · Refreshing…' : null}
+        {rightPaneOverride ? `Manual override: ${rightPaneOverride}` : `Auto mode: ${paneResolution.reason}`}
+        {' · '}
+        {`Context: ${workflowContext.mode}`}
+        {' · '}
+        {formatWorkflowBoardStatus({
+          loading,
+          boardStatus: board?.status,
+          backend: board?.backend,
+          emptyReason: board?.emptyReason,
+          refreshing,
+        })}
       </div>
+
+      {rightPaneOverride ? (
+        <div className="border-b border-border bg-muted/70 px-4 py-2 text-xs text-muted-foreground">
+          Manual pane override is active.
+          <Button
+            type="button"
+            variant="link"
+            className="ml-1 h-auto p-0 text-xs"
+            onClick={() => clearOverride()}
+          >
+            Return to auto mode
+          </Button>
+        </div>
+      ) : null}
 
       {error ? (
         <div className="border-b border-border bg-destructive/10 px-4 py-2 text-xs text-destructive">{error}</div>
