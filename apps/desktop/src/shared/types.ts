@@ -531,10 +531,26 @@ export const WORKFLOW_COLUMNS: ReadonlyArray<{ id: WorkflowColumnId; title: stri
 
 export type WorkflowBoardBackend = 'linear' | 'github'
 
+export type GithubWorkflowStateMode = 'labels' | 'projects_v2'
+
+export type WorkflowTrackerConfig =
+  | {
+      kind: 'linear'
+    }
+  | {
+      kind: 'github'
+      repoOwner: string
+      repoName: string
+      stateMode: GithubWorkflowStateMode
+      githubProjectNumber?: number
+      labelPrefix?: string
+    }
+
 export type WorkflowBoardStatus = 'fresh' | 'stale' | 'empty' | 'error'
 
 export type WorkflowBoardErrorCode =
   | 'NOT_CONFIGURED'
+  | 'INVALID_CONFIG'
   | 'MISSING_API_KEY'
   | 'UNAUTHORIZED'
   | 'NOT_FOUND'
@@ -555,6 +571,7 @@ export interface WorkflowBoardTask {
   columnId: WorkflowColumnId
   stateName: string
   stateType: string
+  url?: string
 }
 
 export interface WorkflowBoardSliceCard {
@@ -564,6 +581,7 @@ export interface WorkflowBoardSliceCard {
   columnId: WorkflowColumnId
   stateName: string
   stateType: string
+  url?: string
   milestoneId: string
   milestoneName: string
   taskCounts: {
@@ -592,6 +610,10 @@ export interface WorkflowBoardSnapshot {
   source: {
     projectId: string
     activeMilestoneId?: string
+    trackerKind?: 'linear' | 'github'
+    githubStateMode?: GithubWorkflowStateMode
+    repoOwner?: string
+    repoName?: string
   }
   activeMilestone:
     | {
