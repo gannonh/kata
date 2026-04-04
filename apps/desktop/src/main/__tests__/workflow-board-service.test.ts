@@ -397,6 +397,43 @@ describe('WorkflowBoardService', () => {
     expect(context.trackerConfigured).toBe(false)
   })
 
+  test('refreshContext marks tracker configured when preferences define a project reference', async () => {
+    const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-refresh-context-configured-'))
+    mkdirSync(path.join(workspacePath, '.kata'), { recursive: true })
+    writeFileSync(
+      path.join(workspacePath, '.kata', 'preferences.md'),
+      ['---', 'projectSlug: demo-project', '---', ''].join('\n'),
+      'utf8',
+    )
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => workspacePath,
+    })
+
+    const context = await service.refreshContext()
+    expect(context.trackerConfigured).toBe(true)
+  })
+
+  test('treats frontmatter without project reference as not configured', async () => {
+    const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-no-project-ref-'))
+    mkdirSync(path.join(workspacePath, '.kata'), { recursive: true })
+    writeFileSync(
+      path.join(workspacePath, '.kata', 'preferences.md'),
+      ['---', 'foo: bar', '---', ''].join('\n'),
+      'utf8',
+    )
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => workspacePath,
+    })
+
+    service.setActive(true)
+    const response = await service.refreshBoard()
+    expect(response.snapshot.lastError?.code).toBe('NOT_CONFIGURED')
+  })
+
   test('ignores invalid scenario markers in test mode and falls back to normal refresh path', async () => {
     process.env.KATA_TEST_MODE = '1'
 
