@@ -273,6 +273,42 @@ describe('SymphonyOperatorService', () => {
     expect(response.result?.message).toContain('URL is unavailable')
   })
 
+  test('supports assembled mocked healthy flow updates after escalation response', async () => {
+    const service = new SymphonyOperatorService({
+      env: { KATA_DESKTOP_SYMPHONY_DASHBOARD_MOCK: 'assembled_healthy' },
+      createWebSocket: () => fakeSocket,
+    })
+
+    await service.syncRuntimeStatus(READY_STATUS)
+    expect(service.getSnapshot().workers.some((worker) => worker.identifier === 'KAT-2337')).toBe(true)
+    expect(service.getSnapshot().escalations[0]?.requestId).toBe('req-assembled-1')
+
+    const result = await service.respondToEscalation('req-assembled-1', 'Move to agent review')
+    expect(result.success).toBe(true)
+
+    const updatedWorker = service.getSnapshot().workers.find((worker) => worker.identifier === 'KAT-2337')
+    expect(updatedWorker?.state).toBe('agent_review')
+    expect(updatedWorker?.toolName).toBe('idle')
+    expect(service.getSnapshot().escalations).toHaveLength(0)
+  })
+
+  test('supports assembled failure-recovery mocked baseline sequencing', async () => {
+    const service = new SymphonyOperatorService({
+      env: { KATA_DESKTOP_SYMPHONY_DASHBOARD_MOCK: 'assembled_failure_recovery' },
+      createWebSocket: () => fakeSocket,
+    })
+
+    await service.syncRuntimeStatus(READY_STATUS)
+    expect(service.getSnapshot().connection.state).toBe('connected')
+
+    await service.refreshBaseline()
+    expect(service.getSnapshot().connection.state).toBe('disconnected')
+
+    await service.refreshBaseline()
+    expect(service.getSnapshot().connection.state).toBe('connected')
+    expect(service.getSnapshot().escalations).toHaveLength(0)
+  })
+
   test('supports mocked dashboard baselines and mocked response failure/success branches', async () => {
     const reconnectingService = new SymphonyOperatorService({
       env: { KATA_DESKTOP_SYMPHONY_DASHBOARD_MOCK: 'reconnecting' },

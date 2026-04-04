@@ -8,6 +8,7 @@ import { WorkflowBoardService } from '../workflow-board-service'
 
 const originalFixtureFlag = process.env.KATA_TEST_WORKFLOW_FIXTURE
 const originalTestModeFlag = process.env.KATA_TEST_MODE
+const originalSymphonyDashboardMockFlag = process.env.KATA_DESKTOP_SYMPHONY_DASHBOARD_MOCK
 
 describe('WorkflowBoardService', () => {
   beforeEach(() => {
@@ -26,6 +27,12 @@ describe('WorkflowBoardService', () => {
     } else {
       delete process.env.KATA_TEST_MODE
     }
+
+    if (originalSymphonyDashboardMockFlag !== undefined) {
+      process.env.KATA_DESKTOP_SYMPHONY_DASHBOARD_MOCK = originalSymphonyDashboardMockFlag
+    } else {
+      delete process.env.KATA_DESKTOP_SYMPHONY_DASHBOARD_MOCK
+    }
   })
 
   test('returns deterministic fixture snapshot when fixture mode is enabled', async () => {
@@ -41,6 +48,23 @@ describe('WorkflowBoardService', () => {
     expect(response.snapshot.status).toBe('fresh')
     expect(response.snapshot.columns.find((column) => column.id === 'todo')?.cards).toHaveLength(1)
     expect(response.snapshot.symphony?.provenance).toBe('unavailable')
+  })
+
+  test('uses assembled linear fixture in test mode when assembled symphony mock is active', async () => {
+    process.env.KATA_TEST_WORKFLOW_FIXTURE = '1'
+    process.env.KATA_DESKTOP_SYMPHONY_DASHBOARD_MOCK = 'assembled_healthy'
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+    })
+
+    const response = await service.getBoard()
+    const inProgressCards = response.snapshot.columns.find((column) => column.id === 'in_progress')?.cards ?? []
+
+    expect(inProgressCards[0]?.identifier).toBe('KAT-2337')
+
+    delete process.env.KATA_DESKTOP_SYMPHONY_DASHBOARD_MOCK
   })
 
   test('omits staleReason when symphony snapshot is unavailable', async () => {

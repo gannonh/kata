@@ -185,6 +185,25 @@ describe('SymphonySupervisor', () => {
     expect(supervisor.getStatus().phase).toBe('stopped')
   })
 
+  test('supports assembled mocked scenario mode with runtime checkpoints', async () => {
+    const workspace = createWorkspace()
+    cleanups.push(workspace.cleanup)
+
+    const supervisor = new SymphonySupervisor({
+      workspacePath: workspace.workspacePath,
+      appIsPackaged: false,
+      env: {
+        ...process.env,
+        KATA_DESKTOP_SYMPHONY_MOCK: 'assembled_healthy',
+      },
+    })
+
+    const started = await supervisor.start()
+    expect(started.success).toBe(true)
+    expect(supervisor.getStatus().launch?.command).toBe('mock-symphony-assembled')
+    expect(supervisor.getStatus().diagnostics.stdout[0]).toContain('checkpoint:runtime-ready:assembled_healthy')
+  })
+
   test('supports mocked config and readiness failure modes', async () => {
     const workspace = createWorkspace()
     cleanups.push(workspace.cleanup)
