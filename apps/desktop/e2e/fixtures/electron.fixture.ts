@@ -71,9 +71,11 @@ type DesktopFixtures = {
   workspaceDir: string
   mainWindow: Page
   readyWindow: Page
+  symphonyMockMode: 'ready' | 'config_error' | 'readiness_error'
 }
 
 export const test = base.extend<DesktopFixtures>({
+  symphonyMockMode: ['ready', { option: true }],
   workspaceDir: async ({}, use) => {
     const dataDir = createIsolatedDataDir()
     const workspaceDir = path.join(dataDir, 'workspace')
@@ -83,7 +85,7 @@ export const test = base.extend<DesktopFixtures>({
       try { rmSync(dataDir, { recursive: true, force: true }) } catch { /* noop */ }
     }
   },
-  electronApp: async ({ workspaceDir }, use) => {
+  electronApp: async ({ workspaceDir, symphonyMockMode }, use) => {
     const dataDir = path.dirname(workspaceDir)
     const mainEntry = path.join(__dirname, '../../dist/main.cjs')
     const preloadEntry = path.join(__dirname, '../../dist/preload.cjs')
@@ -113,6 +115,8 @@ export const test = base.extend<DesktopFixtures>({
         NODE_ENV: 'test',
         KATA_TEST_MODE: '1',
         KATA_WORKSPACE_PATH: workspaceDir,
+        KATA_DESKTOP_SYMPHONY_MOCK: symphonyMockMode,
+        KATA_SYMPHONY_URL: 'http://127.0.0.1:8080',
         // Don't override HOME — that breaks CLI binary discovery and auth.json lookup.
         // The --user-data-dir flag isolates Electron's own data (localStorage, cookies).
       },

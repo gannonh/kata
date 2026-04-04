@@ -12,8 +12,9 @@ import {
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ProviderAuthPanel } from './ProviderAuthPanel'
+import { SymphonyRuntimePanel } from './SymphonyRuntimePanel'
 
-type SettingsTab = 'providers' | 'general' | 'appearance'
+type SettingsTab = 'providers' | 'general' | 'appearance' | 'symphony'
 
 interface SettingsPanelProps {
   open: boolean
@@ -22,6 +23,7 @@ interface SettingsPanelProps {
 
 const SETTINGS_TABS: Array<{ id: SettingsTab; label: string }> = [
   { id: 'providers', label: 'Providers' },
+  { id: 'symphony', label: 'Symphony' },
   { id: 'general', label: 'General' },
   { id: 'appearance', label: 'Appearance' },
 ]
@@ -75,6 +77,10 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
           <div className="flex-1 overflow-hidden">
             <TabsContent value="providers" className="mt-0 h-full overflow-auto p-4">
               <ProviderAuthPanel />
+            </TabsContent>
+
+            <TabsContent value="symphony" className="mt-0 h-full overflow-auto p-4">
+              <SymphonyRuntimePanel />
             </TabsContent>
 
             <TabsContent value="general" className="mt-0 h-full overflow-auto p-4">

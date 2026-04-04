@@ -10,6 +10,7 @@ import {
   type PlanningArtifact,
   type PlanningArtifactFetchStateEvent,
   type ThinkingLevel,
+  type SymphonyRuntimeStatus,
 } from '../shared/types'
 
 const api: DesktopApi = {
@@ -163,6 +164,31 @@ const api: DesktopApi = {
     },
     getContext: async () => {
       return ipcRenderer.invoke(IPC_CHANNELS.workflowGetContext)
+    },
+  },
+  symphony: {
+    getStatus: async () => {
+      return ipcRenderer.invoke(IPC_CHANNELS.symphonyGetStatus)
+    },
+    start: async () => {
+      return ipcRenderer.invoke(IPC_CHANNELS.symphonyStart)
+    },
+    stop: async () => {
+      return ipcRenderer.invoke(IPC_CHANNELS.symphonyStop)
+    },
+    restart: async () => {
+      return ipcRenderer.invoke(IPC_CHANNELS.symphonyRestart)
+    },
+    onStatus: (listener: (status: SymphonyRuntimeStatus) => void) => {
+      const wrapped = (_event: Electron.IpcRendererEvent, status: SymphonyRuntimeStatus) => {
+        listener(status)
+      }
+
+      ipcRenderer.on(IPC_CHANNELS.symphonyStatus, wrapped)
+
+      return () => {
+        ipcRenderer.removeListener(IPC_CHANNELS.symphonyStatus, wrapped)
+      }
     },
   },
 }
