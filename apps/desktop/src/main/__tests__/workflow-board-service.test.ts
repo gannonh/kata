@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { WorkflowBoardService } from '../workflow-board-service'
 
 const originalFixtureFlag = process.env.KATA_TEST_WORKFLOW_FIXTURE
+const originalTestModeFlag = process.env.KATA_TEST_MODE
 
 describe('WorkflowBoardService', () => {
   beforeEach(() => {
@@ -17,6 +18,12 @@ describe('WorkflowBoardService', () => {
       process.env.KATA_TEST_WORKFLOW_FIXTURE = originalFixtureFlag
     } else {
       delete process.env.KATA_TEST_WORKFLOW_FIXTURE
+    }
+
+    if (originalTestModeFlag !== undefined) {
+      process.env.KATA_TEST_MODE = originalTestModeFlag
+    } else {
+      delete process.env.KATA_TEST_MODE
     }
   })
 
@@ -145,6 +152,83 @@ describe('WorkflowBoardService', () => {
     expect(response.snapshot.status).toBe('error')
     expect(response.snapshot.lastError?.code).toBe('UNKNOWN')
     expect(response.snapshot.lastError?.message).toContain('Unable to read .kata/preferences.md')
+  })
+
+  test('returns inactive error snapshot when board is not active', async () => {
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+    })
+
+    const response = await service.refreshBoard()
+    expect(response.snapshot.status).toBe('error')
+    expect(response.snapshot.lastError?.message).toContain('Workflow board inactive')
+  })
+
+  test('supports deterministic test scenarios via scope key in test mode', async () => {
+    process.env.KATA_TEST_MODE = '1'
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+    })
+
+    service.setActive(true)
+
+    service.setScope('workspace:a::session:b::scenario:missing-config')
+    expect((await service.refreshBoard()).snapshot.lastError?.code).toBe('NOT_CONFIGURED')
+
+    service.setScope('workspace:a::session:b::scenario:auth-failure')
+    expect((await service.refreshBoard()).snapshot.lastError?.code).toBe('UNAUTHORIZED')
+
+    service.setScope('workspace:a::session:b::scenario:empty')
+    expect((await service.refreshBoard()).snapshot.status).toBe('empty')
+
+    service.setScope('workspace:a::session:b::scenario:stale')
+    expect((await service.refreshBoard()).snapshot.status).toBe('stale')
+
+    service.setScope('workspace:a::session:b::scenario:recovery')
+    expect((await service.refreshBoard()).snapshot.status).toBe('fresh')
+
+    delete process.env.KATA_TEST_MODE
+  })
+
+  test('refreshContext reflects planning signals and tracker availability', async () => {
+    process.env.KATA_TEST_MODE = '1'
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+    })
+
+    service.setPlanningActive(true)
+    const planningContext = await service.refreshContext()
+    expect(planningContext.mode).toBe('planning')
+
+    service.setPlanningActive(false)
+    const executionContext = await service.refreshContext()
+    expect(executionContext.mode).toBe('execution')
+
+    delete process.env.KATA_TEST_MODE
+  })
+
+  test('setScope resets cached board snapshots on scope changes', async () => {
+    process.env.KATA_TEST_MODE = '1'
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+    })
+
+    service.setActive(true)
+    service.setScope('workspace:a::session:b::scenario:recovery')
+    const first = await service.getBoard()
+
+    service.setScope('workspace:a::session:c::scenario:empty')
+    const second = await service.getBoard()
+
+    expect(first.snapshot.status).toBe('fresh')
+    expect(second.snapshot.status).toBe('empty')
   })
 
   test('deduplicates concurrent refresh requests to a single Linear fetch', async () => {
