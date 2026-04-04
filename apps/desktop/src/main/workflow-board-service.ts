@@ -581,15 +581,6 @@ export class WorkflowBoardService {
       | null
     error?: NonNullable<WorkflowBoardSnapshot['lastError']>
   }> {
-    if (process.env.KATA_TEST_WORKFLOW_FIXTURE === '1') {
-      return {
-        config: {
-          kind: 'linear',
-          projectRef: 'test-project',
-        },
-      }
-    }
-
     const trackerResult = await readWorkspaceWorkflowTrackerConfig(workspacePath)
     if (trackerResult.error) {
       if (trackerResult.error.code === 'UNKNOWN') {

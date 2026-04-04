@@ -464,4 +464,119 @@ describe('WorkflowBoardService', () => {
     const response = await service.refreshBoard()
     expect(response.snapshot.status).toBe('fresh')
   })
+
+  test('uses github labels fixture in test mode when WORKFLOW tracker.kind=github labels', async () => {
+    process.env.KATA_TEST_MODE = '1'
+
+    const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-github-labels-'))
+    writeFileSync(
+      path.join(workspacePath, 'WORKFLOW.md'),
+      ['---', 'tracker:', '  kind: github', '  repo_owner: kata-sh', '  repo_name: kata-mono', '  label_prefix: symphony', '---', ''].join('\n'),
+      'utf8',
+    )
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => workspacePath,
+    })
+
+    service.setActive(true)
+    const response = await service.refreshBoard()
+
+    expect(response.snapshot.backend).toBe('github')
+    expect(response.snapshot.source.githubStateMode).toBe('labels')
+    expect(response.snapshot.status).toBe('fresh')
+  })
+
+  test('uses github projects_v2 fixture in test mode when WORKFLOW project number is set', async () => {
+    process.env.KATA_TEST_MODE = '1'
+
+    const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-github-projects-'))
+    writeFileSync(
+      path.join(workspacePath, 'WORKFLOW.md'),
+      ['---', 'tracker:', '  kind: github', '  repo_owner: kata-sh', '  repo_name: kata-mono', '  github_project_number: 7', '---', ''].join('\n'),
+      'utf8',
+    )
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => workspacePath,
+    })
+
+    service.setActive(true)
+    const response = await service.refreshBoard()
+
+    expect(response.snapshot.backend).toBe('github')
+    expect(response.snapshot.source.githubStateMode).toBe('projects_v2')
+    expect(response.snapshot.activeMilestone?.name).toContain('GitHub Project')
+  })
+
+  test('returns INVALID_CONFIG when WORKFLOW frontmatter is malformed', async () => {
+    const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-invalid-config-'))
+    writeFileSync(path.join(workspacePath, 'WORKFLOW.md'), '# no frontmatter\n', 'utf8')
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => workspacePath,
+    })
+
+    service.setActive(true)
+    const response = await service.refreshBoard()
+
+    expect(response.snapshot.status).toBe('error')
+    expect(response.snapshot.lastError?.code).toBe('INVALID_CONFIG')
+  })
+
+  test('refreshContext marks tracker configured for github tracker config', async () => {
+    process.env.KATA_TEST_MODE = '1'
+
+    const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-refresh-context-github-'))
+    writeFileSync(
+      path.join(workspacePath, 'WORKFLOW.md'),
+      ['---', 'tracker:', '  kind: github', '  repo_owner: kata-sh', '  repo_name: kata-mono', '---', ''].join('\n'),
+      'utf8',
+    )
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => workspacePath,
+    })
+
+    const context = await service.refreshContext()
+    expect(context.trackerConfigured).toBe(true)
+    expect(context.mode).toBe('execution')
+  })
+
+  test('returns UNKNOWN when WORKFLOW exists but preferences path is unreadable', async () => {
+    const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-preferences-unreadable-'))
+    writeFileSync(path.join(workspacePath, 'WORKFLOW.md'), ['---', 'project: demo', '---', ''].join('\n'), 'utf8')
+    writeFileSync(path.join(workspacePath, '.kata'), 'not-a-directory', 'utf8')
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => workspacePath,
+    })
+
+    service.setActive(true)
+    const response = await service.refreshBoard()
+    expect(response.snapshot.status).toBe('error')
+    expect(response.snapshot.lastError?.code).toBe('UNKNOWN')
+    expect(response.snapshot.lastError?.message).toContain('Unable to read .kata/preferences.md')
+  })
+
+  test('treats preferences without frontmatter as not configured', async () => {
+    const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-no-frontmatter-'))
+    writeFileSync(path.join(workspacePath, 'WORKFLOW.md'), ['---', 'project: demo', '---', ''].join('\n'), 'utf8')
+    mkdirSync(path.join(workspacePath, '.kata'), { recursive: true })
+    writeFileSync(path.join(workspacePath, '.kata', 'preferences.md'), 'projectId: demo\n', 'utf8')
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => workspacePath,
+    })
+
+    service.setActive(true)
+    const response = await service.refreshBoard()
+    expect(response.snapshot.lastError?.code).toBe('NOT_CONFIGURED')
+  })
 })
