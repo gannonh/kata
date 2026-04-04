@@ -113,7 +113,10 @@ def main() -> int:
 
     failing = [c for c in checks if is_failing(c)]
     if not failing:
-        print(f"PR #{pr_value}: no failing checks detected.")
+        if args.json:
+            print(json.dumps({"pr": pr_value, "results": []}, indent=2))
+        else:
+            print(f"PR #{pr_value}: no failing checks detected.")
         return 0
 
     results = []
@@ -136,9 +139,16 @@ def main() -> int:
 
 
 def find_git_root(start: Path) -> Path | None:
+    resolved = start.resolve()
+    if not resolved.exists():
+        return None
+    cwd = resolved if resolved.is_dir() else resolved.parent
+    if not cwd.exists() or not cwd.is_dir():
+        return None
+
     result = subprocess.run(
         ["git", "rev-parse", "--show-toplevel"],
-        cwd=start,
+        cwd=cwd,
         text=True,
         capture_output=True,
     )
@@ -434,7 +444,7 @@ def extract_failure_snippet(log_text: str, max_lines: int, context: int) -> str:
         return "\n".join(lines[-max_lines:])
 
     start = max(0, marker_index - context)
-    end = min(len(lines), marker_index + context)
+    end = min(len(lines), marker_index + context + 1)
     window = lines[start:end]
     if len(window) > max_lines:
         window = window[-max_lines:]

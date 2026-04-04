@@ -200,9 +200,11 @@ export class SymphonyOperatorService extends EventEmitter {
         this.snapshot.completedCount += 1
       }
 
+      const nowIso = new Date().toISOString()
+      this.snapshot.fetchedAt = nowIso
       this.snapshot.response.submittingRequestId = undefined
       this.snapshot.response.lastResult = result
-      this.snapshot.connection.lastBaselineRefreshAt = new Date().toISOString()
+      this.snapshot.connection.lastBaselineRefreshAt = nowIso
       this.refreshFreshness()
       this.emitSnapshot()
       return { success: true, snapshot: this.snapshot, result }
@@ -547,9 +549,11 @@ export class SymphonyOperatorService extends EventEmitter {
       ...(isKanbanMode
         ? [
             {
-              issueId: 'task-2',
-              identifier: 'KAT-2252',
-              issueTitle: '[T02] Wire workflow board service through IPC',
+              issueId: isAssembledMode ? 'task-s04-2' : 'task-2',
+              identifier: isAssembledMode ? 'KAT-2356' : 'KAT-2252',
+              issueTitle: isAssembledMode
+                ? '[T02] Prove the healthy assembled operator flow in Electron'
+                : '[T02] Wire workflow board service through IPC',
               state: isFailureRecoveredPhase ? 'done' : 'in_progress',
               toolName: isFailureRecoveredPhase ? 'idle' : 'bash',
               model: 'claude-sonnet-4-6',

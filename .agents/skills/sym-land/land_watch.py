@@ -114,25 +114,9 @@ async def get_review_comments(pr_number: int) -> list[dict[str, Any]]:
 
 
 async def get_reviews(pr_number: int) -> list[dict[str, Any]]:
-    page = 1
-    reviews: list[dict[str, Any]] = []
-    while True:
-        data = await run_gh(
-            "api",
-            "--method",
-            "GET",
-            f"repos/{{owner}}/{{repo}}/pulls/{pr_number}/reviews",
-            "-f",
-            "per_page=100",
-            "-f",
-            f"page={page}",
-        )
-        batch = json.loads(data)
-        if not batch:
-            break
-        reviews.extend(batch)
-        page += 1
-    return reviews
+    return await get_paginated_list(
+        f"repos/{{owner}}/{{repo}}/pulls/{pr_number}/reviews",
+    )
 
 
 async def get_check_runs(head_sha: str) -> list[dict[str, Any]]:
@@ -532,7 +516,7 @@ async def wait_for_codex(pr_number: int, checks_done: asyncio.Event) -> None:
         if bot_comments:
             latest = max(
                 bot_comments,
-                key=lambda comment: parse_time(comment["created_at"]),
+                key=lambda comment: comment_time(comment) or datetime.min,
             )
             body = sanitize_terminal_output(latest.get("body") or "").strip()
             if body:

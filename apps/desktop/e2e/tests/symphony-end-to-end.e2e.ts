@@ -75,8 +75,7 @@ test.describe('failure-path truthfulness', () => {
     await expect(readyWindow.getByTestId('symphony-dashboard-connection')).toContainText('connected')
     await closeSettings(readyWindow)
 
-    await readyWindow.getByRole('button', { name: /Settings/i }).click()
-    await readyWindow.getByRole('tab', { name: /^Symphony$/i }).click()
+    await openSymphonySettings(readyWindow)
 
     await readyWindow.getByTestId('symphony-dashboard-refresh').click()
     await expect(readyWindow.getByTestId('symphony-dashboard-connection')).toContainText('disconnected')
@@ -89,8 +88,7 @@ test.describe('failure-path truthfulness', () => {
     await expect(readyWindow.getByTestId('workflow-board-status')).toContainText('Symphony: disconnected')
     await expect(readyWindow.getByTestId('slice-symphony-KAT-2337')).toContainText('Symphony runtime disconnected')
 
-    await readyWindow.getByRole('button', { name: /Settings/i }).click()
-    await readyWindow.getByRole('tab', { name: /^Symphony$/i }).click()
+    await openSymphonySettings(readyWindow)
     await readyWindow.getByTestId('symphony-dashboard-refresh').click()
     await expect(readyWindow.getByTestId('symphony-dashboard-connection')).toContainText('connected')
 
