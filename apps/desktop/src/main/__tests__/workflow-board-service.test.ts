@@ -147,6 +147,7 @@ describe('WorkflowBoardService', () => {
 
     const response = await service.refreshBoard()
     expect(response.snapshot.status).toBe('error')
+    expect(response.snapshot.backend).toBe('linear')
     expect(response.snapshot.lastError?.code).toBe('UNKNOWN')
     expect(response.snapshot.lastError?.message).toContain('Unable to read WORKFLOW.md')
   })
@@ -171,8 +172,6 @@ describe('WorkflowBoardService', () => {
     expect(response.snapshot.backend).toBe('github')
     expect(response.snapshot.source.githubStateMode).toBe('projects_v2')
     expect(response.snapshot.columns.find((column) => column.id === 'agent_review')?.cards).toHaveLength(1)
-
-    delete process.env.KATA_TEST_MODE
   })
 
   test('returns github error snapshot when github refresh fails without prior cache', async () => {

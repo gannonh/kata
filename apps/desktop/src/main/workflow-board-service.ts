@@ -254,10 +254,11 @@ export class WorkflowBoardService {
     const trackerResult = await readWorkspaceWorkflowTrackerConfig(workspacePath)
 
     if (trackerResult.error) {
+      const backend: WorkflowBoardBackend = this.lastSnapshot?.backend === 'github' ? 'github' : 'linear'
       const snapshot = this.toErrorSnapshot({
         nowIso,
-        backend: 'github',
-        projectId: 'github:unknown/unknown',
+        backend,
+        projectId: backend === 'github' ? 'github:unknown/unknown' : 'unknown',
         message: trackerResult.error.message,
         code: trackerResult.error.code,
       })

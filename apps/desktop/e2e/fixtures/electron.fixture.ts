@@ -130,7 +130,6 @@ export const test = base.extend<DesktopFixtures>({
       if (pid) {
         try { process.kill(pid, 'SIGKILL') } catch { /* already dead */ }
       }
-      try { rmSync(dataDir, { recursive: true, force: true }) } catch { /* race with dying process */ }
     }
   },
 

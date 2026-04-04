@@ -189,6 +189,24 @@ describe('GithubWorkflowClient', () => {
     expect((globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.length).toBe(2)
   })
 
+  test('treats empty REST response body as empty issue list', async () => {
+    process.env.GH_TOKEN = 'ghp_test'
+
+    globalThis.fetch = vi.fn().mockResolvedValue(new Response('', { status: 200 })) as unknown as typeof fetch
+
+    const client = new GithubWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
+    const snapshot = await client.fetchSnapshot({
+      config: {
+        kind: 'github',
+        repoOwner: 'kata-sh',
+        repoName: 'kata',
+        stateMode: 'labels',
+      },
+    })
+
+    expect(snapshot.status).toBe('empty')
+  })
+
   test('uses authBridge token fallback when GH_TOKEN is absent', async () => {
     globalThis.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify([]), { status: 200 })) as unknown as typeof fetch
 

@@ -12,6 +12,7 @@ const GITHUB_API_URL = 'https://api.github.com'
 const GITHUB_GRAPHQL_URL = 'https://api.github.com/graphql'
 const REQUEST_TIMEOUT_MS = 12_000
 const PAGE_SIZE = 100
+const MAX_REST_PAGES = 10
 
 interface GithubIssueLabel {
   name?: string
@@ -400,29 +401,44 @@ export class GithubWorkflowClient {
     return items
   }
 
+  // We intentionally cap REST pagination to MAX_REST_PAGES * PAGE_SIZE (1000 issues)
+  // to avoid excessive API calls for very large repositories.
   private async fetchAllRepoIssues(
     token: string,
     repoOwner: string,
     repoName: string,
   ): Promise<GithubIssueResponse[]> {
     const issues: GithubIssueResponse[] = []
+    let reachedPaginationCap = false
 
-    for (let page = 1; page <= 10; page += 1) {
+    for (let page = 1; page <= MAX_REST_PAGES; page += 1) {
       const pageItems = await this.restRequest<GithubIssueResponse[]>(
         token,
         `/repos/${encodeURIComponent(repoOwner)}/${encodeURIComponent(repoName)}/issues?state=open&per_page=${PAGE_SIZE}&page=${page}`,
+        [],
       )
 
       issues.push(...pageItems)
       if (pageItems.length < PAGE_SIZE) {
+        reachedPaginationCap = false
         break
       }
+
+      reachedPaginationCap = page === MAX_REST_PAGES
+    }
+
+    if (reachedPaginationCap) {
+      log.warn('[github-workflow-client] issue pagination cap reached; snapshot may be truncated', {
+        repo: `${repoOwner}/${repoName}`,
+        maxPages: MAX_REST_PAGES,
+        pageSize: PAGE_SIZE,
+      })
     }
 
     return issues
   }
 
-  private async restRequest<T>(token: string, endpoint: string): Promise<T> {
+  private async restRequest<T>(token: string, endpoint: string, defaultEmptyResponse?: T): Promise<T> {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
@@ -441,7 +457,7 @@ export class GithubWorkflowClient {
       clearTimeout(timeout)
     }
 
-    return this.readJsonOrThrow<T>(response)
+    return this.readJsonOrThrow<T>(response, defaultEmptyResponse)
   }
 
   private async graphqlRequest<TData>(
@@ -478,7 +494,7 @@ export class GithubWorkflowClient {
     return (payload.data ?? {}) as TData
   }
 
-  private async readJsonOrThrow<T>(response: Response): Promise<T> {
+  private async readJsonOrThrow<T>(response: Response, defaultEmptyResponse?: T): Promise<T> {
     if (response.status === 401 || response.status === 403) {
       throw new GithubWorkflowClientError('UNAUTHORIZED', 'Invalid GitHub token', response.status)
     }
@@ -501,7 +517,14 @@ export class GithubWorkflowClient {
       )
     }
 
-    return (text ? JSON.parse(text) : {}) as T
+    if (!text.trim()) {
+      if (defaultEmptyResponse !== undefined) {
+        return defaultEmptyResponse
+      }
+      throw new GithubWorkflowClientError('GRAPHQL', 'GitHub API returned an empty response body')
+    }
+
+    return JSON.parse(text) as T
   }
 
   private async requireApiToken(): Promise<string> {
@@ -525,7 +548,7 @@ export class GithubWorkflowClient {
 function extractStateFromLabels(
   labels: GithubIssueLabel[],
   prefix: string,
-): { normalizedState: string; displayState: string } | null {
+): { displayState: string } | null {
   const marker = `${prefix.toLowerCase()}:`
 
   for (const label of labels) {
@@ -544,7 +567,7 @@ function extractStateFromLabels(
       continue
     }
 
-    const normalizedState = suffix
+    const normalized = suffix
       .toLowerCase()
       .replace(/_/g, '-')
       .split(/\s+/)
@@ -552,8 +575,7 @@ function extractStateFromLabels(
       .join('-')
 
     return {
-      normalizedState,
-      displayState: denormalizeLabelState(normalizedState),
+      displayState: denormalizeLabelState(normalized),
     }
   }
 

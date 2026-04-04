@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, test } from 'vitest'
@@ -152,7 +152,6 @@ describe('readWorkspaceWorkflowTrackerConfig', () => {
 
   test('parses github projects v2 mode tracker config', async () => {
     const workspace = mkdtempSync(path.join(tmpdir(), 'workflow-config-github-projects-'))
-    mkdirSync(workspace, { recursive: true })
     writeFileSync(
       path.join(workspace, 'WORKFLOW.md'),
       [
