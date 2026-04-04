@@ -122,6 +122,8 @@ describe('SymphonySupervisor', () => {
     expect(result.success).toBe(false)
     expect(result.error?.code).toBe('READINESS_FAILED')
     expect(supervisor.getStatus().phase).toBe('failed')
+    expect(supervisor.getStatus().managedProcessRunning).toBe(false)
+    expect(child.kill).toHaveBeenCalledWith('SIGTERM')
   })
 
   test('supports stop and restart with lifecycle updates', async () => {
@@ -237,6 +239,37 @@ describe('SymphonySupervisor', () => {
 
     expect(supervisor.getStatus().phase).toBe('failed')
     expect(supervisor.getStatus().lastError?.code).toBe('PROCESS_EXITED')
+  })
+
+  test('returns process exit error when child exits before readiness succeeds', async () => {
+    const workspace = createWorkspace()
+    cleanups.push(workspace.cleanup)
+
+    const child = createMockChild()
+    const fetchImpl = vi.fn(async () => {
+      child.emit('exit', 2, null)
+      child.exitCode = 2
+      return { ok: false } as Response
+    })
+
+    const supervisor = new SymphonySupervisor({
+      workspacePath: workspace.workspacePath,
+      appIsPackaged: false,
+      env: {
+        ...process.env,
+        KATA_SYMPHONY_BIN_PATH: workspace.executablePath,
+      },
+      spawnImpl: vi.fn(() => child as any) as any,
+      fetchImpl: fetchImpl as any,
+      readinessTimeoutMs: 1_000,
+      readinessIntervalMs: 200,
+    })
+
+    const result = await supervisor.start()
+
+    expect(result.success).toBe(false)
+    expect(result.error?.code).toBe('PROCESS_EXITED')
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
   })
 
   test('resets runtime state when workspace path changes', async () => {

@@ -226,9 +226,14 @@ export class SymphonySupervisor extends EventEmitter {
 
       const readiness = await this.waitForReadiness(launch.resolvedUrl)
       if (!readiness.ok) {
+        if (readiness.error.code === 'READINESS_FAILED') {
+          await this.terminateChildAfterReadinessFailure()
+        }
+
         this.updateStatus({
           phase: 'failed',
           managedProcessRunning: Boolean(this.child),
+          pid: this.child?.pid ?? null,
           lastError: readiness.error,
           lastReadinessCheckAt: new Date().toISOString(),
         })
@@ -411,6 +416,18 @@ export class SymphonySupervisor extends EventEmitter {
     const startedAt = Date.now()
 
     while (Date.now() - startedAt < this.readinessTimeoutMs) {
+      if (!this.child || this.child.exitCode !== null) {
+        return {
+          ok: false,
+          error:
+            this.status.lastError ?? {
+              code: 'PROCESS_EXITED',
+              phase: 'process',
+              message: 'Symphony exited before becoming ready.',
+            },
+        }
+      }
+
       const endpoint = buildEndpoint(url, '/api/v1/state')
       this.updateStatus({ lastReadinessCheckAt: new Date().toISOString() })
 
@@ -440,6 +457,23 @@ export class SymphonySupervisor extends EventEmitter {
         message: `Symphony readiness check failed after ${this.readinessTimeoutMs}ms.`,
       },
     }
+  }
+
+  private async terminateChildAfterReadinessFailure(): Promise<void> {
+    const child = this.child
+    if (!child) {
+      return
+    }
+
+    child.kill('SIGTERM')
+    const exited = await this.waitForExit(child, this.stopTimeoutMs)
+
+    if (!exited) {
+      child.kill('SIGKILL')
+      await this.waitForExit(child, 1_000)
+    }
+
+    this.child = null
   }
 
   private updateStatus(patch: Partial<SymphonyRuntimeStatus>): void {
