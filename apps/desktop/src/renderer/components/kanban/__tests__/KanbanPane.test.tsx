@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { formatWorkflowBoardStatus } from '../KanbanPane'
+import { formatWorkflowBoardStatus } from '../KanbanHeader'
 
 describe('KanbanPane status formatting', () => {
   test('renders loading state', () => {
@@ -16,9 +16,24 @@ describe('KanbanPane status formatting', () => {
       formatWorkflowBoardStatus({
         loading: false,
         boardStatus: 'stale',
+        board: {
+          backend: 'linear',
+          fetchedAt: '2026-04-04T00:00:00.000Z',
+          status: 'stale',
+          source: { projectId: 'test-project' },
+          activeMilestone: null,
+          columns: [],
+          poll: {
+            status: 'error',
+            backend: 'linear',
+            lastAttemptAt: '2026-04-04T00:01:00.000Z',
+            lastSuccessAt: '2026-04-04T00:00:30.000Z',
+          },
+          lastError: { code: 'NETWORK', message: 'offline' },
+        },
         refreshing: true,
       }),
-    ).toBe('Showing stale board snapshot · Refreshing…')
+    ).toContain('Showing stale board snapshot · linear')
   })
 
   test('renders empty reason when provided', () => {

@@ -1,5 +1,5 @@
 import { useAtomValue, useSetAtom } from 'jotai'
-import { LayoutGrid, Loader2, RefreshCcw } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import {
   refreshWorkflowBoardAtom,
   workflowBoardAtom,
@@ -15,49 +15,8 @@ import {
   workflowContextAtom,
 } from '@/atoms/right-pane'
 import { KanbanColumn } from '@/components/kanban/KanbanColumn'
-import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
+import { KanbanHeader } from '@/components/kanban/KanbanHeader'
 import { normalizeWorkflowColumns } from '@/lib/workflow-board'
-
-function formatPaneResolutionReason(reason: string): string {
-  const labels: Record<string, string> = {
-    manual_override: 'Manual override',
-    default_fallback: 'Default fallback',
-    planning_activity_detected: 'Planning activity detected',
-    tracker_and_board_available: 'Tracker configured and board available',
-    tracker_configured_board_pending: 'Tracker configured — board pending',
-    board_available_without_tracker: 'Board available without tracker config',
-    unknown_context: 'Context unavailable',
-  }
-
-  return labels[reason] ?? 'Automatic context resolution'
-}
-
-export function formatWorkflowBoardStatus(input: {
-  loading: boolean
-  boardStatus?: 'fresh' | 'stale' | 'empty' | 'error'
-  backend?: string
-  emptyReason?: string
-  refreshing: boolean
-}): string {
-  if (input.loading) {
-    return 'Loading workflow board…'
-  }
-
-  let status = 'Workflow board not loaded'
-
-  if (input.boardStatus === 'fresh') {
-    status = `Live data · ${input.backend ?? 'unknown'}`
-  } else if (input.boardStatus === 'empty') {
-    status = input.emptyReason ?? 'No work items found'
-  } else if (input.boardStatus === 'stale') {
-    status = 'Showing stale board snapshot'
-  } else if (input.boardStatus === 'error') {
-    status = 'Workflow board unavailable'
-  }
-
-  return input.refreshing ? `${status} · Refreshing…` : status
-}
 
 export function KanbanPane() {
   const board = useAtomValue(workflowBoardAtom)
@@ -75,70 +34,19 @@ export function KanbanPane() {
 
   return (
     <aside className="flex h-full flex-col bg-muted/40" data-testid="workflow-kanban-pane">
-      <div className="flex h-14 items-center justify-between px-4">
-        <div className="min-w-0">
-          <h2 className="text-xs font-semibold tracking-wide uppercase text-muted-foreground">Workflow Board</h2>
-          <p className="truncate text-sm font-medium text-foreground">
-            {board?.activeMilestone?.name ?? 'No active milestone'}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-1">
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            aria-label="Open planning view"
-            onClick={() => setRightPaneOverride('planning')}
-          >
-            <LayoutGrid className="size-4" />
-          </Button>
-
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            aria-label="Refresh workflow board"
-            onClick={() => {
-              void refreshBoard()
-            }}
-          >
-            <RefreshCcw className="size-4" />
-          </Button>
-        </div>
-      </div>
-
-      <Separator />
-
-      <div className="border-b border-border px-4 py-2 text-xs text-muted-foreground" data-testid="workflow-board-status">
-        {rightPaneOverride
-          ? `Manual override: ${rightPaneOverride}`
-          : `Auto mode: ${formatPaneResolutionReason(paneResolution.reason)}`}
-        {' · '}
-        {`Context: ${workflowContext.mode}`}
-        {' · '}
-        {formatWorkflowBoardStatus({
-          loading,
-          boardStatus: board?.status,
-          backend: board?.backend,
-          emptyReason: board?.emptyReason,
-          refreshing,
-        })}
-      </div>
-
-      {rightPaneOverride ? (
-        <div className="border-b border-border bg-muted/70 px-4 py-2 text-xs text-muted-foreground">
-          Manual pane override is active.
-          <Button
-            type="button"
-            variant="link"
-            className="ml-1 h-auto p-0 text-xs"
-            onClick={() => clearOverride()}
-          >
-            Return to auto mode
-          </Button>
-        </div>
-      ) : null}
+      <KanbanHeader
+        board={board}
+        loading={loading}
+        refreshing={refreshing}
+        rightPaneOverride={rightPaneOverride}
+        paneResolution={paneResolution}
+        workflowContext={workflowContext}
+        onOpenPlanningView={() => setRightPaneOverride('planning')}
+        onRefresh={() => {
+          void refreshBoard()
+        }}
+        onClearOverride={() => clearOverride()}
+      />
 
       {error ? (
         <div className="border-b border-border bg-destructive/10 px-4 py-2 text-xs text-destructive">{error}</div>

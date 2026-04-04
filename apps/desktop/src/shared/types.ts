@@ -632,6 +632,7 @@ export interface WorkflowBoardPollMetadata {
   status: 'idle' | 'success' | 'error'
   backend: WorkflowBoardBackend
   lastAttemptAt: string
+  lastSuccessAt?: string
 }
 
 export interface WorkflowBoardSnapshot {
