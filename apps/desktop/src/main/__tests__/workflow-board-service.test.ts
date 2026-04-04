@@ -272,4 +272,108 @@ describe('WorkflowBoardService', () => {
     expect((service as any).linearClient.fetchActiveMilestoneSnapshot).toHaveBeenCalledTimes(1)
     expect(first.snapshot).toEqual(second.snapshot)
   })
+
+  test('returns inactive snapshot when deactivated during an in-flight refresh', async () => {
+    const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-inactive-mid-refresh-'))
+    mkdirSync(path.join(workspacePath, '.kata'), { recursive: true })
+    writeFileSync(
+      path.join(workspacePath, '.kata', 'preferences.md'),
+      ['---', 'projectSlug: project-ref', '---', ''].join('\n'),
+      'utf8',
+    )
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => 'lin_api_test') } as never,
+      getWorkspacePath: () => workspacePath,
+    })
+
+    let resolveFetch!: (value: any) => void
+    const deferredFetch = new Promise<any>((resolve) => {
+      resolveFetch = resolve
+    })
+
+    ;(service as any).linearClient.fetchActiveMilestoneSnapshot = vi.fn(() => deferredFetch)
+
+    service.setActive(true)
+    const refreshPromise = service.refreshBoard()
+
+    service.setActive(false)
+
+    resolveFetch({
+      backend: 'linear',
+      fetchedAt: '2026-04-04T00:00:00.000Z',
+      status: 'fresh',
+      source: { projectId: 'project-ref', activeMilestoneId: 'm1' },
+      activeMilestone: { id: 'm1', name: '[M001] Demo' },
+      columns: [],
+      poll: { status: 'success', backend: 'linear', lastAttemptAt: '2026-04-04T00:00:00.000Z' },
+    })
+
+    const response = await refreshPromise
+    expect(response.snapshot.status).toBe('error')
+    expect(response.snapshot.lastError?.message).toContain('Workflow board inactive')
+  })
+
+  test('does not let stale in-flight refresh overwrite a newer scope snapshot', async () => {
+    const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-scope-race-'))
+    mkdirSync(path.join(workspacePath, '.kata'), { recursive: true })
+    writeFileSync(
+      path.join(workspacePath, '.kata', 'preferences.md'),
+      ['---', 'projectSlug: project-ref', '---', ''].join('\n'),
+      'utf8',
+    )
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => 'lin_api_test') } as never,
+      getWorkspacePath: () => workspacePath,
+    })
+
+    let resolveFirst!: (value: any) => void
+    let resolveSecond!: (value: any) => void
+
+    const firstFetch = new Promise<any>((resolve) => {
+      resolveFirst = resolve
+    })
+    const secondFetch = new Promise<any>((resolve) => {
+      resolveSecond = resolve
+    })
+
+    ;(service as any).linearClient.fetchActiveMilestoneSnapshot = vi
+      .fn()
+      .mockImplementationOnce(() => firstFetch)
+      .mockImplementationOnce(() => secondFetch)
+
+    service.setActive(true)
+
+    service.setScope('workspace:a::session:first')
+    const firstRefresh = service.refreshBoard()
+
+    service.setScope('workspace:a::session:second')
+    const secondRefresh = service.refreshBoard()
+
+    resolveSecond({
+      backend: 'linear',
+      fetchedAt: '2026-04-04T00:00:02.000Z',
+      status: 'fresh',
+      source: { projectId: 'project-ref-second', activeMilestoneId: 'm2' },
+      activeMilestone: { id: 'm2', name: '[M002] Second' },
+      columns: [],
+      poll: { status: 'success', backend: 'linear', lastAttemptAt: '2026-04-04T00:00:02.000Z' },
+    })
+
+    resolveFirst({
+      backend: 'linear',
+      fetchedAt: '2026-04-04T00:00:01.000Z',
+      status: 'fresh',
+      source: { projectId: 'project-ref-first', activeMilestoneId: 'm1' },
+      activeMilestone: { id: 'm1', name: '[M001] First' },
+      columns: [],
+      poll: { status: 'success', backend: 'linear', lastAttemptAt: '2026-04-04T00:00:01.000Z' },
+    })
+
+    await Promise.all([firstRefresh, secondRefresh])
+
+    const finalBoard = await service.getBoard()
+    expect(finalBoard.snapshot.source.projectId).toBe('project-ref-second')
+  })
 })

@@ -47,22 +47,29 @@ export function useWorkflowBoardBridge(): void {
   const intervalIdRef = useRef<number | null>(null)
   const activeRef = useRef(false)
   const activationVersionRef = useRef(0)
+  const scopeKey = `${workspacePath || 'workspace:none'}::${sessionId || 'session:none'}`
 
   useEffect(() => {
-    const syncContext = async () => {
+    let cancelled = false
+
+    void (async () => {
       try {
+        await window.api.workflow.setScope(scopeKey)
         const response = await window.api.workflow.getContext()
-        setWorkflowContext(response.context)
+        if (!cancelled) {
+          setWorkflowContext(response.context)
+        }
       } catch {
-        // best-effort context sync
+        // best-effort scope/context sync
       }
-    }
+    })()
 
-    void syncContext()
-  }, [setWorkflowContext])
+    return () => {
+      cancelled = true
+    }
+  }, [scopeKey, setWorkflowContext])
 
   useEffect(() => {
-    const scopeKey = `${workspacePath || 'workspace:none'}::${sessionId || 'session:none'}`
 
     const deactivateInterval = () => {
       if (intervalIdRef.current !== null) {
@@ -86,11 +93,6 @@ export function useWorkflowBoardBridge(): void {
 
       setActive(true)
       activeRef.current = true
-
-      await window.api.workflow.setScope(scopeKey)
-      if (!isCurrentActivation()) {
-        return
-      }
 
       await window.api.workflow.setBoardActive(true)
       if (!isCurrentActivation()) {
@@ -178,14 +180,12 @@ export function useWorkflowBoardBridge(): void {
     }
   }, [
     rightPaneMode,
-    sessionId,
     setActive,
     setBoard,
     setError,
     setLoading,
     setRefreshing,
     setWorkflowContext,
-    workspacePath,
   ])
 }
 

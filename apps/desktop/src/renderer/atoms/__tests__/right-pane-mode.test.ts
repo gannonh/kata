@@ -51,5 +51,6 @@ describe('right-pane mode resolver', () => {
 
     expect(store.get(rightPaneOverrideAtom)).toBeNull()
     expect(store.get(rightPaneModeAtom)).toBe('planning')
+    expect(store.get(rightPaneResolutionAtom).source).toBe('automatic')
   })
 })

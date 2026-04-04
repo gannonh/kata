@@ -18,6 +18,7 @@ export default defineConfig({
       include: ['src/**/*.ts', 'src/**/*.tsx'],
       exclude: [
         'src/**/*.test.ts',
+        'src/**/*.test.tsx',
         'src/**/*.d.ts',
         'dist/**',
         // Electron main process entrypoint — requires a running Electron app (app.whenReady, BrowserWindow)

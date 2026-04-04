@@ -84,6 +84,7 @@ export class WorkflowBoardService {
   private lastSnapshot: WorkflowBoardSnapshot | null = null
   private lastSuccessSnapshot: WorkflowBoardSnapshot | null = null
   private inFlightRefresh: Promise<WorkflowBoardSnapshotResponse> | null = null
+  private inFlightScopeKey: string | null = null
 
   private active = false
   private planningActive = false
@@ -147,37 +148,48 @@ export class WorkflowBoardService {
   }
 
   async refreshBoard(): Promise<WorkflowBoardSnapshotResponse> {
-    if (this.inFlightRefresh) {
+    const capturedScopeKey = this.scopeKey
+
+    if (this.inFlightRefresh && this.inFlightScopeKey === capturedScopeKey) {
       return this.inFlightRefresh
     }
 
-    this.inFlightRefresh = this.performRefreshBoard()
+    const refreshPromise = this.performRefreshBoard(capturedScopeKey)
+    this.inFlightRefresh = refreshPromise
+    this.inFlightScopeKey = capturedScopeKey
 
     try {
-      return await this.inFlightRefresh
+      return await refreshPromise
     } finally {
-      this.inFlightRefresh = null
+      if (this.inFlightRefresh === refreshPromise) {
+        this.inFlightRefresh = null
+        this.inFlightScopeKey = null
+      }
     }
   }
 
-  private async performRefreshBoard(): Promise<WorkflowBoardSnapshotResponse> {
+  private async performRefreshBoard(capturedScopeKey: string): Promise<WorkflowBoardSnapshotResponse> {
     if (this.testScenario) {
       const scenarioSnapshot = this.buildScenarioSnapshot(this.testScenario)
-      this.lastSnapshot = scenarioSnapshot
-      if (scenarioSnapshot.status === 'fresh' || scenarioSnapshot.status === 'empty') {
-        this.lastSuccessSnapshot = scenarioSnapshot
+      if (capturedScopeKey === this.scopeKey) {
+        this.lastSnapshot = scenarioSnapshot
+        if (scenarioSnapshot.status === 'fresh' || scenarioSnapshot.status === 'empty') {
+          this.lastSuccessSnapshot = scenarioSnapshot
+        }
+        this.trackerConfigured = scenarioSnapshot.lastError?.code !== 'NOT_CONFIGURED'
+        this.syncContextSnapshot()
       }
-      this.trackerConfigured = scenarioSnapshot.lastError?.code !== 'NOT_CONFIGURED'
-      this.syncContextSnapshot()
       return { success: true, snapshot: scenarioSnapshot }
     }
 
     if (isWorkflowFixtureEnabled()) {
       const fixture = withFreshTimestamps(TEST_WORKFLOW_FIXTURE)
-      this.lastSnapshot = fixture
-      this.lastSuccessSnapshot = fixture
-      this.trackerConfigured = true
-      this.syncContextSnapshot()
+      if (capturedScopeKey === this.scopeKey) {
+        this.lastSnapshot = fixture
+        this.lastSuccessSnapshot = fixture
+        this.trackerConfigured = true
+        this.syncContextSnapshot()
+      }
       return { success: true, snapshot: fixture }
     }
 
@@ -193,8 +205,10 @@ export class WorkflowBoardService {
         code: 'UNKNOWN',
         message: 'Workflow board inactive. Activate kanban pane to fetch execution state.',
       })
-      this.lastSnapshot = inactive
-      this.syncContextSnapshot()
+      if (capturedScopeKey === this.scopeKey) {
+        this.lastSnapshot = inactive
+        this.syncContextSnapshot()
+      }
       return { success: true, snapshot: inactive }
     }
 
@@ -215,8 +229,11 @@ export class WorkflowBoardService {
         message,
       })
 
-      this.lastSnapshot = snapshot
-      this.syncContextSnapshot()
+      this.trackerConfigured = false
+      if (capturedScopeKey === this.scopeKey) {
+        this.lastSnapshot = snapshot
+        this.syncContextSnapshot()
+      }
       return { success: true, snapshot }
     }
 
@@ -227,18 +244,50 @@ export class WorkflowBoardService {
         code: 'NOT_CONFIGURED',
         message: 'Linear project is not configured in .kata/preferences.md (projectId or projectSlug).',
       })
-      this.lastSnapshot = snapshot
-      this.syncContextSnapshot()
+      if (capturedScopeKey === this.scopeKey) {
+        this.lastSnapshot = snapshot
+        this.syncContextSnapshot()
+      }
       return { success: true, snapshot }
     }
 
     try {
       const snapshot = await this.linearClient.fetchActiveMilestoneSnapshot({ projectRef })
-      this.lastSnapshot = snapshot
-      this.lastSuccessSnapshot = snapshot
-      this.syncContextSnapshot()
+      if (!this.active) {
+        const inactive = this.toErrorSnapshot({
+          nowIso,
+          projectId: projectRef,
+          code: 'UNKNOWN',
+          message: 'Workflow board inactive. Activate kanban pane to fetch execution state.',
+        })
+        if (capturedScopeKey === this.scopeKey) {
+          this.lastSnapshot = inactive
+          this.syncContextSnapshot()
+        }
+        return { success: true, snapshot: inactive }
+      }
+
+      if (capturedScopeKey === this.scopeKey) {
+        this.lastSnapshot = snapshot
+        this.lastSuccessSnapshot = snapshot
+        this.syncContextSnapshot()
+      }
       return { success: true, snapshot }
     } catch (error) {
+      if (!this.active) {
+        const inactive = this.toErrorSnapshot({
+          nowIso,
+          projectId: projectRef,
+          code: 'UNKNOWN',
+          message: 'Workflow board inactive. Activate kanban pane to fetch execution state.',
+        })
+        if (capturedScopeKey === this.scopeKey) {
+          this.lastSnapshot = inactive
+          this.syncContextSnapshot()
+        }
+        return { success: true, snapshot: inactive }
+      }
+
       const workflowError = LinearWorkflowClient.toWorkflowError(error)
 
       const staleSnapshot: WorkflowBoardSnapshot = this.lastSuccessSnapshot
@@ -259,7 +308,9 @@ export class WorkflowBoardService {
             message: workflowError.message,
           })
 
-      this.lastSnapshot = staleSnapshot
+      if (capturedScopeKey === this.scopeKey) {
+        this.lastSnapshot = staleSnapshot
+      }
 
       log.warn('[workflow-board-service] workflow refresh failed', {
         workspacePath,
@@ -268,7 +319,9 @@ export class WorkflowBoardService {
         error: workflowError,
       })
 
-      this.syncContextSnapshot()
+      if (capturedScopeKey === this.scopeKey) {
+        this.syncContextSnapshot()
+      }
       return { success: true, snapshot: staleSnapshot }
     }
   }

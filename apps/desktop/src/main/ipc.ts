@@ -718,8 +718,6 @@ export function registerSessionIpc({
   ipcMain.handle(
     IPC_CHANNELS.sessionSwitch,
     async (_event, sessionId: string): Promise<SessionSwitchResponse> => {
-      workflowBoardService.setPlanningActive(false)
-
       const trimmedSessionId = sessionId?.trim()
       if (!trimmedSessionId) {
         return {
@@ -749,6 +747,8 @@ export function registerSessionIpc({
             error: `Session switch to ${trimmedSessionId} was cancelled`,
           }
         }
+
+        workflowBoardService.setPlanningActive(false)
 
         log.info('[desktop-ipc] session switched', {
           sessionId: trimmedSessionId,
@@ -848,8 +848,6 @@ export function registerSessionIpc({
   })
 
   ipcMain.handle(IPC_CHANNELS.workspaceSet, async (_event, workspacePath: string): Promise<WorkspaceInfo> => {
-    workflowBoardService.setPlanningActive(false)
-
     const trimmedWorkspacePath = workspacePath?.trim()
     if (!trimmedWorkspacePath) {
       throw new Error('Workspace path is required')
@@ -864,6 +862,7 @@ export function registerSessionIpc({
     const previousWorkspacePath = bridge.getWorkspacePath()
 
     await bridge.switchWorkspace(nextWorkspacePath)
+    workflowBoardService.setPlanningActive(false)
 
     if (onWorkspaceSelected) {
       try {

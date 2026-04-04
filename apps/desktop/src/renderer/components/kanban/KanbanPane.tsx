@@ -19,6 +19,20 @@ import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { normalizeWorkflowColumns } from '@/lib/workflow-board'
 
+function formatPaneResolutionReason(reason: string): string {
+  const labels: Record<string, string> = {
+    manual_override: 'Manual override',
+    default_fallback: 'Default fallback',
+    planning_activity_detected: 'Planning activity detected',
+    tracker_and_board_available: 'Tracker configured and board available',
+    tracker_configured_board_pending: 'Tracker configured — board pending',
+    board_available_without_tracker: 'Board available without tracker config',
+    unknown_context: 'Context unavailable',
+  }
+
+  return labels[reason] ?? 'Automatic context resolution'
+}
+
 export function formatWorkflowBoardStatus(input: {
   loading: boolean
   boardStatus?: 'fresh' | 'stale' | 'empty' | 'error'
@@ -97,7 +111,9 @@ export function KanbanPane() {
       <Separator />
 
       <div className="border-b border-border px-4 py-2 text-xs text-muted-foreground" data-testid="workflow-board-status">
-        {rightPaneOverride ? `Manual override: ${rightPaneOverride}` : `Auto mode: ${paneResolution.reason}`}
+        {rightPaneOverride
+          ? `Manual override: ${rightPaneOverride}`
+          : `Auto mode: ${formatPaneResolutionReason(paneResolution.reason)}`}
         {' · '}
         {`Context: ${workflowContext.mode}`}
         {' · '}

@@ -2,7 +2,7 @@ import { atom, useAtomValue, useSetAtom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
 import { useEffect, useRef } from 'react'
 import type { PlanningArtifact, PlanningSliceData } from '@shared/types'
-import { setRightPaneOverrideAtom } from './right-pane'
+import { clearRightPaneOverrideAtom } from './right-pane'
 
 const PLANNING_ARTIFACTS_STORAGE_KEY = 'kata-desktop:planning-artifacts'
 const PLANNING_ARTIFACT_KEYS_STORAGE_KEY = 'kata-desktop:planning-artifact-keys'
@@ -153,7 +153,7 @@ export function usePlanningArtifactBridge(): void {
   const autoSwitchTriggeredRef = useRef(autoSwitchTriggered)
   const setActiveArtifactTitle = useSetAtom(activePlanningArtifactAtom)
   const setSlices = useSetAtom(slicePlanningAtom)
-  const setRightPaneOverride = useSetAtom(setRightPaneOverrideAtom)
+  const clearRightPaneOverride = useSetAtom(clearRightPaneOverrideAtom)
   const setAutoSwitchTriggered = useSetAtom(autoSwitchTriggeredAtom)
   const setLoading = useSetAtom(planningLoadingAtom)
   const setArtifactFetchInFlightCount = useSetAtom(artifactFetchInFlightCountAtom)
@@ -328,7 +328,7 @@ export function usePlanningArtifactBridge(): void {
 
         autoSwitchTriggeredRef.current = true
 
-        setRightPaneOverride('planning')
+        clearRightPaneOverride()
         setAutoSwitchTriggered(true)
       }
 
@@ -345,7 +345,7 @@ export function usePlanningArtifactBridge(): void {
     setArtifactFetchInFlightCount,
     setAutoSwitchTriggered,
     setError,
-    setRightPaneOverride,
+    clearRightPaneOverride,
   ])
 }
 
