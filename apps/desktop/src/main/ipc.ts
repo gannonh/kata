@@ -1143,24 +1143,39 @@ export function registerSessionIpc({
     }
   })
 
+  const createSymphonyDisconnectedResult = (): SymphonyRuntimeCommandResult => {
+    const status: SymphonyRuntimeStatus = {
+      phase: 'disconnected',
+      managedProcessRunning: false,
+      pid: null,
+      url: null,
+      diagnostics: { stdout: [], stderr: [] },
+      updatedAt: new Date().toISOString(),
+      restartCount: 0,
+      lastError: {
+        code: 'UNKNOWN',
+        phase: 'unknown',
+        message: 'Symphony supervisor is unavailable.',
+      },
+    }
+
+    return {
+      success: false,
+      status,
+      error: {
+        code: 'UNKNOWN',
+        phase: 'unknown',
+        message: 'Symphony supervisor is unavailable.',
+      },
+    }
+  }
+
   ipcMain.handle(IPC_CHANNELS.symphonyGetStatus, async (): Promise<SymphonyRuntimeStatusResponse> => {
     if (!symphonySupervisor) {
+      const fallback = createSymphonyDisconnectedResult()
       return {
         success: true,
-        status: {
-          phase: 'disconnected',
-          managedProcessRunning: false,
-          pid: null,
-          url: null,
-          diagnostics: { stdout: [], stderr: [] },
-          updatedAt: new Date().toISOString(),
-          restartCount: 0,
-          lastError: {
-            code: 'UNKNOWN',
-            phase: 'unknown',
-            message: 'Symphony supervisor is unavailable.',
-          },
-        },
+        status: fallback.status,
       }
     }
 
@@ -1174,28 +1189,7 @@ export function registerSessionIpc({
     command: () => Promise<SymphonyRuntimeCommandResult>,
   ): Promise<SymphonyRuntimeCommandResult> => {
     if (!symphonySupervisor) {
-      return {
-        success: false,
-        status: {
-          phase: 'disconnected',
-          managedProcessRunning: false,
-          pid: null,
-          url: null,
-          diagnostics: { stdout: [], stderr: [] },
-          updatedAt: new Date().toISOString(),
-          restartCount: 0,
-          lastError: {
-            code: 'UNKNOWN',
-            phase: 'unknown',
-            message: 'Symphony supervisor is unavailable.',
-          },
-        },
-        error: {
-          code: 'UNKNOWN',
-          phase: 'unknown',
-          message: 'Symphony supervisor is unavailable.',
-        },
-      }
+      return createSymphonyDisconnectedResult()
     }
 
     return command()
