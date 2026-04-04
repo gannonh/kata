@@ -32,6 +32,11 @@ export const IPC_CHANNELS = {
   workflowSetBoardActive: 'workflow:set-board-active',
   workflowSetScope: 'workflow:set-scope',
   workflowGetContext: 'workflow:get-context',
+  symphonyGetStatus: 'symphony:get-status',
+  symphonyStart: 'symphony:start',
+  symphonyStop: 'symphony:stop',
+  symphonyRestart: 'symphony:restart',
+  symphonyStatus: 'symphony:status',
 } as const
 
 export type PermissionMode = 'explore' | 'ask' | 'auto'
@@ -683,6 +688,81 @@ export interface WorkflowContextResponse {
   context: WorkflowContextSnapshot
 }
 
+export type SymphonyConfigSource = 'preferences' | 'env' | 'default'
+
+export type SymphonyLaunchSource = 'bundled' | 'path' | 'env'
+
+export type SymphonyRuntimePhase =
+  | 'idle'
+  | 'starting'
+  | 'ready'
+  | 'disconnected'
+  | 'restarting'
+  | 'stopping'
+  | 'stopped'
+  | 'failed'
+  | 'config_error'
+
+export type SymphonyRuntimeErrorCode =
+  | 'CONFIG_MISSING'
+  | 'CONFIG_INVALID'
+  | 'WORKFLOW_PATH_MISSING'
+  | 'BINARY_NOT_FOUND'
+  | 'SPAWN_FAILED'
+  | 'PROCESS_EXITED'
+  | 'READINESS_FAILED'
+  | 'STOP_TIMEOUT'
+  | 'UNKNOWN'
+
+export interface SymphonyRuntimeError {
+  code: SymphonyRuntimeErrorCode
+  message: string
+  phase: 'config' | 'spawn' | 'process' | 'readiness' | 'shutdown' | 'unknown'
+  details?: string
+}
+
+export interface SymphonyLaunchDescriptor {
+  command: string
+  args: string[]
+  cwd: string
+  source: SymphonyLaunchSource
+  resolvedUrl: string
+  workflowPath: string
+  urlSource: SymphonyConfigSource
+  workflowPathSource: SymphonyConfigSource
+}
+
+export interface SymphonyRuntimeDiagnostics {
+  stdout: string[]
+  stderr: string[]
+}
+
+export interface SymphonyRuntimeStatus {
+  phase: SymphonyRuntimePhase
+  managedProcessRunning: boolean
+  pid: number | null
+  url: string | null
+  launch?: Pick<SymphonyLaunchDescriptor, 'command' | 'args' | 'source'>
+  diagnostics: SymphonyRuntimeDiagnostics
+  updatedAt: string
+  lastReadyAt?: string
+  lastReadinessCheckAt?: string
+  restartCount: number
+  restartReason?: string
+  lastError?: SymphonyRuntimeError
+}
+
+export interface SymphonyRuntimeCommandResult {
+  success: boolean
+  status: SymphonyRuntimeStatus
+  error?: SymphonyRuntimeError
+}
+
+export interface SymphonyRuntimeStatusResponse {
+  success: boolean
+  status: SymphonyRuntimeStatus
+}
+
 export type ArtifactType = 'roadmap' | 'requirements' | 'decisions' | 'context' | 'slice'
 
 export type RoadmapRisk = 'high' | 'medium' | 'low'
@@ -796,6 +876,13 @@ export interface DesktopApi {
     setBoardActive: (active: boolean) => Promise<WorkflowBoardLifecycleResponse>
     setScope: (scopeKey: string) => Promise<WorkflowBoardScopeResponse>
     getContext: () => Promise<WorkflowContextResponse>
+  }
+  symphony: {
+    getStatus: () => Promise<SymphonyRuntimeStatusResponse>
+    start: () => Promise<SymphonyRuntimeCommandResult>
+    stop: () => Promise<SymphonyRuntimeCommandResult>
+    restart: () => Promise<SymphonyRuntimeCommandResult>
+    onStatus: (listener: (status: SymphonyRuntimeStatus) => void) => () => void
   }
 }
 
