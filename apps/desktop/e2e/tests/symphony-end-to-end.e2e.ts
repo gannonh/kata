@@ -39,6 +39,9 @@ test.describe('scenario control', () => {
   })
 })
 
+// This suite intentionally overlaps startup assertions with `scenario control`.
+// `scenario control` validates integrated test harness alignment (runtime + dashboard + board),
+// while this suite proves the user-visible escalation response → kanban convergence contract.
 test.describe('healthy assembled flow', () => {
   test.use({ symphonyMockMode: 'assembled_healthy' })
 

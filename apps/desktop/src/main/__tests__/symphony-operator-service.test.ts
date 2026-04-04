@@ -302,6 +302,13 @@ describe('SymphonyOperatorService', () => {
     expect(updatedWorker?.state).toBe('agent_review')
     expect(updatedWorker?.toolName).toBe('idle')
     expect(service.getSnapshot().escalations).toHaveLength(0)
+
+    await service.refreshBaseline({ advanceMockScenario: false })
+    const refreshedWorker = service.getSnapshot().workers.find((worker) => worker.identifier === 'KAT-2337')
+    expect(refreshedWorker?.state).toBe('agent_review')
+    expect(refreshedWorker?.toolName).toBe('idle')
+    expect(service.getSnapshot().completedCount).toBe(4)
+    expect(service.getSnapshot().escalations).toHaveLength(0)
   })
 
   test('supports assembled failure-recovery mocked baseline sequencing', async () => {
@@ -311,6 +318,9 @@ describe('SymphonyOperatorService', () => {
     })
 
     await service.syncRuntimeStatus(READY_STATUS)
+    expect(service.getSnapshot().connection.state).toBe('connected')
+
+    await service.refreshBaseline({ advanceMockScenario: false })
     expect(service.getSnapshot().connection.state).toBe('connected')
 
     await service.refreshBaseline()

@@ -57,6 +57,7 @@ export class SymphonyOperatorService extends EventEmitter {
   private runtimeSyncRevision = 0
   private readonly snapshot: SymphonyOperatorSnapshot = createEmptySnapshot()
   private mockBaselineStep = 0
+  private mockAssembledHealthyResolved = false
 
   constructor(options: SymphonyOperatorServiceOptions = {}) {
     super()
@@ -91,7 +92,7 @@ export class SymphonyOperatorService extends EventEmitter {
     return this.snapshot
   }
 
-  public async refreshBaseline(): Promise<SymphonyOperatorSnapshot> {
+  public async refreshBaseline(options: { advanceMockScenario?: boolean } = {}): Promise<SymphonyOperatorSnapshot> {
     const url = this.activeUrl ?? this.runtimeStatus?.url
     if (!url) {
       this.markDisconnected('Symphony URL is unavailable.')
@@ -99,10 +100,11 @@ export class SymphonyOperatorService extends EventEmitter {
     }
 
     if (this.mockMode) {
-      this.applyMockBaseline(this.mockMode, this.mockBaselineStep)
-      if (this.mockMode === 'assembled_failure_recovery' && this.mockBaselineStep < 2) {
+      const shouldAdvanceScenario = options.advanceMockScenario ?? true
+      if (this.mockMode === 'assembled_failure_recovery' && shouldAdvanceScenario && this.mockBaselineStep < 2) {
         this.mockBaselineStep += 1
       }
+      this.applyMockBaseline(this.mockMode, this.mockBaselineStep)
       return this.snapshot
     }
 
@@ -183,8 +185,10 @@ export class SymphonyOperatorService extends EventEmitter {
       )
 
       if (this.mockMode === 'assembled_healthy') {
+        this.mockAssembledHealthyResolved = true
+        const primaryIdentifier = this.snapshot.workers[0]?.identifier
         this.snapshot.workers = this.snapshot.workers.map((worker) =>
-          worker.identifier === 'KAT-2337'
+          worker.identifier === primaryIdentifier
             ? {
                 ...worker,
                 state: 'agent_review',
@@ -266,6 +270,7 @@ export class SymphonyOperatorService extends EventEmitter {
     this.activeUrl = status.url
     if (this.mockMode && status.phase !== 'ready') {
       this.mockBaselineStep = 0
+      this.mockAssembledHealthyResolved = false
     }
     const syncRevision = ++this.runtimeSyncRevision
 
@@ -276,7 +281,7 @@ export class SymphonyOperatorService extends EventEmitter {
     }
 
     if (status.phase === 'ready') {
-      await this.refreshBaseline()
+      await this.refreshBaseline({ advanceMockScenario: false })
       const latestStatus = this.runtimeStatus
       if (
         syncRevision !== this.runtimeSyncRevision ||
@@ -392,7 +397,7 @@ export class SymphonyOperatorService extends EventEmitter {
           const reconnectUrl = this.activeUrl
           this.reconnectTimer = setTimeout(async () => {
             this.reconnectTimer = null
-            await this.refreshBaseline()
+            await this.refreshBaseline({ advanceMockScenario: false })
             if (this.runtimeStatus?.phase === 'ready' && this.activeUrl === reconnectUrl) {
               this.connectStream(reconnectUrl)
             }
@@ -517,10 +522,11 @@ export class SymphonyOperatorService extends EventEmitter {
 
     const isFailureDisconnectionPhase = mockMode === 'assembled_failure_recovery' && step === 1
     const isFailureRecoveredPhase = mockMode === 'assembled_failure_recovery' && step >= 2
+    const isAssembledHealthyResolved = mockMode === 'assembled_healthy' && this.mockAssembledHealthyResolved
 
     this.snapshot.fetchedAt = mockMode === 'kanban_stale' || isFailureDisconnectionPhase ? staleFetchedAt : nowIso
     this.snapshot.queueCount = mockMode === 'reconnecting' ? 2 : isFailureDisconnectionPhase ? 3 : 1
-    this.snapshot.completedCount = isFailureRecoveredPhase ? 4 : 3
+    this.snapshot.completedCount = isFailureRecoveredPhase || isAssembledHealthyResolved ? 4 : 3
     this.snapshot.workers = [
       {
         issueId: defaultIssue.issueId,
@@ -531,10 +537,10 @@ export class SymphonyOperatorService extends EventEmitter {
             ? 'reconnecting'
             : isFailureDisconnectionPhase
               ? 'blocked'
-              : isFailureRecoveredPhase
+              : isFailureRecoveredPhase || isAssembledHealthyResolved
                 ? 'agent_review'
                 : 'in_progress',
-        toolName: isFailureRecoveredPhase ? 'idle' : 'edit',
+        toolName: isFailureRecoveredPhase || isAssembledHealthyResolved ? 'idle' : 'edit',
         model: 'claude-sonnet-4-6',
         lastActivityAt: nowIso,
       },
@@ -553,7 +559,7 @@ export class SymphonyOperatorService extends EventEmitter {
         : []),
     ]
 
-    this.snapshot.escalations = isFailureRecoveredPhase
+    this.snapshot.escalations = isFailureRecoveredPhase || isAssembledHealthyResolved
       ? []
       : [
           {
