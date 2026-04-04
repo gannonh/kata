@@ -559,9 +559,10 @@ export class WorkflowBoardService {
 
   private enrichWithSymphonyContext(
     snapshot: WorkflowBoardSnapshot,
-    cachedOperatorSnapshot?: SymphonyOperatorSnapshot | null,
+    cachedOperatorSnapshot: SymphonyOperatorSnapshot | null | undefined = undefined,
   ): WorkflowBoardSnapshot {
-    const operatorSnapshot = cachedOperatorSnapshot ?? this.options.getSymphonySnapshot?.() ?? null
+    const operatorSnapshot =
+      cachedOperatorSnapshot === undefined ? (this.options.getSymphonySnapshot?.() ?? null) : cachedOperatorSnapshot
 
     if (!operatorSnapshot) {
       const columns = snapshot.columns.map((column) => ({

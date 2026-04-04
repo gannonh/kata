@@ -58,6 +58,21 @@ describe('WorkflowBoardService', () => {
     expect(response.snapshot.symphony?.staleReason).toBeUndefined()
   })
 
+  test('reads unavailable symphony snapshot once per enrichment pass', async () => {
+    process.env.KATA_TEST_WORKFLOW_FIXTURE = '1'
+
+    const getSymphonySnapshot = vi.fn(() => null)
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+      getSymphonySnapshot,
+    })
+
+    await service.getBoard()
+
+    expect(getSymphonySnapshot).toHaveBeenCalledTimes(1)
+  })
+
   test('clears per-item symphony projections when the snapshot becomes unavailable', async () => {
     process.env.KATA_TEST_WORKFLOW_FIXTURE = '1'
 
