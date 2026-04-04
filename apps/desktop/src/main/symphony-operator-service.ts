@@ -492,26 +492,28 @@ export class SymphonyOperatorService extends EventEmitter {
     const nowIso = new Date().toISOString()
     const staleFetchedAt = new Date(Date.now() - STALE_AFTER_MS - 5_000).toISOString()
 
-    const isKanbanMode =
-      mockMode === 'kanban_assigned' ||
-      mockMode === 'kanban_stale' ||
-      mockMode === 'kanban_disconnected' ||
-      mockMode === 'assembled_healthy' ||
-      mockMode === 'assembled_failure_recovery'
+    const isLegacyKanbanMode =
+      mockMode === 'kanban_assigned' || mockMode === 'kanban_stale' || mockMode === 'kanban_disconnected'
+    const isAssembledMode = mockMode === 'assembled_healthy' || mockMode === 'assembled_failure_recovery'
+    const isKanbanMode = isLegacyKanbanMode || isAssembledMode
 
-    const assembledIssue = {
-      issueId: 'slice-s04',
-      identifier: 'KAT-2337',
-      issueTitle: '[S04] End-to-End Desktop Symphony Operation',
-    }
-
-    const defaultIssue = isKanbanMode
-      ? assembledIssue
-      : {
-          issueId: '1',
-          identifier: 'KAT-2338',
-          issueTitle: 'Live Worker Dashboard and Escalation Handling',
+    const defaultIssue = isAssembledMode
+      ? {
+          issueId: 'slice-s04',
+          identifier: 'KAT-2337',
+          issueTitle: '[S04] End-to-End Desktop Symphony Operation',
         }
+      : isLegacyKanbanMode
+        ? {
+            issueId: 'slice-1',
+            identifier: 'KAT-2247',
+            issueTitle: '[S01] Linear Workflow Board in the Right Pane',
+          }
+        : {
+            issueId: '1',
+            identifier: 'KAT-2338',
+            issueTitle: 'Live Worker Dashboard and Escalation Handling',
+          }
 
     const isFailureDisconnectionPhase = mockMode === 'assembled_failure_recovery' && step === 1
     const isFailureRecoveredPhase = mockMode === 'assembled_failure_recovery' && step >= 2

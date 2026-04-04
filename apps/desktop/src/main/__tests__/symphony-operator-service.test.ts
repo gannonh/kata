@@ -273,6 +273,18 @@ describe('SymphonyOperatorService', () => {
     expect(response.result?.message).toContain('URL is unavailable')
   })
 
+  test('preserves legacy kanban mock identifiers for board correlation', async () => {
+    const service = new SymphonyOperatorService({
+      env: { KATA_DESKTOP_SYMPHONY_DASHBOARD_MOCK: 'kanban_assigned' },
+      createWebSocket: () => fakeSocket,
+    })
+
+    await service.syncRuntimeStatus(READY_STATUS)
+
+    expect(service.getSnapshot().workers.some((worker) => worker.identifier === 'KAT-2247')).toBe(true)
+    expect(service.getSnapshot().escalations[0]?.issueIdentifier).toBe('KAT-2247')
+  })
+
   test('supports assembled mocked healthy flow updates after escalation response', async () => {
     const service = new SymphonyOperatorService({
       env: { KATA_DESKTOP_SYMPHONY_DASHBOARD_MOCK: 'assembled_healthy' },
