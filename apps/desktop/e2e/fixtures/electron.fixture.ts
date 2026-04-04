@@ -71,7 +71,15 @@ type DesktopFixtures = {
   workspaceDir: string
   mainWindow: Page
   readyWindow: Page
-  symphonyMockMode: 'ready' | 'config_error' | 'readiness_error' | 'response_failure' | 'reconnecting'
+  symphonyMockMode:
+    | 'ready'
+    | 'config_error'
+    | 'readiness_error'
+    | 'response_failure'
+    | 'reconnecting'
+    | 'kanban_assigned'
+    | 'kanban_stale'
+    | 'kanban_disconnected'
 }
 
 export const test = base.extend<DesktopFixtures>({

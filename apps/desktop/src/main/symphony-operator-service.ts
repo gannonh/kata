@@ -468,39 +468,69 @@ export class SymphonyOperatorService extends EventEmitter {
 
   private applyMockBaseline(mockMode: string): void {
     const nowIso = new Date().toISOString()
+    const staleFetchedAt = new Date(Date.now() - STALE_AFTER_MS - 5_000).toISOString()
 
-    this.snapshot.fetchedAt = nowIso
+    const isKanbanMode =
+      mockMode === 'kanban_assigned' || mockMode === 'kanban_stale' || mockMode === 'kanban_disconnected'
+
+    this.snapshot.fetchedAt = mockMode === 'kanban_stale' ? staleFetchedAt : nowIso
     this.snapshot.queueCount = mockMode === 'reconnecting' ? 2 : 1
     this.snapshot.completedCount = 3
     this.snapshot.workers = [
       {
-        issueId: '1',
-        identifier: 'KAT-2338',
-        issueTitle: 'Live Worker Dashboard and Escalation Handling',
+        issueId: isKanbanMode ? 'slice-1' : '1',
+        identifier: isKanbanMode ? 'KAT-2247' : 'KAT-2338',
+        issueTitle: isKanbanMode
+          ? '[S01] Linear Workflow Board in the Right Pane'
+          : 'Live Worker Dashboard and Escalation Handling',
         state: mockMode === 'reconnecting' ? 'reconnecting' : 'in_progress',
         toolName: 'edit',
         model: 'claude-sonnet-4-6',
         lastActivityAt: nowIso,
       },
+      ...(isKanbanMode
+        ? [
+            {
+              issueId: 'task-2',
+              identifier: 'KAT-2252',
+              issueTitle: '[T02] Wire workflow board service through IPC',
+              state: 'in_progress',
+              toolName: 'bash',
+              model: 'claude-sonnet-4-6',
+              lastActivityAt: nowIso,
+            },
+          ]
+        : []),
     ]
 
     this.snapshot.escalations = [
       {
         requestId: 'req-123',
-        issueId: '1',
-        issueIdentifier: 'KAT-2338',
-        issueTitle: 'Live Worker Dashboard and Escalation Handling',
+        issueId: isKanbanMode ? 'slice-1' : '1',
+        issueIdentifier: isKanbanMode ? 'KAT-2247' : 'KAT-2338',
+        issueTitle: isKanbanMode
+          ? '[S01] Linear Workflow Board in the Right Pane'
+          : 'Live Worker Dashboard and Escalation Handling',
         questionPreview: 'Need clarification on dashboard failure state copy.',
         createdAt: new Date(Date.now() - 15_000).toISOString(),
         timeoutMs: 300_000,
       },
     ]
 
-    this.snapshot.connection.state = mockMode === 'reconnecting' ? 'reconnecting' : 'connected'
+    this.snapshot.connection.state =
+      mockMode === 'reconnecting'
+        ? 'reconnecting'
+        : mockMode === 'kanban_disconnected'
+          ? 'disconnected'
+          : 'connected'
     this.snapshot.connection.updatedAt = nowIso
     this.snapshot.connection.lastBaselineRefreshAt = nowIso
     this.snapshot.connection.lastError =
-      mockMode === 'reconnecting' ? 'Mocked reconnect in progress.' : undefined
+      mockMode === 'reconnecting'
+        ? 'Mocked reconnect in progress.'
+        : mockMode === 'kanban_disconnected'
+          ? 'Mocked runtime disconnect.'
+          : undefined
     this.refreshFreshness()
     this.emitSnapshot()
   }
