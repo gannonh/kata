@@ -586,6 +586,34 @@ describe('WorkflowBoardService', () => {
     expect(response.snapshot.lastError?.message).toContain('Workflow board inactive')
   })
 
+  test('returns inactive snapshot when deactivated during a failing in-flight refresh', async () => {
+    const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-inactive-failing-refresh-'))
+    mkdirSync(path.join(workspacePath, '.kata'), { recursive: true })
+    writeFileSync(
+      path.join(workspacePath, '.kata', 'preferences.md'),
+      ['---', 'projectSlug: project-ref', '---', ''].join('\n'),
+      'utf8',
+    )
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => 'lin_api_test') } as never,
+      getWorkspacePath: () => workspacePath,
+    })
+
+    ;(service as any).linearClient.fetchActiveMilestoneSnapshot = vi.fn(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10))
+      throw new Error('network down')
+    })
+
+    service.setActive(true)
+    const refreshPromise = service.refreshBoard()
+    service.setActive(false)
+
+    const response = await refreshPromise
+    expect(response.snapshot.status).toBe('error')
+    expect(response.snapshot.lastError?.message).toContain('Workflow board inactive')
+  })
+
   test('does not let stale in-flight refresh overwrite a newer scope snapshot', async () => {
     const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-scope-race-'))
     mkdirSync(path.join(workspacePath, '.kata'), { recursive: true })
