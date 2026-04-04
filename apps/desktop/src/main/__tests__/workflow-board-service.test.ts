@@ -376,4 +376,49 @@ describe('WorkflowBoardService', () => {
     const finalBoard = await service.getBoard()
     expect(finalBoard.snapshot.source.projectId).toBe('project-ref-second')
   })
+
+  test('refreshContext reports unknown mode when preferences lookup throws in non-test mode', async () => {
+    const workspacePath = path.join(tmpdir(), `workflow-board-refresh-context-error-${randomUUID()}`)
+    writeFileSync(workspacePath, 'not-a-directory', 'utf8')
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => workspacePath,
+    })
+
+    const context = await service.refreshContext()
+    expect(context.mode).toBe('unknown')
+    expect(context.trackerConfigured).toBe(false)
+  })
+
+  test('ignores invalid scenario markers in test mode and falls back to normal refresh path', async () => {
+    process.env.KATA_TEST_MODE = '1'
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+    })
+
+    service.setActive(true)
+    service.setScope('workspace:a::session:b::scenario:not-real')
+
+    const response = await service.refreshBoard()
+    expect(response.snapshot.status).toBe('fresh')
+    expect(response.snapshot.lastError).toBeUndefined()
+  })
+
+  test('supports scope keys without scenario markers while in test mode', async () => {
+    process.env.KATA_TEST_MODE = '1'
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+    })
+
+    service.setActive(true)
+    service.setScope('workspace:a::session:b')
+
+    const response = await service.refreshBoard()
+    expect(response.snapshot.status).toBe('fresh')
+  })
 })
