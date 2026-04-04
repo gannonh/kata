@@ -19,7 +19,6 @@ import {
   planningErrorAtom,
   planningLoadingAtom,
   planningStaleReasonAtom,
-  rightPaneModeAtom,
   slicePlanningAtom,
 } from '@/atoms/planning'
 import { ArtifactTabs } from '@/components/planning/ArtifactTabs'
@@ -38,6 +37,7 @@ import {
   parseRoadmap,
 } from '@/lib/artifact-parser'
 import { cn } from '@/lib/utils'
+import { setRightPaneOverrideAtom } from '@/atoms/right-pane'
 
 export function PlanningPane() {
   const artifactsByKey = useAtomValue(planningArtifactsAtom)
@@ -52,7 +52,7 @@ export function PlanningPane() {
 
   const applyPlanningArtifact = useSetAtom(applyPlanningArtifactAtom)
   const setActiveArtifact = useSetAtom(activePlanningArtifactAtom)
-  const setRightPaneMode = useSetAtom(rightPaneModeAtom)
+  const setRightPaneOverride = useSetAtom(setRightPaneOverrideAtom)
   const markPlanningArtifactViewed = useSetAtom(markPlanningArtifactViewedAtom)
   const setPlanningLoading = useSetAtom(planningLoadingAtom)
   const setPlanningError = useSetAtom(planningErrorAtom)
@@ -305,9 +305,9 @@ export function PlanningPane() {
                 console.info('Right pane mode toggled', {
                   trigger: 'manual',
                   from: 'planning',
-                  to: 'default',
+                  to: 'kanban',
                 })
-                setRightPaneMode('default')
+                setRightPaneOverride('kanban')
               }}
             >
               <X className="size-4" />

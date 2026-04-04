@@ -41,6 +41,9 @@ import {
   type WorkspaceInfo,
   type ArtifactType,
   type WorkflowBoardSnapshotResponse,
+  type WorkflowBoardLifecycleResponse,
+  type WorkflowBoardScopeResponse,
+  type WorkflowContextResponse,
 } from '../shared/types'
 
 interface RegisterIpcOptions {
@@ -252,6 +255,7 @@ export function registerSessionIpc({
   }
 
   const onPlanningArtifactEvent = (planningEvent: PlanningArtifactEvent): void => {
+    workflowBoardService.setPlanningActive(true)
     planningMetadataByKey.set(planningEvent.artifactKey, planningEvent)
     planningLatestKeyByTitle.set(planningEvent.title, planningEvent.artifactKey)
 
@@ -491,6 +495,9 @@ export function registerSessionIpc({
   ipcMain.removeHandler(IPC_CHANNELS.planningListArtifacts)
   ipcMain.removeHandler(IPC_CHANNELS.workflowGetBoard)
   ipcMain.removeHandler(IPC_CHANNELS.workflowRefreshBoard)
+  ipcMain.removeHandler(IPC_CHANNELS.workflowSetBoardActive)
+  ipcMain.removeHandler(IPC_CHANNELS.workflowSetScope)
+  ipcMain.removeHandler(IPC_CHANNELS.workflowGetContext)
 
   ipcMain.handle(IPC_CHANNELS.sessionSend, async (_event, message: string) => {
     if (!message?.trim()) {
@@ -741,6 +748,8 @@ export function registerSessionIpc({
           }
         }
 
+        workflowBoardService.setPlanningActive(false)
+
         log.info('[desktop-ipc] session switched', {
           sessionId: trimmedSessionId,
           workspacePath,
@@ -853,6 +862,7 @@ export function registerSessionIpc({
     const previousWorkspacePath = bridge.getWorkspacePath()
 
     await bridge.switchWorkspace(nextWorkspacePath)
+    workflowBoardService.setPlanningActive(false)
 
     if (onWorkspaceSelected) {
       try {
@@ -1077,6 +1087,27 @@ export function registerSessionIpc({
     return workflowBoardService.refreshBoard()
   })
 
+  ipcMain.handle(
+    IPC_CHANNELS.workflowSetBoardActive,
+    async (_event, active: boolean): Promise<WorkflowBoardLifecycleResponse> => {
+      return workflowBoardService.setActive(Boolean(active))
+    },
+  )
+
+  ipcMain.handle(
+    IPC_CHANNELS.workflowSetScope,
+    async (_event, scopeKey: string): Promise<WorkflowBoardScopeResponse> => {
+      return workflowBoardService.setScope(scopeKey)
+    },
+  )
+
+  ipcMain.handle(IPC_CHANNELS.workflowGetContext, async (): Promise<WorkflowContextResponse> => {
+    return {
+      success: true,
+      context: await workflowBoardService.refreshContext(),
+    }
+  })
+
   return () => {
     bridge.off('rpc-event', onRpcEvent)
     bridge.off('extension-ui-request', onExtensionUiRequest)
@@ -1110,6 +1141,9 @@ export function registerSessionIpc({
     ipcMain.removeHandler(IPC_CHANNELS.planningListArtifacts)
     ipcMain.removeHandler(IPC_CHANNELS.workflowGetBoard)
     ipcMain.removeHandler(IPC_CHANNELS.workflowRefreshBoard)
+    ipcMain.removeHandler(IPC_CHANNELS.workflowSetBoardActive)
+    ipcMain.removeHandler(IPC_CHANNELS.workflowSetScope)
+    ipcMain.removeHandler(IPC_CHANNELS.workflowGetContext)
   }
 }
 

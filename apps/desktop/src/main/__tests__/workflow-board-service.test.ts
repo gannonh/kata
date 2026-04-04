@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { WorkflowBoardService } from '../workflow-board-service'
 
 const originalFixtureFlag = process.env.KATA_TEST_WORKFLOW_FIXTURE
-const originalTestMode = process.env.KATA_TEST_MODE
+const originalTestModeFlag = process.env.KATA_TEST_MODE
 
 describe('WorkflowBoardService', () => {
   beforeEach(() => {
@@ -20,15 +20,15 @@ describe('WorkflowBoardService', () => {
       delete process.env.KATA_TEST_WORKFLOW_FIXTURE
     }
 
-    if (originalTestMode !== undefined) {
-      process.env.KATA_TEST_MODE = originalTestMode
+    if (originalTestModeFlag !== undefined) {
+      process.env.KATA_TEST_MODE = originalTestModeFlag
     } else {
       delete process.env.KATA_TEST_MODE
     }
   })
 
   test('returns deterministic fixture snapshot when fixture mode is enabled', async () => {
-    process.env.KATA_TEST_WORKFLOW_FIXTURE = 'linear'
+    process.env.KATA_TEST_WORKFLOW_FIXTURE = '1'
 
     const service = new WorkflowBoardService({
       authBridge: { getApiKey: vi.fn(async () => null) } as never,
@@ -38,7 +38,6 @@ describe('WorkflowBoardService', () => {
     const response = await service.getBoard()
     expect(response.success).toBe(true)
     expect(response.snapshot.status).toBe('fresh')
-    expect(response.snapshot.backend).toBe('linear')
     expect(response.snapshot.columns.find((column) => column.id === 'todo')?.cards).toHaveLength(1)
   })
 
@@ -49,13 +48,14 @@ describe('WorkflowBoardService', () => {
       getWorkspacePath: () => workspacePath,
     })
 
+    service.setActive(true)
     const response = await service.refreshBoard()
     expect(response.snapshot.status).toBe('error')
     expect(response.snapshot.lastError?.code).toBe('NOT_CONFIGURED')
   })
 
   test('getBoard reuses cached snapshot after first refresh', async () => {
-    process.env.KATA_TEST_WORKFLOW_FIXTURE = 'linear'
+    process.env.KATA_TEST_WORKFLOW_FIXTURE = '1'
 
     const service = new WorkflowBoardService({
       authBridge: { getApiKey: vi.fn(async () => null) } as never,
@@ -83,6 +83,7 @@ describe('WorkflowBoardService', () => {
       getWorkspacePath: () => workspacePath,
     })
 
+    service.setActive(true)
     const client = (service as any).linearClient
     client.fetchActiveMilestoneSnapshot = vi
       .fn()
@@ -121,6 +122,7 @@ describe('WorkflowBoardService', () => {
       getWorkspacePath: () => workspacePath,
     })
 
+    service.setActive(true)
     ;(service as any).linearClient.fetchActiveMilestoneSnapshot = vi.fn(async () => ({
       backend: 'linear',
       fetchedAt: '2026-04-04T00:00:00.000Z',
@@ -145,153 +147,88 @@ describe('WorkflowBoardService', () => {
       getWorkspacePath: () => workspacePath,
     })
 
+    service.setActive(true)
     const response = await service.refreshBoard()
     expect(response.snapshot.status).toBe('error')
-    expect(response.snapshot.backend).toBe('linear')
     expect(response.snapshot.lastError?.code).toBe('UNKNOWN')
-    expect(response.snapshot.lastError?.message).toContain('Unable to read WORKFLOW.md')
+    expect(response.snapshot.lastError?.message).toContain('Unable to read .kata/preferences.md')
   })
 
-  test('refreshes GitHub fixture mode based on WORKFLOW tracker config in test mode', async () => {
-    process.env.KATA_TEST_MODE = '1'
-
-    const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-github-fixture-'))
-    writeFileSync(
-      path.join(workspacePath, 'WORKFLOW.md'),
-      ['---', 'tracker:', '  kind: github', '  repo_owner: kata-sh', '  repo_name: kata', '  github_project_number: 7', '---', ''].join('\n'),
-      'utf8',
-    )
-
-    const service = new WorkflowBoardService({
-      authBridge: { getApiKey: vi.fn(async () => null) } as never,
-      getWorkspacePath: () => workspacePath,
-    })
-
-    const response = await service.refreshBoard()
-
-    expect(response.snapshot.backend).toBe('github')
-    expect(response.snapshot.source.githubStateMode).toBe('projects_v2')
-    expect(response.snapshot.columns.find((column) => column.id === 'agent_review')?.cards).toHaveLength(1)
-  })
-
-  test('returns github error snapshot when github refresh fails without prior cache', async () => {
-    const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-github-error-'))
-    writeFileSync(
-      path.join(workspacePath, 'WORKFLOW.md'),
-      ['---', 'tracker:', '  kind: github', '  repo_owner: kata-sh', '  repo_name: kata', '---', ''].join('\n'),
-      'utf8',
-    )
-
-    const service = new WorkflowBoardService({
-      authBridge: { getApiKey: vi.fn(async () => null) } as never,
-      getWorkspacePath: () => workspacePath,
-    })
-
-    ;(service as any).githubClient.fetchSnapshot = vi.fn(async () => {
-      throw new Error('github offline')
-    })
-
-    const response = await service.refreshBoard()
-    expect(response.snapshot.backend).toBe('github')
-    expect(response.snapshot.status).toBe('error')
-    expect(response.snapshot.lastError?.message).toContain('github offline')
-    expect(response.snapshot.source.repoOwner).toBe('kata-sh')
-  })
-
-  test('returns stale github snapshot when github refresh fails after a successful fetch', async () => {
-    const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-github-stale-'))
-    writeFileSync(
-      path.join(workspacePath, 'WORKFLOW.md'),
-      ['---', 'tracker:', '  kind: github', '  repo_owner: kata-sh', '  repo_name: kata', '---', ''].join('\n'),
-      'utf8',
-    )
-
-    const service = new WorkflowBoardService({
-      authBridge: { getApiKey: vi.fn(async () => null) } as never,
-      getWorkspacePath: () => workspacePath,
-    })
-
-    ;(service as any).githubClient.fetchSnapshot = vi
-      .fn()
-      .mockResolvedValueOnce({
-        backend: 'github',
-        fetchedAt: '2026-04-04T00:00:00.000Z',
-        status: 'fresh',
-        source: {
-          projectId: 'github:kata-sh/kata',
-          trackerKind: 'github',
-          githubStateMode: 'labels',
-          repoOwner: 'kata-sh',
-          repoName: 'kata',
-        },
-        activeMilestone: null,
-        columns: [],
-        poll: { status: 'success', backend: 'github', lastAttemptAt: '2026-04-04T00:00:00.000Z' },
-      })
-      .mockRejectedValueOnce(new Error('github down'))
-
-    const first = await service.refreshBoard()
-    expect(first.snapshot.status).toBe('fresh')
-
-    const second = await service.refreshBoard()
-    expect(second.snapshot.status).toBe('stale')
-    expect(second.snapshot.lastError?.message).toContain('github down')
-    expect(second.snapshot.poll.status).toBe('error')
-  })
-
-  test('uses explicit github_labels fixture mode override', async () => {
-    process.env.KATA_TEST_WORKFLOW_FIXTURE = 'github_labels'
-
+  test('returns inactive error snapshot when board is not active', async () => {
     const service = new WorkflowBoardService({
       authBridge: { getApiKey: vi.fn(async () => null) } as never,
       getWorkspacePath: () => '/tmp/workspace',
     })
 
     const response = await service.refreshBoard()
-    expect(response.snapshot.backend).toBe('github')
-    expect(response.snapshot.source.githubStateMode).toBe('labels')
+    expect(response.snapshot.status).toBe('error')
+    expect(response.snapshot.lastError?.message).toContain('Workflow board inactive')
   })
 
-  test('treats preferences without frontmatter as not configured', async () => {
-    const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-no-frontmatter-'))
-    mkdirSync(path.join(workspacePath, '.kata'), { recursive: true })
-    writeFileSync(path.join(workspacePath, '.kata', 'preferences.md'), 'projectId: demo\n', 'utf8')
+  test('supports deterministic test scenarios via scope key in test mode', async () => {
+    process.env.KATA_TEST_MODE = '1'
 
     const service = new WorkflowBoardService({
       authBridge: { getApiKey: vi.fn(async () => null) } as never,
-      getWorkspacePath: () => workspacePath,
+      getWorkspacePath: () => '/tmp/workspace',
     })
 
-    const response = await service.refreshBoard()
-    expect(response.snapshot.lastError?.code).toBe('NOT_CONFIGURED')
+    service.setActive(true)
+
+    service.setScope('workspace:a::session:b::scenario:missing-config')
+    expect((await service.refreshBoard()).snapshot.lastError?.code).toBe('NOT_CONFIGURED')
+
+    service.setScope('workspace:a::session:b::scenario:auth-failure')
+    expect((await service.refreshBoard()).snapshot.lastError?.code).toBe('UNAUTHORIZED')
+
+    service.setScope('workspace:a::session:b::scenario:empty')
+    expect((await service.refreshBoard()).snapshot.status).toBe('empty')
+
+    service.setScope('workspace:a::session:b::scenario:stale')
+    expect((await service.refreshBoard()).snapshot.status).toBe('stale')
+
+    service.setScope('workspace:a::session:b::scenario:recovery')
+    expect((await service.refreshBoard()).snapshot.status).toBe('fresh')
+
+    delete process.env.KATA_TEST_MODE
   })
 
-  test('falls back to projectSlug when projectId is empty in preferences', async () => {
-    const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-empty-projectid-'))
-    mkdirSync(path.join(workspacePath, '.kata'), { recursive: true })
-    writeFileSync(
-      path.join(workspacePath, '.kata', 'preferences.md'),
-      ['---', 'projectId: ""', 'projectSlug: slug-ref', '---', ''].join('\n'),
-      'utf8',
-    )
+  test('refreshContext reflects planning signals and tracker availability', async () => {
+    process.env.KATA_TEST_MODE = '1'
 
     const service = new WorkflowBoardService({
-      authBridge: { getApiKey: vi.fn(async () => 'lin_api_test') } as never,
-      getWorkspacePath: () => workspacePath,
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
     })
 
-    ;(service as any).linearClient.fetchActiveMilestoneSnapshot = vi.fn(async ({ projectRef }: { projectRef: string }) => ({
-      backend: 'linear',
-      fetchedAt: '2026-04-04T00:00:00.000Z',
-      status: 'empty',
-      source: { projectId: projectRef },
-      activeMilestone: null,
-      columns: [],
-      poll: { status: 'success', backend: 'linear', lastAttemptAt: '2026-04-04T00:00:00.000Z' },
-    }))
+    service.setPlanningActive(true)
+    const planningContext = await service.refreshContext()
+    expect(planningContext.mode).toBe('planning')
 
-    const response = await service.refreshBoard()
-    expect(response.snapshot.source.projectId).toBe('slug-ref')
+    service.setPlanningActive(false)
+    const executionContext = await service.refreshContext()
+    expect(executionContext.mode).toBe('execution')
+
+    delete process.env.KATA_TEST_MODE
+  })
+
+  test('setScope resets cached board snapshots on scope changes', async () => {
+    process.env.KATA_TEST_MODE = '1'
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+    })
+
+    service.setActive(true)
+    service.setScope('workspace:a::session:b::scenario:recovery')
+    const first = await service.getBoard()
+
+    service.setScope('workspace:a::session:c::scenario:empty')
+    const second = await service.getBoard()
+
+    expect(first.snapshot.status).toBe('fresh')
+    expect(second.snapshot.status).toBe('empty')
   })
 
   test('deduplicates concurrent refresh requests to a single Linear fetch', async () => {
@@ -325,6 +262,7 @@ describe('WorkflowBoardService', () => {
 
     ;(service as any).linearClient.fetchActiveMilestoneSnapshot = vi.fn(() => deferredFetch)
 
+    service.setActive(true)
     const firstPromise = service.refreshBoard()
     const secondPromise = service.refreshBoard()
 
@@ -333,5 +271,197 @@ describe('WorkflowBoardService', () => {
 
     expect((service as any).linearClient.fetchActiveMilestoneSnapshot).toHaveBeenCalledTimes(1)
     expect(first.snapshot).toEqual(second.snapshot)
+  })
+
+  test('returns inactive snapshot when deactivated during an in-flight refresh', async () => {
+    const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-inactive-mid-refresh-'))
+    mkdirSync(path.join(workspacePath, '.kata'), { recursive: true })
+    writeFileSync(
+      path.join(workspacePath, '.kata', 'preferences.md'),
+      ['---', 'projectSlug: project-ref', '---', ''].join('\n'),
+      'utf8',
+    )
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => 'lin_api_test') } as never,
+      getWorkspacePath: () => workspacePath,
+    })
+
+    let resolveFetch!: (value: any) => void
+    const deferredFetch = new Promise<any>((resolve) => {
+      resolveFetch = resolve
+    })
+
+    ;(service as any).linearClient.fetchActiveMilestoneSnapshot = vi.fn(() => deferredFetch)
+
+    service.setActive(true)
+    const refreshPromise = service.refreshBoard()
+
+    service.setActive(false)
+
+    resolveFetch({
+      backend: 'linear',
+      fetchedAt: '2026-04-04T00:00:00.000Z',
+      status: 'fresh',
+      source: { projectId: 'project-ref', activeMilestoneId: 'm1' },
+      activeMilestone: { id: 'm1', name: '[M001] Demo' },
+      columns: [],
+      poll: { status: 'success', backend: 'linear', lastAttemptAt: '2026-04-04T00:00:00.000Z' },
+    })
+
+    const response = await refreshPromise
+    expect(response.snapshot.status).toBe('error')
+    expect(response.snapshot.lastError?.message).toContain('Workflow board inactive')
+  })
+
+  test('does not let stale in-flight refresh overwrite a newer scope snapshot', async () => {
+    const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-scope-race-'))
+    mkdirSync(path.join(workspacePath, '.kata'), { recursive: true })
+    writeFileSync(
+      path.join(workspacePath, '.kata', 'preferences.md'),
+      ['---', 'projectSlug: project-ref', '---', ''].join('\n'),
+      'utf8',
+    )
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => 'lin_api_test') } as never,
+      getWorkspacePath: () => workspacePath,
+    })
+
+    let resolveFirst!: (value: any) => void
+    let resolveSecond!: (value: any) => void
+
+    const firstFetch = new Promise<any>((resolve) => {
+      resolveFirst = resolve
+    })
+    const secondFetch = new Promise<any>((resolve) => {
+      resolveSecond = resolve
+    })
+
+    ;(service as any).linearClient.fetchActiveMilestoneSnapshot = vi
+      .fn()
+      .mockImplementationOnce(() => firstFetch)
+      .mockImplementationOnce(() => secondFetch)
+
+    service.setActive(true)
+
+    service.setScope('workspace:a::session:first')
+    const firstRefresh = service.refreshBoard()
+    await vi.waitFor(() => {
+      expect((service as any).linearClient.fetchActiveMilestoneSnapshot).toHaveBeenCalledTimes(1)
+    })
+
+    service.setScope('workspace:a::session:second')
+    const secondRefresh = service.refreshBoard()
+    await vi.waitFor(() => {
+      expect((service as any).linearClient.fetchActiveMilestoneSnapshot).toHaveBeenCalledTimes(2)
+    })
+
+    resolveSecond({
+      backend: 'linear',
+      fetchedAt: '2026-04-04T00:00:02.000Z',
+      status: 'fresh',
+      source: { projectId: 'project-ref-second', activeMilestoneId: 'm2' },
+      activeMilestone: { id: 'm2', name: '[M002] Second' },
+      columns: [],
+      poll: { status: 'success', backend: 'linear', lastAttemptAt: '2026-04-04T00:00:02.000Z' },
+    })
+
+    resolveFirst({
+      backend: 'linear',
+      fetchedAt: '2026-04-04T00:00:01.000Z',
+      status: 'fresh',
+      source: { projectId: 'project-ref-first', activeMilestoneId: 'm1' },
+      activeMilestone: { id: 'm1', name: '[M001] First' },
+      columns: [],
+      poll: { status: 'success', backend: 'linear', lastAttemptAt: '2026-04-04T00:00:01.000Z' },
+    })
+
+    await Promise.all([firstRefresh, secondRefresh])
+
+    const finalBoard = await service.getBoard()
+    expect(finalBoard.snapshot.source.projectId).toBe('project-ref-second')
+  })
+
+  test('refreshContext reports unknown mode when preferences lookup throws in non-test mode', async () => {
+    const workspacePath = path.join(tmpdir(), `workflow-board-refresh-context-error-${randomUUID()}`)
+    writeFileSync(workspacePath, 'not-a-directory', 'utf8')
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => workspacePath,
+    })
+
+    const context = await service.refreshContext()
+    expect(context.mode).toBe('unknown')
+    expect(context.trackerConfigured).toBe(false)
+  })
+
+  test('refreshContext marks tracker configured when preferences define a project reference', async () => {
+    const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-refresh-context-configured-'))
+    mkdirSync(path.join(workspacePath, '.kata'), { recursive: true })
+    writeFileSync(
+      path.join(workspacePath, '.kata', 'preferences.md'),
+      ['---', 'projectSlug: demo-project', '---', ''].join('\n'),
+      'utf8',
+    )
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => workspacePath,
+    })
+
+    const context = await service.refreshContext()
+    expect(context.trackerConfigured).toBe(true)
+  })
+
+  test('treats frontmatter without project reference as not configured', async () => {
+    const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-no-project-ref-'))
+    mkdirSync(path.join(workspacePath, '.kata'), { recursive: true })
+    writeFileSync(
+      path.join(workspacePath, '.kata', 'preferences.md'),
+      ['---', 'foo: bar', '---', ''].join('\n'),
+      'utf8',
+    )
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => workspacePath,
+    })
+
+    service.setActive(true)
+    const response = await service.refreshBoard()
+    expect(response.snapshot.lastError?.code).toBe('NOT_CONFIGURED')
+  })
+
+  test('ignores invalid scenario markers in test mode and falls back to normal refresh path', async () => {
+    process.env.KATA_TEST_MODE = '1'
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+    })
+
+    service.setActive(true)
+    service.setScope('workspace:a::session:b::scenario:not-real')
+
+    const response = await service.refreshBoard()
+    expect(response.snapshot.status).toBe('fresh')
+    expect(response.snapshot.lastError).toBeUndefined()
+  })
+
+  test('supports scope keys without scenario markers while in test mode', async () => {
+    process.env.KATA_TEST_MODE = '1'
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+    })
+
+    service.setActive(true)
+    service.setScope('workspace:a::session:b')
+
+    const response = await service.refreshBoard()
+    expect(response.snapshot.status).toBe('fresh')
   })
 })

@@ -5,10 +5,11 @@ export default defineConfig({
   resolve: {
     alias: {
       '@shared': path.resolve(__dirname, 'src/shared'),
+      '@': path.resolve(__dirname, 'src/renderer'),
     },
   },
   test: {
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
     passWithNoTests: true,
     testTimeout: 15_000,
     coverage: {
@@ -17,6 +18,7 @@ export default defineConfig({
       include: ['src/**/*.ts', 'src/**/*.tsx'],
       exclude: [
         'src/**/*.test.ts',
+        'src/**/*.test.tsx',
         'src/**/*.d.ts',
         'dist/**',
         // Electron main process entrypoint — requires a running Electron app (app.whenReady, BrowserWindow)
