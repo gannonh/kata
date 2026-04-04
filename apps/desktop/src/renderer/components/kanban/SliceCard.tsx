@@ -17,7 +17,13 @@ export function SliceCard({ card }: SliceCardProps) {
     <Card size="sm" className="gap-3 rounded-xl border border-border/70 py-3 shadow-none">
       <CardHeader className="px-3 pb-0">
         <CardTitle className="text-sm leading-tight">
-          {card.identifier} · {card.title}
+          {card.url ? (
+            <a href={card.url} target="_blank" rel="noreferrer" className="hover:underline">
+              {card.identifier} · {card.title}
+            </a>
+          ) : (
+            <>{card.identifier} · {card.title}</>
+          )}
         </CardTitle>
       </CardHeader>
 

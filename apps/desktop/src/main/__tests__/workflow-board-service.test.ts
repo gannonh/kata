@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { WorkflowBoardService } from '../workflow-board-service'
 
 const originalFixtureFlag = process.env.KATA_TEST_WORKFLOW_FIXTURE
+const originalTestMode = process.env.KATA_TEST_MODE
 
 describe('WorkflowBoardService', () => {
   beforeEach(() => {
@@ -18,10 +19,16 @@ describe('WorkflowBoardService', () => {
     } else {
       delete process.env.KATA_TEST_WORKFLOW_FIXTURE
     }
+
+    if (originalTestMode !== undefined) {
+      process.env.KATA_TEST_MODE = originalTestMode
+    } else {
+      delete process.env.KATA_TEST_MODE
+    }
   })
 
   test('returns deterministic fixture snapshot when fixture mode is enabled', async () => {
-    process.env.KATA_TEST_WORKFLOW_FIXTURE = '1'
+    process.env.KATA_TEST_WORKFLOW_FIXTURE = 'linear'
 
     const service = new WorkflowBoardService({
       authBridge: { getApiKey: vi.fn(async () => null) } as never,
@@ -31,6 +38,7 @@ describe('WorkflowBoardService', () => {
     const response = await service.getBoard()
     expect(response.success).toBe(true)
     expect(response.snapshot.status).toBe('fresh')
+    expect(response.snapshot.backend).toBe('linear')
     expect(response.snapshot.columns.find((column) => column.id === 'todo')?.cards).toHaveLength(1)
   })
 
@@ -47,7 +55,7 @@ describe('WorkflowBoardService', () => {
   })
 
   test('getBoard reuses cached snapshot after first refresh', async () => {
-    process.env.KATA_TEST_WORKFLOW_FIXTURE = '1'
+    process.env.KATA_TEST_WORKFLOW_FIXTURE = 'linear'
 
     const service = new WorkflowBoardService({
       authBridge: { getApiKey: vi.fn(async () => null) } as never,
@@ -139,8 +147,151 @@ describe('WorkflowBoardService', () => {
 
     const response = await service.refreshBoard()
     expect(response.snapshot.status).toBe('error')
+    expect(response.snapshot.backend).toBe('linear')
     expect(response.snapshot.lastError?.code).toBe('UNKNOWN')
-    expect(response.snapshot.lastError?.message).toContain('Unable to read .kata/preferences.md')
+    expect(response.snapshot.lastError?.message).toContain('Unable to read WORKFLOW.md')
+  })
+
+  test('refreshes GitHub fixture mode based on WORKFLOW tracker config in test mode', async () => {
+    process.env.KATA_TEST_MODE = '1'
+
+    const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-github-fixture-'))
+    writeFileSync(
+      path.join(workspacePath, 'WORKFLOW.md'),
+      ['---', 'tracker:', '  kind: github', '  repo_owner: kata-sh', '  repo_name: kata', '  github_project_number: 7', '---', ''].join('\n'),
+      'utf8',
+    )
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => workspacePath,
+    })
+
+    const response = await service.refreshBoard()
+
+    expect(response.snapshot.backend).toBe('github')
+    expect(response.snapshot.source.githubStateMode).toBe('projects_v2')
+    expect(response.snapshot.columns.find((column) => column.id === 'agent_review')?.cards).toHaveLength(1)
+  })
+
+  test('returns github error snapshot when github refresh fails without prior cache', async () => {
+    const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-github-error-'))
+    writeFileSync(
+      path.join(workspacePath, 'WORKFLOW.md'),
+      ['---', 'tracker:', '  kind: github', '  repo_owner: kata-sh', '  repo_name: kata', '---', ''].join('\n'),
+      'utf8',
+    )
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => workspacePath,
+    })
+
+    ;(service as any).githubClient.fetchSnapshot = vi.fn(async () => {
+      throw new Error('github offline')
+    })
+
+    const response = await service.refreshBoard()
+    expect(response.snapshot.backend).toBe('github')
+    expect(response.snapshot.status).toBe('error')
+    expect(response.snapshot.lastError?.message).toContain('github offline')
+    expect(response.snapshot.source.repoOwner).toBe('kata-sh')
+  })
+
+  test('returns stale github snapshot when github refresh fails after a successful fetch', async () => {
+    const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-github-stale-'))
+    writeFileSync(
+      path.join(workspacePath, 'WORKFLOW.md'),
+      ['---', 'tracker:', '  kind: github', '  repo_owner: kata-sh', '  repo_name: kata', '---', ''].join('\n'),
+      'utf8',
+    )
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => workspacePath,
+    })
+
+    ;(service as any).githubClient.fetchSnapshot = vi
+      .fn()
+      .mockResolvedValueOnce({
+        backend: 'github',
+        fetchedAt: '2026-04-04T00:00:00.000Z',
+        status: 'fresh',
+        source: {
+          projectId: 'github:kata-sh/kata',
+          trackerKind: 'github',
+          githubStateMode: 'labels',
+          repoOwner: 'kata-sh',
+          repoName: 'kata',
+        },
+        activeMilestone: null,
+        columns: [],
+        poll: { status: 'success', backend: 'github', lastAttemptAt: '2026-04-04T00:00:00.000Z' },
+      })
+      .mockRejectedValueOnce(new Error('github down'))
+
+    const first = await service.refreshBoard()
+    expect(first.snapshot.status).toBe('fresh')
+
+    const second = await service.refreshBoard()
+    expect(second.snapshot.status).toBe('stale')
+    expect(second.snapshot.lastError?.message).toContain('github down')
+    expect(second.snapshot.poll.status).toBe('error')
+  })
+
+  test('uses explicit github_labels fixture mode override', async () => {
+    process.env.KATA_TEST_WORKFLOW_FIXTURE = 'github_labels'
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+    })
+
+    const response = await service.refreshBoard()
+    expect(response.snapshot.backend).toBe('github')
+    expect(response.snapshot.source.githubStateMode).toBe('labels')
+  })
+
+  test('treats preferences without frontmatter as not configured', async () => {
+    const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-no-frontmatter-'))
+    mkdirSync(path.join(workspacePath, '.kata'), { recursive: true })
+    writeFileSync(path.join(workspacePath, '.kata', 'preferences.md'), 'projectId: demo\n', 'utf8')
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => workspacePath,
+    })
+
+    const response = await service.refreshBoard()
+    expect(response.snapshot.lastError?.code).toBe('NOT_CONFIGURED')
+  })
+
+  test('falls back to projectSlug when projectId is empty in preferences', async () => {
+    const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-empty-projectid-'))
+    mkdirSync(path.join(workspacePath, '.kata'), { recursive: true })
+    writeFileSync(
+      path.join(workspacePath, '.kata', 'preferences.md'),
+      ['---', 'projectId: ""', 'projectSlug: slug-ref', '---', ''].join('\n'),
+      'utf8',
+    )
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => 'lin_api_test') } as never,
+      getWorkspacePath: () => workspacePath,
+    })
+
+    ;(service as any).linearClient.fetchActiveMilestoneSnapshot = vi.fn(async ({ projectRef }: { projectRef: string }) => ({
+      backend: 'linear',
+      fetchedAt: '2026-04-04T00:00:00.000Z',
+      status: 'empty',
+      source: { projectId: projectRef },
+      activeMilestone: null,
+      columns: [],
+      poll: { status: 'success', backend: 'linear', lastAttemptAt: '2026-04-04T00:00:00.000Z' },
+    }))
+
+    const response = await service.refreshBoard()
+    expect(response.snapshot.source.projectId).toBe('slug-ref')
   })
 
   test('deduplicates concurrent refresh requests to a single Linear fetch', async () => {
