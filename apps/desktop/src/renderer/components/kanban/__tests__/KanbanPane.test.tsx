@@ -47,6 +47,34 @@ describe('KanbanPane status formatting', () => {
     ).toBe('No slices in active milestone')
   })
 
+  test('renders symphony as unavailable when provenance is unavailable', () => {
+    expect(
+      formatSymphonyBoardStatus({
+        backend: 'linear',
+        fetchedAt: '2026-04-04T00:00:00.000Z',
+        status: 'fresh',
+        source: { projectId: 'test-project' },
+        activeMilestone: null,
+        columns: [],
+        poll: {
+          status: 'success',
+          backend: 'linear',
+          lastAttemptAt: '2026-04-04T00:00:00.000Z',
+        },
+        symphony: {
+          connectionState: 'unknown',
+          freshness: 'unknown',
+          provenance: 'unavailable',
+          workerCount: 0,
+          escalationCount: 0,
+          diagnostics: {
+            correlationMisses: [],
+          },
+        },
+      }),
+    ).toBe('Symphony: unavailable')
+  })
+
   test('renders symphony convergence summary with correlation misses', () => {
     expect(
       formatSymphonyBoardStatus({

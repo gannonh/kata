@@ -64,7 +64,7 @@ export function formatWorkflowBoardStatus(input: {
 }
 
 export function formatSymphonyBoardStatus(board: WorkflowBoardSnapshot | null): string {
-  if (!board?.symphony) {
+  if (!board?.symphony || board.symphony.provenance === 'unavailable') {
     return 'Symphony: unavailable'
   }
 

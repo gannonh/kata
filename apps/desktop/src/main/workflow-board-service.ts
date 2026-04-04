@@ -570,7 +570,6 @@ export class WorkflowBoardService {
           connectionState: 'unknown',
           freshness: 'unknown',
           provenance: 'unavailable',
-          staleReason: 'Symphony operator snapshot unavailable.',
           workerCount: 0,
           escalationCount: 0,
           diagnostics: {
@@ -626,10 +625,11 @@ export class WorkflowBoardService {
         (normalizedIdentifier ? workersByIdentifier.get(normalizedIdentifier) : undefined) ??
         (normalizedIssueId ? workersByIssueId.get(normalizedIssueId) : undefined)
 
-      const pendingEscalations =
-        (normalizedIdentifier ? escalationsByIdentifier.get(normalizedIdentifier) : undefined) ??
-        (normalizedIssueId ? escalationsByIssueId.get(normalizedIssueId) : undefined) ??
-        0
+      const escalationsMatchedByIdentifier = normalizedIdentifier
+        ? escalationsByIdentifier.get(normalizedIdentifier)
+        : undefined
+      const escalationsMatchedByIssueId = normalizedIssueId ? escalationsByIssueId.get(normalizedIssueId) : undefined
+      const pendingEscalations = escalationsMatchedByIdentifier ?? escalationsMatchedByIssueId ?? 0
 
       if (worker) {
         const workerKey = normalizeIdentifier(worker.identifier)
@@ -639,9 +639,11 @@ export class WorkflowBoardService {
       }
 
       if (pendingEscalations > 0) {
-        if (normalizedIdentifier) {
+        if (escalationsMatchedByIdentifier && normalizedIdentifier) {
           matchedEscalationKeys.add(normalizedIdentifier)
-        } else if (normalizedIssueId) {
+        }
+
+        if (escalationsMatchedByIssueId && normalizedIssueId) {
           matchedEscalationKeys.add(normalizedIssueId)
         }
       }
