@@ -303,7 +303,20 @@ export class SymphonySupervisor extends EventEmitter {
 
     if (!exited) {
       child.kill('SIGKILL')
-      await this.waitForExit(child, 1_000)
+      const killed = await this.waitForExit(child, 1_000)
+
+      if (killed) {
+        this.child = null
+        this.updateStatus({
+          phase: 'stopped',
+          managedProcessRunning: false,
+          pid: null,
+          restartReason: reason,
+          lastError: undefined,
+        })
+
+        return { success: true, status: this.status }
+      }
 
       const error: SymphonyRuntimeError = {
         code: 'STOP_TIMEOUT',

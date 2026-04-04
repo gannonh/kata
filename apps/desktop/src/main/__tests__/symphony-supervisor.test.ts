@@ -373,6 +373,41 @@ describe('SymphonySupervisor', () => {
     expect(supervisor.getStatus().phase).toBe('failed')
   })
 
+  test('treats SIGKILL exit as successful stop after graceful timeout', async () => {
+    const workspace = createWorkspace()
+    cleanups.push(workspace.cleanup)
+
+    const child = createMockChild()
+    child.kill = vi.fn((signal?: string) => {
+      if (signal === 'SIGKILL') {
+        child.exitCode = 0
+        child.emit('exit', 0, 'SIGKILL')
+        child.emit('close', 0, 'SIGKILL')
+      }
+      return true
+    })
+
+    const supervisor = new SymphonySupervisor({
+      workspacePath: workspace.workspacePath,
+      appIsPackaged: false,
+      env: {
+        ...process.env,
+        KATA_SYMPHONY_BIN_PATH: workspace.executablePath,
+      },
+      spawnImpl: vi.fn(() => child as any) as any,
+      fetchImpl: vi.fn(async () => ({ ok: true } as Response)) as any,
+      stopTimeoutMs: 20,
+    })
+
+    await supervisor.start()
+    const stopped = await supervisor.stop('force_kill')
+
+    expect(stopped.success).toBe(true)
+    expect(supervisor.getStatus().phase).toBe('stopped')
+    expect(child.kill).toHaveBeenCalledWith('SIGTERM')
+    expect(child.kill).toHaveBeenCalledWith('SIGKILL')
+  })
+
   test('returns immediately when start is called while already ready', async () => {
     const workspace = createWorkspace()
     cleanups.push(workspace.cleanup)

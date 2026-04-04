@@ -10,8 +10,8 @@ import type {
   SymphonyRuntimeError,
 } from '../shared/types'
 
-const DEFAULT_URL_ENV_KEY = 'SYMPHONY_URL'
-const FALLBACK_URL_ENV_KEY = 'KATA_SYMPHONY_URL'
+const PRIMARY_URL_ENV_KEY = 'KATA_SYMPHONY_URL'
+const LEGACY_URL_ENV_KEY = 'SYMPHONY_URL'
 const SYMPHONY_BIN_ENV_KEY = 'KATA_SYMPHONY_BIN_PATH'
 
 interface SymphonyPreferences {
@@ -133,7 +133,7 @@ function resolveConfiguredUrl(
     return normalizeAndValidateUrl(prefCandidate, 'preferences')
   }
 
-  const envCandidate = normalizeCandidate(env[FALLBACK_URL_ENV_KEY]) ?? normalizeCandidate(env[DEFAULT_URL_ENV_KEY])
+  const envCandidate = normalizeCandidate(env[PRIMARY_URL_ENV_KEY]) ?? normalizeCandidate(env[LEGACY_URL_ENV_KEY])
 
   if (envCandidate) {
     return normalizeAndValidateUrl(envCandidate, 'env')
@@ -144,7 +144,7 @@ function resolveConfiguredUrl(
     error: {
       code: 'CONFIG_MISSING',
       phase: 'config',
-      message: `Symphony URL is not configured. Set symphony.url in .kata/preferences.md or set ${FALLBACK_URL_ENV_KEY}/${DEFAULT_URL_ENV_KEY}.`,
+      message: `Symphony URL is not configured. Set symphony.url in .kata/preferences.md or set ${PRIMARY_URL_ENV_KEY}/${LEGACY_URL_ENV_KEY}.`,
     },
   }
 }
