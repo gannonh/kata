@@ -68,14 +68,23 @@ async function dismissOnboardingIfPresent(window: Page): Promise<void> {
 
 type DesktopFixtures = {
   electronApp: ElectronApplication
+  workspaceDir: string
   mainWindow: Page
   readyWindow: Page
 }
 
 export const test = base.extend<DesktopFixtures>({
-  electronApp: async ({}, use) => {
+  workspaceDir: async ({}, use) => {
     const dataDir = createIsolatedDataDir()
     const workspaceDir = path.join(dataDir, 'workspace')
+    try {
+      await use(workspaceDir)
+    } finally {
+      try { rmSync(dataDir, { recursive: true, force: true }) } catch { /* noop */ }
+    }
+  },
+  electronApp: async ({ workspaceDir }, use) => {
+    const dataDir = path.dirname(workspaceDir)
     const mainEntry = path.join(__dirname, '../../dist/main.cjs')
     const preloadEntry = path.join(__dirname, '../../dist/preload.cjs')
 
@@ -121,7 +130,6 @@ export const test = base.extend<DesktopFixtures>({
       if (pid) {
         try { process.kill(pid, 'SIGKILL') } catch { /* already dead */ }
       }
-      try { rmSync(dataDir, { recursive: true, force: true }) } catch { /* race with dying process */ }
     }
   },
 
