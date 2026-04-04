@@ -4,6 +4,15 @@ interface WorkerTableProps {
   workers: SymphonyOperatorWorkerRow[]
 }
 
+export function formatLastActivity(lastActivityAt?: string): string {
+  if (!lastActivityAt) {
+    return '—'
+  }
+
+  const parsed = new Date(lastActivityAt)
+  return Number.isNaN(parsed.getTime()) ? '—' : parsed.toLocaleTimeString()
+}
+
 export function WorkerTable({ workers }: WorkerTableProps) {
   return (
     <section data-testid="symphony-worker-table" className="space-y-2">
@@ -34,9 +43,7 @@ export function WorkerTable({ workers }: WorkerTableProps) {
                   <td className="px-2 py-2 align-top text-foreground">{worker.state}</td>
                   <td className="px-2 py-2 align-top text-foreground">{worker.toolName}</td>
                   <td className="px-2 py-2 align-top text-foreground">{worker.model}</td>
-                  <td className="px-2 py-2 align-top text-foreground">
-                    {worker.lastActivityAt ? new Date(worker.lastActivityAt).toLocaleTimeString() : '—'}
-                  </td>
+                  <td className="px-2 py-2 align-top text-foreground">{formatLastActivity(worker.lastActivityAt)}</td>
                 </tr>
               ))}
             </tbody>

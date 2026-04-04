@@ -53,6 +53,7 @@ export class SymphonyOperatorService extends EventEmitter {
   private activeUrl: string | null = null
   private socket: WebSocketLike | null = null
   private reconnectTimer: NodeJS.Timeout | null = null
+  private runtimeSyncRevision = 0
   private readonly snapshot: SymphonyOperatorSnapshot = createEmptySnapshot()
 
   constructor(options: SymphonyOperatorServiceOptions = {}) {
@@ -77,6 +78,10 @@ export class SymphonyOperatorService extends EventEmitter {
 
   override emit<K extends keyof OperatorEvents>(event: K, ...args: Parameters<OperatorEvents[K]>): boolean {
     return super.emit(event, ...args)
+  }
+
+  override off<K extends keyof OperatorEvents>(event: K, listener: OperatorEvents[K]): this {
+    return super.off(event, listener)
   }
 
   public getSnapshot(): SymphonyOperatorSnapshot {
@@ -233,6 +238,7 @@ export class SymphonyOperatorService extends EventEmitter {
   public async syncRuntimeStatus(status: SymphonyRuntimeStatus): Promise<void> {
     this.runtimeStatus = status
     this.activeUrl = status.url
+    const syncRevision = ++this.runtimeSyncRevision
 
     if (!status.url || status.phase === 'config_error' || status.phase === 'failed') {
       this.stopStream()
@@ -242,6 +248,25 @@ export class SymphonyOperatorService extends EventEmitter {
 
     if (status.phase === 'ready') {
       await this.refreshBaseline()
+      const latestStatus = this.runtimeStatus
+      if (
+        syncRevision !== this.runtimeSyncRevision ||
+        latestStatus?.phase !== 'ready' ||
+        latestStatus.url !== status.url
+      ) {
+        if (latestStatus?.phase === 'starting' || latestStatus?.phase === 'restarting') {
+          this.snapshot.connection.state = 'reconnecting'
+          this.snapshot.connection.updatedAt = new Date().toISOString()
+          this.snapshot.connection.lastError = latestStatus.lastError?.message
+          this.refreshFreshness()
+          this.emitSnapshot()
+        } else if (latestStatus && latestStatus.phase !== 'ready') {
+          this.stopStream()
+          this.markDisconnected(latestStatus.lastError?.message ?? 'Symphony runtime unavailable.')
+        }
+        return
+      }
+
       this.connectStream(status.url)
       return
     }
@@ -252,6 +277,12 @@ export class SymphonyOperatorService extends EventEmitter {
       this.snapshot.connection.lastError = status.lastError?.message
       this.refreshFreshness()
       this.emitSnapshot()
+      return
+    }
+
+    if (status.phase === 'disconnected') {
+      this.stopStream()
+      this.markDisconnected(status.lastError?.message ?? 'Symphony runtime disconnected.')
       return
     }
 
@@ -322,10 +353,13 @@ export class SymphonyOperatorService extends EventEmitter {
         this.emitSnapshot()
 
         if (this.runtimeStatus?.phase === 'ready' && this.activeUrl) {
+          const reconnectUrl = this.activeUrl
           this.reconnectTimer = setTimeout(async () => {
             this.reconnectTimer = null
             await this.refreshBaseline()
-            this.connectStream(this.activeUrl!)
+            if (this.runtimeStatus?.phase === 'ready' && this.activeUrl === reconnectUrl) {
+              this.connectStream(reconnectUrl)
+            }
           }, 1_000)
         }
       }

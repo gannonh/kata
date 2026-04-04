@@ -63,7 +63,7 @@ export function SymphonyDashboard() {
           <SummaryStat label="Escalations" value={snapshot.escalations.length} />
         </div>
 
-        {snapshot.freshness.status === 'stale' ? (
+        {snapshot.freshness.status === 'stale' && !snapshot.connection.lastError ? (
           <Alert variant="destructive" data-testid="symphony-dashboard-stale">
             <AlertTitle>Dashboard is stale</AlertTitle>
             <AlertDescription>{snapshot.freshness.staleReason ?? 'No recent updates from Symphony.'}</AlertDescription>
@@ -85,7 +85,11 @@ export function SymphonyDashboard() {
           submittingRequestId={snapshot.response.submittingRequestId}
           lastResult={snapshot.response.lastResult}
           onDraftChange={(requestId, value) => setDraft({ requestId, value })}
-          onSubmit={(requestId) => void respond({ requestId })}
+          onSubmit={(requestId) => {
+            void respond({ requestId }).catch((error) => {
+              console.error('[SymphonyDashboard] escalation submit failed', error)
+            })
+          }}
         />
       </CardContent>
     </Card>

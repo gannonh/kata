@@ -58,15 +58,41 @@ export const respondToEscalationAtom = atom(
     const drafts = get(symphonyEscalationDraftsAtom)
     const responseText = drafts[input.requestId]?.trim() ?? ''
 
-    const result = await window.api.symphony.respondToEscalation(input.requestId, responseText)
-    set(symphonyDashboardSnapshotAtom, result.snapshot)
+    try {
+      const result = await window.api.symphony.respondToEscalation(input.requestId, responseText)
+      set(symphonyDashboardSnapshotAtom, result.snapshot)
 
-    if (result.success) {
-      const { [input.requestId]: _discarded, ...remaining } = drafts
-      set(symphonyEscalationDraftsAtom, remaining)
+      if (result.success) {
+        set(symphonyEscalationDraftsAtom, (currentDrafts) => {
+          const { [input.requestId]: _discarded, ...remaining } = currentDrafts
+          return remaining
+        })
+      }
+
+      return result
+    } catch (error) {
+      const currentSnapshot = get(symphonyDashboardSnapshotAtom)
+      const failureResult = {
+        requestId: input.requestId,
+        ok: false,
+        status: 0,
+        message: error instanceof Error ? error.message : String(error),
+        submittedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+      }
+
+      const snapshot = {
+        ...currentSnapshot,
+        response: {
+          ...currentSnapshot.response,
+          submittingRequestId: undefined,
+          lastResult: failureResult,
+        },
+      }
+
+      set(symphonyDashboardSnapshotAtom, snapshot)
+      return { success: false, snapshot, result: failureResult }
     }
-
-    return result
   },
 )
 

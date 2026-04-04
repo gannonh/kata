@@ -298,6 +298,58 @@ describe('SymphonyOperatorService', () => {
     expect(fetchImpl.mock.calls.filter((call) => String(call[0]).endsWith('/api/v1/state')).length).toBeGreaterThanOrEqual(2)
   })
 
+  test('ignores stale ready transition when newer runtime status disconnects', async () => {
+    let releaseStateFetch = () => {}
+    const delayedStateResponse = new Promise<Response>((resolve) => {
+      releaseStateFetch = () =>
+        resolve({
+          ok: true,
+          json: async () => ({ running: {}, retry_queue: [], completed: [], pending_escalations: [], running_session_info: {} }),
+        } as Response)
+    })
+
+    const fetchImpl = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith('/api/v1/state')) {
+        return delayedStateResponse
+      }
+
+      return Promise.resolve({ ok: true, json: async () => ({ pending: [] }) } as Response)
+    })
+
+    const socketFactory = vi.fn(() => fakeSocket)
+    const service = new SymphonyOperatorService({ fetchImpl, createWebSocket: socketFactory })
+
+    const inFlightReadySync = service.syncRuntimeStatus(READY_STATUS)
+    await service.syncRuntimeStatus(DISCONNECTED_STATUS)
+
+    releaseStateFetch()
+    await inFlightReadySync
+
+    expect(socketFactory).not.toHaveBeenCalled()
+    expect(service.getSnapshot().connection.state).toBe('disconnected')
+  })
+
+  test('handles explicit disconnected phase from runtime status', async () => {
+    const service = new SymphonyOperatorService({
+      fetchImpl: vi.fn(async () => ({ ok: true, json: async () => ({}) }) as Response),
+      createWebSocket: () => fakeSocket,
+    })
+
+    await service.syncRuntimeStatus({
+      ...READY_STATUS,
+      phase: 'disconnected',
+      lastError: {
+        code: 'UNKNOWN',
+        phase: 'unknown',
+        message: 'Lost heartbeat to runtime.',
+      },
+    })
+
+    expect(service.getSnapshot().connection.state).toBe('disconnected')
+    expect(service.getSnapshot().connection.lastError).toContain('Lost heartbeat')
+  })
+
   test('handles failed state refresh and supervisor disconnect status', async () => {
     const failingFetch = vi.fn(async () => {
       throw new Error('network down')
