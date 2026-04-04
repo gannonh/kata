@@ -54,6 +54,34 @@ describe('resolveSymphonyLaunch', () => {
     expect(await loadWorkspacePreferences(workspace.workspacePath)).toBeNull()
   })
 
+  test('loadWorkspacePreferences ignores comments, malformed lines, and dedented keys', async () => {
+    const workspace = createWorkspace()
+    cleanups.push(workspace.cleanup)
+
+    writeFileSync(
+      path.join(workspace.workspacePath, '.kata', 'preferences.md'),
+      [
+        '---',
+        'symphony:',
+        '  # comment line',
+        '  url: http://localhost:8080',
+        '',
+        '  malformed line',
+        '  workflow_path: WORKFLOW.md',
+        'theme: dark',
+        '---',
+      ].join('\n'),
+      'utf8',
+    )
+
+    await expect(loadWorkspacePreferences(workspace.workspacePath)).resolves.toEqual({
+      symphony: {
+        url: 'http://localhost:8080',
+        workflow_path: 'WORKFLOW.md',
+      },
+    })
+  })
+
   test('resolves launch descriptor from preferences', async () => {
     const workspace = createWorkspace()
     cleanups.push(workspace.cleanup)
