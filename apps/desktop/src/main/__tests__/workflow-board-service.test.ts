@@ -347,9 +347,15 @@ describe('WorkflowBoardService', () => {
 
     service.setScope('workspace:a::session:first')
     const firstRefresh = service.refreshBoard()
+    await vi.waitFor(() => {
+      expect((service as any).linearClient.fetchActiveMilestoneSnapshot).toHaveBeenCalledTimes(1)
+    })
 
     service.setScope('workspace:a::session:second')
     const secondRefresh = service.refreshBoard()
+    await vi.waitFor(() => {
+      expect((service as any).linearClient.fetchActiveMilestoneSnapshot).toHaveBeenCalledTimes(2)
+    })
 
     resolveSecond({
       backend: 'linear',
