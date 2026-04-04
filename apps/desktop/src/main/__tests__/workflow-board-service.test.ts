@@ -128,7 +128,7 @@ describe('WorkflowBoardService', () => {
     expect(response.snapshot.source.projectId).toBe('project-id-123')
   })
 
-  test('handles malformed preferences path errors as NOT_CONFIGURED fallback', async () => {
+  test('surfaces malformed preferences path errors without misreporting NOT_CONFIGURED', async () => {
     const workspacePath = path.join(tmpdir(), `workflow-board-invalid-${randomUUID()}`)
     writeFileSync(workspacePath, 'not-a-directory', 'utf8')
 
@@ -139,6 +139,41 @@ describe('WorkflowBoardService', () => {
 
     const response = await service.refreshBoard()
     expect(response.snapshot.status).toBe('error')
-    expect(response.snapshot.lastError?.code).toBe('NOT_CONFIGURED')
+    expect(response.snapshot.lastError?.code).toBe('UNKNOWN')
+    expect(response.snapshot.lastError?.message).toContain('Unable to read .kata/preferences.md')
+  })
+
+  test('deduplicates concurrent refresh requests to a single Linear fetch', async () => {
+    const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-concurrent-'))
+    mkdirSync(path.join(workspacePath, '.kata'), { recursive: true })
+    writeFileSync(
+      path.join(workspacePath, '.kata', 'preferences.md'),
+      ['---', 'projectSlug: project-ref', '---', ''].join('\n'),
+      'utf8',
+    )
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => 'lin_api_test') } as never,
+      getWorkspacePath: () => workspacePath,
+    })
+
+    const snapshot = {
+      backend: 'linear' as const,
+      fetchedAt: '2026-04-04T00:00:00.000Z',
+      status: 'fresh' as const,
+      source: { projectId: 'project-ref', activeMilestoneId: 'm1' },
+      activeMilestone: { id: 'm1', name: '[M001] Demo' },
+      columns: [],
+      poll: { status: 'success' as const, backend: 'linear' as const, lastAttemptAt: '2026-04-04T00:00:00.000Z' },
+    }
+
+    ;(service as any).linearClient.fetchActiveMilestoneSnapshot = vi.fn(
+      async () => await new Promise((resolve) => setTimeout(() => resolve(snapshot), 25)),
+    )
+
+    const [first, second] = await Promise.all([service.refreshBoard(), service.refreshBoard()])
+
+    expect((service as any).linearClient.fetchActiveMilestoneSnapshot).toHaveBeenCalledTimes(1)
+    expect(first.snapshot).toEqual(second.snapshot)
   })
 })

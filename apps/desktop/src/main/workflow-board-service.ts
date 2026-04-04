@@ -102,6 +102,7 @@ interface WorkflowBoardServiceOptions {
 export class WorkflowBoardService {
   private readonly linearClient: LinearWorkflowClient
   private lastSnapshot: WorkflowBoardSnapshot | null = null
+  private inFlightRefresh: Promise<WorkflowBoardSnapshotResponse> | null = null
 
   constructor(private readonly options: WorkflowBoardServiceOptions) {
     this.linearClient = new LinearWorkflowClient(options.authBridge)
@@ -119,6 +120,20 @@ export class WorkflowBoardService {
   }
 
   async refreshBoard(): Promise<WorkflowBoardSnapshotResponse> {
+    if (this.inFlightRefresh) {
+      return this.inFlightRefresh
+    }
+
+    this.inFlightRefresh = this.performRefreshBoard()
+
+    try {
+      return await this.inFlightRefresh
+    } finally {
+      this.inFlightRefresh = null
+    }
+  }
+
+  private async performRefreshBoard(): Promise<WorkflowBoardSnapshotResponse> {
     const nowIso = new Date().toISOString()
 
     if (isWorkflowFixtureEnabled()) {
@@ -131,7 +146,28 @@ export class WorkflowBoardService {
     }
 
     const workspacePath = this.options.getWorkspacePath()
-    const projectRef = await readLinearProjectReference(workspacePath)
+
+    let projectRef: string | null
+    try {
+      projectRef = await readLinearProjectReference(workspacePath)
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unable to read .kata/preferences.md due to an unknown error.'
+
+      const snapshot = this.toErrorSnapshot({
+        nowIso,
+        projectId: 'unknown',
+        code: 'UNKNOWN',
+        message,
+      })
+
+      this.lastSnapshot = snapshot
+
+      return {
+        success: true,
+        snapshot,
+      }
+    }
 
     if (!projectRef) {
       const snapshot = this.toErrorSnapshot({
@@ -254,12 +290,15 @@ async function readLinearProjectReference(workspacePath: string): Promise<string
       return null
     }
 
+    const errorMessage = error instanceof Error ? error.message : String(error)
+
     log.warn('[workflow-board-service] unable to read preferences', {
       workspacePath,
       preferencesPath,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage,
     })
-    return null
+
+    throw new Error(`Unable to read .kata/preferences.md: ${errorMessage}`)
   }
 
   const frontmatterMatch = content.match(/^---\s*\r?\n([\s\S]*?)\r?\n---/)

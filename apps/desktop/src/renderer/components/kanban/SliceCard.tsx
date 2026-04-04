@@ -1,4 +1,5 @@
 import { ChevronDown } from 'lucide-react'
+import { useState } from 'react'
 import type { WorkflowBoardSliceCard } from '@shared/types'
 import { TaskList } from '@/components/kanban/TaskList'
 import { Badge } from '@/components/ui/badge'
@@ -10,6 +11,8 @@ interface SliceCardProps {
 }
 
 export function SliceCard({ card }: SliceCardProps) {
+  const [isOpen, setIsOpen] = useState(false)
+
   return (
     <Card size="sm" className="gap-3 rounded-xl border border-border/70 py-3 shadow-none">
       <CardHeader className="px-3 pb-0">
@@ -26,10 +29,10 @@ export function SliceCard({ card }: SliceCardProps) {
           </Badge>
         </div>
 
-        <Collapsible>
+        <Collapsible open={isOpen} onOpenChange={setIsOpen}>
           <CollapsibleTrigger className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
-            <ChevronDown className="size-3" />
-            Show tasks
+            <ChevronDown className={`size-3 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+            {isOpen ? 'Hide tasks' : 'Show tasks'}
           </CollapsibleTrigger>
           <CollapsibleContent className="pt-2">
             <TaskList tasks={card.tasks} />
