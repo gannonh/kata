@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import type { SymphonyRuntimeStatus } from '@shared/types'
 import { SymphonyOperatorService } from '../symphony-operator-service'
 
@@ -16,6 +16,14 @@ class FakeWebSocket {
     this.onopen?.({})
   }
 
+  emitError() {
+    this.onerror?.({})
+  }
+
+  emitClose() {
+    this.onclose?.({ code: 1006, reason: 'network' })
+  }
+
   emitMessage(payload: unknown) {
     this.onmessage?.({ data: JSON.stringify(payload) })
   }
@@ -31,11 +39,27 @@ const READY_STATUS: SymphonyRuntimeStatus = {
   restartCount: 0,
 }
 
+const DISCONNECTED_STATUS: SymphonyRuntimeStatus = {
+  ...READY_STATUS,
+  phase: 'failed',
+  managedProcessRunning: false,
+  url: null,
+  lastError: {
+    code: 'PROCESS_EXITED',
+    phase: 'process',
+    message: 'Runtime exited.',
+  },
+}
+
 describe('SymphonyOperatorService', () => {
   let fakeSocket: FakeWebSocket
 
   beforeEach(() => {
     fakeSocket = new FakeWebSocket()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   test('normalizes baseline snapshot from state and escalation endpoints', async () => {
@@ -101,7 +125,7 @@ describe('SymphonyOperatorService', () => {
     expect(snapshot.connection.lastBaselineRefreshAt).toBeTruthy()
   })
 
-  test('applies escalation stream events incrementally', async () => {
+  test('applies escalation stream events incrementally and removes responded entries', async () => {
     const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
       if (url.endsWith('/api/v1/state')) {
@@ -147,14 +171,7 @@ describe('SymphonyOperatorService', () => {
     expect(service.getSnapshot().escalations).toHaveLength(1)
     expect(service.getSnapshot().connection.lastEventSequence).toBe(4)
 
-    fakeSocket.emitMessage({
-      sequence: 5,
-      event: 'escalation_responded',
-      payload: {
-        request_id: 'req-5',
-      },
-    })
-
+    fakeSocket.emitMessage({ sequence: 5, event: 'escalation_responded', payload: { request_id: 'req-5' } })
     expect(service.getSnapshot().escalations).toHaveLength(0)
   })
 
@@ -188,10 +205,7 @@ describe('SymphonyOperatorService', () => {
       } as Response
     })
 
-    const service = new SymphonyOperatorService({
-      fetchImpl,
-      createWebSocket: () => fakeSocket,
-    })
+    const service = new SymphonyOperatorService({ fetchImpl, createWebSocket: () => fakeSocket })
 
     await service.syncRuntimeStatus(READY_STATUS)
 
@@ -201,5 +215,126 @@ describe('SymphonyOperatorService', () => {
 
     const stateFetchCount = fetchImpl.mock.calls.filter((call) => String(call[0]).endsWith('/api/v1/state')).length
     expect(stateFetchCount).toBeGreaterThanOrEqual(2)
+  })
+
+  test('marks disconnected when no URL is available for refresh/respond', async () => {
+    const service = new SymphonyOperatorService({
+      fetchImpl: vi.fn(async () => ({ ok: true, json: async () => ({}) }) as Response),
+      createWebSocket: () => fakeSocket,
+    })
+
+    const snapshot = await service.refreshBaseline()
+    expect(snapshot.connection.state).toBe('disconnected')
+
+    const response = await service.respondToEscalation('req-missing', 'Ack')
+    expect(response.success).toBe(false)
+    expect(response.result?.message).toContain('URL is unavailable')
+  })
+
+  test('supports mocked dashboard baselines and mocked response failure/success branches', async () => {
+    const reconnectingService = new SymphonyOperatorService({
+      env: { KATA_DESKTOP_SYMPHONY_DASHBOARD_MOCK: 'reconnecting' },
+      createWebSocket: () => fakeSocket,
+    })
+
+    await reconnectingService.syncRuntimeStatus(READY_STATUS)
+    expect(reconnectingService.getSnapshot().connection.state).toBe('reconnecting')
+    expect(reconnectingService.getSnapshot().queueCount).toBe(2)
+
+    const failingService = new SymphonyOperatorService({
+      env: { KATA_DESKTOP_SYMPHONY_DASHBOARD_MOCK: 'response_failure' },
+      createWebSocket: () => fakeSocket,
+    })
+
+    await failingService.syncRuntimeStatus(READY_STATUS)
+    const failed = await failingService.respondToEscalation('req-123', 'Nope')
+    expect(failed.success).toBe(false)
+    expect(failed.result?.status).toBe(422)
+
+    const mockedSuccessService = new SymphonyOperatorService({
+      env: { KATA_DESKTOP_SYMPHONY_DASHBOARD_MOCK: 'ready' },
+      createWebSocket: () => fakeSocket,
+    })
+
+    await mockedSuccessService.syncRuntimeStatus(READY_STATUS)
+    const success = await mockedSuccessService.respondToEscalation('req-123', 'Approved')
+    expect(success.success).toBe(true)
+    expect(success.snapshot.escalations).toHaveLength(0)
+  })
+
+  test('handles runtime phase transitions and stream reconnect path', async () => {
+    vi.useFakeTimers()
+
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith('/api/v1/state')) {
+        return {
+          ok: true,
+          json: async () => ({ running: {}, retry_queue: [], completed: [], pending_escalations: [], running_session_info: {} }),
+        } as Response
+      }
+
+      return {
+        ok: true,
+        json: async () => ({ pending: [] }),
+      } as Response
+    })
+
+    const socketFactory = vi.fn(() => fakeSocket)
+    const service = new SymphonyOperatorService({ fetchImpl, createWebSocket: socketFactory })
+
+    await service.syncRuntimeStatus({ ...READY_STATUS, phase: 'starting' })
+    expect(service.getSnapshot().connection.state).toBe('reconnecting')
+
+    await service.syncRuntimeStatus(READY_STATUS)
+    expect(socketFactory).toHaveBeenCalledTimes(1)
+
+    fakeSocket.emitError()
+    expect(service.getSnapshot().connection.state).toBe('reconnecting')
+
+    fakeSocket.emitClose()
+    await vi.advanceTimersByTimeAsync(1_000)
+
+    expect(fetchImpl.mock.calls.filter((call) => String(call[0]).endsWith('/api/v1/state')).length).toBeGreaterThanOrEqual(2)
+  })
+
+  test('handles failed state refresh and supervisor disconnect status', async () => {
+    const failingFetch = vi.fn(async () => {
+      throw new Error('network down')
+    })
+
+    const service = new SymphonyOperatorService({ fetchImpl: failingFetch, createWebSocket: () => fakeSocket })
+    await service.syncRuntimeStatus(READY_STATUS)
+
+    expect(service.getSnapshot().connection.lastError).toContain('network down')
+
+    await service.syncRuntimeStatus(DISCONNECTED_STATUS)
+    expect(service.getSnapshot().connection.state).toBe('disconnected')
+    expect(service.getSnapshot().connection.lastError).toContain('Runtime exited')
+  })
+
+  test('returns failed response result when escalation POST returns non-OK', async () => {
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/respond')) {
+        return { ok: false, status: 500 } as Response
+      }
+
+      if (url.endsWith('/api/v1/state')) {
+        return {
+          ok: true,
+          json: async () => ({ running: {}, retry_queue: [], completed: [], pending_escalations: [], running_session_info: {} }),
+        } as Response
+      }
+
+      return { ok: true, json: async () => ({ pending: [] }) } as Response
+    })
+
+    const service = new SymphonyOperatorService({ fetchImpl, createWebSocket: () => fakeSocket })
+    await service.syncRuntimeStatus(READY_STATUS)
+
+    const result = await service.respondToEscalation('req-9', 'Retry later')
+    expect(result.success).toBe(false)
+    expect(result.result?.message).toContain('failed (500)')
   })
 })
