@@ -27,6 +27,8 @@ export const IPC_CHANNELS = {
   planningArtifactFetchState: 'planning:artifact-fetch-state',
   planningFetchArtifact: 'planning:fetch-artifact',
   planningListArtifacts: 'planning:list-artifacts',
+  workflowGetBoard: 'workflow:get-board',
+  workflowRefreshBoard: 'workflow:refresh-board',
 } as const
 
 export type PermissionMode = 'explore' | 'ask' | 'auto'
@@ -508,6 +510,96 @@ export interface PlanningArtifactListResponse {
   error?: PlanningArtifactError
 }
 
+export type WorkflowColumnId =
+  | 'backlog'
+  | 'todo'
+  | 'in_progress'
+  | 'agent_review'
+  | 'human_review'
+  | 'merging'
+  | 'done'
+
+export type WorkflowBoardBackend = 'linear' | 'github'
+
+export type WorkflowBoardStatus = 'fresh' | 'stale' | 'empty' | 'error'
+
+export type WorkflowBoardErrorCode =
+  | 'NOT_CONFIGURED'
+  | 'MISSING_API_KEY'
+  | 'UNAUTHORIZED'
+  | 'NOT_FOUND'
+  | 'RATE_LIMITED'
+  | 'NETWORK'
+  | 'GRAPHQL'
+  | 'UNKNOWN'
+
+export interface WorkflowBoardError {
+  code: WorkflowBoardErrorCode
+  message: string
+}
+
+export interface WorkflowBoardTask {
+  id: string
+  identifier?: string
+  title: string
+  columnId: WorkflowColumnId
+  stateName: string
+  stateType: string
+}
+
+export interface WorkflowBoardSliceCard {
+  id: string
+  identifier: string
+  title: string
+  columnId: WorkflowColumnId
+  stateName: string
+  stateType: string
+  milestoneId: string
+  milestoneName: string
+  taskCounts: {
+    total: number
+    done: number
+  }
+  tasks: WorkflowBoardTask[]
+}
+
+export interface WorkflowBoardColumn {
+  id: WorkflowColumnId
+  title: string
+  cards: WorkflowBoardSliceCard[]
+}
+
+export interface WorkflowBoardPollMetadata {
+  status: 'idle' | 'success' | 'error'
+  backend: WorkflowBoardBackend
+  lastAttemptAt: string
+}
+
+export interface WorkflowBoardSnapshot {
+  backend: WorkflowBoardBackend
+  fetchedAt: string
+  status: WorkflowBoardStatus
+  source: {
+    projectId: string
+    activeMilestoneId?: string
+  }
+  activeMilestone:
+    | {
+        id: string
+        name: string
+      }
+    | null
+  columns: WorkflowBoardColumn[]
+  emptyReason?: string
+  lastError?: WorkflowBoardError
+  poll: WorkflowBoardPollMetadata
+}
+
+export interface WorkflowBoardSnapshotResponse {
+  success: boolean
+  snapshot: WorkflowBoardSnapshot
+}
+
 export type ArtifactType = 'roadmap' | 'requirements' | 'decisions' | 'context' | 'slice'
 
 export type RoadmapRisk = 'high' | 'medium' | 'low'
@@ -614,6 +706,10 @@ export interface DesktopApi {
     onArtifactFetchState: (listener: (event: PlanningArtifactFetchStateEvent) => void) => () => void
     fetchArtifact: (title: string, artifactKey?: string) => Promise<PlanningArtifactFetchResponse>
     listArtifacts: () => Promise<PlanningArtifactListResponse>
+  }
+  workflow: {
+    getBoard: () => Promise<WorkflowBoardSnapshotResponse>
+    refreshBoard: () => Promise<WorkflowBoardSnapshotResponse>
   }
 }
 
