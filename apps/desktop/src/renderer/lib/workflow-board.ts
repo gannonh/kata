@@ -1,19 +1,12 @@
-import type {
-  WorkflowBoardColumn,
-  WorkflowBoardSliceCard,
-  WorkflowBoardSnapshot,
-  WorkflowColumnId,
+import {
+  WORKFLOW_COLUMNS,
+  type WorkflowBoardColumn,
+  type WorkflowBoardSliceCard,
+  type WorkflowBoardSnapshot,
+  type WorkflowColumnId,
 } from '@shared/types'
 
-export const WORKFLOW_COLUMN_ORDER: WorkflowColumnId[] = [
-  'backlog',
-  'todo',
-  'in_progress',
-  'agent_review',
-  'human_review',
-  'merging',
-  'done',
-]
+export const WORKFLOW_COLUMN_ORDER: WorkflowColumnId[] = WORKFLOW_COLUMNS.map((column) => column.id)
 
 export function normalizeWorkflowColumns(snapshot: WorkflowBoardSnapshot): WorkflowBoardColumn[] {
   const sourceById = new Map(snapshot.columns.map((column) => [column.id, column]))
@@ -26,7 +19,7 @@ export function normalizeWorkflowColumns(snapshot: WorkflowBoardSnapshot): Workf
 
     return {
       id: columnId,
-      title: toColumnTitle(columnId),
+      title: WORKFLOW_COLUMNS.find((column) => column.id === columnId)?.title ?? toColumnTitle(columnId),
       cards: [],
     }
   })

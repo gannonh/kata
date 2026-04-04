@@ -1,6 +1,7 @@
 import { AuthBridge } from './auth-bridge'
 import log from './logger'
 import {
+  WORKFLOW_COLUMNS,
   type WorkflowBoardColumn,
   type WorkflowBoardErrorCode,
   type WorkflowBoardSliceCard,
@@ -11,16 +12,6 @@ import {
 
 const LINEAR_GRAPHQL_URL = 'https://api.linear.app/graphql'
 const LINEAR_REQUEST_TIMEOUT_MS = 10_000
-
-const WORKFLOW_COLUMNS: Array<{ id: WorkflowColumnId; title: string }> = [
-  { id: 'backlog', title: 'Backlog' },
-  { id: 'todo', title: 'Todo' },
-  { id: 'in_progress', title: 'In Progress' },
-  { id: 'agent_review', title: 'Agent Review' },
-  { id: 'human_review', title: 'Human Review' },
-  { id: 'merging', title: 'Merging' },
-  { id: 'done', title: 'Done' },
-]
 
 const EXACT_NAME_TO_COLUMN_ID: Record<string, WorkflowColumnId> = {
   backlog: 'backlog',
@@ -48,6 +39,11 @@ interface LinearWorkflowMilestone {
   sortOrder?: number
 }
 
+interface LinearWorkflowPageInfo {
+  hasNextPage?: boolean
+  endCursor?: string | null
+}
+
 interface LinearWorkflowIssue {
   id?: string
   identifier?: string
@@ -57,6 +53,7 @@ interface LinearWorkflowIssue {
   projectMilestone?: LinearWorkflowMilestone | null
   children?: {
     nodes?: LinearWorkflowIssue[]
+    pageInfo?: LinearWorkflowPageInfo
   } | null
 }
 
@@ -66,10 +63,28 @@ interface ResolveProjectQueryData {
   } | null
 }
 
+interface ResolveProjectBySlugQueryData {
+  projects?: {
+    nodes?: Array<{
+      id?: string
+    }>
+  } | null
+}
+
 interface WorkflowIssuesQueryData {
   issues?: {
     nodes?: LinearWorkflowIssue[]
+    pageInfo?: LinearWorkflowPageInfo
   }
+}
+
+interface WorkflowIssueChildrenQueryData {
+  issue?: {
+    children?: {
+      nodes?: LinearWorkflowIssue[]
+      pageInfo?: LinearWorkflowPageInfo
+    } | null
+  } | null
 }
 
 export interface FetchLinearBoardOptions {
@@ -108,51 +123,7 @@ export class LinearWorkflowClient {
       throw new LinearWorkflowClientError('NOT_FOUND', `Linear project "${projectRef}" was not found`)
     }
 
-    const issuesData = await this.request<WorkflowIssuesQueryData>(
-      apiKey,
-      `
-        query WorkflowIssuesByProject($projectId: ID!) {
-          issues(
-            first: 250
-            filter: {
-              project: { id: { eq: $projectId } }
-            }
-          ) {
-            nodes {
-              id
-              identifier
-              title
-              parent {
-                id
-              }
-              state {
-                name
-                type
-              }
-              projectMilestone {
-                id
-                name
-                sortOrder
-              }
-              children(first: 100) {
-                nodes {
-                  id
-                  identifier
-                  title
-                  state {
-                    name
-                    type
-                  }
-                }
-              }
-            }
-          }
-        }
-      `,
-      { projectId },
-    )
-
-    const allIssues = issuesData.issues?.nodes ?? []
+    const allIssues = await this.fetchAllIssuesForProject(apiKey, projectId)
     const sliceIssues = allIssues.filter((issue) => !issue.parent?.id)
 
     const activeMilestone = chooseActiveMilestone(sliceIssues)
@@ -201,7 +172,7 @@ export class LinearWorkflowClient {
   }
 
   private async resolveProjectId(apiKey: string, projectRef: string): Promise<string | null> {
-    const data = await this.request<ResolveProjectQueryData>(
+    const byId = await this.request<ResolveProjectQueryData>(
       apiKey,
       `
         query ResolveProjectId($projectRef: String!) {
@@ -213,13 +184,160 @@ export class LinearWorkflowClient {
       { projectRef },
     )
 
-    return data.project?.id?.trim() || null
+    const idMatch = byId.project?.id?.trim()
+    if (idMatch) {
+      return idMatch
+    }
+
+    const bySlug = await this.request<ResolveProjectBySlugQueryData>(
+      apiKey,
+      `
+        query ResolveProjectBySlug($projectRef: String!) {
+          projects(first: 1, filter: { slug: { eq: $projectRef } }) {
+            nodes {
+              id
+            }
+          }
+        }
+      `,
+      { projectRef },
+    )
+
+    return bySlug.projects?.nodes?.[0]?.id?.trim() || null
+  }
+
+  private async fetchAllIssuesForProject(apiKey: string, projectId: string): Promise<LinearWorkflowIssue[]> {
+    const issues: LinearWorkflowIssue[] = []
+    let after: string | null = null
+
+    do {
+      const page: WorkflowIssuesQueryData = await this.request<WorkflowIssuesQueryData>(
+        apiKey,
+        `
+          query WorkflowIssuesByProject($projectId: ID!, $after: String) {
+            issues(
+              first: 100
+              after: $after
+              filter: {
+                project: { id: { eq: $projectId } }
+              }
+            ) {
+              nodes {
+                id
+                identifier
+                title
+                parent {
+                  id
+                }
+                state {
+                  name
+                  type
+                }
+                projectMilestone {
+                  id
+                  name
+                  sortOrder
+                }
+                children(first: 100) {
+                  nodes {
+                    id
+                    identifier
+                    title
+                    state {
+                      name
+                      type
+                    }
+                  }
+                  pageInfo {
+                    hasNextPage
+                    endCursor
+                  }
+                }
+              }
+              pageInfo {
+                hasNextPage
+                endCursor
+              }
+            }
+          }
+        `,
+        { projectId, after },
+      )
+
+      const pageNodes = page.issues?.nodes ?? []
+      issues.push(...pageNodes)
+
+      after = page.issues?.pageInfo?.hasNextPage ? (page.issues.pageInfo.endCursor ?? null) : null
+    } while (after)
+
+    for (const issue of issues) {
+      const issueId = issue.id?.trim()
+      if (!issueId || !issue.children?.pageInfo?.hasNextPage) {
+        continue
+      }
+
+      const existingChildren = issue.children.nodes ?? []
+      const extraChildren = await this.fetchAllChildrenForIssue(apiKey, issueId, issue.children.pageInfo.endCursor)
+      issue.children = {
+        nodes: [...existingChildren, ...extraChildren],
+        pageInfo: {
+          hasNextPage: false,
+          endCursor: null,
+        },
+      }
+    }
+
+    return issues
+  }
+
+  private async fetchAllChildrenForIssue(
+    apiKey: string,
+    issueId: string,
+    initialCursor?: string | null,
+  ): Promise<LinearWorkflowIssue[]> {
+    const children: LinearWorkflowIssue[] = []
+    let after = initialCursor ?? null
+
+    while (after) {
+      const page: WorkflowIssueChildrenQueryData = await this.request<WorkflowIssueChildrenQueryData>(
+        apiKey,
+        `
+          query WorkflowIssueChildrenPage($issueId: String!, $after: String) {
+            issue(id: $issueId) {
+              children(first: 100, after: $after) {
+                nodes {
+                  id
+                  identifier
+                  title
+                  state {
+                    name
+                    type
+                  }
+                }
+                pageInfo {
+                  hasNextPage
+                  endCursor
+                }
+              }
+            }
+          }
+        `,
+        { issueId, after },
+      )
+
+      children.push(...(page.issue?.children?.nodes ?? []))
+      after = page.issue?.children?.pageInfo?.hasNextPage
+        ? (page.issue.children.pageInfo.endCursor ?? null)
+        : null
+    }
+
+    return children
   }
 
   private async request<TData>(
     apiKey: string,
     query: string,
-    variables: Record<string, string>,
+    variables: Record<string, string | null>,
   ): Promise<TData> {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => {

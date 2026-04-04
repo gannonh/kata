@@ -127,15 +127,30 @@ describe('LinearWorkflowClient', () => {
   test('returns NOT_FOUND when project cannot be resolved', async () => {
     process.env.LINEAR_API_KEY = 'linear-test-key'
 
-    globalThis.fetch = (async () =>
-      new Response(
-        JSON.stringify({
-          data: {
-            project: null,
-          },
-        }),
-        { status: 200 },
-      )) as unknown as typeof fetch
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              project: null,
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              projects: {
+                nodes: [],
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      ) as unknown as typeof fetch
 
     const client = new LinearWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
 
@@ -144,6 +159,186 @@ describe('LinearWorkflowClient', () => {
         code: 'NOT_FOUND',
       },
     )
+  })
+
+  test('resolves project by slug when id lookup misses', async () => {
+    process.env.LINEAR_API_KEY = 'linear-test-key'
+
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              project: null,
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              projects: {
+                nodes: [{ id: 'project-from-slug' }],
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              issues: {
+                nodes: [],
+                pageInfo: {
+                  hasNextPage: false,
+                  endCursor: null,
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      ) as unknown as typeof fetch
+
+    const client = new LinearWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
+
+    const snapshot = await client.fetchActiveMilestoneSnapshot({ projectRef: 'desktop-project' })
+    expect(snapshot.source.projectId).toBe('project-from-slug')
+  })
+
+  test('paginates issues and child tasks before normalization', async () => {
+    process.env.LINEAR_API_KEY = 'linear-test-key'
+
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              project: {
+                id: 'project-1',
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              issues: {
+                nodes: [
+                  {
+                    id: 'slice-a',
+                    identifier: 'KAT-100',
+                    title: '[S01] Paged slice',
+                    parent: null,
+                    state: { name: 'In Progress', type: 'started' },
+                    projectMilestone: {
+                      id: 'milestone-active',
+                      name: '[M003] Workflow Kanban',
+                      sortOrder: 1,
+                    },
+                    children: {
+                      nodes: [
+                        {
+                          id: 'task-a1',
+                          identifier: 'KAT-101',
+                          title: 'Task page 1',
+                          state: { name: 'Todo', type: 'unstarted' },
+                        },
+                      ],
+                      pageInfo: {
+                        hasNextPage: true,
+                        endCursor: 'child-cursor-1',
+                      },
+                    },
+                  },
+                ],
+                pageInfo: {
+                  hasNextPage: true,
+                  endCursor: 'issues-cursor-1',
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              issues: {
+                nodes: [
+                  {
+                    id: 'slice-b',
+                    identifier: 'KAT-102',
+                    title: '[S02] Paged slice 2',
+                    parent: null,
+                    state: { name: 'Todo', type: 'unstarted' },
+                    projectMilestone: {
+                      id: 'milestone-active',
+                      name: '[M003] Workflow Kanban',
+                      sortOrder: 1,
+                    },
+                    children: {
+                      nodes: [],
+                      pageInfo: {
+                        hasNextPage: false,
+                        endCursor: null,
+                      },
+                    },
+                  },
+                ],
+                pageInfo: {
+                  hasNextPage: false,
+                  endCursor: null,
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              issue: {
+                children: {
+                  nodes: [
+                    {
+                      id: 'task-a2',
+                      identifier: 'KAT-103',
+                      title: 'Task page 2',
+                      state: { name: 'Done', type: 'completed' },
+                    },
+                  ],
+                  pageInfo: {
+                    hasNextPage: false,
+                    endCursor: null,
+                  },
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      ) as unknown as typeof fetch
+
+    const client = new LinearWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
+
+    const snapshot = await client.fetchActiveMilestoneSnapshot({ projectRef: 'project-1' })
+    const inProgressColumn = snapshot.columns.find((column) => column.id === 'in_progress')
+    expect(inProgressColumn?.cards[0]?.tasks).toHaveLength(2)
+    expect((globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.length).toBe(4)
   })
 
   test('maps unauthorized and rate-limited backend responses', async () => {

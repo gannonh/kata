@@ -519,6 +519,16 @@ export type WorkflowColumnId =
   | 'merging'
   | 'done'
 
+export const WORKFLOW_COLUMNS: ReadonlyArray<{ id: WorkflowColumnId; title: string }> = [
+  { id: 'backlog', title: 'Backlog' },
+  { id: 'todo', title: 'Todo' },
+  { id: 'in_progress', title: 'In Progress' },
+  { id: 'agent_review', title: 'Agent Review' },
+  { id: 'human_review', title: 'Human Review' },
+  { id: 'merging', title: 'Merging' },
+  { id: 'done', title: 'Done' },
+]
+
 export type WorkflowBoardBackend = 'linear' | 'github'
 
 export type WorkflowBoardStatus = 'fresh' | 'stale' | 'empty' | 'error'
@@ -595,6 +605,10 @@ export interface WorkflowBoardSnapshot {
   poll: WorkflowBoardPollMetadata
 }
 
+/**
+ * Workflow responses always include a snapshot, even on failed fetches.
+ * Callers should check `success` and inspect `snapshot.lastError` for failure details.
+ */
 export interface WorkflowBoardSnapshotResponse {
   success: boolean
   snapshot: WorkflowBoardSnapshot

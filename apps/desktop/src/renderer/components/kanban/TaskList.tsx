@@ -6,6 +6,8 @@ interface TaskListProps {
   tasks: WorkflowBoardTask[]
 }
 
+const DEFAULT_TASK_TONE = 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200'
+
 const TASK_STATE_TONE: Record<WorkflowBoardTask['columnId'], string> = {
   backlog: 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200',
   todo: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200',
@@ -30,7 +32,10 @@ export function TaskList({ tasks }: TaskListProps) {
               {task.identifier ? `${task.identifier} · ` : ''}
               {task.title}
             </p>
-            <Badge variant="outline" className={cn('border-transparent text-[10px]', TASK_STATE_TONE[task.columnId])}>
+            <Badge
+              variant="outline"
+              className={cn('border-transparent text-[10px]', TASK_STATE_TONE[task.columnId] ?? DEFAULT_TASK_TONE)}
+            >
               {task.stateName}
             </Badge>
           </div>

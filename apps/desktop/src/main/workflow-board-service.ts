@@ -301,7 +301,7 @@ async function readLinearProjectReference(workspacePath: string): Promise<string
     throw new Error(`Unable to read .kata/preferences.md: ${errorMessage}`)
   }
 
-  const frontmatterMatch = content.match(/^---\s*\r?\n([\s\S]*?)\r?\n---/)
+  const frontmatterMatch = content.match(/^\uFEFF?\s*---\s*\r?\n([\s\S]*?)\r?\n---/)
   if (!frontmatterMatch?.[1]) {
     return null
   }

@@ -4,6 +4,17 @@ import type { WorkflowBoardSnapshot } from '@shared/types'
 
 const REFRESH_INTERVAL_MS = 30_000
 
+let latestRefreshRequestId = 0
+
+function beginRefreshRequest(): number {
+  latestRefreshRequestId += 1
+  return latestRefreshRequestId
+}
+
+function isLatestRefreshRequest(requestId: number): boolean {
+  return requestId === latestRefreshRequestId
+}
+
 export const workflowBoardAtom = atom<WorkflowBoardSnapshot | null>(null)
 export const workflowBoardLoadingAtom = atom<boolean>(false)
 export const workflowBoardRefreshingAtom = atom<boolean>(false)
@@ -19,17 +30,28 @@ export const workflowBoardHasCardsAtom = atom((get) => {
 })
 
 export const refreshWorkflowBoardAtom = atom(null, async (_get, set) => {
+  const requestId = beginRefreshRequest()
   set(workflowBoardRefreshingAtom, true)
   set(workflowBoardErrorAtom, null)
 
   try {
     const response = await window.api.workflow.refreshBoard()
+    if (!isLatestRefreshRequest(requestId)) {
+      return
+    }
+
     set(workflowBoardAtom, response.snapshot)
     set(workflowBoardErrorAtom, response.snapshot.lastError?.message ?? null)
   } catch (error) {
+    if (!isLatestRefreshRequest(requestId)) {
+      return
+    }
+
     set(workflowBoardErrorAtom, error instanceof Error ? error.message : String(error))
   } finally {
-    set(workflowBoardRefreshingAtom, false)
+    if (isLatestRefreshRequest(requestId)) {
+      set(workflowBoardRefreshingAtom, false)
+    }
   }
 })
 export function useWorkflowBoardBridge(): void {
@@ -42,6 +64,11 @@ export function useWorkflowBoardBridge(): void {
     let cancelled = false
 
     const loadBoard = async (mode: 'initial' | 'refresh') => {
+      if (cancelled) {
+        return
+      }
+
+      const requestId = mode === 'refresh' ? beginRefreshRequest() : null
       if (cancelled) {
         return
       }
@@ -60,6 +87,10 @@ export function useWorkflowBoardBridge(): void {
           return
         }
 
+        if (mode === 'refresh' && requestId !== null && !isLatestRefreshRequest(requestId)) {
+          return
+        }
+
         setBoard(response.snapshot)
         setError(response.snapshot.lastError?.message ?? null)
       } catch (error) {
@@ -67,16 +98,18 @@ export function useWorkflowBoardBridge(): void {
           return
         }
 
-        setError(error instanceof Error ? error.message : String(error))
-      } finally {
-        if (cancelled) {
+        if (mode === 'refresh' && requestId !== null && !isLatestRefreshRequest(requestId)) {
           return
         }
 
-        if (mode === 'initial') {
-          setLoading(false)
-        } else {
-          setRefreshing(false)
+        setError(error instanceof Error ? error.message : String(error))
+      } finally {
+        if (!cancelled) {
+          if (mode === 'initial') {
+            setLoading(false)
+          } else if (requestId !== null && isLatestRefreshRequest(requestId)) {
+            setRefreshing(false)
+          }
         }
       }
     }
