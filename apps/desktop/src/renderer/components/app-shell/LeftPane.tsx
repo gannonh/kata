@@ -9,6 +9,7 @@ import { ChatPanel } from '../chat/ChatPanel'
 import { ModelSelector } from './ModelSelector'
 import { SessionSidebar } from './SessionSidebar'
 import { WorkspaceIndicator } from './WorkspaceIndicator'
+import { SymphonyStatusBadge } from './SymphonyStatusBadge'
 
 export function LeftPane() {
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -31,6 +32,7 @@ export function LeftPane() {
 
           <h1 className="text-sm font-semibold tracking-wide uppercase text-foreground">Kata Desktop</h1>
           <WorkspaceIndicator />
+          <SymphonyStatusBadge />
         </div>
 
         <div className="flex flex-1 items-center justify-end gap-2">

@@ -4,6 +4,7 @@ import { AppShell } from './components/app-shell/AppShell'
 import { OnboardingWizard } from './components/onboarding/OnboardingWizard'
 import { usePlanningArtifactBridge } from '@/atoms/planning'
 import { useWorkflowBoardBridge } from '@/atoms/workflow-board'
+import { useSymphonyBridge } from '@/atoms/symphony'
 import { TooltipProvider } from '@/components/ui/tooltip'
 
 export default function App() {
@@ -11,6 +12,7 @@ export default function App() {
 
   usePlanningArtifactBridge()
   useWorkflowBoardBridge()
+  useSymphonyBridge()
 
   return (
     <TooltipProvider>
