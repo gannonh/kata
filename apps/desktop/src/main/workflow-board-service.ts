@@ -2,15 +2,18 @@ import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import { AuthBridge } from './auth-bridge'
 import { LinearWorkflowClient } from './linear-workflow-client'
+import { GithubWorkflowClient } from './github-workflow-client'
 import log from './logger'
 import { WorkflowContextService } from './workflow-context-service'
+import { readWorkspaceWorkflowTrackerConfig } from './workflow-config-reader'
 import type {
   WorkflowBoardSnapshot,
   WorkflowBoardSnapshotResponse,
   WorkflowContextSnapshot,
+  WorkflowTrackerConfig,
 } from '../shared/types'
 
-const TEST_WORKFLOW_FIXTURE: WorkflowBoardSnapshot = {
+const TEST_LINEAR_WORKFLOW_FIXTURE: WorkflowBoardSnapshot = {
   backend: 'linear',
   fetchedAt: '2026-04-04T00:00:00.000Z',
   status: 'fresh',
@@ -72,6 +75,137 @@ const TEST_WORKFLOW_FIXTURE: WorkflowBoardSnapshot = {
   },
 }
 
+const TEST_GITHUB_LABELS_WORKFLOW_FIXTURE: WorkflowBoardSnapshot = {
+  backend: 'github',
+  fetchedAt: '2026-04-04T00:00:00.000Z',
+  status: 'fresh',
+  source: {
+    projectId: 'github:kata-sh/kata-mono',
+    trackerKind: 'github',
+    githubStateMode: 'labels',
+    repoOwner: 'kata-sh',
+    repoName: 'kata-mono',
+  },
+  activeMilestone: null,
+  columns: [
+    { id: 'backlog', title: 'Backlog', cards: [] },
+    {
+      id: 'todo',
+      title: 'Todo',
+      cards: [
+        {
+          id: 'gh-2249',
+          identifier: '#2249',
+          title: '[S02] GitHub Workflow Board Parity',
+          columnId: 'todo',
+          stateName: 'Todo',
+          stateType: 'label',
+          milestoneId: 'github:kata-sh/kata-mono',
+          milestoneName: 'kata-sh/kata-mono',
+          taskCounts: { total: 0, done: 0 },
+          tasks: [],
+          url: 'https://github.com/kata-sh/kata-mono/issues/2249',
+        },
+      ],
+    },
+    {
+      id: 'in_progress',
+      title: 'In Progress',
+      cards: [
+        {
+          id: 'gh-2250',
+          identifier: '#2250',
+          title: '[S03] Workflow Context Switching and Failure Visibility',
+          columnId: 'in_progress',
+          stateName: 'In Progress',
+          stateType: 'label',
+          milestoneId: 'github:kata-sh/kata-mono',
+          milestoneName: 'kata-sh/kata-mono',
+          taskCounts: { total: 0, done: 0 },
+          tasks: [],
+          url: 'https://github.com/kata-sh/kata-mono/issues/2250',
+        },
+      ],
+    },
+    { id: 'agent_review', title: 'Agent Review', cards: [] },
+    { id: 'human_review', title: 'Human Review', cards: [] },
+    { id: 'merging', title: 'Merging', cards: [] },
+    { id: 'done', title: 'Done', cards: [] },
+  ],
+  poll: {
+    status: 'success',
+    backend: 'github',
+    lastAttemptAt: '2026-04-04T00:00:00.000Z',
+  },
+}
+
+const TEST_GITHUB_PROJECTS_WORKFLOW_FIXTURE: WorkflowBoardSnapshot = {
+  backend: 'github',
+  fetchedAt: '2026-04-04T00:00:00.000Z',
+  status: 'fresh',
+  source: {
+    projectId: 'github:kata-sh/kata-mono:project:7',
+    trackerKind: 'github',
+    githubStateMode: 'projects_v2',
+    repoOwner: 'kata-sh',
+    repoName: 'kata-mono',
+  },
+  activeMilestone: {
+    id: 'github-project-7',
+    name: 'GitHub Project #7',
+  },
+  columns: [
+    { id: 'backlog', title: 'Backlog', cards: [] },
+    {
+      id: 'todo',
+      title: 'Todo',
+      cards: [
+        {
+          id: 'gh-2249',
+          identifier: '#2249',
+          title: '[S02] GitHub Workflow Board Parity',
+          columnId: 'todo',
+          stateName: 'Todo',
+          stateType: 'projects_v2',
+          milestoneId: 'github-project:7',
+          milestoneName: 'GitHub Project #7',
+          taskCounts: { total: 0, done: 0 },
+          tasks: [],
+          url: 'https://github.com/kata-sh/kata-mono/issues/2249',
+        },
+      ],
+    },
+    {
+      id: 'in_progress',
+      title: 'In Progress',
+      cards: [
+        {
+          id: 'gh-2251',
+          identifier: '#2251',
+          title: '[S04] End-to-End Kanban Integration Proof',
+          columnId: 'in_progress',
+          stateName: 'In Progress',
+          stateType: 'projects_v2',
+          milestoneId: 'github-project:7',
+          milestoneName: 'GitHub Project #7',
+          taskCounts: { total: 0, done: 0 },
+          tasks: [],
+          url: 'https://github.com/kata-sh/kata-mono/issues/2251',
+        },
+      ],
+    },
+    { id: 'agent_review', title: 'Agent Review', cards: [] },
+    { id: 'human_review', title: 'Human Review', cards: [] },
+    { id: 'merging', title: 'Merging', cards: [] },
+    { id: 'done', title: 'Done', cards: [] },
+  ],
+  poll: {
+    status: 'success',
+    backend: 'github',
+    lastAttemptAt: '2026-04-04T00:00:00.000Z',
+  },
+}
+
 interface WorkflowBoardServiceOptions {
   authBridge: AuthBridge
   getWorkspacePath: () => string
@@ -79,6 +213,7 @@ interface WorkflowBoardServiceOptions {
 
 export class WorkflowBoardService {
   private readonly linearClient: LinearWorkflowClient
+  private readonly githubClient: GithubWorkflowClient
   private readonly contextService = new WorkflowContextService()
 
   private lastSnapshot: WorkflowBoardSnapshot | null = null
@@ -94,6 +229,7 @@ export class WorkflowBoardService {
 
   constructor(private readonly options: WorkflowBoardServiceOptions) {
     this.linearClient = new LinearWorkflowClient(options.authBridge)
+    this.githubClient = new GithubWorkflowClient(options.authBridge)
   }
 
   setActive(active: boolean): { success: true; active: boolean } {
@@ -182,8 +318,8 @@ export class WorkflowBoardService {
       return { success: true, snapshot: scenarioSnapshot }
     }
 
-    if (isWorkflowFixtureEnabled()) {
-      const fixture = withFreshTimestamps(TEST_WORKFLOW_FIXTURE)
+    if (process.env.KATA_TEST_WORKFLOW_FIXTURE === '1') {
+      const fixture = withFreshTimestamps(TEST_LINEAR_WORKFLOW_FIXTURE)
       if (capturedScopeKey === this.scopeKey) {
         this.lastSnapshot = fixture
         this.lastSuccessSnapshot = fixture
@@ -202,6 +338,7 @@ export class WorkflowBoardService {
       const inactive = this.toErrorSnapshot({
         nowIso: new Date().toISOString(),
         projectId: 'unknown',
+        backend: 'linear',
         code: 'UNKNOWN',
         message: 'Workflow board inactive. Activate kanban pane to fetch execution state.',
       })
@@ -215,18 +352,14 @@ export class WorkflowBoardService {
     const nowIso = new Date().toISOString()
     const workspacePath = this.options.getWorkspacePath()
 
-    let projectRef: string | null
-    try {
-      projectRef = await this.resolveProjectReference(workspacePath)
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Unable to read .kata/preferences.md due to an unknown error.'
-
+    const trackerResolution = await this.resolveTrackerConfig(workspacePath)
+    if (trackerResolution.error) {
       const snapshot = this.toErrorSnapshot({
         nowIso,
         projectId: 'unknown',
-        code: 'UNKNOWN',
-        message,
+        backend: 'linear',
+        code: trackerResolution.error.code,
+        message: trackerResolution.error.message,
       })
 
       if (capturedScopeKey === this.scopeKey) {
@@ -237,26 +370,58 @@ export class WorkflowBoardService {
       return { success: true, snapshot }
     }
 
-    if (!projectRef) {
+    const tracker = trackerResolution.config
+
+    if (!tracker) {
       const snapshot = this.toErrorSnapshot({
         nowIso,
         projectId: 'unknown',
+        backend: 'linear',
         code: 'NOT_CONFIGURED',
-        message: 'Linear project is not configured in .kata/preferences.md (projectId or projectSlug).',
+        message: 'Workflow board tracker is not configured in WORKFLOW.md or .kata/preferences.md.',
       })
       if (capturedScopeKey === this.scopeKey) {
         this.lastSnapshot = snapshot
+        this.trackerConfigured = false
         this.syncContextSnapshot()
       }
       return { success: true, snapshot }
     }
 
+    if (isWorkflowFixtureEnabled()) {
+      const fixture = withFreshTimestamps(this.fixtureForTracker(tracker))
+      if (capturedScopeKey === this.scopeKey) {
+        this.lastSnapshot = fixture
+        this.lastSuccessSnapshot = fixture
+        this.trackerConfigured = true
+        this.syncContextSnapshot()
+      }
+      return { success: true, snapshot: fixture }
+    }
+
+    const boardProjectId = tracker.kind === 'github'
+      ? `github:${tracker.repoOwner}/${tracker.repoName}`
+      : tracker.projectRef
+
     try {
-      const snapshot = await this.linearClient.fetchActiveMilestoneSnapshot({ projectRef })
+      const fetchedSnapshot =
+        tracker.kind === 'github'
+          ? await this.githubClient.fetchSnapshot({ config: tracker })
+          : await this.linearClient.fetchActiveMilestoneSnapshot({ projectRef: tracker.projectRef })
+
+      const snapshot: WorkflowBoardSnapshot = {
+        ...fetchedSnapshot,
+        poll: {
+          ...fetchedSnapshot.poll,
+          lastSuccessAt: fetchedSnapshot.fetchedAt,
+        },
+      }
+
       if (!this.active) {
         const inactive = this.toErrorSnapshot({
           nowIso,
-          projectId: projectRef,
+          projectId: boardProjectId,
+          backend: snapshot.backend,
           code: 'UNKNOWN',
           message: 'Workflow board inactive. Activate kanban pane to fetch execution state.',
         })
@@ -270,6 +435,7 @@ export class WorkflowBoardService {
       if (capturedScopeKey === this.scopeKey) {
         this.lastSnapshot = snapshot
         this.lastSuccessSnapshot = snapshot
+        this.trackerConfigured = true
         this.syncContextSnapshot()
       }
       return { success: true, snapshot }
@@ -277,7 +443,8 @@ export class WorkflowBoardService {
       if (!this.active) {
         const inactive = this.toErrorSnapshot({
           nowIso,
-          projectId: projectRef,
+          projectId: boardProjectId,
+          backend: tracker.kind === 'github' ? 'github' : 'linear',
           code: 'UNKNOWN',
           message: 'Workflow board inactive. Activate kanban pane to fetch execution state.',
         })
@@ -288,7 +455,10 @@ export class WorkflowBoardService {
         return { success: true, snapshot: inactive }
       }
 
-      const workflowError = LinearWorkflowClient.toWorkflowError(error)
+      const workflowError =
+        tracker.kind === 'github'
+          ? GithubWorkflowClient.toWorkflowError(error)
+          : LinearWorkflowClient.toWorkflowError(error)
 
       const staleSnapshot: WorkflowBoardSnapshot = this.lastSuccessSnapshot
         ? {
@@ -303,7 +473,8 @@ export class WorkflowBoardService {
           }
         : this.toErrorSnapshot({
             nowIso,
-            projectId: projectRef,
+            projectId: boardProjectId,
+            backend: tracker.kind === 'github' ? 'github' : 'linear',
             code: workflowError.code,
             message: workflowError.message,
           })
@@ -314,7 +485,7 @@ export class WorkflowBoardService {
 
       log.warn('[workflow-board-service] workflow refresh failed', {
         workspacePath,
-        projectRef,
+        tracker,
         scopeKey: this.scopeKey,
         error: workflowError,
       })
@@ -341,6 +512,7 @@ export class WorkflowBoardService {
       return this.toErrorSnapshot({
         nowIso,
         projectId: 'unknown',
+        backend: 'linear',
         code: 'NOT_CONFIGURED',
         message: 'Linear project is not configured in .kata/preferences.md (projectId or projectSlug).',
       })
@@ -350,13 +522,14 @@ export class WorkflowBoardService {
       return this.toErrorSnapshot({
         nowIso,
         projectId: 'test-project',
+        backend: 'linear',
         code: 'UNAUTHORIZED',
         message: 'Invalid Linear API key',
       })
     }
 
     if (scenario === 'empty') {
-      const fixture = withFreshTimestamps(TEST_WORKFLOW_FIXTURE)
+      const fixture = withFreshTimestamps(TEST_LINEAR_WORKFLOW_FIXTURE)
       return {
         ...fixture,
         status: 'empty',
@@ -367,7 +540,7 @@ export class WorkflowBoardService {
     }
 
     if (scenario === 'stale') {
-      const baseline = this.lastSuccessSnapshot ?? withFreshTimestamps(TEST_WORKFLOW_FIXTURE)
+      const baseline = this.lastSuccessSnapshot ?? withFreshTimestamps(TEST_LINEAR_WORKFLOW_FIXTURE)
       return {
         ...baseline,
         status: 'stale',
@@ -383,19 +556,15 @@ export class WorkflowBoardService {
       }
     }
 
-    return withFreshTimestamps(TEST_WORKFLOW_FIXTURE)
+    return withFreshTimestamps(TEST_LINEAR_WORKFLOW_FIXTURE)
   }
 
   async refreshContext(): Promise<WorkflowContextSnapshot> {
-    if (isWorkflowFixtureEnabled()) {
-      this.trackerConfigured = true
-    } else {
-      try {
-        const projectRef = await this.resolveProjectReference(this.options.getWorkspacePath())
-        this.trackerConfigured = Boolean(projectRef)
-      } catch {
-        this.trackerConfigured = false
-      }
+    try {
+      const tracker = await this.resolveTrackerConfig(this.options.getWorkspacePath())
+      this.trackerConfigured = Boolean(tracker.config)
+    } catch {
+      this.trackerConfigured = false
     }
 
     return this.contextService.resolve({
@@ -405,25 +574,110 @@ export class WorkflowBoardService {
     }).next
   }
 
-  private async resolveProjectReference(workspacePath: string): Promise<string | null> {
-    const projectRef = await readLinearProjectReference(workspacePath)
-    this.trackerConfigured = Boolean(projectRef)
-    return projectRef
+  private async resolveTrackerConfig(workspacePath: string): Promise<{
+    config:
+      | ({ kind: 'github' } & Extract<WorkflowTrackerConfig, { kind: 'github' }>)
+      | ({ kind: 'linear'; projectRef: string })
+      | null
+    error?: NonNullable<WorkflowBoardSnapshot['lastError']>
+  }> {
+    if (process.env.KATA_TEST_WORKFLOW_FIXTURE === '1') {
+      return {
+        config: {
+          kind: 'linear',
+          projectRef: 'test-project',
+        },
+      }
+    }
+
+    const trackerResult = await readWorkspaceWorkflowTrackerConfig(workspacePath)
+    if (trackerResult.error) {
+      if (trackerResult.error.code === 'UNKNOWN') {
+        try {
+          await readLinearProjectReference(workspacePath)
+        } catch (error) {
+          return {
+            config: null,
+            error: {
+              code: 'UNKNOWN',
+              message: error instanceof Error ? error.message : String(error),
+            },
+          }
+        }
+      }
+
+      return { config: null, error: trackerResult.error }
+    }
+
+    const trackerConfig = trackerResult.config
+    if (trackerConfig?.kind === 'github') {
+      return {
+        config: trackerConfig,
+      }
+    }
+
+    let projectRef: string | null
+    try {
+      projectRef = await readLinearProjectReference(workspacePath)
+    } catch (error) {
+      return {
+        config: null,
+        error: {
+          code: 'UNKNOWN',
+          message: error instanceof Error ? error.message : String(error),
+        },
+      }
+    }
+
+    if (projectRef) {
+      return {
+        config: {
+          kind: 'linear',
+          projectRef,
+        },
+      }
+    }
+
+    if (process.env.KATA_TEST_MODE === '1') {
+      return {
+        config: {
+          kind: 'linear',
+          projectRef: 'test-project',
+        },
+      }
+    }
+
+    return { config: null }
+  }
+
+  private fixtureForTracker(
+    tracker:
+      | ({ kind: 'github' } & Extract<WorkflowTrackerConfig, { kind: 'github' }>)
+      | { kind: 'linear'; projectRef: string },
+  ): WorkflowBoardSnapshot {
+    if (tracker.kind === 'github') {
+      return tracker.stateMode === 'projects_v2'
+        ? TEST_GITHUB_PROJECTS_WORKFLOW_FIXTURE
+        : TEST_GITHUB_LABELS_WORKFLOW_FIXTURE
+    }
+
+    return TEST_LINEAR_WORKFLOW_FIXTURE
   }
 
   private toErrorSnapshot(input: {
     nowIso: string
     projectId: string
+    backend: WorkflowBoardSnapshot['backend']
     code: NonNullable<WorkflowBoardSnapshot['lastError']>['code']
     message: string
   }): WorkflowBoardSnapshot {
     return {
-      backend: 'linear',
+      backend: input.backend,
       fetchedAt: input.nowIso,
       status: 'error',
       source: { projectId: input.projectId },
       activeMilestone: null,
-      columns: TEST_WORKFLOW_FIXTURE.columns.map((column) => ({
+      columns: TEST_LINEAR_WORKFLOW_FIXTURE.columns.map((column) => ({
         id: column.id,
         title: column.title,
         cards: [],
@@ -435,7 +689,7 @@ export class WorkflowBoardService {
       },
       poll: {
         status: 'error',
-        backend: 'linear',
+        backend: input.backend,
         lastAttemptAt: input.nowIso,
       },
     }
@@ -454,6 +708,7 @@ function withFreshTimestamps(snapshot: WorkflowBoardSnapshot): WorkflowBoardSnap
     poll: {
       ...snapshot.poll,
       lastAttemptAt: nowIso,
+      lastSuccessAt: snapshot.poll.status === 'success' ? nowIso : snapshot.poll.lastSuccessAt,
     },
   }
 }

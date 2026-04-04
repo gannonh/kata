@@ -25,6 +25,9 @@ export const refreshWorkflowBoardAtom = atom(null, async (_get, set) => {
     const response = await window.api.workflow.refreshBoard()
     set(workflowBoardAtom, response.snapshot)
     set(workflowBoardErrorAtom, response.snapshot.lastError?.message ?? null)
+
+    const contextResponse = await window.api.workflow.getContext()
+    set(setWorkflowContextAtom, contextResponse.context)
   } catch (error) {
     set(workflowBoardErrorAtom, error instanceof Error ? error.message : String(error))
   } finally {
