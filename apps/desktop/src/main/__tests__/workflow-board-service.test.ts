@@ -1,0 +1,85 @@
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { WorkflowBoardService } from '../workflow-board-service'
+
+const originalFixtureFlag = process.env.KATA_TEST_WORKFLOW_FIXTURE
+
+describe('WorkflowBoardService', () => {
+  beforeEach(() => {
+    delete process.env.KATA_TEST_WORKFLOW_FIXTURE
+  })
+
+  afterEach(() => {
+    if (originalFixtureFlag) {
+      process.env.KATA_TEST_WORKFLOW_FIXTURE = originalFixtureFlag
+    } else {
+      delete process.env.KATA_TEST_WORKFLOW_FIXTURE
+    }
+  })
+
+  test('returns deterministic fixture snapshot when fixture mode is enabled', async () => {
+    process.env.KATA_TEST_WORKFLOW_FIXTURE = '1'
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+    })
+
+    const response = await service.getBoard()
+    expect(response.success).toBe(true)
+    expect(response.snapshot.status).toBe('fresh')
+    expect(response.snapshot.columns.find((column) => column.id === 'todo')?.cards).toHaveLength(1)
+  })
+
+  test('returns NOT_CONFIGURED when preferences are missing', async () => {
+    const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-missing-'))
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => workspacePath,
+    })
+
+    const response = await service.refreshBoard()
+    expect(response.snapshot.status).toBe('error')
+    expect(response.snapshot.lastError?.code).toBe('NOT_CONFIGURED')
+  })
+
+  test('returns stale snapshot with error metadata when refresh fails after a successful fetch', async () => {
+    const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-stale-'))
+    mkdirSync(path.join(workspacePath, '.kata'), { recursive: true })
+    writeFileSync(
+      path.join(workspacePath, '.kata', 'preferences.md'),
+      ['---', 'projectSlug: project-ref', '---', ''].join('\n'),
+      'utf8',
+    )
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => 'lin_api_test') } as never,
+      getWorkspacePath: () => workspacePath,
+    })
+
+    const client = (service as any).linearClient
+    client.fetchActiveMilestoneSnapshot = vi
+      .fn()
+      .mockResolvedValueOnce({
+        backend: 'linear',
+        fetchedAt: '2026-04-04T00:00:00.000Z',
+        status: 'fresh',
+        source: { projectId: 'project-ref', activeMilestoneId: 'm1' },
+        activeMilestone: { id: 'm1', name: '[M001] Demo' },
+        columns: [],
+        poll: { status: 'success', backend: 'linear', lastAttemptAt: '2026-04-04T00:00:00.000Z' },
+      })
+      .mockRejectedValueOnce(new Error('network down'))
+
+    const first = await service.refreshBoard()
+    expect(first.snapshot.status).toBe('fresh')
+
+    const second = await service.refreshBoard()
+    expect(second.snapshot.status).toBe('stale')
+    expect(second.snapshot.lastError?.code).toBe('UNKNOWN')
+    expect(second.snapshot.lastError?.message).toContain('network down')
+    expect(second.snapshot.poll.status).toBe('error')
+  })
+})

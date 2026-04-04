@@ -148,6 +148,14 @@ const api: DesktopApi = {
       return ipcRenderer.invoke(IPC_CHANNELS.planningListArtifacts)
     },
   },
+  workflow: {
+    getBoard: async () => {
+      return ipcRenderer.invoke(IPC_CHANNELS.workflowGetBoard)
+    },
+    refreshBoard: async () => {
+      return ipcRenderer.invoke(IPC_CHANNELS.workflowRefreshBoard)
+    },
+  },
 }
 
 contextBridge.exposeInMainWorld('api', api)
