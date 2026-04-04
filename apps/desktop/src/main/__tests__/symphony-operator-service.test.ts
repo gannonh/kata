@@ -9,7 +9,9 @@ class FakeWebSocket {
   public onclose: ((event: { code?: number; reason?: string }) => void) | null = null
 
   close = vi.fn(() => {
-    this.onclose?.({ code: 1000, reason: 'closed' })
+    queueMicrotask(() => {
+      this.onclose?.({ code: 1000, reason: 'closed' })
+    })
   })
 
   emitOpen() {
@@ -123,6 +125,46 @@ describe('SymphonyOperatorService', () => {
     expect(snapshot.escalations).toHaveLength(1)
     expect(snapshot.connection.state).toBe('connected')
     expect(snapshot.connection.lastBaselineRefreshAt).toBeTruthy()
+  })
+
+  test('falls back to state pending escalations when escalation endpoint fails', async () => {
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith('/api/v1/state')) {
+        return {
+          ok: true,
+          json: async () => ({
+            running: {},
+            retry_queue: [],
+            completed: [],
+            pending_escalations: [
+              {
+                request_id: 'req-state',
+                issue_id: '1',
+                issue_identifier: 'KAT-2338',
+                preview: 'State fallback escalation',
+                created_at: new Date().toISOString(),
+                timeout_ms: 300000,
+              },
+            ],
+            running_session_info: {},
+          }),
+        } as Response
+      }
+
+      return {
+        ok: false,
+        status: 503,
+        json: async () => ({ pending: [] }),
+      } as Response
+    })
+
+    const service = new SymphonyOperatorService({ fetchImpl, createWebSocket: () => fakeSocket })
+    await service.syncRuntimeStatus(READY_STATUS)
+
+    const snapshot = service.getSnapshot()
+    expect(snapshot.escalations.map((escalation) => escalation.requestId)).toContain('req-state')
+    expect(snapshot.connection.lastError).toContain('Escalation request failed (503)')
   })
 
   test('applies escalation stream events incrementally and removes responded entries', async () => {
@@ -262,6 +304,34 @@ describe('SymphonyOperatorService', () => {
     expect(success.snapshot.escalations).toHaveLength(0)
   })
 
+  test('reconnects websocket when runtime ready URL changes', async () => {
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith('/api/v1/state')) {
+        return {
+          ok: true,
+          json: async () => ({ running: {}, retry_queue: [], completed: [], pending_escalations: [], running_session_info: {} }),
+        } as Response
+      }
+
+      return { ok: true, json: async () => ({ pending: [] }) } as Response
+    })
+
+    const firstSocket = new FakeWebSocket()
+    const secondSocket = new FakeWebSocket()
+    const socketFactory = vi.fn()
+      .mockReturnValueOnce(firstSocket)
+      .mockReturnValueOnce(secondSocket)
+
+    const service = new SymphonyOperatorService({ fetchImpl, createWebSocket: socketFactory })
+
+    await service.syncRuntimeStatus({ ...READY_STATUS, url: 'http://127.0.0.1:8080' })
+    await service.syncRuntimeStatus({ ...READY_STATUS, url: 'http://127.0.0.1:9090' })
+
+    expect(firstSocket.close).toHaveBeenCalledTimes(1)
+    expect(socketFactory).toHaveBeenCalledTimes(2)
+  })
+
   test('handles runtime phase transitions and stream reconnect path', async () => {
     vi.useFakeTimers()
 
@@ -292,6 +362,7 @@ describe('SymphonyOperatorService', () => {
     fakeSocket.emitError()
     expect(service.getSnapshot().connection.state).toBe('reconnecting')
 
+    fakeSocket.emitClose()
     fakeSocket.emitClose()
     await vi.advanceTimersByTimeAsync(1_000)
 
@@ -667,6 +738,7 @@ describe('SymphonyOperatorService', () => {
 
     fakeSocket.emitClose()
     await service.syncRuntimeStatus({ ...READY_STATUS, phase: 'idle' })
+    await Promise.resolve()
     await vi.advanceTimersByTimeAsync(1_200)
 
     expect(socketFactory).toHaveBeenCalledTimes(1)

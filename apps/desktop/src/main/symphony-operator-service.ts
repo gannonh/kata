@@ -52,6 +52,7 @@ export class SymphonyOperatorService extends EventEmitter {
   private runtimeStatus: SymphonyRuntimeStatus | null = null
   private activeUrl: string | null = null
   private socket: WebSocketLike | null = null
+  private socketUrl: string | null = null
   private reconnectTimer: NodeJS.Timeout | null = null
   private runtimeSyncRevision = 0
   private readonly snapshot: SymphonyOperatorSnapshot = createEmptySnapshot()
@@ -121,11 +122,17 @@ export class SymphonyOperatorService extends EventEmitter {
       const statePayload = (await stateResponse.json()) as SymphonyStatePayload
       const escalationsPayload = escalationResponse.ok
         ? ((await escalationResponse.json()) as { pending?: Array<Record<string, unknown>> })
-        : { pending: [] }
+        : { pending: statePayload.pending_escalations ?? [] }
+
+      if (!escalationResponse.ok) {
+        this.snapshot.connection.lastError = `Escalation request failed (${escalationResponse.status}).`
+      }
 
       this.applyStatePayload(statePayload, escalationsPayload.pending ?? [])
       this.snapshot.connection.lastBaselineRefreshAt = new Date().toISOString()
-      this.snapshot.connection.lastError = undefined
+      if (escalationResponse.ok) {
+        this.snapshot.connection.lastError = undefined
+      }
       this.snapshot.connection.state = 'connected'
       this.snapshot.connection.updatedAt = new Date().toISOString()
       this.refreshFreshness()
@@ -272,6 +279,7 @@ export class SymphonyOperatorService extends EventEmitter {
     }
 
     if (status.phase === 'restarting' || status.phase === 'starting') {
+      this.stopStream()
       this.snapshot.connection.state = 'reconnecting'
       this.snapshot.connection.updatedAt = new Date().toISOString()
       this.snapshot.connection.lastError = status.lastError?.message
@@ -294,10 +302,6 @@ export class SymphonyOperatorService extends EventEmitter {
 
   public dispose(): void {
     this.stopStream()
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer)
-      this.reconnectTimer = null
-    }
   }
 
   private connectStream(url: string): void {
@@ -308,12 +312,16 @@ export class SymphonyOperatorService extends EventEmitter {
     const eventUrl = toWebSocketUrl(buildEndpoint(url, '/api/v1/events'))
 
     if (this.socket) {
-      return
+      if (this.socketUrl === eventUrl) {
+        return
+      }
+      this.stopStream()
     }
 
     try {
       const socket = this.createWebSocket(eventUrl)
       this.socket = socket
+      this.socketUrl = eventUrl
 
       socket.onopen = () => {
         this.snapshot.connection.state = 'connected'
@@ -347,10 +355,16 @@ export class SymphonyOperatorService extends EventEmitter {
 
       socket.onclose = () => {
         this.socket = null
+        this.socketUrl = null
         this.snapshot.connection.state = 'reconnecting'
         this.snapshot.connection.updatedAt = new Date().toISOString()
         this.refreshFreshness()
         this.emitSnapshot()
+
+        if (this.reconnectTimer) {
+          clearTimeout(this.reconnectTimer)
+          this.reconnectTimer = null
+        }
 
         if (this.runtimeStatus?.phase === 'ready' && this.activeUrl) {
           const reconnectUrl = this.activeUrl
@@ -374,8 +388,13 @@ export class SymphonyOperatorService extends EventEmitter {
 
   private stopStream(): void {
     if (this.socket) {
+      this.socket.onopen = null
+      this.socket.onmessage = null
+      this.socket.onerror = null
+      this.socket.onclose = null
       this.socket.close()
       this.socket = null
+      this.socketUrl = null
     }
 
     if (this.reconnectTimer) {

@@ -102,26 +102,26 @@ export function useSymphonyDashboardBridge(): void {
 
   useEffect(() => {
     let cancelled = false
+    let receivedPush = false
+
+    const unsubscribe = window.api.symphony.onDashboardSnapshot((snapshot) => {
+      receivedPush = true
+      setSnapshot(snapshot)
+    })
 
     const loadInitialSnapshot = async () => {
       setLoading(true)
       try {
         const response = await window.api.symphony.getDashboardSnapshot()
-        if (!cancelled) {
+        if (!cancelled && !receivedPush) {
           setSnapshot(response.snapshot)
         }
       } finally {
-        if (!cancelled) {
-          setLoading(false)
-        }
+        setLoading(false)
       }
     }
 
     void loadInitialSnapshot()
-
-    const unsubscribe = window.api.symphony.onDashboardSnapshot((snapshot) => {
-      setSnapshot(snapshot)
-    })
 
     return () => {
       cancelled = true
