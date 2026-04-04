@@ -13,6 +13,7 @@ import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ProviderAuthPanel } from './ProviderAuthPanel'
 import { SymphonyRuntimePanel } from './SymphonyRuntimePanel'
+import { SymphonyDashboard } from '../symphony/SymphonyDashboard'
 
 type SettingsTab = 'providers' | 'general' | 'appearance' | 'symphony'
 
@@ -80,7 +81,10 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
             </TabsContent>
 
             <TabsContent value="symphony" className="mt-0 h-full overflow-auto p-4">
-              <SymphonyRuntimePanel />
+              <div className="space-y-4">
+                <SymphonyRuntimePanel />
+                <SymphonyDashboard />
+              </div>
             </TabsContent>
 
             <TabsContent value="general" className="mt-0 h-full overflow-auto p-4">

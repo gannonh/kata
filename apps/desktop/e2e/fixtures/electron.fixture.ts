@@ -71,7 +71,7 @@ type DesktopFixtures = {
   workspaceDir: string
   mainWindow: Page
   readyWindow: Page
-  symphonyMockMode: 'ready' | 'config_error' | 'readiness_error'
+  symphonyMockMode: 'ready' | 'config_error' | 'readiness_error' | 'response_failure' | 'reconnecting'
 }
 
 export const test = base.extend<DesktopFixtures>({
@@ -116,6 +116,7 @@ export const test = base.extend<DesktopFixtures>({
         KATA_TEST_MODE: '1',
         KATA_WORKSPACE_PATH: workspaceDir,
         KATA_DESKTOP_SYMPHONY_MOCK: symphonyMockMode,
+        KATA_DESKTOP_SYMPHONY_DASHBOARD_MOCK: symphonyMockMode,
         KATA_SYMPHONY_URL: 'http://127.0.0.1:8080',
         // Don't override HOME — that breaks CLI binary discovery and auth.json lookup.
         // The --user-data-dir flag isolates Electron's own data (localStorage, cookies).
