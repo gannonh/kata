@@ -155,6 +155,15 @@ const api: DesktopApi = {
     refreshBoard: async () => {
       return ipcRenderer.invoke(IPC_CHANNELS.workflowRefreshBoard)
     },
+    setBoardActive: async (active: boolean) => {
+      return ipcRenderer.invoke(IPC_CHANNELS.workflowSetBoardActive, active)
+    },
+    setScope: async (scopeKey: string) => {
+      return ipcRenderer.invoke(IPC_CHANNELS.workflowSetScope, scopeKey)
+    },
+    getContext: async () => {
+      return ipcRenderer.invoke(IPC_CHANNELS.workflowGetContext)
+    },
   },
 }
 

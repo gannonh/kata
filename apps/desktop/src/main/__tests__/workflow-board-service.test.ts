@@ -41,6 +41,7 @@ describe('WorkflowBoardService', () => {
       getWorkspacePath: () => workspacePath,
     })
 
+    service.setActive(true)
     const response = await service.refreshBoard()
     expect(response.snapshot.status).toBe('error')
     expect(response.snapshot.lastError?.code).toBe('NOT_CONFIGURED')
@@ -75,6 +76,7 @@ describe('WorkflowBoardService', () => {
       getWorkspacePath: () => workspacePath,
     })
 
+    service.setActive(true)
     const client = (service as any).linearClient
     client.fetchActiveMilestoneSnapshot = vi
       .fn()
@@ -113,6 +115,7 @@ describe('WorkflowBoardService', () => {
       getWorkspacePath: () => workspacePath,
     })
 
+    service.setActive(true)
     ;(service as any).linearClient.fetchActiveMilestoneSnapshot = vi.fn(async () => ({
       backend: 'linear',
       fetchedAt: '2026-04-04T00:00:00.000Z',
@@ -137,6 +140,7 @@ describe('WorkflowBoardService', () => {
       getWorkspacePath: () => workspacePath,
     })
 
+    service.setActive(true)
     const response = await service.refreshBoard()
     expect(response.snapshot.status).toBe('error')
     expect(response.snapshot.lastError?.code).toBe('UNKNOWN')
@@ -174,6 +178,7 @@ describe('WorkflowBoardService', () => {
 
     ;(service as any).linearClient.fetchActiveMilestoneSnapshot = vi.fn(() => deferredFetch)
 
+    service.setActive(true)
     const firstPromise = service.refreshBoard()
     const secondPromise = service.refreshBoard()
 
