@@ -146,11 +146,7 @@ function parseSimpleObject(block: string): Record<string, string> {
       continue
     }
 
-    const key = match[1]
-    if (!key) {
-      continue
-    }
-
+    const key = match[1] ?? ''
     const rawValue = match[2] ?? ''
     result[key] = stripInlineComment(rawValue).trim()
   }

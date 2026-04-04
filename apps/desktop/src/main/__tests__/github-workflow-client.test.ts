@@ -154,6 +154,142 @@ describe('GithubWorkflowClient', () => {
     })
   })
 
+  test('paginates label mode issue requests and returns empty state when no mapped labels are present', async () => {
+    process.env.GH_TOKEN = 'ghp_test'
+
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify(
+            Array.from({ length: 100 }, (_value, index) => ({
+              id: 2000 + index,
+              number: 3000 + index,
+              title: `Issue ${index}`,
+              labels: [{ name: 'bug' }],
+            })),
+          ),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify([]), { status: 200 })) as unknown as typeof fetch
+
+    const client = new GithubWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
+    const snapshot = await client.fetchSnapshot({
+      config: {
+        kind: 'github',
+        repoOwner: 'kata-sh',
+        repoName: 'kata',
+        stateMode: 'labels',
+      },
+    })
+
+    expect(snapshot.status).toBe('empty')
+    expect(snapshot.emptyReason).toContain('symphony:')
+    expect((globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.length).toBe(2)
+  })
+
+  test('uses authBridge token fallback when GH_TOKEN is absent', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify([]), { status: 200 })) as unknown as typeof fetch
+
+    const client = new GithubWorkflowClient({ getApiKey: vi.fn(async () => 'bridge_token') } as never)
+    await client.fetchSnapshot({
+      config: {
+        kind: 'github',
+        repoOwner: 'kata-sh',
+        repoName: 'kata',
+        stateMode: 'labels',
+      },
+    })
+
+    const request = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0]
+    expect(request?.[1]?.headers?.authorization).toBe('Bearer bridge_token')
+  })
+
+  test('maps GitHub HTTP and GraphQL failures to structured errors', async () => {
+    process.env.GH_TOKEN = 'ghp_test'
+
+    globalThis.fetch = vi.fn().mockResolvedValue(new Response('{}', { status: 401 })) as unknown as typeof fetch
+    const client = new GithubWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
+    await expect(
+      client.fetchSnapshot({
+        config: {
+          kind: 'github',
+          repoOwner: 'kata-sh',
+          repoName: 'kata',
+          stateMode: 'labels',
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'UNAUTHORIZED' })
+
+    globalThis.fetch = vi.fn().mockResolvedValue(new Response('{}', { status: 404 })) as unknown as typeof fetch
+    await expect(
+      client.fetchSnapshot({
+        config: {
+          kind: 'github',
+          repoOwner: 'kata-sh',
+          repoName: 'kata',
+          stateMode: 'labels',
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' })
+
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ data: { user: { projectV2: { id: 'p1', field: { id: 'f1' } } }, organization: null } }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify({ errors: [{ message: 'bad graphql' }] }), { status: 200 })) as unknown as typeof fetch
+
+    await expect(
+      client.fetchSnapshot({
+        config: {
+          kind: 'github',
+          repoOwner: 'kata-sh',
+          repoName: 'kata',
+          stateMode: 'projects_v2',
+          githubProjectNumber: 7,
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'GRAPHQL' })
+  })
+
+  test('maps invalid projects v2 config and missing project to explicit errors', async () => {
+    process.env.GH_TOKEN = 'ghp_test'
+
+    const client = new GithubWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
+
+    await expect(
+      client.fetchSnapshot({
+        config: {
+          kind: 'github',
+          repoOwner: 'kata-sh',
+          repoName: 'kata',
+          stateMode: 'projects_v2',
+        } as any,
+      }),
+    ).rejects.toMatchObject({ code: 'INVALID_CONFIG' })
+
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ data: { user: { projectV2: null }, organization: null } }), { status: 200 }),
+    ) as unknown as typeof fetch
+
+    await expect(
+      client.fetchSnapshot({
+        config: {
+          kind: 'github',
+          repoOwner: 'kata-sh',
+          repoName: 'kata',
+          stateMode: 'projects_v2',
+          githubProjectNumber: 7,
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' })
+  })
+
   test('maps missing token to MISSING_API_KEY', async () => {
     const client = new GithubWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
 
@@ -167,5 +303,17 @@ describe('GithubWorkflowClient', () => {
         },
       }),
     ).rejects.toMatchObject({ code: 'MISSING_API_KEY' })
+  })
+
+  test('maps unknown errors through toWorkflowError helper', () => {
+    expect(GithubWorkflowClient.toWorkflowError(new TypeError('network fail'))).toEqual({
+      code: 'NETWORK',
+      message: 'network fail',
+    })
+
+    expect(GithubWorkflowClient.toWorkflowError(new Error('boom'))).toEqual({
+      code: 'UNKNOWN',
+      message: 'boom',
+    })
   })
 })
