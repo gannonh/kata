@@ -11,6 +11,10 @@ Requires:
 
 Usage:
   python fetch_comments.py > pr_comments.json
+
+Notes:
+  - Thread comments are fetched with `comments(first: 100)` per review thread.
+    The script does not currently paginate nested thread comments beyond 100.
 """
 
 from __future__ import annotations
@@ -116,18 +120,18 @@ def _ensure_gh_authenticated() -> None:
 
 
 def gh_pr_view_json(fields: str) -> dict[str, Any]:
-    # fields is a comma-separated list like: "number,headRepositoryOwner,headRepository"
+    # fields is a comma-separated list like: "number,baseRepositoryOwner,baseRepository"
     return _run_json(["gh", "pr", "view", "--json", fields])
 
 
 def get_current_pr_ref() -> tuple[str, str, int]:
     """
     Resolve the PR for the current branch (whatever gh considers associated).
-    Works for cross-repo PRs too, by reading head repository owner/name.
+    Works for cross-repo PRs too, using the base repository owner/name.
     """
-    pr = gh_pr_view_json("number,headRepositoryOwner,headRepository")
-    owner = pr["headRepositoryOwner"]["login"]
-    repo = pr["headRepository"]["name"]
+    pr = gh_pr_view_json("number,baseRepositoryOwner,baseRepository")
+    owner = pr["baseRepositoryOwner"]["login"]
+    repo = pr["baseRepository"]["name"]
     number = int(pr["number"])
     return owner, repo, number
 
@@ -175,10 +179,13 @@ def fetch_all(owner: str, repo: str, number: int) -> dict[str, Any]:
     comments_cursor: str | None = None
     reviews_cursor: str | None = None
     threads_cursor: str | None = None
+    comments_done = False
+    reviews_done = False
+    threads_done = False
 
     pr_meta: dict[str, Any] | None = None
 
-    while True:
+    while not (comments_done and reviews_done and threads_done):
         payload = gh_api_graphql(
             owner=owner,
             repo=repo,
@@ -206,16 +213,20 @@ def fetch_all(owner: str, repo: str, number: int) -> dict[str, Any]:
         r = pr["reviews"]
         t = pr["reviewThreads"]
 
-        conversation_comments.extend(c.get("nodes") or [])
-        reviews.extend(r.get("nodes") or [])
-        review_threads.extend(t.get("nodes") or [])
+        if not comments_done:
+            conversation_comments.extend(c.get("nodes") or [])
+            comments_done = not c["pageInfo"]["hasNextPage"]
+            comments_cursor = None if comments_done else c["pageInfo"]["endCursor"]
 
-        comments_cursor = c["pageInfo"]["endCursor"] if c["pageInfo"]["hasNextPage"] else None
-        reviews_cursor = r["pageInfo"]["endCursor"] if r["pageInfo"]["hasNextPage"] else None
-        threads_cursor = t["pageInfo"]["endCursor"] if t["pageInfo"]["hasNextPage"] else None
+        if not reviews_done:
+            reviews.extend(r.get("nodes") or [])
+            reviews_done = not r["pageInfo"]["hasNextPage"]
+            reviews_cursor = None if reviews_done else r["pageInfo"]["endCursor"]
 
-        if not (comments_cursor or reviews_cursor or threads_cursor):
-            break
+        if not threads_done:
+            review_threads.extend(t.get("nodes") or [])
+            threads_done = not t["pageInfo"]["hasNextPage"]
+            threads_cursor = None if threads_done else t["pageInfo"]["endCursor"]
 
     assert pr_meta is not None
     return {
