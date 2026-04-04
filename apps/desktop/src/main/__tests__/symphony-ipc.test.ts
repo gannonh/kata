@@ -57,8 +57,18 @@ describe('symphony ipc handlers', () => {
     handlers.clear()
   })
 
-  test('routes symphony start/stop/restart through supervisor', async () => {
+  test('routes runtime commands and dashboard methods through symphony services', async () => {
     const bridge = createBridgeStub()
+    const dashboardSnapshot = {
+      fetchedAt: new Date().toISOString(),
+      queueCount: 1,
+      completedCount: 2,
+      workers: [],
+      escalations: [],
+      connection: { state: 'connected', updatedAt: new Date().toISOString() },
+      freshness: { status: 'fresh' },
+      response: {},
+    }
 
     const supervisor = {
       on: vi.fn(),
@@ -78,6 +88,15 @@ describe('symphony ipc handlers', () => {
       setWorkspacePath: vi.fn(async () => undefined),
     } as any
 
+    const operatorService = {
+      on: vi.fn(),
+      off: vi.fn(),
+      syncRuntimeStatus: vi.fn(async () => undefined),
+      getSnapshot: vi.fn(() => dashboardSnapshot),
+      refreshBaseline: vi.fn(async () => dashboardSnapshot),
+      respondToEscalation: vi.fn(async () => ({ success: true, snapshot: dashboardSnapshot })),
+    } as any
+
     const unregister = registerSessionIpc({
       bridge,
       authBridge: {
@@ -93,23 +112,30 @@ describe('symphony ipc handlers', () => {
       } as any,
       window: createWindowStub(),
       symphonySupervisor: supervisor,
+      symphonyOperatorService: operatorService,
     })
 
-    const startHandler = handlers.get(IPC_CHANNELS.symphonyStart)
-    const stopHandler = handlers.get(IPC_CHANNELS.symphonyStop)
-    const restartHandler = handlers.get(IPC_CHANNELS.symphonyRestart)
+    await handlers.get(IPC_CHANNELS.symphonyStart)?.({})
+    await handlers.get(IPC_CHANNELS.symphonyStop)?.({})
+    await handlers.get(IPC_CHANNELS.symphonyRestart)?.({})
 
-    expect(startHandler).toBeTypeOf('function')
-    expect(stopHandler).toBeTypeOf('function')
-    expect(restartHandler).toBeTypeOf('function')
-
-    await startHandler?.({})
-    await stopHandler?.({})
-    await restartHandler?.({})
+    const getDashboardResponse = await handlers.get(IPC_CHANNELS.symphonyGetDashboard)?.({})
+    const refreshDashboardResponse = await handlers.get(IPC_CHANNELS.symphonyRefreshDashboard)?.({})
+    const respondResult = await handlers.get(IPC_CHANNELS.symphonyRespondEscalation)?.(
+      {},
+      'req-1',
+      'Proceed',
+    )
 
     expect(supervisor.start).toHaveBeenCalledTimes(1)
     expect(supervisor.stop).toHaveBeenCalledTimes(1)
     expect(supervisor.restart).toHaveBeenCalledTimes(1)
+
+    expect(getDashboardResponse.snapshot).toEqual(dashboardSnapshot)
+    expect(refreshDashboardResponse.snapshot).toEqual(dashboardSnapshot)
+    expect(operatorService.refreshBaseline).toHaveBeenCalledTimes(1)
+    expect(operatorService.respondToEscalation).toHaveBeenCalledWith('req-1', 'Proceed')
+    expect(respondResult.success).toBe(true)
 
     unregister()
   })

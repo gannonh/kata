@@ -11,6 +11,7 @@ import { DesktopSessionManager } from './session-manager'
 import { SessionHistoryLoader } from './session-history-loader'
 import { WorkflowBoardService } from './workflow-board-service'
 import type { SymphonySupervisor } from './symphony-supervisor'
+import type { SymphonyOperatorService } from './symphony-operator-service'
 import {
   IPC_CHANNELS,
   type AuthProvider,
@@ -48,6 +49,9 @@ import {
   type SymphonyRuntimeStatus,
   type SymphonyRuntimeCommandResult,
   type SymphonyRuntimeStatusResponse,
+  type SymphonyOperatorSnapshot,
+  type SymphonyOperatorSnapshotResponse,
+  type SymphonyEscalationResponseCommandResult,
 } from '../shared/types'
 
 interface RegisterIpcOptions {
@@ -58,6 +62,7 @@ interface RegisterIpcOptions {
   onModelSelected?: (model: string) => Promise<void> | void
   onWorkspaceSelected?: (workspacePath: string) => Promise<void> | void
   symphonySupervisor?: SymphonySupervisor
+  symphonyOperatorService?: SymphonyOperatorService
 }
 
 export function registerSessionIpc({
@@ -68,6 +73,7 @@ export function registerSessionIpc({
   onModelSelected,
   onWorkspaceSelected,
   symphonySupervisor,
+  symphonyOperatorService,
 }: RegisterIpcOptions): () => void {
   const adapter = new RpcEventAdapter()
   const planningToolDetector = new PlanningToolDetector()
@@ -144,6 +150,22 @@ export function registerSessionIpc({
 
     window.webContents.send(IPC_CHANNELS.planningArtifactFetchState, event)
     log.debug('[desktop-ipc] planning fetch state', event)
+  }
+
+  const sendSymphonyDashboardSnapshot = (snapshot: SymphonyOperatorSnapshot): void => {
+    if (!canSendToRenderer()) {
+      log.warn('[desktop-ipc] skipping symphony dashboard snapshot dispatch: renderer window is destroyed')
+      return
+    }
+
+    window.webContents.send(IPC_CHANNELS.symphonyDashboardSnapshot, snapshot)
+    log.debug('[desktop-ipc] symphony dashboard snapshot', {
+      connectionState: snapshot.connection.state,
+      workers: snapshot.workers.length,
+      escalations: snapshot.escalations.length,
+      queueCount: snapshot.queueCount,
+      completedCount: snapshot.completedCount,
+    })
   }
 
   const getPlanningFetchContext = (
@@ -485,9 +507,15 @@ export function registerSessionIpc({
 
   const onSymphonyStatus = (status: SymphonyRuntimeStatus): void => {
     sendSymphonyStatusToRenderer(status)
+    void symphonyOperatorService?.syncRuntimeStatus(status)
+  }
+
+  const onSymphonyDashboardSnapshot = (snapshot: SymphonyOperatorSnapshot): void => {
+    sendSymphonyDashboardSnapshot(snapshot)
   }
 
   symphonySupervisor?.on('status', onSymphonyStatus)
+  symphonyOperatorService?.on('snapshot', onSymphonyDashboardSnapshot)
 
   const initialState = bridge.getState()
   sendBridgeStatus({
@@ -497,7 +525,13 @@ export function registerSessionIpc({
   })
 
   if (symphonySupervisor) {
-    sendSymphonyStatusToRenderer(symphonySupervisor.getStatus())
+    const initialSymphonyStatus = symphonySupervisor.getStatus()
+    sendSymphonyStatusToRenderer(initialSymphonyStatus)
+    void symphonyOperatorService?.syncRuntimeStatus(initialSymphonyStatus)
+  }
+
+  if (symphonyOperatorService) {
+    sendSymphonyDashboardSnapshot(symphonyOperatorService.getSnapshot())
   }
 
   ipcMain.removeHandler(IPC_CHANNELS.sessionSend)
@@ -532,6 +566,9 @@ export function registerSessionIpc({
   ipcMain.removeHandler(IPC_CHANNELS.symphonyStart)
   ipcMain.removeHandler(IPC_CHANNELS.symphonyStop)
   ipcMain.removeHandler(IPC_CHANNELS.symphonyRestart)
+  ipcMain.removeHandler(IPC_CHANNELS.symphonyGetDashboard)
+  ipcMain.removeHandler(IPC_CHANNELS.symphonyRefreshDashboard)
+  ipcMain.removeHandler(IPC_CHANNELS.symphonyRespondEscalation)
 
   ipcMain.handle(IPC_CHANNELS.sessionSend, async (_event, message: string) => {
     if (!message?.trim()) {
@@ -1170,6 +1207,24 @@ export function registerSessionIpc({
     }
   }
 
+  const createUnavailableDashboardSnapshot = (): SymphonyOperatorSnapshot => ({
+    fetchedAt: new Date(0).toISOString(),
+    queueCount: 0,
+    completedCount: 0,
+    workers: [],
+    escalations: [],
+    connection: {
+      state: 'disconnected',
+      updatedAt: new Date().toISOString(),
+      lastError: 'Symphony dashboard service is unavailable.',
+    },
+    freshness: {
+      status: 'stale',
+      staleReason: 'Symphony dashboard service is unavailable.',
+    },
+    response: {},
+  })
+
   ipcMain.handle(IPC_CHANNELS.symphonyGetStatus, async (): Promise<SymphonyRuntimeStatusResponse> => {
     if (!symphonySupervisor) {
       const fallback = createSymphonyDisconnectedResult()
@@ -1207,6 +1262,42 @@ export function registerSessionIpc({
     return runSymphonyCommand(() => symphonySupervisor!.restart())
   })
 
+  ipcMain.handle(IPC_CHANNELS.symphonyGetDashboard, async (): Promise<SymphonyOperatorSnapshotResponse> => {
+    return {
+      success: true,
+      snapshot: symphonyOperatorService?.getSnapshot() ?? createUnavailableDashboardSnapshot(),
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.symphonyRefreshDashboard, async (): Promise<SymphonyOperatorSnapshotResponse> => {
+    if (!symphonyOperatorService) {
+      return {
+        success: false,
+        snapshot: createUnavailableDashboardSnapshot(),
+      }
+    }
+
+    const snapshot = await symphonyOperatorService.refreshBaseline()
+    return {
+      success: true,
+      snapshot,
+    }
+  })
+
+  ipcMain.handle(
+    IPC_CHANNELS.symphonyRespondEscalation,
+    async (_event, requestId: string, responseText: string): Promise<SymphonyEscalationResponseCommandResult> => {
+      if (!symphonyOperatorService) {
+        return {
+          success: false,
+          snapshot: createUnavailableDashboardSnapshot(),
+        }
+      }
+
+      return symphonyOperatorService.respondToEscalation(requestId, responseText)
+    },
+  )
+
   return () => {
     bridge.off('rpc-event', onRpcEvent)
     bridge.off('extension-ui-request', onExtensionUiRequest)
@@ -1214,6 +1305,7 @@ export function registerSessionIpc({
     bridge.off('debug', onDebug)
     bridge.off('crash', onCrash)
     symphonySupervisor?.off('status', onSymphonyStatus)
+    symphonyOperatorService?.off('snapshot', onSymphonyDashboardSnapshot)
     planningToolDetector.off('artifact', onPlanningArtifactEvent)
 
     ipcMain.removeHandler(IPC_CHANNELS.sessionSend)
@@ -1248,6 +1340,9 @@ export function registerSessionIpc({
     ipcMain.removeHandler(IPC_CHANNELS.symphonyStart)
     ipcMain.removeHandler(IPC_CHANNELS.symphonyStop)
     ipcMain.removeHandler(IPC_CHANNELS.symphonyRestart)
+    ipcMain.removeHandler(IPC_CHANNELS.symphonyGetDashboard)
+    ipcMain.removeHandler(IPC_CHANNELS.symphonyRefreshDashboard)
+    ipcMain.removeHandler(IPC_CHANNELS.symphonyRespondEscalation)
   }
 }
 

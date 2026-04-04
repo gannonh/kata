@@ -11,6 +11,7 @@ import {
   type PlanningArtifactFetchStateEvent,
   type ThinkingLevel,
   type SymphonyRuntimeStatus,
+  type SymphonyOperatorSnapshot,
 } from '../shared/types'
 
 const api: DesktopApi = {
@@ -188,6 +189,26 @@ const api: DesktopApi = {
 
       return () => {
         ipcRenderer.removeListener(IPC_CHANNELS.symphonyStatus, wrapped)
+      }
+    },
+    getDashboardSnapshot: async () => {
+      return ipcRenderer.invoke(IPC_CHANNELS.symphonyGetDashboard)
+    },
+    refreshDashboardSnapshot: async () => {
+      return ipcRenderer.invoke(IPC_CHANNELS.symphonyRefreshDashboard)
+    },
+    respondToEscalation: async (requestId: string, responseText: string) => {
+      return ipcRenderer.invoke(IPC_CHANNELS.symphonyRespondEscalation, requestId, responseText)
+    },
+    onDashboardSnapshot: (listener: (snapshot: SymphonyOperatorSnapshot) => void) => {
+      const wrapped = (_event: Electron.IpcRendererEvent, snapshot: SymphonyOperatorSnapshot) => {
+        listener(snapshot)
+      }
+
+      ipcRenderer.on(IPC_CHANNELS.symphonyDashboardSnapshot, wrapped)
+
+      return () => {
+        ipcRenderer.removeListener(IPC_CHANNELS.symphonyDashboardSnapshot, wrapped)
       }
     },
   },
