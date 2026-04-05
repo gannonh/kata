@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.15.3
+
+### Changes
+
+- Upgrade `pi-coding-agent` to 0.65.0
+- Migrate to `createAgentSessionRuntime` API (session runtime replaces direct session creation)
+- MCP config injected via `extensionFlagValues` instead of post-hoc resource loader mutation
+
 ## 0.15.2
 
 ### Bug Fixes
