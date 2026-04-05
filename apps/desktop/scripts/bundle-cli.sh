@@ -64,5 +64,29 @@ EOF
 
 chmod +x "$KATA_LAUNCHER"
 
+# Build and stage Symphony binary
+SYMPHONY_DIR="$ROOT_DIR/apps/symphony"
+SYMPHONY_BIN="$VENDOR_DIR/symphony"
+
+if [[ -f "$SYMPHONY_DIR/Cargo.toml" ]]; then
+  if command -v cargo >/dev/null 2>&1; then
+    log "building Symphony (release)"
+    (cd "$SYMPHONY_DIR" && cargo build --release)
+
+    BUILT_BIN="$SYMPHONY_DIR/target/release/symphony"
+    if [[ -f "$BUILT_BIN" ]]; then
+      cp "$BUILT_BIN" "$SYMPHONY_BIN"
+      chmod +x "$SYMPHONY_BIN"
+      log "Symphony binary staged at $SYMPHONY_BIN"
+    else
+      log "WARNING: Symphony build succeeded but binary not found at $BUILT_BIN"
+    fi
+  else
+    log "WARNING: cargo not found — skipping Symphony build"
+  fi
+else
+  log "WARNING: apps/symphony/Cargo.toml not found — skipping Symphony build"
+fi
+
 log "bundle complete"
 log "launcher: $KATA_LAUNCHER"

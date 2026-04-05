@@ -1,8 +1,8 @@
-import { readFileSync } from 'node:fs'
+import { readFileSync, existsSync } from 'node:fs'
 import { promises as fs } from 'node:fs'
 import { homedir } from 'node:os'
 import path from 'node:path'
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, nativeImage } from 'electron'
 
 // Load .env.development in dev mode — provides KATA_BIN_PATH for monorepo dev.
 // Must run before any code reads process.env.
@@ -201,6 +201,14 @@ app.whenReady().then(async () => {
   const authBridge = new AuthBridge()
   const sessionManager = new DesktopSessionManager()
   mainWindow = createWindow()
+
+  // Set dock icon in dev mode (packaged builds use Info.plist)
+  if (!app.isPackaged && process.platform === 'darwin' && app.dock) {
+    const iconPath = path.join(__dirname, '..', 'resources', 'icon.png')
+    if (existsSync(iconPath)) {
+      app.dock.setIcon(nativeImage.createFromPath(iconPath))
+    }
+  }
 
   unregisterSessionIpc = registerSessionIpc({
     bridge,
