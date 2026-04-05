@@ -29,6 +29,7 @@ mac:
 
 # Keep a simple Finder drag-to-install experience.
 dmg:
+  artifactName: "Kata-Desktop-${arch}.${ext}"
   icon: resources/AppIcon.icns
   title: Kata Desktop
   contents:

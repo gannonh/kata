@@ -64,7 +64,7 @@ export function ArtifactTabs({
       }}
       className="mt-2"
     >
-      <TabsList className="h-auto w-full justify-start overflow-x-auto mx-4">
+      <TabsList className="h-auto w-full justify-start overflow-x-auto px-4">
         {sortedArtifacts.map((artifact) => {
           const hasUnviewedUpdate = hasUnviewedUpdatesByKey[artifact.artifactKey] === true
 
