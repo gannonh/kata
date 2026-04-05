@@ -19,15 +19,14 @@ extraMetadata:
 
 publish: null
 
-# Runtime resources (kata, kata-runtime, bun) are copied into
-# Contents/Resources by scripts/package-mac.sh before --prepackaged DMG creation.
 mac:
   category: public.app-category.developer-tools
   icon: resources/AppIcon.icns
+  extendInfo:
+    CFBundleIconName: AppIcon
   target:
     - dmg
 
-# Keep a simple Finder drag-to-install experience.
 dmg:
   artifactName: "Kata-Desktop-${arch}.${ext}"
   icon: resources/AppIcon.icns

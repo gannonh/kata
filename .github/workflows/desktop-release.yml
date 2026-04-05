@@ -158,6 +158,7 @@ jobs:
             --out=release \
             --overwrite \
             --icon=resources/AppIcon.icns \
+            --ignore="AppIcon\\.icon" \
             --app-version="$APP_VERSION" \
             --electron-version="$ELECTRON_VERSION"
 
@@ -172,8 +173,14 @@ jobs:
           if [ -f vendor/symphony ]; then
             cp vendor/symphony "$RESOURCES_DIR/symphony"
             chmod +x "$RESOURCES_DIR/symphony"
-            echo "Symphony binary bundled into app resources"
           fi
+
+          if [ -f resources/Assets.car ]; then
+            cp resources/Assets.car "$RESOURCES_DIR/Assets.car"
+          fi
+
+          /usr/libexec/PlistBuddy -c "Add :CFBundleIconName string AppIcon" "$APP_DIR/Contents/Info.plist" 2>/dev/null || \
+            /usr/libexec/PlistBuddy -c "Set :CFBundleIconName AppIcon" "$APP_DIR/Contents/Info.plist"
 
           bunx electron-builder --config electron-builder.yml --prepackaged "$APP_DIR" --mac dmg
         env:
