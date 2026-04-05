@@ -33,8 +33,8 @@ sips -z 512 512 "$SOURCE" --out "$ICONSET/icon_512x512.png" > /dev/null
 sips -z 1024 1024 "$SOURCE" --out "$ICONSET/icon_512x512@2x.png" > /dev/null
 
 # Generate .icns for macOS
-echo "Creating icon.icns..."
-iconutil -c icns "$ICONSET" -o icon.icns
+echo "Creating AppIcon.icns..."
+iconutil -c icns "$ICONSET" -o AppIcon.icns
 
 # Generate icon.png for Linux (512x512)
 echo "Creating icon.png for Linux..."
@@ -72,5 +72,5 @@ ls -la icon.*
 
 echo ""
 echo "Next steps:"
-echo "1. Update apps/electron/src/main/index.ts to use icon.icns on macOS"
-echo "2. Run: bun run electron:build:resources"
+echo "1. Copy AppIcon.icns to apps/desktop/resources/ if not already there"
+echo "2. Rebuild: cd apps/desktop && bun run desktop:dist:mac"
