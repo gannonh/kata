@@ -121,22 +121,21 @@ jobs:
           rm -rf "$TEMP_DIR"
           echo "Bun binary replaced with ${BUN_DOWNLOAD}"
 
-          # Override Symphony binary with correct cross-compiled target
+          # Build Symphony for the target architecture
+          # bundle-cli.sh may have built for host arch — rebuild with explicit target
           SYMPHONY_DIR="$(cd ../../apps/symphony && pwd)"
           TARGET="${CARGO_BUILD_TARGET}"
+          echo "Building Symphony for $TARGET..."
+          (cd "$SYMPHONY_DIR" && cargo build --release --target "$TARGET")
+
           BUILT_BIN="$SYMPHONY_DIR/target/$TARGET/release/symphony"
-
-          if [ ! -f "$BUILT_BIN" ]; then
-            echo "Cross-compiling Symphony for $TARGET..."
-            (cd "$SYMPHONY_DIR" && cargo build --release --target "$TARGET")
-          fi
-
           if [ -f "$BUILT_BIN" ]; then
             cp "$BUILT_BIN" vendor/symphony
             chmod +x vendor/symphony
             echo "Symphony binary staged for $TARGET"
           else
-            echo "::warning::Symphony binary not found for $TARGET"
+            echo "::error::Symphony binary not found at $BUILT_BIN"
+            exit 1
           fi
 
       - name: Build Desktop app
