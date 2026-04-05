@@ -19,7 +19,9 @@ custom_instructions: []
 models: {}
 skill_discovery: suggest
 auto_supervisor: {}
-symphony: {}
+symphony:
+  url: http://localhost:8080
+  workflow_path: /Volumes/EVO/kata/kata-mono.worktrees/wt-desktop/apps/symphony/WORKFLOW-desktop.md
 ---
 
 # Kata Preferences
