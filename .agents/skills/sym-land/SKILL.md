@@ -117,7 +117,6 @@ Exit codes:
 - 2: Review comments detected (address feedback)
 - 3: CI checks failed
 - 4: PR head updated (autofix commit detected)
-- 5: Merge conflicts detected (`is_merge_conflicting` path in `watch_pr`/head monitor) — resolve/rebase against `main` and push
 
 ## Failure Handling
 
