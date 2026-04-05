@@ -1,0 +1,77 @@
+---
+title: "Symphony integration"
+description: "Operate Symphony from Kata Desktop: runtime controls, live dashboard, and escalation response workflow."
+---
+
+Kata Desktop M004 adds a built-in Symphony operator surface in **Settings → Symphony**.
+
+## Two operating modes
+
+Desktop supports both managed and external Symphony setups.
+
+### Managed Symphony (Desktop controls process)
+
+Use Start/Stop/Restart controls in Desktop.
+
+Desktop resolves launch configuration from workspace preferences and environment, then runs Symphony as a managed subprocess.
+
+### External Symphony (Desktop observes remote runtime)
+
+If Symphony is already running elsewhere, Desktop can connect to the configured URL and render live dashboard data without owning process lifecycle.
+
+## Runtime panel
+
+The runtime panel shows lifecycle state such as:
+
+- `Starting`
+- `Ready`
+- `Restarting`
+- `Stopping`
+- `Stopped`
+- `Disconnected`
+- `Config Error`
+- `Failed`
+
+It also exposes concise diagnostics to help debug startup/readiness issues.
+
+## Live dashboard
+
+The dashboard shows real operator signals:
+
+- worker rows (issue, state, tool, model, last activity)
+- queue and completion counts
+- pending escalations
+- connection freshness (connected/reconnecting/disconnected, stale vs fresh)
+
+## Escalation handling flow
+
+1. Worker escalates with a question.
+2. Escalation appears in Desktop with issue identifier and preview.
+3. Operator submits a response inline.
+4. Desktop sends the response to Symphony and refreshes dashboard state.
+
+This keeps human-in-the-loop decisions inside the same UI used for coding sessions.
+
+## Configuration
+
+Symphony config is workspace-driven. Typical source:
+
+```text
+<workspace>/.kata/preferences.md
+```
+
+Common fields:
+
+- `symphony.url`
+- `symphony.workflow_path`
+
+If config is missing or invalid, Desktop surfaces a `Config Error` with actionable text.
+
+## Relation to kanban
+
+Symphony dashboard state is correlated into workflow kanban card metadata so you can track both:
+
+- **workflow state** (where the slice/task is in process)
+- **execution state** (what Symphony workers are doing now)
+
+See [Planning and workflow kanban](/desktop/planning-kanban) for the right-pane behavior details.

@@ -276,8 +276,6 @@ def latest_codex_issue_reply_time(
 ) -> datetime | None:
     latest: datetime | None = None
     for comment in comments:
-        if not is_codex_bot_user(comment.get("user", {})):
-            continue
         body = (comment.get("body") or "").strip()
         if not is_codex_reply_body(body):
             continue
@@ -296,6 +294,10 @@ def filter_human_issue_comments(comments: list[dict[str, Any]]) -> list[dict[str
         if is_bot_user(comment.get("user", {})):
             continue
         body = (comment.get("body") or "").strip()
+        if is_codex_reply_body(body):
+            continue
+        if is_codex_review_body(body):
+            continue
         if "@codex review" in body:
             continue
         created_time = comment_time(comment)
@@ -311,23 +313,14 @@ def filter_human_issue_comments(comments: list[dict[str, Any]]) -> list[dict[str
 
 def filter_codex_review_issue_comments(
     comments: list[dict[str, Any]],
-    review_request_at: datetime | None,
 ) -> list[dict[str, Any]]:
     latest_ack = latest_codex_issue_reply_time(comments)
     filtered: list[dict[str, Any]] = []
     for comment in comments:
-        if not is_codex_bot_user(comment.get("user", {})):
-            continue
         body = (comment.get("body") or "").strip()
         if not is_codex_review_body(body):
             continue
         created_time = comment_time(comment)
-        if (
-            review_request_at is not None
-            and created_time is not None
-            and created_time <= review_request_at
-        ):
-            continue
         if (
             latest_ack is not None
             and created_time is not None
@@ -485,10 +478,7 @@ def raise_on_human_feedback(
     review_request_at: datetime | None,
 ) -> None:
     human_issue_comments = filter_human_issue_comments(issue_comments)
-    codex_review_comments = filter_codex_review_issue_comments(
-        issue_comments,
-        review_request_at,
-    )
+    codex_review_comments = filter_codex_review_issue_comments(issue_comments)
     human_review_comments = filter_human_review_comments(review_comments)
     if human_issue_comments or human_review_comments or codex_review_comments:
         print("Review comments detected. Address before merge.")
