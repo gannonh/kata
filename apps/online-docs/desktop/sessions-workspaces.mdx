@@ -1,101 +1,75 @@
 ---
 title: "Sessions and workspaces"
-description: "Manage sessions with status workflows, Git integration, and permission modes. Understand how Kata Desktop stores configuration on disk."
+description: "How Kata Desktop manages session history, workspace scoping, and switching between active conversations."
 ---
 
-## Session management
+## Session model
 
-Every conversation with an agent is a **session**. Sessions live inside a workspace and persist their full conversation history to disk.
+In Kata Desktop, each chat is a **session** backed by a Kata CLI JSONL session file.
 
-### Inbox and archive
+- New sessions are created from the sidebar.
+- Existing sessions are listed per workspace.
+- Switching sessions restores chat history in the main pane.
 
-Sessions are organized by workflow status into two views:
+Desktop reads sessions from:
 
-- **Inbox** — active sessions in any working state (Todo, In Progress, Needs Review)
-- **Archive** — completed or dismissed sessions (Done)
-
-You can also **flag** individual sessions to pin them for quick access regardless of their status.
-
-### Status workflow
-
-Sessions move through a configurable status lifecycle:
-
-```
-Todo → In Progress → Needs Review → Done
+```text
+~/.kata-cli/sessions/
 ```
 
-You can customize the available statuses per workspace. Status configuration is stored at `~/.kata/workspaces/{id}/statuses/`.
+It filters that global store by session header `cwd` so the sidebar only shows sessions for the active workspace.
 
-### Session naming
+## Sidebar behavior
 
-Session titles are either AI-generated from the conversation content or set manually. You can rename any session at any time.
+The session sidebar supports:
 
-### Session persistence
+- **New Session** button
+- **Refresh** action
+- Sorted session list (most recently modified first)
+- Corruption warnings when malformed JSONL files are skipped
 
-All conversation history is saved to disk as JSONL files under `~/.kata/workspaces/{id}/sessions/`. Sessions survive app restarts and can be resumed at any point.
+This is intentionally lightweight in M001–M004: there is no custom per-workspace status workflow UI yet.
+
+## Workspace switching
+
+Use the workspace button in the app shell to switch directories.
+
+When you change workspace:
+
+1. Desktop updates the active `cwd` for the agent subprocess.
+2. Session list re-scopes to sessions from that workspace.
+3. The workflow/planning scope refreshes to match the new project.
+
+Your most recent workspace is persisted so Desktop can restore it on next launch.
+
+## Persistence and shared state
+
+| Item | Location | Notes |
+|---|---|---|
+| Session transcripts | `~/.kata-cli/sessions/*.jsonl` | Shared with Kata CLI |
+| Auth records | `~/.kata-cli/agent/auth.json` | Provider credentials used by Desktop and CLI |
+| Desktop settings | Electron user data + app settings files | UI-level preferences |
+| Workflow preferences | `<workspace>/.kata/preferences.md` | Used for planning/workflow/Symphony behavior |
 
 ## Permission modes
 
-Permission modes control how much the agent is allowed to do autonomously. You can change the mode per session at any time.
+Desktop exposes three runtime permission modes in the chat toolbar:
 
-| Mode | Display | Behavior |
-|---|---|---|
-| `safe` | Explore | Read-only — blocks all write operations |
-| `ask` | Ask to Edit | Prompts for approval before making changes (default) |
-| `allow-all` | Auto | Auto-approves all commands without prompting |
-
-Press **SHIFT+TAB** in the chat interface to cycle through modes.
-
-<Note>
-  `ask` (Ask to Edit) is the default mode for new sessions. Start with this mode unless you have a specific reason to grant broader permissions.
-</Note>
-
-## Git integration
-
-When a workspace is pointed at a Git repository, Kata Desktop displays live Git context in the chat input toolbar and injects it into each agent message.
-
-| Feature | Description |
+| Mode | Behavior |
 |---|---|
-| Branch badge | Shows the current branch name, updated in real-time via file watching |
-| PR badge | Shows linked pull request title and status (open, draft, merged, closed) — click to open in browser |
-| AI awareness | Agent receives branch and PR context with every message |
-| Worktree/submodule support | Handles `.git` file gitdir pointers transparently |
-| Graceful degradation | No Git indicator for non-Git directories; a helpful message appears when the `gh` CLI is unavailable |
+| Explore | Read-only tool behavior |
+| Ask to Edit | Prompt before write operations |
+| Auto | Automatically approve operations |
+
+Use **Ask to Edit** as the default unless you explicitly want autonomous execution.
 
 ## Keyboard shortcuts
 
 | Shortcut | Action |
 |---|---|
-| `Cmd+N` | New chat |
-| `Cmd+1` / `Cmd+2` / `Cmd+3` | Focus sidebar / session list / chat panel |
-| `Cmd+/` | Open keyboard shortcuts dialog |
-| `SHIFT+TAB` | Cycle through permission modes |
+| `Cmd+N` | New session |
+| `Cmd+1` / `Cmd+2` / `Cmd+3` | Focus key app regions |
+| `Cmd+/` | Open shortcuts dialog |
+| `Shift+Tab` | Cycle permission mode |
 | `Enter` | Send message |
-| `Shift+Enter` | Insert a new line |
-
-## Configuration storage
-
-All configuration is stored under `~/.kata/`:
-
-```
-~/.kata/
-├── config.json              # Main config (workspaces, auth type)
-├── credentials.enc          # Encrypted credentials (AES-256-GCM)
-├── preferences.json         # User preferences
-├── theme.json               # App-level theme
-└── workspaces/
-    └── {id}/
-        ├── config.json      # Workspace settings
-        ├── theme.json       # Workspace theme override
-        ├── sessions/        # Session data (JSONL)
-        ├── sources/         # Connected sources
-        ├── skills/          # Custom agent skills
-        └── statuses/        # Status configuration
-```
-
-- **`config.json`** — workspace registry and authentication type (API key vs. Claude Max)
-- **`credentials.enc`** — all OAuth tokens and API keys, encrypted with AES-256-GCM
-- **`preferences.json`** — UI preferences such as theme selection
-- **`theme.json`** — app-level theme; overridden at the workspace level by `workspaces/{id}/theme.json`
-- **`workspaces/{id}/sessions/`** — one JSONL file per session with full message history
-- **`workspaces/{id}/skills/`** — Markdown files containing specialized agent instructions for this workspace
+| `Shift+Enter` | New line |

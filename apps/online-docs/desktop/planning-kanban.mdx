@@ -1,0 +1,65 @@
+---
+title: "Planning and workflow kanban"
+description: "How the right pane works in Kata Desktop: planning artifact viewer during planning, workflow kanban during execution."
+---
+
+Kata Desktop uses a contextual right pane that switches between planning and execution views.
+
+## Planning view (M002)
+
+During `/kata plan` activity, the right pane renders planning artifacts fetched from workflow backing state.
+
+Common artifacts:
+
+- `ROADMAP`
+- `REQUIREMENTS`
+- `DECISIONS`
+- `CONTEXT`
+- Slice-level planning documents (for active slice/task)
+
+The planning pane supports:
+
+- Artifact tabs
+- Structured parsing for roadmap/requirements/decisions when possible
+- Fallback raw markdown rendering
+- Stale-data indicator when cached content is shown
+
+## Workflow kanban (M003)
+
+During execution, the right pane switches to a kanban board representing the active workflow state.
+
+### What the board shows
+
+- Active milestone and slices
+- Columns: backlog, todo, in-progress, review phases, done
+- Slice cards with child task summaries
+- Backend status (Linear or GitHub-backed workflow source)
+
+### Symphony convergence metadata (M004)
+
+When Symphony integration is active, cards also include convergence hints such as:
+
+- active worker assignment
+- latest tool activity
+- pending escalation count
+- stale/disconnected runtime indicators
+
+This lets you correlate orchestration state with workflow placement without leaving Desktop.
+
+## Automatic and manual mode switching
+
+Right-pane mode is context-driven:
+
+- Planning context → planning pane
+- Execution context → kanban pane
+
+Users can still override pane mode from UI controls and switch back when needed.
+
+## Failure and stale states
+
+Both panes are designed to fail truthfully:
+
+- planning fetch errors surface explicit messages
+- cached planning artifacts are marked stale
+- workflow board fetch failures show status/error metadata instead of blank content
+- Symphony disconnects do not erase workflow cards; they annotate runtime freshness

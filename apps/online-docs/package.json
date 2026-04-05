@@ -1,0 +1,9 @@
+{
+  "name": "@kata/online-docs",
+  "private": true,
+  "scripts": {
+    "dev": "npx -y mint dev --no-open",
+    "docs:dev": "npx -y mint dev --no-open --port 3001",
+    "broken-links": "npx -y mint broken-links"
+  }
+}
