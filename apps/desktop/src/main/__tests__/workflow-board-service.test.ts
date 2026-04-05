@@ -8,6 +8,7 @@ import { WorkflowBoardService } from '../workflow-board-service'
 
 const originalFixtureFlag = process.env.KATA_TEST_WORKFLOW_FIXTURE
 const originalTestModeFlag = process.env.KATA_TEST_MODE
+const originalSymphonyDashboardMockFlag = process.env.KATA_DESKTOP_SYMPHONY_DASHBOARD_MOCK
 
 describe('WorkflowBoardService', () => {
   beforeEach(() => {
@@ -26,6 +27,12 @@ describe('WorkflowBoardService', () => {
     } else {
       delete process.env.KATA_TEST_MODE
     }
+
+    if (originalSymphonyDashboardMockFlag !== undefined) {
+      process.env.KATA_DESKTOP_SYMPHONY_DASHBOARD_MOCK = originalSymphonyDashboardMockFlag
+    } else {
+      delete process.env.KATA_DESKTOP_SYMPHONY_DASHBOARD_MOCK
+    }
   })
 
   test('returns deterministic fixture snapshot when fixture mode is enabled', async () => {
@@ -41,6 +48,74 @@ describe('WorkflowBoardService', () => {
     expect(response.snapshot.status).toBe('fresh')
     expect(response.snapshot.columns.find((column) => column.id === 'todo')?.cards).toHaveLength(1)
     expect(response.snapshot.symphony?.provenance).toBe('unavailable')
+  })
+
+  test('uses assembled linear fixture in test mode when assembled symphony mock is active', async () => {
+    process.env.KATA_TEST_WORKFLOW_FIXTURE = '1'
+    process.env.KATA_DESKTOP_SYMPHONY_DASHBOARD_MOCK = 'assembled_healthy'
+
+    const symphonySnapshot: SymphonyOperatorSnapshot = {
+      fetchedAt: new Date().toISOString(),
+      queueCount: 1,
+      completedCount: 3,
+      workers: [
+        {
+          issueId: 'slice-s04',
+          identifier: 'KAT-2337',
+          issueTitle: '[S04] End-to-End Desktop Symphony Operation',
+          state: 'in_progress',
+          toolName: 'edit',
+          model: 'claude-sonnet-4-6',
+          lastActivityAt: new Date().toISOString(),
+        },
+        {
+          issueId: 'task-s04-2',
+          identifier: 'KAT-2356',
+          issueTitle: '[T02] Prove the healthy assembled operator flow in Electron',
+          state: 'in_progress',
+          toolName: 'bash',
+          model: 'claude-sonnet-4-6',
+          lastActivityAt: new Date().toISOString(),
+        },
+      ],
+      escalations: [
+        {
+          requestId: 'req-assembled-1',
+          issueId: 'slice-s04',
+          issueIdentifier: 'KAT-2337',
+          issueTitle: '[S04] End-to-End Desktop Symphony Operation',
+          questionPreview: 'Need clarification on dashboard failure state copy.',
+          createdAt: new Date().toISOString(),
+          timeoutMs: 300000,
+        },
+      ],
+      connection: {
+        state: 'connected',
+        updatedAt: new Date().toISOString(),
+      },
+      freshness: {
+        status: 'fresh',
+      },
+      response: {},
+    }
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+      getSymphonySnapshot: () => symphonySnapshot,
+    })
+
+    const response = await service.getBoard()
+    const inProgressCards = response.snapshot.columns.find((column) => column.id === 'in_progress')?.cards ?? []
+    const assembledCard = inProgressCards.find((card) => card.identifier === 'KAT-2337')
+    const assembledTask = assembledCard?.tasks.find((task) => task.identifier === 'KAT-2356')
+
+    expect(assembledCard?.identifier).toBe('KAT-2337')
+    expect(assembledCard?.symphony?.assignmentState).toBe('assigned')
+    expect(assembledTask?.symphony?.assignmentState).toBe('assigned')
+    expect(response.snapshot.symphony?.diagnostics.correlationMisses).toEqual([])
+
+    delete process.env.KATA_DESKTOP_SYMPHONY_DASHBOARD_MOCK
   })
 
   test('omits staleReason when symphony snapshot is unavailable', async () => {

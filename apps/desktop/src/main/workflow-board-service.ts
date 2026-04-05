@@ -80,6 +80,60 @@ const TEST_LINEAR_WORKFLOW_FIXTURE: WorkflowBoardSnapshot = {
   },
 }
 
+const TEST_LINEAR_ASSEMBLED_WORKFLOW_FIXTURE: WorkflowBoardSnapshot = {
+  backend: 'linear',
+  fetchedAt: '2026-04-04T00:00:00.000Z',
+  status: 'fresh',
+  source: {
+    projectId: 'test-project',
+    activeMilestoneId: 'm004',
+  },
+  activeMilestone: {
+    id: 'm004',
+    name: '[M004] Symphony Integration',
+  },
+  columns: [
+    { id: 'backlog', title: 'Backlog', cards: [] },
+    {
+      id: 'in_progress',
+      title: 'In Progress',
+      cards: [
+        {
+          id: 'slice-s04',
+          identifier: 'KAT-2337',
+          title: '[S04] End-to-End Desktop Symphony Operation',
+          columnId: 'in_progress',
+          stateName: 'In Progress',
+          stateType: 'started',
+          milestoneId: 'm004',
+          milestoneName: '[M004] Symphony Integration',
+          taskCounts: { total: 4, done: 1 },
+          tasks: [
+            {
+              id: 'task-s04-2',
+              identifier: 'KAT-2356',
+              title: '[T02] Prove the healthy assembled operator flow in Electron',
+              columnId: 'in_progress',
+              stateName: 'In Progress',
+              stateType: 'started',
+            },
+          ],
+        },
+      ],
+    },
+    { id: 'todo', title: 'Todo', cards: [] },
+    { id: 'agent_review', title: 'Agent Review', cards: [] },
+    { id: 'human_review', title: 'Human Review', cards: [] },
+    { id: 'merging', title: 'Merging', cards: [] },
+    { id: 'done', title: 'Done', cards: [] },
+  ],
+  poll: {
+    status: 'success',
+    backend: 'linear',
+    lastAttemptAt: '2026-04-04T00:00:00.000Z',
+  },
+}
+
 const TEST_GITHUB_LABELS_WORKFLOW_FIXTURE: WorkflowBoardSnapshot = {
   backend: 'github',
   fetchedAt: '2026-04-04T00:00:00.000Z',
@@ -332,7 +386,7 @@ export class WorkflowBoardService {
     }
 
     if (process.env.KATA_TEST_WORKFLOW_FIXTURE === '1') {
-      const fixture = this.enrichWithSymphonyContext(withFreshTimestamps(TEST_LINEAR_WORKFLOW_FIXTURE))
+      const fixture = this.enrichWithSymphonyContext(withFreshTimestamps(this.resolveTestLinearFixture()))
       if (capturedScopeKey === this.scopeKey) {
         this.lastSnapshot = fixture
         this.lastSuccessSnapshot = fixture
@@ -866,6 +920,15 @@ export class WorkflowBoardService {
     return { config: null }
   }
 
+  private resolveTestLinearFixture(): WorkflowBoardSnapshot {
+    const mode = process.env.KATA_DESKTOP_SYMPHONY_DASHBOARD_MOCK?.trim()
+    if (mode === 'assembled_healthy' || mode === 'assembled_failure_recovery') {
+      return TEST_LINEAR_ASSEMBLED_WORKFLOW_FIXTURE
+    }
+
+    return TEST_LINEAR_WORKFLOW_FIXTURE
+  }
+
   private fixtureForTracker(
     tracker:
       | ({ kind: 'github' } & Extract<WorkflowTrackerConfig, { kind: 'github' }>)
@@ -877,7 +940,7 @@ export class WorkflowBoardService {
         : TEST_GITHUB_LABELS_WORKFLOW_FIXTURE
     }
 
-    return TEST_LINEAR_WORKFLOW_FIXTURE
+    return this.resolveTestLinearFixture()
   }
 
   private toErrorSnapshot(input: {

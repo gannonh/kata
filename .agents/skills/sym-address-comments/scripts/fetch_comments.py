@@ -14,9 +14,7 @@ Usage:
 
 Notes:
   - Thread comments are fetched with `comments(first: 100)` per review thread.
-    If a thread has more than 100 comments, the thread is returned with
-    `commentsTruncated: true` and metadata (`commentsTotalCount`,
-    `commentsRemainingCount`) so callers can detect the truncation.
+    The script does not currently paginate nested thread comments beyond 100.
 """
 
 from __future__ import annotations
@@ -82,8 +80,6 @@ query(
           originalStartLine
           resolvedBy { login }
           comments(first: 100) {
-            totalCount
-            pageInfo { hasNextPage endCursor }
             nodes {
               id
               body
@@ -220,34 +216,17 @@ def fetch_all(owner: str, repo: str, number: int) -> dict[str, Any]:
         if not comments_done:
             conversation_comments.extend(c.get("nodes") or [])
             comments_done = not c["pageInfo"]["hasNextPage"]
-            if not comments_done:
-                comments_cursor = c["pageInfo"]["endCursor"]
+            comments_cursor = None if comments_done else c["pageInfo"]["endCursor"]
 
         if not reviews_done:
             reviews.extend(r.get("nodes") or [])
             reviews_done = not r["pageInfo"]["hasNextPage"]
-            if not reviews_done:
-                reviews_cursor = r["pageInfo"]["endCursor"]
+            reviews_cursor = None if reviews_done else r["pageInfo"]["endCursor"]
 
         if not threads_done:
-            for raw_thread in t.get("nodes") or []:
-                thread = dict(raw_thread)
-                thread_comments = thread.get("comments") or {}
-                page_info = thread_comments.get("pageInfo") or {}
-                total_count = thread_comments.get("totalCount")
-                loaded_count = len((thread_comments.get("nodes") or []))
-                has_more_comments = bool(page_info.get("hasNextPage"))
-                if has_more_comments:
-                    thread["commentsTruncated"] = True
-                    if isinstance(total_count, int):
-                        thread["commentsTotalCount"] = total_count
-                        thread["commentsRemainingCount"] = max(total_count - loaded_count, 0)
-                    else:
-                        thread["commentsRemainingCount"] = None
-                review_threads.append(thread)
+            review_threads.extend(t.get("nodes") or [])
             threads_done = not t["pageInfo"]["hasNextPage"]
-            if not threads_done:
-                threads_cursor = t["pageInfo"]["endCursor"]
+            threads_cursor = None if threads_done else t["pageInfo"]["endCursor"]
 
     assert pr_meta is not None
     return {

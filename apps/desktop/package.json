@@ -22,6 +22,7 @@
     "test": "npx vitest run --coverage",
     "test:watch": "npx vitest",
     "test:e2e": "npx playwright test",
+    "test:e2e:symphony-end-to-end": "npx playwright test e2e/tests/symphony-end-to-end.e2e.ts",
     "test:e2e:headed": "npx playwright test --headed"
   },
   "dependencies": {

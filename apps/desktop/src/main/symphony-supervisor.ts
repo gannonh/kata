@@ -371,6 +371,8 @@ export class SymphonySupervisor extends EventEmitter {
 
   private async startMockedRuntime(mockMode: string): Promise<SymphonyRuntimeCommandResult> {
     const mockUrl = (this.options.env ?? process.env).KATA_SYMPHONY_URL ?? 'http://127.0.0.1:8080'
+    const isAssembledScenario =
+      mockMode === 'assembled_healthy' || mockMode === 'assembled_failure_recovery'
 
     this.updateStatus({
       phase: 'starting',
@@ -378,7 +380,12 @@ export class SymphonySupervisor extends EventEmitter {
       pid: null,
       url: mockUrl,
       lastError: undefined,
-      diagnostics: { stdout: [], stderr: [] },
+      diagnostics: {
+        stdout: isAssembledScenario
+          ? [`checkpoint:runtime-starting:${mockMode}`]
+          : [],
+        stderr: [],
+      },
     })
 
     await delay(25)
@@ -425,10 +432,16 @@ export class SymphonySupervisor extends EventEmitter {
       lastReadyAt: nowIso,
       lastReadinessCheckAt: nowIso,
       launch: {
-        command: 'mock-symphony',
+        command: isAssembledScenario ? 'mock-symphony-assembled' : 'mock-symphony',
         args: ['WORKFLOW.md', '--no-tui', '--port', '8080'],
         source: 'env',
       },
+      diagnostics: isAssembledScenario
+        ? {
+            stdout: [`checkpoint:runtime-ready:${mockMode}`],
+            stderr: [],
+          }
+        : this.status.diagnostics,
     })
 
     return { success: true, status: this.status }

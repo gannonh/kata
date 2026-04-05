@@ -56,6 +56,8 @@ export class SymphonyOperatorService extends EventEmitter {
   private reconnectTimer: NodeJS.Timeout | null = null
   private runtimeSyncRevision = 0
   private readonly snapshot: SymphonyOperatorSnapshot = createEmptySnapshot()
+  private mockBaselineStep = 0
+  private mockAssembledHealthyResolved = false
 
   constructor(options: SymphonyOperatorServiceOptions = {}) {
     super()
@@ -90,7 +92,7 @@ export class SymphonyOperatorService extends EventEmitter {
     return this.snapshot
   }
 
-  public async refreshBaseline(): Promise<SymphonyOperatorSnapshot> {
+  public async refreshBaseline(options: { advanceMockScenario?: boolean } = {}): Promise<SymphonyOperatorSnapshot> {
     const url = this.activeUrl ?? this.runtimeStatus?.url
     if (!url) {
       this.markDisconnected('Symphony URL is unavailable.')
@@ -98,7 +100,11 @@ export class SymphonyOperatorService extends EventEmitter {
     }
 
     if (this.mockMode) {
-      this.applyMockBaseline(this.mockMode)
+      const shouldAdvanceScenario = options.advanceMockScenario ?? true
+      if (this.mockMode === 'assembled_failure_recovery' && shouldAdvanceScenario && this.mockBaselineStep < 2) {
+        this.mockBaselineStep += 1
+      }
+      this.applyMockBaseline(this.mockMode, this.mockBaselineStep)
       return this.snapshot
     }
 
@@ -177,9 +183,28 @@ export class SymphonyOperatorService extends EventEmitter {
       this.snapshot.escalations = this.snapshot.escalations.filter(
         (escalation) => escalation.requestId !== trimmedRequestId,
       )
+
+      if (this.mockMode === 'assembled_healthy') {
+        this.mockAssembledHealthyResolved = true
+        const primaryIdentifier = this.snapshot.workers[0]?.identifier
+        this.snapshot.workers = this.snapshot.workers.map((worker) =>
+          worker.identifier === primaryIdentifier
+            ? {
+                ...worker,
+                state: 'agent_review',
+                toolName: 'idle',
+                lastActivityAt: new Date().toISOString(),
+              }
+            : worker,
+        )
+        this.snapshot.completedCount += 1
+      }
+
+      const nowIso = new Date().toISOString()
+      this.snapshot.fetchedAt = nowIso
       this.snapshot.response.submittingRequestId = undefined
       this.snapshot.response.lastResult = result
-      this.snapshot.connection.lastBaselineRefreshAt = new Date().toISOString()
+      this.snapshot.connection.lastBaselineRefreshAt = nowIso
       this.refreshFreshness()
       this.emitSnapshot()
       return { success: true, snapshot: this.snapshot, result }
@@ -245,6 +270,10 @@ export class SymphonyOperatorService extends EventEmitter {
   public async syncRuntimeStatus(status: SymphonyRuntimeStatus): Promise<void> {
     this.runtimeStatus = status
     this.activeUrl = status.url
+    if (this.mockMode && status.phase !== 'ready') {
+      this.mockBaselineStep = 0
+      this.mockAssembledHealthyResolved = false
+    }
     const syncRevision = ++this.runtimeSyncRevision
 
     if (!status.url || status.phase === 'config_error' || status.phase === 'failed') {
@@ -254,7 +283,7 @@ export class SymphonyOperatorService extends EventEmitter {
     }
 
     if (status.phase === 'ready') {
-      await this.refreshBaseline()
+      await this.refreshBaseline({ advanceMockScenario: false })
       const latestStatus = this.runtimeStatus
       if (
         syncRevision !== this.runtimeSyncRevision ||
@@ -370,7 +399,7 @@ export class SymphonyOperatorService extends EventEmitter {
           const reconnectUrl = this.activeUrl
           this.reconnectTimer = setTimeout(async () => {
             this.reconnectTimer = null
-            await this.refreshBaseline()
+            await this.refreshBaseline({ advanceMockScenario: false })
             if (this.runtimeStatus?.phase === 'ready' && this.activeUrl === reconnectUrl) {
               this.connectStream(reconnectUrl)
             }
@@ -466,36 +495,67 @@ export class SymphonyOperatorService extends EventEmitter {
     this.emitSnapshot()
   }
 
-  private applyMockBaseline(mockMode: string): void {
+  private applyMockBaseline(mockMode: string, step = 0): void {
     const nowIso = new Date().toISOString()
     const staleFetchedAt = new Date(Date.now() - STALE_AFTER_MS - 5_000).toISOString()
 
-    const isKanbanMode =
+    const isLegacyKanbanMode =
       mockMode === 'kanban_assigned' || mockMode === 'kanban_stale' || mockMode === 'kanban_disconnected'
+    const isAssembledMode = mockMode === 'assembled_healthy' || mockMode === 'assembled_failure_recovery'
+    const isKanbanMode = isLegacyKanbanMode || isAssembledMode
 
-    this.snapshot.fetchedAt = mockMode === 'kanban_stale' ? staleFetchedAt : nowIso
-    this.snapshot.queueCount = mockMode === 'reconnecting' ? 2 : 1
-    this.snapshot.completedCount = 3
+    const defaultIssue = isAssembledMode
+      ? {
+          issueId: 'slice-s04',
+          identifier: 'KAT-2337',
+          issueTitle: '[S04] End-to-End Desktop Symphony Operation',
+        }
+      : isLegacyKanbanMode
+        ? {
+            issueId: 'slice-1',
+            identifier: 'KAT-2247',
+            issueTitle: '[S01] Linear Workflow Board in the Right Pane',
+          }
+        : {
+            issueId: '1',
+            identifier: 'KAT-2338',
+            issueTitle: 'Live Worker Dashboard and Escalation Handling',
+          }
+
+    const isFailureDisconnectionPhase = mockMode === 'assembled_failure_recovery' && step === 1
+    const isFailureRecoveredPhase = mockMode === 'assembled_failure_recovery' && step >= 2
+    const isAssembledHealthyResolved = mockMode === 'assembled_healthy' && this.mockAssembledHealthyResolved
+
+    this.snapshot.fetchedAt = mockMode === 'kanban_stale' || isFailureDisconnectionPhase ? staleFetchedAt : nowIso
+    this.snapshot.queueCount = mockMode === 'reconnecting' ? 2 : isFailureDisconnectionPhase ? 3 : 1
+    this.snapshot.completedCount = isFailureRecoveredPhase || isAssembledHealthyResolved ? 4 : 3
     this.snapshot.workers = [
       {
-        issueId: isKanbanMode ? 'slice-1' : '1',
-        identifier: isKanbanMode ? 'KAT-2247' : 'KAT-2338',
-        issueTitle: isKanbanMode
-          ? '[S01] Linear Workflow Board in the Right Pane'
-          : 'Live Worker Dashboard and Escalation Handling',
-        state: mockMode === 'reconnecting' ? 'reconnecting' : 'in_progress',
-        toolName: 'edit',
+        issueId: defaultIssue.issueId,
+        identifier: defaultIssue.identifier,
+        issueTitle: defaultIssue.issueTitle,
+        state:
+          mockMode === 'reconnecting'
+            ? 'reconnecting'
+            : isFailureDisconnectionPhase
+              ? 'blocked'
+              : isFailureRecoveredPhase || isAssembledHealthyResolved
+                ? 'agent_review'
+                : 'in_progress',
+        toolName: isFailureRecoveredPhase || isAssembledHealthyResolved ? 'idle' : 'edit',
         model: 'claude-sonnet-4-6',
         lastActivityAt: nowIso,
       },
       ...(isKanbanMode
         ? [
             {
-              issueId: 'task-2',
-              identifier: 'KAT-2252',
-              issueTitle: '[T02] Wire workflow board service through IPC',
-              state: 'in_progress',
-              toolName: 'bash',
+              issueId: isAssembledMode ? 'task-s04-2' : 'task-2',
+              identifier: isAssembledMode ? 'KAT-2356' : 'KAT-2252',
+              issueTitle: isAssembledMode
+                ? '[T02] Prove the healthy assembled operator flow in Electron'
+                : '[T02] Wire workflow board service through IPC',
+              state: isFailureRecoveredPhase ? 'done' : 'in_progress',
+              toolName: isFailureRecoveredPhase ? 'idle' : 'bash',
               model: 'claude-sonnet-4-6',
               lastActivityAt: nowIso,
             },
@@ -503,24 +563,27 @@ export class SymphonyOperatorService extends EventEmitter {
         : []),
     ]
 
-    this.snapshot.escalations = [
-      {
-        requestId: 'req-123',
-        issueId: isKanbanMode ? 'slice-1' : '1',
-        issueIdentifier: isKanbanMode ? 'KAT-2247' : 'KAT-2338',
-        issueTitle: isKanbanMode
-          ? '[S01] Linear Workflow Board in the Right Pane'
-          : 'Live Worker Dashboard and Escalation Handling',
-        questionPreview: 'Need clarification on dashboard failure state copy.',
-        createdAt: new Date(Date.now() - 15_000).toISOString(),
-        timeoutMs: 300_000,
-      },
-    ]
+    this.snapshot.escalations = isFailureRecoveredPhase || isAssembledHealthyResolved
+      ? []
+      : [
+          {
+            requestId: mockMode.startsWith('assembled_') ? 'req-assembled-1' : 'req-123',
+            issueId: defaultIssue.issueId,
+            issueIdentifier: defaultIssue.identifier,
+            issueTitle: defaultIssue.issueTitle,
+            questionPreview:
+              isFailureDisconnectionPhase
+                ? 'Symphony stream dropped. Confirm retry strategy.'
+                : 'Need clarification on dashboard failure state copy.',
+            createdAt: new Date(Date.now() - 15_000).toISOString(),
+            timeoutMs: 300_000,
+          },
+        ]
 
     this.snapshot.connection.state =
       mockMode === 'reconnecting'
         ? 'reconnecting'
-        : mockMode === 'kanban_disconnected'
+        : mockMode === 'kanban_disconnected' || isFailureDisconnectionPhase
           ? 'disconnected'
           : 'connected'
     this.snapshot.connection.updatedAt = nowIso
@@ -528,7 +591,7 @@ export class SymphonyOperatorService extends EventEmitter {
     this.snapshot.connection.lastError =
       mockMode === 'reconnecting'
         ? 'Mocked reconnect in progress.'
-        : mockMode === 'kanban_disconnected'
+        : mockMode === 'kanban_disconnected' || isFailureDisconnectionPhase
           ? 'Mocked runtime disconnect.'
           : undefined
     this.refreshFreshness()
