@@ -1,6 +1,6 @@
 > **First-time setup**: Customize this file for your project. Prompt the user to customize this file for their project.
 > For Mintlify product knowledge (components, configuration, writing standards),
-> install the Mintlify skill: `npx skills add https://mintlify.com/docs`
+> reference the skill: `.agents/skills/mintlify/SKILL.md`
 
 # Documentation project instructions
 
@@ -14,12 +14,12 @@
 
 ## Terminology
 
-{/* Add product-specific terms and preferred usage */}
-{/* Example: Use "workspace" not "project", "member" not "user" */}
+{/*Add product-specific terms and preferred usage */}
+{/* Example: Use "workspace" not "project", "member" not "user"*/}
 
 ## Style preferences
 
-{/* Add any project-specific style rules below */}
+{/*Add any project-specific style rules below*/}
 
 - Use active voice and second person ("you")
 - Keep sentences concise — one idea per sentence
@@ -29,5 +29,5 @@
 
 ## Content boundaries
 
-{/* Define what should and shouldn't be documented */}
-{/* Example: Don't document internal admin features */}
+{/*Define what should and shouldn't be documented */}
+{/* Example: Don't document internal admin features*/}
