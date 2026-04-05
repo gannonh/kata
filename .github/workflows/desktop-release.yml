@@ -106,7 +106,22 @@ jobs:
         run: |
           cd apps/desktop && bun run bundle:cli
 
-          # Override the Symphony binary with the correct cross-compiled target
+          # Replace host-arch Bun with correct target-arch Bun binary
+          BUN_VERSION="bun-v1.3.8"
+          BUN_ARCH="${{ matrix.arch == 'arm64' && 'aarch64' || 'x64' }}"
+          BUN_DOWNLOAD="bun-darwin-${BUN_ARCH}"
+          echo "Downloading Bun ${BUN_VERSION} for darwin-${BUN_ARCH}..."
+          TEMP_DIR=$(mktemp -d)
+          curl -fSL "https://github.com/oven-sh/bun/releases/download/${BUN_VERSION}/${BUN_DOWNLOAD}.zip" -o "$TEMP_DIR/${BUN_DOWNLOAD}.zip"
+          curl -fSL "https://github.com/oven-sh/bun/releases/download/${BUN_VERSION}/SHASUMS256.txt" -o "$TEMP_DIR/SHASUMS256.txt"
+          cd "$TEMP_DIR" && grep "${BUN_DOWNLOAD}.zip" SHASUMS256.txt | shasum -a 256 -c - && cd -
+          unzip -o "$TEMP_DIR/${BUN_DOWNLOAD}.zip" -d "$TEMP_DIR"
+          cp "$TEMP_DIR/${BUN_DOWNLOAD}/bun" vendor/bun/bun
+          chmod +x vendor/bun/bun
+          rm -rf "$TEMP_DIR"
+          echo "Bun binary replaced with ${BUN_DOWNLOAD}"
+
+          # Override Symphony binary with correct cross-compiled target
           SYMPHONY_DIR="$(cd ../../apps/symphony && pwd)"
           TARGET="${CARGO_BUILD_TARGET}"
           BUILT_BIN="$SYMPHONY_DIR/target/$TARGET/release/symphony"
@@ -154,6 +169,12 @@ jobs:
           cp -R vendor/kata-runtime "$RESOURCES_DIR/kata-runtime"
           cp -R vendor/bun "$RESOURCES_DIR/bun"
           chmod +x "$RESOURCES_DIR/kata" "$RESOURCES_DIR/bun/bun"
+
+          if [ -f vendor/symphony ]; then
+            cp vendor/symphony "$RESOURCES_DIR/symphony"
+            chmod +x "$RESOURCES_DIR/symphony"
+            echo "Symphony binary bundled into app resources"
+          fi
 
           bunx electron-builder --config electron-builder.yml --prepackaged "$APP_DIR" --mac dmg
         env:
