@@ -3,75 +3,66 @@ title: "Symphony integration"
 description: "Operate Symphony from Kata Desktop: runtime controls, live dashboard, and escalation response workflow."
 ---
 
-Kata Desktop M004 adds a built-in Symphony operator surface in **Settings → Symphony**.
+Kata Desktop includes a built-in Symphony operator surface in **Settings → Symphony**.
 
 ## Two operating modes
 
-Desktop supports both managed and external Symphony setups.
+### Managed Symphony
 
-### Managed Symphony (Desktop controls process)
+Use the Start, Stop, and Restart controls in Desktop. Desktop resolves launch configuration from workspace preferences and environment, then runs Symphony as a managed subprocess.
 
-Use Start/Stop/Restart controls in Desktop.
+The runtime panel shows the current lifecycle state:
 
-Desktop resolves launch configuration from workspace preferences and environment, then runs Symphony as a managed subprocess.
+- **Ready** — Symphony is running and the API is responding
+- **Starting** / **Stopping** / **Restarting** — transition states
+- **Stopped** — process terminated cleanly
+- **Failed** — process crashed (exit code and stderr diagnostics are shown)
+- **Config Error** — missing URL, workflow path, or binary (with actionable remediation text)
 
-### External Symphony (Desktop observes remote runtime)
+### External Symphony
 
-If Symphony is already running elsewhere, Desktop can connect to the configured URL and render live dashboard data without owning process lifecycle.
-
-## Runtime panel
-
-The runtime panel shows lifecycle state such as:
-
-- `Starting`
-- `Ready`
-- `Restarting`
-- `Stopping`
-- `Stopped`
-- `Disconnected`
-- `Config Error`
-- `Failed`
-
-It also exposes concise diagnostics to help debug startup/readiness issues.
+If Symphony is already running outside Desktop, click **Dashboard Refresh** in Settings → Symphony. The dashboard connects to whatever is at the configured URL. The Runtime section tracks only the managed process, so it stays in its last state while the Dashboard section goes green independently.
 
 ## Live dashboard
 
-The dashboard shows real operator signals:
+The dashboard displays real-time operator signals:
 
-- worker rows (issue, state, tool, model, last activity)
-- queue and completion counts
-- pending escalations
-- connection freshness (connected/reconnecting/disconnected, stale vs fresh)
+- Worker rows: issue, state, tool, model, last activity
+- Queue and completion counts
+- Pending escalations
+- Connection freshness (connected, reconnecting, disconnected)
 
-## Escalation handling flow
+## Escalation handling
 
-1. Worker escalates with a question.
-2. Escalation appears in Desktop with issue identifier and preview.
-3. Operator submits a response inline.
-4. Desktop sends the response to Symphony and refreshes dashboard state.
-
-This keeps human-in-the-loop decisions inside the same UI used for coding sessions.
+1. A worker escalates with a question.
+2. The escalation appears in Desktop with the issue identifier and question preview.
+3. You submit a response inline.
+4. Desktop sends the response to Symphony and the worker resumes.
 
 ## Configuration
 
-Symphony config is workspace-driven. Typical source:
+Symphony configuration is workspace-driven. Set these fields in `<workspace>/.kata/preferences.md`:
 
-```text
-<workspace>/.kata/preferences.md
+```yaml
+symphony:
+  url: http://localhost:8080
+  workflow_path: /path/to/WORKFLOW.md
 ```
 
-Common fields:
+For managed mode, the Symphony binary is resolved from:
 
-- `symphony.url`
-- `symphony.workflow_path`
+1. `KATA_SYMPHONY_BIN_PATH` environment variable
+2. `symphony` on `PATH`
+3. Bundled binary in the packaged app (`Contents/Resources/symphony`)
 
-If config is missing or invalid, Desktop surfaces a `Config Error` with actionable text.
+If configuration is missing or invalid, Desktop surfaces a Config Error with specific remediation steps.
 
-## Relation to kanban
+## Kanban integration
 
-Symphony dashboard state is correlated into workflow kanban card metadata so you can track both:
+Symphony execution state is correlated into workflow kanban cards. Each card shows:
 
-- **workflow state** (where the slice/task is in process)
-- **execution state** (what Symphony workers are doing now)
+- Worker assignment badge and state
+- Live tool activity indicator (e.g. "Execution: bash")
+- Pending escalation count
 
-See [Planning and workflow kanban](/desktop/planning-kanban) for the right-pane behavior details.
+See [Planning and workflow kanban](/desktop/planning-kanban) for details on the right-pane behavior.

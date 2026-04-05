@@ -5,61 +5,61 @@ description: "How the right pane works in Kata Desktop: planning artifact viewer
 
 Kata Desktop uses a contextual right pane that switches between planning and execution views.
 
-## Planning view (M002)
+## Planning view
 
-During `/kata plan` activity, the right pane renders planning artifacts fetched from workflow backing state.
+During `/kata plan` activity, the right pane renders planning artifacts fetched from the workflow backing store.
 
-Common artifacts:
+Supported artifacts:
 
 - `ROADMAP`
 - `REQUIREMENTS`
 - `DECISIONS`
 - `CONTEXT`
-- Slice-level planning documents (for active slice/task)
+- Slice-level planning documents
 
 The planning pane supports:
 
-- Artifact tabs
-- Structured parsing for roadmap/requirements/decisions when possible
+- Tabbed artifact navigation
+- Structured parsing for roadmap, requirements, and decisions
 - Fallback raw markdown rendering
 - Stale-data indicator when cached content is shown
 
-## Workflow kanban (M003)
+## Workflow kanban
 
 During execution, the right pane switches to a kanban board representing the active workflow state.
 
 ### What the board shows
 
 - Active milestone and slices
-- Columns: backlog, todo, in-progress, review phases, done
+- Columns: backlog, todo, in progress, review phases, done
 - Slice cards with child task summaries
-- Backend status (Linear or GitHub-backed workflow source)
+- Backend status (Linear or GitHub workflow source)
 
-### Symphony convergence metadata (M004)
+### Symphony execution metadata
 
-When Symphony integration is active, cards also include convergence hints such as:
+When Symphony is connected, cards also display:
 
-- active worker assignment
-- latest tool activity
-- pending escalation count
-- stale/disconnected runtime indicators
+- Active worker assignment
+- Current tool activity
+- Pending escalation count
+- Runtime connection indicators
 
 This lets you correlate orchestration state with workflow placement without leaving Desktop.
 
-## Automatic and manual mode switching
+## Pane switching
 
 Right-pane mode is context-driven:
 
 - Planning context → planning pane
 - Execution context → kanban pane
 
-Users can still override pane mode from UI controls and switch back when needed.
+You can override pane mode manually from the UI controls.
 
-## Failure and stale states
+## Error and stale states
 
-Both panes are designed to fail truthfully:
+Both panes handle failures explicitly:
 
-- planning fetch errors surface explicit messages
-- cached planning artifacts are marked stale
-- workflow board fetch failures show status/error metadata instead of blank content
-- Symphony disconnects do not erase workflow cards; they annotate runtime freshness
+- Planning fetch errors surface error messages
+- Cached planning artifacts are marked stale
+- Workflow board fetch failures show status and error metadata
+- Symphony disconnects annotate runtime freshness without erasing workflow cards

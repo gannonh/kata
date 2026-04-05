@@ -1,45 +1,36 @@
 ---
 title: "Providers and integrations"
-description: "Current integration surface in Kata Desktop M001–M004 and how it relates to Kata CLI configuration."
+description: "Provider configuration and how Desktop inherits CLI integrations."
 ---
 
-This page documents the currently shipped integration surface in Kata Desktop.
+## Provider management
 
-## What is available in Desktop today
+Desktop provides a UI for managing AI provider credentials in **Settings → Providers**. Supported providers include Anthropic, OpenAI, Google, and Mistral.
 
-In milestones M001–M004, Desktop ships:
+Credentials are stored in the shared Kata auth store at `~/.kata-cli/agent/auth.json`, so providers configured in Desktop are available in Kata CLI and vice versa.
 
-- **Provider credential management** in **Settings → Providers**
-- **Symphony runtime and dashboard** in **Settings → Symphony**
-- **Planning + workflow views** that consume existing project configuration
+## Integration configuration
 
-Desktop does **not** yet provide a full UI to add/edit MCP servers, REST sources, or channel connectors directly.
+Because Desktop runs Kata CLI as a subprocess, it uses the same configuration files:
 
-## Where integrations are configured today
-
-Because Desktop runs Kata CLI as a subprocess, it uses the same underlying configuration files:
-
-| Integration type | Configure in | Consumed by Desktop |
+| Integration | Configure in | Used by Desktop |
 |---|---|---|
-| Model/provider auth | `~/.kata-cli/agent/auth.json` (via Settings → Providers UI) | Yes |
+| AI provider auth | `~/.kata-cli/agent/auth.json` (or Settings → Providers) | Yes |
 | MCP servers | `~/.kata-cli/agent/mcp.json` | Yes (through CLI runtime) |
-| Workflow + Symphony preferences | `<workspace>/.kata/preferences.md` | Yes |
+| Workflow preferences | `<workspace>/.kata/preferences.md` | Yes |
+| Symphony connection | `<workspace>/.kata/preferences.md` | Yes |
 
-If you already use Kata CLI with MCP/Linear/GitHub integrations configured, Desktop inherits that runtime behavior.
+If you already use Kata CLI with MCP, Linear, or GitHub integrations configured, Desktop inherits that configuration automatically.
 
-## Practical setup flow
+## Setup flow
 
-1. Set up providers in Desktop (**Settings → Providers**) or via Kata CLI.
-2. Add MCP servers in `~/.kata-cli/agent/mcp.json`.
+1. Configure providers in Desktop (**Settings → Providers**) or via Kata CLI.
+2. Add MCP servers in `~/.kata-cli/agent/mcp.json` (see [CLI MCP support](/cli/mcp-support)).
 3. Define workspace workflow preferences in `.kata/preferences.md`.
-4. Open the same workspace in Desktop and start a session.
+4. Open the workspace in Desktop and start a session.
 
-## Security notes
+## Security
 
-- Secrets stay in shared Kata auth/config stores.
-- Desktop surfaces masked credentials in UI where applicable.
-- Symphony runtime status/errors are shown without printing secret values.
-
-## Current boundary
-
-A richer in-app integrations management surface (MCP/source editing UX) is not part of M001–M004.
+- Credentials are stored in the shared Kata auth store, not in the workspace.
+- Desktop shows masked credentials in the Settings UI.
+- Symphony runtime errors are surfaced without exposing secret values.
