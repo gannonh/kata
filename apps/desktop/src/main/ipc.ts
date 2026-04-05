@@ -797,11 +797,8 @@ export function registerSessionIpc({
         log.warn('[desktop-ipc] new session created but sessionId could not be resolved', {
           workspacePath: bridge.getWorkspacePath(),
         })
-        return {
-          success: false,
-          sessionId: null,
-          error: 'Session created but ID could not be resolved',
-        }
+        // Still return success — the session was created in the CLI subprocess.
+        // The renderer will clear chat state even without a sessionId.
       }
 
       log.info('[desktop-ipc] new session created', {

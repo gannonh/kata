@@ -181,13 +181,16 @@ export const createSessionAtom = atom(null, async (get, set) => {
 
   try {
     const response = await window.api.sessions.create()
+
+    // Always reset chat state — the CLI subprocess has already switched
+    // to the new session regardless of whether we got the ID back.
+    set(resetChatStateAtom)
+    set(resetPlanningSessionStateAtom)
+
     if (!response.success) {
       set(sessionListErrorAtom, response.error ?? 'Unable to create session')
       return
     }
-
-    set(resetChatStateAtom)
-    set(resetPlanningSessionStateAtom)
 
     // Set the new session ID BEFORE refreshing the list so
     // applySessionListResponseAtom sees it as current and doesn't
