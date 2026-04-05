@@ -141,72 +141,10 @@ jobs:
       - name: Build Desktop app
         run: cd apps/desktop && bun run build
 
-      - name: Prepare builder app
-        run: cd apps/desktop && bun run prepare:builder-app
-
       - name: Package for macOS ${{ matrix.arch }}
         run: |
           cd apps/desktop
-          APP_VERSION="$(node -p "require('./package.json').version")"
-          ELECTRON_VERSION="$(node -p "const v=require('./package.json').devDependencies?.electron ?? ''; v.replace(/^[^0-9]*/, '').replace(/[^0-9.].*$/, '')")"
-
-          bunx electron-packager \
-            .bundle-app \
-            "Kata Desktop" \
-            --platform=darwin \
-            --arch=${{ matrix.arch }} \
-            --out=release \
-            --overwrite \
-            --icon=resources/AppIcon.icns \
-            --app-version="$APP_VERSION" \
-            --electron-version="$ELECTRON_VERSION"
-
-          APP_DIR="release/Kata Desktop-darwin-${{ matrix.arch }}/Kata Desktop.app"
-          RESOURCES_DIR="$APP_DIR/Contents/Resources"
-
-          cp vendor/kata "$RESOURCES_DIR/kata"
-          cp -R vendor/kata-runtime "$RESOURCES_DIR/kata-runtime"
-          cp -R vendor/bun "$RESOURCES_DIR/bun"
-          chmod +x "$RESOURCES_DIR/kata" "$RESOURCES_DIR/bun/bun"
-
-          if [ -f vendor/symphony ]; then
-            cp vendor/symphony "$RESOURCES_DIR/symphony"
-            chmod +x "$RESOURCES_DIR/symphony"
-          fi
-
-          if [ -f resources/liquid-glass/Assets.car ]; then
-            cp resources/liquid-glass/Assets.car "$RESOURCES_DIR/Assets.car"
-          fi
-
-          /usr/libexec/PlistBuddy -c "Add :CFBundleIconName string AppIcon" "$APP_DIR/Contents/Info.plist" 2>/dev/null || \
-            /usr/libexec/PlistBuddy -c "Set :CFBundleIconName AppIcon" "$APP_DIR/Contents/Info.plist"
-
-          # Strip executable bit from JS/script files to prevent notarization hangs
-          find "$APP_DIR" -type f \( -name "*.js" -o -name "*.mjs" -o -name "*.sh" \) -perm +111 -exec chmod -x {} \; 2>/dev/null || true
-          find "$APP_DIR" -path "*/node_modules/*/bin/*" -type f -perm +111 -exec chmod -x {} \; 2>/dev/null || true
-
-          # Sign vendor binaries so notarization passes.
-          # electron-packager signs the Electron framework but not files added after packaging.
-          SIGN_ID="${CSC_IDENTITY_AUTO_DISCOVERY:-}"
-          if [ -z "$SIGN_ID" ]; then
-            SIGN_ID=$(security find-identity -v -p codesigning | head -1 | sed 's/.*"\(.*\)".*/\1/' || true)
-          fi
-          if [ -n "$SIGN_ID" ]; then
-            echo "Signing vendor binaries with: $SIGN_ID"
-            for BIN in "$RESOURCES_DIR/kata" "$RESOURCES_DIR/bun/bun" "$RESOURCES_DIR/symphony"; do
-              if [ -f "$BIN" ]; then
-                codesign --force --options runtime --sign "$SIGN_ID" "$BIN"
-                echo "  signed: $(basename "$BIN")"
-              fi
-            done
-            # Re-sign the app bundle to capture the new binaries
-            codesign --force --deep --options runtime --sign "$SIGN_ID" "$APP_DIR"
-            echo "App bundle re-signed"
-          else
-            echo "::warning::No signing identity found — vendor binaries unsigned"
-          fi
-
-          bunx electron-builder --config electron-builder.yml --prepackaged "$APP_DIR" --mac dmg
+          bunx electron-builder --config electron-builder.yml --mac dmg --${{ matrix.arch }}
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}

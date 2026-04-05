@@ -2,17 +2,23 @@ appId: sh.kata.desktop
 productName: Kata Desktop
 copyright: Copyright © 2026 Kata Contributors
 
+beforeBuild: scripts/beforeBuild.cjs
+afterPack: scripts/afterPack.cjs
+
 directories:
-  app: .bundle-app
   output: release
   buildResources: resources
 
 files:
   - dist/**/*
-  - package.json
+  - "!dist/renderer/src/**"
   - "!**/*.map"
   - "!**/*.test.*"
   - "!**/__tests__/**"
+  - "!**/*.sh"
+  - "!**/scripts/**"
+  - "!node_modules"
+  - package.json
 
 extraMetadata:
   main: dist/main.cjs

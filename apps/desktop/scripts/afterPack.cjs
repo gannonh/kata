@@ -86,8 +86,16 @@ module.exports = async function afterPack(context) {
   // 1. Copy vendor runtime resources
   copyVendorResources(projectDir, resourcesDir);
 
+  // Remove .bin symlinks from kata-runtime — they point to relative targets
+  // that codesign rejects as "invalid destination for symbolic link in bundle"
+  const binDir = path.join(resourcesDir, 'kata-runtime', 'node_modules', '.bin');
+  if (fs.existsSync(binDir)) {
+    fs.rmSync(binDir, { recursive: true });
+    console.log('afterPack: removed kata-runtime/node_modules/.bin symlinks');
+  }
+
   // 2. Copy Liquid Glass icon (Assets.car)
-  const precompiledAssets = path.join(projectDir, 'resources', 'Assets.car');
+  const precompiledAssets = path.join(projectDir, 'resources', 'liquid-glass', 'Assets.car');
   if (fs.existsSync(precompiledAssets)) {
     fs.copyFileSync(precompiledAssets, path.join(resourcesDir, 'Assets.car'));
     console.log('afterPack: Liquid Glass icon (Assets.car) copied');
