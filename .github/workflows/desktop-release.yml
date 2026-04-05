@@ -121,22 +121,21 @@ jobs:
           rm -rf "$TEMP_DIR"
           echo "Bun binary replaced with ${BUN_DOWNLOAD}"
 
-          # Override Symphony binary with correct cross-compiled target
+          # Build Symphony for the target architecture
+          # bundle-cli.sh may have built for host arch — rebuild with explicit target
           SYMPHONY_DIR="$(cd ../../apps/symphony && pwd)"
           TARGET="${CARGO_BUILD_TARGET}"
+          echo "Building Symphony for $TARGET..."
+          (cd "$SYMPHONY_DIR" && cargo build --release --target "$TARGET")
+
           BUILT_BIN="$SYMPHONY_DIR/target/$TARGET/release/symphony"
-
-          if [ ! -f "$BUILT_BIN" ]; then
-            echo "Cross-compiling Symphony for $TARGET..."
-            (cd "$SYMPHONY_DIR" && cargo build --release --target "$TARGET")
-          fi
-
           if [ -f "$BUILT_BIN" ]; then
             cp "$BUILT_BIN" vendor/symphony
             chmod +x vendor/symphony
             echo "Symphony binary staged for $TARGET"
           else
-            echo "::warning::Symphony binary not found for $TARGET"
+            echo "::error::Symphony binary not found at $BUILT_BIN"
+            exit 1
           fi
 
       - name: Build Desktop app
@@ -159,6 +158,7 @@ jobs:
             --out=release \
             --overwrite \
             --icon=resources/AppIcon.icns \
+            --ignore="AppIcon\\.icon" \
             --app-version="$APP_VERSION" \
             --electron-version="$ELECTRON_VERSION"
 
@@ -173,8 +173,14 @@ jobs:
           if [ -f vendor/symphony ]; then
             cp vendor/symphony "$RESOURCES_DIR/symphony"
             chmod +x "$RESOURCES_DIR/symphony"
-            echo "Symphony binary bundled into app resources"
           fi
+
+          if [ -f resources/Assets.car ]; then
+            cp resources/Assets.car "$RESOURCES_DIR/Assets.car"
+          fi
+
+          /usr/libexec/PlistBuddy -c "Add :CFBundleIconName string AppIcon" "$APP_DIR/Contents/Info.plist" 2>/dev/null || \
+            /usr/libexec/PlistBuddy -c "Set :CFBundleIconName AppIcon" "$APP_DIR/Contents/Info.plist"
 
           bunx electron-builder --config electron-builder.yml --prepackaged "$APP_DIR" --mac dmg
         env:

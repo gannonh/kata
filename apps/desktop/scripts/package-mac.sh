@@ -11,8 +11,6 @@ bun run desktop:build
 bun run prepare:builder-app
 
 APP_PARENT_DIR="$DESKTOP_DIR/release"
-APP_DIR="$APP_PARENT_DIR/Kata Desktop-darwin-arm64/Kata Desktop.app"
-RESOURCES_DIR="$APP_DIR/Contents/Resources"
 APP_VERSION="$(node -p "require('./package.json').version")"
 ELECTRON_VERSION="$(node -p "const v=require('./package.json').devDependencies?.electron ?? ''; v.replace(/^[^0-9]*/, '').replace(/[^0-9.].*$/, '')")"
 
@@ -28,9 +26,12 @@ fi
 
 rm -rf "$APP_PARENT_DIR/Kata Desktop-darwin-arm64"
 find "$APP_PARENT_DIR" -maxdepth 1 -name 'Kata Desktop-*.dmg' -delete 2>/dev/null || true
+find "$APP_PARENT_DIR" -maxdepth 1 -name 'Kata-Desktop-*.dmg' -delete 2>/dev/null || true
 
 echo "[package-mac] Building Kata Desktop v$APP_VERSION (Electron $ELECTRON_VERSION)"
 
+# Use electron-packager to create the .app bundle.
+# --ignore AppIcon.icon to prevent actool errors on macOS < 26.
 bunx electron-packager \
   .bundle-app \
   "Kata Desktop" \
@@ -39,24 +40,39 @@ bunx electron-packager \
   --out=release \
   --overwrite \
   --icon="$DESKTOP_DIR/resources/AppIcon.icns" \
+  --ignore="AppIcon\\.icon" \
   --app-version="$APP_VERSION" \
   --electron-version="$ELECTRON_VERSION"
 
+APP_DIR="$APP_PARENT_DIR/Kata Desktop-darwin-arm64/Kata Desktop.app"
+RESOURCES_DIR="$APP_DIR/Contents/Resources"
+
+# Copy bundled runtime resources
 cp "$DESKTOP_DIR/vendor/kata" "$RESOURCES_DIR/kata"
 cp -R "$DESKTOP_DIR/vendor/kata-runtime" "$RESOURCES_DIR/kata-runtime"
 cp -R "$DESKTOP_DIR/vendor/bun" "$RESOURCES_DIR/bun"
 chmod +x "$RESOURCES_DIR/kata" "$RESOURCES_DIR/bun/bun"
 
 # Bundle Symphony binary if available
-SYMPHONY_BIN="$DESKTOP_DIR/vendor/symphony"
-if [[ -f "$SYMPHONY_BIN" ]]; then
-  cp "$SYMPHONY_BIN" "$RESOURCES_DIR/symphony"
+if [[ -f "$DESKTOP_DIR/vendor/symphony" ]]; then
+  cp "$DESKTOP_DIR/vendor/symphony" "$RESOURCES_DIR/symphony"
   chmod +x "$RESOURCES_DIR/symphony"
   echo "[package-mac] bundled Symphony binary"
 else
   echo "[package-mac] WARNING: vendor/symphony not found — Symphony will not be bundled"
 fi
 
+# Copy pre-compiled Liquid Glass icon (Assets.car) for macOS 26+
+if [[ -f "$DESKTOP_DIR/resources/Assets.car" ]]; then
+  cp "$DESKTOP_DIR/resources/Assets.car" "$RESOURCES_DIR/Assets.car"
+  echo "[package-mac] bundled Liquid Glass icon (Assets.car)"
+fi
+
+# Set CFBundleIconName in Info.plist for macOS 26+ Liquid Glass resolution
+/usr/libexec/PlistBuddy -c "Add :CFBundleIconName string AppIcon" "$APP_DIR/Contents/Info.plist" 2>/dev/null || \
+  /usr/libexec/PlistBuddy -c "Set :CFBundleIconName AppIcon" "$APP_DIR/Contents/Info.plist"
+
+# Create DMG using electron-builder
 bunx electron-builder --config electron-builder.yml --prepackaged "$APP_DIR" --mac dmg
 
 echo "[package-mac] DMG ready in $APP_PARENT_DIR"
