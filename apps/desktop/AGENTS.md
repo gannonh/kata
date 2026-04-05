@@ -81,9 +81,42 @@ The adapter is a **stateful class** — not a pure function. It tracks state acr
 
 **Key gotcha:** The CLI sends multiple `message_start(assistant)` events per turn when thinking+tools are involved. The adapter coalesces these via the `hadContent` flag to prevent ghost empty message entries in the chat.
 
-### Symphony API
+### Symphony Integration
 
-Desktop connects directly to Symphony's HTTP/WS API:
+Desktop has two Symphony subsystems that operate independently:
+
+1. **Symphony Supervisor** (`src/main/symphony-supervisor.ts`) — manages a Symphony child process. Handles start/stop/restart, binary resolution, readiness health checks, and process lifecycle events. Spawns the binary found via `KATA_SYMPHONY_BIN_PATH` env var (dev) or bundled in `Contents/Resources/` (packaged). The subprocess inherits the Electron process's full environment.
+
+2. **Symphony Operator Service** (`src/main/symphony-operator-service.ts`) — connects to Symphony's HTTP/WS API to fetch live state. Reads the URL from the supervisor's runtime status *or* from a manual refresh trigger. This is **independent of the supervisor** — it connects to whatever Symphony is at the configured URL, whether Desktop started it or not.
+
+**Two modes of operation:**
+- **Desktop-managed:** Settings → Symphony → Start. The supervisor spawns the binary, detects readiness, and the operator service auto-connects.
+- **External Symphony:** User starts Symphony outside Desktop. Click Dashboard Refresh in Settings → Symphony. The operator service connects to the configured URL. The Runtime section stays Idle/Failed (it tracks only the managed process), but the Dashboard section goes green.
+
+**Configuration resolution** (`src/main/symphony-config.ts`):
+- URL: `symphony.url` in `.kata/preferences.md` → `KATA_SYMPHONY_URL` env → `SYMPHONY_URL` env
+- Workflow: `symphony.workflow_path` in preferences → `WORKFLOW.md` in workspace root
+- Binary: `KATA_SYMPHONY_BIN_PATH` env → `symphony` on PATH → bundled in resources (packaged)
+
+**Environment gotcha:** The managed Symphony subprocess inherits `process.env` from the Electron process. It does **not** read `apps/symphony/.env`. All env vars Symphony needs (LINEAR_API_KEY, SLACK_WEBHOOK_URL, GH_TOKEN, etc.) must be in `apps/desktop/.env.development` for dev mode. The main process loads this file at startup (`src/main/index.ts`, lines 7-26).
+
+**Runtime status phases:** `idle` → `starting` → `ready` | `failed` | `config_error` → `stopping` → `stopped`. Config errors have specific codes: `CONFIG_MISSING` (no URL), `WORKFLOW_PATH_MISSING`, `BINARY_NOT_FOUND`. Process failures show `PROCESS_EXITED` with exit code and stderr diagnostics.
+
+**IPC channels:**
+
+| Channel | Direction | Purpose |
+|---------|-----------|---------|
+| `symphony:get-status` | renderer → main | Get current runtime status |
+| `symphony:start` | renderer → main | Start managed Symphony |
+| `symphony:stop` | renderer → main | Stop managed Symphony |
+| `symphony:restart` | renderer → main | Restart managed Symphony |
+| `symphony:get-dashboard` | renderer → main | Get current operator snapshot |
+| `symphony:refresh-dashboard` | renderer → main | Force re-poll of /api/v1/state |
+| `symphony:respond-escalation` | renderer → main | Submit escalation response |
+| `symphony:status` | main → renderer | Push runtime status changes |
+| `symphony:dashboard-snapshot` | main → renderer | Push live dashboard updates |
+
+**Symphony HTTP/WS API endpoints:**
 
 | Endpoint | Purpose |
 |----------|---------|
@@ -168,6 +201,9 @@ See the `DECISIONS` document in Linear for full rationale and revisability notes
 - **Thinking content varies by provider:** Anthropic models stream full thinking text via `thinking_delta` events. OpenAI codex models emit `thinking_start/end` but may not stream summary text (depends on the API's `summary: "auto"` setting). The `ThinkingBlock` component handles both: shows "Thinking…" (minimal label) while streaming with no content, "Reasoned" when done with no content, and the full collapsible with word count when content exists.
 - **Thinking levels are model-specific:** Standard reasoning models get `off | minimal | low | medium | high`. Models that support xhigh (opus-4-6, gpt-5.2+) additionally get `xhigh`. The `supportsXhigh` flag is computed in the bridge from model ID patterns (mirrors `pi-ai`'s `supportsXhigh()` function). The `ThinkingLevelToggle` component only renders when the selected model has `reasoning: true`.
 - **Chat layout:** User messages render as right-aligned bubbles. Assistant messages render flat against the background (no container). Tool cards and thinking blocks render inline within their parent assistant message article. No role labels — visual layout distinguishes the roles.
+- **Symphony env vars must be in `.env.development`:** The managed Symphony subprocess inherits `process.env` from the Electron process. It does **not** load `apps/symphony/.env`. All vars Symphony needs at runtime (LINEAR_API_KEY, SLACK_WEBHOOK_URL, GH_TOKEN, etc.) must be copied into `apps/desktop/.env.development`. If Symphony fails with `PROCESS_EXITED(1)`, check stderr diagnostics via `window.api.symphony.getStatus()` — common causes are missing env vars referenced in the WORKFLOW.md.
+- **Symphony dashboard connects independently of the supervisor:** The Runtime section (Start/Stop/Restart) tracks the Desktop-managed subprocess. The Dashboard section connects to whatever is at the configured `symphony.url`. If you start Symphony externally, the Runtime will show Idle/Failed but clicking Dashboard Refresh will connect the live dashboard. Both sections share the URL from config resolution but have independent connection state.
+- **Symphony config is read at process start and at `start()` time:** The URL and workflow path come from `.kata/preferences.md` which is read when `resolveSymphonyLaunch()` is called (lazy, on Start click). But `.env.development` vars are loaded once at Electron startup. Changing preferences requires restarting the Electron process to take effect for the supervisor; the dashboard Refresh can pick up a running external instance without restart.
 
 ## Testing
 

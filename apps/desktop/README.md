@@ -52,6 +52,41 @@ Output artifacts:
 - `apps/desktop/release/Kata Desktop-<version>-arm64.dmg`
 - `apps/desktop/release/Kata Desktop-darwin-arm64/Kata Desktop.app`
 
+## Symphony Integration (Dev)
+
+Desktop can manage a Symphony orchestrator instance and display a live operator dashboard.
+
+### Prerequisites
+
+1. **Build Symphony** (one-time):
+   ```bash
+   cd apps/symphony && cargo build --release
+   ```
+
+2. **Configure `.env.development`** — Desktop's main process loads `apps/desktop/.env.development` at startup. It must contain the Symphony binary path *and* all env vars that Symphony needs at runtime:
+   ```
+   KATA_BIN_PATH=../../apps/cli/dist/loader.js
+   KATA_SYMPHONY_BIN_PATH=/path/to/apps/symphony/target/release/symphony
+   LINEAR_API_KEY=lin_api_...
+   SLACK_WEBHOOK_URL=https://hooks.slack.com/...
+   ```
+   The managed Symphony subprocess inherits the Electron process's environment — it does **not** read `apps/symphony/.env` on its own. Copy any required vars from there.
+
+3. **Configure `.kata/preferences.md`** — set the Symphony URL and workflow file path:
+   ```yaml
+   symphony:
+     url: http://localhost:8080
+     workflow_path: /absolute/path/to/apps/symphony/WORKFLOW-desktop.md
+   ```
+
+### Two modes of operation
+
+**Desktop-managed (Start/Stop/Restart from GUI):**
+Open Settings → Symphony → click Start. Desktop spawns the Symphony binary as a child process, monitors readiness via health checks, and connects the live dashboard automatically.
+
+**External Symphony (started outside Desktop):**
+Start Symphony yourself (e.g. `./target/release/symphony WORKFLOW-desktop.md`). In Desktop, open Settings → Symphony → click the Dashboard **Refresh** button. The dashboard connects to whatever is at the configured `symphony.url`. The Runtime section will show "Idle" or the last managed-process state, but the Dashboard section connects independently.
+
 ## Architecture
 
 - **Main process**: `src/main/index.ts`
