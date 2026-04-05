@@ -146,3 +146,4 @@ apps/context/docs/plans/
 apps/context/docs/specs/
 apps/context/docs/superpowers/
 
+apps/desktop/.env.development
