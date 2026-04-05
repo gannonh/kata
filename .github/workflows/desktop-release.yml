@@ -181,6 +181,31 @@ jobs:
           /usr/libexec/PlistBuddy -c "Add :CFBundleIconName string AppIcon" "$APP_DIR/Contents/Info.plist" 2>/dev/null || \
             /usr/libexec/PlistBuddy -c "Set :CFBundleIconName AppIcon" "$APP_DIR/Contents/Info.plist"
 
+          # Strip executable bit from JS/script files to prevent notarization hangs
+          find "$APP_DIR" -type f \( -name "*.js" -o -name "*.mjs" -o -name "*.sh" \) -perm +111 -exec chmod -x {} \; 2>/dev/null || true
+          find "$APP_DIR" -path "*/node_modules/*/bin/*" -type f -perm +111 -exec chmod -x {} \; 2>/dev/null || true
+
+          # Sign vendor binaries so notarization passes.
+          # electron-packager signs the Electron framework but not files added after packaging.
+          SIGN_ID="${CSC_IDENTITY_AUTO_DISCOVERY:-}"
+          if [ -z "$SIGN_ID" ]; then
+            SIGN_ID=$(security find-identity -v -p codesigning | head -1 | sed 's/.*"\(.*\)".*/\1/' || true)
+          fi
+          if [ -n "$SIGN_ID" ]; then
+            echo "Signing vendor binaries with: $SIGN_ID"
+            for BIN in "$RESOURCES_DIR/kata" "$RESOURCES_DIR/bun/bun" "$RESOURCES_DIR/symphony"; do
+              if [ -f "$BIN" ]; then
+                codesign --force --options runtime --sign "$SIGN_ID" "$BIN"
+                echo "  signed: $(basename "$BIN")"
+              fi
+            done
+            # Re-sign the app bundle to capture the new binaries
+            codesign --force --deep --options runtime --sign "$SIGN_ID" "$APP_DIR"
+            echo "App bundle re-signed"
+          else
+            echo "::warning::No signing identity found — vendor binaries unsigned"
+          fi
+
           bunx electron-builder --config electron-builder.yml --prepackaged "$APP_DIR" --mac dmg
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
