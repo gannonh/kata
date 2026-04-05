@@ -10,6 +10,10 @@ mkdir -p "$STAGE_DIR"
 
 cp -R "$DESKTOP_DIR/dist" "$STAGE_DIR/dist"
 
+# Create empty node_modules so electron-builder's module collector
+# stops here instead of crawling up to the monorepo root (which OOMs).
+mkdir -p "$STAGE_DIR/node_modules"
+
 SOURCE_PATH="$DESKTOP_DIR/package.json" OUTPUT_PATH="$STAGE_DIR/package.json" node --input-type=commonjs <<'NODE'
 const fs = require('fs')
 const sourcePath = process.env.SOURCE_PATH

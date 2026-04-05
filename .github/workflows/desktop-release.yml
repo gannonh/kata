@@ -158,7 +158,6 @@ jobs:
             --out=release \
             --overwrite \
             --icon=resources/AppIcon.icns \
-            --ignore="AppIcon\\.icon" \
             --app-version="$APP_VERSION" \
             --electron-version="$ELECTRON_VERSION"
 
@@ -175,8 +174,8 @@ jobs:
             chmod +x "$RESOURCES_DIR/symphony"
           fi
 
-          if [ -f resources/Assets.car ]; then
-            cp resources/Assets.car "$RESOURCES_DIR/Assets.car"
+          if [ -f resources/liquid-glass/Assets.car ]; then
+            cp resources/liquid-glass/Assets.car "$RESOURCES_DIR/Assets.car"
           fi
 
           /usr/libexec/PlistBuddy -c "Add :CFBundleIconName string AppIcon" "$APP_DIR/Contents/Info.plist" 2>/dev/null || \
