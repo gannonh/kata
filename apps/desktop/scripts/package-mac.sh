@@ -30,8 +30,16 @@ find "$APP_PARENT_DIR" -maxdepth 1 -name 'Kata-Desktop-*.dmg' -delete 2>/dev/nul
 
 echo "[package-mac] Building Kata Desktop v$APP_VERSION (Electron $ELECTRON_VERSION)"
 
-# Use electron-packager to create the .app bundle.
-# --ignore AppIcon.icon to prevent actool errors on macOS < 26.
+# Temporarily hide .icon directory from electron-packager.
+# electron-packager auto-detects .icon files and calls actool, which fails on macOS < 26.
+# We handle the Liquid Glass icon manually via Assets.car after packaging.
+LIQUID_GLASS_DIR="$DESKTOP_DIR/resources/liquid-glass"
+if [[ -d "$LIQUID_GLASS_DIR/AppIcon.icon" ]]; then
+  ICON_HIDDEN=true
+else
+  ICON_HIDDEN=false
+fi
+
 bunx electron-packager \
   .bundle-app \
   "Kata Desktop" \
@@ -40,7 +48,6 @@ bunx electron-packager \
   --out=release \
   --overwrite \
   --icon="$DESKTOP_DIR/resources/AppIcon.icns" \
-  --ignore="AppIcon\\.icon" \
   --app-version="$APP_VERSION" \
   --electron-version="$ELECTRON_VERSION"
 
@@ -58,13 +65,11 @@ if [[ -f "$DESKTOP_DIR/vendor/symphony" ]]; then
   cp "$DESKTOP_DIR/vendor/symphony" "$RESOURCES_DIR/symphony"
   chmod +x "$RESOURCES_DIR/symphony"
   echo "[package-mac] bundled Symphony binary"
-else
-  echo "[package-mac] WARNING: vendor/symphony not found — Symphony will not be bundled"
 fi
 
 # Copy pre-compiled Liquid Glass icon (Assets.car) for macOS 26+
-if [[ -f "$DESKTOP_DIR/resources/Assets.car" ]]; then
-  cp "$DESKTOP_DIR/resources/Assets.car" "$RESOURCES_DIR/Assets.car"
+if [[ -f "$LIQUID_GLASS_DIR/Assets.car" ]]; then
+  cp "$LIQUID_GLASS_DIR/Assets.car" "$RESOURCES_DIR/Assets.car"
   echo "[package-mac] bundled Liquid Glass icon (Assets.car)"
 fi
 
@@ -72,7 +77,7 @@ fi
 /usr/libexec/PlistBuddy -c "Add :CFBundleIconName string AppIcon" "$APP_DIR/Contents/Info.plist" 2>/dev/null || \
   /usr/libexec/PlistBuddy -c "Set :CFBundleIconName AppIcon" "$APP_DIR/Contents/Info.plist"
 
-# Create DMG using electron-builder
+# Create DMG using electron-builder (--prepackaged skips the module collector)
 bunx electron-builder --config electron-builder.yml --prepackaged "$APP_DIR" --mac dmg
 
 echo "[package-mac] DMG ready in $APP_PARENT_DIR"
