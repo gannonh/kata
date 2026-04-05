@@ -2,8 +2,7 @@ import { useMemo } from 'react'
 import { useAtom, useAtomValue } from 'jotai'
 import type { ThinkingLevel } from '@shared/types'
 import { availableModelsAtom, selectedModelAtom, thinkingLevelAtom } from '@/atoms/model'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { cn } from '@/lib/utils'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 const STANDARD_LEVELS: { value: ThinkingLevel; label: string }[] = [
   { value: 'off', label: 'off' },
@@ -44,26 +43,15 @@ export function ThinkingLevelToggle() {
   return (
     <div className="flex items-center gap-3 border-t border-border px-4 py-1.5">
       <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Thinking</span>
-      <ToggleGroup
-        type="single"
-        value={thinkingLevel}
-        onValueChange={(value) => { void handleChange(value) }}
-        size="sm"
-        className="h-6"
-      >
-        {levels.map(({ value, label }) => (
-          <ToggleGroupItem
-            key={value}
-            value={value}
-            className={cn(
-              'h-6 px-2 text-[10px]',
-              value === thinkingLevel && 'font-semibold',
-            )}
-          >
-            {label}
-          </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
+      <Tabs value={thinkingLevel} onValueChange={(value) => { void handleChange(value) }}>
+        <TabsList className="h-7">
+          {levels.map(({ value, label }) => (
+            <TabsTrigger key={value} value={value} className="h-5 px-2 text-[10px]">
+              {label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
     </div>
   )
 }

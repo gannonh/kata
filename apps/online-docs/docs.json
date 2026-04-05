@@ -7,7 +7,7 @@
     "light": "#6c5c44",
     "dark": "#0d0c0c"
   },
-  "favicon": "https://media.brand.dev/9cfb575f-84a7-4a0f-a021-8284dbfbd9ba.svg",
+  "favicon": "favicon.svg",
   "navbar": {
     "primary": {
       "type": "github",

@@ -38,6 +38,7 @@ bunx electron-packager \
   --arch=arm64 \
   --out=release \
   --overwrite \
+  --icon="$DESKTOP_DIR/resources/AppIcon.icns" \
   --app-version="$APP_VERSION" \
   --electron-version="$ELECTRON_VERSION"
 
@@ -45,6 +46,16 @@ cp "$DESKTOP_DIR/vendor/kata" "$RESOURCES_DIR/kata"
 cp -R "$DESKTOP_DIR/vendor/kata-runtime" "$RESOURCES_DIR/kata-runtime"
 cp -R "$DESKTOP_DIR/vendor/bun" "$RESOURCES_DIR/bun"
 chmod +x "$RESOURCES_DIR/kata" "$RESOURCES_DIR/bun/bun"
+
+# Bundle Symphony binary if available
+SYMPHONY_BIN="$DESKTOP_DIR/vendor/symphony"
+if [[ -f "$SYMPHONY_BIN" ]]; then
+  cp "$SYMPHONY_BIN" "$RESOURCES_DIR/symphony"
+  chmod +x "$RESOURCES_DIR/symphony"
+  echo "[package-mac] bundled Symphony binary"
+else
+  echo "[package-mac] WARNING: vendor/symphony not found — Symphony will not be bundled"
+fi
 
 bunx electron-builder --config electron-builder.yml --prepackaged "$APP_DIR" --mac dmg
 

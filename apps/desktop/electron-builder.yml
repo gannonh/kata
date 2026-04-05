@@ -23,13 +23,14 @@ publish: null
 # Contents/Resources by scripts/package-mac.sh before --prepackaged DMG creation.
 mac:
   category: public.app-category.developer-tools
-  icon: ../electron/resources/AppIcon.icns
+  icon: resources/AppIcon.icns
   target:
     - dmg
 
 # Keep a simple Finder drag-to-install experience.
 dmg:
-  icon: ../electron/resources/AppIcon.icns
+  artifactName: "Kata-Desktop-${arch}.${ext}"
+  icon: resources/AppIcon.icns
   title: Kata Desktop
   contents:
     - x: 130

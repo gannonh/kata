@@ -4,14 +4,17 @@ import {
   SettingsManager,
   SessionManager,
   DefaultPackageManager,
-  createAgentSession,
+  createAgentSessionServices,
+  createAgentSessionFromServices,
+  createAgentSessionRuntime,
+  type CreateAgentSessionRuntimeFactory,
   InteractiveMode,
   runPrintMode,
   initTheme,
 } from '@mariozechner/pi-coding-agent'
 import { readFileSync } from 'node:fs'
 import { agentDir, sessionsDir, authFilePath } from './app-paths.js'
-import { buildResourceLoader, initResources } from './resource-loader.js'
+import { initResources } from './resource-loader.js'
 import { loadStoredEnvKeys, runWizardIfNeeded } from './wizard.js'
 
 // ---------------------------------------------------------------------------
@@ -280,36 +283,62 @@ if (cliFlags.appendSystemPrompt) {
   }
 }
 
-const resourceLoader = buildResourceLoader(agentDir, {
-  appendSystemPrompt: appendSystemPromptContent,
-})
-await resourceLoader.reload()
-
-// Inject --mcp-config flag value into the extension runtime.
+// MCP config path — injected into extension runtime inside the session factory.
 // pi-mcp-adapter reads this via pi.getFlag("mcp-config") at session_start.
-// Kata doesn't call pi's main() which does the two-pass argv parsing that
-// normally populates flagValues, so we must do it manually here.
 const mcpConfigPath = process.env.KATA_MCP_CONFIG_PATH
+
+// ---------------------------------------------------------------------------
+// Session creation via runtime factory
+// ---------------------------------------------------------------------------
+
+const extensionFlagValues = new Map<string, boolean | string>()
 if (mcpConfigPath) {
-  const extResult = resourceLoader.getExtensions()
-  extResult.runtime.flagValues.set('mcp-config', mcpConfigPath)
+  extensionFlagValues.set('mcp-config', mcpConfigPath)
 }
 
-// ---------------------------------------------------------------------------
-// Session creation
-// ---------------------------------------------------------------------------
+const createRuntime: CreateAgentSessionRuntimeFactory = async ({
+  cwd: runtimeCwd,
+  sessionManager: runtimeSessionManager,
+  sessionStartEvent,
+}) => {
+  const services = await createAgentSessionServices({
+    cwd: runtimeCwd,
+    agentDir,
+    authStorage,
+    settingsManager,
+    modelRegistry,
+    extensionFlagValues,
+    resourceLoaderOptions: {
+      appendSystemPrompt: appendSystemPromptContent,
+    },
+  })
 
-const { session, extensionsResult } = await createAgentSession({
-  authStorage,
-  modelRegistry,
-  settingsManager,
+  const result = await createAgentSessionFromServices({
+    services,
+    sessionManager: runtimeSessionManager,
+    sessionStartEvent,
+  })
+
+  return {
+    ...result,
+    services,
+    diagnostics: services.diagnostics,
+  }
+}
+
+const runtime = await createAgentSessionRuntime(createRuntime, {
+  cwd: process.cwd(),
+  agentDir,
   sessionManager,
-  resourceLoader,
 })
 
-if (extensionsResult.errors.length > 0) {
-  for (const err of extensionsResult.errors) {
-    process.stderr.write(`[kata] Extension load error: ${err.error}\n`)
+const { session } = runtime
+
+if (runtime.diagnostics.length > 0) {
+  for (const diag of runtime.diagnostics) {
+    if (diag.type === 'error') {
+      process.stderr.write(`[kata] ${diag.message}\n`)
+    }
   }
 }
 
@@ -337,7 +366,7 @@ if (cliFlags.mode === 'rpc') {
   }
 
   const { runRpcMode } = await import('@mariozechner/pi-coding-agent')
-  await runRpcMode(session)
+  await runRpcMode(runtime)
 } else if (isPrintMode) {
   if (cliFlags.messages.length === 0) {
     process.stderr.write('[kata] --print/--mode requires a message argument\n')
@@ -363,13 +392,13 @@ if (cliFlags.mode === 'rpc') {
   }
 
   const outputMode = cliFlags.mode ?? 'text'
-  await runPrintMode(session, {
+  await runPrintMode(runtime, {
     mode: outputMode,
     initialMessage: cliFlags.messages.join(' '),
   })
   // Force exit — extensions (MCP adapter, timers, etc.) may keep the event loop alive
   process.exit(0)
 } else {
-  const interactiveMode = new InteractiveMode(session)
+  const interactiveMode = new InteractiveMode(runtime)
   await interactiveMode.run()
 }

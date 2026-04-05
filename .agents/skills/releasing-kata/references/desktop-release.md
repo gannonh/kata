@@ -1,8 +1,8 @@
 # Desktop Release
 
-Package: `@kata-sh/desktop`
-Version source: `apps/electron/package.json`
-Changelog: `apps/electron/CHANGELOG.md`
+Package: `@kata/desktop`
+Version source: `apps/desktop/package.json`
+Changelog: `apps/desktop/CHANGELOG.md`
 Tag format: `desktop-vX.Y.Z`
 CI workflow: `desktop-release.yml`
 
@@ -18,21 +18,21 @@ CI workflow: `desktop-release.yml`
 2. **Run pre-release checks**
 
    ```bash
-   bun test
-   bun run electron:build
-   # Optional: local production build
-   cd apps/electron && bun run dist:mac
+   cd apps/desktop
+   bun run test              # Vitest with coverage
+   bun run build             # esbuild + Vite
+   bun run desktop:dist:mac  # Full local build (bundles CLI + Symphony + DMG)
    ```
 
-3. **Bump version** in `apps/electron/package.json` only
+3. **Bump version** in `apps/desktop/package.json` only
 
-4. **Update `apps/electron/CHANGELOG.md`** with the new version's changes
+4. **Update `apps/desktop/CHANGELOG.md`** with the new version's changes
 
 5. **Create release branch and PR**
 
    ```bash
    git checkout -b release/desktop-vX.Y.Z
-   git add apps/electron/package.json apps/electron/CHANGELOG.md
+   git add apps/desktop/package.json apps/desktop/CHANGELOG.md
    git commit -m "chore(release): bump desktop to X.Y.Z"
    git push -u origin release/desktop-vX.Y.Z
    gh pr create --title "Desktop vX.Y.Z" --body "Desktop release vX.Y.Z"
@@ -51,20 +51,30 @@ CI workflow: `desktop-release.yml`
 
 `desktop-release.yml` triggers on push to main:
 
-1. Compares `apps/electron/package.json` version against existing `desktop-v*` tags — skips if tag exists
-2. Builds for all platforms (macOS arm64/x64, Windows x64, Linux x64)
+1. Compares `apps/desktop/package.json` version against existing `desktop-v*` tags — skips if tag exists
+2. Builds for macOS (arm64 + x64) — bundles CLI runtime, Symphony binary, and Bun
 3. Code signs and notarizes macOS builds
-4. Creates GitHub Release with all platform artifacts
+4. Creates GitHub Release with macOS artifacts
 
 Expected artifacts:
 
 - `Kata-Desktop-arm64.dmg` / `Kata-Desktop-arm64.zip` (macOS Apple Silicon)
 - `Kata-Desktop-x64.dmg` / `Kata-Desktop-x64.zip` (macOS Intel)
-- `Kata-Desktop-x64.exe` (Windows)
-- `Kata-Desktop-x64.AppImage` (Linux)
+
+Linux and Windows builds will be added in a future release.
+
+## Bundled runtime
+
+The packaged app is self-contained. The build pipeline bundles:
+
+- `Contents/Resources/kata` — CLI launcher script
+- `Contents/Resources/kata-runtime/` — Kata CLI runtime (dist + pkg + node_modules)
+- `Contents/Resources/bun/bun` — Bun binary for the target architecture
+- `Contents/Resources/symphony` — Symphony orchestrator binary (Rust release build)
 
 ## Acceptance criteria
 
-- [ ] `apps/electron/package.json` version bumped
-- [ ] `apps/electron/CHANGELOG.md` updated
-- [ ] GitHub Release created with tag `desktop-vX.Y.Z` and all platform artifacts
+- [ ] `apps/desktop/package.json` version bumped
+- [ ] `apps/desktop/CHANGELOG.md` updated
+- [ ] Local `bun run desktop:dist:mac` succeeds and app launches
+- [ ] GitHub Release created with tag `desktop-vX.Y.Z` and macOS artifacts

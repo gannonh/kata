@@ -1,6 +1,7 @@
 import type { PlanningArtifactState } from '@/atoms/planning'
 import { cn } from '@/lib/utils'
 import { detectArtifactType } from '@/lib/artifact-parser'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 export interface ArtifactTabsProps {
   artifacts: PlanningArtifactState[]
@@ -53,34 +54,35 @@ export function ArtifactTabs({
   }, {})
 
   return (
-    <div role="tablist" className="flex min-h-10 items-end gap-1 overflow-x-auto px-4 pb-2">
-      {sortedArtifacts.map((artifact) => {
-        const isActive = artifact.artifactKey === activeArtifactKey
-        const hasUnviewedUpdate = hasUnviewedUpdatesByKey[artifact.artifactKey] === true
+    <Tabs
+      value={activeArtifactKey ?? undefined}
+      onValueChange={(value) => {
+        const artifact = sortedArtifacts.find((a) => a.artifactKey === value)
+        if (artifact) {
+          onSelect(artifact)
+        }
+      }}
+      className="mt-2"
+    >
+      <TabsList className="h-auto w-full justify-start overflow-x-auto px-4">
+        {sortedArtifacts.map((artifact) => {
+          const hasUnviewedUpdate = hasUnviewedUpdatesByKey[artifact.artifactKey] === true
 
-        return (
-          <button
-            key={artifact.artifactKey}
-            type="button"
-            role="tab"
-            aria-selected={isActive}
-            id={`tab-${artifact.artifactKey}`}
-            aria-controls={`panel-${artifact.artifactKey}`}
-            tabIndex={isActive ? 0 : -1}
-            onClick={() => onSelect(artifact)}
-            className={cn(
-              'relative shrink-0 rounded-t-md border border-transparent px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground',
-              isActive && 'border-border border-b-background bg-background text-foreground',
-            )}
-          >
-            <span>{formatArtifactTitle(artifact.title, typeCounts)}</span>
-            {hasUnviewedUpdate ? (
-              <span className="absolute top-1 right-1 size-1.5 rounded-full bg-primary" aria-label="updated" />
-            ) : null}
-          </button>
-        )
-      })}
-    </div>
+          return (
+            <TabsTrigger
+              key={artifact.artifactKey}
+              value={artifact.artifactKey}
+              className="relative shrink-0 text-xs"
+            >
+              <span>{formatArtifactTitle(artifact.title, typeCounts)}</span>
+              {hasUnviewedUpdate ? (
+                <span className="absolute top-1 right-1 size-1.5 rounded-full bg-primary" aria-label="updated" />
+              ) : null}
+            </TabsTrigger>
+          )
+        })}
+      </TabsList>
+    </Tabs>
   )
 }
 

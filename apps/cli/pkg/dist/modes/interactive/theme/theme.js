@@ -765,17 +765,12 @@ export function getThemeExportColors(themeName) {
         const resolve = (value) => {
             if (value === undefined)
                 return undefined;
-            if (typeof value === "number")
-                return ansi256ToHex(value);
-            if (value.startsWith("$")) {
-                const resolved = vars[value];
-                if (resolved === undefined)
-                    return undefined;
-                if (typeof resolved === "number")
-                    return ansi256ToHex(resolved);
-                return resolved;
-            }
-            return value;
+            const resolved = resolveVarRefs(value, vars);
+            if (typeof resolved === "number")
+                return ansi256ToHex(resolved);
+            if (resolved === "")
+                return undefined;
+            return resolved;
         };
         return {
             pageBg: resolve(exportSection.pageBg),

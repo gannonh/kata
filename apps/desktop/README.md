@@ -87,6 +87,41 @@ Open Settings → Symphony → click Start. Desktop spawns the Symphony binary a
 **External Symphony (started outside Desktop):**
 Start Symphony yourself (e.g. `./target/release/symphony WORKFLOW-desktop.md`). In Desktop, open Settings → Symphony → click the Dashboard **Refresh** button. The dashboard connects to whatever is at the configured `symphony.url`. The Runtime section will show "Idle" or the last managed-process state, but the Dashboard section connects independently.
 
+## Build and Test the Packaged App
+
+Build the full distributable (bundles CLI + Symphony + Bun into a self-contained .app):
+
+```bash
+cd apps/desktop
+bun run desktop:dist:mac
+```
+
+This runs the full pipeline: `bundle-cli.sh` (builds CLI runtime + Symphony binary into `vendor/`) → `build` (esbuild + Vite) → `prepare-builder-app.sh` (stages `.bundle-app/`) → `package-mac.sh` (electron-packager + DMG).
+
+**Run the packaged app directly:**
+
+```bash
+open "apps/desktop/release/Kata Desktop-darwin-arm64/Kata Desktop.app"
+```
+
+**Or install from the DMG:**
+
+```bash
+open "apps/desktop/release/Kata Desktop-1.0.0-arm64.dmg"
+# Drag Kata Desktop.app to Applications, then launch from Launchpad
+```
+
+The packaged app is fully self-contained — it bundles its own Bun runtime, Kata CLI, and Symphony binary in `Contents/Resources/`. Changes to `.env.development` or monorepo source don't affect it; rebuild to pick up changes.
+
+### Dev mode vs packaged mode
+
+| | Dev mode (`desktop:dev`) | Packaged (.app) |
+|---|---|---|
+| CLI | `apps/cli/dist/loader.js` via system Bun | `Contents/Resources/kata` (bundled launcher + runtime + Bun) |
+| Symphony | `KATA_SYMPHONY_BIN_PATH` from `.env.development` | `Contents/Resources/symphony` (bundled binary) |
+| Preferences | `apps/desktop/.kata/preferences.md` (CWD) | `~/.kata/preferences.md` or last-selected workspace |
+| Config | `.env.development` loaded at startup | No `.env` — all config comes from auth.json + preferences |
+
 ## Architecture
 
 - **Main process**: `src/main/index.ts`
