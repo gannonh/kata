@@ -1,7 +1,7 @@
 import type { PlanningArtifactState } from '@/atoms/planning'
 import { cn } from '@/lib/utils'
 import { detectArtifactType } from '@/lib/artifact-parser'
-import { TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 export interface ArtifactTabsProps {
   artifacts: PlanningArtifactState[]
@@ -54,27 +54,35 @@ export function ArtifactTabs({
   }, {})
 
   return (
-    <TabsList variant="line" className="h-auto w-full justify-start overflow-x-auto rounded-none px-4 pb-0">
-      {sortedArtifacts.map((artifact) => {
-        const isActive = artifact.artifactKey === activeArtifactKey
-        const hasUnviewedUpdate = hasUnviewedUpdatesByKey[artifact.artifactKey] === true
+    <Tabs
+      value={activeArtifactKey ?? undefined}
+      onValueChange={(value) => {
+        const artifact = sortedArtifacts.find((a) => a.artifactKey === value)
+        if (artifact) {
+          onSelect(artifact)
+        }
+      }}
+      className="mt-2"
+    >
+      <TabsList className="h-auto w-full justify-start overflow-x-auto mx-4">
+        {sortedArtifacts.map((artifact) => {
+          const hasUnviewedUpdate = hasUnviewedUpdatesByKey[artifact.artifactKey] === true
 
-        return (
-          <TabsTrigger
-            key={artifact.artifactKey}
-            value={artifact.artifactKey}
-            data-active={isActive || undefined}
-            onClick={() => onSelect(artifact)}
-            className={cn('relative shrink-0 rounded-none text-xs')}
-          >
-            <span>{formatArtifactTitle(artifact.title, typeCounts)}</span>
-            {hasUnviewedUpdate ? (
-              <span className="absolute top-1 right-1 size-1.5 rounded-full bg-primary" aria-label="updated" />
-            ) : null}
-          </TabsTrigger>
-        )
-      })}
-    </TabsList>
+          return (
+            <TabsTrigger
+              key={artifact.artifactKey}
+              value={artifact.artifactKey}
+              className="relative shrink-0 text-xs"
+            >
+              <span>{formatArtifactTitle(artifact.title, typeCounts)}</span>
+              {hasUnviewedUpdate ? (
+                <span className="absolute top-1 right-1 size-1.5 rounded-full bg-primary" aria-label="updated" />
+              ) : null}
+            </TabsTrigger>
+          )
+        })}
+      </TabsList>
+    </Tabs>
   )
 }
 
