@@ -67,6 +67,21 @@ async function dismissOnboardingIfPresent(window: Page): Promise<void> {
   }
 }
 
+export async function startMockWorkflowRuntime(page: Page): Promise<void> {
+  await page.getByRole('heading', { name: /Workflow Board/i }).waitFor({ state: 'visible' })
+
+  await page.evaluate(async () => {
+    await window.api.symphony.start()
+  })
+
+  await page.getByTestId('kanban-refresh-board').click()
+}
+
+export async function openMcpSettingsFromWorkflow(page: Page): Promise<void> {
+  await page.getByTestId('kanban-open-mcp-settings').click()
+  await page.getByTestId('mcp-settings-panel').waitFor({ state: 'visible' })
+}
+
 type DesktopFixtures = {
   electronApp: ElectronApplication
   workspaceDir: string
