@@ -1,16 +1,94 @@
 import { atom, useAtomValue, useSetAtom } from 'jotai'
+import { atomWithStorage } from 'jotai/utils'
 import { useEffect, useRef } from 'react'
-import type { WorkflowBoardSnapshot } from '@shared/types'
+import type { WorkflowBoardSnapshot, WorkflowBoardScope, WorkflowColumnId } from '@shared/types'
 import { currentSessionIdAtom, workingDirectoryAtom } from './session'
 import { rightPaneModeAtom, setWorkflowContextAtom } from './right-pane'
 
 const REFRESH_INTERVAL_MS = 30_000
+
+const WORKFLOW_BOARD_SCOPE_STORAGE_KEY = 'kata-desktop:workflow-board-scope-by-workspace'
+const WORKFLOW_BOARD_COLLAPSE_STORAGE_KEY = 'kata-desktop:workflow-board-collapsed-columns'
+
+type ScopePreferenceMap = Record<string, WorkflowBoardScope>
+type CollapsedColumnsMap = Record<string, WorkflowColumnId[]>
 
 export const workflowBoardAtom = atom<WorkflowBoardSnapshot | null>(null)
 export const workflowBoardLoadingAtom = atom<boolean>(false)
 export const workflowBoardRefreshingAtom = atom<boolean>(false)
 export const workflowBoardErrorAtom = atom<string | null>(null)
 export const workflowBoardActiveAtom = atom<boolean>(false)
+
+const workflowBoardScopePreferencesAtom = atomWithStorage<ScopePreferenceMap>(
+  WORKFLOW_BOARD_SCOPE_STORAGE_KEY,
+  {},
+)
+
+const workflowBoardCollapsedColumnsAtom = atomWithStorage<CollapsedColumnsMap>(
+  WORKFLOW_BOARD_COLLAPSE_STORAGE_KEY,
+  {},
+)
+
+const workflowBoardWorkspaceKeyAtom = atom((get) => get(workingDirectoryAtom) || 'workspace:none')
+
+export const workflowBoardScopeAtom = atom<WorkflowBoardScope, [WorkflowBoardScope], void>(
+  (get) => {
+    const workspaceKey = get(workflowBoardWorkspaceKeyAtom)
+    return get(workflowBoardScopePreferencesAtom)[workspaceKey] ?? 'milestone'
+  },
+  (get, set, nextScope) => {
+    const workspaceKey = get(workflowBoardWorkspaceKeyAtom)
+    const existing = get(workflowBoardScopePreferencesAtom)
+    set(workflowBoardScopePreferencesAtom, {
+      ...existing,
+      [workspaceKey]: nextScope,
+    })
+  },
+)
+
+const workflowBoardCollapseKeyAtom = atom((get) => {
+  const workspaceKey = get(workflowBoardWorkspaceKeyAtom)
+  const scope = get(workflowBoardScopeAtom)
+  return `${workspaceKey}::scope:${scope}`
+})
+
+export const collapsedWorkflowColumnsAtom = atom((get) => {
+  const collapseKey = get(workflowBoardCollapseKeyAtom)
+  const collapsed = get(workflowBoardCollapsedColumnsAtom)[collapseKey] ?? []
+  return new Set<WorkflowColumnId>(collapsed)
+})
+
+export const toggleWorkflowColumnCollapsedAtom = atom(
+  null,
+  (get, set, columnId: WorkflowColumnId) => {
+    const collapseKey = get(workflowBoardCollapseKeyAtom)
+    const existingMap = get(workflowBoardCollapsedColumnsAtom)
+    const current = new Set(existingMap[collapseKey] ?? [])
+
+    if (current.has(columnId)) {
+      current.delete(columnId)
+    } else {
+      current.add(columnId)
+    }
+
+    set(workflowBoardCollapsedColumnsAtom, {
+      ...existingMap,
+      [collapseKey]: Array.from(current),
+    })
+  },
+)
+
+export const resetWorkflowCollapsedColumnsAtom = atom(null, (get, set) => {
+  const collapseKey = get(workflowBoardCollapseKeyAtom)
+  const existingMap = get(workflowBoardCollapsedColumnsAtom)
+  if (!(collapseKey in existingMap)) {
+    return
+  }
+
+  const next = { ...existingMap }
+  delete next[collapseKey]
+  set(workflowBoardCollapsedColumnsAtom, next)
+})
 
 export const workflowBoardHasCardsAtom = atom((get) => {
   const snapshot = get(workflowBoardAtom)
@@ -35,10 +113,19 @@ export const refreshWorkflowBoardAtom = atom(null, async (_get, set) => {
   }
 })
 
+function buildScopeKey(params: {
+  workspacePath: string
+  sessionId: string
+  scope: WorkflowBoardScope
+}): string {
+  return `${params.workspacePath}::${params.sessionId}::scope:${params.scope}`
+}
+
 export function useWorkflowBoardBridge(): void {
   const rightPaneMode = useAtomValue(rightPaneModeAtom)
   const workspacePath = useAtomValue(workingDirectoryAtom)
   const sessionId = useAtomValue(currentSessionIdAtom)
+  const requestedScope = useAtomValue(workflowBoardScopeAtom)
 
   const setBoard = useSetAtom(workflowBoardAtom)
   const setLoading = useSetAtom(workflowBoardLoadingAtom)
@@ -50,27 +137,55 @@ export function useWorkflowBoardBridge(): void {
   const intervalIdRef = useRef<number | null>(null)
   const activeRef = useRef(false)
   const activationVersionRef = useRef(0)
-  const scopeKey = `${workspacePath || 'workspace:none'}::${sessionId || 'session:none'}`
+
+  const normalizedWorkspacePath = workspacePath || 'workspace:none'
+  const normalizedSessionId = sessionId || 'session:none'
+  const scopeKey = buildScopeKey({
+    workspacePath: normalizedWorkspacePath,
+    sessionId: normalizedSessionId,
+    scope: requestedScope,
+  })
 
   useEffect(() => {
     let cancelled = false
 
     void (async () => {
       try {
-        await window.api.workflow.setScope(scopeKey)
-        const response = await window.api.workflow.getContext()
+        await window.api.workflow.setScope({
+          scopeKey,
+          requestedScope,
+        })
+
+        const contextResponse = await window.api.workflow.getContext()
         if (!cancelled) {
-          setWorkflowContext(response.context)
+          setWorkflowContext(contextResponse.context)
         }
-      } catch {
-        // best-effort scope/context sync
+
+        if (rightPaneMode !== 'kanban') {
+          return
+        }
+
+        setRefreshing(true)
+        const response = await window.api.workflow.refreshBoard()
+        if (!cancelled) {
+          setBoard(response.snapshot)
+          setError(response.snapshot.lastError?.message ?? null)
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setError(error instanceof Error ? error.message : String(error))
+        }
+      } finally {
+        if (!cancelled) {
+          setRefreshing(false)
+        }
       }
     })()
 
     return () => {
       cancelled = true
     }
-  }, [scopeKey, setWorkflowContext])
+  }, [requestedScope, rightPaneMode, scopeKey, setBoard, setError, setRefreshing, setWorkflowContext])
 
   useEffect(() => {
 

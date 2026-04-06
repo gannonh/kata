@@ -1,7 +1,19 @@
 import { LayoutGrid, RefreshCcw } from 'lucide-react'
-import type { RightPaneResolution, RightPaneOverride, WorkflowBoardSnapshot, WorkflowContextSnapshot } from '@shared/types'
+import type {
+  RightPaneResolution,
+  RightPaneOverride,
+  WorkflowBoardScope,
+  WorkflowBoardSnapshot,
+  WorkflowContextSnapshot,
+} from '@shared/types'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
+
+const SCOPE_OPTIONS: Array<{ scope: WorkflowBoardScope; label: string }> = [
+  { scope: 'active', label: 'Active' },
+  { scope: 'project', label: 'Project' },
+  { scope: 'milestone', label: 'Milestone' },
+]
 
 function formatPaneResolutionReason(reason: string): string {
   const labels: Record<string, string> = {
@@ -32,6 +44,39 @@ function formatBoardSource(snapshot: WorkflowBoardSnapshot | null): string {
   }
 
   return snapshot.backend
+}
+
+function scopeLabel(scope: WorkflowBoardScope): string {
+  return SCOPE_OPTIONS.find((entry) => entry.scope === scope)?.label ?? scope
+}
+
+function formatScopeReason(reason: string): string {
+  const labels: Record<string, string> = {
+    requested: 'requested',
+    milestone_scope_not_supported: 'milestone unavailable for this tracker',
+    operator_state_unavailable: 'operator state unavailable',
+    operator_state_stale: 'operator state stale',
+    operator_state_disconnected: 'operator disconnected',
+  }
+
+  return labels[reason] ?? reason
+}
+
+export function formatScopeStatus(board: WorkflowBoardSnapshot | null, selectedScope: WorkflowBoardScope): string {
+  const scope = board?.scope
+  if (!scope) {
+    return `Scope: ${scopeLabel(selectedScope)}`
+  }
+
+  if (scope.requested === scope.resolved) {
+    const activeLabel =
+      scope.resolved === 'active' && typeof scope.activeMatchCount === 'number'
+        ? ` · ${scope.activeMatchCount} active match${scope.activeMatchCount === 1 ? '' : 'es'}`
+        : ''
+    return `Scope: ${scopeLabel(scope.resolved)}${activeLabel}`
+  }
+
+  return `Scope: ${scopeLabel(scope.requested)} → ${scopeLabel(scope.resolved)} (${formatScopeReason(scope.reason)})`
 }
 
 export function formatWorkflowBoardStatus(input: {
@@ -95,9 +140,11 @@ interface KanbanHeaderProps {
   board: WorkflowBoardSnapshot | null
   loading: boolean
   refreshing: boolean
+  selectedScope: WorkflowBoardScope
   rightPaneOverride: RightPaneOverride
   paneResolution: RightPaneResolution
   workflowContext: WorkflowContextSnapshot
+  onScopeChange: (scope: WorkflowBoardScope) => void
   onOpenPlanningView: () => void
   onRefresh: () => void
   onClearOverride: () => void
@@ -107,9 +154,11 @@ export function KanbanHeader({
   board,
   loading,
   refreshing,
+  selectedScope,
   rightPaneOverride,
   paneResolution,
   workflowContext,
+  onScopeChange,
   onOpenPlanningView,
   onRefresh,
   onClearOverride,
@@ -125,6 +174,22 @@ export function KanbanHeader({
         </div>
 
         <div className="flex items-center gap-1">
+          <div className="mr-1 flex items-center rounded-md border border-border/70 bg-background/70 p-0.5">
+            {SCOPE_OPTIONS.map((option) => (
+              <Button
+                key={option.scope}
+                type="button"
+                size="sm"
+                variant={selectedScope === option.scope ? 'secondary' : 'ghost'}
+                className="h-7 px-2 text-[11px]"
+                aria-label={`Show ${option.label} scope`}
+                onClick={() => onScopeChange(option.scope)}
+              >
+                {option.label}
+              </Button>
+            ))}
+          </div>
+
           <Button type="button" size="icon" variant="ghost" aria-label="Open planning view" onClick={onOpenPlanningView}>
             <LayoutGrid className="size-4" />
           </Button>
@@ -144,6 +209,8 @@ export function KanbanHeader({
         {' · '}
         {`Context: ${workflowContext.mode}`}
         {' · '}
+        {formatScopeStatus(board, selectedScope)}
+        {' · '}
         {formatWorkflowBoardStatus({
           loading,
           boardStatus: board?.status,
@@ -154,6 +221,12 @@ export function KanbanHeader({
         {' · '}
         {formatSymphonyBoardStatus(board)}
       </div>
+
+      {board?.scope?.note ? (
+        <div className="border-b border-border bg-muted/60 px-4 py-2 text-xs text-muted-foreground" data-testid="workflow-board-scope-note">
+          {board.scope.note}
+        </div>
+      ) : null}
 
       {board?.symphony?.staleReason ? (
         <div className="border-b border-border bg-amber-500/10 px-4 py-2 text-xs text-amber-900 dark:text-amber-200" data-testid="workflow-board-symphony-stale">

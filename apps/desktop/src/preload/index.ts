@@ -160,8 +160,14 @@ const api: DesktopApi = {
     setBoardActive: async (active: boolean) => {
       return ipcRenderer.invoke(IPC_CHANNELS.workflowSetBoardActive, active)
     },
-    setScope: async (scopeKey: string) => {
-      return ipcRenderer.invoke(IPC_CHANNELS.workflowSetScope, scopeKey)
+    setScope: async (request: Parameters<DesktopApi['workflow']['setScope']>[0]) => {
+      return ipcRenderer.invoke(IPC_CHANNELS.workflowSetScope, request)
+    },
+    respondToEscalation: async (request: Parameters<DesktopApi['workflow']['respondToEscalation']>[0]) => {
+      return ipcRenderer.invoke(IPC_CHANNELS.workflowRespondEscalation, request)
+    },
+    openIssue: async (request: Parameters<DesktopApi['workflow']['openIssue']>[0]) => {
+      return ipcRenderer.invoke(IPC_CHANNELS.workflowOpenIssue, request)
     },
     getContext: async () => {
       return ipcRenderer.invoke(IPC_CHANNELS.workflowGetContext)

@@ -17,6 +17,9 @@ vi.mock('electron', () => {
     dialog: {
       showOpenDialog: vi.fn(async () => ({ canceled: true, filePaths: [] })),
     },
+    shell: {
+      openExternal: vi.fn(async () => undefined),
+    },
   }
 })
 

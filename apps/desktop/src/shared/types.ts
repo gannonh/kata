@@ -31,6 +31,8 @@ export const IPC_CHANNELS = {
   workflowRefreshBoard: 'workflow:refresh-board',
   workflowSetBoardActive: 'workflow:set-board-active',
   workflowSetScope: 'workflow:set-scope',
+  workflowRespondEscalation: 'workflow:respond-escalation',
+  workflowOpenIssue: 'workflow:open-issue',
   workflowGetContext: 'workflow:get-context',
   symphonyGetStatus: 'symphony:get-status',
   symphonyStart: 'symphony:start',
@@ -560,6 +562,25 @@ export type WorkflowTrackerConfig =
 
 export type WorkflowBoardStatus = 'fresh' | 'stale' | 'empty' | 'error'
 
+export type WorkflowBoardScope = 'active' | 'project' | 'milestone'
+
+export type WorkflowBoardScopeResolutionReason =
+  | 'requested'
+  | 'milestone_scope_not_supported'
+  | 'operator_state_unavailable'
+  | 'operator_state_stale'
+  | 'operator_state_disconnected'
+
+export interface WorkflowBoardScopeDiagnostics {
+  requested: WorkflowBoardScope
+  resolved: WorkflowBoardScope
+  reason: WorkflowBoardScopeResolutionReason
+  operatorFreshness?: WorkflowSymphonyExecutionFreshness
+  activeMatchCount?: number
+  activeMatchIdentifiers?: string[]
+  note?: string
+}
+
 export type WorkflowContextMode = 'planning' | 'execution' | 'unknown'
 
 export type WorkflowContextReason =
@@ -612,6 +633,13 @@ export type WorkflowSymphonyExecutionProvenance =
 
 export type WorkflowSymphonyExecutionFreshness = 'fresh' | 'stale' | 'disconnected' | 'unknown'
 
+export interface WorkflowBoardEscalationRequest {
+  requestId: string
+  questionPreview: string
+  createdAt?: string
+  timeoutMs?: number
+}
+
 export interface WorkflowSymphonyExecutionSummary {
   issueId?: string
   identifier?: string
@@ -621,6 +649,7 @@ export interface WorkflowSymphonyExecutionSummary {
   lastActivityAt?: string
   lastError?: string
   pendingEscalations: number
+  pendingEscalationRequests?: WorkflowBoardEscalationRequest[]
   assignmentState: 'assigned' | 'unassigned'
   freshness: WorkflowSymphonyExecutionFreshness
   provenance: WorkflowSymphonyExecutionProvenance
@@ -694,6 +723,7 @@ export interface WorkflowBoardSnapshot {
     repoOwner?: string
     repoName?: string
   }
+  scope?: WorkflowBoardScopeDiagnostics
   activeMilestone:
     | {
         id: string
@@ -721,9 +751,59 @@ export interface WorkflowBoardLifecycleResponse {
   active: boolean
 }
 
+export interface WorkflowBoardScopeRequest {
+  scopeKey: string
+  requestedScope?: WorkflowBoardScope
+}
+
 export interface WorkflowBoardScopeResponse {
   success: boolean
   scopeKey: string
+  requestedScope: WorkflowBoardScope
+  resolvedScope: WorkflowBoardScope
+  resolutionReason: WorkflowBoardScopeResolutionReason
+}
+
+export interface WorkflowBoardEscalationResponseRequest {
+  cardId: string
+  requestId: string
+  responseText: string
+}
+
+export type WorkflowBoardEscalationResponseCode =
+  | 'SUBMITTED'
+  | 'UNAVAILABLE'
+  | 'INVALID_REQUEST'
+  | 'FAILED'
+
+export interface WorkflowBoardEscalationResponseResult {
+  success: boolean
+  cardId: string
+  requestId: string
+  status: 'success' | 'error' | 'disabled'
+  code: WorkflowBoardEscalationResponseCode
+  message: string
+  submittedAt: string
+  completedAt: string
+  refreshBoard: boolean
+}
+
+export interface WorkflowBoardOpenIssueRequest {
+  cardId: string
+  url: string
+  identifier?: string
+}
+
+export type WorkflowBoardOpenIssueCode = 'OPENED' | 'INVALID_URL' | 'UNAVAILABLE' | 'FAILED'
+
+export interface WorkflowBoardOpenIssueResult {
+  success: boolean
+  cardId: string
+  url: string
+  status: 'success' | 'error' | 'disabled'
+  code: WorkflowBoardOpenIssueCode
+  message: string
+  openedAt: string
 }
 
 export interface WorkflowContextResponse {
@@ -985,7 +1065,11 @@ export interface DesktopApi {
     getBoard: () => Promise<WorkflowBoardSnapshotResponse>
     refreshBoard: () => Promise<WorkflowBoardSnapshotResponse>
     setBoardActive: (active: boolean) => Promise<WorkflowBoardLifecycleResponse>
-    setScope: (scopeKey: string) => Promise<WorkflowBoardScopeResponse>
+    setScope: (request: WorkflowBoardScopeRequest | string) => Promise<WorkflowBoardScopeResponse>
+    respondToEscalation: (
+      request: WorkflowBoardEscalationResponseRequest,
+    ) => Promise<WorkflowBoardEscalationResponseResult>
+    openIssue: (request: WorkflowBoardOpenIssueRequest) => Promise<WorkflowBoardOpenIssueResult>
     getContext: () => Promise<WorkflowContextResponse>
   }
   symphony: {

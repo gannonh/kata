@@ -810,6 +810,215 @@ describe('WorkflowBoardService', () => {
     expect(second.snapshot.status).toBe('empty')
   })
 
+  test('filters active scope to cards with live symphony assignments', async () => {
+    const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-active-scope-'))
+    mkdirSync(path.join(workspacePath, '.kata'), { recursive: true })
+    writeFileSync(
+      path.join(workspacePath, '.kata', 'preferences.md'),
+      ['---', 'projectSlug: project-ref', '---', ''].join('\n'),
+      'utf8',
+    )
+
+    const symphonySnapshot: SymphonyOperatorSnapshot = {
+      fetchedAt: new Date().toISOString(),
+      queueCount: 1,
+      completedCount: 0,
+      workers: [
+        {
+          issueId: 'slice-1',
+          identifier: 'KAT-2247',
+          issueTitle: 'Slice 1',
+          state: 'in_progress',
+          toolName: 'edit',
+          model: 'claude-sonnet-4-6',
+        },
+      ],
+      escalations: [],
+      connection: {
+        state: 'connected',
+        updatedAt: new Date().toISOString(),
+      },
+      freshness: {
+        status: 'fresh',
+      },
+      response: {},
+    }
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => 'lin_api_test') } as never,
+      getWorkspacePath: () => workspacePath,
+      getSymphonySnapshot: () => symphonySnapshot,
+    })
+
+    ;(service as any).linearClient.fetchProjectSnapshot = vi.fn(async () => ({
+      backend: 'linear',
+      fetchedAt: '2026-04-04T00:00:00.000Z',
+      status: 'fresh',
+      source: { projectId: 'project-ref', activeMilestoneId: 'm1' },
+      activeMilestone: { id: 'm1', name: '[M001] Demo' },
+      columns: [
+        {
+          id: 'todo',
+          title: 'Todo',
+          cards: [
+            {
+              id: 'slice-1',
+              identifier: 'KAT-2247',
+              title: 'Active card',
+              columnId: 'todo',
+              stateName: 'Todo',
+              stateType: 'unstarted',
+              milestoneId: 'm1',
+              milestoneName: '[M001] Demo',
+              taskCounts: { total: 0, done: 0 },
+              tasks: [],
+            },
+            {
+              id: 'slice-2',
+              identifier: 'KAT-2248',
+              title: 'Inactive card',
+              columnId: 'todo',
+              stateName: 'Todo',
+              stateType: 'unstarted',
+              milestoneId: 'm1',
+              milestoneName: '[M001] Demo',
+              taskCounts: { total: 0, done: 0 },
+              tasks: [],
+            },
+          ],
+        },
+      ],
+      poll: { status: 'success', backend: 'linear', lastAttemptAt: '2026-04-04T00:00:00.000Z' },
+    }))
+
+    service.setActive(true)
+    service.setScope({ scopeKey: 'workspace:a::session:b', requestedScope: 'active' })
+
+    const response = await service.refreshBoard()
+    const todoCards = response.snapshot.columns.find((column) => column.id === 'todo')?.cards ?? []
+
+    expect(response.snapshot.scope?.requested).toBe('active')
+    expect(response.snapshot.scope?.resolved).toBe('active')
+    expect(todoCards.map((card) => card.identifier)).toEqual(['KAT-2247'])
+  })
+
+  test('falls back from active scope when operator state is stale', async () => {
+    const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-active-fallback-'))
+    mkdirSync(path.join(workspacePath, '.kata'), { recursive: true })
+    writeFileSync(
+      path.join(workspacePath, '.kata', 'preferences.md'),
+      ['---', 'projectSlug: project-ref', '---', ''].join('\n'),
+      'utf8',
+    )
+
+    const symphonySnapshot: SymphonyOperatorSnapshot = {
+      fetchedAt: new Date(Date.now() - 120_000).toISOString(),
+      queueCount: 1,
+      completedCount: 0,
+      workers: [],
+      escalations: [],
+      connection: {
+        state: 'connected',
+        updatedAt: new Date().toISOString(),
+      },
+      freshness: {
+        status: 'stale',
+        staleReason: 'No recent operator update.',
+      },
+      response: {},
+    }
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => 'lin_api_test') } as never,
+      getWorkspacePath: () => workspacePath,
+      getSymphonySnapshot: () => symphonySnapshot,
+    })
+
+    ;(service as any).linearClient.fetchProjectSnapshot = vi.fn(async () => ({
+      backend: 'linear',
+      fetchedAt: '2026-04-04T00:00:00.000Z',
+      status: 'fresh',
+      source: { projectId: 'project-ref', activeMilestoneId: 'm1' },
+      activeMilestone: { id: 'm1', name: '[M001] Demo' },
+      columns: [
+        {
+          id: 'todo',
+          title: 'Todo',
+          cards: [
+            {
+              id: 'slice-1',
+              identifier: 'KAT-2247',
+              title: 'Card still visible during fallback',
+              columnId: 'todo',
+              stateName: 'Todo',
+              stateType: 'unstarted',
+              milestoneId: 'm1',
+              milestoneName: '[M001] Demo',
+              taskCounts: { total: 0, done: 0 },
+              tasks: [],
+            },
+          ],
+        },
+      ],
+      poll: { status: 'success', backend: 'linear', lastAttemptAt: '2026-04-04T00:00:00.000Z' },
+    }))
+
+    service.setActive(true)
+    service.setScope({ scopeKey: 'workspace:a::session:b', requestedScope: 'active' })
+
+    const response = await service.refreshBoard()
+
+    expect(response.snapshot.scope?.requested).toBe('active')
+    expect(response.snapshot.scope?.resolved).toBe('project')
+    expect(response.snapshot.scope?.reason).toBe('operator_state_stale')
+    expect(response.snapshot.columns.find((column) => column.id === 'todo')?.cards.length).toBe(1)
+  })
+
+  test('switches fetch strategy between milestone and project scopes', async () => {
+    const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-scope-fetch-strategy-'))
+    mkdirSync(path.join(workspacePath, '.kata'), { recursive: true })
+    writeFileSync(
+      path.join(workspacePath, '.kata', 'preferences.md'),
+      ['---', 'projectSlug: project-ref', '---', ''].join('\n'),
+      'utf8',
+    )
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => 'lin_api_test') } as never,
+      getWorkspacePath: () => workspacePath,
+    })
+
+    const milestoneSnapshot = {
+      backend: 'linear' as const,
+      fetchedAt: '2026-04-04T00:00:00.000Z',
+      status: 'fresh' as const,
+      source: { projectId: 'project-ref', activeMilestoneId: 'm1' },
+      activeMilestone: { id: 'm1', name: '[M001] Demo' },
+      columns: [],
+      poll: { status: 'success' as const, backend: 'linear' as const, lastAttemptAt: '2026-04-04T00:00:00.000Z' },
+    }
+
+    const projectSnapshot = {
+      ...milestoneSnapshot,
+      source: { projectId: 'project-ref', activeMilestoneId: 'm2' },
+      activeMilestone: { id: 'm2', name: '[M002] Demo' },
+    }
+
+    ;(service as any).linearClient.fetchActiveMilestoneSnapshot = vi.fn(async () => milestoneSnapshot)
+    ;(service as any).linearClient.fetchProjectSnapshot = vi.fn(async () => projectSnapshot)
+
+    service.setActive(true)
+
+    service.setScope({ scopeKey: 'workspace:a::session:b', requestedScope: 'milestone' })
+    await service.refreshBoard()
+
+    service.setScope({ scopeKey: 'workspace:a::session:b', requestedScope: 'project' })
+    await service.refreshBoard()
+
+    expect((service as any).linearClient.fetchActiveMilestoneSnapshot).toHaveBeenCalledTimes(1)
+    expect((service as any).linearClient.fetchProjectSnapshot).toHaveBeenCalledTimes(1)
+  })
+
   test('deduplicates concurrent refresh requests to a single Linear fetch', async () => {
     const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-concurrent-'))
     mkdirSync(path.join(workspacePath, '.kata'), { recursive: true })

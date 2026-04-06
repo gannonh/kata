@@ -6,6 +6,7 @@ import {
   workflowBoardErrorAtom,
   workflowBoardLoadingAtom,
   workflowBoardRefreshingAtom,
+  workflowBoardScopeAtom,
 } from '@/atoms/workflow-board'
 import {
   clearRightPaneOverrideAtom,
@@ -23,7 +24,9 @@ export function KanbanPane() {
   const loading = useAtomValue(workflowBoardLoadingAtom)
   const refreshing = useAtomValue(workflowBoardRefreshingAtom)
   const error = useAtomValue(workflowBoardErrorAtom)
+  const selectedScope = useAtomValue(workflowBoardScopeAtom)
   const setRightPaneOverride = useSetAtom(setRightPaneOverrideAtom)
+  const setScope = useSetAtom(workflowBoardScopeAtom)
   const clearOverride = useSetAtom(clearRightPaneOverrideAtom)
   const rightPaneOverride = useAtomValue(rightPaneOverrideAtom)
   const paneResolution = useAtomValue(rightPaneResolutionAtom)
@@ -38,9 +41,13 @@ export function KanbanPane() {
         board={board}
         loading={loading}
         refreshing={refreshing}
+        selectedScope={selectedScope}
         rightPaneOverride={rightPaneOverride}
         paneResolution={paneResolution}
         workflowContext={workflowContext}
+        onScopeChange={(scope) => {
+          setScope(scope)
+        }}
         onOpenPlanningView={() => setRightPaneOverride('planning')}
         onRefresh={() => {
           void refreshBoard()
