@@ -146,9 +146,13 @@ interface KanbanHeaderProps {
   rightPaneOverride: RightPaneOverride
   paneResolution: RightPaneResolution
   workflowContext: WorkflowContextSnapshot
+  mcpShortcutDisabled: boolean
+  refreshDisabled: boolean
+  actionLockReason?: string | null
   onScopeChange: (scope: WorkflowBoardScope) => void
   onExpandAllColumns: () => void
   onOpenPlanningView: () => void
+  onOpenMcpSettings: () => void
   onRefresh: () => void
   onClearOverride: () => void
 }
@@ -163,9 +167,13 @@ export function KanbanHeader({
   rightPaneOverride,
   paneResolution,
   workflowContext,
+  mcpShortcutDisabled,
+  refreshDisabled,
+  actionLockReason,
   onScopeChange,
   onExpandAllColumns,
   onOpenPlanningView,
+  onOpenMcpSettings,
   onRefresh,
   onClearOverride,
 }: KanbanHeaderProps) {
@@ -209,11 +217,34 @@ export function KanbanHeader({
             </Button>
           ) : null}
 
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-7 px-2 text-[11px]"
+            aria-label="Open MCP tab"
+            onClick={onOpenMcpSettings}
+            disabled={mcpShortcutDisabled}
+            title="Open MCP settings (⌘⇧M / Ctrl+Shift+M)"
+            data-testid="kanban-open-mcp-settings"
+          >
+            MCP
+          </Button>
+
           <Button type="button" size="icon" variant="ghost" aria-label="Open planning view" onClick={onOpenPlanningView}>
             <LayoutGrid className="size-4" />
           </Button>
 
-          <Button type="button" size="icon" variant="ghost" aria-label="Refresh workflow board" onClick={onRefresh}>
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            aria-label="Refresh workflow board"
+            onClick={onRefresh}
+            disabled={refreshDisabled}
+            title="Refresh workflow board (⌘⇧R / Ctrl+Shift+R)"
+            data-testid="kanban-refresh-board"
+          >
             <RefreshCcw className="size-4" />
           </Button>
         </div>
@@ -244,6 +275,20 @@ export function KanbanHeader({
         {' · '}
         {formatSymphonyBoardStatus(board)}
       </div>
+
+      <div className="border-b border-border bg-background/80 px-4 py-1 text-[11px] text-muted-foreground">
+        Shortcuts: <span className="font-mono">⌘⇧M</span> open MCP settings ·{' '}
+        <span className="font-mono">⌘⇧R</span> refresh board
+      </div>
+
+      {actionLockReason ? (
+        <div
+          className="border-b border-border bg-amber-500/10 px-4 py-2 text-xs text-amber-900 dark:text-amber-200"
+          data-testid="kanban-action-lock-reason"
+        >
+          {actionLockReason}
+        </div>
+      ) : null}
 
       {board?.scope?.note ? (
         <div className="border-b border-border bg-muted/60 px-4 py-2 text-xs text-muted-foreground" data-testid="workflow-board-scope-note">

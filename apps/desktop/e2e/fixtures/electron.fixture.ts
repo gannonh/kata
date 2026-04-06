@@ -67,6 +67,42 @@ async function dismissOnboardingIfPresent(window: Page): Promise<void> {
   }
 }
 
+export async function startMockWorkflowRuntime(page: Page): Promise<void> {
+  await page.getByRole('heading', { name: /Workflow Board/i }).waitFor({ state: 'visible' })
+
+  const startResult = await page.evaluate(async () => {
+    try {
+      return await window.api.symphony.start()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      return {
+        success: false,
+        error: {
+          code: 'UNKNOWN',
+          phase: 'unknown',
+          message,
+        },
+      }
+    }
+  })
+
+  if (!startResult?.success) {
+    const details =
+      typeof startResult?.error === 'string'
+        ? startResult.error
+        : startResult?.error?.message ?? 'unknown error'
+    throw new Error(`Failed to start mock workflow runtime: ${details}`)
+  }
+
+  await page.getByTestId('kanban-refresh-board').click()
+  await page.getByTestId('kanban-column-in_progress').waitFor({ state: 'visible' })
+}
+
+export async function openMcpSettingsFromWorkflow(page: Page): Promise<void> {
+  await page.getByTestId('kanban-open-mcp-settings').click()
+  await page.getByTestId('mcp-settings-panel').waitFor({ state: 'visible' })
+}
+
 type DesktopFixtures = {
   electronApp: ElectronApplication
   workspaceDir: string

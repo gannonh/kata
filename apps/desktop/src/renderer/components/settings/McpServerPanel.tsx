@@ -53,6 +53,11 @@ export function McpServerPanel() {
   const [pendingDeleteName, setPendingDeleteName] = useState<string | null>(null)
 
   const servers = useMemo(() => configState.servers, [configState.servers])
+  const serverErrorCount = useMemo(() => {
+    return servers.reduce((count, server) => {
+      return count + (statuses[server.name]?.phase === 'error' ? 1 : 0)
+    }, 0)
+  }, [servers, statuses])
 
   const openCreateDialog = () => {
     setEditingServer(undefined)
@@ -129,6 +134,26 @@ export function McpServerPanel() {
           <Alert data-testid="mcp-mutation-success">
             <AlertTitle>MCP config updated</AlertTitle>
             <AlertDescription>{mutationSuccess}</AlertDescription>
+          </Alert>
+        ) : null}
+
+        {configState.error ? (
+          <Alert data-testid="mcp-recovery-hint">
+            <AlertTitle>Recovery tip</AlertTitle>
+            <AlertDescription>
+              Restore a valid <span className="font-mono">mcp.json</span> (or fix malformed entries), then use
+              Refresh to confirm readback before reconnecting servers.
+            </AlertDescription>
+          </Alert>
+        ) : null}
+
+        {serverErrorCount > 0 ? (
+          <Alert data-testid="mcp-row-recovery-hint">
+            <AlertTitle>Server connection errors stay row-scoped</AlertTitle>
+            <AlertDescription>
+              {serverErrorCount} server{serverErrorCount === 1 ? '' : 's'} currently failed health checks. Fix each
+              row and retry Refresh/Reconnect without restarting Desktop.
+            </AlertDescription>
           </Alert>
         ) : null}
 

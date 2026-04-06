@@ -12,6 +12,7 @@ import {
   type ThinkingLevel,
   type SymphonyRuntimeStatus,
   type SymphonyOperatorSnapshot,
+  type WorkflowShellActionEvent,
 } from '../shared/types'
 
 const api: DesktopApi = {
@@ -183,6 +184,20 @@ const api: DesktopApi = {
     },
     getContext: async () => {
       return ipcRenderer.invoke(IPC_CHANNELS.workflowGetContext)
+    },
+    dispatchShellAction: async (request: Parameters<DesktopApi['workflow']['dispatchShellAction']>[0]) => {
+      return ipcRenderer.invoke(IPC_CHANNELS.workflowDispatchShellAction, request)
+    },
+    onShellAction: (listener: (event: WorkflowShellActionEvent) => void) => {
+      const wrapped = (_event: Electron.IpcRendererEvent, shellEvent: WorkflowShellActionEvent) => {
+        listener(shellEvent)
+      }
+
+      ipcRenderer.on(IPC_CHANNELS.workflowShellAction, wrapped)
+
+      return () => {
+        ipcRenderer.removeListener(IPC_CHANNELS.workflowShellAction, wrapped)
+      }
     },
   },
   symphony: {

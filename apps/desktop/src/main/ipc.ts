@@ -61,6 +61,9 @@ import {
   type WorkflowBoardOpenIssueRequest,
   type WorkflowBoardOpenIssueResult,
   type WorkflowContextResponse,
+  type WorkflowShellActionDispatchResult,
+  type WorkflowShellActionEvent,
+  type WorkflowShellActionRequest,
   type SymphonyRuntimeStatus,
   type SymphonyRuntimeCommandResult,
   type SymphonyRuntimeStatusResponse,
@@ -601,6 +604,7 @@ export function registerSessionIpc({
   ipcMain.removeHandler(IPC_CHANNELS.workflowRespondEscalation)
   ipcMain.removeHandler(IPC_CHANNELS.workflowOpenIssue)
   ipcMain.removeHandler(IPC_CHANNELS.workflowGetContext)
+  ipcMain.removeHandler(IPC_CHANNELS.workflowDispatchShellAction)
   ipcMain.removeHandler(IPC_CHANNELS.symphonyGetStatus)
   ipcMain.removeHandler(IPC_CHANNELS.symphonyStart)
   ipcMain.removeHandler(IPC_CHANNELS.symphonyStop)
@@ -1357,6 +1361,61 @@ export function registerSessionIpc({
     }
   })
 
+  ipcMain.handle(
+    IPC_CHANNELS.workflowDispatchShellAction,
+    async (_event, request: WorkflowShellActionRequest): Promise<WorkflowShellActionDispatchResult> => {
+      if (!request || typeof request !== 'object') {
+        return {
+          success: false,
+          error: 'Workflow shell action request is required.',
+        }
+      }
+
+      if (
+        request.action !== 'open_mcp_settings' &&
+        request.action !== 'return_to_kanban' &&
+        request.action !== 'refresh_board'
+      ) {
+        return {
+          success: false,
+          error: `Unsupported workflow shell action: ${String((request as { action?: unknown }).action)}`,
+        }
+      }
+
+      if (
+        request.source !== 'kanban_header' &&
+        request.source !== 'settings_panel' &&
+        request.source !== 'keyboard_shortcut'
+      ) {
+        return {
+          success: false,
+          error: `Unsupported workflow shell action source: ${String((request as { source?: unknown }).source)}`,
+        }
+      }
+
+      const eventPayload: WorkflowShellActionEvent = {
+        action: request.action,
+        source: request.source,
+        dispatchedAt: new Date().toISOString(),
+      }
+
+      const dispatched = canSendToRenderer()
+      if (dispatched) {
+        window.webContents.send(IPC_CHANNELS.workflowShellAction, eventPayload)
+      }
+
+      return {
+        success: dispatched,
+        dispatchedAt: eventPayload.dispatchedAt,
+        ...(dispatched
+          ? {}
+          : {
+              error: 'Renderer unavailable. Workflow shell action was not dispatched.',
+            }),
+      }
+    },
+  )
+
   const createSymphonyDisconnectedResult = (): SymphonyRuntimeCommandResult => {
     const status: SymphonyRuntimeStatus = {
       phase: 'disconnected',
@@ -1555,6 +1614,7 @@ export function registerSessionIpc({
     ipcMain.removeHandler(IPC_CHANNELS.workflowRespondEscalation)
     ipcMain.removeHandler(IPC_CHANNELS.workflowOpenIssue)
     ipcMain.removeHandler(IPC_CHANNELS.workflowGetContext)
+    ipcMain.removeHandler(IPC_CHANNELS.workflowDispatchShellAction)
     ipcMain.removeHandler(IPC_CHANNELS.symphonyGetStatus)
     ipcMain.removeHandler(IPC_CHANNELS.symphonyStart)
     ipcMain.removeHandler(IPC_CHANNELS.symphonyStop)

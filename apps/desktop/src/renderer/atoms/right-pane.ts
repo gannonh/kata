@@ -7,6 +7,8 @@ import type {
   WorkflowContextSnapshot,
 } from '@shared/types'
 
+export type SettingsTabId = 'providers' | 'mcp' | 'general' | 'appearance' | 'symphony'
+
 export const RIGHT_PANE_OVERRIDE_STORAGE_KEY = 'kata-desktop:right-pane-override'
 
 const defaultWorkflowContext: WorkflowContextSnapshot = {
@@ -79,3 +81,18 @@ export const setWorkflowContextAtom = atom(
     set(workflowContextAtom, context)
   },
 )
+
+export const settingsPanelOpenAtom = atom(false)
+export const settingsPanelTabAtom = atom<SettingsTabId>('providers')
+
+export const openSettingsPanelAtom = atom(
+  null,
+  (_get, set, targetTab: SettingsTabId = 'providers') => {
+    set(settingsPanelTabAtom, targetTab)
+    set(settingsPanelOpenAtom, true)
+  },
+)
+
+export const closeSettingsPanelAtom = atom(null, (_get, set) => {
+  set(settingsPanelOpenAtom, false)
+})

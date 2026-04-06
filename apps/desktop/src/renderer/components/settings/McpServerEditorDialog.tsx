@@ -529,8 +529,16 @@ export function McpServerEditorDialog({
             </>
           )}
 
-          {localError ? <p className="text-xs text-destructive">{localError}</p> : null}
-          {errorMessage ? <p className="text-xs text-destructive">{errorMessage}</p> : null}
+          {localError ? (
+            <p className="text-xs text-destructive" data-testid="mcp-editor-local-error">
+              Fix before saving: {localError}
+            </p>
+          ) : null}
+          {errorMessage ? (
+            <p className="text-xs text-destructive" data-testid="mcp-editor-save-error">
+              Save failed: {errorMessage}
+            </p>
+          ) : null}
         </div>
 
         <DialogFooter>

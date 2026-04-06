@@ -11,6 +11,7 @@ import {
   workflowBoardLoadingAtom,
   workflowBoardRefreshingAtom,
   workflowBoardScopeAtom,
+  workflowMutationPendingAtom,
 } from '@/atoms/workflow-board'
 import {
   clearRightPaneOverrideAtom,
@@ -19,6 +20,7 @@ import {
   setRightPaneOverrideAtom,
   workflowContextAtom,
 } from '@/atoms/right-pane'
+import { mcpMutationPendingAtom, mcpStatusPendingByServerAtom } from '@/atoms/mcp'
 import { BoardStateNotice } from '@/components/kanban/BoardStateNotice'
 import { KanbanColumn } from '@/components/kanban/KanbanColumn'
 import { KanbanHeader } from '@/components/kanban/KanbanHeader'
@@ -59,7 +61,22 @@ export function KanbanPane() {
   const rightPaneOverride = useAtomValue(rightPaneOverrideAtom)
   const paneResolution = useAtomValue(rightPaneResolutionAtom)
   const workflowContext = useAtomValue(workflowContextAtom)
+  const workflowMutationPending = useAtomValue(workflowMutationPendingAtom)
+  const mcpMutationPending = useAtomValue(mcpMutationPendingAtom)
+  const mcpStatusPendingByServer = useAtomValue(mcpStatusPendingByServerAtom)
   const refreshBoard = useSetAtom(refreshWorkflowBoardAtom)
+
+  const mcpBusy =
+    mcpMutationPending || Object.values(mcpStatusPendingByServer).some((isPending) => Boolean(isPending))
+
+  const actionLockReason = workflowMutationPending
+    ? 'Workflow mutation is in flight. Wait for it to finish before navigating or refreshing.'
+    : mcpBusy
+      ? 'MCP operation is in flight. Wait for save/reconnect to finish before switching surfaces.'
+      : null
+
+  const refreshDisabled = loading || refreshing || workflowMutationPending
+  const mcpShortcutDisabled = workflowMutationPending || mcpBusy
 
   const columns = board ? normalizeWorkflowColumns(board) : []
   const presentation = summarizeColumnPresentation(columns, collapsedColumns)
@@ -76,6 +93,9 @@ export function KanbanPane() {
         rightPaneOverride={rightPaneOverride}
         paneResolution={paneResolution}
         workflowContext={workflowContext}
+        mcpShortcutDisabled={mcpShortcutDisabled}
+        refreshDisabled={refreshDisabled}
+        actionLockReason={actionLockReason}
         onScopeChange={(scope) => {
           setScope(scope)
         }}
@@ -83,7 +103,21 @@ export function KanbanPane() {
           resetCollapsedColumns()
         }}
         onOpenPlanningView={() => setRightPaneOverride('planning')}
+        onOpenMcpSettings={() => {
+          if (mcpShortcutDisabled) {
+            return
+          }
+
+          void window.api.workflow.dispatchShellAction({
+            action: 'open_mcp_settings',
+            source: 'kanban_header',
+          })
+        }}
         onRefresh={() => {
+          if (refreshDisabled) {
+            return
+          }
+
           void refreshBoard()
         }}
         onClearOverride={() => clearOverride()}

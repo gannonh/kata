@@ -12,7 +12,16 @@ export function BoardStateNotice({ board, error }: BoardStateNoticeProps) {
     notices.push({
       id: 'board-error',
       tone: 'error',
-      message: error,
+      message: `${error} Last known board state is still shown so you can recover without losing context.`,
+    })
+  }
+
+  if (board?.status === 'stale') {
+    notices.push({
+      id: 'board-stale',
+      tone: 'warning',
+      message:
+        'Workflow data is stale. Retry refresh to reconcile rollback or remote changes before continuing board mutations.',
     })
   }
 

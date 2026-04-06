@@ -73,6 +73,30 @@ export function getMoveTargetOptions(currentColumnId: WorkflowBoardSliceCard['co
   return WORKFLOW_COLUMNS.filter((column) => column.id !== currentColumnId)
 }
 
+function formatMoveStateMessage(moveState: { phase: 'pending' | 'success' | 'error'; message: string }): string {
+  if (moveState.phase === 'pending') {
+    return moveState.message
+  }
+
+  if (moveState.phase === 'success') {
+    return `Committed: ${moveState.message}`
+  }
+
+  return `Rollback: ${moveState.message}`
+}
+
+function moveStateTone(phase: 'pending' | 'success' | 'error'): string {
+  if (phase === 'pending') {
+    return 'text-muted-foreground'
+  }
+
+  if (phase === 'success') {
+    return 'text-emerald-700 dark:text-emerald-300'
+  }
+
+  return 'text-destructive'
+}
+
 export function SliceCard({ card }: SliceCardProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [showEscalationComposer, setShowEscalationComposer] = useState(false)
@@ -310,8 +334,11 @@ export function SliceCard({ card }: SliceCardProps) {
         ) : null}
 
         {sliceMoveState ? (
-          <p className="text-[11px] text-muted-foreground" data-testid={`slice-move-state-${card.identifier}`}>
-            {sliceMoveState.message}
+          <p
+            className={`text-[11px] ${moveStateTone(sliceMoveState.phase)}`}
+            data-testid={`slice-move-state-${card.identifier}`}
+          >
+            {formatMoveStateMessage(sliceMoveState)}
           </p>
         ) : null}
 
