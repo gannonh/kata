@@ -38,6 +38,8 @@ export const IPC_CHANNELS = {
   workflowRespondEscalation: 'workflow:respond-escalation',
   workflowOpenIssue: 'workflow:open-issue',
   workflowGetContext: 'workflow:get-context',
+  workflowDispatchShellAction: 'workflow:dispatch-shell-action',
+  workflowShellAction: 'workflow:shell-action',
   symphonyGetStatus: 'symphony:get-status',
   symphonyStart: 'symphony:start',
   symphonyStop: 'symphony:stop',
@@ -617,6 +619,25 @@ export interface RightPaneResolution {
   mode: RightPaneMode
   source: 'manual' | 'automatic'
   reason: WorkflowContextReason | 'manual_override' | 'default_fallback'
+}
+
+export type WorkflowShellAction = 'open_mcp_settings' | 'return_to_kanban' | 'refresh_board'
+
+export type WorkflowShellActionSource = 'kanban_header' | 'settings_panel' | 'keyboard_shortcut'
+
+export interface WorkflowShellActionRequest {
+  action: WorkflowShellAction
+  source: WorkflowShellActionSource
+}
+
+export interface WorkflowShellActionEvent extends WorkflowShellActionRequest {
+  dispatchedAt: string
+}
+
+export interface WorkflowShellActionDispatchResult {
+  success: boolean
+  dispatchedAt?: string
+  error?: string
 }
 
 export type WorkflowBoardErrorCode =
@@ -1398,6 +1419,10 @@ export interface DesktopApi {
     ) => Promise<WorkflowBoardEscalationResponseResult>
     openIssue: (request: WorkflowBoardOpenIssueRequest) => Promise<WorkflowBoardOpenIssueResult>
     getContext: () => Promise<WorkflowContextResponse>
+    dispatchShellAction: (
+      request: WorkflowShellActionRequest,
+    ) => Promise<WorkflowShellActionDispatchResult>
+    onShellAction: (listener: (event: WorkflowShellActionEvent) => void) => () => void
   }
   symphony: {
     getStatus: () => Promise<SymphonyRuntimeStatusResponse>

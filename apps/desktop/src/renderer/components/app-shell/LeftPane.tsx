@@ -1,18 +1,19 @@
-import { useState } from 'react'
 import { Menu, Settings } from 'lucide-react'
 import { useAtom } from 'jotai'
 import { sessionSidebarOpenAtom } from '@/atoms/session'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import { SettingsPanel } from '../settings/SettingsPanel'
 import { ChatPanel } from '../chat/ChatPanel'
 import { ModelSelector } from './ModelSelector'
 import { SessionSidebar } from './SessionSidebar'
 import { WorkspaceIndicator } from './WorkspaceIndicator'
 import { SymphonyStatusBadge } from './SymphonyStatusBadge'
 
-export function LeftPane() {
-  const [settingsOpen, setSettingsOpen] = useState(false)
+interface LeftPaneProps {
+  onOpenSettings: () => void
+}
+
+export function LeftPane({ onOpenSettings }: LeftPaneProps) {
   const [sessionSidebarOpen, setSessionSidebarOpen] = useAtom(sessionSidebarOpenAtom)
 
   return (
@@ -37,7 +38,7 @@ export function LeftPane() {
 
         <div className="flex flex-1 items-center justify-end gap-2">
           <ModelSelector />
-          <Button type="button" variant="outline" size="sm" onClick={() => setSettingsOpen(true)}>
+          <Button type="button" variant="outline" size="sm" onClick={onOpenSettings}>
             <Settings data-icon="inline-start" />
             Settings
           </Button>
@@ -54,7 +55,6 @@ export function LeftPane() {
         </div>
       </div>
 
-      <SettingsPanel open={settingsOpen} onOpenChange={setSettingsOpen} />
     </section>
   )
 }

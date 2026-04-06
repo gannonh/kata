@@ -1,14 +1,32 @@
-import { useEffect, useMemo } from 'react'
-import { useSetAtom } from 'jotai'
+import { useCallback, useEffect, useMemo } from 'react'
+import { useAtomValue, useSetAtom } from 'jotai'
 import {
   Group,
   Panel,
   Separator as PanelSeparator,
   type Layout,
 } from 'react-resizable-panels'
+import type { WorkflowShellActionEvent } from '@shared/types'
 import { initializeSessionsAtom } from '@/atoms/session'
+import {
+  closeSettingsPanelAtom,
+  openSettingsPanelAtom,
+  settingsPanelOpenAtom,
+  settingsPanelTabAtom,
+  setRightPaneOverrideAtom,
+} from '@/atoms/right-pane'
+import {
+  captureWorkflowBoardReturnContextAtom,
+  clearWorkflowBoardReturnContextAtom,
+  refreshWorkflowBoardAtom,
+  workflowBoardReturnContextAtom,
+  workflowBoardScopeAtom,
+  workflowMutationPendingAtom,
+} from '@/atoms/workflow-board'
+import { mcpMutationPendingAtom, mcpStatusPendingByServerAtom } from '@/atoms/mcp'
 import { LeftPane } from './LeftPane'
 import { RightPane } from './RightPane'
+import { SettingsPanel } from '../settings/SettingsPanel'
 
 const LAYOUT_STORAGE_KEY = 'kata-desktop:app-shell-layout'
 const LEFT_PANEL_ID = 'chat-pane'
@@ -53,13 +71,146 @@ function readInitialLayout(): Layout {
   return DEFAULT_LAYOUT
 }
 
+function isKeyboardShortcutEvent(event: KeyboardEvent, key: string): boolean {
+  if (!(event.metaKey || event.ctrlKey) || !event.shiftKey || event.altKey) {
+    return false
+  }
+
+  return event.key.toLowerCase() === key
+}
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false
+  }
+
+  if (target.isContentEditable) {
+    return true
+  }
+
+  const tagName = target.tagName.toLowerCase()
+  return tagName === 'input' || tagName === 'textarea' || tagName === 'select'
+}
+
 export function AppShell() {
   const defaultLayout = useMemo(readInitialLayout, [])
   const initializeSessions = useSetAtom(initializeSessionsAtom)
 
+  const settingsOpen = useAtomValue(settingsPanelOpenAtom)
+  const settingsTab = useAtomValue(settingsPanelTabAtom)
+  const workflowScope = useAtomValue(workflowBoardScopeAtom)
+  const workflowReturnContext = useAtomValue(workflowBoardReturnContextAtom)
+  const workflowMutationPending = useAtomValue(workflowMutationPendingAtom)
+
+  const mcpMutationPending = useAtomValue(mcpMutationPendingAtom)
+  const mcpStatusPendingByServer = useAtomValue(mcpStatusPendingByServerAtom)
+  const mcpBusy =
+    mcpMutationPending ||
+    Object.values(mcpStatusPendingByServer).some((isPending) => Boolean(isPending))
+
+  const openSettingsPanel = useSetAtom(openSettingsPanelAtom)
+  const closeSettingsPanel = useSetAtom(closeSettingsPanelAtom)
+  const setSettingsTab = useSetAtom(settingsPanelTabAtom)
+  const captureReturnContext = useSetAtom(captureWorkflowBoardReturnContextAtom)
+  const clearReturnContext = useSetAtom(clearWorkflowBoardReturnContextAtom)
+  const setWorkflowScope = useSetAtom(workflowBoardScopeAtom)
+  const setRightPaneOverride = useSetAtom(setRightPaneOverrideAtom)
+  const refreshWorkflowBoard = useSetAtom(refreshWorkflowBoardAtom)
+
   useEffect(() => {
     void initializeSessions()
   }, [initializeSessions])
+
+  const handleWorkflowShellAction = useCallback(
+    async (event: WorkflowShellActionEvent) => {
+      if (event.action === 'open_mcp_settings') {
+        if (workflowMutationPending) {
+          return
+        }
+
+        captureReturnContext()
+        openSettingsPanel('mcp')
+        return
+      }
+
+      if (event.action === 'refresh_board') {
+        if (workflowMutationPending) {
+          return
+        }
+
+        await refreshWorkflowBoard()
+        return
+      }
+
+      if (event.action === 'return_to_kanban') {
+        if (mcpBusy) {
+          return
+        }
+
+        closeSettingsPanel()
+        setRightPaneOverride('kanban')
+
+        if (workflowReturnContext?.scope && workflowReturnContext.scope !== workflowScope) {
+          setWorkflowScope(workflowReturnContext.scope)
+        }
+
+        clearReturnContext()
+        await refreshWorkflowBoard()
+      }
+    },
+    [
+      workflowMutationPending,
+      captureReturnContext,
+      openSettingsPanel,
+      refreshWorkflowBoard,
+      mcpBusy,
+      closeSettingsPanel,
+      setRightPaneOverride,
+      workflowReturnContext,
+      workflowScope,
+      setWorkflowScope,
+      clearReturnContext,
+    ],
+  )
+
+  useEffect(() => {
+    return window.api.workflow.onShellAction((event) => {
+      void handleWorkflowShellAction(event)
+    })
+  }, [handleWorkflowShellAction])
+
+  useEffect(() => {
+    const handleKeyboardShortcut = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.repeat || isEditableTarget(event.target)) {
+        return
+      }
+
+      let action: WorkflowShellActionEvent['action'] | null = null
+
+      if (isKeyboardShortcutEvent(event, 'm')) {
+        action = 'open_mcp_settings'
+      } else if (isKeyboardShortcutEvent(event, 'b')) {
+        action = 'return_to_kanban'
+      } else if (isKeyboardShortcutEvent(event, 'r')) {
+        action = 'refresh_board'
+      }
+
+      if (!action) {
+        return
+      }
+
+      event.preventDefault()
+      void window.api.workflow.dispatchShellAction({
+        action,
+        source: 'keyboard_shortcut',
+      })
+    }
+
+    window.addEventListener('keydown', handleKeyboardShortcut)
+    return () => {
+      window.removeEventListener('keydown', handleKeyboardShortcut)
+    }
+  }, [])
 
   return (
     <main className="size-full bg-background text-foreground">
@@ -76,7 +227,12 @@ export function AppShell() {
         }}
       >
         <Panel id={LEFT_PANEL_ID} defaultSize={defaultLayout[LEFT_PANEL_ID]} minSize={45}>
-          <LeftPane />
+          <LeftPane
+            onOpenSettings={() => {
+              clearReturnContext()
+              openSettingsPanel('providers')
+            }}
+          />
         </Panel>
 
         <PanelSeparator className="w-px bg-border transition-colors hover:bg-accent" />
@@ -85,6 +241,31 @@ export function AppShell() {
           <RightPane />
         </Panel>
       </Group>
+
+      <SettingsPanel
+        open={settingsOpen}
+        activeTab={settingsTab}
+        onActiveTabChange={setSettingsTab}
+        onOpenChange={(open) => {
+          if (open) {
+            openSettingsPanel(settingsTab)
+            return
+          }
+
+          closeSettingsPanel()
+          clearReturnContext()
+        }}
+        onReturnToWorkflowBoard={() => {
+          void window.api.workflow.dispatchShellAction({
+            action: 'return_to_kanban',
+            source: 'settings_panel',
+          })
+        }}
+        returnToWorkflowDisabled={mcpBusy}
+        returnToWorkflowDisabledReason={
+          mcpBusy ? 'Finish pending MCP save/reconnect work before returning to the workflow board.' : null
+        }
+      />
     </main>
   )
 }

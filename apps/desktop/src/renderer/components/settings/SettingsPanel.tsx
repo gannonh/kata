@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -11,19 +10,23 @@ import {
 } from '@/components/ui/dialog'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import type { SettingsTabId } from '@/atoms/right-pane'
 import { ProviderAuthPanel } from './ProviderAuthPanel'
 import { SymphonyRuntimePanel } from './SymphonyRuntimePanel'
 import { SymphonyDashboard } from '../symphony/SymphonyDashboard'
 import { McpServerPanel } from './McpServerPanel'
 
-type SettingsTab = 'providers' | 'mcp' | 'general' | 'appearance' | 'symphony'
-
 interface SettingsPanelProps {
   open: boolean
+  activeTab: SettingsTabId
   onOpenChange: (open: boolean) => void
+  onActiveTabChange: (tab: SettingsTabId) => void
+  onReturnToWorkflowBoard?: () => void
+  returnToWorkflowDisabled?: boolean
+  returnToWorkflowDisabledReason?: string | null
 }
 
-const SETTINGS_TABS: Array<{ id: SettingsTab; label: string }> = [
+const SETTINGS_TABS: Array<{ id: SettingsTabId; label: string }> = [
   { id: 'providers', label: 'Providers' },
   { id: 'mcp', label: 'MCP' },
   { id: 'symphony', label: 'Symphony' },
@@ -31,8 +34,23 @@ const SETTINGS_TABS: Array<{ id: SettingsTab; label: string }> = [
   { id: 'appearance', label: 'Appearance' },
 ]
 
-export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
-  const [activeTab, setActiveTab] = useState<SettingsTab>('providers')
+export function shouldShowReturnToWorkflowAction(
+  activeTab: SettingsTabId,
+  onReturnToWorkflowBoard?: () => void,
+): boolean {
+  return Boolean(onReturnToWorkflowBoard) && activeTab === 'mcp'
+}
+
+export function SettingsPanel({
+  open,
+  activeTab,
+  onOpenChange,
+  onActiveTabChange,
+  onReturnToWorkflowBoard,
+  returnToWorkflowDisabled,
+  returnToWorkflowDisabledReason,
+}: SettingsPanelProps) {
+  const showReturnToWorkflow = shouldShowReturnToWorkflowAction(activeTab, onReturnToWorkflowBoard)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -49,13 +67,34 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
               <DialogDescription className="text-xs text-muted-foreground">
                 Manage providers, preferences, and desktop defaults.
               </DialogDescription>
+              {showReturnToWorkflow && returnToWorkflowDisabledReason ? (
+                <p className="text-xs text-amber-700 dark:text-amber-300" data-testid="settings-return-disabled-reason">
+                  {returnToWorkflowDisabledReason}
+                </p>
+              ) : null}
             </div>
 
-            <DialogClose asChild>
-              <Button type="button" variant="outline" size="sm">
-                Close
-              </Button>
-            </DialogClose>
+            <div className="flex items-center gap-2">
+              {showReturnToWorkflow ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={onReturnToWorkflowBoard}
+                  disabled={Boolean(returnToWorkflowDisabled)}
+                  title="Return to workflow board (⌘⇧B / Ctrl+Shift+B)"
+                  data-testid="settings-return-to-workflow"
+                >
+                  Return to workflow board
+                </Button>
+              ) : null}
+
+              <DialogClose asChild>
+                <Button type="button" variant="outline" size="sm">
+                  Close
+                </Button>
+              </DialogClose>
+            </div>
           </div>
         </DialogHeader>
 
@@ -64,7 +103,7 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
         <Tabs
           orientation="vertical"
           value={activeTab}
-          onValueChange={(value) => setActiveTab(value as SettingsTab)}
+          onValueChange={(value) => onActiveTabChange(value as SettingsTabId)}
           className="flex min-h-0 flex-1 gap-0 overflow-hidden"
         >
           <TabsList className="h-full w-48 shrink-0 items-start rounded-none bg-background/40 p-3" variant="line">

@@ -29,6 +29,13 @@ export const workflowBoardRefreshingAtom = atom<boolean>(false)
 export const workflowBoardErrorAtom = atom<string | null>(null)
 export const workflowBoardActiveAtom = atom<boolean>(false)
 
+export interface WorkflowBoardReturnContext {
+  scope: WorkflowBoardScope
+  capturedAt: string
+}
+
+export const workflowBoardReturnContextAtom = atom<WorkflowBoardReturnContext | null>(null)
+
 type EscalationActionState = {
   status: 'idle' | 'submitting' | 'success' | 'error' | 'disabled'
   message?: string
@@ -52,6 +59,10 @@ type WorkflowEntityMutationState = {
 export const workflowEscalationActionStateAtom = atom<Record<string, EscalationActionState>>({})
 export const workflowIssueActionStateAtom = atom<Record<string, IssueActionState>>({})
 export const workflowEntityMutationStateAtom = atom<Record<string, WorkflowEntityMutationState>>({})
+
+export const workflowMutationPendingAtom = atom((get) => {
+  return Object.values(get(workflowEntityMutationStateAtom)).some((mutation) => mutation.phase === 'pending')
+})
 
 const workflowBoardScopePreferencesAtom = atomWithStorage<ScopePreferenceMap>(
   WORKFLOW_BOARD_SCOPE_STORAGE_KEY,
@@ -84,6 +95,17 @@ const workflowBoardCollapseKeyAtom = atom((get) => {
   const workspaceKey = get(workflowBoardWorkspaceKeyAtom)
   const scope = get(workflowBoardScopeAtom)
   return `${workspaceKey}::scope:${scope}`
+})
+
+export const captureWorkflowBoardReturnContextAtom = atom(null, (get, set) => {
+  set(workflowBoardReturnContextAtom, {
+    scope: get(workflowBoardScopeAtom),
+    capturedAt: new Date().toISOString(),
+  })
+})
+
+export const clearWorkflowBoardReturnContextAtom = atom(null, (_get, set) => {
+  set(workflowBoardReturnContextAtom, null)
 })
 
 export const collapsedWorkflowColumnsAtom = atom((get) => {
