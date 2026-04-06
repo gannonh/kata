@@ -43,6 +43,12 @@ export const IPC_CHANNELS = {
   symphonyRefreshDashboard: 'symphony:refresh-dashboard',
   symphonyRespondEscalation: 'symphony:respond-escalation',
   symphonyDashboardSnapshot: 'symphony:dashboard-snapshot',
+  mcpListServers: 'mcp:list-servers',
+  mcpGetServer: 'mcp:get-server',
+  mcpSaveServer: 'mcp:save-server',
+  mcpDeleteServer: 'mcp:delete-server',
+  mcpRefreshStatus: 'mcp:refresh-status',
+  mcpReconnectServer: 'mcp:reconnect-server',
 } as const
 
 export type PermissionMode = 'explore' | 'ask' | 'auto'
@@ -954,6 +960,182 @@ export interface SymphonyEscalationResponseCommandResult {
   result?: SymphonyEscalationResponseResult
 }
 
+export type McpServerTransport = 'stdio' | 'http'
+
+export type McpServerAuthMode = 'none' | 'bearer'
+
+export interface McpConfigProvenance {
+  mode: 'global_only' | 'overlay_present'
+  globalConfigPath: string
+  overlayConfigPath?: string
+  warning?: string
+}
+
+export interface McpValidationError {
+  field: string
+  code: 'REQUIRED' | 'INVALID_FORMAT' | 'INVALID_VALUE'
+  message: string
+}
+
+export interface McpStdioServerSummary {
+  transport: 'stdio'
+  command: string
+  args: string[]
+  envKeys: string[]
+  cwd?: string
+}
+
+export interface McpHttpServerSummary {
+  transport: 'http'
+  url: string
+  auth: McpServerAuthMode
+  bearerTokenEnv?: string
+  hasInlineBearerToken: boolean
+}
+
+export type McpServerSummaryTransport = McpStdioServerSummary | McpHttpServerSummary
+
+export interface McpServerSummary {
+  name: string
+  transport: McpServerTransport
+  enabled: boolean
+  summary: McpServerSummaryTransport
+}
+
+export interface McpStdioServerInput {
+  name: string
+  transport: 'stdio'
+  command: string
+  args?: string[]
+  env?: Record<string, string>
+  cwd?: string
+  enabled?: boolean
+}
+
+export interface McpHttpServerInput {
+  name: string
+  transport: 'http'
+  url: string
+  auth?: McpServerAuthMode
+  bearerToken?: string
+  bearerTokenEnv?: string
+  enabled?: boolean
+}
+
+export type McpServerInput = McpStdioServerInput | McpHttpServerInput
+
+export interface McpConfigReadResponse {
+  success: boolean
+  provenance: McpConfigProvenance
+  servers: McpServerSummary[]
+  error?: {
+    code:
+      | 'CONFIG_UNREADABLE'
+      | 'MALFORMED_CONFIG'
+      | 'INVALID_CONFIG_SHAPE'
+      | 'SERVER_NOT_FOUND'
+      | 'WRITE_FAILED'
+      | 'READBACK_FAILED'
+      | 'VALIDATION_FAILED'
+      | 'UNKNOWN'
+    message: string
+  }
+}
+
+export interface McpServerResponse {
+  success: boolean
+  provenance: McpConfigProvenance
+  server?: McpServerSummary
+  validationErrors?: McpValidationError[]
+  error?: {
+    code:
+      | 'CONFIG_UNREADABLE'
+      | 'MALFORMED_CONFIG'
+      | 'INVALID_CONFIG_SHAPE'
+      | 'SERVER_NOT_FOUND'
+      | 'WRITE_FAILED'
+      | 'READBACK_FAILED'
+      | 'VALIDATION_FAILED'
+      | 'UNKNOWN'
+    message: string
+  }
+}
+
+export interface McpServerMutationResponse {
+  success: boolean
+  provenance: McpConfigProvenance
+  server?: McpServerSummary
+  validationErrors?: McpValidationError[]
+  error?: {
+    code:
+      | 'CONFIG_UNREADABLE'
+      | 'MALFORMED_CONFIG'
+      | 'INVALID_CONFIG_SHAPE'
+      | 'SERVER_NOT_FOUND'
+      | 'WRITE_FAILED'
+      | 'READBACK_FAILED'
+      | 'VALIDATION_FAILED'
+      | 'UNKNOWN'
+    message: string
+  }
+}
+
+export interface McpServerDeleteResponse {
+  success: boolean
+  provenance: McpConfigProvenance
+  deletedServerName?: string
+  error?: {
+    code:
+      | 'CONFIG_UNREADABLE'
+      | 'MALFORMED_CONFIG'
+      | 'INVALID_CONFIG_SHAPE'
+      | 'SERVER_NOT_FOUND'
+      | 'WRITE_FAILED'
+      | 'READBACK_FAILED'
+      | 'UNKNOWN'
+    message: string
+  }
+}
+
+export interface McpServerStatus {
+  serverName: string
+  phase: 'connected' | 'error' | 'unsupported'
+  checkedAt: string
+  toolNames: string[]
+  toolCount: number
+  error?: {
+    code:
+      | 'MALFORMED_CONFIG'
+      | 'SERVER_NOT_FOUND'
+      | 'COMMAND_NOT_FOUND'
+      | 'CONNECTION_FAILED'
+      | 'TIMEOUT'
+      | 'UNREACHABLE'
+      | 'MISSING_BEARER_TOKEN'
+      | 'PROTOCOL_ERROR'
+      | 'UNKNOWN'
+    message: string
+  }
+}
+
+export interface McpServerStatusResponse {
+  success: boolean
+  status?: McpServerStatus
+  error?: {
+    code:
+      | 'MALFORMED_CONFIG'
+      | 'SERVER_NOT_FOUND'
+      | 'COMMAND_NOT_FOUND'
+      | 'CONNECTION_FAILED'
+      | 'TIMEOUT'
+      | 'UNREACHABLE'
+      | 'MISSING_BEARER_TOKEN'
+      | 'PROTOCOL_ERROR'
+      | 'UNKNOWN'
+    message: string
+  }
+}
+
 export type ArtifactType = 'roadmap' | 'requirements' | 'decisions' | 'context' | 'slice'
 
 export type RoadmapRisk = 'high' | 'medium' | 'low'
@@ -1085,6 +1267,14 @@ export interface DesktopApi {
       responseText: string,
     ) => Promise<SymphonyEscalationResponseCommandResult>
     onDashboardSnapshot: (listener: (snapshot: SymphonyOperatorSnapshot) => void) => () => void
+  }
+  mcp: {
+    listServers: () => Promise<McpConfigReadResponse>
+    getServer: (name: string) => Promise<McpServerResponse>
+    saveServer: (input: McpServerInput) => Promise<McpServerMutationResponse>
+    deleteServer: (name: string) => Promise<McpServerDeleteResponse>
+    refreshStatus: (name: string) => Promise<McpServerStatusResponse>
+    reconnectServer: (name: string) => Promise<McpServerStatusResponse>
   }
 }
 

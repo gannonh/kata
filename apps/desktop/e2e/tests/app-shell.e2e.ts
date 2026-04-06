@@ -29,10 +29,11 @@ test.describe('App shell', () => {
     await expect(readyWindow.getByRole('heading', { name: /^Settings$/i })).toBeVisible()
   })
 
-  test('shows Providers, General, and Appearance settings tabs', async ({ readyWindow }) => {
+  test('shows Providers, MCP, General, and Appearance settings tabs', async ({ readyWindow }) => {
     await readyWindow.getByRole('button', { name: /Settings/i }).click()
 
     await expect(readyWindow.getByRole('tab', { name: /^Providers$/i })).toBeVisible()
+    await expect(readyWindow.getByRole('tab', { name: /^MCP$/i })).toBeVisible()
     await expect(readyWindow.getByRole('tab', { name: /^General$/i })).toBeVisible()
     await expect(readyWindow.getByRole('tab', { name: /^Appearance$/i })).toBeVisible()
   })
