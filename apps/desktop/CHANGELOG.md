@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1
+
+### Fixes
+
+- **Session isolation** — Desktop sidebar now only shows sessions owned by this instance. Subagent child processes and external CLI sessions sharing the same workspace no longer pollute the session list or cause silent session switching.
+
 ## 0.1.0
 
 Initial release of Kata Desktop — the native GUI for the Kata coding agent platform.
