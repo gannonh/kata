@@ -1399,13 +1399,19 @@ export function registerSessionIpc({
         dispatchedAt: new Date().toISOString(),
       }
 
-      if (canSendToRenderer()) {
+      const dispatched = canSendToRenderer()
+      if (dispatched) {
         window.webContents.send(IPC_CHANNELS.workflowShellAction, eventPayload)
       }
 
       return {
-        success: true,
+        success: dispatched,
         dispatchedAt: eventPayload.dispatchedAt,
+        ...(dispatched
+          ? {}
+          : {
+              error: 'Renderer unavailable. Workflow shell action was not dispatched.',
+            }),
       }
     },
   )

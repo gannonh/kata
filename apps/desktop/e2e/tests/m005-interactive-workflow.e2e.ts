@@ -32,7 +32,7 @@ function writeValidMcpConfig(mcpConfigPath: string): void {
   )
 }
 
-async function selectMoveOption(page: Page, triggerTestId: string, optionText: string) {
+async function selectMoveOption(page: Page, triggerTestId: string, optionText: string): Promise<void> {
   await page.getByTestId(triggerTestId).click()
   await page.getByRole('option', { name: optionText }).click()
 }

@@ -19,6 +19,8 @@ import {
   captureWorkflowBoardReturnContextAtom,
   clearWorkflowBoardReturnContextAtom,
   refreshWorkflowBoardAtom,
+  workflowBoardLoadingAtom,
+  workflowBoardRefreshingAtom,
   workflowBoardReturnContextAtom,
   workflowBoardScopeAtom,
   workflowMutationPendingAtom,
@@ -100,6 +102,8 @@ export function AppShell() {
   const settingsTab = useAtomValue(settingsPanelTabAtom)
   const workflowScope = useAtomValue(workflowBoardScopeAtom)
   const workflowReturnContext = useAtomValue(workflowBoardReturnContextAtom)
+  const workflowLoading = useAtomValue(workflowBoardLoadingAtom)
+  const workflowRefreshing = useAtomValue(workflowBoardRefreshingAtom)
   const workflowMutationPending = useAtomValue(workflowMutationPendingAtom)
 
   const mcpMutationPending = useAtomValue(mcpMutationPendingAtom)
@@ -134,7 +138,7 @@ export function AppShell() {
       }
 
       if (event.action === 'refresh_board') {
-        if (workflowMutationPending) {
+        if (workflowLoading || workflowRefreshing || workflowMutationPending) {
           return
         }
 
@@ -159,6 +163,8 @@ export function AppShell() {
       }
     },
     [
+      workflowLoading,
+      workflowRefreshing,
       workflowMutationPending,
       captureReturnContext,
       openSettingsPanel,

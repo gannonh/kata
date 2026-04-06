@@ -75,6 +75,7 @@ export async function startMockWorkflowRuntime(page: Page): Promise<void> {
   })
 
   await page.getByTestId('kanban-refresh-board').click()
+  await page.getByTestId('kanban-column-in_progress').waitFor({ state: 'visible' })
 }
 
 export async function openMcpSettingsFromWorkflow(page: Page): Promise<void> {
