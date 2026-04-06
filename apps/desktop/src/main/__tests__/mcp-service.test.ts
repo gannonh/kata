@@ -6,6 +6,7 @@ import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { McpConfigBridge } from '../mcp-config-bridge'
 import { McpService } from '../mcp-service'
+import log from '../logger'
 
 describe('McpService', () => {
   let tempDir: string
@@ -454,6 +455,461 @@ describe('McpService', () => {
     expect(response.status?.error?.code).toBe('TIMEOUT')
 
     fetchSpy.mockRestore()
+  })
+
+  test('returns unknown when inspectServer catches non-Error throwables', async () => {
+    await writeConfig({
+      mcpServers: {
+        remote: {
+          url: 'https://example.invalid/mcp',
+        },
+      },
+    })
+
+    const service = createService(3_000)
+    vi.spyOn(
+      service as unknown as { inspectHttpServer: (server: unknown) => Promise<unknown> },
+      'inspectHttpServer',
+    ).mockRejectedValueOnce('string-crash')
+
+    const response = await service.refreshStatus('remote')
+
+    expect(response.success).toBe(false)
+    expect(response.status?.error?.code).toBe('UNKNOWN')
+    expect(response.status?.error?.message).toBe('string-crash')
+  })
+
+  test('logs notification failures when notifications reject with non-Error values', async () => {
+    const httpServer = await startJsonRpcHttpServer((request) => {
+      if (request.method === 'initialize') {
+        return {
+          body: {
+            jsonrpc: '2.0',
+            id: request.id,
+            result: {
+              protocolVersion: '2024-11-05',
+              capabilities: {},
+              serverInfo: {
+                name: 'fixture-http',
+                version: '1.0.0',
+              },
+            },
+          },
+        }
+      }
+
+      if (request.method === 'tools/list') {
+        return {
+          body: {
+            jsonrpc: '2.0',
+            id: request.id,
+            result: {
+              tools: [{ name: 'search' }],
+            },
+          },
+        }
+      }
+
+      return {
+        body: {
+          jsonrpc: '2.0',
+          id: request.id,
+          result: {},
+        },
+      }
+    })
+
+    const originalFetch = globalThis.fetch.bind(globalThis)
+    const warnSpy = vi.spyOn(log, 'warn').mockImplementation(() => undefined)
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      if (typeof init?.body === 'string') {
+        const body = JSON.parse(init.body) as JsonRpcRequest
+        if (body.method === 'notifications/initialized') {
+          throw 'notification-string-failure'
+        }
+      }
+
+      return originalFetch(input, init)
+    })
+
+    try {
+      await writeConfig({
+        mcpServers: {
+          remote: {
+            url: httpServer.url,
+          },
+        },
+      })
+
+      const service = createService(3_000)
+      const response = await service.refreshStatus('remote')
+
+      expect(response.success).toBe(true)
+      expect(response.status?.phase).toBe('connected')
+
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      expect(warnSpy).toHaveBeenCalledWith(
+        '[mcp-service] notifications/initialized failed',
+        expect.objectContaining({
+          serverName: 'remote',
+          error: 'notification-string-failure',
+        }),
+      )
+    } finally {
+      fetchSpy.mockRestore()
+      await httpServer.close()
+    }
+  })
+
+  test('returns unreachable when fetch rejects with non-Error values', async () => {
+    await writeConfig({
+      mcpServers: {
+        remote: {
+          url: 'https://example.invalid/mcp',
+        },
+      },
+    })
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce('socket-closed')
+
+    const service = createService(3_000)
+    const response = await service.refreshStatus('remote')
+
+    expect(response.success).toBe(false)
+    expect(response.status?.error?.code).toBe('UNREACHABLE')
+    expect(response.status?.error?.message).toBe('socket-closed')
+
+    fetchSpy.mockRestore()
+  })
+
+  test('extracts empty tool list when tools/list result is not an object', async () => {
+    const httpServer = await startJsonRpcHttpServer((request) => {
+      if (request.method === 'initialize') {
+        return {
+          body: {
+            jsonrpc: '2.0',
+            id: request.id,
+            result: {
+              protocolVersion: '2024-11-05',
+              capabilities: {},
+              serverInfo: {
+                name: 'fixture-http',
+                version: '1.0.0',
+              },
+            },
+          },
+        }
+      }
+
+      if (request.method === 'tools/list') {
+        return {
+          body: {
+            jsonrpc: '2.0',
+            id: request.id,
+            result: null,
+          },
+        }
+      }
+
+      return {
+        body: {
+          jsonrpc: '2.0',
+          id: request.id,
+          result: {},
+        },
+      }
+    })
+
+    try {
+      await writeConfig({
+        mcpServers: {
+          remote: {
+            url: httpServer.url,
+          },
+        },
+      })
+
+      const service = createService(3_000)
+      const response = await service.refreshStatus('remote')
+
+      expect(response.success).toBe(true)
+      expect(response.status?.toolNames).toEqual([])
+      expect(response.status?.toolCount).toBe(0)
+    } finally {
+      await httpServer.close()
+    }
+  })
+
+  test('extracts empty tool list when tools/list result.tools is not an array', async () => {
+    const httpServer = await startJsonRpcHttpServer((request) => {
+      if (request.method === 'initialize') {
+        return {
+          body: {
+            jsonrpc: '2.0',
+            id: request.id,
+            result: {
+              protocolVersion: '2024-11-05',
+              capabilities: {},
+              serverInfo: {
+                name: 'fixture-http',
+                version: '1.0.0',
+              },
+            },
+          },
+        }
+      }
+
+      if (request.method === 'tools/list') {
+        return {
+          body: {
+            jsonrpc: '2.0',
+            id: request.id,
+            result: {
+              tools: 'not-an-array',
+            },
+          },
+        }
+      }
+
+      return {
+        body: {
+          jsonrpc: '2.0',
+          id: request.id,
+          result: {},
+        },
+      }
+    })
+
+    try {
+      await writeConfig({
+        mcpServers: {
+          remote: {
+            url: httpServer.url,
+          },
+        },
+      })
+
+      const service = createService(3_000)
+      const response = await service.refreshStatus('remote')
+
+      expect(response.success).toBe(true)
+      expect(response.status?.toolNames).toEqual([])
+    } finally {
+      await httpServer.close()
+    }
+  })
+
+  test('filters invalid tool entries and non-string names from tools/list', async () => {
+    const httpServer = await startJsonRpcHttpServer((request) => {
+      if (request.method === 'initialize') {
+        return {
+          body: {
+            jsonrpc: '2.0',
+            id: request.id,
+            result: {
+              protocolVersion: '2024-11-05',
+              capabilities: {},
+              serverInfo: {
+                name: 'fixture-http',
+                version: '1.0.0',
+              },
+            },
+          },
+        }
+      }
+
+      if (request.method === 'tools/list') {
+        return {
+          body: {
+            jsonrpc: '2.0',
+            id: request.id,
+            result: {
+              tools: [null, 'bad', { name: 42 }, { name: 'valid-tool' }],
+            },
+          },
+        }
+      }
+
+      return {
+        body: {
+          jsonrpc: '2.0',
+          id: request.id,
+          result: {},
+        },
+      }
+    })
+
+    try {
+      await writeConfig({
+        mcpServers: {
+          remote: {
+            url: httpServer.url,
+          },
+        },
+      })
+
+      const service = createService(3_000)
+      const response = await service.refreshStatus('remote')
+
+      expect(response.success).toBe(true)
+      expect(response.status?.toolNames).toEqual(['valid-tool'])
+      expect(response.status?.toolCount).toBe(1)
+    } finally {
+      await httpServer.close()
+    }
+  })
+
+  test('prefers inline bearer token and trims surrounding whitespace', async () => {
+    const originalToken = process.env.MCP_HTTP_TOKEN
+    const httpServer = await startJsonRpcHttpServer((request) => {
+      if (request.method === 'initialize') {
+        return {
+          body: {
+            jsonrpc: '2.0',
+            id: request.id,
+            result: {
+              protocolVersion: '2024-11-05',
+              capabilities: {},
+              serverInfo: {
+                name: 'fixture-http',
+                version: '1.0.0',
+              },
+            },
+          },
+        }
+      }
+
+      if (request.method === 'tools/list') {
+        return {
+          body: {
+            jsonrpc: '2.0',
+            id: request.id,
+            result: {
+              tools: [{ name: 'search' }],
+            },
+          },
+        }
+      }
+
+      return {
+        body: {
+          jsonrpc: '2.0',
+          id: request.id,
+          result: {},
+        },
+      }
+    })
+
+    try {
+      process.env.MCP_HTTP_TOKEN = 'token-from-env'
+
+      await writeConfig({
+        mcpServers: {
+          remote: {
+            url: httpServer.url,
+            auth: 'bearer',
+            bearerToken: '  inline-token  ',
+            bearerTokenEnv: 'MCP_HTTP_TOKEN',
+          },
+        },
+      })
+
+      const service = createService(3_000)
+      const response = await service.refreshStatus('remote')
+
+      expect(response.success).toBe(true)
+      const initializeRequest = httpServer.requests.find((request) => request.body?.method === 'initialize')
+      expect(initializeRequest?.headers.authorization).toBe('Bearer inline-token')
+    } finally {
+      if (originalToken === undefined) {
+        delete process.env.MCP_HTTP_TOKEN
+      } else {
+        process.env.MCP_HTTP_TOKEN = originalToken
+      }
+      await httpServer.close()
+    }
+  })
+
+  test('formats initialize JSON-RPC errors without object payload as generic failure', async () => {
+    const httpServer = await startJsonRpcHttpServer((request) => {
+      if (request.method === 'initialize') {
+        return {
+          body: {
+            jsonrpc: '2.0',
+            id: request.id,
+            error: 'bad-error-shape',
+          },
+        }
+      }
+
+      return {
+        body: {
+          jsonrpc: '2.0',
+          id: request.id,
+          result: {},
+        },
+      }
+    })
+
+    try {
+      await writeConfig({
+        mcpServers: {
+          remote: {
+            url: httpServer.url,
+          },
+        },
+      })
+
+      const service = createService(3_000)
+      const response = await service.refreshStatus('remote')
+
+      expect(response.success).toBe(false)
+      expect(response.status?.error?.message).toBe('initialize failed')
+    } finally {
+      await httpServer.close()
+    }
+  })
+
+  test('formats initialize JSON-RPC errors with message-only payload', async () => {
+    const httpServer = await startJsonRpcHttpServer((request) => {
+      if (request.method === 'initialize') {
+        return {
+          body: {
+            jsonrpc: '2.0',
+            id: request.id,
+            error: {
+              message: 'message-only-error',
+            },
+          },
+        }
+      }
+
+      return {
+        body: {
+          jsonrpc: '2.0',
+          id: request.id,
+          result: {},
+        },
+      }
+    })
+
+    try {
+      await writeConfig({
+        mcpServers: {
+          remote: {
+            url: httpServer.url,
+          },
+        },
+      })
+
+      const service = createService(3_000)
+      const response = await service.refreshStatus('remote')
+
+      expect(response.success).toBe(false)
+      expect(response.status?.error?.message).toBe('initialize failed: message-only-error')
+    } finally {
+      await httpServer.close()
+    }
   })
 
   function createService(timeoutMs: number): McpService {

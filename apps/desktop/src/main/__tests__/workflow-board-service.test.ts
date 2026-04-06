@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import type { SymphonyOperatorSnapshot } from '@shared/types'
+import { LinearWorkflowClientError } from '../linear-workflow-client'
 import { WorkflowBoardService } from '../workflow-board-service'
 
 const originalFixtureFlag = process.env.KATA_TEST_WORKFLOW_FIXTURE
@@ -1821,5 +1822,237 @@ describe('WorkflowBoardService', () => {
     service.setActive(true)
     const response = await service.refreshBoard()
     expect(response.snapshot.lastError?.code).toBe('NOT_CONFIGURED')
+  })
+
+  test('defaults empty scope keys to the canonical workspace/session scope', () => {
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+    })
+
+    const response = service.setScope({
+      scopeKey: '   ',
+    } as any)
+
+    expect(response.scopeKey).toBe('workspace:none::session:none')
+    expect(response.requestedScope).toBe('milestone')
+  })
+
+  test('hydrates moveEntity from getBoard and maps non-fixture Linear move outcomes', async () => {
+    const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-move-nonfixture-'))
+    mkdirSync(path.join(workspacePath, '.kata'), { recursive: true })
+    writeFileSync(path.join(workspacePath, '.kata', 'preferences.md'), ['---', 'projectSlug: project-ref', '---', ''].join('\n'), 'utf8')
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => 'lin_api_test') } as never,
+      getWorkspacePath: () => workspacePath,
+    })
+
+    ;(service as any).linearClient.fetchActiveMilestoneSnapshot = vi.fn(async () => ({
+      backend: 'linear',
+      fetchedAt: '2026-04-04T00:00:00.000Z',
+      status: 'fresh',
+      source: { projectId: 'project-ref', activeMilestoneId: 'm1' },
+      activeMilestone: { id: 'm1', name: '[M001] Demo' },
+      columns: [
+        {
+          id: 'todo',
+          title: 'Todo',
+          cards: [
+            {
+              id: 'slice-1',
+              identifier: 'KAT-2247',
+              title: 'Slice card',
+              columnId: 'todo',
+              stateName: 'Todo',
+              stateType: 'unstarted',
+              milestoneId: 'm1',
+              milestoneName: '[M001] Demo',
+              taskCounts: { total: 0, done: 0 },
+              tasks: [],
+            },
+          ],
+        },
+      ],
+      poll: { status: 'success', backend: 'linear', lastAttemptAt: '2026-04-04T00:00:00.000Z' },
+    }))
+
+    const moveIssueToColumn = vi
+      .fn()
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new LinearWorkflowClientError('NOT_FOUND', 'Issue no longer exists'))
+    ;(service as any).linearClient.moveIssueToColumn = moveIssueToColumn
+
+    service.setActive(true)
+
+    const moved = await service.moveEntity({
+      entityKind: 'slice',
+      entityId: 'slice-1',
+      targetColumnId: 'in_progress',
+    })
+
+    expect(moved.success).toBe(true)
+    expect(moved.message).toContain('Slice moved to In Progress.')
+
+    const notFound = await service.moveEntity({
+      entityKind: 'slice',
+      entityId: 'slice-1',
+      targetColumnId: 'todo',
+    })
+
+    expect(notFound.success).toBe(false)
+    expect(notFound.code).toBe('NOT_FOUND')
+  })
+
+  test('uses fixture defaults when creating tasks without optional fields', async () => {
+    process.env.KATA_TEST_WORKFLOW_FIXTURE = '1'
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+    })
+
+    ;(service as any).lastSnapshot = {
+      backend: 'linear',
+      fetchedAt: '2026-04-06T00:00:00.000Z',
+      status: 'fresh',
+      source: { projectId: 'project-ref', activeMilestoneId: 'm1' },
+      activeMilestone: { id: 'm1', name: '[M001] Demo' },
+      columns: [
+        {
+          id: 'todo',
+          title: 'Todo',
+          cards: [
+            {
+              id: 'slice-1',
+              identifier: 'KAT-2247',
+              title: 'Parent slice',
+              columnId: 'todo',
+              stateName: 'Todo',
+              stateType: 'unstarted',
+              milestoneId: 'm1',
+              milestoneName: '[M001] Demo',
+              taskCounts: { total: 0, done: 0 },
+              tasks: [],
+            },
+          ],
+        },
+      ],
+      poll: { status: 'success', backend: 'linear', lastAttemptAt: '2026-04-06T00:00:00.000Z' },
+    }
+
+    const created = await service.createTask({
+      parentSliceId: 'slice-1',
+      title: 'Task with implicit defaults',
+    })
+
+    expect(created.success).toBe(true)
+    expect(created.task?.columnId).toBe('todo')
+  })
+
+  test('maps non-fixture createTask and getTaskDetail fallback branches', async () => {
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+    })
+
+    ;(service as any).lastSnapshot = {
+      backend: 'linear',
+      fetchedAt: '2026-04-06T00:00:00.000Z',
+      status: 'fresh',
+      source: { projectId: 'project-ref', activeMilestoneId: 'm1' },
+      activeMilestone: { id: 'm1', name: '[M001] Demo' },
+      columns: [
+        {
+          id: 'todo',
+          title: 'Todo',
+          cards: [
+            {
+              id: 'slice-1',
+              identifier: 'KAT-2247',
+              title: 'Parent slice',
+              columnId: 'todo',
+              stateName: 'Todo',
+              stateType: 'unstarted',
+              milestoneId: 'm1',
+              milestoneName: '[M001] Demo',
+              taskCounts: { total: 1, done: 0 },
+              tasks: [
+                {
+                  id: 'task-1',
+                  identifier: 'KAT-2251',
+                  title: 'Existing task',
+                  columnId: 'todo',
+                  stateName: 'Todo',
+                  stateType: 'unstarted',
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      poll: { status: 'success', backend: 'linear', lastAttemptAt: '2026-04-06T00:00:00.000Z' },
+    }
+
+    const createChildTask = vi
+      .fn()
+      .mockResolvedValueOnce({
+        id: 'task-created-api',
+        identifier: 'KAT-9991',
+        title: undefined,
+        stateName: 'Todo',
+        stateType: 'unstarted',
+      })
+      .mockRejectedValueOnce(new LinearWorkflowClientError('NOT_FOUND', 'Parent slice not found'))
+
+    const fetchIssueDetail = vi
+      .fn()
+      .mockResolvedValueOnce({
+        id: 'task-1',
+        identifier: 'KAT-2251',
+        parentId: 'slice-1',
+        teamId: 'team-1',
+        projectId: 'project-1',
+        stateId: 'state-1',
+        stateName: 'Todo',
+        stateType: 'unstarted',
+        columnId: 'todo',
+        title: undefined,
+        description: 'Loaded description',
+      })
+      .mockRejectedValueOnce(new LinearWorkflowClientError('NOT_FOUND', 'Task missing'))
+
+    ;(service as any).linearClient.createChildTask = createChildTask
+    ;(service as any).linearClient.fetchIssueDetail = fetchIssueDetail
+
+    const created = await service.createTask({
+      parentSliceId: 'slice-1',
+      title: 'Title fallback for create result',
+    })
+
+    expect(created.success).toBe(true)
+    expect(createChildTask).toHaveBeenCalledWith({
+      parentIssueId: 'slice-1',
+      title: 'Title fallback for create result',
+      description: undefined,
+      initialColumnId: 'todo',
+    })
+    expect(created.task?.title).toBe('Title fallback for create result')
+
+    const createNotFound = await service.createTask({
+      parentSliceId: 'slice-1',
+      title: 'Second attempt',
+    })
+
+    expect(createNotFound.success).toBe(false)
+    expect(createNotFound.code).toBe('NOT_FOUND')
+
+    const detail = await service.getTaskDetail({ taskId: 'task-1' })
+    expect(detail.success).toBe(true)
+    expect(detail.task?.title).toBe('')
+
+    const detailNotFound = await service.getTaskDetail({ taskId: 'task-1' })
+    expect(detailNotFound.success).toBe(false)
+    expect(detailNotFound.code).toBe('NOT_FOUND')
   })
 })
