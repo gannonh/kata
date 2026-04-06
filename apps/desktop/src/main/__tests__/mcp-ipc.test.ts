@@ -105,6 +105,11 @@ describe('mcp ipc handlers', () => {
       })),
     } as any
 
+    const mcpService = {
+      refreshStatus: vi.fn(async () => ({ success: true, status: { serverName: 'local', phase: 'connected', checkedAt: new Date().toISOString(), toolNames: ['read'], toolCount: 1 } })),
+      reconnectServer: vi.fn(async () => ({ success: true, status: { serverName: 'local', phase: 'connected', checkedAt: new Date().toISOString(), toolNames: ['read'], toolCount: 1 } })),
+    } as any
+
     const unregister = registerSessionIpc({
       bridge,
       authBridge: {
@@ -120,6 +125,7 @@ describe('mcp ipc handlers', () => {
       } as any,
       window: createWindowStub(),
       mcpConfigBridge,
+      mcpService,
     })
 
     await handlers.get(IPC_CHANNELS.mcpListServers)?.({})
@@ -135,7 +141,38 @@ describe('mcp ipc handlers', () => {
     unregister()
   })
 
-  test('returns typed placeholder response for status methods before mcp service wiring', async () => {
+  test('routes mcp refresh/reconnect handlers through mcp service', async () => {
+    const mcpService = {
+      refreshStatus: vi.fn(async () => ({
+        success: true,
+        status: {
+          serverName: 'server-a',
+          phase: 'connected',
+          checkedAt: new Date().toISOString(),
+          toolNames: ['tool-a'],
+          toolCount: 1,
+        },
+      })),
+      reconnectServer: vi.fn(async () => ({
+        success: false,
+        status: {
+          serverName: 'server-a',
+          phase: 'error',
+          checkedAt: new Date().toISOString(),
+          toolNames: [],
+          toolCount: 0,
+          error: {
+            code: 'CONNECTION_FAILED',
+            message: 'unable to connect',
+          },
+        },
+        error: {
+          code: 'CONNECTION_FAILED',
+          message: 'unable to connect',
+        },
+      })),
+    } as any
+
     const unregister = registerSessionIpc({
       bridge: createBridgeStub(),
       authBridge: {
@@ -156,13 +193,15 @@ describe('mcp ipc handlers', () => {
         saveServer: vi.fn(),
         deleteServer: vi.fn(),
       } as any,
+      mcpService,
     })
 
     const refreshResult = await handlers.get(IPC_CHANNELS.mcpRefreshStatus)?.({}, 'server-a')
     const reconnectResult = await handlers.get(IPC_CHANNELS.mcpReconnectServer)?.({}, 'server-a')
 
-    expect(refreshResult.success).toBe(false)
-    expect(refreshResult.error?.message).toContain('not available yet')
+    expect(mcpService.refreshStatus).toHaveBeenCalledWith('server-a')
+    expect(mcpService.reconnectServer).toHaveBeenCalledWith('server-a')
+    expect(refreshResult.success).toBe(true)
     expect(reconnectResult.success).toBe(false)
 
     unregister()

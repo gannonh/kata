@@ -11,6 +11,7 @@ import { DesktopSessionManager } from './session-manager'
 import { SessionHistoryLoader } from './session-history-loader'
 import { WorkflowBoardService } from './workflow-board-service'
 import { McpConfigBridge } from './mcp-config-bridge'
+import { McpService } from './mcp-service'
 import type { SymphonySupervisor } from './symphony-supervisor'
 import type { SymphonyOperatorService } from './symphony-operator-service'
 import {
@@ -71,6 +72,7 @@ interface RegisterIpcOptions {
   symphonySupervisor?: SymphonySupervisor
   symphonyOperatorService?: SymphonyOperatorService
   mcpConfigBridge?: McpConfigBridge
+  mcpService?: McpService
 }
 
 export function registerSessionIpc({
@@ -83,6 +85,7 @@ export function registerSessionIpc({
   symphonySupervisor,
   symphonyOperatorService,
   mcpConfigBridge,
+  mcpService,
 }: RegisterIpcOptions): () => void {
   const adapter = new RpcEventAdapter()
   const planningToolDetector = new PlanningToolDetector()
@@ -99,6 +102,7 @@ export function registerSessionIpc({
       configPath: process.env.KATA_DESKTOP_MCP_CONFIG_PATH,
       getWorkspacePath: () => bridge.getWorkspacePath(),
     })
+  const resolvedMcpService = mcpService ?? new McpService({ configBridge: resolvedMcpConfigBridge })
 
   const planningArtifactsByKey = new Map<string, PlanningArtifact>()
   const planningMetadataByKey = new Map<string, PlanningArtifactEvent>()
@@ -1342,25 +1346,17 @@ export function registerSessionIpc({
     },
   )
 
-  const unsupportedStatusResponse = (name: string): McpServerStatusResponse => ({
-    success: false,
-    error: {
-      code: 'UNKNOWN',
-      message: `MCP status actions are not available yet for "${name}".`,
-    },
-  })
-
   ipcMain.handle(
     IPC_CHANNELS.mcpRefreshStatus,
     async (_event, name: string): Promise<McpServerStatusResponse> => {
-      return unsupportedStatusResponse(name)
+      return resolvedMcpService.refreshStatus(name)
     },
   )
 
   ipcMain.handle(
     IPC_CHANNELS.mcpReconnectServer,
     async (_event, name: string): Promise<McpServerStatusResponse> => {
-      return unsupportedStatusResponse(name)
+      return resolvedMcpService.reconnectServer(name)
     },
   )
 
