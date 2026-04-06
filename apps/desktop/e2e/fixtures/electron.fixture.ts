@@ -70,9 +70,29 @@ async function dismissOnboardingIfPresent(window: Page): Promise<void> {
 export async function startMockWorkflowRuntime(page: Page): Promise<void> {
   await page.getByRole('heading', { name: /Workflow Board/i }).waitFor({ state: 'visible' })
 
-  await page.evaluate(async () => {
-    await window.api.symphony.start()
+  const startResult = await page.evaluate(async () => {
+    try {
+      return await window.api.symphony.start()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      return {
+        success: false,
+        error: {
+          code: 'UNKNOWN',
+          phase: 'unknown',
+          message,
+        },
+      }
+    }
   })
+
+  if (!startResult?.success) {
+    const details =
+      typeof startResult?.error === 'string'
+        ? startResult.error
+        : startResult?.error?.message ?? 'unknown error'
+    throw new Error(`Failed to start mock workflow runtime: ${details}`)
+  }
 
   await page.getByTestId('kanban-refresh-board').click()
   await page.getByTestId('kanban-column-in_progress').waitFor({ state: 'visible' })

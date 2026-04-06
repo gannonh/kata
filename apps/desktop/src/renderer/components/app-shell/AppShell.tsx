@@ -181,7 +181,9 @@ export function AppShell() {
 
   useEffect(() => {
     return window.api.workflow.onShellAction((event) => {
-      void handleWorkflowShellAction(event)
+      handleWorkflowShellAction(event).catch((error) => {
+        console.error('[AppShell] Workflow shell action failed:', error)
+      })
     })
   }, [handleWorkflowShellAction])
 

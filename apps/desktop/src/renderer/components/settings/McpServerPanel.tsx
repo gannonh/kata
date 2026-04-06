@@ -54,8 +54,10 @@ export function McpServerPanel() {
 
   const servers = useMemo(() => configState.servers, [configState.servers])
   const serverErrorCount = useMemo(() => {
-    return Object.values(statuses).filter((status) => status?.phase === 'error').length
-  }, [statuses])
+    return servers.reduce((count, server) => {
+      return count + (statuses[server.name]?.phase === 'error' ? 1 : 0)
+    }, 0)
+  }, [servers, statuses])
 
   const openCreateDialog = () => {
     setEditingServer(undefined)
