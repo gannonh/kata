@@ -212,6 +212,26 @@ const api: DesktopApi = {
       }
     },
   },
+  mcp: {
+    listServers: async () => {
+      return ipcRenderer.invoke(IPC_CHANNELS.mcpListServers)
+    },
+    getServer: async (name: string) => {
+      return ipcRenderer.invoke(IPC_CHANNELS.mcpGetServer, name)
+    },
+    saveServer: async (input: Parameters<DesktopApi['mcp']['saveServer']>[0]) => {
+      return ipcRenderer.invoke(IPC_CHANNELS.mcpSaveServer, input)
+    },
+    deleteServer: async (name: string) => {
+      return ipcRenderer.invoke(IPC_CHANNELS.mcpDeleteServer, name)
+    },
+    refreshStatus: async (name: string) => {
+      return ipcRenderer.invoke(IPC_CHANNELS.mcpRefreshStatus, name)
+    },
+    reconnectServer: async (name: string) => {
+      return ipcRenderer.invoke(IPC_CHANNELS.mcpReconnectServer, name)
+    },
+  },
 }
 
 contextBridge.exposeInMainWorld('api', api)
