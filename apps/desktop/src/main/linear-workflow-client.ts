@@ -110,6 +110,13 @@ interface IssueUpdateMutationData {
   } | null
 }
 
+interface IssueCreateMutationData {
+  issueCreate?: {
+    success?: boolean
+    issue?: LinearWorkflowIssue | null
+  } | null
+}
+
 interface ResolveProjectQueryData {
   project?: {
     id?: string
@@ -294,6 +301,101 @@ export class LinearWorkflowClient {
 
     const updatedIssue = await this.updateIssueState(apiKey, issue.id, targetStateId)
     return toLinearIssueMutationResult(updatedIssue)
+  }
+
+  async createChildTask(options: {
+    parentIssueId: string
+    title: string
+    description?: string
+    initialColumnId?: WorkflowColumnId
+  }): Promise<LinearIssueMutationResult> {
+    const parentIssueId = options.parentIssueId.trim()
+    if (!parentIssueId) {
+      throw new LinearWorkflowClientError('UNKNOWN', 'Parent issue id is required for task creation')
+    }
+
+    const title = options.title.trim()
+    if (!title) {
+      throw new LinearWorkflowClientError('UNKNOWN', 'Task title is required')
+    }
+
+    const apiKey = await this.requireApiKey()
+    const parentIssue = await this.fetchIssueForMutation(apiKey, parentIssueId)
+
+    if (!parentIssue.id?.trim()) {
+      throw new LinearWorkflowClientError('NOT_FOUND', `Parent issue ${parentIssueId} was not found`)
+    }
+
+    const teamId = parentIssue.team?.id?.trim()
+    if (!teamId) {
+      throw new LinearWorkflowClientError('INVALID_CONFIG', `Parent issue ${parentIssueId} is missing team metadata`)
+    }
+
+    const projectId = parentIssue.project?.id?.trim()
+    if (!projectId) {
+      throw new LinearWorkflowClientError('INVALID_CONFIG', `Parent issue ${parentIssueId} is missing project metadata`)
+    }
+
+    const initialColumnId = options.initialColumnId ?? 'todo'
+    const stateId = await this.resolveStateIdForColumn(apiKey, {
+      teamId,
+      targetColumnId: initialColumnId,
+    })
+
+    if (!stateId) {
+      throw new LinearWorkflowClientError(
+        'NOT_FOUND',
+        `No Linear workflow state mapped to column "${initialColumnId}" for team ${teamId}`,
+      )
+    }
+
+    const data = await this.request<IssueCreateMutationData>(
+      apiKey,
+      `
+        mutation WorkflowCreateChildTask($input: IssueCreateInput!) {
+          issueCreate(input: $input) {
+            success
+            issue {
+              id
+              identifier
+              title
+              description
+              url
+              parent {
+                id
+              }
+              team {
+                id
+              }
+              project {
+                id
+              }
+              state {
+                id
+                name
+                type
+              }
+            }
+          }
+        }
+      `,
+      {
+        input: {
+          title,
+          description: options.description?.trim() || undefined,
+          parentId: parentIssue.id,
+          teamId,
+          projectId,
+          stateId,
+        },
+      },
+    )
+
+    if (!data.issueCreate?.success || !data.issueCreate.issue) {
+      throw new LinearWorkflowClientError('UNKNOWN', `Linear issue create failed for parent ${parentIssueId}`)
+    }
+
+    return toLinearIssueMutationResult(data.issueCreate.issue)
   }
 
   static toWorkflowError(error: unknown): { code: WorkflowBoardErrorCode; message: string } {

@@ -8,6 +8,7 @@ import {
   type WorkflowBoardTask,
 } from '@shared/types'
 import {
+  createWorkflowTaskAtom,
   moveWorkflowEntityAtom,
   openWorkflowIssueAtom,
   respondToWorkflowEscalationAtom,
@@ -17,6 +18,7 @@ import {
   workflowIssueActionStateAtom,
 } from '@/atoms/workflow-board'
 import { TaskList } from '@/components/kanban/TaskList'
+import { TaskMutationDialog } from '@/components/kanban/TaskMutationDialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -74,6 +76,9 @@ export function getMoveTargetOptions(currentColumnId: WorkflowBoardSliceCard['co
 export function SliceCard({ card }: SliceCardProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [showEscalationComposer, setShowEscalationComposer] = useState(false)
+  const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false)
+  const [createTaskError, setCreateTaskError] = useState<string | null>(null)
+  const [createTaskSubmitting, setCreateTaskSubmitting] = useState(false)
   const [responseDraftByRequestId, setResponseDraftByRequestId] = useState<Record<string, string>>({})
 
   const symphony = card.symphony
@@ -82,6 +87,7 @@ export function SliceCard({ card }: SliceCardProps) {
   const mutationStates = useAtomValue(workflowEntityMutationStateAtom)
   const openIssue = useSetAtom(openWorkflowIssueAtom)
   const respondToEscalation = useSetAtom(respondToWorkflowEscalationAtom)
+  const createTask = useSetAtom(createWorkflowTaskAtom)
   const moveEntity = useSetAtom(moveWorkflowEntityAtom)
 
   const pendingEscalations = useMemo(
@@ -158,6 +164,30 @@ export function SliceCard({ card }: SliceCardProps) {
     })
   }
 
+  const submitCreateTask = async (input: { title: string; description: string; columnId: WorkflowBoardSliceCard['columnId'] }) => {
+    setCreateTaskSubmitting(true)
+    setCreateTaskError(null)
+
+    const result = await createTask({
+      parentSliceId: card.id,
+      title: input.title,
+      description: input.description,
+      initialColumnId: input.columnId,
+      teamId: card.teamId,
+      projectId: card.projectId,
+    })
+
+    if (!result.success) {
+      setCreateTaskError(result.message)
+      setCreateTaskSubmitting(false)
+      return
+    }
+
+    setCreateTaskSubmitting(false)
+    setCreateTaskError(null)
+    setShowCreateTaskDialog(false)
+  }
+
   return (
     <Card size="sm" className="gap-3 rounded-xl border border-border/70 py-3 shadow-none">
       <CardHeader className="px-3 pb-0">
@@ -213,6 +243,20 @@ export function SliceCard({ card }: SliceCardProps) {
               Open Linear issue
             </Button>
           ) : null}
+
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-7 px-2 text-[11px]"
+            data-testid={`slice-add-task-${card.identifier}`}
+            onClick={() => {
+              setCreateTaskError(null)
+              setShowCreateTaskDialog(true)
+            }}
+          >
+            Add task
+          </Button>
 
           {pendingEscalations.length > 0 ? (
             <Button
@@ -332,6 +376,30 @@ export function SliceCard({ card }: SliceCardProps) {
             <TaskList tasks={card.tasks} issueActions={issueActions} onOpenIssue={openTaskIssue} />
           </CollapsibleContent>
         </Collapsible>
+
+        <TaskMutationDialog
+          open={showCreateTaskDialog}
+          mode="create"
+          heading={`Add task to ${card.identifier}`}
+          subheading="Create a child task in Linear without leaving the board."
+          confirmLabel="Create task"
+          initialValues={{
+            title: '',
+            description: '',
+            columnId: 'todo',
+          }}
+          submitting={createTaskSubmitting}
+          errorMessage={createTaskError}
+          onOpenChange={(open) => {
+            setShowCreateTaskDialog(open)
+            if (!open) {
+              setCreateTaskError(null)
+            }
+          }}
+          onSubmit={async (values) => {
+            await submitCreateTask(values)
+          }}
+        />
       </CardContent>
     </Card>
   )

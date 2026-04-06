@@ -32,6 +32,7 @@ export const IPC_CHANNELS = {
   workflowSetBoardActive: 'workflow:set-board-active',
   workflowSetScope: 'workflow:set-scope',
   workflowMoveEntity: 'workflow:move-entity',
+  workflowCreateTask: 'workflow:create-task',
   workflowRespondEscalation: 'workflow:respond-escalation',
   workflowOpenIssue: 'workflow:open-issue',
   workflowGetContext: 'workflow:get-context',
@@ -813,6 +814,39 @@ export interface WorkflowMoveEntityResult {
   updatedAt: string
 }
 
+export interface WorkflowCreateTaskRequest {
+  parentSliceId: string
+  title: string
+  description?: string
+  initialColumnId?: WorkflowColumnId
+  teamId?: string
+  projectId?: string
+}
+
+export type WorkflowCreateTaskCode =
+  | 'CREATED'
+  | 'VALIDATION_ERROR'
+  | 'ROLLED_BACK'
+  | 'NOT_FOUND'
+  | 'UNSUPPORTED'
+  | 'FAILED'
+
+export interface WorkflowCreateTaskResult {
+  success: boolean
+  parentSliceId: string
+  status: 'success' | 'error'
+  code: WorkflowCreateTaskCode
+  message: string
+  refreshBoard: boolean
+  updatedAt: string
+  task?: {
+    id: string
+    identifier?: string
+    title: string
+    columnId: WorkflowColumnId
+  }
+}
+
 export interface WorkflowBoardEscalationResponseRequest {
   cardId: string
   requestId: string
@@ -1292,6 +1326,7 @@ export interface DesktopApi {
     setBoardActive: (active: boolean) => Promise<WorkflowBoardLifecycleResponse>
     setScope: (request: WorkflowBoardScopeRequest | string) => Promise<WorkflowBoardScopeResponse>
     moveEntity: (request: WorkflowMoveEntityRequest) => Promise<WorkflowMoveEntityResult>
+    createTask: (request: WorkflowCreateTaskRequest) => Promise<WorkflowCreateTaskResult>
     respondToEscalation: (
       request: WorkflowBoardEscalationResponseRequest,
     ) => Promise<WorkflowBoardEscalationResponseResult>

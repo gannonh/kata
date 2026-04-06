@@ -6,6 +6,7 @@ import {
   type WorkflowBoardSnapshot,
   type WorkflowBoardScope,
   type WorkflowColumnId,
+  type WorkflowCreateTaskResult,
   type WorkflowEntityKind,
   type WorkflowMoveEntityResult,
 } from '@shared/types'
@@ -321,6 +322,39 @@ export const moveWorkflowEntityAtom = atom(
         updatedAt: failedAt,
       } satisfies WorkflowMoveEntityResult
     }
+  },
+)
+
+export const createWorkflowTaskAtom = atom(
+  null,
+  async (
+    _get,
+    set,
+    input: {
+      parentSliceId: string
+      title: string
+      description?: string
+      initialColumnId?: WorkflowColumnId
+      teamId?: string
+      projectId?: string
+    },
+  ) => {
+    const result = (await window.api.workflow.createTask({
+      parentSliceId: input.parentSliceId,
+      title: input.title,
+      description: input.description,
+      initialColumnId: input.initialColumnId,
+      teamId: input.teamId,
+      projectId: input.projectId,
+    })) satisfies WorkflowCreateTaskResult
+
+    if (result.success && result.refreshBoard) {
+      const refreshed = await window.api.workflow.refreshBoard()
+      set(workflowBoardAtom, refreshed.snapshot)
+      set(workflowBoardErrorAtom, refreshed.snapshot.lastError?.message ?? null)
+    }
+
+    return result
   },
 )
 

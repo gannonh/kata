@@ -529,6 +529,98 @@ describe('LinearWorkflowClient', () => {
     })
   })
 
+  test('creates a child task using parent slice metadata and mapped initial column state', async () => {
+    process.env.LINEAR_API_KEY = 'linear-test-key'
+
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              issue: {
+                id: 'slice-1',
+                identifier: 'KAT-100',
+                title: 'Slice title',
+                team: { id: 'team-1' },
+                project: { id: 'project-1' },
+                state: { id: 'state-todo', name: 'Todo', type: 'unstarted' },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              team: {
+                states: {
+                  nodes: [
+                    { id: 'state-todo', name: 'Todo', type: 'unstarted' },
+                    { id: 'state-progress', name: 'In Progress', type: 'started' },
+                  ],
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              issueCreate: {
+                success: true,
+                issue: {
+                  id: 'task-1',
+                  identifier: 'KAT-101',
+                  title: 'New task',
+                  team: { id: 'team-1' },
+                  project: { id: 'project-1' },
+                  parent: { id: 'slice-1' },
+                  state: { id: 'state-todo', name: 'Todo', type: 'unstarted' },
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      ) as unknown as typeof fetch
+
+    const client = new LinearWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
+    const result = await client.createChildTask({
+      parentIssueId: 'slice-1',
+      title: 'New task',
+      description: 'Task details',
+      initialColumnId: 'todo',
+    })
+
+    expect(result).toMatchObject({
+      id: 'task-1',
+      identifier: 'KAT-101',
+      title: 'New task',
+      stateName: 'Todo',
+      stateType: 'unstarted',
+    })
+  })
+
+  test('requires a task title for child task creation', async () => {
+    process.env.LINEAR_API_KEY = 'linear-test-key'
+    const client = new LinearWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
+
+    await expect(
+      client.createChildTask({
+        parentIssueId: 'slice-1',
+        title: '   ',
+      }),
+    ).rejects.toMatchObject({
+      code: 'UNKNOWN',
+    })
+  })
+
   test('exposes structured workflow error codes', () => {
     const mapped = LinearWorkflowClient.toWorkflowError(
       new LinearWorkflowClientError('UNAUTHORIZED', 'bad key', 401),

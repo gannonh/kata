@@ -98,6 +98,48 @@ describe('WorkflowBoardService', () => {
     expect(afterTodoIds).toEqual(beforeTodoIds)
   })
 
+  test('creates fixture-mode child tasks and keeps them visible after refresh', async () => {
+    process.env.KATA_TEST_WORKFLOW_FIXTURE = '1'
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+    })
+
+    await service.getBoard()
+    const result = await service.createTask({
+      parentSliceId: 'slice-1',
+      title: 'Create task from board',
+      description: 'Task details',
+      initialColumnId: 'todo',
+    })
+
+    expect(result.success).toBe(true)
+    expect(result.code).toBe('CREATED')
+
+    const refreshed = await service.refreshBoard()
+    const todoCard = refreshed.snapshot.columns.flatMap((column) => column.cards).find((card) => card.id === 'slice-1')
+    expect(todoCard?.tasks.some((task) => task.title === 'Create task from board')).toBe(true)
+  })
+
+  test('returns rollback failure for fixture-mode create-task rejection', async () => {
+    process.env.KATA_TEST_WORKFLOW_FIXTURE = '1'
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+    })
+
+    const failed = await service.createTask({
+      parentSliceId: 'slice-1',
+      title: 'fail this create path',
+      description: 'Should trigger rollback',
+    })
+
+    expect(failed.success).toBe(false)
+    expect(failed.code).toBe('ROLLED_BACK')
+  })
+
   test('uses assembled linear fixture in test mode when assembled symphony mock is active', async () => {
     process.env.KATA_TEST_WORKFLOW_FIXTURE = '1'
     process.env.KATA_DESKTOP_SYMPHONY_DASHBOARD_MOCK = 'assembled_healthy'
