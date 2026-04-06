@@ -1,19 +1,30 @@
 import { useAtomValue, useSetAtom } from 'jotai'
 import { AlertCircle, ChevronDown, MessageSquareText } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import type { WorkflowBoardEscalationRequest, WorkflowBoardSliceCard, WorkflowBoardTask } from '@shared/types'
 import {
+  WORKFLOW_COLUMNS,
+  type WorkflowBoardEscalationRequest,
+  type WorkflowBoardSliceCard,
+  type WorkflowBoardTask,
+} from '@shared/types'
+import {
+  createWorkflowTaskAtom,
+  moveWorkflowEntityAtom,
   openWorkflowIssueAtom,
   respondToWorkflowEscalationAtom,
+  workflowEntityMutationKey,
+  workflowEntityMutationStateAtom,
   workflowEscalationActionStateAtom,
   workflowIssueActionStateAtom,
 } from '@/atoms/workflow-board'
 import { TaskList } from '@/components/kanban/TaskList'
+import { TaskMutationDialog } from '@/components/kanban/TaskMutationDialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 interface SliceCardProps {
   card: WorkflowBoardSliceCard
@@ -58,21 +69,33 @@ export function isInlineEscalationEnabled(symphony: WorkflowBoardSliceCard['symp
   return symphony.freshness === 'fresh' && symphony.provenance === 'dashboard-derived'
 }
 
+export function getMoveTargetOptions(currentColumnId: WorkflowBoardSliceCard['columnId']) {
+  return WORKFLOW_COLUMNS.filter((column) => column.id !== currentColumnId)
+}
+
 export function SliceCard({ card }: SliceCardProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [showEscalationComposer, setShowEscalationComposer] = useState(false)
+  const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false)
+  const [createTaskError, setCreateTaskError] = useState<string | null>(null)
+  const [createTaskSubmitting, setCreateTaskSubmitting] = useState(false)
   const [responseDraftByRequestId, setResponseDraftByRequestId] = useState<Record<string, string>>({})
 
   const symphony = card.symphony
   const issueActions = useAtomValue(workflowIssueActionStateAtom)
   const escalationActions = useAtomValue(workflowEscalationActionStateAtom)
+  const mutationStates = useAtomValue(workflowEntityMutationStateAtom)
   const openIssue = useSetAtom(openWorkflowIssueAtom)
   const respondToEscalation = useSetAtom(respondToWorkflowEscalationAtom)
+  const createTask = useSetAtom(createWorkflowTaskAtom)
+  const moveEntity = useSetAtom(moveWorkflowEntityAtom)
 
   const pendingEscalations = useMemo(
     () => symphony?.pendingEscalationRequests ?? [],
     [symphony?.pendingEscalationRequests],
   )
+  const moveOptions = useMemo(() => getMoveTargetOptions(card.columnId), [card.columnId])
+  const sliceMoveState = mutationStates[workflowEntityMutationKey('slice', card.id)]
 
   const canRespondInline = isInlineEscalationEnabled(symphony) && pendingEscalations.length > 0
 
@@ -121,6 +144,52 @@ export function SliceCard({ card }: SliceCardProps) {
       url: task.url,
       identifier: task.identifier ?? card.identifier,
     })
+  }
+
+  const moveSliceToColumn = (targetColumnId: WorkflowBoardSliceCard['columnId']) => {
+    if (targetColumnId === card.columnId) {
+      return
+    }
+
+    void moveEntity({
+      entityKind: 'slice',
+      entityId: card.id,
+      targetColumnId,
+      currentColumnId: card.columnId,
+      currentStateId: card.stateId,
+      currentStateName: card.stateName,
+      currentStateType: card.stateType,
+      teamId: card.teamId,
+      projectId: card.projectId,
+    })
+  }
+
+  const submitCreateTask = async (input: { title: string; description: string; columnId: WorkflowBoardSliceCard['columnId'] }) => {
+    setCreateTaskSubmitting(true)
+    setCreateTaskError(null)
+
+    try {
+      const result = await createTask({
+        parentSliceId: card.id,
+        title: input.title,
+        description: input.description,
+        initialColumnId: input.columnId,
+        teamId: card.teamId,
+        projectId: card.projectId,
+      })
+
+      if (!result.success) {
+        setCreateTaskError(result.message)
+        return
+      }
+
+      setCreateTaskError(null)
+      setShowCreateTaskDialog(false)
+    } catch (error) {
+      setCreateTaskError(error instanceof Error ? error.message : 'Unable to create task.')
+    } finally {
+      setCreateTaskSubmitting(false)
+    }
   }
 
   return (
@@ -179,6 +248,20 @@ export function SliceCard({ card }: SliceCardProps) {
             </Button>
           ) : null}
 
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-7 px-2 text-[11px]"
+            data-testid={`slice-add-task-${card.identifier}`}
+            onClick={() => {
+              setCreateTaskError(null)
+              setShowCreateTaskDialog(true)
+            }}
+          >
+            Add task
+          </Button>
+
           {pendingEscalations.length > 0 ? (
             <Button
               type="button"
@@ -192,11 +275,43 @@ export function SliceCard({ card }: SliceCardProps) {
               Respond to escalation
             </Button>
           ) : null}
+
+          {moveOptions.length > 0 ? (
+            <Select
+              value={card.columnId}
+              onValueChange={(value) => {
+                moveSliceToColumn(value as WorkflowBoardSliceCard['columnId'])
+              }}
+              disabled={sliceMoveState?.phase === 'pending'}
+            >
+              <SelectTrigger
+                size="sm"
+                className="h-7 min-w-[8.25rem] rounded-md border border-border/70 bg-background px-2 text-[11px]"
+                data-testid={`slice-move-select-${card.identifier}`}
+              >
+                <SelectValue placeholder="Move slice" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={card.columnId}>Current: {card.stateName}</SelectItem>
+                {moveOptions.map((option) => (
+                  <SelectItem key={option.id} value={option.id}>
+                    Move to {option.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : null}
         </div>
 
         {issueAction?.message ? (
           <p className="text-[11px] text-muted-foreground" data-testid={`slice-issue-action-${card.identifier}`}>
             {issueAction.message}
+          </p>
+        ) : null}
+
+        {sliceMoveState ? (
+          <p className="text-[11px] text-muted-foreground" data-testid={`slice-move-state-${card.identifier}`}>
+            {sliceMoveState.message}
           </p>
         ) : null}
 
@@ -257,7 +372,10 @@ export function SliceCard({ card }: SliceCardProps) {
         ) : null}
 
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-          <CollapsibleTrigger className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+          <CollapsibleTrigger
+            className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+            data-testid={`slice-task-toggle-${card.identifier}`}
+          >
             <ChevronDown className={`size-3 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
             {isOpen ? 'Hide tasks' : 'Show tasks'}
           </CollapsibleTrigger>
@@ -265,6 +383,30 @@ export function SliceCard({ card }: SliceCardProps) {
             <TaskList tasks={card.tasks} issueActions={issueActions} onOpenIssue={openTaskIssue} />
           </CollapsibleContent>
         </Collapsible>
+
+        <TaskMutationDialog
+          open={showCreateTaskDialog}
+          mode="create"
+          heading={`Add task to ${card.identifier}`}
+          subheading="Create a child task in Linear without leaving the board."
+          confirmLabel="Create task"
+          initialValues={{
+            title: '',
+            description: '',
+            columnId: 'todo',
+          }}
+          submitting={createTaskSubmitting}
+          errorMessage={createTaskError}
+          onOpenChange={(open) => {
+            setShowCreateTaskDialog(open)
+            if (!open) {
+              setCreateTaskError(null)
+            }
+          }}
+          onSubmit={async (values) => {
+            await submitCreateTask(values)
+          }}
+        />
       </CardContent>
     </Card>
   )

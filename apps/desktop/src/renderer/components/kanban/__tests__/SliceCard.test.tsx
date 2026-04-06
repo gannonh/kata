@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import type { WorkflowBoardSliceCard } from '@shared/types'
-import { formatSliceSymphonyHint, isInlineEscalationEnabled } from '../SliceCard'
+import { formatSliceSymphonyHint, getMoveTargetOptions, isInlineEscalationEnabled } from '../SliceCard'
 
 describe('SliceCard symphony hint formatting', () => {
   test('shows unavailable hint when context is missing', () => {
@@ -99,5 +99,14 @@ describe('SliceCard inline escalation affordance', () => {
         provenance: 'runtime-disconnected',
       }),
     ).toBe(false)
+  })
+})
+
+describe('SliceCard move options', () => {
+  test('excludes the current column from move targets', () => {
+    const options = getMoveTargetOptions('todo')
+    expect(options.some((option) => option.id === 'todo')).toBe(false)
+    expect(options.some((option) => option.id === 'in_progress')).toBe(true)
+    expect(options.some((option) => option.id === 'done')).toBe(true)
   })
 })

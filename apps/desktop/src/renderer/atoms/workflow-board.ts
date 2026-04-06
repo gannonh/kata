@@ -1,7 +1,17 @@
 import { atom, useAtomValue, useSetAtom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
 import { useEffect, useRef } from 'react'
-import type { WorkflowBoardSnapshot, WorkflowBoardScope, WorkflowColumnId } from '@shared/types'
+import {
+  WORKFLOW_COLUMNS,
+  type WorkflowBoardSnapshot,
+  type WorkflowBoardScope,
+  type WorkflowColumnId,
+  type WorkflowCreateTaskResult,
+  type WorkflowEntityKind,
+  type WorkflowMoveEntityResult,
+  type WorkflowTaskDetailResponse,
+  type WorkflowUpdateTaskResult,
+} from '@shared/types'
 import { currentSessionIdAtom, workingDirectoryAtom } from './session'
 import { rightPaneModeAtom, setWorkflowContextAtom } from './right-pane'
 
@@ -31,8 +41,17 @@ type IssueActionState = {
   updatedAt: string
 }
 
+type WorkflowEntityMutationState = {
+  action: 'move'
+  phase: 'pending' | 'success' | 'error'
+  targetColumnId: WorkflowColumnId
+  message: string
+  updatedAt: string
+}
+
 export const workflowEscalationActionStateAtom = atom<Record<string, EscalationActionState>>({})
 export const workflowIssueActionStateAtom = atom<Record<string, IssueActionState>>({})
+export const workflowEntityMutationStateAtom = atom<Record<string, WorkflowEntityMutationState>>({})
 
 const workflowBoardScopePreferencesAtom = atomWithStorage<ScopePreferenceMap>(
   WORKFLOW_BOARD_SCOPE_STORAGE_KEY,
@@ -109,6 +128,341 @@ export const workflowBoardHasCardsAtom = atom((get) => {
   const snapshot = get(workflowBoardAtom)
   return snapshot ? snapshot.columns.some((column) => column.cards.length > 0) : false
 })
+
+export function workflowEntityMutationKey(entityKind: WorkflowEntityKind, entityId: string): string {
+  return `${entityKind}:${entityId}`
+}
+
+function toColumnTitle(columnId: WorkflowColumnId): string {
+  return WORKFLOW_COLUMNS.find((column) => column.id === columnId)?.title ?? columnId
+}
+
+function toColumnStateType(columnId: WorkflowColumnId): string {
+  if (columnId === 'backlog') return 'backlog'
+  if (columnId === 'todo') return 'unstarted'
+  if (columnId === 'done') return 'completed'
+  return 'started'
+}
+
+function applyOptimisticMove(
+  snapshot: WorkflowBoardSnapshot,
+  input: { entityKind: WorkflowEntityKind; entityId: string; targetColumnId: WorkflowColumnId },
+): WorkflowBoardSnapshot {
+  const next = structuredClone(snapshot)
+  const targetColumn = next.columns.find((column) => column.id === input.targetColumnId)
+  if (!targetColumn) {
+    return next
+  }
+
+  if (input.entityKind === 'slice') {
+    let movingCard: WorkflowBoardSnapshot['columns'][number]['cards'][number] | null = null
+
+    for (const column of next.columns) {
+      const cardIndex = column.cards.findIndex((card) => card.id === input.entityId)
+      if (cardIndex >= 0) {
+        movingCard = column.cards.splice(cardIndex, 1)[0] ?? null
+        break
+      }
+    }
+
+    if (!movingCard) {
+      return next
+    }
+
+    movingCard.columnId = input.targetColumnId
+    movingCard.stateName = toColumnTitle(input.targetColumnId)
+    movingCard.stateType = toColumnStateType(input.targetColumnId)
+    targetColumn.cards.push(movingCard)
+    targetColumn.cards.sort((left, right) => left.identifier.localeCompare(right.identifier))
+
+    return next
+  }
+
+  for (const column of next.columns) {
+    for (const card of column.cards) {
+      const task = card.tasks.find((candidate) => candidate.id === input.entityId)
+      if (!task) {
+        continue
+      }
+
+      task.columnId = input.targetColumnId
+      task.stateName = toColumnTitle(input.targetColumnId)
+      task.stateType = toColumnStateType(input.targetColumnId)
+      card.taskCounts = {
+        total: card.tasks.length,
+        done: card.tasks.filter((candidate) => candidate.columnId === 'done').length,
+      }
+      return next
+    }
+  }
+
+  return next
+}
+
+export const moveWorkflowEntityAtom = atom(
+  null,
+  async (
+    get,
+    set,
+    input: {
+      entityKind: WorkflowEntityKind
+      entityId: string
+      targetColumnId: WorkflowColumnId
+      currentColumnId?: WorkflowColumnId
+      currentStateId?: string
+      currentStateName?: string
+      currentStateType?: string
+      teamId?: string
+      projectId?: string
+    },
+  ) => {
+    const snapshot = get(workflowBoardAtom)
+    if (!snapshot) {
+      const nowIso = new Date().toISOString()
+      return {
+        success: false,
+        entityKind: input.entityKind,
+        entityId: input.entityId,
+        targetColumnId: input.targetColumnId,
+        status: 'error',
+        code: 'FAILED',
+        phase: 'rolled_back',
+        message: 'Workflow board snapshot unavailable. Please refresh and retry.',
+        refreshBoard: false,
+        updatedAt: nowIso,
+      } satisfies WorkflowMoveEntityResult
+    }
+
+    const previousSnapshot = snapshot
+    const optimisticSnapshot = applyOptimisticMove(snapshot, input)
+    const mutationKey = workflowEntityMutationKey(input.entityKind, input.entityId)
+    const startedAt = new Date().toISOString()
+
+    set(workflowBoardAtom, optimisticSnapshot)
+    set(workflowEntityMutationStateAtom, (previous) => ({
+      ...previous,
+      [mutationKey]: {
+        action: 'move',
+        phase: 'pending',
+        targetColumnId: input.targetColumnId,
+        message: `Moving to ${toColumnTitle(input.targetColumnId)}…`,
+        updatedAt: startedAt,
+      },
+    }))
+
+    try {
+      const result = await window.api.workflow.moveEntity({
+        entityKind: input.entityKind,
+        entityId: input.entityId,
+        targetColumnId: input.targetColumnId,
+        currentColumnId: input.currentColumnId,
+        currentStateId: input.currentStateId,
+        currentStateName: input.currentStateName,
+        currentStateType: input.currentStateType,
+        teamId: input.teamId,
+        projectId: input.projectId,
+      })
+
+      if (!result.success) {
+        if (result.refreshBoard) {
+          const refreshed = await window.api.workflow.refreshBoard()
+          set(workflowBoardAtom, refreshed.snapshot)
+          set(workflowBoardErrorAtom, refreshed.snapshot.lastError?.message ?? null)
+        } else {
+          set(workflowBoardAtom, previousSnapshot)
+        }
+
+        set(workflowEntityMutationStateAtom, (previous) => ({
+          ...previous,
+          [mutationKey]: {
+            action: 'move',
+            phase: 'error',
+            targetColumnId: input.targetColumnId,
+            message: result.message,
+            updatedAt: result.updatedAt,
+          },
+        }))
+
+        return result
+      }
+
+      set(workflowEntityMutationStateAtom, (previous) => ({
+        ...previous,
+        [mutationKey]: {
+          action: 'move',
+          phase: 'success',
+          targetColumnId: input.targetColumnId,
+          message: result.message,
+          updatedAt: result.updatedAt,
+        },
+      }))
+
+      if (result.refreshBoard) {
+        const refreshed = await window.api.workflow.refreshBoard()
+        set(workflowBoardAtom, refreshed.snapshot)
+        set(workflowBoardErrorAtom, refreshed.snapshot.lastError?.message ?? null)
+      }
+
+      return result
+    } catch (error) {
+      const failedAt = new Date().toISOString()
+      set(workflowBoardAtom, previousSnapshot)
+      set(workflowEntityMutationStateAtom, (previous) => ({
+        ...previous,
+        [mutationKey]: {
+          action: 'move',
+          phase: 'error',
+          targetColumnId: input.targetColumnId,
+          message: error instanceof Error ? error.message : String(error),
+          updatedAt: failedAt,
+        },
+      }))
+
+      return {
+        success: false,
+        entityKind: input.entityKind,
+        entityId: input.entityId,
+        targetColumnId: input.targetColumnId,
+        status: 'error',
+        code: 'FAILED',
+        phase: 'rolled_back',
+        message: error instanceof Error ? error.message : String(error),
+        refreshBoard: false,
+        updatedAt: failedAt,
+      } satisfies WorkflowMoveEntityResult
+    }
+  },
+)
+
+export const createWorkflowTaskAtom = atom(
+  null,
+  async (
+    _get,
+    set,
+    input: {
+      parentSliceId: string
+      title: string
+      description?: string
+      initialColumnId?: WorkflowColumnId
+      teamId?: string
+      projectId?: string
+    },
+  ) => {
+    const result = (await window.api.workflow.createTask({
+      parentSliceId: input.parentSliceId,
+      title: input.title,
+      description: input.description,
+      initialColumnId: input.initialColumnId,
+      teamId: input.teamId,
+      projectId: input.projectId,
+    })) satisfies WorkflowCreateTaskResult
+
+    if (result.refreshBoard) {
+      const refreshed = await window.api.workflow.refreshBoard()
+      set(workflowBoardAtom, refreshed.snapshot)
+      set(workflowBoardErrorAtom, refreshed.snapshot.lastError?.message ?? null)
+    }
+
+    return result
+  },
+)
+
+export const loadWorkflowTaskDetailAtom = atom(
+  null,
+  async (_get, _set, input: { taskId: string }) => {
+    return (await window.api.workflow.getTaskDetail({ taskId: input.taskId })) satisfies WorkflowTaskDetailResponse
+  },
+)
+
+export const updateWorkflowTaskAtom = atom(
+  null,
+  async (
+    get,
+    set,
+    input: {
+      taskId: string
+      title: string
+      description?: string
+      targetColumnId?: WorkflowColumnId
+      teamId?: string
+      projectId?: string
+      currentStateId?: string
+    },
+  ) => {
+    const previousSnapshot = get(workflowBoardAtom)
+
+    if (previousSnapshot) {
+      const optimisticSnapshot = structuredClone(previousSnapshot)
+      for (const column of optimisticSnapshot.columns) {
+        for (const card of column.cards) {
+          const task = card.tasks.find((candidate) => candidate.id === input.taskId)
+          if (!task) {
+            continue
+          }
+
+          task.title = input.title
+          if (input.targetColumnId) {
+            task.columnId = input.targetColumnId
+            task.stateName = toColumnTitle(input.targetColumnId)
+            task.stateType = toColumnStateType(input.targetColumnId)
+            card.taskCounts = {
+              total: card.tasks.length,
+              done: card.tasks.filter((candidate) => candidate.columnId === 'done').length,
+            }
+          }
+        }
+      }
+
+      set(workflowBoardAtom, optimisticSnapshot)
+    }
+
+    try {
+      const result = (await window.api.workflow.updateTask({
+        taskId: input.taskId,
+        title: input.title,
+        description: input.description,
+        targetColumnId: input.targetColumnId,
+        teamId: input.teamId,
+        projectId: input.projectId,
+        currentStateId: input.currentStateId,
+      })) satisfies WorkflowUpdateTaskResult
+
+      if (!result.success) {
+        if (result.refreshBoard) {
+          const refreshed = await window.api.workflow.refreshBoard()
+          set(workflowBoardAtom, refreshed.snapshot)
+          set(workflowBoardErrorAtom, refreshed.snapshot.lastError?.message ?? null)
+        } else if (previousSnapshot) {
+          set(workflowBoardAtom, previousSnapshot)
+        }
+
+        return result
+      }
+
+      if (result.refreshBoard) {
+        const refreshed = await window.api.workflow.refreshBoard()
+        set(workflowBoardAtom, refreshed.snapshot)
+        set(workflowBoardErrorAtom, refreshed.snapshot.lastError?.message ?? null)
+      }
+
+      return result
+    } catch (error) {
+      if (previousSnapshot) {
+        set(workflowBoardAtom, previousSnapshot)
+      }
+
+      return {
+        success: false,
+        taskId: input.taskId,
+        status: 'error',
+        code: 'FAILED',
+        message: error instanceof Error ? error.message : String(error),
+        refreshBoard: false,
+        updatedAt: new Date().toISOString(),
+      } satisfies WorkflowUpdateTaskResult
+    }
+  },
+)
 
 export const refreshWorkflowBoardAtom = atom(null, async (_get, set) => {
   set(workflowBoardRefreshingAtom, true)

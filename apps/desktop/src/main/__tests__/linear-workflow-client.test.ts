@@ -405,6 +405,878 @@ describe('LinearWorkflowClient', () => {
     })
   })
 
+  test('maps non-classified GraphQL payload errors to GRAPHQL', async () => {
+    process.env.LINEAR_API_KEY = 'linear-test-key'
+
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              project: {
+                id: 'project-1',
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            errors: [{ message: 'workflow exploded' }],
+          }),
+          { status: 200 },
+        ),
+      ) as unknown as typeof fetch
+
+    const client = new LinearWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
+
+    await expect(client.fetchActiveMilestoneSnapshot({ projectRef: 'project-ref' })).rejects.toMatchObject({
+      code: 'GRAPHQL',
+      message: 'workflow exploded',
+    })
+  })
+
+  test('moves an issue to a canonical column through team workflow-state mapping', async () => {
+    process.env.LINEAR_API_KEY = 'linear-test-key'
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              issue: {
+                id: 'issue-1',
+                identifier: 'KAT-100',
+                title: 'Slice title',
+                team: { id: 'team-1' },
+                project: { id: 'project-1' },
+                state: { id: 'state-todo', name: 'Todo', type: 'unstarted' },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              team: {
+                states: {
+                  nodes: [
+                    { id: 'state-todo', name: 'Todo', type: 'unstarted' },
+                    { id: 'state-progress', name: 'In Progress', type: 'started' },
+                  ],
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              issueUpdate: {
+                success: true,
+                issue: {
+                  id: 'issue-1',
+                  identifier: 'KAT-100',
+                  title: 'Slice title',
+                  team: { id: 'team-1' },
+                  project: { id: 'project-1' },
+                  state: { id: 'state-progress', name: 'In Progress', type: 'started' },
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+
+    const client = new LinearWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
+    const result = await client.moveIssueToColumn({
+      issueId: 'issue-1',
+      targetColumnId: 'in_progress',
+    })
+
+    expect(result).toMatchObject({
+      id: 'issue-1',
+      stateName: 'In Progress',
+      stateType: 'started',
+      teamId: 'team-1',
+      projectId: 'project-1',
+    })
+
+    const mutationVariables = JSON.parse(String(fetchMock.mock.calls[2]?.[1]?.body ?? '{}')).variables
+    expect(mutationVariables).toMatchObject({
+      issueId: 'issue-1',
+      input: {
+        stateId: 'state-progress',
+      },
+    })
+  })
+
+  test('returns NOT_FOUND when no team state maps to the target column', async () => {
+    process.env.LINEAR_API_KEY = 'linear-test-key'
+
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              issue: {
+                id: 'issue-1',
+                identifier: 'KAT-100',
+                title: 'Slice title',
+                team: { id: 'team-1' },
+                project: { id: 'project-1' },
+                state: { id: 'state-todo', name: 'Todo', type: 'unstarted' },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              team: {
+                states: {
+                  nodes: [{ id: 'state-progress', name: 'Doing', type: 'started' }],
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      ) as unknown as typeof fetch
+
+    const client = new LinearWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
+
+    await expect(
+      client.moveIssueToColumn({
+        issueId: 'issue-1',
+        targetColumnId: 'agent_review',
+      }),
+    ).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    })
+  })
+
+  test('creates a child task using parent slice metadata and mapped initial column state', async () => {
+    process.env.LINEAR_API_KEY = 'linear-test-key'
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              issue: {
+                id: 'slice-1',
+                identifier: 'KAT-100',
+                title: 'Slice title',
+                team: { id: 'team-1' },
+                project: { id: 'project-1' },
+                state: { id: 'state-todo', name: 'Todo', type: 'unstarted' },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              team: {
+                states: {
+                  nodes: [
+                    { id: 'state-todo', name: 'Todo', type: 'unstarted' },
+                    { id: 'state-progress', name: 'In Progress', type: 'started' },
+                  ],
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              issueCreate: {
+                success: true,
+                issue: {
+                  id: 'task-1',
+                  identifier: 'KAT-101',
+                  title: 'New task',
+                  team: { id: 'team-1' },
+                  project: { id: 'project-1' },
+                  parent: { id: 'slice-1' },
+                  state: { id: 'state-todo', name: 'Todo', type: 'unstarted' },
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+
+    const client = new LinearWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
+    const result = await client.createChildTask({
+      parentIssueId: 'slice-1',
+      title: 'New task',
+      description: 'Task details',
+      initialColumnId: 'todo',
+    })
+
+    expect(result).toMatchObject({
+      id: 'task-1',
+      identifier: 'KAT-101',
+      title: 'New task',
+      stateName: 'Todo',
+      stateType: 'unstarted',
+    })
+
+    const mutationVariables = JSON.parse(String(fetchMock.mock.calls[2]?.[1]?.body ?? '{}')).variables
+    expect(mutationVariables).toMatchObject({
+      input: {
+        title: 'New task',
+        description: 'Task details',
+        parentId: 'slice-1',
+        teamId: 'team-1',
+        projectId: 'project-1',
+        stateId: 'state-todo',
+      },
+    })
+  })
+
+  test('requires a task title for child task creation', async () => {
+    process.env.LINEAR_API_KEY = 'linear-test-key'
+    const client = new LinearWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
+
+    await expect(
+      client.createChildTask({
+        parentIssueId: 'slice-1',
+        title: '   ',
+      }),
+    ).rejects.toMatchObject({
+      code: 'UNKNOWN',
+    })
+  })
+
+  test('requires a parent issue id for child task creation', async () => {
+    process.env.LINEAR_API_KEY = 'linear-test-key'
+    const client = new LinearWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
+
+    await expect(
+      client.createChildTask({
+        parentIssueId: '   ',
+        title: 'Valid title',
+      }),
+    ).rejects.toMatchObject({
+      code: 'UNKNOWN',
+    })
+  })
+
+  test('validates issue id inputs for move/detail/update mutations', async () => {
+    process.env.LINEAR_API_KEY = 'linear-test-key'
+    const client = new LinearWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
+
+    await expect(
+      client.moveIssueToColumn({
+        issueId: '   ',
+        targetColumnId: 'todo',
+      }),
+    ).rejects.toMatchObject({
+      code: 'UNKNOWN',
+    })
+
+    await expect(
+      client.fetchIssueDetail({
+        issueId: '   ',
+      }),
+    ).rejects.toMatchObject({
+      code: 'UNKNOWN',
+    })
+
+    await expect(
+      client.updateTask({
+        issueId: '   ',
+        title: 'Edited title',
+      }),
+    ).rejects.toMatchObject({
+      code: 'UNKNOWN',
+    })
+
+    await expect(
+      client.updateTask({
+        issueId: 'task-1',
+        title: '   ',
+      }),
+    ).rejects.toMatchObject({
+      code: 'UNKNOWN',
+    })
+  })
+
+  test('returns INVALID_CONFIG when move target issue is missing team metadata', async () => {
+    process.env.LINEAR_API_KEY = 'linear-test-key'
+
+    globalThis.fetch = vi.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          data: {
+            issue: {
+              id: 'issue-1',
+              identifier: 'KAT-100',
+              title: 'Slice title',
+              project: { id: 'project-1' },
+              state: { id: 'state-todo', name: 'Todo', type: 'unstarted' },
+            },
+          },
+        }),
+        { status: 200 },
+      ),
+    ) as unknown as typeof fetch
+
+    const client = new LinearWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
+
+    await expect(
+      client.moveIssueToColumn({
+        issueId: 'issue-1',
+        targetColumnId: 'in_progress',
+      }),
+    ).rejects.toMatchObject({
+      code: 'INVALID_CONFIG',
+    })
+  })
+
+  test('skips mutation when target column already matches current state id', async () => {
+    process.env.LINEAR_API_KEY = 'linear-test-key'
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              issue: {
+                id: 'issue-1',
+                identifier: 'KAT-100',
+                title: 'Slice title',
+                team: { id: 'team-1' },
+                project: { id: 'project-1' },
+                state: { id: 'state-progress', name: 'In Progress', type: 'started' },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              team: {
+                states: {
+                  nodes: [{ id: 'state-progress', name: 'In Progress', type: 'started' }],
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      ) as unknown as typeof fetch
+
+    globalThis.fetch = fetchMock
+    const client = new LinearWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
+
+    const result = await client.moveIssueToColumn({
+      issueId: 'issue-1',
+      targetColumnId: 'in_progress',
+    })
+
+    expect(result.id).toBe('issue-1')
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  test('applies mutation-result fallbacks when optional issue fields are missing', async () => {
+    process.env.LINEAR_API_KEY = 'linear-test-key'
+
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              issue: {
+                id: 'issue-1',
+                team: { id: 'team-1' },
+                state: { id: 'state-todo' },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              team: {
+                states: {
+                  nodes: [{ id: 'state-todo', name: 'Todo', type: 'unstarted' }],
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      ) as unknown as typeof fetch
+
+    const client = new LinearWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
+
+    const result = await client.moveIssueToColumn({
+      issueId: 'issue-1',
+      targetColumnId: 'todo',
+    })
+
+    expect(result).toMatchObject({
+      id: 'issue-1',
+      teamId: 'team-1',
+      identifier: undefined,
+      title: undefined,
+      projectId: undefined,
+      stateName: 'Unknown',
+      stateType: 'unknown',
+    })
+  })
+
+  test('uses current state fallback when target column already matches and no state mapping exists', async () => {
+    process.env.LINEAR_API_KEY = 'linear-test-key'
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              issue: {
+                id: 'issue-1',
+                identifier: 'KAT-100',
+                title: 'Slice title',
+                team: { id: 'team-1' },
+                project: { id: 'project-1' },
+                state: { id: 'state-todo', name: 'Todo', type: 'unstarted' },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              team: {
+                states: {
+                  nodes: [{ id: 'state-progress', name: 'Doing', type: 'started' }],
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      ) as unknown as typeof fetch
+
+    globalThis.fetch = fetchMock
+    const client = new LinearWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
+
+    const result = await client.moveIssueToColumn({
+      issueId: 'issue-1',
+      targetColumnId: 'todo',
+    })
+
+    expect(result.stateId).toBe('state-todo')
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  test('maps graphql not-found payloads and non-ok responses to workflow errors', async () => {
+    process.env.LINEAR_API_KEY = 'linear-test-key'
+
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              project: {
+                id: 'project-1',
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            errors: [{ message: 'project not found in workspace' }],
+          }),
+          { status: 200 },
+        ),
+      ) as unknown as typeof fetch
+
+    const client = new LinearWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
+    await expect(client.fetchActiveMilestoneSnapshot({ projectRef: 'project-ref' })).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    })
+
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              project: {
+                id: 'project-1',
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify({}), { status: 500 })) as unknown as typeof fetch
+
+    await expect(client.fetchActiveMilestoneSnapshot({ projectRef: 'project-ref' })).rejects.toMatchObject({
+      code: 'NETWORK',
+      message: 'Linear API request failed with status 500',
+    })
+  })
+
+  test('returns INVALID_CONFIG when parent slice metadata is incomplete', async () => {
+    process.env.LINEAR_API_KEY = 'linear-test-key'
+
+    globalThis.fetch = vi.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          data: {
+            issue: {
+              id: 'slice-1',
+              identifier: 'KAT-100',
+              title: 'Slice title',
+              project: { id: 'project-1' },
+              state: { id: 'state-todo', name: 'Todo', type: 'unstarted' },
+            },
+          },
+        }),
+        { status: 200 },
+      ),
+    ) as unknown as typeof fetch
+
+    const client = new LinearWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
+
+    await expect(
+      client.createChildTask({
+        parentIssueId: 'slice-1',
+        title: 'Task title',
+      }),
+    ).rejects.toMatchObject({
+      code: 'INVALID_CONFIG',
+    })
+
+    globalThis.fetch = vi.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          data: {
+            issue: {
+              id: 'slice-1',
+              identifier: 'KAT-100',
+              title: 'Slice title',
+              team: { id: 'team-1' },
+              state: { id: 'state-todo', name: 'Todo', type: 'unstarted' },
+            },
+          },
+        }),
+        { status: 200 },
+      ),
+    ) as unknown as typeof fetch
+
+    await expect(
+      client.createChildTask({
+        parentIssueId: 'slice-1',
+        title: 'Task title',
+      }),
+    ).rejects.toMatchObject({
+      code: 'INVALID_CONFIG',
+    })
+  })
+
+  test('returns NOT_FOUND when task update target column cannot be mapped', async () => {
+    process.env.LINEAR_API_KEY = 'linear-test-key'
+
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              issue: {
+                id: 'task-1',
+                identifier: 'KAT-101',
+                title: 'Task title',
+                description: 'Task description',
+                parent: { id: 'slice-1' },
+                team: { id: 'team-1' },
+                project: { id: 'project-1' },
+                state: { id: 'state-todo', name: 'Todo', type: 'unstarted' },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              team: {
+                states: {
+                  nodes: [{ id: 'state-progress', name: 'Doing', type: 'started' }],
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      ) as unknown as typeof fetch
+
+    const client = new LinearWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
+
+    await expect(
+      client.updateTask({
+        issueId: 'task-1',
+        title: 'Task title',
+        targetColumnId: 'agent_review',
+      }),
+    ).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    })
+  })
+
+  test('fetches task detail for edit dialogs on demand', async () => {
+    process.env.LINEAR_API_KEY = 'linear-test-key'
+
+    globalThis.fetch = vi.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          data: {
+            issue: {
+              id: 'task-1',
+              identifier: 'KAT-101',
+              title: 'Task title',
+              description: 'Task description',
+              parent: { id: 'slice-1' },
+              team: { id: 'team-1' },
+              project: { id: 'project-1' },
+              state: { id: 'state-progress', name: 'In Progress', type: 'started' },
+            },
+          },
+        }),
+        { status: 200 },
+      ),
+    ) as unknown as typeof fetch
+
+    const client = new LinearWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
+    const detail = await client.fetchIssueDetail({ issueId: 'task-1' })
+
+    expect(detail).toMatchObject({
+      id: 'task-1',
+      parentId: 'slice-1',
+      title: 'Task title',
+      description: 'Task description',
+      columnId: 'in_progress',
+    })
+  })
+
+  test('updates task title/description/state through the Linear update path', async () => {
+    process.env.LINEAR_API_KEY = 'linear-test-key'
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              issue: {
+                id: 'task-1',
+                identifier: 'KAT-101',
+                title: 'Task title',
+                description: 'Task description',
+                parent: { id: 'slice-1' },
+                team: { id: 'team-1' },
+                project: { id: 'project-1' },
+                state: { id: 'state-todo', name: 'Todo', type: 'unstarted' },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              team: {
+                states: {
+                  nodes: [
+                    { id: 'state-todo', name: 'Todo', type: 'unstarted' },
+                    { id: 'state-progress', name: 'In Progress', type: 'started' },
+                  ],
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              issueUpdate: {
+                success: true,
+                issue: {
+                  id: 'task-1',
+                  identifier: 'KAT-101',
+                  title: 'Updated task',
+                  description: 'Updated description',
+                  parent: { id: 'slice-1' },
+                  team: { id: 'team-1' },
+                  project: { id: 'project-1' },
+                  state: { id: 'state-progress', name: 'In Progress', type: 'started' },
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+
+    const client = new LinearWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
+    const result = await client.updateTask({
+      issueId: 'task-1',
+      title: 'Updated task',
+      description: 'Updated description',
+      targetColumnId: 'in_progress',
+    })
+
+    expect(result).toMatchObject({
+      id: 'task-1',
+      title: 'Updated task',
+      description: 'Updated description',
+      columnId: 'in_progress',
+    })
+
+    const mutationVariables = JSON.parse(String(fetchMock.mock.calls[2]?.[1]?.body ?? '{}')).variables
+    expect(mutationVariables).toMatchObject({
+      issueId: 'task-1',
+      input: {
+        title: 'Updated task',
+        description: 'Updated description',
+        stateId: 'state-progress',
+      },
+    })
+  })
+
+  test('omits description from update payload when callers do not provide it', async () => {
+    process.env.LINEAR_API_KEY = 'linear-test-key'
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              issue: {
+                id: 'task-1',
+                identifier: 'KAT-101',
+                title: 'Task title',
+                description: 'Existing description',
+                parent: { id: 'slice-1' },
+                team: { id: 'team-1' },
+                project: { id: 'project-1' },
+                state: { id: 'state-todo', name: 'Todo', type: 'unstarted' },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              issueUpdate: {
+                success: true,
+                issue: {
+                  id: 'task-1',
+                  identifier: 'KAT-101',
+                  title: 'Title-only update',
+                  description: 'Existing description',
+                  parent: { id: 'slice-1' },
+                  team: { id: 'team-1' },
+                  project: { id: 'project-1' },
+                  state: { id: 'state-todo', name: 'Todo', type: 'unstarted' },
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+
+    const client = new LinearWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
+    const result = await client.updateTask({
+      issueId: 'task-1',
+      title: 'Title-only update',
+    })
+
+    expect(result).toMatchObject({
+      id: 'task-1',
+      title: 'Title-only update',
+      description: 'Existing description',
+      columnId: 'todo',
+    })
+
+    const mutationVariables = JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body ?? '{}')).variables
+    expect(mutationVariables).toMatchObject({
+      issueId: 'task-1',
+      input: {
+        title: 'Title-only update',
+      },
+    })
+    expect(mutationVariables.input).not.toHaveProperty('description')
+  })
+
   test('exposes structured workflow error codes', () => {
     const mapped = LinearWorkflowClient.toWorkflowError(
       new LinearWorkflowClientError('UNAUTHORIZED', 'bad key', 401),
@@ -419,6 +1291,24 @@ describe('LinearWorkflowClient', () => {
     expect(networkMapped).toEqual({
       code: 'NETWORK',
       message: 'fetch failed',
+    })
+
+    const timeoutMapped = LinearWorkflowClient.toWorkflowError(new DOMException('Aborted', 'AbortError'))
+    expect(timeoutMapped).toEqual({
+      code: 'NETWORK',
+      message: 'Linear API request timed out',
+    })
+
+    const errorMapped = LinearWorkflowClient.toWorkflowError(new Error('unexpected failure'))
+    expect(errorMapped).toEqual({
+      code: 'UNKNOWN',
+      message: 'unexpected failure',
+    })
+
+    const unknownMapped = LinearWorkflowClient.toWorkflowError(42 as unknown)
+    expect(unknownMapped).toEqual({
+      code: 'UNKNOWN',
+      message: '42',
     })
   })
 })

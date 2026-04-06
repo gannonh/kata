@@ -31,6 +31,10 @@ export const IPC_CHANNELS = {
   workflowRefreshBoard: 'workflow:refresh-board',
   workflowSetBoardActive: 'workflow:set-board-active',
   workflowSetScope: 'workflow:set-scope',
+  workflowMoveEntity: 'workflow:move-entity',
+  workflowCreateTask: 'workflow:create-task',
+  workflowGetTaskDetail: 'workflow:get-task-detail',
+  workflowUpdateTask: 'workflow:update-task',
   workflowRespondEscalation: 'workflow:respond-escalation',
   workflowOpenIssue: 'workflow:open-issue',
   workflowGetContext: 'workflow:get-context',
@@ -679,9 +683,14 @@ export interface WorkflowBoardTask {
   id: string
   identifier?: string
   title: string
+  description?: string
   columnId: WorkflowColumnId
+  stateId?: string
   stateName: string
   stateType: string
+  teamId?: string
+  projectId?: string
+  parentSliceId?: string
   url?: string
   symphony?: WorkflowSymphonyExecutionSummary
 }
@@ -691,8 +700,11 @@ export interface WorkflowBoardSliceCard {
   identifier: string
   title: string
   columnId: WorkflowColumnId
+  stateId?: string
   stateName: string
   stateType: string
+  teamId?: string
+  projectId?: string
   url?: string
   milestoneId: string
   milestoneName: string
@@ -768,6 +780,135 @@ export interface WorkflowBoardScopeResponse {
   requestedScope: WorkflowBoardScope
   resolvedScope: WorkflowBoardScope
   resolutionReason: WorkflowBoardScopeResolutionReason
+}
+
+export type WorkflowEntityKind = 'slice' | 'task'
+
+export interface WorkflowMoveEntityRequest {
+  entityKind: WorkflowEntityKind
+  entityId: string
+  targetColumnId: WorkflowColumnId
+  currentColumnId?: WorkflowColumnId
+  currentStateId?: string
+  currentStateName?: string
+  currentStateType?: string
+  teamId?: string
+  projectId?: string
+}
+
+export type WorkflowMoveEntityCode =
+  | 'COMMITTED'
+  | 'ROLLED_BACK'
+  | 'VALIDATION_ERROR'
+  | 'NOT_FOUND'
+  | 'UNSUPPORTED'
+  | 'FAILED'
+
+export interface WorkflowMoveEntityResult {
+  success: boolean
+  entityKind: WorkflowEntityKind
+  entityId: string
+  targetColumnId: WorkflowColumnId
+  status: 'success' | 'error'
+  code: WorkflowMoveEntityCode
+  phase: 'committed' | 'rolled_back'
+  message: string
+  refreshBoard: boolean
+  updatedAt: string
+}
+
+export interface WorkflowCreateTaskRequest {
+  parentSliceId: string
+  title: string
+  description?: string
+  initialColumnId?: WorkflowColumnId
+  teamId?: string
+  projectId?: string
+}
+
+export type WorkflowCreateTaskCode =
+  | 'CREATED'
+  | 'VALIDATION_ERROR'
+  | 'ROLLED_BACK'
+  | 'NOT_FOUND'
+  | 'UNSUPPORTED'
+  | 'FAILED'
+
+export interface WorkflowCreateTaskResult {
+  success: boolean
+  parentSliceId: string
+  status: 'success' | 'error'
+  code: WorkflowCreateTaskCode
+  message: string
+  refreshBoard: boolean
+  updatedAt: string
+  task?: {
+    id: string
+    identifier?: string
+    title: string
+    columnId: WorkflowColumnId
+  }
+}
+
+export interface WorkflowTaskDetailRequest {
+  taskId: string
+}
+
+export interface WorkflowTaskDetail {
+  id: string
+  identifier?: string
+  parentSliceId?: string
+  teamId?: string
+  projectId?: string
+  stateId?: string
+  stateName: string
+  stateType: string
+  columnId: WorkflowColumnId
+  title: string
+  description: string
+}
+
+export type WorkflowTaskDetailCode = 'LOADED' | 'NOT_FOUND' | 'UNSUPPORTED' | 'FAILED'
+
+export interface WorkflowTaskDetailResponse {
+  success: boolean
+  code: WorkflowTaskDetailCode
+  message: string
+  task?: WorkflowTaskDetail
+}
+
+export interface WorkflowUpdateTaskRequest {
+  taskId: string
+  title: string
+  description?: string
+  targetColumnId?: WorkflowColumnId
+  teamId?: string
+  projectId?: string
+  currentStateId?: string
+}
+
+export type WorkflowUpdateTaskCode =
+  | 'UPDATED'
+  | 'VALIDATION_ERROR'
+  | 'ROLLED_BACK'
+  | 'NOT_FOUND'
+  | 'UNSUPPORTED'
+  | 'FAILED'
+
+export interface WorkflowUpdateTaskResult {
+  success: boolean
+  taskId: string
+  status: 'success' | 'error'
+  code: WorkflowUpdateTaskCode
+  message: string
+  refreshBoard: boolean
+  updatedAt: string
+  task?: {
+    id: string
+    identifier?: string
+    title: string
+    columnId: WorkflowColumnId
+  }
 }
 
 export interface WorkflowBoardEscalationResponseRequest {
@@ -1248,6 +1389,10 @@ export interface DesktopApi {
     refreshBoard: () => Promise<WorkflowBoardSnapshotResponse>
     setBoardActive: (active: boolean) => Promise<WorkflowBoardLifecycleResponse>
     setScope: (request: WorkflowBoardScopeRequest | string) => Promise<WorkflowBoardScopeResponse>
+    moveEntity: (request: WorkflowMoveEntityRequest) => Promise<WorkflowMoveEntityResult>
+    createTask: (request: WorkflowCreateTaskRequest) => Promise<WorkflowCreateTaskResult>
+    getTaskDetail: (request: WorkflowTaskDetailRequest) => Promise<WorkflowTaskDetailResponse>
+    updateTask: (request: WorkflowUpdateTaskRequest) => Promise<WorkflowUpdateTaskResult>
     respondToEscalation: (
       request: WorkflowBoardEscalationResponseRequest,
     ) => Promise<WorkflowBoardEscalationResponseResult>
