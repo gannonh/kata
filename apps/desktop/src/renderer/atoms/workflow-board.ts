@@ -19,6 +19,21 @@ export const workflowBoardRefreshingAtom = atom<boolean>(false)
 export const workflowBoardErrorAtom = atom<string | null>(null)
 export const workflowBoardActiveAtom = atom<boolean>(false)
 
+type EscalationActionState = {
+  status: 'idle' | 'submitting' | 'success' | 'error' | 'disabled'
+  message?: string
+  updatedAt: string
+}
+
+type IssueActionState = {
+  status: 'idle' | 'opening' | 'success' | 'error' | 'disabled'
+  message?: string
+  updatedAt: string
+}
+
+export const workflowEscalationActionStateAtom = atom<Record<string, EscalationActionState>>({})
+export const workflowIssueActionStateAtom = atom<Record<string, IssueActionState>>({})
+
 const workflowBoardScopePreferencesAtom = atomWithStorage<ScopePreferenceMap>(
   WORKFLOW_BOARD_SCOPE_STORAGE_KEY,
   {},
@@ -112,6 +127,77 @@ export const refreshWorkflowBoardAtom = atom(null, async (_get, set) => {
     set(workflowBoardRefreshingAtom, false)
   }
 })
+
+export const respondToWorkflowEscalationAtom = atom(
+  null,
+  async (_get, set, input: { cardId: string; requestId: string; responseText: string }) => {
+    const actionKey = `${input.cardId}:${input.requestId}`
+    const nowIso = new Date().toISOString()
+    set(workflowEscalationActionStateAtom, (previous) => ({
+      ...previous,
+      [actionKey]: {
+        status: 'submitting',
+        message: 'Submitting escalation response…',
+        updatedAt: nowIso,
+      },
+    }))
+
+    const result = await window.api.workflow.respondToEscalation({
+      cardId: input.cardId,
+      requestId: input.requestId,
+      responseText: input.responseText,
+    })
+
+    set(workflowEscalationActionStateAtom, (previous) => ({
+      ...previous,
+      [actionKey]: {
+        status: result.status,
+        message: result.message,
+        updatedAt: result.completedAt,
+      },
+    }))
+
+    if (result.refreshBoard) {
+      const boardResponse = await window.api.workflow.refreshBoard()
+      set(workflowBoardAtom, boardResponse.snapshot)
+      set(workflowBoardErrorAtom, boardResponse.snapshot.lastError?.message ?? null)
+    }
+
+    return result
+  },
+)
+
+export const openWorkflowIssueAtom = atom(
+  null,
+  async (_get, set, input: { cardId: string; url: string; identifier?: string }) => {
+    const nowIso = new Date().toISOString()
+    set(workflowIssueActionStateAtom, (previous) => ({
+      ...previous,
+      [input.cardId]: {
+        status: 'opening',
+        message: 'Opening issue link…',
+        updatedAt: nowIso,
+      },
+    }))
+
+    const result = await window.api.workflow.openIssue({
+      cardId: input.cardId,
+      url: input.url,
+      identifier: input.identifier,
+    })
+
+    set(workflowIssueActionStateAtom, (previous) => ({
+      ...previous,
+      [input.cardId]: {
+        status: result.status,
+        message: result.message,
+        updatedAt: result.openedAt,
+      },
+    }))
+
+    return result
+  },
+)
 
 function buildScopeKey(params: {
   workspacePath: string

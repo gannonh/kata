@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import type { WorkflowBoardSliceCard } from '@shared/types'
-import { formatSliceSymphonyHint } from '../SliceCard'
+import { formatSliceSymphonyHint, isInlineEscalationEnabled } from '../SliceCard'
 
 describe('SliceCard symphony hint formatting', () => {
   test('shows unavailable hint when context is missing', () => {
@@ -68,5 +68,36 @@ describe('SliceCard symphony hint formatting', () => {
         provenance: 'dashboard-derived',
       }),
     ).toBe('Execution: active')
+  })
+})
+
+describe('SliceCard inline escalation affordance', () => {
+  test('enables inline responses only for fresh dashboard-derived state', () => {
+    expect(
+      isInlineEscalationEnabled({
+        assignmentState: 'assigned',
+        pendingEscalations: 1,
+        freshness: 'fresh',
+        provenance: 'dashboard-derived',
+      }),
+    ).toBe(true)
+
+    expect(
+      isInlineEscalationEnabled({
+        assignmentState: 'assigned',
+        pendingEscalations: 1,
+        freshness: 'stale',
+        provenance: 'operator-stale',
+      }),
+    ).toBe(false)
+
+    expect(
+      isInlineEscalationEnabled({
+        assignmentState: 'assigned',
+        pendingEscalations: 1,
+        freshness: 'disconnected',
+        provenance: 'runtime-disconnected',
+      }),
+    ).toBe(false)
   })
 })

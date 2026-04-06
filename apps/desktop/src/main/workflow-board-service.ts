@@ -760,21 +760,21 @@ export class WorkflowBoardService {
       }
     }
 
-    const escalationsByIdentifier = new Map<string, Set<string>>()
-    const escalationsByIssueId = new Map<string, Set<string>>()
+    const escalationsByIdentifier = new Map<string, SymphonyOperatorSnapshot['escalations']>()
+    const escalationsByIssueId = new Map<string, SymphonyOperatorSnapshot['escalations']>()
     for (const escalation of operatorSnapshot.escalations) {
       const normalizedIdentifier = normalizeIdentifier(escalation.issueIdentifier)
       if (normalizedIdentifier) {
-        const requestIds = escalationsByIdentifier.get(normalizedIdentifier) ?? new Set<string>()
-        requestIds.add(escalation.requestId)
-        escalationsByIdentifier.set(normalizedIdentifier, requestIds)
+        const entries = escalationsByIdentifier.get(normalizedIdentifier) ?? []
+        entries.push(escalation)
+        escalationsByIdentifier.set(normalizedIdentifier, entries)
       }
 
       const normalizedIssueId = normalizeIdentifier(escalation.issueId)
       if (normalizedIssueId) {
-        const requestIds = escalationsByIssueId.get(normalizedIssueId) ?? new Set<string>()
-        requestIds.add(escalation.requestId)
-        escalationsByIssueId.set(normalizedIssueId, requestIds)
+        const entries = escalationsByIssueId.get(normalizedIssueId) ?? []
+        entries.push(escalation)
+        escalationsByIssueId.set(normalizedIssueId, entries)
       }
     }
 
@@ -791,14 +791,16 @@ export class WorkflowBoardService {
       const workerByIssueId = normalizedIssueId ? workersByIssueId.get(normalizedIssueId) : undefined
       const worker = workerByIdentifier ?? workerByIssueId
 
-      const escalationRequestIds = new Set<string>()
-      for (const requestId of normalizedIdentifier ? escalationsByIdentifier.get(normalizedIdentifier) ?? [] : []) {
-        escalationRequestIds.add(requestId)
+      const matchedEscalationsByRequestId = new Map<string, SymphonyOperatorSnapshot['escalations'][number]>()
+      for (const escalation of normalizedIdentifier ? escalationsByIdentifier.get(normalizedIdentifier) ?? [] : []) {
+        matchedEscalationsByRequestId.set(escalation.requestId, escalation)
       }
-      for (const requestId of normalizedIssueId ? escalationsByIssueId.get(normalizedIssueId) ?? [] : []) {
-        escalationRequestIds.add(requestId)
+      for (const escalation of normalizedIssueId ? escalationsByIssueId.get(normalizedIssueId) ?? [] : []) {
+        matchedEscalationsByRequestId.set(escalation.requestId, escalation)
       }
-      const pendingEscalations = escalationRequestIds.size
+
+      const matchedEscalations = Array.from(matchedEscalationsByRequestId.values())
+      const pendingEscalations = matchedEscalations.length
 
       if (workerByIdentifier && normalizedIdentifier) {
         matchedWorkerKeys.add(`identifier:${normalizedIdentifier}`)
@@ -806,8 +808,8 @@ export class WorkflowBoardService {
         matchedWorkerKeys.add(`issue:${normalizedIssueId}`)
       }
 
-      for (const requestId of escalationRequestIds) {
-        matchedEscalationRequestIds.add(requestId)
+      for (const escalation of matchedEscalations) {
+        matchedEscalationRequestIds.add(escalation.requestId)
       }
 
       return {
@@ -819,6 +821,12 @@ export class WorkflowBoardService {
         lastActivityAt: worker?.lastActivityAt,
         lastError: worker?.lastError,
         pendingEscalations,
+        pendingEscalationRequests: matchedEscalations.map((escalation) => ({
+          requestId: escalation.requestId,
+          questionPreview: escalation.questionPreview,
+          createdAt: escalation.createdAt,
+          timeoutMs: escalation.timeoutMs,
+        })),
         assignmentState: worker ? ('assigned' as const) : ('unassigned' as const),
         freshness,
         provenance,
