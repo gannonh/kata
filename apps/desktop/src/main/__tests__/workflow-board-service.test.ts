@@ -183,6 +183,118 @@ describe('WorkflowBoardService', () => {
     expect(editedTask?.columnId).toBe('agent_review')
   })
 
+  test('maps fixture-mode task updates to backlog and done state types', async () => {
+    process.env.KATA_TEST_WORKFLOW_FIXTURE = '1'
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+    })
+
+    await service.getBoard()
+
+    const backlogMove = await service.updateTask({
+      taskId: 'task-2',
+      title: 'Task moved to backlog',
+      description: 'Backlog transition coverage',
+      targetColumnId: 'backlog',
+    })
+
+    expect(backlogMove.success).toBe(true)
+    expect(backlogMove.task?.columnId).toBe('backlog')
+
+    const afterBacklogRefresh = await service.refreshBoard()
+    const cardAfterBacklog = afterBacklogRefresh.snapshot.columns
+      .flatMap((column) => column.cards)
+      .find((card) => card.id === 'slice-1')
+    const taskAfterBacklog = cardAfterBacklog?.tasks.find((task) => task.id === 'task-2')
+
+    expect(taskAfterBacklog?.columnId).toBe('backlog')
+    expect(taskAfterBacklog?.stateType).toBe('backlog')
+
+    const doneMove = await service.updateTask({
+      taskId: 'task-2',
+      title: 'Task moved to done',
+      description: 'Done transition coverage',
+      targetColumnId: 'done',
+    })
+
+    expect(doneMove.success).toBe(true)
+    expect(doneMove.task?.columnId).toBe('done')
+
+    const refreshed = await service.refreshBoard()
+    const parentCard = refreshed.snapshot.columns.flatMap((column) => column.cards).find((card) => card.id === 'slice-1')
+    const updatedTask = parentCard?.tasks.find((task) => task.id === 'task-2')
+
+    expect(updatedTask?.columnId).toBe('done')
+    expect(updatedTask?.stateType).toBe('completed')
+    expect(parentCard?.taskCounts.done).toBeGreaterThanOrEqual(1)
+  })
+
+  test('active-scope projection treats cards without symphony summaries as inactive', async () => {
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+    })
+
+    service.setScope({ scopeKey: 'workspace:a::session:b::scope:active', requestedScope: 'active' })
+
+    const scoped = (service as any).resolveScope({
+      backend: 'linear',
+      fetchedAt: '2026-04-06T00:00:00.000Z',
+      status: 'fresh',
+      source: { projectId: 'project-ref' },
+      activeMilestone: { id: 'milestone-1', name: '[M001] Demo' },
+      columns: [
+        {
+          id: 'todo',
+          title: 'Todo',
+          cards: [
+            {
+              id: 'slice-1',
+              identifier: 'KAT-2247',
+              title: 'No symphony card',
+              columnId: 'todo',
+              stateName: 'Todo',
+              stateType: 'unstarted',
+              milestoneId: 'milestone-1',
+              milestoneName: '[M001] Demo',
+              taskCounts: { total: 1, done: 0 },
+              tasks: [
+                {
+                  id: 'task-1',
+                  identifier: 'KAT-2250',
+                  title: 'No symphony task',
+                  columnId: 'todo',
+                  stateName: 'Todo',
+                  stateType: 'unstarted',
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      symphony: {
+        provenance: 'dashboard-derived',
+        freshness: 'fresh',
+        fetchedAt: '2026-04-06T00:00:00.000Z',
+        workerCount: 0,
+        escalationCount: 0,
+        diagnostics: { correlationMisses: [] },
+      },
+      poll: {
+        status: 'success',
+        backend: 'linear',
+        lastAttemptAt: '2026-04-06T00:00:00.000Z',
+        lastSuccessAt: '2026-04-06T00:00:00.000Z',
+      },
+    })
+
+    expect(scoped.scope?.requested).toBe('active')
+    expect(scoped.scope?.resolved).toBe('active')
+    expect(scoped.columns.find((column: { id: string }) => column.id === 'todo')?.cards).toHaveLength(0)
+  })
+
   test('returns rollback failure for fixture-mode task edit rejection', async () => {
     process.env.KATA_TEST_WORKFLOW_FIXTURE = '1'
 

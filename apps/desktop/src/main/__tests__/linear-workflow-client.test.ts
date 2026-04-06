@@ -405,6 +405,40 @@ describe('LinearWorkflowClient', () => {
     })
   })
 
+  test('maps non-classified GraphQL payload errors to GRAPHQL', async () => {
+    process.env.LINEAR_API_KEY = 'linear-test-key'
+
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              project: {
+                id: 'project-1',
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            errors: [{ message: 'workflow exploded' }],
+          }),
+          { status: 200 },
+        ),
+      ) as unknown as typeof fetch
+
+    const client = new LinearWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
+
+    await expect(client.fetchActiveMilestoneSnapshot({ projectRef: 'project-ref' })).rejects.toMatchObject({
+      code: 'GRAPHQL',
+      message: 'workflow exploded',
+    })
+  })
+
   test('moves an issue to a canonical column through team workflow-state mapping', async () => {
     process.env.LINEAR_API_KEY = 'linear-test-key'
 
@@ -750,6 +784,18 @@ describe('LinearWorkflowClient', () => {
     expect(networkMapped).toEqual({
       code: 'NETWORK',
       message: 'fetch failed',
+    })
+
+    const timeoutMapped = LinearWorkflowClient.toWorkflowError(new DOMException('Aborted', 'AbortError'))
+    expect(timeoutMapped).toEqual({
+      code: 'NETWORK',
+      message: 'Linear API request timed out',
+    })
+
+    const unknownMapped = LinearWorkflowClient.toWorkflowError(42 as unknown)
+    expect(unknownMapped).toEqual({
+      code: 'UNKNOWN',
+      message: '42',
     })
   })
 })
