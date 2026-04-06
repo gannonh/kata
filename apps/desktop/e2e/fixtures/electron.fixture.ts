@@ -128,6 +128,9 @@ export const test = base.extend<DesktopFixtures>({
         KATA_DESKTOP_SYMPHONY_MOCK: symphonyMockMode,
         KATA_DESKTOP_SYMPHONY_DASHBOARD_MOCK: symphonyMockMode,
         KATA_SYMPHONY_URL: 'http://127.0.0.1:8080',
+        // Force packaged-file mode for deterministic e2e: if a parent shell exported
+        // VITE_DEV_SERVER_URL we would silently bind to an arbitrary dev server.
+        VITE_DEV_SERVER_URL: '',
         // Don't override HOME — that breaks CLI binary discovery and auth.json lookup.
         // The --user-data-dir flag isolates Electron's own data (localStorage, cookies).
       },

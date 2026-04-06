@@ -500,7 +500,10 @@ export class SymphonyOperatorService extends EventEmitter {
     const staleFetchedAt = new Date(Date.now() - STALE_AFTER_MS - 5_000).toISOString()
 
     const isLegacyKanbanMode =
-      mockMode === 'kanban_assigned' || mockMode === 'kanban_stale' || mockMode === 'kanban_disconnected'
+      mockMode === 'kanban_assigned' ||
+      mockMode === 'kanban_stale' ||
+      mockMode === 'kanban_disconnected' ||
+      mockMode === 'response_failure'
     const isAssembledMode = mockMode === 'assembled_healthy' || mockMode === 'assembled_failure_recovery'
     const isKanbanMode = isLegacyKanbanMode || isAssembledMode
 

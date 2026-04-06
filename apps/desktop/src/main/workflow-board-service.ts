@@ -50,6 +50,7 @@ const TEST_LINEAR_WORKFLOW_FIXTURE: WorkflowBoardSnapshot = {
           stateType: 'unstarted',
           milestoneId: 'm003',
           milestoneName: '[M003] Workflow Kanban',
+          url: 'https://linear.app/kata-sh/issue/KAT-2247',
           taskCounts: { total: 2, done: 1 },
           tasks: [
             {
