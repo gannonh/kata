@@ -140,6 +140,68 @@ describe('WorkflowBoardService', () => {
     expect(failed.code).toBe('ROLLED_BACK')
   })
 
+  test('loads fixture-mode task detail for task edit dialog hydration', async () => {
+    process.env.KATA_TEST_WORKFLOW_FIXTURE = '1'
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+    })
+
+    await service.getBoard()
+    const detail = await service.getTaskDetail({ taskId: 'task-2' })
+
+    expect(detail.success).toBe(true)
+    expect(detail.code).toBe('LOADED')
+    expect(detail.task?.id).toBe('task-2')
+    expect(detail.task?.columnId).toBe('in_progress')
+  })
+
+  test('updates fixture-mode tasks and persists edit changes after refresh', async () => {
+    process.env.KATA_TEST_WORKFLOW_FIXTURE = '1'
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+    })
+
+    await service.getBoard()
+    const updated = await service.updateTask({
+      taskId: 'task-2',
+      title: 'Edited task title',
+      description: 'Edited task description',
+      targetColumnId: 'agent_review',
+    })
+
+    expect(updated.success).toBe(true)
+    expect(updated.code).toBe('UPDATED')
+
+    const refreshed = await service.refreshBoard()
+    const parentCard = refreshed.snapshot.columns.flatMap((column) => column.cards).find((card) => card.id === 'slice-1')
+    const editedTask = parentCard?.tasks.find((task) => task.id === 'task-2')
+    expect(editedTask?.title).toBe('Edited task title')
+    expect(editedTask?.columnId).toBe('agent_review')
+  })
+
+  test('returns rollback failure for fixture-mode task edit rejection', async () => {
+    process.env.KATA_TEST_WORKFLOW_FIXTURE = '1'
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+    })
+
+    const failed = await service.updateTask({
+      taskId: 'task-2',
+      title: 'fail this edit path',
+      description: 'Should trigger rollback',
+      targetColumnId: 'todo',
+    })
+
+    expect(failed.success).toBe(false)
+    expect(failed.code).toBe('ROLLED_BACK')
+  })
+
   test('uses assembled linear fixture in test mode when assembled symphony mock is active', async () => {
     process.env.KATA_TEST_WORKFLOW_FIXTURE = '1'
     process.env.KATA_DESKTOP_SYMPHONY_DASHBOARD_MOCK = 'assembled_healthy'

@@ -52,6 +52,10 @@ import {
   type WorkflowMoveEntityResult,
   type WorkflowCreateTaskRequest,
   type WorkflowCreateTaskResult,
+  type WorkflowTaskDetailRequest,
+  type WorkflowTaskDetailResponse,
+  type WorkflowUpdateTaskRequest,
+  type WorkflowUpdateTaskResult,
   type WorkflowBoardEscalationResponseRequest,
   type WorkflowBoardEscalationResponseResult,
   type WorkflowBoardOpenIssueRequest,
@@ -592,6 +596,8 @@ export function registerSessionIpc({
   ipcMain.removeHandler(IPC_CHANNELS.workflowSetScope)
   ipcMain.removeHandler(IPC_CHANNELS.workflowMoveEntity)
   ipcMain.removeHandler(IPC_CHANNELS.workflowCreateTask)
+  ipcMain.removeHandler(IPC_CHANNELS.workflowGetTaskDetail)
+  ipcMain.removeHandler(IPC_CHANNELS.workflowUpdateTask)
   ipcMain.removeHandler(IPC_CHANNELS.workflowRespondEscalation)
   ipcMain.removeHandler(IPC_CHANNELS.workflowOpenIssue)
   ipcMain.removeHandler(IPC_CHANNELS.workflowGetContext)
@@ -1227,6 +1233,20 @@ export function registerSessionIpc({
   )
 
   ipcMain.handle(
+    IPC_CHANNELS.workflowGetTaskDetail,
+    async (_event, request: WorkflowTaskDetailRequest): Promise<WorkflowTaskDetailResponse> => {
+      return workflowBoardService.getTaskDetail(request)
+    },
+  )
+
+  ipcMain.handle(
+    IPC_CHANNELS.workflowUpdateTask,
+    async (_event, request: WorkflowUpdateTaskRequest): Promise<WorkflowUpdateTaskResult> => {
+      return workflowBoardService.updateTask(request)
+    },
+  )
+
+  ipcMain.handle(
     IPC_CHANNELS.workflowRespondEscalation,
     async (_event, request: WorkflowBoardEscalationResponseRequest): Promise<WorkflowBoardEscalationResponseResult> => {
       if (!symphonyOperatorService) {
@@ -1530,6 +1550,8 @@ export function registerSessionIpc({
     ipcMain.removeHandler(IPC_CHANNELS.workflowSetScope)
     ipcMain.removeHandler(IPC_CHANNELS.workflowMoveEntity)
     ipcMain.removeHandler(IPC_CHANNELS.workflowCreateTask)
+    ipcMain.removeHandler(IPC_CHANNELS.workflowGetTaskDetail)
+    ipcMain.removeHandler(IPC_CHANNELS.workflowUpdateTask)
     ipcMain.removeHandler(IPC_CHANNELS.workflowRespondEscalation)
     ipcMain.removeHandler(IPC_CHANNELS.workflowOpenIssue)
     ipcMain.removeHandler(IPC_CHANNELS.workflowGetContext)

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { WorkflowColumnId } from '@shared/types'
+import { WORKFLOW_COLUMNS, type WorkflowColumnId } from '@shared/types'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 
 export interface TaskMutationDialogValues {
@@ -27,6 +28,8 @@ export interface TaskMutationDialogProps {
   confirmLabel: string
   initialValues?: Partial<TaskMutationDialogValues>
   includeStateField?: boolean
+  stateOptions?: ReadonlyArray<{ id: WorkflowColumnId; title: string }>
+  loading?: boolean
   submitting?: boolean
   errorMessage?: string | null
   onOpenChange: (open: boolean) => void
@@ -59,6 +62,8 @@ export function TaskMutationDialog({
   confirmLabel,
   initialValues,
   includeStateField = false,
+  stateOptions = WORKFLOW_COLUMNS,
+  loading = false,
   submitting = false,
   errorMessage = null,
   onOpenChange,
@@ -89,6 +94,10 @@ export function TaskMutationDialog({
   }, [open, mergedInitialValues])
 
   const submit = async () => {
+    if (loading || submitting) {
+      return
+    }
+
     const nextValidationError = validateTaskMutationValues(values)
     if (nextValidationError) {
       setValidationError(nextValidationError)
@@ -105,7 +114,7 @@ export function TaskMutationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[34rem]" showCloseButton={!submitting}>
+      <DialogContent className="sm:max-w-[34rem]" showCloseButton={!loading && !submitting}>
         <DialogHeader>
           <DialogTitle>{heading}</DialogTitle>
           {subheading ? <DialogDescription>{subheading}</DialogDescription> : null}
@@ -123,7 +132,7 @@ export function TaskMutationDialog({
                 setValues((current) => ({ ...current, title }))
               }}
               data-testid="task-mutation-title"
-              disabled={submitting}
+              disabled={loading || submitting}
             />
           </div>
 
@@ -138,13 +147,40 @@ export function TaskMutationDialog({
                 setValues((current) => ({ ...current, description }))
               }}
               data-testid="task-mutation-description"
-              disabled={submitting}
+              disabled={loading || submitting}
             />
           </div>
 
           {includeStateField ? (
-            <p className="text-xs text-muted-foreground" data-testid="task-mutation-state-placeholder">
-              State editing is enabled in edit mode.
+            <div className="space-y-1.5">
+              <Label htmlFor="task-mutation-state">State</Label>
+              <Select
+                value={values.columnId}
+                onValueChange={(value) => {
+                  setValues((current) => ({
+                    ...current,
+                    columnId: value as WorkflowColumnId,
+                  }))
+                }}
+                disabled={loading || submitting}
+              >
+                <SelectTrigger id="task-mutation-state" className="w-full rounded-md border border-border/70">
+                  <SelectValue placeholder="Select task state" />
+                </SelectTrigger>
+                <SelectContent>
+                  {stateOptions.map((option) => (
+                    <SelectItem key={option.id} value={option.id}>
+                      {option.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
+
+          {loading ? (
+            <p className="text-xs text-muted-foreground" data-testid="task-mutation-loading">
+              Loading task details…
             </p>
           ) : null}
 
@@ -166,12 +202,17 @@ export function TaskMutationDialog({
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
-            disabled={submitting}
+            disabled={loading || submitting}
           >
             Cancel
           </Button>
-          <Button type="button" onClick={() => void submit()} data-testid="task-mutation-submit" disabled={submitting}>
-            {submitting ? `${confirmLabel}…` : confirmLabel}
+          <Button
+            type="button"
+            onClick={() => void submit()}
+            data-testid="task-mutation-submit"
+            disabled={loading || submitting}
+          >
+            {loading ? 'Loading…' : submitting ? `${confirmLabel}…` : confirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

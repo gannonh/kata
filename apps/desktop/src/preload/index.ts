@@ -169,6 +169,12 @@ const api: DesktopApi = {
     createTask: async (request: Parameters<DesktopApi['workflow']['createTask']>[0]) => {
       return ipcRenderer.invoke(IPC_CHANNELS.workflowCreateTask, request)
     },
+    getTaskDetail: async (request: Parameters<DesktopApi['workflow']['getTaskDetail']>[0]) => {
+      return ipcRenderer.invoke(IPC_CHANNELS.workflowGetTaskDetail, request)
+    },
+    updateTask: async (request: Parameters<DesktopApi['workflow']['updateTask']>[0]) => {
+      return ipcRenderer.invoke(IPC_CHANNELS.workflowUpdateTask, request)
+    },
     respondToEscalation: async (request: Parameters<DesktopApi['workflow']['respondToEscalation']>[0]) => {
       return ipcRenderer.invoke(IPC_CHANNELS.workflowRespondEscalation, request)
     },

@@ -23,6 +23,10 @@ import type {
   WorkflowMoveEntityResult,
   WorkflowCreateTaskRequest,
   WorkflowCreateTaskResult,
+  WorkflowTaskDetailRequest,
+  WorkflowTaskDetailResponse,
+  WorkflowUpdateTaskRequest,
+  WorkflowUpdateTaskResult,
   WorkflowTrackerConfig,
   WorkflowColumnId,
   WorkflowSymphonyExecutionFreshness,
@@ -628,6 +632,220 @@ export class WorkflowBoardService {
         parentSliceId,
         status: 'error',
         code,
+        message: workflowError.message,
+        refreshBoard: false,
+        updatedAt,
+      }
+    }
+  }
+
+  async getTaskDetail(request: WorkflowTaskDetailRequest): Promise<WorkflowTaskDetailResponse> {
+    const taskId = request.taskId.trim()
+    if (!taskId) {
+      return {
+        success: false,
+        code: 'FAILED',
+        message: 'Task id is required.',
+      }
+    }
+
+    const snapshot = this.lastSnapshot ?? (await this.getBoard()).snapshot
+    if (snapshot.backend !== 'linear') {
+      return {
+        success: false,
+        code: 'UNSUPPORTED',
+        message: 'Task editing is currently supported only for Linear trackers.',
+      }
+    }
+
+    if (isWorkflowFixtureEnabled()) {
+      const task = findWorkflowEntity(snapshot, 'task', taskId)
+      if (!task || 'tasks' in task) {
+        return {
+          success: false,
+          code: 'NOT_FOUND',
+          message: `Task ${taskId} is no longer visible on the board.`,
+        }
+      }
+
+      return {
+        success: true,
+        code: 'LOADED',
+        message: 'Task details loaded.',
+        task: {
+          id: task.id,
+          identifier: task.identifier,
+          parentSliceId: task.parentSliceId,
+          teamId: task.teamId,
+          projectId: task.projectId,
+          stateId: task.stateId,
+          stateName: task.stateName,
+          stateType: task.stateType,
+          columnId: task.columnId,
+          title: task.title,
+          description: '',
+        },
+      }
+    }
+
+    try {
+      const detail = await this.linearClient.fetchIssueDetail({ issueId: taskId })
+      return {
+        success: true,
+        code: 'LOADED',
+        message: 'Task details loaded.',
+        task: {
+          id: detail.id,
+          identifier: detail.identifier,
+          parentSliceId: detail.parentId,
+          teamId: detail.teamId,
+          projectId: detail.projectId,
+          stateId: detail.stateId,
+          stateName: detail.stateName,
+          stateType: detail.stateType,
+          columnId: detail.columnId,
+          title: detail.title ?? '',
+          description: detail.description,
+        },
+      }
+    } catch (error) {
+      const workflowError = LinearWorkflowClient.toWorkflowError(error)
+      return {
+        success: false,
+        code: workflowError.code === 'NOT_FOUND' ? 'NOT_FOUND' : 'FAILED',
+        message: workflowError.message,
+      }
+    }
+  }
+
+  async updateTask(request: WorkflowUpdateTaskRequest): Promise<WorkflowUpdateTaskResult> {
+    const taskId = request.taskId.trim()
+    const updatedAt = new Date().toISOString()
+
+    if (!taskId) {
+      return {
+        success: false,
+        taskId,
+        status: 'error',
+        code: 'VALIDATION_ERROR',
+        message: 'Task id is required.',
+        refreshBoard: false,
+        updatedAt,
+      }
+    }
+
+    const title = request.title.trim()
+    if (!title) {
+      return {
+        success: false,
+        taskId,
+        status: 'error',
+        code: 'VALIDATION_ERROR',
+        message: 'Task title is required.',
+        refreshBoard: false,
+        updatedAt,
+      }
+    }
+
+    const snapshot = this.lastSnapshot ?? (await this.getBoard()).snapshot
+    if (snapshot.backend !== 'linear') {
+      return {
+        success: false,
+        taskId,
+        status: 'error',
+        code: 'UNSUPPORTED',
+        message: 'Task editing is currently supported only for Linear trackers.',
+        refreshBoard: false,
+        updatedAt,
+      }
+    }
+
+    const existingTask = findWorkflowEntity(snapshot, 'task', taskId)
+    if (!existingTask || 'tasks' in existingTask) {
+      return {
+        success: false,
+        taskId,
+        status: 'error',
+        code: 'NOT_FOUND',
+        message: `Task ${taskId} is no longer visible on the board.`,
+        refreshBoard: true,
+        updatedAt,
+      }
+    }
+
+    if (isWorkflowFixtureEnabled()) {
+      if (/fail/i.test(title)) {
+        return {
+          success: false,
+          taskId,
+          status: 'error',
+          code: 'ROLLED_BACK',
+          message: 'Mocked Linear task update failure for rollback coverage.',
+          refreshBoard: false,
+          updatedAt,
+        }
+      }
+
+      const targetColumnId = request.targetColumnId ?? existingTask.columnId
+      const fixtureSnapshot = this.testFixtureSnapshot ?? this.lastSuccessSnapshot ?? this.resolveTestLinearFixture()
+      const updatedSnapshot = applyWorkflowTaskUpdate(fixtureSnapshot, {
+        taskId,
+        title,
+        columnId: targetColumnId,
+      })
+
+      this.testFixtureSnapshot = withFreshTimestamps(updatedSnapshot)
+      const scopedSnapshot = this.resolveScope(this.enrichWithSymphonyContext(this.testFixtureSnapshot))
+      this.lastSnapshot = scopedSnapshot
+      this.lastSuccessSnapshot = scopedSnapshot
+
+      return {
+        success: true,
+        taskId,
+        status: 'success',
+        code: 'UPDATED',
+        message: 'Task updated successfully.',
+        refreshBoard: true,
+        updatedAt,
+        task: {
+          id: taskId,
+          identifier: existingTask.identifier,
+          title,
+          columnId: targetColumnId,
+        },
+      }
+    }
+
+    try {
+      const updatedTask = await this.linearClient.updateTask({
+        issueId: taskId,
+        title,
+        description: request.description,
+        targetColumnId: request.targetColumnId,
+      })
+
+      return {
+        success: true,
+        taskId,
+        status: 'success',
+        code: 'UPDATED',
+        message: 'Task updated successfully.',
+        refreshBoard: true,
+        updatedAt,
+        task: {
+          id: updatedTask.id,
+          identifier: updatedTask.identifier,
+          title: updatedTask.title ?? title,
+          columnId: updatedTask.columnId,
+        },
+      }
+    } catch (error) {
+      const workflowError = LinearWorkflowClient.toWorkflowError(error)
+      return {
+        success: false,
+        taskId,
+        status: 'error',
+        code: workflowError.code === 'NOT_FOUND' ? 'NOT_FOUND' : 'FAILED',
         message: workflowError.message,
         refreshBoard: false,
         updatedAt,
@@ -1552,6 +1770,38 @@ function applyWorkflowTaskCreate(
       card.taskCounts = {
         total: card.tasks.length,
         done: card.tasks.filter((task) => task.columnId === 'done').length,
+      }
+      return next
+    }
+  }
+
+  return next
+}
+
+function applyWorkflowTaskUpdate(
+  snapshot: WorkflowBoardSnapshot,
+  input: {
+    taskId: string
+    title: string
+    columnId: WorkflowColumnId
+  },
+): WorkflowBoardSnapshot {
+  const next = structuredClone(snapshot)
+
+  for (const column of next.columns) {
+    for (const card of column.cards) {
+      const task = card.tasks.find((candidate) => candidate.id === input.taskId)
+      if (!task) {
+        continue
+      }
+
+      task.title = input.title
+      task.columnId = input.columnId
+      task.stateName = toColumnTitle(input.columnId)
+      task.stateType = toColumnStateType(input.columnId)
+      card.taskCounts = {
+        total: card.tasks.length,
+        done: card.tasks.filter((candidate) => candidate.columnId === 'done').length,
       }
       return next
     }

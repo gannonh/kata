@@ -9,6 +9,8 @@ import {
   type WorkflowCreateTaskResult,
   type WorkflowEntityKind,
   type WorkflowMoveEntityResult,
+  type WorkflowTaskDetailResponse,
+  type WorkflowUpdateTaskResult,
 } from '@shared/types'
 import { currentSessionIdAtom, workingDirectoryAtom } from './session'
 import { rightPaneModeAtom, setWorkflowContextAtom } from './right-pane'
@@ -347,6 +349,80 @@ export const createWorkflowTaskAtom = atom(
       teamId: input.teamId,
       projectId: input.projectId,
     })) satisfies WorkflowCreateTaskResult
+
+    if (result.success && result.refreshBoard) {
+      const refreshed = await window.api.workflow.refreshBoard()
+      set(workflowBoardAtom, refreshed.snapshot)
+      set(workflowBoardErrorAtom, refreshed.snapshot.lastError?.message ?? null)
+    }
+
+    return result
+  },
+)
+
+export const loadWorkflowTaskDetailAtom = atom(
+  null,
+  async (_get, _set, input: { taskId: string }) => {
+    return (await window.api.workflow.getTaskDetail({ taskId: input.taskId })) satisfies WorkflowTaskDetailResponse
+  },
+)
+
+export const updateWorkflowTaskAtom = atom(
+  null,
+  async (
+    get,
+    set,
+    input: {
+      taskId: string
+      title: string
+      description?: string
+      targetColumnId?: WorkflowColumnId
+      teamId?: string
+      projectId?: string
+      currentStateId?: string
+    },
+  ) => {
+    const previousSnapshot = get(workflowBoardAtom)
+
+    if (previousSnapshot) {
+      const optimisticSnapshot = structuredClone(previousSnapshot)
+      for (const column of optimisticSnapshot.columns) {
+        for (const card of column.cards) {
+          const task = card.tasks.find((candidate) => candidate.id === input.taskId)
+          if (!task) {
+            continue
+          }
+
+          task.title = input.title
+          if (input.targetColumnId) {
+            task.columnId = input.targetColumnId
+            task.stateName = toColumnTitle(input.targetColumnId)
+            task.stateType = toColumnStateType(input.targetColumnId)
+            card.taskCounts = {
+              total: card.tasks.length,
+              done: card.tasks.filter((candidate) => candidate.columnId === 'done').length,
+            }
+          }
+        }
+      }
+
+      set(workflowBoardAtom, optimisticSnapshot)
+    }
+
+    const result = (await window.api.workflow.updateTask({
+      taskId: input.taskId,
+      title: input.title,
+      description: input.description,
+      targetColumnId: input.targetColumnId,
+      teamId: input.teamId,
+      projectId: input.projectId,
+      currentStateId: input.currentStateId,
+    })) satisfies WorkflowUpdateTaskResult
+
+    if (!result.success && previousSnapshot) {
+      set(workflowBoardAtom, previousSnapshot)
+      return result
+    }
 
     if (result.success && result.refreshBoard) {
       const refreshed = await window.api.workflow.refreshBoard()

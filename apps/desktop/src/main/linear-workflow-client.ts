@@ -163,6 +163,12 @@ export interface LinearIssueMutationResult {
   projectId?: string
 }
 
+export interface LinearIssueDetailResult extends LinearIssueMutationResult {
+  description: string
+  parentId?: string
+  columnId: WorkflowColumnId
+}
+
 export class LinearWorkflowClientError extends Error {
   constructor(
     public readonly code: WorkflowBoardErrorCode,
@@ -396,6 +402,114 @@ export class LinearWorkflowClient {
     }
 
     return toLinearIssueMutationResult(data.issueCreate.issue)
+  }
+
+  async fetchIssueDetail(options: { issueId: string }): Promise<LinearIssueDetailResult> {
+    const issueId = options.issueId.trim()
+    if (!issueId) {
+      throw new LinearWorkflowClientError('UNKNOWN', 'Issue id is required for task detail fetch')
+    }
+
+    const apiKey = await this.requireApiKey()
+    const issue = await this.fetchIssueForMutation(apiKey, issueId)
+    if (!issue.id?.trim()) {
+      throw new LinearWorkflowClientError('NOT_FOUND', `Issue ${issueId} was not found in Linear`)
+    }
+
+    return toLinearIssueDetailResult(issue)
+  }
+
+  async updateTask(options: {
+    issueId: string
+    title: string
+    description?: string
+    targetColumnId?: WorkflowColumnId
+  }): Promise<LinearIssueDetailResult> {
+    const issueId = options.issueId.trim()
+    if (!issueId) {
+      throw new LinearWorkflowClientError('UNKNOWN', 'Issue id is required for task update')
+    }
+
+    const title = options.title.trim()
+    if (!title) {
+      throw new LinearWorkflowClientError('UNKNOWN', 'Task title is required')
+    }
+
+    const apiKey = await this.requireApiKey()
+    const currentIssue = await this.fetchIssueForMutation(apiKey, issueId)
+    if (!currentIssue.id?.trim()) {
+      throw new LinearWorkflowClientError('NOT_FOUND', `Issue ${issueId} was not found in Linear`)
+    }
+
+    const teamId = currentIssue.team?.id?.trim()
+    if (!teamId) {
+      throw new LinearWorkflowClientError('INVALID_CONFIG', `Issue ${issueId} is missing team metadata`)
+    }
+
+    let stateId: string | undefined
+    if (options.targetColumnId) {
+      stateId =
+        (await this.resolveStateIdForColumn(apiKey, {
+          teamId,
+          targetColumnId: options.targetColumnId,
+          currentStateId: currentIssue.state?.id?.trim(),
+          currentStateName: currentIssue.state?.name?.trim(),
+          currentStateType: currentIssue.state?.type?.trim(),
+        })) ?? undefined
+
+      if (!stateId) {
+        throw new LinearWorkflowClientError(
+          'NOT_FOUND',
+          `No Linear workflow state mapped to column "${options.targetColumnId}" for team ${teamId}`,
+        )
+      }
+    }
+
+    const data = await this.request<IssueUpdateMutationData>(
+      apiKey,
+      `
+        mutation WorkflowTaskUpdate($issueId: String!, $input: IssueUpdateInput!) {
+          issueUpdate(id: $issueId, input: $input) {
+            success
+            issue {
+              id
+              identifier
+              title
+              description
+              url
+              parent {
+                id
+              }
+              team {
+                id
+              }
+              project {
+                id
+              }
+              state {
+                id
+                name
+                type
+              }
+            }
+          }
+        }
+      `,
+      {
+        issueId,
+        input: {
+          title,
+          description: options.description ?? '',
+          ...(stateId ? { stateId } : {}),
+        },
+      },
+    )
+
+    if (!data.issueUpdate?.success || !data.issueUpdate.issue) {
+      throw new LinearWorkflowClientError('UNKNOWN', `Linear issue update failed for ${issueId}`)
+    }
+
+    return toLinearIssueDetailResult(data.issueUpdate.issue)
   }
 
   static toWorkflowError(error: unknown): { code: WorkflowBoardErrorCode; message: string } {
@@ -924,6 +1038,16 @@ function toLinearIssueMutationResult(issue: LinearWorkflowIssue): LinearIssueMut
     stateType: issue.state?.type?.trim() || 'unknown',
     teamId: issue.team?.id?.trim() || undefined,
     projectId: issue.project?.id?.trim() || undefined,
+  }
+}
+
+function toLinearIssueDetailResult(issue: LinearWorkflowIssue): LinearIssueDetailResult {
+  const mutationResult = toLinearIssueMutationResult(issue)
+  return {
+    ...mutationResult,
+    description: issue.description ?? '',
+    parentId: issue.parent?.id?.trim() || undefined,
+    columnId: mapLinearStateToColumnId(mutationResult.stateName, mutationResult.stateType),
   }
 }
 

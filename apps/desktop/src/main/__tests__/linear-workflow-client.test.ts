@@ -621,6 +621,121 @@ describe('LinearWorkflowClient', () => {
     })
   })
 
+  test('fetches task detail for edit dialogs on demand', async () => {
+    process.env.LINEAR_API_KEY = 'linear-test-key'
+
+    globalThis.fetch = vi.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          data: {
+            issue: {
+              id: 'task-1',
+              identifier: 'KAT-101',
+              title: 'Task title',
+              description: 'Task description',
+              parent: { id: 'slice-1' },
+              team: { id: 'team-1' },
+              project: { id: 'project-1' },
+              state: { id: 'state-progress', name: 'In Progress', type: 'started' },
+            },
+          },
+        }),
+        { status: 200 },
+      ),
+    ) as unknown as typeof fetch
+
+    const client = new LinearWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
+    const detail = await client.fetchIssueDetail({ issueId: 'task-1' })
+
+    expect(detail).toMatchObject({
+      id: 'task-1',
+      parentId: 'slice-1',
+      title: 'Task title',
+      description: 'Task description',
+      columnId: 'in_progress',
+    })
+  })
+
+  test('updates task title/description/state through the Linear update path', async () => {
+    process.env.LINEAR_API_KEY = 'linear-test-key'
+
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              issue: {
+                id: 'task-1',
+                identifier: 'KAT-101',
+                title: 'Task title',
+                description: 'Task description',
+                parent: { id: 'slice-1' },
+                team: { id: 'team-1' },
+                project: { id: 'project-1' },
+                state: { id: 'state-todo', name: 'Todo', type: 'unstarted' },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              team: {
+                states: {
+                  nodes: [
+                    { id: 'state-todo', name: 'Todo', type: 'unstarted' },
+                    { id: 'state-progress', name: 'In Progress', type: 'started' },
+                  ],
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              issueUpdate: {
+                success: true,
+                issue: {
+                  id: 'task-1',
+                  identifier: 'KAT-101',
+                  title: 'Updated task',
+                  description: 'Updated description',
+                  parent: { id: 'slice-1' },
+                  team: { id: 'team-1' },
+                  project: { id: 'project-1' },
+                  state: { id: 'state-progress', name: 'In Progress', type: 'started' },
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      ) as unknown as typeof fetch
+
+    const client = new LinearWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
+    const result = await client.updateTask({
+      issueId: 'task-1',
+      title: 'Updated task',
+      description: 'Updated description',
+      targetColumnId: 'in_progress',
+    })
+
+    expect(result).toMatchObject({
+      id: 'task-1',
+      title: 'Updated task',
+      description: 'Updated description',
+      columnId: 'in_progress',
+    })
+  })
+
   test('exposes structured workflow error codes', () => {
     const mapped = LinearWorkflowClient.toWorkflowError(
       new LinearWorkflowClientError('UNAUTHORIZED', 'bad key', 401),

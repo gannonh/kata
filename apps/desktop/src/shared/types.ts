@@ -33,6 +33,8 @@ export const IPC_CHANNELS = {
   workflowSetScope: 'workflow:set-scope',
   workflowMoveEntity: 'workflow:move-entity',
   workflowCreateTask: 'workflow:create-task',
+  workflowGetTaskDetail: 'workflow:get-task-detail',
+  workflowUpdateTask: 'workflow:update-task',
   workflowRespondEscalation: 'workflow:respond-escalation',
   workflowOpenIssue: 'workflow:open-issue',
   workflowGetContext: 'workflow:get-context',
@@ -847,6 +849,67 @@ export interface WorkflowCreateTaskResult {
   }
 }
 
+export interface WorkflowTaskDetailRequest {
+  taskId: string
+}
+
+export interface WorkflowTaskDetail {
+  id: string
+  identifier?: string
+  parentSliceId?: string
+  teamId?: string
+  projectId?: string
+  stateId?: string
+  stateName: string
+  stateType: string
+  columnId: WorkflowColumnId
+  title: string
+  description: string
+}
+
+export type WorkflowTaskDetailCode = 'LOADED' | 'NOT_FOUND' | 'UNSUPPORTED' | 'FAILED'
+
+export interface WorkflowTaskDetailResponse {
+  success: boolean
+  code: WorkflowTaskDetailCode
+  message: string
+  task?: WorkflowTaskDetail
+}
+
+export interface WorkflowUpdateTaskRequest {
+  taskId: string
+  title: string
+  description?: string
+  targetColumnId?: WorkflowColumnId
+  teamId?: string
+  projectId?: string
+  currentStateId?: string
+}
+
+export type WorkflowUpdateTaskCode =
+  | 'UPDATED'
+  | 'VALIDATION_ERROR'
+  | 'ROLLED_BACK'
+  | 'NOT_FOUND'
+  | 'UNSUPPORTED'
+  | 'FAILED'
+
+export interface WorkflowUpdateTaskResult {
+  success: boolean
+  taskId: string
+  status: 'success' | 'error'
+  code: WorkflowUpdateTaskCode
+  message: string
+  refreshBoard: boolean
+  updatedAt: string
+  task?: {
+    id: string
+    identifier?: string
+    title: string
+    columnId: WorkflowColumnId
+  }
+}
+
 export interface WorkflowBoardEscalationResponseRequest {
   cardId: string
   requestId: string
@@ -1327,6 +1390,8 @@ export interface DesktopApi {
     setScope: (request: WorkflowBoardScopeRequest | string) => Promise<WorkflowBoardScopeResponse>
     moveEntity: (request: WorkflowMoveEntityRequest) => Promise<WorkflowMoveEntityResult>
     createTask: (request: WorkflowCreateTaskRequest) => Promise<WorkflowCreateTaskResult>
+    getTaskDetail: (request: WorkflowTaskDetailRequest) => Promise<WorkflowTaskDetailResponse>
+    updateTask: (request: WorkflowUpdateTaskRequest) => Promise<WorkflowUpdateTaskResult>
     respondToEscalation: (
       request: WorkflowBoardEscalationResponseRequest,
     ) => Promise<WorkflowBoardEscalationResponseResult>
