@@ -1,5 +1,6 @@
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
+import { WORKFLOW_COLUMNS } from '../shared/types'
 import { AuthBridge } from './auth-bridge'
 import { LinearWorkflowClient } from './linear-workflow-client'
 import { GithubWorkflowClient } from './github-workflow-client'
@@ -18,7 +19,10 @@ import type {
   WorkflowBoardSnapshotResponse,
   WorkflowBoardTask,
   WorkflowContextSnapshot,
+  WorkflowMoveEntityRequest,
+  WorkflowMoveEntityResult,
   WorkflowTrackerConfig,
+  WorkflowColumnId,
   WorkflowSymphonyExecutionFreshness,
   WorkflowSymphonyExecutionProvenance,
 } from '../shared/types'
@@ -301,6 +305,7 @@ export class WorkflowBoardService {
   }
   private trackerConfigured = false
   private testScenario: WorkflowTestScenario | null = null
+  private testFixtureSnapshot: WorkflowBoardSnapshot | null = null
 
   constructor(private readonly options: WorkflowBoardServiceOptions) {
     this.linearClient = new LinearWorkflowClient(options.authBridge)
@@ -337,6 +342,7 @@ export class WorkflowBoardService {
         resolved: nextRequestedScope,
         reason: 'requested',
       }
+      this.testFixtureSnapshot = null
     }
 
     this.syncContextSnapshot()
@@ -346,6 +352,137 @@ export class WorkflowBoardService {
       requestedScope: this.requestedScope,
       resolvedScope: this.lastScopeDiagnostics.resolved,
       resolutionReason: this.lastScopeDiagnostics.reason,
+    }
+  }
+
+  async moveEntity(request: WorkflowMoveEntityRequest): Promise<WorkflowMoveEntityResult> {
+    const entityId = request.entityId.trim()
+    const updatedAt = new Date().toISOString()
+
+    if (!entityId) {
+      return {
+        success: false,
+        entityKind: request.entityKind,
+        entityId,
+        targetColumnId: request.targetColumnId,
+        status: 'error',
+        code: 'VALIDATION_ERROR',
+        phase: 'rolled_back',
+        message: 'Entity id is required for workflow move.',
+        refreshBoard: false,
+        updatedAt,
+      }
+    }
+
+    const snapshot = this.lastSnapshot ?? (await this.getBoard()).snapshot
+    if (snapshot.backend !== 'linear') {
+      return {
+        success: false,
+        entityKind: request.entityKind,
+        entityId,
+        targetColumnId: request.targetColumnId,
+        status: 'error',
+        code: 'UNSUPPORTED',
+        phase: 'rolled_back',
+        message: 'Workflow board mutations are currently supported only for Linear trackers.',
+        refreshBoard: false,
+        updatedAt,
+      }
+    }
+
+    const entity = findWorkflowEntity(snapshot, request.entityKind, entityId)
+    if (!entity) {
+      return {
+        success: false,
+        entityKind: request.entityKind,
+        entityId,
+        targetColumnId: request.targetColumnId,
+        status: 'error',
+        code: 'NOT_FOUND',
+        phase: 'rolled_back',
+        message: `Workflow entity ${entityId} is no longer visible on the board.`,
+        refreshBoard: true,
+        updatedAt,
+      }
+    }
+
+    if (isWorkflowFixtureEnabled()) {
+      const fixtureSnapshot = this.testFixtureSnapshot ?? this.lastSuccessSnapshot ?? this.resolveTestLinearFixture()
+
+      if (request.targetColumnId === 'human_review') {
+        return {
+          success: false,
+          entityKind: request.entityKind,
+          entityId,
+          targetColumnId: request.targetColumnId,
+          status: 'error',
+          code: 'ROLLED_BACK',
+          phase: 'rolled_back',
+          message: 'Mocked Linear move failure for rollback coverage.',
+          refreshBoard: false,
+          updatedAt,
+        }
+      }
+
+      const movedSnapshot = applyWorkflowEntityMove(fixtureSnapshot, {
+        entityKind: request.entityKind,
+        entityId,
+        targetColumnId: request.targetColumnId,
+      })
+
+      this.testFixtureSnapshot = withFreshTimestamps(movedSnapshot)
+      const scopedSnapshot = this.resolveScope(this.enrichWithSymphonyContext(this.testFixtureSnapshot))
+      this.lastSnapshot = scopedSnapshot
+      this.lastSuccessSnapshot = scopedSnapshot
+
+      return {
+        success: true,
+        entityKind: request.entityKind,
+        entityId,
+        targetColumnId: request.targetColumnId,
+        status: 'success',
+        code: 'COMMITTED',
+        phase: 'committed',
+        message: `${request.entityKind === 'slice' ? 'Slice' : 'Task'} moved to ${toColumnTitle(request.targetColumnId)}.`,
+        refreshBoard: true,
+        updatedAt,
+      }
+    }
+
+    try {
+      await this.linearClient.moveIssueToColumn({
+        issueId: entityId,
+        targetColumnId: request.targetColumnId,
+      })
+
+      return {
+        success: true,
+        entityKind: request.entityKind,
+        entityId,
+        targetColumnId: request.targetColumnId,
+        status: 'success',
+        code: 'COMMITTED',
+        phase: 'committed',
+        message: `${request.entityKind === 'slice' ? 'Slice' : 'Task'} moved to ${toColumnTitle(request.targetColumnId)}.`,
+        refreshBoard: true,
+        updatedAt,
+      }
+    } catch (error) {
+      const workflowError = LinearWorkflowClient.toWorkflowError(error)
+      const code = workflowError.code === 'NOT_FOUND' ? 'NOT_FOUND' : 'FAILED'
+
+      return {
+        success: false,
+        entityKind: request.entityKind,
+        entityId,
+        targetColumnId: request.targetColumnId,
+        status: 'error',
+        code,
+        phase: 'rolled_back',
+        message: workflowError.message,
+        refreshBoard: false,
+        updatedAt,
+      }
     }
   }
 
@@ -416,7 +553,10 @@ export class WorkflowBoardService {
     }
 
     if (process.env.KATA_TEST_WORKFLOW_FIXTURE === '1') {
-      const fixture = this.resolveScope(this.enrichWithSymphonyContext(withFreshTimestamps(this.resolveTestLinearFixture())))
+      const baseFixture = this.testFixtureSnapshot ?? this.resolveTestLinearFixture()
+      this.testFixtureSnapshot = withFreshTimestamps(baseFixture)
+
+      const fixture = this.resolveScope(this.enrichWithSymphonyContext(this.testFixtureSnapshot))
       if (capturedScopeKey === this.scopeKey) {
         this.lastSnapshot = fixture
         this.lastSuccessSnapshot = fixture
@@ -498,7 +638,10 @@ export class WorkflowBoardService {
     }
 
     if (isWorkflowFixtureEnabled()) {
-      const fixture = this.resolveScope(this.enrichWithSymphonyContext(withFreshTimestamps(this.fixtureForTracker(tracker))))
+      const baseFixture = this.testFixtureSnapshot ?? this.fixtureForTracker(tracker)
+      this.testFixtureSnapshot = withFreshTimestamps(baseFixture)
+
+      const fixture = this.resolveScope(this.enrichWithSymphonyContext(this.testFixtureSnapshot))
       if (capturedScopeKey === this.scopeKey) {
         this.lastSnapshot = fixture
         this.lastSuccessSnapshot = fixture
@@ -1145,6 +1288,108 @@ function projectActiveScope(snapshot: WorkflowBoardSnapshot): {
     },
     matchIdentifiers,
   }
+}
+
+function findWorkflowEntity(
+  snapshot: WorkflowBoardSnapshot,
+  entityKind: WorkflowMoveEntityRequest['entityKind'],
+  entityId: string,
+): WorkflowBoardSliceCard | WorkflowBoardTask | null {
+  if (entityKind === 'slice') {
+    for (const column of snapshot.columns) {
+      const card = column.cards.find((candidate) => candidate.id === entityId)
+      if (card) {
+        return card
+      }
+    }
+    return null
+  }
+
+  for (const column of snapshot.columns) {
+    for (const card of column.cards) {
+      const task = card.tasks.find((candidate) => candidate.id === entityId)
+      if (task) {
+        return task
+      }
+    }
+  }
+
+  return null
+}
+
+function applyWorkflowEntityMove(
+  snapshot: WorkflowBoardSnapshot,
+  request: Pick<WorkflowMoveEntityRequest, 'entityKind' | 'entityId' | 'targetColumnId'>,
+): WorkflowBoardSnapshot {
+  const next = structuredClone(snapshot)
+  const targetColumn = next.columns.find((column) => column.id === request.targetColumnId)
+  if (!targetColumn) {
+    return next
+  }
+
+  if (request.entityKind === 'slice') {
+    let movingCard: WorkflowBoardSliceCard | null = null
+
+    for (const column of next.columns) {
+      const index = column.cards.findIndex((card) => card.id === request.entityId)
+      if (index >= 0) {
+        movingCard = column.cards.splice(index, 1)[0] ?? null
+        break
+      }
+    }
+
+    if (!movingCard) {
+      return next
+    }
+
+    movingCard.columnId = request.targetColumnId
+    movingCard.stateName = toColumnTitle(request.targetColumnId)
+    movingCard.stateType = toColumnStateType(request.targetColumnId)
+    targetColumn.cards.push(movingCard)
+    targetColumn.cards.sort((left, right) => left.identifier.localeCompare(right.identifier))
+
+    return next
+  }
+
+  for (const column of next.columns) {
+    for (const card of column.cards) {
+      const task = card.tasks.find((candidate) => candidate.id === request.entityId)
+      if (!task) {
+        continue
+      }
+
+      task.columnId = request.targetColumnId
+      task.stateName = toColumnTitle(request.targetColumnId)
+      task.stateType = toColumnStateType(request.targetColumnId)
+      card.taskCounts = {
+        total: card.tasks.length,
+        done: card.tasks.filter((candidate) => candidate.columnId === 'done').length,
+      }
+      return next
+    }
+  }
+
+  return next
+}
+
+function toColumnTitle(columnId: WorkflowColumnId): string {
+  return WORKFLOW_COLUMNS.find((column) => column.id === columnId)?.title ?? columnId
+}
+
+function toColumnStateType(columnId: WorkflowColumnId): string {
+  if (columnId === 'backlog') {
+    return 'backlog'
+  }
+
+  if (columnId === 'todo') {
+    return 'unstarted'
+  }
+
+  if (columnId === 'done') {
+    return 'completed'
+  }
+
+  return 'started'
 }
 
 function isExecutionActive(summary: WorkflowBoardTask['symphony'] | WorkflowBoardSliceCard['symphony'] | undefined): boolean {

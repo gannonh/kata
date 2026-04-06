@@ -48,6 +48,8 @@ import {
   type WorkflowBoardLifecycleResponse,
   type WorkflowBoardScopeRequest,
   type WorkflowBoardScopeResponse,
+  type WorkflowMoveEntityRequest,
+  type WorkflowMoveEntityResult,
   type WorkflowBoardEscalationResponseRequest,
   type WorkflowBoardEscalationResponseResult,
   type WorkflowBoardOpenIssueRequest,
@@ -586,6 +588,7 @@ export function registerSessionIpc({
   ipcMain.removeHandler(IPC_CHANNELS.workflowRefreshBoard)
   ipcMain.removeHandler(IPC_CHANNELS.workflowSetBoardActive)
   ipcMain.removeHandler(IPC_CHANNELS.workflowSetScope)
+  ipcMain.removeHandler(IPC_CHANNELS.workflowMoveEntity)
   ipcMain.removeHandler(IPC_CHANNELS.workflowRespondEscalation)
   ipcMain.removeHandler(IPC_CHANNELS.workflowOpenIssue)
   ipcMain.removeHandler(IPC_CHANNELS.workflowGetContext)
@@ -1207,6 +1210,13 @@ export function registerSessionIpc({
   )
 
   ipcMain.handle(
+    IPC_CHANNELS.workflowMoveEntity,
+    async (_event, request: WorkflowMoveEntityRequest): Promise<WorkflowMoveEntityResult> => {
+      return workflowBoardService.moveEntity(request)
+    },
+  )
+
+  ipcMain.handle(
     IPC_CHANNELS.workflowRespondEscalation,
     async (_event, request: WorkflowBoardEscalationResponseRequest): Promise<WorkflowBoardEscalationResponseResult> => {
       if (!symphonyOperatorService) {
@@ -1508,6 +1518,7 @@ export function registerSessionIpc({
     ipcMain.removeHandler(IPC_CHANNELS.workflowRefreshBoard)
     ipcMain.removeHandler(IPC_CHANNELS.workflowSetBoardActive)
     ipcMain.removeHandler(IPC_CHANNELS.workflowSetScope)
+    ipcMain.removeHandler(IPC_CHANNELS.workflowMoveEntity)
     ipcMain.removeHandler(IPC_CHANNELS.workflowRespondEscalation)
     ipcMain.removeHandler(IPC_CHANNELS.workflowOpenIssue)
     ipcMain.removeHandler(IPC_CHANNELS.workflowGetContext)

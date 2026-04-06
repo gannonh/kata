@@ -1,6 +1,16 @@
-import type { WorkflowBoardTask } from '@shared/types'
+import { useAtomValue, useSetAtom } from 'jotai'
+import {
+  WORKFLOW_COLUMNS,
+  type WorkflowBoardTask,
+} from '@shared/types'
+import {
+  moveWorkflowEntityAtom,
+  workflowEntityMutationKey,
+  workflowEntityMutationStateAtom,
+} from '@/atoms/workflow-board'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 
 interface TaskListProps {
@@ -21,7 +31,14 @@ const TASK_STATE_TONE: Record<WorkflowBoardTask['columnId'], string> = {
   done: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
 }
 
+export function getTaskMoveTargetOptions(currentColumnId: WorkflowBoardTask['columnId']) {
+  return WORKFLOW_COLUMNS.filter((column) => column.id !== currentColumnId)
+}
+
 export function TaskList({ tasks, issueActions = {}, onOpenIssue }: TaskListProps) {
+  const moveEntity = useSetAtom(moveWorkflowEntityAtom)
+  const mutationStates = useAtomValue(workflowEntityMutationStateAtom)
+
   if (tasks.length === 0) {
     return <p className="text-xs text-muted-foreground">No child tasks</p>
   }
@@ -30,6 +47,8 @@ export function TaskList({ tasks, issueActions = {}, onOpenIssue }: TaskListProp
     <ul className="space-y-2">
       {tasks.map((task) => {
         const issueAction = issueActions[task.id]
+        const mutationState = mutationStates[workflowEntityMutationKey('task', task.id)]
+        const moveTargetOptions = getTaskMoveTargetOptions(task.columnId)
 
         return (
           <li key={task.id} className="rounded-md border border-border/60 bg-background/50 px-2 py-1.5">
@@ -61,8 +80,46 @@ export function TaskList({ tasks, issueActions = {}, onOpenIssue }: TaskListProp
               </div>
             ) : null}
 
-            {task.url && onOpenIssue ? (
-              <div className="mt-1.5">
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              <Select
+                value={task.columnId}
+                onValueChange={(value) => {
+                  if (value === task.columnId) {
+                    return
+                  }
+
+                  void moveEntity({
+                    entityKind: 'task',
+                    entityId: task.id,
+                    targetColumnId: value as WorkflowBoardTask['columnId'],
+                    currentColumnId: task.columnId,
+                    currentStateId: task.stateId,
+                    currentStateName: task.stateName,
+                    currentStateType: task.stateType,
+                    teamId: task.teamId,
+                    projectId: task.projectId,
+                  })
+                }}
+                disabled={mutationState?.phase === 'pending'}
+              >
+                <SelectTrigger
+                  size="sm"
+                  className="h-6 min-w-[7.5rem] rounded-md border border-border/70 bg-background px-2 text-[10px]"
+                  data-testid={`task-move-select-${task.identifier ?? task.id}`}
+                >
+                  <SelectValue placeholder="Move task" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={task.columnId}>Current: {task.stateName}</SelectItem>
+                  {moveTargetOptions.map((option) => (
+                    <SelectItem key={option.id} value={option.id}>
+                      Move to {option.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {task.url && onOpenIssue ? (
                 <Button
                   type="button"
                   size="sm"
@@ -74,10 +131,17 @@ export function TaskList({ tasks, issueActions = {}, onOpenIssue }: TaskListProp
                 >
                   Open issue
                 </Button>
-                {issueAction?.message ? (
-                  <p className="mt-1 text-[10px] text-muted-foreground">{issueAction.message}</p>
-                ) : null}
-              </div>
+              ) : null}
+            </div>
+
+            {mutationState ? (
+              <p className="mt-1 text-[10px] text-muted-foreground" data-testid={`task-move-state-${task.identifier ?? task.id}`}>
+                {mutationState.message}
+              </p>
+            ) : null}
+
+            {issueAction?.message ? (
+              <p className="mt-1 text-[10px] text-muted-foreground">{issueAction.message}</p>
             ) : null}
           </li>
         )

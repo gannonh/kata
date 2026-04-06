@@ -23,12 +23,30 @@ const EXACT_NAME_TO_COLUMN_ID: Record<string, WorkflowColumnId> = {
   done: 'done',
 }
 
+const COLUMN_ID_TO_PREFERRED_STATE_NAMES: Record<WorkflowColumnId, string[]> = {
+  backlog: ['Backlog'],
+  todo: ['Todo'],
+  in_progress: ['In Progress'],
+  agent_review: ['Agent Review'],
+  human_review: ['Human Review'],
+  merging: ['Merging'],
+  done: ['Done'],
+}
+
+const COLUMN_ID_TO_FALLBACK_STATE_TYPES: Partial<Record<WorkflowColumnId, string[]>> = {
+  backlog: ['backlog'],
+  todo: ['unstarted'],
+  in_progress: ['started'],
+  done: ['completed', 'canceled'],
+}
+
 interface GraphQLResponse<TData> {
   data?: TData
   errors?: Array<{ message?: string }>
 }
 
 interface LinearWorkflowState {
+  id?: string
   name?: string
   type?: string
 }
@@ -44,16 +62,51 @@ interface LinearWorkflowPageInfo {
   endCursor?: string | null
 }
 
+interface LinearWorkflowTeamRef {
+  id?: string
+}
+
+interface LinearWorkflowProjectRef {
+  id?: string
+}
+
 interface LinearWorkflowIssue {
   id?: string
   identifier?: string
   title?: string
+  description?: string
+  url?: string
   parent?: { id?: string } | null
+  team?: LinearWorkflowTeamRef | null
+  project?: LinearWorkflowProjectRef | null
   state?: LinearWorkflowState | null
   projectMilestone?: LinearWorkflowMilestone | null
   children?: {
     nodes?: LinearWorkflowIssue[]
     pageInfo?: LinearWorkflowPageInfo
+  } | null
+}
+
+interface WorkflowIssueForMutationQueryData {
+  issue?: LinearWorkflowIssue | null
+}
+
+interface TeamWorkflowStatesQueryData {
+  team?: {
+    states?: {
+      nodes?: Array<{
+        id?: string
+        name?: string
+        type?: string
+      }>
+    } | null
+  } | null
+}
+
+interface IssueUpdateMutationData {
+  issueUpdate?: {
+    success?: boolean
+    issue?: LinearWorkflowIssue | null
   } | null
 }
 
@@ -89,6 +142,18 @@ interface WorkflowIssueChildrenQueryData {
 
 export interface FetchLinearBoardOptions {
   projectRef: string
+}
+
+export interface LinearIssueMutationResult {
+  id: string
+  identifier?: string
+  title?: string
+  url?: string
+  stateId?: string
+  stateName: string
+  stateType: string
+  teamId?: string
+  projectId?: string
 }
 
 export class LinearWorkflowClientError extends Error {
@@ -187,6 +252,50 @@ export class LinearWorkflowClient {
     return snapshot
   }
 
+  async moveIssueToColumn(options: {
+    issueId: string
+    targetColumnId: WorkflowColumnId
+  }): Promise<LinearIssueMutationResult> {
+    const issueId = options.issueId.trim()
+    if (!issueId) {
+      throw new LinearWorkflowClientError('UNKNOWN', 'Issue id is required for workflow mutation')
+    }
+
+    const apiKey = await this.requireApiKey()
+    const issue = await this.fetchIssueForMutation(apiKey, issueId)
+
+    if (!issue.id?.trim()) {
+      throw new LinearWorkflowClientError('NOT_FOUND', `Issue ${issueId} was not found in Linear`)
+    }
+
+    const teamId = issue.team?.id?.trim()
+    if (!teamId) {
+      throw new LinearWorkflowClientError('INVALID_CONFIG', `Issue ${issueId} is missing team metadata`)
+    }
+
+    const targetStateId = await this.resolveStateIdForColumn(apiKey, {
+      teamId,
+      targetColumnId: options.targetColumnId,
+      currentStateId: issue.state?.id?.trim(),
+      currentStateName: issue.state?.name?.trim(),
+      currentStateType: issue.state?.type?.trim(),
+    })
+
+    if (!targetStateId) {
+      throw new LinearWorkflowClientError(
+        'NOT_FOUND',
+        `No Linear workflow state mapped to column "${options.targetColumnId}" for team ${teamId}`,
+      )
+    }
+
+    if (issue.state?.id?.trim() === targetStateId) {
+      return toLinearIssueMutationResult(issue)
+    }
+
+    const updatedIssue = await this.updateIssueState(apiKey, issue.id, targetStateId)
+    return toLinearIssueMutationResult(updatedIssue)
+  }
+
   static toWorkflowError(error: unknown): { code: WorkflowBoardErrorCode; message: string } {
     const mapped = toLinearWorkflowClientError(error)
     return {
@@ -267,10 +376,19 @@ export class LinearWorkflowClient {
                 id
                 identifier
                 title
+                description
+                url
                 parent {
                   id
                 }
+                team {
+                  id
+                }
+                project {
+                  id
+                }
                 state {
+                  id
                   name
                   type
                 }
@@ -284,7 +402,19 @@ export class LinearWorkflowClient {
                     id
                     identifier
                     title
+                    description
+                    url
+                    parent {
+                      id
+                    }
+                    team {
+                      id
+                    }
+                    project {
+                      id
+                    }
                     state {
+                      id
                       name
                       type
                     }
@@ -351,9 +481,20 @@ export class LinearWorkflowClient {
                   identifier
                   title
                   state {
+                    id
                     name
                     type
                   }
+                  team {
+                    id
+                  }
+                  project {
+                    id
+                  }
+                  parent {
+                    id
+                  }
+                  url
                 }
                 pageInfo {
                   hasNextPage
@@ -375,10 +516,143 @@ export class LinearWorkflowClient {
     return children
   }
 
+  private async fetchIssueForMutation(apiKey: string, issueId: string): Promise<LinearWorkflowIssue> {
+    const data = await this.request<WorkflowIssueForMutationQueryData>(
+      apiKey,
+      `
+        query WorkflowIssueForMutation($issueId: String!) {
+          issue(id: $issueId) {
+            id
+            identifier
+            title
+            description
+            url
+            parent {
+              id
+            }
+            team {
+              id
+            }
+            project {
+              id
+            }
+            projectMilestone {
+              id
+              name
+            }
+            state {
+              id
+              name
+              type
+            }
+          }
+        }
+      `,
+      { issueId },
+    )
+
+    return data.issue ?? {}
+  }
+
+  private async resolveStateIdForColumn(
+    apiKey: string,
+    options: {
+      teamId: string
+      targetColumnId: WorkflowColumnId
+      currentStateId?: string
+      currentStateName?: string
+      currentStateType?: string
+    },
+  ): Promise<string | null> {
+    const data = await this.request<TeamWorkflowStatesQueryData>(
+      apiKey,
+      `
+        query WorkflowTeamStates($teamId: String!) {
+          team(id: $teamId) {
+            states {
+              nodes {
+                id
+                name
+                type
+              }
+            }
+          }
+        }
+      `,
+      { teamId: options.teamId },
+    )
+
+    const states = data.team?.states?.nodes ?? []
+    const preferredState = selectWorkflowStateForColumn(states, options.targetColumnId)
+
+    if (preferredState?.id?.trim()) {
+      return preferredState.id.trim()
+    }
+
+    if (options.currentStateId && options.currentStateName) {
+      const currentColumn = mapLinearStateToColumnId(options.currentStateName, options.currentStateType)
+      if (currentColumn === options.targetColumnId) {
+        return options.currentStateId
+      }
+    }
+
+    return null
+  }
+
+  private async updateIssueState(apiKey: string, issueId: string, stateId: string): Promise<LinearWorkflowIssue> {
+    const data = await this.request<IssueUpdateMutationData>(
+      apiKey,
+      `
+        mutation WorkflowIssueMove($issueId: String!, $input: IssueUpdateInput!) {
+          issueUpdate(id: $issueId, input: $input) {
+            success
+            issue {
+              id
+              identifier
+              title
+              description
+              url
+              parent {
+                id
+              }
+              team {
+                id
+              }
+              project {
+                id
+              }
+              projectMilestone {
+                id
+                name
+              }
+              state {
+                id
+                name
+                type
+              }
+            }
+          }
+        }
+      `,
+      {
+        issueId,
+        input: {
+          stateId,
+        },
+      },
+    )
+
+    if (!data.issueUpdate?.success || !data.issueUpdate.issue) {
+      throw new LinearWorkflowClientError('UNKNOWN', `Linear issue update failed for ${issueId}`)
+    }
+
+    return data.issueUpdate.issue
+  }
+
   private async request<TData>(
     apiKey: string,
     query: string,
-    variables: Record<string, string | null>,
+    variables: Record<string, unknown>,
   ): Promise<TData> {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => {
@@ -510,6 +784,47 @@ export function mapLinearStateToColumnId(
   return 'todo'
 }
 
+function selectWorkflowStateForColumn(
+  states: Array<{ id?: string; name?: string; type?: string }>,
+  targetColumnId: WorkflowColumnId,
+): { id?: string; name?: string; type?: string } | null {
+  if (states.length === 0) {
+    return null
+  }
+
+  const preferredNames = COLUMN_ID_TO_PREFERRED_STATE_NAMES[targetColumnId] ?? []
+  for (const preferredName of preferredNames) {
+    const match = states.find((state) => state.name?.trim().toLowerCase() === preferredName.toLowerCase())
+    if (match?.id?.trim()) {
+      return match
+    }
+  }
+
+  const fallbackTypes = COLUMN_ID_TO_FALLBACK_STATE_TYPES[targetColumnId] ?? []
+  for (const fallbackType of fallbackTypes) {
+    const match = states.find((state) => state.type?.trim().toLowerCase() === fallbackType)
+    if (match?.id?.trim()) {
+      return match
+    }
+  }
+
+  return null
+}
+
+function toLinearIssueMutationResult(issue: LinearWorkflowIssue): LinearIssueMutationResult {
+  return {
+    id: issue.id?.trim() || 'unknown',
+    identifier: issue.identifier?.trim() || undefined,
+    title: issue.title?.trim() || undefined,
+    url: issue.url?.trim() || undefined,
+    stateId: issue.state?.id?.trim() || undefined,
+    stateName: issue.state?.name?.trim() || 'Unknown',
+    stateType: issue.state?.type?.trim() || 'unknown',
+    teamId: issue.team?.id?.trim() || undefined,
+    projectId: issue.project?.id?.trim() || undefined,
+  }
+}
+
 export function createEmptyWorkflowColumns(): WorkflowBoardColumn[] {
   return WORKFLOW_COLUMNS.map((column) => ({
     id: column.id,
@@ -549,8 +864,13 @@ export function normalizeLinearBoard(input: {
             identifier: task.identifier,
             title: task.title as string,
             columnId: taskColumnId,
+            stateId: task.state?.id?.trim() || undefined,
             stateName: task.state?.name?.trim() || 'Unknown',
             stateType: task.state?.type?.trim() || 'unknown',
+            teamId: task.team?.id?.trim() || issue.team?.id?.trim() || undefined,
+            projectId: task.project?.id?.trim() || issue.project?.id?.trim() || undefined,
+            parentSliceId: task.parent?.id?.trim() || issue.id?.trim() || undefined,
+            url: task.url?.trim() || undefined,
           } satisfies WorkflowBoardTask
         })
 
@@ -564,8 +884,12 @@ export function normalizeLinearBoard(input: {
         identifier: issue.identifier as string,
         title: issue.title as string,
         columnId,
+        stateId: issue.state?.id?.trim() || undefined,
         stateName: issue.state?.name?.trim() || 'Unknown',
         stateType: issue.state?.type?.trim() || 'unknown',
+        teamId: issue.team?.id?.trim() || undefined,
+        projectId: issue.project?.id?.trim() || undefined,
+        url: issue.url?.trim() || undefined,
         milestoneId: milestoneId ?? input.milestoneId ?? 'none',
         milestoneName: milestoneName ?? input.milestoneName ?? 'No active milestone',
         taskCounts: {

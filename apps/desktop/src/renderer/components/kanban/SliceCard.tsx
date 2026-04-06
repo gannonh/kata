@@ -1,10 +1,18 @@
 import { useAtomValue, useSetAtom } from 'jotai'
 import { AlertCircle, ChevronDown, MessageSquareText } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import type { WorkflowBoardEscalationRequest, WorkflowBoardSliceCard, WorkflowBoardTask } from '@shared/types'
 import {
+  WORKFLOW_COLUMNS,
+  type WorkflowBoardEscalationRequest,
+  type WorkflowBoardSliceCard,
+  type WorkflowBoardTask,
+} from '@shared/types'
+import {
+  moveWorkflowEntityAtom,
   openWorkflowIssueAtom,
   respondToWorkflowEscalationAtom,
+  workflowEntityMutationKey,
+  workflowEntityMutationStateAtom,
   workflowEscalationActionStateAtom,
   workflowIssueActionStateAtom,
 } from '@/atoms/workflow-board'
@@ -14,6 +22,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 interface SliceCardProps {
   card: WorkflowBoardSliceCard
@@ -58,6 +67,10 @@ export function isInlineEscalationEnabled(symphony: WorkflowBoardSliceCard['symp
   return symphony.freshness === 'fresh' && symphony.provenance === 'dashboard-derived'
 }
 
+export function getMoveTargetOptions(currentColumnId: WorkflowBoardSliceCard['columnId']) {
+  return WORKFLOW_COLUMNS.filter((column) => column.id !== currentColumnId)
+}
+
 export function SliceCard({ card }: SliceCardProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [showEscalationComposer, setShowEscalationComposer] = useState(false)
@@ -66,13 +79,17 @@ export function SliceCard({ card }: SliceCardProps) {
   const symphony = card.symphony
   const issueActions = useAtomValue(workflowIssueActionStateAtom)
   const escalationActions = useAtomValue(workflowEscalationActionStateAtom)
+  const mutationStates = useAtomValue(workflowEntityMutationStateAtom)
   const openIssue = useSetAtom(openWorkflowIssueAtom)
   const respondToEscalation = useSetAtom(respondToWorkflowEscalationAtom)
+  const moveEntity = useSetAtom(moveWorkflowEntityAtom)
 
   const pendingEscalations = useMemo(
     () => symphony?.pendingEscalationRequests ?? [],
     [symphony?.pendingEscalationRequests],
   )
+  const moveOptions = useMemo(() => getMoveTargetOptions(card.columnId), [card.columnId])
+  const sliceMoveState = mutationStates[workflowEntityMutationKey('slice', card.id)]
 
   const canRespondInline = isInlineEscalationEnabled(symphony) && pendingEscalations.length > 0
 
@@ -120,6 +137,24 @@ export function SliceCard({ card }: SliceCardProps) {
       cardId: task.id,
       url: task.url,
       identifier: task.identifier ?? card.identifier,
+    })
+  }
+
+  const moveSliceToColumn = (targetColumnId: WorkflowBoardSliceCard['columnId']) => {
+    if (targetColumnId === card.columnId) {
+      return
+    }
+
+    void moveEntity({
+      entityKind: 'slice',
+      entityId: card.id,
+      targetColumnId,
+      currentColumnId: card.columnId,
+      currentStateId: card.stateId,
+      currentStateName: card.stateName,
+      currentStateType: card.stateType,
+      teamId: card.teamId,
+      projectId: card.projectId,
     })
   }
 
@@ -192,11 +227,43 @@ export function SliceCard({ card }: SliceCardProps) {
               Respond to escalation
             </Button>
           ) : null}
+
+          {moveOptions.length > 0 ? (
+            <Select
+              value={card.columnId}
+              onValueChange={(value) => {
+                moveSliceToColumn(value as WorkflowBoardSliceCard['columnId'])
+              }}
+              disabled={sliceMoveState?.phase === 'pending'}
+            >
+              <SelectTrigger
+                size="sm"
+                className="h-7 min-w-[8.25rem] rounded-md border border-border/70 bg-background px-2 text-[11px]"
+                data-testid={`slice-move-select-${card.identifier}`}
+              >
+                <SelectValue placeholder="Move slice" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={card.columnId}>Current: {card.stateName}</SelectItem>
+                {moveOptions.map((option) => (
+                  <SelectItem key={option.id} value={option.id}>
+                    Move to {option.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : null}
         </div>
 
         {issueAction?.message ? (
           <p className="text-[11px] text-muted-foreground" data-testid={`slice-issue-action-${card.identifier}`}>
             {issueAction.message}
+          </p>
+        ) : null}
+
+        {sliceMoveState ? (
+          <p className="text-[11px] text-muted-foreground" data-testid={`slice-move-state-${card.identifier}`}>
+            {sliceMoveState.message}
           </p>
         ) : null}
 

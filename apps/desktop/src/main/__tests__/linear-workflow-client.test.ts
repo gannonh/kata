@@ -405,6 +405,130 @@ describe('LinearWorkflowClient', () => {
     })
   })
 
+  test('moves an issue to a canonical column through team workflow-state mapping', async () => {
+    process.env.LINEAR_API_KEY = 'linear-test-key'
+
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              issue: {
+                id: 'issue-1',
+                identifier: 'KAT-100',
+                title: 'Slice title',
+                team: { id: 'team-1' },
+                project: { id: 'project-1' },
+                state: { id: 'state-todo', name: 'Todo', type: 'unstarted' },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              team: {
+                states: {
+                  nodes: [
+                    { id: 'state-todo', name: 'Todo', type: 'unstarted' },
+                    { id: 'state-progress', name: 'In Progress', type: 'started' },
+                  ],
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              issueUpdate: {
+                success: true,
+                issue: {
+                  id: 'issue-1',
+                  identifier: 'KAT-100',
+                  title: 'Slice title',
+                  team: { id: 'team-1' },
+                  project: { id: 'project-1' },
+                  state: { id: 'state-progress', name: 'In Progress', type: 'started' },
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      ) as unknown as typeof fetch
+
+    const client = new LinearWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
+    const result = await client.moveIssueToColumn({
+      issueId: 'issue-1',
+      targetColumnId: 'in_progress',
+    })
+
+    expect(result).toMatchObject({
+      id: 'issue-1',
+      stateName: 'In Progress',
+      stateType: 'started',
+      teamId: 'team-1',
+      projectId: 'project-1',
+    })
+  })
+
+  test('returns NOT_FOUND when no team state maps to the target column', async () => {
+    process.env.LINEAR_API_KEY = 'linear-test-key'
+
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              issue: {
+                id: 'issue-1',
+                identifier: 'KAT-100',
+                title: 'Slice title',
+                team: { id: 'team-1' },
+                project: { id: 'project-1' },
+                state: { id: 'state-todo', name: 'Todo', type: 'unstarted' },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              team: {
+                states: {
+                  nodes: [{ id: 'state-progress', name: 'Doing', type: 'started' }],
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      ) as unknown as typeof fetch
+
+    const client = new LinearWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
+
+    await expect(
+      client.moveIssueToColumn({
+        issueId: 'issue-1',
+        targetColumnId: 'agent_review',
+      }),
+    ).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    })
+  })
+
   test('exposes structured workflow error codes', () => {
     const mapped = LinearWorkflowClient.toWorkflowError(
       new LinearWorkflowClientError('UNAUTHORIZED', 'bad key', 401),

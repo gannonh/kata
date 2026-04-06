@@ -31,6 +31,7 @@ export const IPC_CHANNELS = {
   workflowRefreshBoard: 'workflow:refresh-board',
   workflowSetBoardActive: 'workflow:set-board-active',
   workflowSetScope: 'workflow:set-scope',
+  workflowMoveEntity: 'workflow:move-entity',
   workflowRespondEscalation: 'workflow:respond-escalation',
   workflowOpenIssue: 'workflow:open-issue',
   workflowGetContext: 'workflow:get-context',
@@ -680,8 +681,12 @@ export interface WorkflowBoardTask {
   identifier?: string
   title: string
   columnId: WorkflowColumnId
+  stateId?: string
   stateName: string
   stateType: string
+  teamId?: string
+  projectId?: string
+  parentSliceId?: string
   url?: string
   symphony?: WorkflowSymphonyExecutionSummary
 }
@@ -691,8 +696,11 @@ export interface WorkflowBoardSliceCard {
   identifier: string
   title: string
   columnId: WorkflowColumnId
+  stateId?: string
   stateName: string
   stateType: string
+  teamId?: string
+  projectId?: string
   url?: string
   milestoneId: string
   milestoneName: string
@@ -768,6 +776,41 @@ export interface WorkflowBoardScopeResponse {
   requestedScope: WorkflowBoardScope
   resolvedScope: WorkflowBoardScope
   resolutionReason: WorkflowBoardScopeResolutionReason
+}
+
+export type WorkflowEntityKind = 'slice' | 'task'
+
+export interface WorkflowMoveEntityRequest {
+  entityKind: WorkflowEntityKind
+  entityId: string
+  targetColumnId: WorkflowColumnId
+  currentColumnId?: WorkflowColumnId
+  currentStateId?: string
+  currentStateName?: string
+  currentStateType?: string
+  teamId?: string
+  projectId?: string
+}
+
+export type WorkflowMoveEntityCode =
+  | 'COMMITTED'
+  | 'ROLLED_BACK'
+  | 'VALIDATION_ERROR'
+  | 'NOT_FOUND'
+  | 'UNSUPPORTED'
+  | 'FAILED'
+
+export interface WorkflowMoveEntityResult {
+  success: boolean
+  entityKind: WorkflowEntityKind
+  entityId: string
+  targetColumnId: WorkflowColumnId
+  status: 'success' | 'error'
+  code: WorkflowMoveEntityCode
+  phase: 'committed' | 'rolled_back'
+  message: string
+  refreshBoard: boolean
+  updatedAt: string
 }
 
 export interface WorkflowBoardEscalationResponseRequest {
@@ -1248,6 +1291,7 @@ export interface DesktopApi {
     refreshBoard: () => Promise<WorkflowBoardSnapshotResponse>
     setBoardActive: (active: boolean) => Promise<WorkflowBoardLifecycleResponse>
     setScope: (request: WorkflowBoardScopeRequest | string) => Promise<WorkflowBoardScopeResponse>
+    moveEntity: (request: WorkflowMoveEntityRequest) => Promise<WorkflowMoveEntityResult>
     respondToEscalation: (
       request: WorkflowBoardEscalationResponseRequest,
     ) => Promise<WorkflowBoardEscalationResponseResult>

@@ -50,6 +50,54 @@ describe('WorkflowBoardService', () => {
     expect(response.snapshot.symphony?.provenance).toBe('unavailable')
   })
 
+  test('applies fixture-mode slice moves and persists them across refreshes', async () => {
+    process.env.KATA_TEST_WORKFLOW_FIXTURE = '1'
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+    })
+
+    await service.getBoard()
+    const result = await service.moveEntity({
+      entityKind: 'slice',
+      entityId: 'slice-1',
+      targetColumnId: 'in_progress',
+    })
+
+    expect(result.success).toBe(true)
+    expect(result.code).toBe('COMMITTED')
+
+    const refreshed = await service.refreshBoard()
+    const inProgressCards = refreshed.snapshot.columns.find((column) => column.id === 'in_progress')?.cards ?? []
+    expect(inProgressCards.map((card) => card.id)).toContain('slice-1')
+  })
+
+  test('returns rollback failure for fixture-mode move scenarios and keeps board unchanged', async () => {
+    process.env.KATA_TEST_WORKFLOW_FIXTURE = '1'
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+    })
+
+    const baseline = await service.getBoard()
+    const beforeTodoIds = baseline.snapshot.columns.find((column) => column.id === 'todo')?.cards.map((card) => card.id)
+
+    const failed = await service.moveEntity({
+      entityKind: 'slice',
+      entityId: 'slice-1',
+      targetColumnId: 'human_review',
+    })
+
+    expect(failed.success).toBe(false)
+    expect(failed.code).toBe('ROLLED_BACK')
+
+    const after = await service.refreshBoard()
+    const afterTodoIds = after.snapshot.columns.find((column) => column.id === 'todo')?.cards.map((card) => card.id)
+    expect(afterTodoIds).toEqual(beforeTodoIds)
+  })
+
   test('uses assembled linear fixture in test mode when assembled symphony mock is active', async () => {
     process.env.KATA_TEST_WORKFLOW_FIXTURE = '1'
     process.env.KATA_DESKTOP_SYMPHONY_DASHBOARD_MOCK = 'assembled_healthy'

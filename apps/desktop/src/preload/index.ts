@@ -163,6 +163,9 @@ const api: DesktopApi = {
     setScope: async (request: Parameters<DesktopApi['workflow']['setScope']>[0]) => {
       return ipcRenderer.invoke(IPC_CHANNELS.workflowSetScope, request)
     },
+    moveEntity: async (request: Parameters<DesktopApi['workflow']['moveEntity']>[0]) => {
+      return ipcRenderer.invoke(IPC_CHANNELS.workflowMoveEntity, request)
+    },
     respondToEscalation: async (request: Parameters<DesktopApi['workflow']['respondToEscalation']>[0]) => {
       return ipcRenderer.invoke(IPC_CHANNELS.workflowRespondEscalation, request)
     },
