@@ -10,6 +10,8 @@ import { RpcEventAdapter } from './rpc-event-adapter'
 import { DesktopSessionManager } from './session-manager'
 import { SessionHistoryLoader } from './session-history-loader'
 import { WorkflowBoardService } from './workflow-board-service'
+import { McpConfigBridge } from './mcp-config-bridge'
+import { McpService } from './mcp-service'
 import type { SymphonySupervisor } from './symphony-supervisor'
 import type { SymphonyOperatorService } from './symphony-operator-service'
 import {
@@ -52,6 +54,12 @@ import {
   type SymphonyOperatorSnapshot,
   type SymphonyOperatorSnapshotResponse,
   type SymphonyEscalationResponseCommandResult,
+  type McpConfigReadResponse,
+  type McpServerDeleteResponse,
+  type McpServerInput,
+  type McpServerMutationResponse,
+  type McpServerResponse,
+  type McpServerStatusResponse,
 } from '../shared/types'
 
 interface RegisterIpcOptions {
@@ -63,6 +71,8 @@ interface RegisterIpcOptions {
   onWorkspaceSelected?: (workspacePath: string) => Promise<void> | void
   symphonySupervisor?: SymphonySupervisor
   symphonyOperatorService?: SymphonyOperatorService
+  mcpConfigBridge?: McpConfigBridge
+  mcpService?: McpService
 }
 
 export function registerSessionIpc({
@@ -74,6 +84,8 @@ export function registerSessionIpc({
   onWorkspaceSelected,
   symphonySupervisor,
   symphonyOperatorService,
+  mcpConfigBridge,
+  mcpService,
 }: RegisterIpcOptions): () => void {
   const adapter = new RpcEventAdapter()
   const planningToolDetector = new PlanningToolDetector()
@@ -84,6 +96,13 @@ export function registerSessionIpc({
     getWorkspacePath: () => bridge.getWorkspacePath(),
     getSymphonySnapshot: () => symphonyOperatorService?.getSnapshot() ?? null,
   })
+  const resolvedMcpConfigBridge =
+    mcpConfigBridge ??
+    new McpConfigBridge({
+      configPath: process.env.KATA_DESKTOP_MCP_CONFIG_PATH,
+      getWorkspacePath: () => bridge.getWorkspacePath(),
+    })
+  const resolvedMcpService = mcpService ?? new McpService({ configBridge: resolvedMcpConfigBridge })
 
   const planningArtifactsByKey = new Map<string, PlanningArtifact>()
   const planningMetadataByKey = new Map<string, PlanningArtifactEvent>()
@@ -570,6 +589,12 @@ export function registerSessionIpc({
   ipcMain.removeHandler(IPC_CHANNELS.symphonyGetDashboard)
   ipcMain.removeHandler(IPC_CHANNELS.symphonyRefreshDashboard)
   ipcMain.removeHandler(IPC_CHANNELS.symphonyRespondEscalation)
+  ipcMain.removeHandler(IPC_CHANNELS.mcpListServers)
+  ipcMain.removeHandler(IPC_CHANNELS.mcpGetServer)
+  ipcMain.removeHandler(IPC_CHANNELS.mcpSaveServer)
+  ipcMain.removeHandler(IPC_CHANNELS.mcpDeleteServer)
+  ipcMain.removeHandler(IPC_CHANNELS.mcpRefreshStatus)
+  ipcMain.removeHandler(IPC_CHANNELS.mcpReconnectServer)
 
   ipcMain.handle(IPC_CHANNELS.sessionSend, async (_event, message: string) => {
     if (!message?.trim()) {
@@ -1299,6 +1324,42 @@ export function registerSessionIpc({
     },
   )
 
+  ipcMain.handle(IPC_CHANNELS.mcpListServers, async (): Promise<McpConfigReadResponse> => {
+    return resolvedMcpConfigBridge.listServers()
+  })
+
+  ipcMain.handle(IPC_CHANNELS.mcpGetServer, async (_event, name: string): Promise<McpServerResponse> => {
+    return resolvedMcpConfigBridge.getServer(name)
+  })
+
+  ipcMain.handle(
+    IPC_CHANNELS.mcpSaveServer,
+    async (_event, input: McpServerInput): Promise<McpServerMutationResponse> => {
+      return resolvedMcpConfigBridge.saveServer(input)
+    },
+  )
+
+  ipcMain.handle(
+    IPC_CHANNELS.mcpDeleteServer,
+    async (_event, name: string): Promise<McpServerDeleteResponse> => {
+      return resolvedMcpConfigBridge.deleteServer(name)
+    },
+  )
+
+  ipcMain.handle(
+    IPC_CHANNELS.mcpRefreshStatus,
+    async (_event, name: string): Promise<McpServerStatusResponse> => {
+      return resolvedMcpService.refreshStatus(name)
+    },
+  )
+
+  ipcMain.handle(
+    IPC_CHANNELS.mcpReconnectServer,
+    async (_event, name: string): Promise<McpServerStatusResponse> => {
+      return resolvedMcpService.reconnectServer(name)
+    },
+  )
+
   return () => {
     bridge.off('rpc-event', onRpcEvent)
     bridge.off('extension-ui-request', onExtensionUiRequest)
@@ -1344,6 +1405,12 @@ export function registerSessionIpc({
     ipcMain.removeHandler(IPC_CHANNELS.symphonyGetDashboard)
     ipcMain.removeHandler(IPC_CHANNELS.symphonyRefreshDashboard)
     ipcMain.removeHandler(IPC_CHANNELS.symphonyRespondEscalation)
+    ipcMain.removeHandler(IPC_CHANNELS.mcpListServers)
+    ipcMain.removeHandler(IPC_CHANNELS.mcpGetServer)
+    ipcMain.removeHandler(IPC_CHANNELS.mcpSaveServer)
+    ipcMain.removeHandler(IPC_CHANNELS.mcpDeleteServer)
+    ipcMain.removeHandler(IPC_CHANNELS.mcpRefreshStatus)
+    ipcMain.removeHandler(IPC_CHANNELS.mcpReconnectServer)
   }
 }
 

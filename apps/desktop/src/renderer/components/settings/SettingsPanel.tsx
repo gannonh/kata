@@ -14,8 +14,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ProviderAuthPanel } from './ProviderAuthPanel'
 import { SymphonyRuntimePanel } from './SymphonyRuntimePanel'
 import { SymphonyDashboard } from '../symphony/SymphonyDashboard'
+import { McpServerPanel } from './McpServerPanel'
 
-type SettingsTab = 'providers' | 'general' | 'appearance' | 'symphony'
+type SettingsTab = 'providers' | 'mcp' | 'general' | 'appearance' | 'symphony'
 
 interface SettingsPanelProps {
   open: boolean
@@ -24,6 +25,7 @@ interface SettingsPanelProps {
 
 const SETTINGS_TABS: Array<{ id: SettingsTab; label: string }> = [
   { id: 'providers', label: 'Providers' },
+  { id: 'mcp', label: 'MCP' },
   { id: 'symphony', label: 'Symphony' },
   { id: 'general', label: 'General' },
   { id: 'appearance', label: 'Appearance' },
@@ -78,6 +80,10 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
           <div className="flex-1 overflow-hidden">
             <TabsContent value="providers" className="mt-0 h-full overflow-auto p-4">
               <ProviderAuthPanel />
+            </TabsContent>
+
+            <TabsContent value="mcp" className="mt-0 h-full overflow-auto p-4">
+              <McpServerPanel />
             </TabsContent>
 
             <TabsContent value="symphony" className="mt-0 h-full overflow-auto p-4">

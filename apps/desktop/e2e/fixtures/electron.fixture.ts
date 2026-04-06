@@ -13,6 +13,7 @@ const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true'
 function createIsolatedDataDir(): string {
   const dataDir = mkdtempSync(path.join(tmpdir(), 'kata-desktop-e2e-'))
   mkdirSync(path.join(dataDir, 'workspace'), { recursive: true })
+  mkdirSync(path.join(dataDir, '.kata-cli', 'agent'), { recursive: true })
   return dataDir
 }
 
@@ -69,6 +70,7 @@ async function dismissOnboardingIfPresent(window: Page): Promise<void> {
 type DesktopFixtures = {
   electronApp: ElectronApplication
   workspaceDir: string
+  mcpConfigPath: string
   mainWindow: Page
   readyWindow: Page
   symphonyMockMode:
@@ -95,7 +97,7 @@ export const test = base.extend<DesktopFixtures>({
       try { rmSync(dataDir, { recursive: true, force: true }) } catch { /* noop */ }
     }
   },
-  electronApp: async ({ workspaceDir, symphonyMockMode }, use) => {
+  electronApp: async ({ workspaceDir, symphonyMockMode, mcpConfigPath }, use) => {
     const dataDir = path.dirname(workspaceDir)
     const mainEntry = path.join(__dirname, '../../dist/main.cjs')
     const preloadEntry = path.join(__dirname, '../../dist/preload.cjs')
@@ -128,6 +130,8 @@ export const test = base.extend<DesktopFixtures>({
         KATA_DESKTOP_SYMPHONY_MOCK: symphonyMockMode,
         KATA_DESKTOP_SYMPHONY_DASHBOARD_MOCK: symphonyMockMode,
         KATA_SYMPHONY_URL: 'http://127.0.0.1:8080',
+        KATA_DESKTOP_MCP_CONFIG_PATH: mcpConfigPath,
+        VITE_DEV_SERVER_URL: '',
         // Don't override HOME — that breaks CLI binary discovery and auth.json lookup.
         // The --user-data-dir flag isolates Electron's own data (localStorage, cookies).
       },
@@ -146,6 +150,11 @@ export const test = base.extend<DesktopFixtures>({
         try { process.kill(pid, 'SIGKILL') } catch { /* already dead */ }
       }
     }
+  },
+
+  mcpConfigPath: async ({ workspaceDir }, use) => {
+    const configPath = path.join(path.dirname(workspaceDir), '.kata-cli', 'agent', 'mcp.json')
+    await use(configPath)
   },
 
   mainWindow: async ({ electronApp }, use) => {
