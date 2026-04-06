@@ -72,7 +72,7 @@ export function createMcpServerEditorDraft(server?: McpServerSummary): McpServer
     transport: 'stdio',
     enabled: server.enabled,
     command: server.summary.command,
-    argsText: server.summary.args.join(' '),
+    argsText: formatArgsForEditor(server.summary.args),
     cwd: server.summary.cwd ?? '',
     envText: '',
     envKeyHints: server.summary.envKeys,
@@ -122,11 +122,91 @@ export function validateMcpServerDraft(draft: McpServerEditorDraft): string[] {
   return errors
 }
 
-function parseArgs(argsText: string): string[] {
-  return argsText
-    .split(/\s+/)
-    .map((arg) => arg.trim())
-    .filter(Boolean)
+export function parseArgs(argsText: string): string[] {
+  const args: string[] = []
+  let current = ''
+  let quote: 'single' | 'double' | null = null
+
+  const pushCurrent = () => {
+    if (current.length > 0) {
+      args.push(current)
+      current = ''
+    }
+  }
+
+  for (let index = 0; index < argsText.length; index += 1) {
+    const char = argsText[index] ?? ''
+    const nextChar = argsText[index + 1]
+
+    if (quote === null) {
+      if (/\s/.test(char)) {
+        pushCurrent()
+        continue
+      }
+
+      if (char === '"') {
+        quote = 'double'
+        continue
+      }
+
+      if (char === "'") {
+        quote = 'single'
+        continue
+      }
+
+      if (char === '\\' && nextChar && (/\s/.test(nextChar) || ['"', "'", '\\'].includes(nextChar))) {
+        current += nextChar
+        index += 1
+        continue
+      }
+
+      current += char
+      continue
+    }
+
+    if (quote === 'single') {
+      if (char === "'") {
+        quote = null
+      } else {
+        current += char
+      }
+      continue
+    }
+
+    if (char === '"') {
+      quote = null
+      continue
+    }
+
+    if (char === '\\' && nextChar && ['"', '\\'].includes(nextChar)) {
+      current += nextChar
+      index += 1
+      continue
+    }
+
+    current += char
+  }
+
+  pushCurrent()
+
+  return args
+}
+
+function formatArgsForEditor(args: string[]): string {
+  return args
+    .map((arg) => {
+      if (!arg) {
+        return '""'
+      }
+
+      if (/^[^\s"']+$/.test(arg)) {
+        return arg
+      }
+
+      const escaped = arg.replace(/"/g, '\\"')
+      return `"${escaped}"`
+    })
+    .join(' ')
 }
 
 function parseEnv(envText: string): Record<string, string> | undefined {
@@ -162,15 +242,28 @@ function parseEnv(envText: string): Record<string, string> | undefined {
 
 function toServerInput(draft: McpServerEditorDraft): McpServerInput {
   if (draft.transport === 'http') {
-    return {
+    const input: McpServerInput = {
       name: draft.name.trim(),
       transport: 'http',
       enabled: draft.enabled,
       url: draft.url.trim(),
       auth: draft.auth,
-      bearerToken: draft.bearerToken,
-      bearerTokenEnv: draft.bearerTokenEnv,
     }
+
+    if (draft.auth === 'bearer') {
+      if (draft.bearerToken.trim()) {
+        input.bearerToken = draft.bearerToken
+      } else if (!draft.hasStoredInlineBearerToken) {
+        input.bearerToken = ''
+      }
+
+      input.bearerTokenEnv = draft.bearerTokenEnv
+    } else {
+      input.bearerToken = ''
+      input.bearerTokenEnv = ''
+    }
+
+    return input
   }
 
   return {

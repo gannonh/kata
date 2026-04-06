@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { createMcpServerEditorDraft, validateMcpServerDraft } from '../McpServerEditorDialog'
+import { createMcpServerEditorDraft, parseArgs, validateMcpServerDraft } from '../McpServerEditorDialog'
 import { formatMcpProvenanceLabel } from '../McpServerPanel'
 import {
   formatMcpStatusLabel,
@@ -96,9 +96,23 @@ describe('MCP settings helpers', () => {
       },
     })
 
+    const quotedArgsDraft = createMcpServerEditorDraft({
+      name: 'quoted',
+      transport: 'stdio',
+      enabled: true,
+      summary: {
+        transport: 'stdio',
+        command: 'node',
+        args: ['--path', 'C:\\Program Files\\MCP Server\\entry.mjs', '--label="alpha beta"'],
+        envKeys: [],
+      },
+    })
+
     expect(stdioDraft.name).toBe('local')
     expect(stdioDraft.command).toBe('node')
     expect(stdioDraft.envKeyHints).toEqual(['API_KEY'])
+
+    expect(quotedArgsDraft.argsText).toBe('--path "C:\\Program Files\\MCP Server\\entry.mjs" "--label=\\"alpha beta\\""')
 
     const httpDraft = createMcpServerEditorDraft({
       name: 'remote',
@@ -117,6 +131,12 @@ describe('MCP settings helpers', () => {
     expect(httpDraft.bearerToken).toBe('')
     expect(httpDraft.bearerTokenEnv).toBe('MCP_TOKEN')
     expect(httpDraft.hasStoredInlineBearerToken).toBe(true)
+  })
+
+  test('parses quoted argument text without splitting embedded spaces', () => {
+    const parsed = parseArgs('--path "C:\\Program Files\\MCP Server\\entry.mjs" --name "alpha beta"')
+
+    expect(parsed).toEqual(['--path', 'C:\\Program Files\\MCP Server\\entry.mjs', '--name', 'alpha beta'])
   })
 
   test('validates transport-aware editor requirements', () => {
@@ -145,5 +165,16 @@ describe('MCP settings helpers', () => {
         auth: 'bearer',
       }),
     ).toContain('Bearer auth requires a token or token env key.')
+
+    expect(
+      validateMcpServerDraft({
+        ...createMcpServerEditorDraft(),
+        name: 'remote',
+        transport: 'http',
+        url: 'https://example.com/mcp',
+        auth: 'bearer',
+        hasStoredInlineBearerToken: true,
+      }),
+    ).toEqual([])
   })
 })

@@ -268,6 +268,41 @@ describe('McpConfigBridge', () => {
     expect(persisted.mcpServers.local?.bearerTokenEnv).toBeUndefined()
   })
 
+  test('saveServer allows bearer updates without re-entering an existing inline token', async () => {
+    await writeConfig({
+      mcpServers: {
+        remote: {
+          url: 'https://mcp.example.com',
+          auth: 'bearer',
+          bearerToken: 'existing-inline-token',
+        },
+      },
+    })
+
+    const bridge = new McpConfigBridge({ configPath })
+    const response = await bridge.saveServer({
+      name: 'remote',
+      transport: 'http',
+      url: 'https://mcp.example.com/v2',
+      auth: 'bearer',
+      bearerTokenEnv: '   ',
+    })
+
+    expect(response.success).toBe(true)
+    if (response.success && response.server?.summary.transport === 'http') {
+      expect(response.server.summary.hasInlineBearerToken).toBe(true)
+      expect(response.server.summary.auth).toBe('bearer')
+    }
+
+    const persisted = JSON.parse(await fs.readFile(configPath, 'utf8')) as {
+      mcpServers: Record<string, Record<string, unknown>>
+    }
+
+    expect(persisted.mcpServers.remote?.url).toBe('https://mcp.example.com/v2')
+    expect(persisted.mcpServers.remote?.bearerToken).toBe('existing-inline-token')
+    expect(persisted.mcpServers.remote?.bearerTokenEnv).toBeUndefined()
+  })
+
   test('saveServer normalizes http servers and strips stdio-only fields', async () => {
     await writeConfig({
       mcpServers: {

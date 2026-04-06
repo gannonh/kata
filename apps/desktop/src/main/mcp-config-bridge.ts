@@ -122,7 +122,10 @@ export class McpConfigBridge {
       return loaded.response
     }
 
-    const validationErrors = validateServerInput(input)
+    const name = input.name.trim()
+    const existingServer = asObject(loaded.config.mcpServers[name])
+
+    const validationErrors = validateServerInput(input, existingServer)
     if (validationErrors.length > 0) {
       return {
         success: false,
@@ -135,8 +138,6 @@ export class McpConfigBridge {
       }
     }
 
-    const name = input.name.trim()
-    const existingServer = asObject(loaded.config.mcpServers[name])
     const nextServer = normalizeServerForWrite(existingServer, input)
 
     const nextConfig: JsonObject = {
@@ -508,7 +509,7 @@ export class McpConfigBridge {
   }
 }
 
-function validateServerInput(input: McpServerInput): McpValidationError[] {
+function validateServerInput(input: McpServerInput, existingServer: JsonObject = {}): McpValidationError[] {
   const errors: McpValidationError[] = []
 
   const name = input.name.trim()
@@ -562,11 +563,14 @@ function validateServerInput(input: McpServerInput): McpValidationError[] {
       }
     }
 
-    const auth = input.auth ?? 'none'
+    const auth = input.auth ?? normalizeAuthMode(existingServer.auth)
     if (auth === 'bearer') {
       const token = input.bearerToken?.trim()
       const tokenEnv = input.bearerTokenEnv?.trim()
-      if (!token && !tokenEnv) {
+      const existingToken = asNonEmptyString(existingServer.bearerToken)
+      const existingTokenEnv = asNonEmptyString(existingServer.bearerTokenEnv)
+
+      if (!token && !tokenEnv && !existingToken && !existingTokenEnv) {
         errors.push({
           field: 'bearer',
           code: 'REQUIRED',
@@ -613,28 +617,35 @@ function normalizeServerForWrite(existingServer: JsonObject, input: McpServerInp
 }
 
 function normalizeHttpServerForWrite(existingServer: JsonObject, input: McpHttpServerInput): JsonObject {
+  const auth = input.auth ?? normalizeAuthMode(existingServer.auth)
+
   const nextHttpServer: JsonObject = {
     ...existingServer,
     url: input.url.trim(),
-    auth: input.auth ?? normalizeAuthMode(existingServer.auth),
+    auth,
     disabled: input.enabled === undefined ? toBoolean(existingServer.disabled) : !input.enabled,
   }
 
-  if (input.bearerToken !== undefined) {
-    const token = input.bearerToken.trim()
-    if (token) {
-      nextHttpServer.bearerToken = token
-    } else {
-      delete nextHttpServer.bearerToken
+  if (auth !== 'bearer') {
+    delete nextHttpServer.bearerToken
+    delete nextHttpServer.bearerTokenEnv
+  } else {
+    if (input.bearerToken !== undefined) {
+      const token = input.bearerToken.trim()
+      if (token) {
+        nextHttpServer.bearerToken = token
+      } else {
+        delete nextHttpServer.bearerToken
+      }
     }
-  }
 
-  if (input.bearerTokenEnv !== undefined) {
-    const tokenEnv = input.bearerTokenEnv.trim()
-    if (tokenEnv) {
-      nextHttpServer.bearerTokenEnv = tokenEnv
-    } else {
-      delete nextHttpServer.bearerTokenEnv
+    if (input.bearerTokenEnv !== undefined) {
+      const tokenEnv = input.bearerTokenEnv.trim()
+      if (tokenEnv) {
+        nextHttpServer.bearerTokenEnv = tokenEnv
+      } else {
+        delete nextHttpServer.bearerTokenEnv
+      }
     }
   }
 
