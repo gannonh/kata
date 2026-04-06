@@ -73,6 +73,35 @@ describe('WorkflowBoardService', () => {
     expect(inProgressCards.map((card) => card.id)).toContain('slice-1')
   })
 
+  test('applies fixture-mode task moves and edit updates without explicit target state', async () => {
+    process.env.KATA_TEST_WORKFLOW_FIXTURE = '1'
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+    })
+
+    await service.getBoard()
+
+    const moveResult = await service.moveEntity({
+      entityKind: 'task',
+      entityId: 'task-2',
+      targetColumnId: 'done',
+    })
+
+    expect(moveResult.success).toBe(true)
+    expect(moveResult.message).toContain('Task moved')
+
+    const updateResult = await service.updateTask({
+      taskId: 'task-2',
+      title: 'Task renamed without state change',
+      description: 'No explicit target column provided',
+    })
+
+    expect(updateResult.success).toBe(true)
+    expect(updateResult.task?.columnId).toBe('done')
+  })
+
   test('returns rollback failure for fixture-mode move scenarios and keeps board unchanged', async () => {
     process.env.KATA_TEST_WORKFLOW_FIXTURE = '1'
 
@@ -96,6 +125,136 @@ describe('WorkflowBoardService', () => {
     const after = await service.refreshBoard()
     const afterTodoIds = after.snapshot.columns.find((column) => column.id === 'todo')?.cards.map((card) => card.id)
     expect(afterTodoIds).toEqual(beforeTodoIds)
+  })
+
+  test('validates mutation payloads before attempting workflow writes', async () => {
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+    })
+
+    const move = await service.moveEntity({
+      entityKind: 'slice',
+      entityId: '   ',
+      targetColumnId: 'todo',
+    })
+    expect(move.success).toBe(false)
+    expect(move.code).toBe('VALIDATION_ERROR')
+
+    const createMissingParent = await service.createTask({
+      parentSliceId: '   ',
+      title: 'Task title',
+    })
+    expect(createMissingParent.success).toBe(false)
+    expect(createMissingParent.code).toBe('VALIDATION_ERROR')
+
+    const createMissingTitle = await service.createTask({
+      parentSliceId: 'slice-1',
+      title: '   ',
+    })
+    expect(createMissingTitle.success).toBe(false)
+    expect(createMissingTitle.code).toBe('VALIDATION_ERROR')
+
+    const missingTaskDetail = await service.getTaskDetail({ taskId: '   ' })
+    expect(missingTaskDetail.success).toBe(false)
+    expect(missingTaskDetail.code).toBe('FAILED')
+
+    const updateMissingTaskId = await service.updateTask({
+      taskId: '   ',
+      title: 'Task title',
+    })
+    expect(updateMissingTaskId.success).toBe(false)
+    expect(updateMissingTaskId.code).toBe('VALIDATION_ERROR')
+
+    const updateMissingTitle = await service.updateTask({
+      taskId: 'task-1',
+      title: '   ',
+    })
+    expect(updateMissingTitle.success).toBe(false)
+    expect(updateMissingTitle.code).toBe('VALIDATION_ERROR')
+  })
+
+  test('returns not-found mutation responses when target entities are no longer visible', async () => {
+    process.env.KATA_TEST_WORKFLOW_FIXTURE = '1'
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+    })
+
+    await service.getBoard()
+
+    const moveMissing = await service.moveEntity({
+      entityKind: 'task',
+      entityId: 'missing-task',
+      targetColumnId: 'todo',
+    })
+    expect(moveMissing.success).toBe(false)
+    expect(moveMissing.code).toBe('NOT_FOUND')
+
+    const createMissingParent = await service.createTask({
+      parentSliceId: 'missing-slice',
+      title: 'Task title',
+    })
+    expect(createMissingParent.success).toBe(false)
+    expect(createMissingParent.code).toBe('NOT_FOUND')
+
+    const detailMissing = await service.getTaskDetail({ taskId: 'missing-task' })
+    expect(detailMissing.success).toBe(false)
+    expect(detailMissing.code).toBe('NOT_FOUND')
+
+    const updateMissing = await service.updateTask({
+      taskId: 'missing-task',
+      title: 'Task title',
+    })
+    expect(updateMissing.success).toBe(false)
+    expect(updateMissing.code).toBe('NOT_FOUND')
+  })
+
+  test('returns unsupported mutation responses when board backend is not linear', async () => {
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+    })
+
+    ;(service as any).lastSnapshot = {
+      backend: 'github',
+      fetchedAt: '2026-04-06T00:00:00.000Z',
+      status: 'fresh',
+      source: { repository: 'kata-sh/kata', mode: 'labels' },
+      columns: [],
+      poll: {
+        status: 'success',
+        backend: 'github',
+        lastAttemptAt: '2026-04-06T00:00:00.000Z',
+      },
+    }
+
+    const move = await service.moveEntity({
+      entityKind: 'slice',
+      entityId: 'slice-1',
+      targetColumnId: 'todo',
+    })
+    expect(move.success).toBe(false)
+    expect(move.code).toBe('UNSUPPORTED')
+
+    const create = await service.createTask({
+      parentSliceId: 'slice-1',
+      title: 'Task title',
+    })
+    expect(create.success).toBe(false)
+    expect(create.code).toBe('UNSUPPORTED')
+
+    const detail = await service.getTaskDetail({ taskId: 'task-1' })
+    expect(detail.success).toBe(false)
+    expect(detail.code).toBe('UNSUPPORTED')
+
+    const update = await service.updateTask({
+      taskId: 'task-1',
+      title: 'Task title',
+    })
+    expect(update.success).toBe(false)
+    expect(update.code).toBe('UNSUPPORTED')
   })
 
   test('creates fixture-mode child tasks and keeps them visible after refresh', async () => {
