@@ -156,6 +156,7 @@ describe('McpService', () => {
   })
 
   test('inspects HTTP server with bearer token resolved from env and lists tools', async () => {
+    const originalToken = process.env.MCP_HTTP_TOKEN
     const httpServer = await startJsonRpcHttpServer((request) => {
       if (request.method === 'initialize') {
         return {
@@ -195,30 +196,101 @@ describe('McpService', () => {
       }
     })
 
-    process.env.MCP_HTTP_TOKEN = 'token-from-env'
+    try {
+      process.env.MCP_HTTP_TOKEN = 'token-from-env'
 
-    await writeConfig({
-      mcpServers: {
-        remote: {
-          url: httpServer.url,
-          auth: 'bearer',
-          bearerTokenEnv: 'MCP_HTTP_TOKEN',
+      await writeConfig({
+        mcpServers: {
+          remote: {
+            url: httpServer.url,
+            auth: 'bearer',
+            bearerTokenEnv: 'MCP_HTTP_TOKEN',
+          },
         },
-      },
+      })
+
+      const service = createService(3_000)
+      const response = await service.refreshStatus('remote')
+
+      expect(response.success).toBe(true)
+      expect(response.status?.phase).toBe('connected')
+      expect(response.status?.toolNames).toEqual(['search', 'lookup'])
+
+      const initializeRequest = httpServer.requests.find((request) => request.body?.method === 'initialize')
+      expect(initializeRequest?.headers.authorization).toBe('Bearer token-from-env')
+    } finally {
+      if (originalToken === undefined) {
+        delete process.env.MCP_HTTP_TOKEN
+      } else {
+        process.env.MCP_HTTP_TOKEN = originalToken
+      }
+      await httpServer.close()
+    }
+  })
+  test('accepts 204 empty responses for notifications/initialized', async () => {
+    const httpServer = await startJsonRpcHttpServer((request) => {
+      if (request.method === 'initialize') {
+        return {
+          body: {
+            jsonrpc: '2.0',
+            id: request.id,
+            result: {
+              protocolVersion: '2024-11-05',
+              capabilities: {},
+              serverInfo: {
+                name: 'fixture-http',
+                version: '1.0.0',
+              },
+            },
+          },
+        }
+      }
+
+      if (request.method === 'notifications/initialized') {
+        return {
+          status: 204,
+        }
+      }
+
+      if (request.method === 'tools/list') {
+        return {
+          body: {
+            jsonrpc: '2.0',
+            id: request.id,
+            result: {
+              tools: [{ name: 'search' }],
+            },
+          },
+        }
+      }
+
+      return {
+        body: {
+          jsonrpc: '2.0',
+          id: request.id,
+          result: {},
+        },
+      }
     })
 
-    const service = createService(3_000)
-    const response = await service.refreshStatus('remote')
+    try {
+      await writeConfig({
+        mcpServers: {
+          remote: {
+            url: httpServer.url,
+          },
+        },
+      })
 
-    expect(response.success).toBe(true)
-    expect(response.status?.phase).toBe('connected')
-    expect(response.status?.toolNames).toEqual(['search', 'lookup'])
+      const service = createService(3_000)
+      const response = await service.refreshStatus('remote')
 
-    const initializeRequest = httpServer.requests.find((request) => request.body?.method === 'initialize')
-    expect(initializeRequest?.headers.authorization).toBe('Bearer token-from-env')
-
-    delete process.env.MCP_HTTP_TOKEN
-    await httpServer.close()
+      expect(response.success).toBe(true)
+      expect(response.status?.phase).toBe('connected')
+      expect(response.status?.toolNames).toEqual(['search'])
+    } finally {
+      await httpServer.close()
+    }
   })
 
   test('returns missing-bearer-token when HTTP bearer auth has no token source', async () => {
@@ -428,7 +500,15 @@ async function startJsonRpcHttpServer(
     }
 
     const rawBody = Buffer.concat(chunks).toString('utf8')
-    const parsedBody = rawBody ? (JSON.parse(rawBody) as JsonRpcRequest) : null
+    let parsedBody: JsonRpcRequest | null = null
+
+    if (rawBody) {
+      try {
+        parsedBody = JSON.parse(rawBody) as JsonRpcRequest
+      } catch {
+        parsedBody = null
+      }
+    }
 
     requests.push({
       headers: req.headers,
@@ -437,15 +517,20 @@ async function startJsonRpcHttpServer(
 
     const scenario = handler(parsedBody ?? {})
     const status = scenario.status ?? 200
-    const body = scenario.body ?? {}
 
     if (scenario.delayMs && scenario.delayMs > 0) {
       await new Promise((resolve) => setTimeout(resolve, scenario.delayMs))
     }
 
     res.statusCode = status
+
+    if (scenario.body === undefined || status === 204) {
+      res.end()
+      return
+    }
+
     res.setHeader('content-type', 'application/json')
-    res.end(JSON.stringify(body))
+    res.end(JSON.stringify(scenario.body))
   })
 
   await new Promise<void>((resolve) => {

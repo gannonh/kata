@@ -189,11 +189,22 @@ export class McpService {
         )
       }
 
-      await postJsonRpc(server.url, {
-        jsonrpc: '2.0',
-        method: 'notifications/initialized',
-        params: {},
-      }, headers, this.requestTimeoutMs)
+      void postJsonRpcNotification(
+        server.url,
+        {
+          jsonrpc: '2.0',
+          method: 'notifications/initialized',
+          params: {},
+        },
+        headers,
+        this.requestTimeoutMs,
+      ).catch((error) => {
+        const message = error instanceof Error ? error.message : String(error)
+        log.warn('[mcp-service] notifications/initialized failed', {
+          serverName: server.name,
+          error: message,
+        })
+      })
 
       const toolsResponse = await postJsonRpc(server.url, {
         jsonrpc: '2.0',
@@ -528,6 +539,33 @@ async function postJsonRpc(
   headers: Record<string, string>,
   timeoutMs: number,
 ): Promise<{ result?: unknown; error?: unknown }> {
+  const response = await postJson(url, payload, headers, timeoutMs)
+
+  const body = (await response.json()) as {
+    result?: unknown
+    error?: unknown
+  }
+
+  return body
+}
+
+async function postJsonRpcNotification(
+  url: string,
+  payload: Record<string, unknown>,
+  headers: Record<string, string>,
+  timeoutMs: number,
+): Promise<void> {
+  // JSON-RPC notifications may return 204/empty bodies (or no meaningful payload).
+  // We only care that the request is delivered; response content is intentionally ignored.
+  await postJson(url, payload, headers, timeoutMs)
+}
+
+async function postJson(
+  url: string,
+  payload: Record<string, unknown>,
+  headers: Record<string, string>,
+  timeoutMs: number,
+): Promise<Response> {
   const abortController = new AbortController()
   const timeout = setTimeout(() => {
     abortController.abort()
@@ -545,12 +583,7 @@ async function postJsonRpc(
       throw new Error(`HTTP ${response.status} from ${url}`)
     }
 
-    const body = (await response.json()) as {
-      result?: unknown
-      error?: unknown
-    }
-
-    return body
+    return response
   } finally {
     clearTimeout(timeout)
   }
