@@ -17,9 +17,13 @@ vi.mock('electron', () => {
     dialog: {
       showOpenDialog: vi.fn(async () => ({ canceled: true, filePaths: [] })),
     },
+    shell: {
+      openExternal: vi.fn(async () => undefined),
+    },
   }
 })
 
+import { shell } from 'electron'
 import { registerSessionIpc } from '../ipc'
 
 function createBridgeStub() {
@@ -126,6 +130,16 @@ describe('symphony ipc handlers', () => {
       'req-1',
       'Proceed',
     )
+    const workflowRespondResult = await handlers.get(IPC_CHANNELS.workflowRespondEscalation)?.({}, {
+      cardId: 'slice-1',
+      requestId: 'req-1',
+      responseText: 'Proceed',
+    })
+    const workflowOpenIssueResult = await handlers.get(IPC_CHANNELS.workflowOpenIssue)?.({}, {
+      cardId: 'slice-1',
+      url: 'https://linear.app/kata-sh/issue/KAT-2362/s01-kanban-interaction-closure',
+      identifier: 'KAT-2362',
+    })
 
     expect(supervisor.start).toHaveBeenCalledTimes(1)
     expect(supervisor.stop).toHaveBeenCalledTimes(1)
@@ -136,6 +150,14 @@ describe('symphony ipc handlers', () => {
     expect(operatorService.refreshBaseline).toHaveBeenCalledTimes(1)
     expect(operatorService.respondToEscalation).toHaveBeenCalledWith('req-1', 'Proceed')
     expect(respondResult.success).toBe(true)
+    expect(workflowRespondResult.success).toBe(true)
+    expect(workflowRespondResult.code).toBe('SUBMITTED')
+
+    expect((shell.openExternal as any)).toHaveBeenCalledWith(
+      'https://linear.app/kata-sh/issue/KAT-2362/s01-kanban-interaction-closure',
+    )
+    expect(workflowOpenIssueResult.success).toBe(true)
+    expect(workflowOpenIssueResult.code).toBe('OPENED')
 
     unregister()
   })

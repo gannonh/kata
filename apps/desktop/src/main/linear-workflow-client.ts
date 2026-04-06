@@ -132,11 +132,52 @@ export class LinearWorkflowClient {
       milestoneId: activeMilestone?.id,
       milestoneName: activeMilestone?.name,
       issues: sliceIssues,
+      scope: 'milestone',
     })
 
     log.info('[linear-workflow-client] workflow:fetch', {
       projectRef,
       projectId,
+      scope: 'milestone',
+      milestoneId: snapshot.activeMilestone?.id,
+      status: snapshot.status,
+      cardCount: snapshot.columns.reduce((count, column) => count + column.cards.length, 0),
+      latencyMs: Date.now() - startedAt,
+    })
+
+    return snapshot
+  }
+
+  async fetchProjectSnapshot(options: FetchLinearBoardOptions): Promise<WorkflowBoardSnapshot> {
+    const projectRef = options.projectRef.trim()
+    if (!projectRef) {
+      throw new LinearWorkflowClientError('NOT_CONFIGURED', 'Linear project reference is required')
+    }
+
+    const startedAt = Date.now()
+    const apiKey = await this.requireApiKey()
+    const projectId = await this.resolveProjectId(apiKey, projectRef)
+
+    if (!projectId) {
+      throw new LinearWorkflowClientError('NOT_FOUND', `Linear project "${projectRef}" was not found`)
+    }
+
+    const allIssues = await this.fetchAllIssuesForProject(apiKey, projectId)
+    const sliceIssues = allIssues.filter((issue) => !issue.parent?.id)
+    const activeMilestone = chooseActiveMilestone(sliceIssues)
+
+    const snapshot = normalizeLinearBoard({
+      projectId,
+      issues: sliceIssues,
+      scope: 'project',
+      activeMilestoneId: activeMilestone?.id,
+      activeMilestoneName: activeMilestone?.name,
+    })
+
+    log.info('[linear-workflow-client] workflow:fetch', {
+      projectRef,
+      projectId,
+      scope: 'project',
       milestoneId: snapshot.activeMilestone?.id,
       status: snapshot.status,
       cardCount: snapshot.columns.reduce((count, column) => count + column.cards.length, 0),
@@ -482,12 +523,19 @@ export function normalizeLinearBoard(input: {
   milestoneId?: string
   milestoneName?: string
   issues: LinearWorkflowIssue[]
+  scope?: 'milestone' | 'project'
+  activeMilestoneId?: string
+  activeMilestoneName?: string
 }): WorkflowBoardSnapshot {
   const columns = createEmptyWorkflowColumns()
+  const scope = input.scope ?? 'milestone'
 
-  const scopedIssues = input.milestoneId
-    ? input.issues.filter((issue) => issue.projectMilestone?.id === input.milestoneId)
-    : []
+  const scopedIssues =
+    scope === 'project'
+      ? input.issues
+      : input.milestoneId
+        ? input.issues.filter((issue) => issue.projectMilestone?.id === input.milestoneId)
+        : []
 
   const sliceCards = scopedIssues
     .filter((issue) => issue.id && issue.identifier && issue.title)
@@ -508,6 +556,8 @@ export function normalizeLinearBoard(input: {
 
       const columnId = mapLinearStateToColumnId(issue.state?.name, issue.state?.type)
       const doneTasks = tasks.filter((task) => task.columnId === 'done').length
+      const milestoneId = issue.projectMilestone?.id?.trim()
+      const milestoneName = issue.projectMilestone?.name?.trim()
 
       return {
         id: issue.id as string,
@@ -516,8 +566,8 @@ export function normalizeLinearBoard(input: {
         columnId,
         stateName: issue.state?.name?.trim() || 'Unknown',
         stateType: issue.state?.type?.trim() || 'unknown',
-        milestoneId: input.milestoneId ?? 'none',
-        milestoneName: input.milestoneName ?? 'No active milestone',
+        milestoneId: milestoneId ?? input.milestoneId ?? 'none',
+        milestoneName: milestoneName ?? input.milestoneName ?? 'No active milestone',
         taskCounts: {
           total: tasks.length,
           done: doneTasks,
@@ -536,6 +586,8 @@ export function normalizeLinearBoard(input: {
   }
 
   const hasCards = columns.some((column) => column.cards.length > 0)
+  const activeMilestoneId = scope === 'project' ? input.activeMilestoneId : input.milestoneId
+  const activeMilestoneName = scope === 'project' ? input.activeMilestoneName : input.milestoneName
 
   return {
     backend: 'linear',
@@ -543,17 +595,22 @@ export function normalizeLinearBoard(input: {
     status: hasCards ? 'fresh' : 'empty',
     source: {
       projectId: input.projectId,
-      activeMilestoneId: input.milestoneId,
+      activeMilestoneId,
     },
     activeMilestone:
-      input.milestoneId && input.milestoneName
+      activeMilestoneId && activeMilestoneName
         ? {
-            id: input.milestoneId,
-            name: input.milestoneName,
+            id: activeMilestoneId,
+            name: activeMilestoneName,
           }
         : null,
     columns,
-    emptyReason: hasCards ? undefined : 'No slices found in the active milestone.',
+    emptyReason:
+      hasCards
+        ? undefined
+        : scope === 'project'
+          ? 'No slices found in this project.'
+          : 'No slices found in the active milestone.',
     poll: {
       status: 'success',
       backend: 'linear',

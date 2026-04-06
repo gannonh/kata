@@ -1,10 +1,19 @@
-import { ChevronDown } from 'lucide-react'
-import { useState } from 'react'
-import type { WorkflowBoardSliceCard } from '@shared/types'
+import { useAtomValue, useSetAtom } from 'jotai'
+import { AlertCircle, ChevronDown, MessageSquareText } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import type { WorkflowBoardEscalationRequest, WorkflowBoardSliceCard, WorkflowBoardTask } from '@shared/types'
+import {
+  openWorkflowIssueAtom,
+  respondToWorkflowEscalationAtom,
+  workflowEscalationActionStateAtom,
+  workflowIssueActionStateAtom,
+} from '@/atoms/workflow-board'
 import { TaskList } from '@/components/kanban/TaskList'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { Input } from '@/components/ui/input'
 
 interface SliceCardProps {
   card: WorkflowBoardSliceCard
@@ -37,21 +46,88 @@ export function formatSliceSymphonyHint(symphony: WorkflowBoardSliceCard['sympho
   return 'No active Symphony execution'
 }
 
+function escalationActionKey(cardId: string, requestId: string): string {
+  return `${cardId}:${requestId}`
+}
+
+export function isInlineEscalationEnabled(symphony: WorkflowBoardSliceCard['symphony']): boolean {
+  if (!symphony) {
+    return false
+  }
+
+  return symphony.freshness === 'fresh' && symphony.provenance === 'dashboard-derived'
+}
+
 export function SliceCard({ card }: SliceCardProps) {
   const [isOpen, setIsOpen] = useState(false)
+  const [showEscalationComposer, setShowEscalationComposer] = useState(false)
+  const [responseDraftByRequestId, setResponseDraftByRequestId] = useState<Record<string, string>>({})
+
   const symphony = card.symphony
+  const issueActions = useAtomValue(workflowIssueActionStateAtom)
+  const escalationActions = useAtomValue(workflowEscalationActionStateAtom)
+  const openIssue = useSetAtom(openWorkflowIssueAtom)
+  const respondToEscalation = useSetAtom(respondToWorkflowEscalationAtom)
+
+  const pendingEscalations = useMemo(
+    () => symphony?.pendingEscalationRequests ?? [],
+    [symphony?.pendingEscalationRequests],
+  )
+
+  const canRespondInline = isInlineEscalationEnabled(symphony) && pendingEscalations.length > 0
+
+  const issueAction = issueActions[card.id]
+  const latestEscalationActionMessage = pendingEscalations
+    .map((request) => escalationActions[escalationActionKey(card.id, request.requestId)]?.message)
+    .find(Boolean)
+
+  const submitEscalationResponse = async (request: WorkflowBoardEscalationRequest) => {
+    const responseText = responseDraftByRequestId[request.requestId]?.trim()
+    if (!responseText) {
+      return
+    }
+
+    await respondToEscalation({
+      cardId: card.id,
+      requestId: request.requestId,
+      responseText,
+    })
+
+    setResponseDraftByRequestId((current) => ({
+      ...current,
+      [request.requestId]: '',
+    }))
+  }
+
+  const openCardIssue = () => {
+    if (!card.url) {
+      return
+    }
+
+    void openIssue({
+      cardId: card.id,
+      url: card.url,
+      identifier: card.identifier,
+    })
+  }
+
+  const openTaskIssue = (task: WorkflowBoardTask) => {
+    if (!task.url) {
+      return
+    }
+
+    void openIssue({
+      cardId: task.id,
+      url: task.url,
+      identifier: task.identifier ?? card.identifier,
+    })
+  }
 
   return (
     <Card size="sm" className="gap-3 rounded-xl border border-border/70 py-3 shadow-none">
       <CardHeader className="px-3 pb-0">
         <CardTitle className="text-sm leading-tight">
-          {card.url ? (
-            <a href={card.url} target="_blank" rel="noreferrer" className="hover:underline">
-              {card.identifier} · {card.title}
-            </a>
-          ) : (
-            <>{card.identifier} · {card.title}</>
-          )}
+          {card.identifier} · {card.title}
         </CardTitle>
       </CardHeader>
 
@@ -88,13 +164,105 @@ export function SliceCard({ card }: SliceCardProps) {
           </div>
         ) : null}
 
+        <div className="flex flex-wrap items-center gap-1.5">
+          {card.url ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-7 px-2 text-[11px]"
+              onClick={openCardIssue}
+              data-testid={`slice-open-issue-${card.identifier}`}
+              disabled={issueAction?.status === 'opening'}
+            >
+              Open Linear issue
+            </Button>
+          ) : null}
+
+          {pendingEscalations.length > 0 ? (
+            <Button
+              type="button"
+              size="sm"
+              variant={showEscalationComposer ? 'secondary' : 'outline'}
+              className="h-7 px-2 text-[11px]"
+              data-testid={`slice-escalation-toggle-${card.identifier}`}
+              onClick={() => setShowEscalationComposer((current) => !current)}
+            >
+              <MessageSquareText className="mr-1 size-3" />
+              Respond to escalation
+            </Button>
+          ) : null}
+        </div>
+
+        {issueAction?.message ? (
+          <p className="text-[11px] text-muted-foreground" data-testid={`slice-issue-action-${card.identifier}`}>
+            {issueAction.message}
+          </p>
+        ) : null}
+
+        {showEscalationComposer && pendingEscalations.length > 0 ? (
+          <div className="space-y-2 rounded-md border border-border/70 bg-background/70 p-2">
+            {!canRespondInline ? (
+              <div className="flex items-start gap-1 text-[11px] text-amber-700 dark:text-amber-300">
+                <AlertCircle className="mt-0.5 size-3" />
+                <p>Inline responses are disabled while Symphony context is stale or disconnected.</p>
+              </div>
+            ) : null}
+
+            {pendingEscalations.map((request) => {
+              const actionState = escalationActions[escalationActionKey(card.id, request.requestId)]
+              const draft = responseDraftByRequestId[request.requestId] ?? ''
+              const isSubmitting = actionState?.status === 'submitting'
+
+              return (
+                <div key={request.requestId} className="space-y-1 rounded border border-border/50 p-2">
+                  <p className="text-[11px] font-medium text-foreground">{request.questionPreview}</p>
+                  <Input
+                    value={draft}
+                    onChange={(event) => {
+                      const value = event.target.value
+                      setResponseDraftByRequestId((current) => ({
+                        ...current,
+                        [request.requestId]: value,
+                      }))
+                    }}
+                    placeholder="Enter escalation response"
+                    data-testid={`slice-escalation-input-${request.requestId}`}
+                  />
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-7 px-2 text-[11px]"
+                      data-testid={`slice-escalation-submit-${request.requestId}`}
+                      disabled={!canRespondInline || !draft.trim() || isSubmitting}
+                      onClick={() => {
+                        void submitEscalationResponse(request)
+                      }}
+                    >
+                      {isSubmitting ? 'Submitting…' : 'Submit response'}
+                    </Button>
+                    {actionState?.message ? <p className="text-[11px] text-muted-foreground">{actionState.message}</p> : null}
+                  </div>
+                </div>
+              )
+            })}
+
+            {latestEscalationActionMessage ? (
+              <p className="text-[11px] text-muted-foreground" data-testid={`slice-escalation-result-${card.identifier}`}>
+                {latestEscalationActionMessage}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>
           <CollapsibleTrigger className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
             <ChevronDown className={`size-3 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
             {isOpen ? 'Hide tasks' : 'Show tasks'}
           </CollapsibleTrigger>
           <CollapsibleContent className="pt-2">
-            <TaskList tasks={card.tasks} />
+            <TaskList tasks={card.tasks} issueActions={issueActions} onOpenIssue={openTaskIssue} />
           </CollapsibleContent>
         </Collapsible>
       </CardContent>

@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
-import { formatSymphonyBoardStatus, formatWorkflowBoardStatus } from '../KanbanHeader'
+import { formatScopeStatus, formatSymphonyBoardStatus, formatWorkflowBoardStatus } from '../KanbanHeader'
+import { summarizeColumnPresentation } from '../KanbanPane'
 
 describe('KanbanPane status formatting', () => {
   test('renders loading state', () => {
@@ -45,6 +46,32 @@ describe('KanbanPane status formatting', () => {
         refreshing: false,
       }),
     ).toBe('No slices in active milestone')
+  })
+
+  test('renders scope fallback details when requested scope is unresolved', () => {
+    expect(
+      formatScopeStatus(
+        {
+          backend: 'linear',
+          fetchedAt: '2026-04-04T00:00:00.000Z',
+          status: 'fresh',
+          source: { projectId: 'test-project' },
+          activeMilestone: null,
+          columns: [],
+          poll: {
+            status: 'success',
+            backend: 'linear',
+            lastAttemptAt: '2026-04-04T00:00:00.000Z',
+          },
+          scope: {
+            requested: 'active',
+            resolved: 'project',
+            reason: 'operator_state_stale',
+          },
+        },
+        'active',
+      ),
+    ).toContain('Scope: Active → Project')
   })
 
   test('renders symphony as unavailable when provenance is unavailable', () => {
@@ -129,5 +156,21 @@ describe('KanbanPane status formatting', () => {
         },
       }),
     ).toContain('Symphony: live · 1 worker · 3 escalations · 2 correlation misses')
+  })
+})
+
+describe('KanbanPane presentation persistence helpers', () => {
+  test('summarizes collapsed columns and hidden work counts', () => {
+    const summary = summarizeColumnPresentation(
+      [
+        { id: 'todo', title: 'Todo', cards: [{ id: '1' } as any, { id: '2' } as any] },
+        { id: 'in_progress', title: 'In Progress', cards: [{ id: '3' } as any] },
+        { id: 'done', title: 'Done', cards: [] },
+      ],
+      new Set(['todo', 'done']),
+    )
+
+    expect(summary.collapsedColumnCount).toBe(2)
+    expect(summary.hiddenCardCount).toBe(2)
   })
 })

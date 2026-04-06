@@ -1,6 +1,6 @@
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
-import { dialog, ipcMain, type BrowserWindow } from 'electron'
+import { dialog, ipcMain, shell, type BrowserWindow } from 'electron'
 import log from './logger'
 import { AuthBridge } from './auth-bridge'
 import { LinearDocumentClient } from './linear-document-client'
@@ -46,7 +46,12 @@ import {
   type ArtifactType,
   type WorkflowBoardSnapshotResponse,
   type WorkflowBoardLifecycleResponse,
+  type WorkflowBoardScopeRequest,
   type WorkflowBoardScopeResponse,
+  type WorkflowBoardEscalationResponseRequest,
+  type WorkflowBoardEscalationResponseResult,
+  type WorkflowBoardOpenIssueRequest,
+  type WorkflowBoardOpenIssueResult,
   type WorkflowContextResponse,
   type SymphonyRuntimeStatus,
   type SymphonyRuntimeCommandResult,
@@ -581,6 +586,8 @@ export function registerSessionIpc({
   ipcMain.removeHandler(IPC_CHANNELS.workflowRefreshBoard)
   ipcMain.removeHandler(IPC_CHANNELS.workflowSetBoardActive)
   ipcMain.removeHandler(IPC_CHANNELS.workflowSetScope)
+  ipcMain.removeHandler(IPC_CHANNELS.workflowRespondEscalation)
+  ipcMain.removeHandler(IPC_CHANNELS.workflowOpenIssue)
   ipcMain.removeHandler(IPC_CHANNELS.workflowGetContext)
   ipcMain.removeHandler(IPC_CHANNELS.symphonyGetStatus)
   ipcMain.removeHandler(IPC_CHANNELS.symphonyStart)
@@ -1194,8 +1201,112 @@ export function registerSessionIpc({
 
   ipcMain.handle(
     IPC_CHANNELS.workflowSetScope,
-    async (_event, scopeKey: string): Promise<WorkflowBoardScopeResponse> => {
-      return workflowBoardService.setScope(scopeKey)
+    async (_event, request: WorkflowBoardScopeRequest | string): Promise<WorkflowBoardScopeResponse> => {
+      return workflowBoardService.setScope(request)
+    },
+  )
+
+  ipcMain.handle(
+    IPC_CHANNELS.workflowRespondEscalation,
+    async (_event, request: WorkflowBoardEscalationResponseRequest): Promise<WorkflowBoardEscalationResponseResult> => {
+      if (!symphonyOperatorService) {
+        const nowIso = new Date().toISOString()
+        return {
+          success: false,
+          cardId: request.cardId,
+          requestId: request.requestId,
+          status: 'disabled',
+          code: 'UNAVAILABLE',
+          message: 'Symphony operator service is unavailable.',
+          submittedAt: nowIso,
+          completedAt: nowIso,
+          refreshBoard: false,
+        }
+      }
+
+      const submittedAt = new Date().toISOString()
+      const response = await symphonyOperatorService.respondToEscalation(request.requestId, request.responseText)
+      const completedAt = new Date().toISOString()
+
+      return {
+        success: response.success,
+        cardId: request.cardId,
+        requestId: request.requestId,
+        status: response.success ? 'success' : 'error',
+        code: response.success ? 'SUBMITTED' : 'FAILED',
+        message:
+          response.result?.message ??
+          (response.success ? 'Escalation response submitted.' : 'Escalation response failed.'),
+        submittedAt,
+        completedAt,
+        refreshBoard: true,
+      }
+    },
+  )
+
+  ipcMain.handle(
+    IPC_CHANNELS.workflowOpenIssue,
+    async (_event, request: WorkflowBoardOpenIssueRequest): Promise<WorkflowBoardOpenIssueResult> => {
+      const openedAt = new Date().toISOString()
+      const trimmedUrl = request.url.trim()
+      if (!trimmedUrl) {
+        return {
+          success: false,
+          cardId: request.cardId,
+          url: request.url,
+          status: 'disabled',
+          code: 'INVALID_URL',
+          message: 'Issue URL is missing.',
+          openedAt,
+        }
+      }
+
+      if (!/^https?:\/\//i.test(trimmedUrl)) {
+        return {
+          success: false,
+          cardId: request.cardId,
+          url: request.url,
+          status: 'disabled',
+          code: 'INVALID_URL',
+          message: 'Issue URL must use http or https.',
+          openedAt,
+        }
+      }
+
+      if (process.env.KATA_TEST_MODE === '1') {
+        return {
+          success: true,
+          cardId: request.cardId,
+          url: trimmedUrl,
+          status: 'success',
+          code: 'OPENED',
+          message: `Opened ${request.identifier ?? 'issue'} in browser.`,
+          openedAt,
+        }
+      }
+
+      try {
+        await shell.openExternal(trimmedUrl)
+        return {
+          success: true,
+          cardId: request.cardId,
+          url: trimmedUrl,
+          status: 'success',
+          code: 'OPENED',
+          message: `Opened ${request.identifier ?? 'issue'} in browser.`,
+          openedAt,
+        }
+      } catch (error) {
+        return {
+          success: false,
+          cardId: request.cardId,
+          url: trimmedUrl,
+          status: 'error',
+          code: 'FAILED',
+          message: error instanceof Error ? error.message : String(error),
+          openedAt,
+        }
+      }
     },
   )
 
@@ -1397,6 +1508,8 @@ export function registerSessionIpc({
     ipcMain.removeHandler(IPC_CHANNELS.workflowRefreshBoard)
     ipcMain.removeHandler(IPC_CHANNELS.workflowSetBoardActive)
     ipcMain.removeHandler(IPC_CHANNELS.workflowSetScope)
+    ipcMain.removeHandler(IPC_CHANNELS.workflowRespondEscalation)
+    ipcMain.removeHandler(IPC_CHANNELS.workflowOpenIssue)
     ipcMain.removeHandler(IPC_CHANNELS.workflowGetContext)
     ipcMain.removeHandler(IPC_CHANNELS.symphonyGetStatus)
     ipcMain.removeHandler(IPC_CHANNELS.symphonyStart)

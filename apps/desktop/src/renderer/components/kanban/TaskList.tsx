@@ -1,9 +1,12 @@
 import type { WorkflowBoardTask } from '@shared/types'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 interface TaskListProps {
   tasks: WorkflowBoardTask[]
+  issueActions?: Record<string, { status: 'idle' | 'opening' | 'success' | 'error' | 'disabled'; message?: string }>
+  onOpenIssue?: (task: WorkflowBoardTask) => void
 }
 
 const DEFAULT_TASK_TONE = 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200'
@@ -18,44 +21,67 @@ const TASK_STATE_TONE: Record<WorkflowBoardTask['columnId'], string> = {
   done: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
 }
 
-export function TaskList({ tasks }: TaskListProps) {
+export function TaskList({ tasks, issueActions = {}, onOpenIssue }: TaskListProps) {
   if (tasks.length === 0) {
     return <p className="text-xs text-muted-foreground">No child tasks</p>
   }
 
   return (
     <ul className="space-y-2">
-      {tasks.map((task) => (
-        <li key={task.id} className="rounded-md border border-border/60 bg-background/50 px-2 py-1.5">
-          <div className="flex items-center justify-between gap-2">
-            <p className="truncate text-xs font-medium text-foreground">
-              {task.identifier ? `${task.identifier} · ` : ''}
-              {task.title}
-            </p>
-            <Badge
-              variant="outline"
-              className={cn('border-transparent text-[10px]', TASK_STATE_TONE[task.columnId] ?? DEFAULT_TASK_TONE)}
-            >
-              {task.stateName}
-            </Badge>
-          </div>
-          {task.symphony ? (
-            <div className="mt-1 flex flex-wrap items-center gap-1 text-[10px] text-muted-foreground">
-              <span>
-                {task.symphony.assignmentState === 'assigned'
-                  ? `Worker ${task.symphony.identifier ?? '(unknown)'}`
-                  : 'Unassigned'}
-              </span>
-              {task.symphony.workerState ? <span>· {task.symphony.workerState}</span> : null}
-              {task.symphony.pendingEscalations > 0 ? (
-                <Badge variant="destructive" className="text-[10px]">
-                  {task.symphony.pendingEscalations} escalation{task.symphony.pendingEscalations === 1 ? '' : 's'}
-                </Badge>
-              ) : null}
+      {tasks.map((task) => {
+        const issueAction = issueActions[task.id]
+
+        return (
+          <li key={task.id} className="rounded-md border border-border/60 bg-background/50 px-2 py-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <p className="truncate text-xs font-medium text-foreground">
+                {task.identifier ? `${task.identifier} · ` : ''}
+                {task.title}
+              </p>
+              <Badge
+                variant="outline"
+                className={cn('border-transparent text-[10px]', TASK_STATE_TONE[task.columnId] ?? DEFAULT_TASK_TONE)}
+              >
+                {task.stateName}
+              </Badge>
             </div>
-          ) : null}
-        </li>
-      ))}
+            {task.symphony ? (
+              <div className="mt-1 flex flex-wrap items-center gap-1 text-[10px] text-muted-foreground">
+                <span>
+                  {task.symphony.assignmentState === 'assigned'
+                    ? `Worker ${task.symphony.identifier ?? '(unknown)'}`
+                    : 'Unassigned'}
+                </span>
+                {task.symphony.workerState ? <span>· {task.symphony.workerState}</span> : null}
+                {task.symphony.pendingEscalations > 0 ? (
+                  <Badge variant="destructive" className="text-[10px]">
+                    {task.symphony.pendingEscalations} escalation{task.symphony.pendingEscalations === 1 ? '' : 's'}
+                  </Badge>
+                ) : null}
+              </div>
+            ) : null}
+
+            {task.url && onOpenIssue ? (
+              <div className="mt-1.5">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-6 px-2 text-[10px]"
+                  data-testid={`task-open-issue-${task.identifier ?? task.id}`}
+                  onClick={() => onOpenIssue(task)}
+                  disabled={issueAction?.status === 'opening'}
+                >
+                  Open issue
+                </Button>
+                {issueAction?.message ? (
+                  <p className="mt-1 text-[10px] text-muted-foreground">{issueAction.message}</p>
+                ) : null}
+              </div>
+            ) : null}
+          </li>
+        )
+      })}
     </ul>
   )
 }
