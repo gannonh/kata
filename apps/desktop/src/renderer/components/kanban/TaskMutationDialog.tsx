@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { WORKFLOW_COLUMNS, type WorkflowColumnId } from '@shared/types'
 import { Button } from '@/components/ui/button'
 import {
@@ -69,28 +69,36 @@ export function TaskMutationDialog({
   onOpenChange,
   onSubmit,
 }: TaskMutationDialogProps) {
+  const initialTitle = initialValues?.title ?? DEFAULT_VALUES.title
+  const initialDescription = initialValues?.description ?? DEFAULT_VALUES.description
+  const initialColumnId = initialValues?.columnId ?? DEFAULT_VALUES.columnId
+
   const mergedInitialValues = useMemo(
     () => ({
-      ...DEFAULT_VALUES,
-      ...initialValues,
-      title: initialValues?.title ?? DEFAULT_VALUES.title,
-      description: initialValues?.description ?? DEFAULT_VALUES.description,
-      columnId: initialValues?.columnId ?? DEFAULT_VALUES.columnId,
+      title: initialTitle,
+      description: initialDescription,
+      columnId: initialColumnId,
     }),
-    [initialValues],
+    [initialTitle, initialDescription, initialColumnId],
   )
 
   const [values, setValues] = useState<TaskMutationDialogValues>(mergedInitialValues)
   const [validationError, setValidationError] = useState<string | null>(null)
+  const wasOpenRef = useRef(open)
 
   useEffect(() => {
-    if (!open) {
+    const openedNow = open && !wasOpenRef.current
+
+    if (openedNow) {
+      setValues(mergedInitialValues)
       setValidationError(null)
-      return
     }
 
-    setValues(mergedInitialValues)
-    setValidationError(null)
+    if (!open) {
+      setValidationError(null)
+    }
+
+    wasOpenRef.current = open
   }, [open, mergedInitialValues])
 
   const submit = async () => {

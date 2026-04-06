@@ -683,6 +683,7 @@ export interface WorkflowBoardTask {
   id: string
   identifier?: string
   title: string
+  description?: string
   columnId: WorkflowColumnId
   stateId?: string
   stateName: string

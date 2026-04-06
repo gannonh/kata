@@ -168,24 +168,28 @@ export function SliceCard({ card }: SliceCardProps) {
     setCreateTaskSubmitting(true)
     setCreateTaskError(null)
 
-    const result = await createTask({
-      parentSliceId: card.id,
-      title: input.title,
-      description: input.description,
-      initialColumnId: input.columnId,
-      teamId: card.teamId,
-      projectId: card.projectId,
-    })
+    try {
+      const result = await createTask({
+        parentSliceId: card.id,
+        title: input.title,
+        description: input.description,
+        initialColumnId: input.columnId,
+        teamId: card.teamId,
+        projectId: card.projectId,
+      })
 
-    if (!result.success) {
-      setCreateTaskError(result.message)
+      if (!result.success) {
+        setCreateTaskError(result.message)
+        return
+      }
+
+      setCreateTaskError(null)
+      setShowCreateTaskDialog(false)
+    } catch (error) {
+      setCreateTaskError(error instanceof Error ? error.message : 'Unable to create task.')
+    } finally {
       setCreateTaskSubmitting(false)
-      return
     }
-
-    setCreateTaskSubmitting(false)
-    setCreateTaskError(null)
-    setShowCreateTaskDialog(false)
   }
 
   return (
@@ -368,7 +372,10 @@ export function SliceCard({ card }: SliceCardProps) {
         ) : null}
 
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-          <CollapsibleTrigger className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+          <CollapsibleTrigger
+            className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+            data-testid={`slice-task-toggle-${card.identifier}`}
+          >
             <ChevronDown className={`size-3 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
             {isOpen ? 'Hide tasks' : 'Show tasks'}
           </CollapsibleTrigger>

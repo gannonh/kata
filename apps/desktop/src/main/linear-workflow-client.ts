@@ -499,7 +499,7 @@ export class LinearWorkflowClient {
         issueId,
         input: {
           title,
-          description: options.description ?? '',
+          ...(options.description !== undefined ? { description: options.description } : {}),
           ...(stateId ? { stateId } : {}),
         },
       },
@@ -1089,6 +1089,7 @@ export function normalizeLinearBoard(input: {
             id: task.id as string,
             identifier: task.identifier,
             title: task.title as string,
+            description: task.description ?? '',
             columnId: taskColumnId,
             stateId: task.state?.id?.trim() || undefined,
             stateName: task.state?.name?.trim() || 'Unknown',

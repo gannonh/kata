@@ -1,5 +1,5 @@
 import { useAtomValue, useSetAtom } from 'jotai'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import {
   WORKFLOW_COLUMNS,
   type WorkflowBoardTask,
@@ -62,10 +62,13 @@ export function TaskList({ tasks, issueActions = {}, onOpenIssue }: TaskListProp
   const [editDialogSubmitting, setEditDialogSubmitting] = useState(false)
   const [editDialogError, setEditDialogError] = useState<string | null>(null)
   const [editDialogState, setEditDialogState] = useState<TaskEditDialogState | null>(null)
+  const editDialogRequestIdRef = useRef(0)
 
   const editStateOptions = useMemo(() => WORKFLOW_COLUMNS, [])
 
   const openEditDialog = async (task: WorkflowBoardTask) => {
+    const requestId = ++editDialogRequestIdRef.current
+
     setEditDialogOpen(true)
     setEditDialogLoading(true)
     setEditDialogSubmitting(false)
@@ -74,31 +77,47 @@ export function TaskList({ tasks, issueActions = {}, onOpenIssue }: TaskListProp
       taskId: task.id,
       identifier: task.identifier,
       title: task.title,
-      description: '',
+      description: task.description ?? '',
       columnId: task.columnId,
       teamId: task.teamId,
       projectId: task.projectId,
       stateId: task.stateId,
     })
 
-    const response = await loadTaskDetail({ taskId: task.id })
-    if (!response.success || !response.task) {
-      setEditDialogError(response.message)
-      setEditDialogLoading(false)
-      return
-    }
+    try {
+      const response = await loadTaskDetail({ taskId: task.id })
+      if (requestId !== editDialogRequestIdRef.current) {
+        return
+      }
 
-    setEditDialogState({
-      taskId: response.task.id,
-      identifier: response.task.identifier,
-      title: response.task.title,
-      description: response.task.description,
-      columnId: response.task.columnId,
-      teamId: response.task.teamId,
-      projectId: response.task.projectId,
-      stateId: response.task.stateId,
-    })
-    setEditDialogLoading(false)
+      if (!response.success || !response.task) {
+        setEditDialogError(response.message)
+        setEditDialogState(null)
+        return
+      }
+
+      setEditDialogState({
+        taskId: response.task.id,
+        identifier: response.task.identifier,
+        title: response.task.title,
+        description: response.task.description,
+        columnId: response.task.columnId,
+        teamId: response.task.teamId,
+        projectId: response.task.projectId,
+        stateId: response.task.stateId,
+      })
+    } catch (error) {
+      if (requestId !== editDialogRequestIdRef.current) {
+        return
+      }
+
+      setEditDialogError(error instanceof Error ? error.message : 'Unable to load task details.')
+      setEditDialogState(null)
+    } finally {
+      if (requestId === editDialogRequestIdRef.current) {
+        setEditDialogLoading(false)
+      }
+    }
   }
 
   const submitTaskEdit = async (values: { title: string; description: string; columnId: WorkflowColumnId }) => {
@@ -273,9 +292,11 @@ export function TaskList({ tasks, issueActions = {}, onOpenIssue }: TaskListProp
         onOpenChange={(open) => {
           setEditDialogOpen(open)
           if (!open) {
+            editDialogRequestIdRef.current += 1
             setEditDialogError(null)
             setEditDialogLoading(false)
             setEditDialogSubmitting(false)
+            setEditDialogState(null)
           }
         }}
         onSubmit={async (values) => {

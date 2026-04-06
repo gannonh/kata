@@ -41,7 +41,7 @@ test.describe('workflow board mutation flows', () => {
     await readyWindow.getByTestId('task-mutation-description').fill('Created through Electron mutation e2e flow.')
     await readyWindow.getByTestId('task-mutation-submit').click()
 
-    await readyWindow.getByText('Show tasks').click()
+    await readyWindow.getByTestId('slice-task-toggle-KAT-2247').click()
     await expect(readyWindow.getByText('Created from board mutation test')).toBeVisible()
 
     await readyWindow.getByTestId('task-edit-KAT-2252').click()

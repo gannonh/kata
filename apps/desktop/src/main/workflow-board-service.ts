@@ -67,6 +67,7 @@ const TEST_LINEAR_WORKFLOW_FIXTURE: WorkflowBoardSnapshot = {
               id: 'task-1',
               identifier: 'KAT-2251',
               title: '[T01] Define canonical workflow snapshot contract',
+              description: 'Baseline fixture task for completed-state coverage.',
               columnId: 'done',
               stateName: 'Done',
               stateType: 'completed',
@@ -75,6 +76,7 @@ const TEST_LINEAR_WORKFLOW_FIXTURE: WorkflowBoardSnapshot = {
               id: 'task-2',
               identifier: 'KAT-2252',
               title: '[T02] Wire workflow board service through IPC',
+              description: 'Fixture task used for edit-dialog hydration and mutation coverage.',
               columnId: 'in_progress',
               stateName: 'In Progress',
               stateType: 'started',
@@ -129,6 +131,7 @@ const TEST_LINEAR_ASSEMBLED_WORKFLOW_FIXTURE: WorkflowBoardSnapshot = {
               id: 'task-s04-2',
               identifier: 'KAT-2356',
               title: '[T02] Prove the healthy assembled operator flow in Electron',
+              description: 'Assembled fixture task for live symphony board correlation.',
               columnId: 'in_progress',
               stateName: 'In Progress',
               stateType: 'started',
@@ -576,6 +579,7 @@ export class WorkflowBoardService {
           teamId: request.teamId,
           projectId: request.projectId,
           parentSliceId,
+          description: request.description ?? '',
         },
       })
 
@@ -683,7 +687,7 @@ export class WorkflowBoardService {
           stateType: task.stateType,
           columnId: task.columnId,
           title: task.title,
-          description: '',
+          description: task.description ?? '',
         },
       }
     }
@@ -792,6 +796,7 @@ export class WorkflowBoardService {
         taskId,
         title,
         columnId: targetColumnId,
+        description: request.description,
       })
 
       this.testFixtureSnapshot = withFreshTimestamps(updatedSnapshot)
@@ -1753,6 +1758,7 @@ function applyWorkflowTaskCreate(
       teamId?: string
       projectId?: string
       parentSliceId?: string
+      description?: string
     }
   },
 ): WorkflowBoardSnapshot {
@@ -1784,6 +1790,7 @@ function applyWorkflowTaskUpdate(
     taskId: string
     title: string
     columnId: WorkflowColumnId
+    description?: string
   },
 ): WorkflowBoardSnapshot {
   const next = structuredClone(snapshot)
@@ -1796,6 +1803,9 @@ function applyWorkflowTaskUpdate(
       }
 
       task.title = input.title
+      if (input.description !== undefined) {
+        task.description = input.description
+      }
       task.columnId = input.columnId
       task.stateName = toColumnTitle(input.columnId)
       task.stateType = toColumnStateType(input.columnId)

@@ -264,7 +264,14 @@ export const moveWorkflowEntityAtom = atom(
       })
 
       if (!result.success) {
-        set(workflowBoardAtom, previousSnapshot)
+        if (result.refreshBoard) {
+          const refreshed = await window.api.workflow.refreshBoard()
+          set(workflowBoardAtom, refreshed.snapshot)
+          set(workflowBoardErrorAtom, refreshed.snapshot.lastError?.message ?? null)
+        } else {
+          set(workflowBoardAtom, previousSnapshot)
+        }
+
         set(workflowEntityMutationStateAtom, (previous) => ({
           ...previous,
           [mutationKey]: {
@@ -350,7 +357,7 @@ export const createWorkflowTaskAtom = atom(
       projectId: input.projectId,
     })) satisfies WorkflowCreateTaskResult
 
-    if (result.success && result.refreshBoard) {
+    if (result.refreshBoard) {
       const refreshed = await window.api.workflow.refreshBoard()
       set(workflowBoardAtom, refreshed.snapshot)
       set(workflowBoardErrorAtom, refreshed.snapshot.lastError?.message ?? null)
@@ -409,28 +416,51 @@ export const updateWorkflowTaskAtom = atom(
       set(workflowBoardAtom, optimisticSnapshot)
     }
 
-    const result = (await window.api.workflow.updateTask({
-      taskId: input.taskId,
-      title: input.title,
-      description: input.description,
-      targetColumnId: input.targetColumnId,
-      teamId: input.teamId,
-      projectId: input.projectId,
-      currentStateId: input.currentStateId,
-    })) satisfies WorkflowUpdateTaskResult
+    try {
+      const result = (await window.api.workflow.updateTask({
+        taskId: input.taskId,
+        title: input.title,
+        description: input.description,
+        targetColumnId: input.targetColumnId,
+        teamId: input.teamId,
+        projectId: input.projectId,
+        currentStateId: input.currentStateId,
+      })) satisfies WorkflowUpdateTaskResult
 
-    if (!result.success && previousSnapshot) {
-      set(workflowBoardAtom, previousSnapshot)
+      if (!result.success) {
+        if (result.refreshBoard) {
+          const refreshed = await window.api.workflow.refreshBoard()
+          set(workflowBoardAtom, refreshed.snapshot)
+          set(workflowBoardErrorAtom, refreshed.snapshot.lastError?.message ?? null)
+        } else if (previousSnapshot) {
+          set(workflowBoardAtom, previousSnapshot)
+        }
+
+        return result
+      }
+
+      if (result.refreshBoard) {
+        const refreshed = await window.api.workflow.refreshBoard()
+        set(workflowBoardAtom, refreshed.snapshot)
+        set(workflowBoardErrorAtom, refreshed.snapshot.lastError?.message ?? null)
+      }
+
       return result
-    }
+    } catch (error) {
+      if (previousSnapshot) {
+        set(workflowBoardAtom, previousSnapshot)
+      }
 
-    if (result.success && result.refreshBoard) {
-      const refreshed = await window.api.workflow.refreshBoard()
-      set(workflowBoardAtom, refreshed.snapshot)
-      set(workflowBoardErrorAtom, refreshed.snapshot.lastError?.message ?? null)
+      return {
+        success: false,
+        taskId: input.taskId,
+        status: 'error',
+        code: 'FAILED',
+        message: error instanceof Error ? error.message : String(error),
+        refreshBoard: false,
+        updatedAt: new Date().toISOString(),
+      } satisfies WorkflowUpdateTaskResult
     }
-
-    return result
   },
 )
 

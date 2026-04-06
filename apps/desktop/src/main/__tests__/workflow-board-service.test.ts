@@ -278,7 +278,9 @@ describe('WorkflowBoardService', () => {
 
     const refreshed = await service.refreshBoard()
     const todoCard = refreshed.snapshot.columns.flatMap((column) => column.cards).find((card) => card.id === 'slice-1')
-    expect(todoCard?.tasks.some((task) => task.title === 'Create task from board')).toBe(true)
+    const createdTask = todoCard?.tasks.find((task) => task.title === 'Create task from board')
+    expect(createdTask).toBeDefined()
+    expect(createdTask?.description).toBe('Task details')
   })
 
   test('returns rollback failure for fixture-mode create-task rejection', async () => {
@@ -314,6 +316,7 @@ describe('WorkflowBoardService', () => {
     expect(detail.code).toBe('LOADED')
     expect(detail.task?.id).toBe('task-2')
     expect(detail.task?.columnId).toBe('in_progress')
+    expect(detail.task?.description).toBe('Fixture task used for edit-dialog hydration and mutation coverage.')
   })
 
   test('updates fixture-mode tasks and persists edit changes after refresh', async () => {
@@ -339,6 +342,7 @@ describe('WorkflowBoardService', () => {
     const parentCard = refreshed.snapshot.columns.flatMap((column) => column.cards).find((card) => card.id === 'slice-1')
     const editedTask = parentCard?.tasks.find((task) => task.id === 'task-2')
     expect(editedTask?.title).toBe('Edited task title')
+    expect(editedTask?.description).toBe('Edited task description')
     expect(editedTask?.columnId).toBe('agent_review')
   })
 
