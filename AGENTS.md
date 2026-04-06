@@ -9,7 +9,6 @@ This mono-repo is comprised of the following primary applications:
 - Kata Symphony: `apps/symphony` - @kata/symphony — Rust binary (Cargo scripts via package.json)
 - Kata CLI: `apps/cli` - @kata-sh/cli — published NPM CLI agent
 - Kata Desktop: `apps/desktop` - Electron app (primary UI)
-- Legacy Desktop: `apps/electron` - deprecated, replaced by `apps/desktop`
 - Context Indexer: `apps/context` - @kata/context — context indexing tool (Vitest, native Node addon)
 - Orchestrator: `apps/orchestrator` - @kata-sh/orc — meta-prompting system
 
@@ -37,17 +36,16 @@ bun run print:system-prompt      # Debug: print the agent system prompt
 apps/
 ├── cli/              # @kata-sh/cli — published NPM CLI agent
 ├── context/          # @kata/context — context indexing tool (Vitest, native Node addon)
-├── desktop/          # Kata Desktop — Electron app (primary UI, current)
-├── electron/         # Legacy Desktop (deprecated, Craft Agents era)
+├── desktop/          # Kata Desktop — Electron app (primary UI)
 ├── orchestrator/     # @kata-sh/orc — meta-prompting system
 ├── symphony/         # @kata/symphony — Rust binary (Cargo scripts via package.json)
 ├── viewer/           # Session viewer (Vite)
 └── online-docs/      # @kata/online-docs — documentation site (Fumadocs/Next.js)
 
 packages/
-├── core/             # @craft-agent/core — shared TypeScript types
-├── shared/           # @craft-agent/shared — business logic (agent, auth, config, MCP, channels, daemon)
-├── ui/               # @craft-agent/ui — shared React components (chat, markdown)
+├── core/             # Shared TypeScript types
+├── shared/           # Shared business logic (agent, auth, config, MCP, channels, daemon)
+├── ui/               # Shared React components (chat, markdown)
 └── mermaid/          # Mermaid diagram → SVG renderer
 ```
 
@@ -81,7 +79,7 @@ Pre-push hook runs `turbo run lint typecheck test --affected` — same command a
 `ci.yml` on pull_request to main:
 
 - `validate`: `turbo run lint typecheck test --affected` (JS/TS + Rust via Turborepo)
-- `e2e-mocked`: (legacy, removed) — Desktop E2E now lives in `apps/desktop`
+- `e2e`: Desktop Playwright E2E in `apps/desktop`
 - `gate`: aggregates results, sole required branch protection check
 
 Release workflows trigger on push to main with path filters:
@@ -113,5 +111,4 @@ This repo uses git worktrees. Each worktree has a standby branch (e.g. `wt-cli-s
 - `apps/context` uses Vitest (not Bun test) because better-sqlite3 is a native Node addon that Bun doesn't support.
 - Electron main process runs in Node.js, not Bun. Don't use `import.meta.dir` or Bun-only APIs in code that runs there.
 - Asset paths: use `getBundledAssetsDir(subfolder)` for bundled assets, never `import.meta.dir`.
-- Legacy debug logs: `~/Library/Logs/@craft-agent/electron/` on macOS (legacy app only).
 - Desktop debug logs: check Electron main process console or `apps/desktop/src/main/logger.ts`.

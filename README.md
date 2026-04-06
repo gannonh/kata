@@ -24,8 +24,6 @@ This is the Kata monorepo for five AI agent products:
 
 The repo also contains shared packages that support the product apps.
 
-> **Note:** `apps/electron` is the legacy Desktop app (Craft Agents era). The current Desktop lives at `apps/desktop` — a fresh Electron app built from scratch.
-
 ## Products
 
 | Product                                          | Path                | Use it for                                                                                         | Quick start                                                 |
@@ -165,8 +163,7 @@ npx @kata/context
 | `apps/cli`          | Kata CLI                                                   |
 | `apps/symphony`     | Kata Symphony (Rust)                                       |
 | `apps/context`      | Kata Context                                               |
-| `apps/desktop`      | Kata Desktop (current)                                     |
-| `apps/electron`     | Legacy Desktop (deprecated)                                |
+| `apps/desktop`      | Kata Desktop                                               |
 | `apps/orchestrator` | Kata Orchestrator                                          |
 | `apps/online-docs`  | Documentation site                                         |
 | `apps/viewer`       | Session viewer                                             |
