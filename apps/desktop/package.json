@@ -51,7 +51,7 @@
     "electron": "^41.0.3",
     "electron-builder": "^26.0.12",
     "electron-log": "^5.4.3",
-    "esbuild": "^0.27.4",
+    "esbuild": "^0.28.0",
     "jotai": "^2.16.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
