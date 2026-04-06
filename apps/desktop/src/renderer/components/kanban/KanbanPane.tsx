@@ -1,7 +1,11 @@
 import { useAtomValue, useSetAtom } from 'jotai'
 import { Loader2 } from 'lucide-react'
+import type { WorkflowBoardColumn, WorkflowColumnId } from '@shared/types'
 import {
+  collapsedWorkflowColumnsAtom,
   refreshWorkflowBoardAtom,
+  resetWorkflowCollapsedColumnsAtom,
+  toggleWorkflowColumnCollapsedAtom,
   workflowBoardAtom,
   workflowBoardErrorAtom,
   workflowBoardLoadingAtom,
@@ -15,9 +19,28 @@ import {
   setRightPaneOverrideAtom,
   workflowContextAtom,
 } from '@/atoms/right-pane'
+import { BoardStateNotice } from '@/components/kanban/BoardStateNotice'
 import { KanbanColumn } from '@/components/kanban/KanbanColumn'
 import { KanbanHeader } from '@/components/kanban/KanbanHeader'
 import { normalizeWorkflowColumns } from '@/lib/workflow-board'
+
+export function summarizeColumnPresentation(
+  columns: WorkflowBoardColumn[],
+  collapsedColumns: Set<WorkflowColumnId>,
+): { collapsedColumnCount: number; hiddenCardCount: number } {
+  let hiddenCardCount = 0
+
+  for (const column of columns) {
+    if (collapsedColumns.has(column.id)) {
+      hiddenCardCount += column.cards.length
+    }
+  }
+
+  return {
+    collapsedColumnCount: collapsedColumns.size,
+    hiddenCardCount,
+  }
+}
 
 export function KanbanPane() {
   const board = useAtomValue(workflowBoardAtom)
@@ -25,15 +48,21 @@ export function KanbanPane() {
   const refreshing = useAtomValue(workflowBoardRefreshingAtom)
   const error = useAtomValue(workflowBoardErrorAtom)
   const selectedScope = useAtomValue(workflowBoardScopeAtom)
+  const collapsedColumns = useAtomValue(collapsedWorkflowColumnsAtom)
+
   const setRightPaneOverride = useSetAtom(setRightPaneOverrideAtom)
   const setScope = useSetAtom(workflowBoardScopeAtom)
   const clearOverride = useSetAtom(clearRightPaneOverrideAtom)
+  const toggleCollapsedColumn = useSetAtom(toggleWorkflowColumnCollapsedAtom)
+  const resetCollapsedColumns = useSetAtom(resetWorkflowCollapsedColumnsAtom)
+
   const rightPaneOverride = useAtomValue(rightPaneOverrideAtom)
   const paneResolution = useAtomValue(rightPaneResolutionAtom)
   const workflowContext = useAtomValue(workflowContextAtom)
   const refreshBoard = useSetAtom(refreshWorkflowBoardAtom)
 
   const columns = board ? normalizeWorkflowColumns(board) : []
+  const presentation = summarizeColumnPresentation(columns, collapsedColumns)
 
   return (
     <aside className="flex h-full flex-col bg-muted/40" data-testid="workflow-kanban-pane">
@@ -42,11 +71,16 @@ export function KanbanPane() {
         loading={loading}
         refreshing={refreshing}
         selectedScope={selectedScope}
+        collapsedColumnCount={presentation.collapsedColumnCount}
+        hiddenCardCount={presentation.hiddenCardCount}
         rightPaneOverride={rightPaneOverride}
         paneResolution={paneResolution}
         workflowContext={workflowContext}
         onScopeChange={(scope) => {
           setScope(scope)
+        }}
+        onExpandAllColumns={() => {
+          resetCollapsedColumns()
         }}
         onOpenPlanningView={() => setRightPaneOverride('planning')}
         onRefresh={() => {
@@ -55,9 +89,7 @@ export function KanbanPane() {
         onClearOverride={() => clearOverride()}
       />
 
-      {error ? (
-        <div className="border-b border-border bg-destructive/10 px-4 py-2 text-xs text-destructive">{error}</div>
-      ) : null}
+      <BoardStateNotice board={board} error={error} />
 
       <div className="min-h-0 flex-1 overflow-x-auto px-3 py-3">
         {loading ? (
@@ -68,7 +100,14 @@ export function KanbanPane() {
         ) : (
           <div className="flex h-full min-w-max gap-3">
             {columns.map((column) => (
-              <KanbanColumn key={column.id} column={column} />
+              <KanbanColumn
+                key={column.id}
+                column={column}
+                collapsed={collapsedColumns.has(column.id)}
+                onToggleCollapse={() => {
+                  toggleCollapsedColumn(column.id)
+                }}
+              />
             ))}
           </div>
         )}

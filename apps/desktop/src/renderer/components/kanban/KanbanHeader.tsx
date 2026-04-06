@@ -141,10 +141,13 @@ interface KanbanHeaderProps {
   loading: boolean
   refreshing: boolean
   selectedScope: WorkflowBoardScope
+  collapsedColumnCount: number
+  hiddenCardCount: number
   rightPaneOverride: RightPaneOverride
   paneResolution: RightPaneResolution
   workflowContext: WorkflowContextSnapshot
   onScopeChange: (scope: WorkflowBoardScope) => void
+  onExpandAllColumns: () => void
   onOpenPlanningView: () => void
   onRefresh: () => void
   onClearOverride: () => void
@@ -155,10 +158,13 @@ export function KanbanHeader({
   loading,
   refreshing,
   selectedScope,
+  collapsedColumnCount,
+  hiddenCardCount,
   rightPaneOverride,
   paneResolution,
   workflowContext,
   onScopeChange,
+  onExpandAllColumns,
   onOpenPlanningView,
   onRefresh,
   onClearOverride,
@@ -190,6 +196,19 @@ export function KanbanHeader({
             ))}
           </div>
 
+          {collapsedColumnCount > 0 ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="mr-1 h-7 px-2 text-[11px]"
+              onClick={onExpandAllColumns}
+              data-testid="kanban-expand-all-columns"
+            >
+              Expand {collapsedColumnCount} column{collapsedColumnCount === 1 ? '' : 's'}
+            </Button>
+          ) : null}
+
           <Button type="button" size="icon" variant="ghost" aria-label="Open planning view" onClick={onOpenPlanningView}>
             <LayoutGrid className="size-4" />
           </Button>
@@ -211,6 +230,10 @@ export function KanbanHeader({
         {' · '}
         {formatScopeStatus(board, selectedScope)}
         {' · '}
+        {collapsedColumnCount > 0
+          ? `Columns: ${collapsedColumnCount} collapsed · ${hiddenCardCount} hidden card${hiddenCardCount === 1 ? '' : 's'}`
+          : 'Columns: all expanded'}
+        {' · '}
         {formatWorkflowBoardStatus({
           loading,
           boardStatus: board?.status,
@@ -225,12 +248,6 @@ export function KanbanHeader({
       {board?.scope?.note ? (
         <div className="border-b border-border bg-muted/60 px-4 py-2 text-xs text-muted-foreground" data-testid="workflow-board-scope-note">
           {board.scope.note}
-        </div>
-      ) : null}
-
-      {board?.symphony?.staleReason ? (
-        <div className="border-b border-border bg-amber-500/10 px-4 py-2 text-xs text-amber-900 dark:text-amber-200" data-testid="workflow-board-symphony-stale">
-          {board.symphony.staleReason}
         </div>
       ) : null}
 
