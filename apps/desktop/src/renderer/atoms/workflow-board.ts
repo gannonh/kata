@@ -207,6 +207,13 @@ function buildScopeKey(params: {
   return `${params.workspacePath}::${params.sessionId}::scope:${params.scope}`
 }
 
+export function shouldRefreshAfterScopeSync(params: {
+  rightPaneMode: 'planning' | 'kanban'
+  boardActivationReady: boolean
+}): boolean {
+  return params.rightPaneMode === 'kanban' && params.boardActivationReady
+}
+
 export function useWorkflowBoardBridge(): void {
   const rightPaneMode = useAtomValue(rightPaneModeAtom)
   const workspacePath = useAtomValue(workingDirectoryAtom)
@@ -222,6 +229,7 @@ export function useWorkflowBoardBridge(): void {
 
   const intervalIdRef = useRef<number | null>(null)
   const activeRef = useRef(false)
+  const boardActivationReadyRef = useRef(false)
   const activationVersionRef = useRef(0)
 
   const normalizedWorkspacePath = workspacePath || 'workspace:none'
@@ -247,7 +255,12 @@ export function useWorkflowBoardBridge(): void {
           setWorkflowContext(contextResponse.context)
         }
 
-        if (rightPaneMode !== 'kanban') {
+        if (
+          !shouldRefreshAfterScopeSync({
+            rightPaneMode,
+            boardActivationReady: boardActivationReadyRef.current,
+          })
+        ) {
           return
         }
 
@@ -284,6 +297,7 @@ export function useWorkflowBoardBridge(): void {
 
     const deactivatePolling = async () => {
       activeRef.current = false
+      boardActivationReadyRef.current = false
       activationVersionRef.current += 1
       setActive(false)
       deactivateInterval()
@@ -298,11 +312,13 @@ export function useWorkflowBoardBridge(): void {
       setActive(true)
       activeRef.current = true
 
+      boardActivationReadyRef.current = false
       await window.api.workflow.setBoardActive(true)
       if (!isCurrentActivation()) {
         return
       }
 
+      boardActivationReadyRef.current = true
       setLoading(true)
       try {
         const initial = await window.api.workflow.getBoard()
@@ -377,6 +393,7 @@ export function useWorkflowBoardBridge(): void {
 
     return () => {
       activeRef.current = false
+      boardActivationReadyRef.current = false
       activationVersionRef.current += 1
       deactivateInterval()
       void window.api.workflow.setBoardActive(false)
