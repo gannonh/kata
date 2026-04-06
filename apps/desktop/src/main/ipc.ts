@@ -518,6 +518,11 @@ export function registerSessionIpc({
 
   const onStatus = (status: BridgeStatusEvent): void => {
     sendBridgeStatus(status)
+
+    // Capture the initial session ID when the bridge first becomes running
+    if (status.state === 'running' && !initialSessionCaptured) {
+      void captureInitialSession()
+    }
   }
 
   const onDebug = (payload: Record<string, unknown>): void => {
@@ -568,6 +573,26 @@ export function registerSessionIpc({
 
   if (symphonyOperatorService) {
     sendSymphonyDashboardSnapshot(symphonyOperatorService.getSnapshot())
+  }
+
+  // Capture the initial session ID once the bridge is running.
+  // This prevents subagent and external CLI sessions from appearing in the sidebar.
+  // The bridge starts lazily, so we listen for the 'running' status transition.
+  let initialSessionCaptured = false
+  const captureInitialSession = async (): Promise<void> => {
+    if (initialSessionCaptured) {
+      return
+    }
+    initialSessionCaptured = true
+    const sessionId = await bridge.captureCurrentSessionId()
+    if (sessionId) {
+      log.info('[desktop-ipc] captured initial session ID', { sessionId })
+    }
+  }
+
+  // If bridge is already running (unlikely but safe), capture immediately
+  if (bridge.getState().running) {
+    void captureInitialSession()
   }
 
   ipcMain.removeHandler(IPC_CHANNELS.sessionSend)
@@ -747,7 +772,7 @@ export function registerSessionIpc({
     const workspacePath = bridge.getWorkspacePath()
 
     try {
-      return await sessionManager.listSessions(workspacePath)
+      return await sessionManager.listSessions(workspacePath, bridge.getKnownSessionIds())
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       log.error('[desktop-ipc] session list failed', {
@@ -775,23 +800,8 @@ export function registerSessionIpc({
         return { success: false, sessionId: null, error: 'Session creation cancelled' }
       }
 
-      // After new_session, query get_state for the actual session ID.
-      let sessionId: string | null = null
-      try {
-        const stateResult = await bridge.send({ type: 'get_state' })
-        const statePayload = stateResult.data
-        if (
-          statePayload &&
-          typeof statePayload === 'object' &&
-          'sessionId' in statePayload &&
-          typeof (statePayload as { sessionId?: unknown }).sessionId === 'string'
-        ) {
-          sessionId = (statePayload as { sessionId: string }).sessionId
-        }
-      } catch {
-        // get_state failure is non-fatal — session was still created
-        log.warn('[desktop-ipc] get_state after new_session failed')
-      }
+      // After new_session, query get_state for the actual session ID and track it.
+      const sessionId = await bridge.captureCurrentSessionId()
 
       if (!sessionId) {
         log.warn('[desktop-ipc] new session created but sessionId could not be resolved', {
@@ -847,7 +857,11 @@ export function registerSessionIpc({
       const workspacePath = bridge.getWorkspacePath()
 
       try {
-        const sessionPath = await sessionManager.resolveSessionPathById(trimmedSessionId, workspacePath)
+        const sessionPath = await sessionManager.resolveSessionPathById(
+          trimmedSessionId,
+          workspacePath,
+          bridge.getKnownSessionIds(),
+        )
         if (!sessionPath) {
           return {
             success: false,
@@ -864,6 +878,9 @@ export function registerSessionIpc({
             error: `Session switch to ${trimmedSessionId} was cancelled`,
           }
         }
+
+        // Track the switched-to session as owned by this Desktop instance
+        bridge.trackSessionId(trimmedSessionId)
 
         workflowBoardService.setPlanningActive(false)
 

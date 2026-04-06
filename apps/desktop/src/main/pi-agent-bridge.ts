@@ -63,6 +63,7 @@ export class PiAgentBridge extends EventEmitter {
   private startPromise: Promise<void> | null = null
   private permissionMode: PermissionMode = 'ask'
   private selectedModel: string | null
+  private readonly knownSessionIds = new Set<string>()
 
   constructor(
     private workspacePath: string,
@@ -449,6 +450,54 @@ export class PiAgentBridge extends EventEmitter {
     return this.workspacePath
   }
 
+  /**
+   * Returns the set of session IDs that belong to this Desktop instance.
+   * Includes the initial session from startup, any sessions created via new_session,
+   * and any sessions the user switched to. Subagent child processes create their own
+   * sessions (same cwd) that are NOT in this set — this is what prevents them from
+   * polluting the sidebar.
+   */
+  public getKnownSessionIds(): ReadonlySet<string> {
+    return this.knownSessionIds
+  }
+
+  /**
+   * Register a session ID as belonging to this Desktop instance.
+   * Called after new_session, switch_session, and initial get_state.
+   */
+  public trackSessionId(sessionId: string): void {
+    const trimmed = sessionId.trim()
+    if (trimmed) {
+      this.knownSessionIds.add(trimmed)
+    }
+  }
+
+  /**
+   * Query the CLI subprocess for the current session ID and track it.
+   * Used at startup to capture the initial session.
+   */
+  public async captureCurrentSessionId(): Promise<string | null> {
+    try {
+      const result = await this.send({ type: 'get_state' })
+      const payload = result.data
+      if (
+        payload &&
+        typeof payload === 'object' &&
+        'sessionId' in payload &&
+        typeof (payload as { sessionId?: unknown }).sessionId === 'string'
+      ) {
+        const sessionId = (payload as { sessionId: string }).sessionId
+        this.trackSessionId(sessionId)
+        return sessionId
+      }
+    } catch (error) {
+      log.warn('[PiAgentBridge] failed to capture current session ID', {
+        error: error instanceof Error ? error.message : String(error),
+      })
+    }
+    return null
+  }
+
   public async switchWorkspace(nextWorkspacePath: string): Promise<void> {
     const normalized = nextWorkspacePath.trim()
     if (!normalized) {
@@ -460,6 +509,7 @@ export class PiAgentBridge extends EventEmitter {
     }
 
     this.workspacePath = normalized
+    this.knownSessionIds.clear()
     await this.restart()
   }
 

@@ -144,8 +144,23 @@ export class DesktopSessionManager {
     private readonly sessionsDirectory = path.join(homedir(), '.kata-cli', 'sessions'),
   ) {}
 
-  public async listSessions(cwd: string): Promise<SessionListResponse> {
+  /**
+   * List sessions for the given workspace directory.
+   *
+   * When `knownSessionIds` is provided and non-empty, only sessions whose IDs are
+   * in that set are returned. This prevents subagent child processes and external
+   * CLI instances (which share the same cwd) from polluting the Desktop sidebar.
+   *
+   * When `knownSessionIds` is omitted or empty (e.g. on first launch before the
+   * bridge has captured any session IDs), all sessions matching the cwd are returned
+   * as a fallback.
+   */
+  public async listSessions(
+    cwd: string,
+    knownSessionIds?: ReadonlySet<string>,
+  ): Promise<SessionListResponse> {
     const normalizedCwd = normalizePath(cwd)
+    const filterByKnownIds = knownSessionIds != null && knownSessionIds.size > 0
 
     let entries: Array<{ filePath: string }> = []
     const warnings: string[] = []
@@ -195,6 +210,13 @@ export class DesktopSessionManager {
           continue
         }
 
+        // When the bridge has tracked known session IDs, only include sessions
+        // that belong to this Desktop instance. This filters out subagent sessions
+        // and sessions from other CLI processes sharing the same workspace.
+        if (filterByKnownIds && header.id && !knownSessionIds.has(header.id)) {
+          continue
+        }
+
         const metadata = await this.parseSessionFile(entry.filePath)
         sessionItems.push({
           id: metadata.id,
@@ -225,6 +247,8 @@ export class DesktopSessionManager {
       cwd: normalizedCwd,
       count: sessionItems.length,
       warningCount: warnings.length,
+      filteredByKnownIds: filterByKnownIds,
+      knownIdCount: knownSessionIds?.size ?? 0,
     })
 
     return {
@@ -253,13 +277,17 @@ export class DesktopSessionManager {
     }
   }
 
-  public async resolveSessionPathById(sessionId: string, cwd: string): Promise<string | null> {
+  public async resolveSessionPathById(
+    sessionId: string,
+    cwd: string,
+    knownSessionIds?: ReadonlySet<string>,
+  ): Promise<string | null> {
     const trimmedSessionId = sessionId.trim()
     if (!trimmedSessionId) {
       throw new Error('Session ID is required')
     }
 
-    const response = await this.listSessions(cwd)
+    const response = await this.listSessions(cwd, knownSessionIds)
     const match = response.sessions.find((session) => session.id === trimmedSessionId)
     return match?.path ?? null
   }
