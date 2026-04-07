@@ -36,16 +36,34 @@ export const sessionSidebarOpenAtom = atomWithStorage<boolean>(
 const applySessionListResponseAtom = atom(
   null,
   (get, set, response: SessionListResponse) => {
-    set(sessionListAtom, response.sessions)
+    const existingSessionId = get(currentSessionIdAtom)
+
+    // Check if the current session ID exists in the pre-overwrite list
+    // (which may contain a placeholder from createSessionAtom) BEFORE
+    // we replace it with the disk response.
+    const previousList = get(sessionListAtom)
+    const inPreviousList = existingSessionId
+      ? previousList.some((session) => session.id === existingSessionId)
+      : false
+
+    // Merge: if the current session has a placeholder in the previous list
+    // but isn't on disk yet, preserve the placeholder in the new list.
+    const inDiskResponse = existingSessionId
+      ? response.sessions.some((session) => session.id === existingSessionId)
+      : false
+
+    if (existingSessionId && inPreviousList && !inDiskResponse) {
+      const placeholder = previousList.find((s) => s.id === existingSessionId)
+      set(sessionListAtom, placeholder ? [placeholder, ...response.sessions] : response.sessions)
+    } else {
+      set(sessionListAtom, response.sessions)
+    }
+
     set(sessionWarningsAtom, response.warnings)
     set(sessionDirectoryAtom, response.directory)
 
-    const existingSessionId = get(currentSessionIdAtom)
-
-    // If we already have a current session ID, keep it — the CLI subprocess
-    // owns the session even if the file hasn't been flushed to disk yet.
-    // Only select sessions[0] on first launch when no session ID exists.
-    if (existingSessionId) {
+    // Current session is accounted for — either in disk response or preserved.
+    if (existingSessionId && (inDiskResponse || inPreviousList)) {
       return
     }
 
@@ -190,11 +208,30 @@ export const createSessionAtom = atom(null, async (get, set) => {
     set(resetChatStateAtom)
     set(resetPlanningSessionStateAtom)
 
-    // Set the new session ID BEFORE refreshing the list so
-    // applySessionListResponseAtom sees it as current and doesn't
-    // fall back to sessions[0] (which would be the old session).
-    if (response.sessionId) {
-      set(currentSessionIdAtom, response.sessionId)
+    // Always clear the old session ID so the sidebar deselects it.
+    // Then set the new one if we got it back from the bridge.
+    const newSessionId = response.sessionId
+    set(currentSessionIdAtom, newSessionId)
+
+    if (newSessionId) {
+      // Inject a placeholder entry so the new session appears in the
+      // sidebar immediately, before the file is flushed to disk.
+      const now = new Date().toISOString()
+      set(sessionListAtom, [
+        {
+          id: newSessionId,
+          path: '',
+          name: null,
+          title: 'New session',
+          model: null,
+          provider: null,
+          created: now,
+          modified: now,
+          messageCount: 0,
+          firstMessagePreview: null,
+        },
+        ...get(sessionListAtom),
+      ])
     }
 
     await set(refreshSessionListAtom)
