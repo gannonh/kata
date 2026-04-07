@@ -234,7 +234,11 @@ export const createSessionAtom = atom(null, async (get, set) => {
       ])
     }
 
-    await set(refreshSessionListAtom)
+    // Do NOT call refreshSessionListAtom here. The new session file may not
+    // be flushed to disk yet, and the refresh would trigger applySessionListResponseAtom
+    // which can race with the placeholder and overwrite currentSessionIdAtom.
+    // The placeholder in the list is sufficient. The next natural refresh
+    // (agent_end, manual Refresh click, or session switch) will pick it up.
 
     set(requestPlanningReloadAtom)
   } finally {
