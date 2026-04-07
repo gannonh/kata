@@ -379,6 +379,21 @@ export class DesktopSessionManager {
         }
       }
 
+      // custom_message entries are slash-command prompts (e.g. /kata plan).
+      // Count them and use as title fallback.
+      if (type === 'custom_message') {
+        messageCount += 1
+        if (!firstUserMessage) {
+          const customType = typeof entry.customType === 'string' ? entry.customType : null
+          const content = typeof entry.content === 'string' ? entry.content : null
+          firstUserMessage = customType
+            ? customType.replace(/^kata-/, '/kata ').replace(/-/g, ' ')
+            : content
+              ? cleanText(content).slice(0, 100)
+              : null
+        }
+      }
+
       if (type === 'message' && entry.message && typeof entry.message === 'object') {
         const message = entry.message as Record<string, unknown>
         const role = typeof message.role === 'string' ? message.role : null
