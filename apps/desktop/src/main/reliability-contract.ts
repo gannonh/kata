@@ -538,6 +538,6 @@ export function pickPrimaryReliabilitySignal(
       return selected
     }
 
-    return candidate.timestamp > selected.timestamp ? candidate : selected
+    return candidate.timestamp >= selected.timestamp ? candidate : selected
   })
 }

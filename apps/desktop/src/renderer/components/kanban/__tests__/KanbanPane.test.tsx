@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { formatScopeStatus, formatSymphonyBoardStatus, formatWorkflowBoardStatus } from '../KanbanHeader'
 import { summarizeColumnPresentation } from '../KanbanPane'
+import { formatWorkflowReliabilityNotice } from '../BoardStateNotice'
 
 describe('KanbanPane status formatting', () => {
   test('renders loading state', () => {
@@ -156,6 +157,26 @@ describe('KanbanPane status formatting', () => {
         },
       }),
     ).toContain('Symphony: live · 1 worker · 3 escalations · 2 correlation misses')
+  })
+})
+
+describe('KanbanPane reliability messaging', () => {
+  test('formats workflow reliability notice with canonical recovery language', () => {
+    const message = formatWorkflowReliabilityNotice({
+      code: 'REL-WORKFLOW-NETWORK-NETWORK',
+      class: 'network',
+      severity: 'error',
+      sourceSurface: 'workflow_board',
+      recoveryAction: 'reconnect',
+      outcome: 'pending',
+      message: 'Workflow board refresh failed.',
+      timestamp: '2026-04-07T20:00:00.000Z',
+      lastKnownGoodAt: '2026-04-07T19:58:00.000Z',
+    })
+
+    expect(message).toContain('Network issue (REL-WORKFLOW-NETWORK-NETWORK)')
+    expect(message).toContain('Recommended recovery: Reconnect service.')
+    expect(message).toContain('Last known good:')
   })
 })
 

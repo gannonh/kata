@@ -26,6 +26,17 @@ import {
   workflowMutationPendingAtom,
 } from '@/atoms/workflow-board'
 import { mcpMutationPendingAtom, mcpStatusPendingByServerAtom } from '@/atoms/mcp'
+import {
+  formatReliabilityActionLabel,
+  formatReliabilityClassLabel,
+  formatReliabilitySurfaceLabel,
+  reliabilityRecoveryPendingAtom,
+  reliabilitySeverityTone,
+  requestReliabilityRecoveryActionAtom,
+  useReliabilityBridge,
+  useReliabilitySnapshot,
+} from '@/atoms/reliability'
+import { Button } from '@/components/ui/button'
 import { LeftPane } from './LeftPane'
 import { RightPane } from './RightPane'
 import { SettingsPanel } from '../settings/SettingsPanel'
@@ -94,7 +105,17 @@ function isEditableTarget(target: EventTarget | null): boolean {
   return tagName === 'input' || tagName === 'textarea' || tagName === 'select'
 }
 
+function reliabilitySeverityRank(severity: string | undefined): number {
+  if (severity === 'critical') return 4
+  if (severity === 'error') return 3
+  if (severity === 'warning') return 2
+  if (severity === 'info') return 1
+  return 0
+}
+
 export function AppShell() {
+  useReliabilityBridge()
+
   const defaultLayout = useMemo(readInitialLayout, [])
   const initializeSessions = useSetAtom(initializeSessionsAtom)
   const initializedSessionsRef = useRef(false)
@@ -113,6 +134,10 @@ export function AppShell() {
     mcpMutationPending ||
     Object.values(mcpStatusPendingByServer).some((isPending) => Boolean(isPending))
 
+  const reliabilitySnapshot = useReliabilitySnapshot()
+  const reliabilityPendingBySurface = useAtomValue(reliabilityRecoveryPendingAtom)
+  const requestReliabilityRecovery = useSetAtom(requestReliabilityRecoveryActionAtom)
+
   const openSettingsPanel = useSetAtom(openSettingsPanelAtom)
   const closeSettingsPanel = useSetAtom(closeSettingsPanelAtom)
   const setSettingsTab = useSetAtom(settingsPanelTabAtom)
@@ -130,6 +155,33 @@ export function AppShell() {
     initializedSessionsRef.current = true
     void initializeSessions()
   }, [initializeSessions])
+
+  const primaryReliabilitySurface = useMemo(() => {
+    const degraded = reliabilitySnapshot.surfaces.filter((surface) => surface.status === 'degraded' && surface.signal)
+    if (degraded.length === 0) {
+      return null
+    }
+
+    return degraded.reduce((selected, candidate) => {
+      const selectedSignal = selected.signal
+      const candidateSignal = candidate.signal
+      if (!selectedSignal || !candidateSignal) {
+        return selected
+      }
+
+      const selectedRank = reliabilitySeverityRank(selectedSignal.severity)
+      const candidateRank = reliabilitySeverityRank(candidateSignal.severity)
+      if (candidateRank > selectedRank) {
+        return candidate
+      }
+
+      if (candidateRank < selectedRank) {
+        return selected
+      }
+
+      return candidateSignal.timestamp > selectedSignal.timestamp ? candidate : selected
+    })
+  }, [reliabilitySnapshot])
 
   const handleWorkflowShellAction = useCallback(
     async (event: WorkflowShellActionEvent) => {
@@ -226,8 +278,55 @@ export function AppShell() {
     }
   }, [])
 
+  const primarySignal = primaryReliabilitySurface?.signal ?? null
+
+  const reliabilityTone = reliabilitySeverityTone(primarySignal?.severity)
+
   return (
     <main className="size-full bg-background text-foreground">
+      {primaryReliabilitySurface && primarySignal ? (
+        <div
+          className={
+            reliabilityTone === 'error'
+              ? 'border-b border-destructive/30 bg-destructive/10 px-4 py-2 text-xs text-destructive'
+              : reliabilityTone === 'warning'
+                ? 'border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs text-amber-900 dark:text-amber-200'
+                : 'border-b border-border bg-muted/50 px-4 py-2 text-xs text-muted-foreground'
+          }
+          data-testid="reliability-banner"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="space-y-0.5">
+              <p className="font-medium">
+                {formatReliabilitySurfaceLabel(primaryReliabilitySurface.sourceSurface)} ·{' '}
+                {formatReliabilityClassLabel(primarySignal.class)}
+              </p>
+              <p>
+                {primarySignal.message} · Recommended: {formatReliabilityActionLabel(primarySignal.recoveryAction)} ·{' '}
+                {primarySignal.code}
+              </p>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                void requestReliabilityRecovery({
+                  sourceSurface: primaryReliabilitySurface.sourceSurface,
+                  action: primarySignal.recoveryAction,
+                })
+              }}
+              disabled={reliabilityPendingBySurface[primaryReliabilitySurface.sourceSurface]}
+              data-testid="reliability-banner-recover"
+            >
+              {reliabilityPendingBySurface[primaryReliabilitySurface.sourceSurface]
+                ? 'Recovering…'
+                : formatReliabilityActionLabel(primarySignal.recoveryAction)}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
       <Group
         orientation="horizontal"
         className="size-full"

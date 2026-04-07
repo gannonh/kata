@@ -12,6 +12,7 @@ import { SessionHistoryLoader } from './session-history-loader'
 import { WorkflowBoardService } from './workflow-board-service'
 import { McpConfigBridge } from './mcp-config-bridge'
 import { McpService } from './mcp-service'
+import { RuntimeHealthAggregator } from './runtime-health-aggregator'
 import type { SymphonySupervisor } from './symphony-supervisor'
 import type { SymphonyOperatorService } from './symphony-operator-service'
 import {
@@ -76,6 +77,10 @@ import {
   type McpServerMutationResponse,
   type McpServerResponse,
   type McpServerStatusResponse,
+  type ReliabilityRecoveryRequest,
+  type ReliabilityRecoveryResult,
+  type ReliabilitySnapshot,
+  type ReliabilityStatusResponse,
 } from '../shared/types'
 
 interface RegisterIpcOptions {
@@ -119,6 +124,111 @@ export function registerSessionIpc({
       getWorkspacePath: () => bridge.getWorkspacePath(),
     })
   const resolvedMcpService = mcpService ?? new McpService({ configBridge: resolvedMcpConfigBridge })
+
+  const reliabilityAggregator = new RuntimeHealthAggregator({
+    requestRecovery: async ({ sourceSurface, action }) => {
+      try {
+        if (sourceSurface === 'chat_runtime') {
+          await bridge.restart()
+          return {
+            success: true,
+            outcome: 'succeeded' as const,
+            code: 'CHAT_RUNTIME_RESTARTED',
+            message: 'Chat runtime restarted successfully.',
+          }
+        }
+
+        if (sourceSurface === 'workflow_board') {
+          const response = await workflowBoardService.refreshBoard()
+          reliabilityAggregator.ingestWorkflowSnapshot(response.snapshot)
+          return {
+            success: true,
+            outcome: 'succeeded' as const,
+            code: 'WORKFLOW_REFRESHED',
+            message: `Workflow board recovery action applied: ${action}.`,
+          }
+        }
+
+        if (sourceSurface === 'symphony') {
+          if (symphonySupervisor) {
+            const commandResult = await symphonySupervisor.restart()
+            return {
+              success: commandResult.success,
+              outcome: commandResult.success ? ('succeeded' as const) : ('failed' as const),
+              code: commandResult.success ? 'SYMPHONY_RESTARTED' : 'SYMPHONY_RESTART_FAILED',
+              message:
+                commandResult.error?.message ??
+                (commandResult.success
+                  ? 'Symphony runtime restart requested.'
+                  : 'Symphony runtime restart failed.'),
+            }
+          }
+
+          if (symphonyOperatorService) {
+            const snapshot = await symphonyOperatorService.refreshBaseline()
+            reliabilityAggregator.ingestSymphonyOperatorSnapshot(snapshot)
+            return {
+              success: snapshot.connection.state !== 'disconnected',
+              outcome:
+                snapshot.connection.state !== 'disconnected'
+                  ? ('succeeded' as const)
+                  : ('failed' as const),
+              code:
+                snapshot.connection.state !== 'disconnected'
+                  ? 'SYMPHONY_DASHBOARD_REFRESHED'
+                  : 'SYMPHONY_DASHBOARD_REFRESH_FAILED',
+              message:
+                snapshot.connection.state !== 'disconnected'
+                  ? 'Symphony operator snapshot refreshed.'
+                  : snapshot.connection.lastError ?? 'Symphony operator refresh failed.',
+            }
+          }
+
+          return {
+            success: false,
+            outcome: 'failed' as const,
+            code: 'SYMPHONY_UNAVAILABLE',
+            message: 'Symphony services are unavailable.',
+          }
+        }
+
+        if (sourceSurface === 'mcp') {
+          const response = await resolvedMcpConfigBridge.listServers()
+          reliabilityAggregator.ingestMcpConfigResponse(response)
+
+          if (!response.success) {
+            return {
+              success: false,
+              outcome: 'failed' as const,
+              code: response.error?.code ?? 'MCP_REFRESH_FAILED',
+              message: response.error?.message ?? 'MCP config refresh failed.',
+            }
+          }
+
+          return {
+            success: true,
+            outcome: 'succeeded' as const,
+            code: 'MCP_CONFIG_REFRESHED',
+            message: 'MCP config refreshed successfully.',
+          }
+        }
+
+        return {
+          success: false,
+          outcome: 'failed' as const,
+          code: 'RECOVERY_UNSUPPORTED_SURFACE',
+          message: `Unsupported reliability surface: ${sourceSurface}`,
+        }
+      } catch (error) {
+        return {
+          success: false,
+          outcome: 'failed' as const,
+          code: 'RECOVERY_ACTION_THROW',
+          message: error instanceof Error ? error.message : String(error),
+        }
+      }
+    },
+  })
 
   const planningArtifactsByKey = new Map<string, PlanningArtifact>()
   const planningMetadataByKey = new Map<string, PlanningArtifactEvent>()
@@ -198,6 +308,19 @@ export function registerSessionIpc({
       escalations: snapshot.escalations.length,
       queueCount: snapshot.queueCount,
       completedCount: snapshot.completedCount,
+    })
+  }
+
+  const sendReliabilitySnapshot = (snapshot: ReliabilitySnapshot): void => {
+    if (!safeSend(IPC_CHANNELS.reliabilityStatus, snapshot)) {
+      return
+    }
+
+    log.debug('[desktop-ipc] reliability snapshot', {
+      overallStatus: snapshot.overallStatus,
+      degradedSurfaces: snapshot.surfaces
+        .filter((surface) => surface.status === 'degraded')
+        .map((surface) => surface.sourceSurface),
     })
   }
 
@@ -511,6 +634,7 @@ export function registerSessionIpc({
 
   const onStatus = (status: BridgeStatusEvent): void => {
     sendBridgeStatus(status)
+    reliabilityAggregator.ingestChatBridgeStatus(status)
   }
 
   const onDebug = (payload: Record<string, unknown>): void => {
@@ -526,6 +650,12 @@ export function registerSessionIpc({
       signal,
       stderrLines,
     })
+    reliabilityAggregator.ingestChatSubprocessCrash({
+      message: lastLine,
+      exitCode,
+      signal,
+      stderrLines,
+    })
   }
 
   bridge.on('rpc-event', onRpcEvent)
@@ -536,32 +666,46 @@ export function registerSessionIpc({
 
   const onSymphonyStatus = (status: SymphonyRuntimeStatus): void => {
     sendSymphonyStatusToRenderer(status)
+    reliabilityAggregator.ingestSymphonyRuntimeStatus(status)
     void symphonyOperatorService?.syncRuntimeStatus(status)
   }
 
   const onSymphonyDashboardSnapshot = (snapshot: SymphonyOperatorSnapshot): void => {
     sendSymphonyDashboardSnapshot(snapshot)
+    reliabilityAggregator.ingestSymphonyOperatorSnapshot(snapshot)
+  }
+
+  const onReliabilitySnapshot = (snapshot: ReliabilitySnapshot): void => {
+    sendReliabilitySnapshot(snapshot)
   }
 
   symphonySupervisor?.on('status', onSymphonyStatus)
   symphonyOperatorService?.on('snapshot', onSymphonyDashboardSnapshot)
+  reliabilityAggregator.on('snapshot', onReliabilitySnapshot)
 
   const initialState = bridge.getState()
-  sendBridgeStatus({
+  const initialBridgeStatus: BridgeStatusEvent = {
     state: initialState.status,
     pid: initialState.pid,
     updatedAt: Date.now(),
-  })
+  }
+  sendBridgeStatus(initialBridgeStatus)
+  reliabilityAggregator.ingestChatBridgeStatus(initialBridgeStatus)
 
   if (symphonySupervisor) {
     const initialSymphonyStatus = symphonySupervisor.getStatus()
     sendSymphonyStatusToRenderer(initialSymphonyStatus)
+    reliabilityAggregator.ingestSymphonyRuntimeStatus(initialSymphonyStatus)
     void symphonyOperatorService?.syncRuntimeStatus(initialSymphonyStatus)
   }
 
   if (symphonyOperatorService) {
-    sendSymphonyDashboardSnapshot(symphonyOperatorService.getSnapshot())
+    const initialDashboardSnapshot = symphonyOperatorService.getSnapshot()
+    sendSymphonyDashboardSnapshot(initialDashboardSnapshot)
+    reliabilityAggregator.ingestSymphonyOperatorSnapshot(initialDashboardSnapshot)
   }
+
+  sendReliabilitySnapshot(reliabilityAggregator.getSnapshot())
 
   ipcMain.removeHandler(IPC_CHANNELS.sessionSend)
   ipcMain.removeHandler(IPC_CHANNELS.sessionStop)
@@ -611,6 +755,8 @@ export function registerSessionIpc({
   ipcMain.removeHandler(IPC_CHANNELS.mcpDeleteServer)
   ipcMain.removeHandler(IPC_CHANNELS.mcpRefreshStatus)
   ipcMain.removeHandler(IPC_CHANNELS.mcpReconnectServer)
+  ipcMain.removeHandler(IPC_CHANNELS.reliabilityGetStatus)
+  ipcMain.removeHandler(IPC_CHANNELS.reliabilityRequestRecoveryAction)
 
   ipcMain.handle(IPC_CHANNELS.sessionSend, async (_event, message: string) => {
     if (!message?.trim()) {
@@ -1194,11 +1340,15 @@ export function registerSessionIpc({
   })
 
   ipcMain.handle(IPC_CHANNELS.workflowGetBoard, async (): Promise<WorkflowBoardSnapshotResponse> => {
-    return workflowBoardService.getBoard()
+    const response = await workflowBoardService.getBoard()
+    reliabilityAggregator.ingestWorkflowSnapshot(response.snapshot)
+    return response
   })
 
   ipcMain.handle(IPC_CHANNELS.workflowRefreshBoard, async (): Promise<WorkflowBoardSnapshotResponse> => {
-    return workflowBoardService.refreshBoard()
+    const response = await workflowBoardService.refreshBoard()
+    reliabilityAggregator.ingestWorkflowSnapshot(response.snapshot)
+    return response
   })
 
   ipcMain.handle(
@@ -1454,15 +1604,18 @@ export function registerSessionIpc({
   ipcMain.handle(IPC_CHANNELS.symphonyGetStatus, async (): Promise<SymphonyRuntimeStatusResponse> => {
     if (!symphonySupervisor) {
       const fallback = createSymphonyDisconnectedResult()
+      reliabilityAggregator.ingestSymphonyRuntimeStatus(fallback.status)
       return {
         success: true,
         status: fallback.status,
       }
     }
 
+    const status = symphonySupervisor.getStatus()
+    reliabilityAggregator.ingestSymphonyRuntimeStatus(status)
     return {
       success: true,
-      status: symphonySupervisor.getStatus(),
+      status,
     }
   })
 
@@ -1489,21 +1642,26 @@ export function registerSessionIpc({
   })
 
   ipcMain.handle(IPC_CHANNELS.symphonyGetDashboard, async (): Promise<SymphonyOperatorSnapshotResponse> => {
+    const snapshot = symphonyOperatorService?.getSnapshot() ?? createUnavailableDashboardSnapshot()
+    reliabilityAggregator.ingestSymphonyOperatorSnapshot(snapshot)
     return {
       success: true,
-      snapshot: symphonyOperatorService?.getSnapshot() ?? createUnavailableDashboardSnapshot(),
+      snapshot,
     }
   })
 
   ipcMain.handle(IPC_CHANNELS.symphonyRefreshDashboard, async (): Promise<SymphonyOperatorSnapshotResponse> => {
     if (!symphonyOperatorService) {
+      const snapshot = createUnavailableDashboardSnapshot()
+      reliabilityAggregator.ingestSymphonyOperatorSnapshot(snapshot)
       return {
         success: false,
-        snapshot: createUnavailableDashboardSnapshot(),
+        snapshot,
       }
     }
 
     const snapshot = await symphonyOperatorService.refreshBaseline()
+    reliabilityAggregator.ingestSymphonyOperatorSnapshot(snapshot)
     return {
       success: true,
       snapshot,
@@ -1514,18 +1672,24 @@ export function registerSessionIpc({
     IPC_CHANNELS.symphonyRespondEscalation,
     async (_event, requestId: string, responseText: string): Promise<SymphonyEscalationResponseCommandResult> => {
       if (!symphonyOperatorService) {
+        const snapshot = createUnavailableDashboardSnapshot()
+        reliabilityAggregator.ingestSymphonyOperatorSnapshot(snapshot)
         return {
           success: false,
-          snapshot: createUnavailableDashboardSnapshot(),
+          snapshot,
         }
       }
 
-      return symphonyOperatorService.respondToEscalation(requestId, responseText)
+      const response = await symphonyOperatorService.respondToEscalation(requestId, responseText)
+      reliabilityAggregator.ingestSymphonyOperatorSnapshot(response.snapshot)
+      return response
     },
   )
 
   ipcMain.handle(IPC_CHANNELS.mcpListServers, async (): Promise<McpConfigReadResponse> => {
-    return resolvedMcpConfigBridge.listServers()
+    const response = await resolvedMcpConfigBridge.listServers()
+    reliabilityAggregator.ingestMcpConfigResponse(response)
+    return response
   })
 
   ipcMain.handle(IPC_CHANNELS.mcpGetServer, async (_event, name: string): Promise<McpServerResponse> => {
@@ -1549,14 +1713,52 @@ export function registerSessionIpc({
   ipcMain.handle(
     IPC_CHANNELS.mcpRefreshStatus,
     async (_event, name: string): Promise<McpServerStatusResponse> => {
-      return resolvedMcpService.refreshStatus(name)
+      const response = await resolvedMcpService.refreshStatus(name)
+      reliabilityAggregator.ingestMcpStatusResponse(response)
+      return response
     },
   )
 
   ipcMain.handle(
     IPC_CHANNELS.mcpReconnectServer,
     async (_event, name: string): Promise<McpServerStatusResponse> => {
-      return resolvedMcpService.reconnectServer(name)
+      const response = await resolvedMcpService.reconnectServer(name)
+      reliabilityAggregator.ingestMcpStatusResponse(response)
+      return response
+    },
+  )
+
+  ipcMain.handle(
+    IPC_CHANNELS.reliabilityGetStatus,
+    async (): Promise<ReliabilityStatusResponse> => {
+      return {
+        success: true,
+        snapshot: reliabilityAggregator.getSnapshot(),
+      }
+    },
+  )
+
+  ipcMain.handle(
+    IPC_CHANNELS.reliabilityRequestRecoveryAction,
+    async (_event, request: ReliabilityRecoveryRequest): Promise<ReliabilityRecoveryResult> => {
+      if (
+        request?.sourceSurface !== 'chat_runtime' &&
+        request?.sourceSurface !== 'workflow_board' &&
+        request?.sourceSurface !== 'symphony' &&
+        request?.sourceSurface !== 'mcp'
+      ) {
+        return {
+          success: false,
+          sourceSurface: request?.sourceSurface ?? 'chat_runtime',
+          action: request?.action ?? 'inspect',
+          outcome: 'failed',
+          code: 'INVALID_RECOVERY_SURFACE',
+          message: `Unsupported reliability source surface: ${String(request?.sourceSurface)}`,
+          timestamp: new Date().toISOString(),
+        }
+      }
+
+      return reliabilityAggregator.requestRecoveryAction(request)
     },
   )
 
@@ -1568,6 +1770,7 @@ export function registerSessionIpc({
     bridge.off('crash', onCrash)
     symphonySupervisor?.off('status', onSymphonyStatus)
     symphonyOperatorService?.off('snapshot', onSymphonyDashboardSnapshot)
+    reliabilityAggregator.off('snapshot', onReliabilitySnapshot)
     planningToolDetector.off('artifact', onPlanningArtifactEvent)
 
     ipcMain.removeHandler(IPC_CHANNELS.sessionSend)
@@ -1618,6 +1821,8 @@ export function registerSessionIpc({
     ipcMain.removeHandler(IPC_CHANNELS.mcpDeleteServer)
     ipcMain.removeHandler(IPC_CHANNELS.mcpRefreshStatus)
     ipcMain.removeHandler(IPC_CHANNELS.mcpReconnectServer)
+    ipcMain.removeHandler(IPC_CHANNELS.reliabilityGetStatus)
+    ipcMain.removeHandler(IPC_CHANNELS.reliabilityRequestRecoveryAction)
   }
 }
 

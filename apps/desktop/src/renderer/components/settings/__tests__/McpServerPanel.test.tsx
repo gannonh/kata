@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { createMcpServerEditorDraft, parseArgs, validateMcpServerDraft } from '../McpServerEditorDialog'
-import { formatMcpProvenanceLabel } from '../McpServerPanel'
+import { formatMcpProvenanceLabel, formatMcpReliabilityNotice } from '../McpServerPanel'
 import {
   formatMcpStatusLabel,
   mcpStatusBadgeVariant,
@@ -12,6 +12,22 @@ describe('MCP settings helpers', () => {
     expect(formatMcpProvenanceLabel('global_only')).toBe('Global shared config')
     expect(formatMcpProvenanceLabel('overlay_present')).toBe('Global config (overlay detected)')
     expect(formatMcpProvenanceLabel(undefined)).toBe('Global shared config')
+  })
+
+  test('formats MCP reliability notices with shared recovery language', () => {
+    const notice = formatMcpReliabilityNotice({
+      code: 'REL-MCP-CONFIG-MALFORMED_CONFIG',
+      class: 'config',
+      severity: 'warning',
+      sourceSurface: 'mcp',
+      recoveryAction: 'fix_config',
+      outcome: 'pending',
+      message: 'Invalid JSON in mcp.json',
+      timestamp: '2026-04-07T20:00:00.000Z',
+    })
+
+    expect(notice).toContain('Invalid JSON in mcp.json')
+    expect(notice).toContain('Recommended recovery: Fix configuration.')
   })
 
   test('summarizes stdio and http server rows for compact display', () => {

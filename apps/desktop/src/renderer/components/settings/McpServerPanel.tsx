@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
-import type { McpServerSummary } from '@shared/types'
+import type { McpServerSummary, ReliabilitySignal } from '@shared/types'
 import {
   deleteMcpServerAtom,
   loadMcpConfigAtom,
@@ -13,6 +13,14 @@ import {
   saveMcpServerAtom,
   useMcpConfigBridge,
 } from '@/atoms/mcp'
+import {
+  formatReliabilityActionLabel,
+  formatReliabilityClassLabel,
+  reliabilityRecoveryPendingAtom,
+  reliabilitySeverityTone,
+  requestReliabilityRecoveryActionAtom,
+  useReliabilitySurfaceState,
+} from '@/atoms/reliability'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -28,6 +36,10 @@ export function formatMcpProvenanceLabel(mode: 'global_only' | 'overlay_present'
   return 'Global shared config'
 }
 
+export function formatMcpReliabilityNotice(signal: ReliabilitySignal): string {
+  return `${signal.message} Recommended recovery: ${formatReliabilityActionLabel(signal.recoveryAction)}.`
+}
+
 export function McpServerPanel() {
   useMcpConfigBridge()
 
@@ -37,10 +49,13 @@ export function McpServerPanel() {
   const mutationError = useAtomValue(mcpMutationErrorAtom)
   const mutationSuccess = useAtomValue(mcpMutationSuccessAtom)
   const statuses = useAtomValue(mcpServerStatusesAtom)
+  const reliabilityPendingBySurface = useAtomValue(reliabilityRecoveryPendingAtom)
+  const mcpReliability = useReliabilitySurfaceState('mcp')
 
   const refreshConfig = useSetAtom(loadMcpConfigAtom)
   const saveServer = useSetAtom(saveMcpServerAtom)
   const deleteServer = useSetAtom(deleteMcpServerAtom)
+  const requestRecoveryAction = useSetAtom(requestReliabilityRecoveryActionAtom)
 
   const [editorOpen, setEditorOpen] = useState(false)
   const [editingServer, setEditingServer] = useState<McpServerSummary | undefined>(undefined)
@@ -90,6 +105,25 @@ export function McpServerPanel() {
             >
               {loading ? 'Refreshing…' : 'Refresh'}
             </Button>
+            {mcpReliability.signal ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  void requestRecoveryAction({
+                    sourceSurface: 'mcp',
+                    action: mcpReliability.signal!.recoveryAction,
+                  })
+                }}
+                disabled={reliabilityPendingBySurface.mcp}
+                data-testid="mcp-reliability-recovery"
+              >
+                {reliabilityPendingBySurface.mcp
+                  ? 'Recovering…'
+                  : formatReliabilityActionLabel(mcpReliability.signal.recoveryAction)}
+              </Button>
+            ) : null}
             <Button type="button" size="sm" onClick={openCreateDialog} data-testid="mcp-add-server">
               Add server
             </Button>
@@ -98,6 +132,18 @@ export function McpServerPanel() {
       </CardHeader>
 
       <CardContent className="space-y-3 p-4 pt-2 text-xs">
+        {mcpReliability.signal ? (
+          <Alert
+            variant={reliabilitySeverityTone(mcpReliability.signal.severity) === 'error' ? 'destructive' : 'default'}
+            data-testid="mcp-reliability"
+          >
+            <AlertTitle>
+              {formatReliabilityClassLabel(mcpReliability.signal.class)} · {mcpReliability.signal.code}
+            </AlertTitle>
+            <AlertDescription>{formatMcpReliabilityNotice(mcpReliability.signal)}</AlertDescription>
+          </Alert>
+        ) : null}
+
         {configState.provenance?.warning ? (
           <Alert data-testid="mcp-overlay-warning">
             <AlertTitle>Project overlay detected</AlertTitle>

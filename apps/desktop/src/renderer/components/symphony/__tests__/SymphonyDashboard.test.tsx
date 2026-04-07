@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { connectionBadgeVariant } from '../SymphonyDashboard'
+import { connectionBadgeVariant, formatSymphonyReliabilityNotice } from '../SymphonyDashboard'
 import { formatLastActivity } from '../WorkerTable'
 
 describe('SymphonyDashboard helpers', () => {
@@ -13,5 +13,21 @@ describe('SymphonyDashboard helpers', () => {
     expect(formatLastActivity(undefined)).toBe('—')
     expect(formatLastActivity('not-a-date')).toBe('—')
     expect(formatLastActivity('2026-04-04T19:00:00.000Z')).not.toBe('—')
+  })
+
+  test('formats reliability notice with shared recovery semantics', () => {
+    const notice = formatSymphonyReliabilityNotice({
+      code: 'REL-SYMPHONY-NETWORK-DISCONNECTED',
+      class: 'network',
+      severity: 'error',
+      sourceSurface: 'symphony',
+      recoveryAction: 'reconnect',
+      outcome: 'pending',
+      message: 'Symphony operator is disconnected.',
+      timestamp: '2026-04-07T20:00:00.000Z',
+    })
+
+    expect(notice).toContain('Symphony operator is disconnected.')
+    expect(notice).toContain('Recommended recovery: Reconnect service.')
   })
 })

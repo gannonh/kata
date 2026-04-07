@@ -265,6 +265,25 @@ const api: DesktopApi = {
       return ipcRenderer.invoke(IPC_CHANNELS.mcpReconnectServer, name)
     },
   },
+  reliability: {
+    getStatus: async () => {
+      return ipcRenderer.invoke(IPC_CHANNELS.reliabilityGetStatus)
+    },
+    requestRecoveryAction: async (request: Parameters<DesktopApi['reliability']['requestRecoveryAction']>[0]) => {
+      return ipcRenderer.invoke(IPC_CHANNELS.reliabilityRequestRecoveryAction, request)
+    },
+    onStatus: (listener: Parameters<DesktopApi['reliability']['onStatus']>[0]) => {
+      const wrapped = (_event: Electron.IpcRendererEvent, snapshot: Parameters<Parameters<DesktopApi['reliability']['onStatus']>[0]>[0]) => {
+        listener(snapshot)
+      }
+
+      ipcRenderer.on(IPC_CHANNELS.reliabilityStatus, wrapped)
+
+      return () => {
+        ipcRenderer.removeListener(IPC_CHANNELS.reliabilityStatus, wrapped)
+      }
+    },
+  },
 }
 
 contextBridge.exposeInMainWorld('api', api)

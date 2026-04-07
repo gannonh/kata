@@ -55,6 +55,9 @@ export const IPC_CHANNELS = {
   mcpDeleteServer: 'mcp:delete-server',
   mcpRefreshStatus: 'mcp:refresh-status',
   mcpReconnectServer: 'mcp:reconnect-server',
+  reliabilityGetStatus: 'reliability:get-status',
+  reliabilityStatus: 'reliability:status',
+  reliabilityRequestRecoveryAction: 'reliability:request-recovery-action',
 } as const
 
 export type PermissionMode = 'explore' | 'ask' | 'auto'
@@ -1349,6 +1352,26 @@ export interface ReliabilitySnapshot {
   surfaces: ReliabilitySurfaceState[]
 }
 
+export interface ReliabilityStatusResponse {
+  success: boolean
+  snapshot: ReliabilitySnapshot
+}
+
+export interface ReliabilityRecoveryRequest {
+  sourceSurface: ReliabilitySourceSurface
+  action?: ReliabilityRecoveryAction
+}
+
+export interface ReliabilityRecoveryResult {
+  success: boolean
+  sourceSurface: ReliabilitySourceSurface
+  action: ReliabilityRecoveryAction
+  outcome: 'succeeded' | 'failed'
+  code: string
+  message: string
+  timestamp: string
+}
+
 export type ArtifactType = 'roadmap' | 'requirements' | 'decisions' | 'context' | 'slice'
 
 export type RoadmapRisk = 'high' | 'medium' | 'low'
@@ -1496,6 +1519,13 @@ export interface DesktopApi {
     deleteServer: (name: string) => Promise<McpServerDeleteResponse>
     refreshStatus: (name: string) => Promise<McpServerStatusResponse>
     reconnectServer: (name: string) => Promise<McpServerStatusResponse>
+  }
+  reliability: {
+    getStatus: () => Promise<ReliabilityStatusResponse>
+    requestRecoveryAction: (
+      request: ReliabilityRecoveryRequest,
+    ) => Promise<ReliabilityRecoveryResult>
+    onStatus: (listener: (snapshot: ReliabilitySnapshot) => void) => () => void
   }
 }
 
