@@ -36,9 +36,12 @@ describe('reliability-contract', () => {
 
     expect(redactReliabilityText(raw)).toContain('Authorization: bearer ***')
     expect(redactReliabilityText(raw)).toContain('api_key=***')
-    expect(redactReliabilityText(raw)).toContain('sk-abc123***')
+    expect(redactReliabilityText(raw)).toContain('sk-abc***')
     expect(redactReliabilityText(raw)).toContain('token=***')
-    expect(redactReliabilityText('sk-abc123')).toBe('sk-abc123***')
+
+    const shortKeyRedaction = redactReliabilityText('sk-abc123')
+    expect(shortKeyRedaction).toContain('***')
+    expect(shortKeyRedaction).not.toContain('abc123')
   })
 
   test('maps workflow snapshot errors into canonical reliability signals', () => {

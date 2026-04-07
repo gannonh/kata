@@ -32,6 +32,22 @@ const CLASS_CODE: Record<ReliabilityClass, string> = {
   unknown: 'UNKNOWN',
 }
 
+export const RELIABILITY_SURFACES: ReadonlyArray<ReliabilitySourceSurface> = [
+  'chat_runtime',
+  'workflow_board',
+  'symphony',
+  'mcp',
+]
+
+export function isReliabilitySourceSurface(
+  source: string | null | undefined,
+): source is ReliabilitySourceSurface {
+  return (
+    typeof source === 'string' &&
+    RELIABILITY_SURFACES.includes(source as ReliabilitySourceSurface)
+  )
+}
+
 export const RELIABILITY_CLASS_DEFAULTS: Record<
   ReliabilityClass,
   { severity: ReliabilitySeverity; recoveryAction: ReliabilityRecoveryAction }
@@ -104,7 +120,7 @@ const MCP_ERROR_CLASS: Record<string, ReliabilityClass> = {
 }
 
 const RELIABILITY_SECRET_PATTERNS: Array<[RegExp, string]> = [
-  [/(sk-[A-Za-z0-9_-]{6})[A-Za-z0-9_-]*/g, '$1***'],
+  [/(sk-[A-Za-z0-9_-]{3})[A-Za-z0-9_-]*/g, '$1***'],
   [/(api[_-]?key\s*[=:]\s*)([^\s]+)/gi, '$1***'],
   [/(token\s*[=:]\s*)([^\s]+)/gi, '$1***'],
   [/(authorization\s*[=:]\s*bearer\s+)([^\s]+)/gi, '$1***'],

@@ -14,8 +14,10 @@ import { McpConfigBridge } from './mcp-config-bridge'
 import { McpService } from './mcp-service'
 import { RuntimeHealthAggregator } from './runtime-health-aggregator'
 import {
+  isReliabilitySourceSurface,
   mapSymphonyOperatorSnapshotToReliability,
   mapWorkflowBoardSnapshotToReliability,
+  redactReliabilityText,
 } from './reliability-contract'
 import type { SymphonySupervisor } from './symphony-supervisor'
 import type { SymphonyOperatorService } from './symphony-operator-service'
@@ -235,6 +237,18 @@ export function registerSessionIpc({
         }
 
         if (sourceSurface === 'mcp') {
+          const supportsConfigRefresh =
+            action === 'refresh_state' || action === 'inspect' || action === 'fix_config'
+
+          if (!supportsConfigRefresh) {
+            return {
+              success: false,
+              outcome: 'failed' as const,
+              code: 'MCP_RECOVERY_ACTION_UNSUPPORTED',
+              message: `MCP recovery action ${action} requires server-specific reconnect or reauthentication.`,
+            }
+          }
+
           const response = await resolvedMcpConfigBridge.listServers()
           reliabilityAggregator.ingestMcpConfigResponse(response)
 
@@ -266,7 +280,7 @@ export function registerSessionIpc({
           success: false,
           outcome: 'failed' as const,
           code: 'RECOVERY_ACTION_THROW',
-          message: error instanceof Error ? error.message : String(error),
+          message: redactReliabilityText(error instanceof Error ? error.message : String(error)),
         }
       }
     },
@@ -1783,15 +1797,10 @@ export function registerSessionIpc({
   ipcMain.handle(
     IPC_CHANNELS.reliabilityRequestRecoveryAction,
     async (_event, request: ReliabilityRecoveryRequest): Promise<ReliabilityRecoveryResult> => {
-      if (
-        request?.sourceSurface !== 'chat_runtime' &&
-        request?.sourceSurface !== 'workflow_board' &&
-        request?.sourceSurface !== 'symphony' &&
-        request?.sourceSurface !== 'mcp'
-      ) {
+      if (!isReliabilitySourceSurface(request?.sourceSurface)) {
         return {
           success: false,
-          sourceSurface: request?.sourceSurface ?? 'chat_runtime',
+          sourceSurface: 'chat_runtime',
           action: request?.action ?? 'inspect',
           outcome: 'failed',
           code: 'INVALID_RECOVERY_SURFACE',

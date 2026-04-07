@@ -9,6 +9,7 @@ import {
   mapSymphonyRuntimeStatusToReliability,
   mapWorkflowBoardSnapshotToReliability,
   pickPrimaryReliabilitySignal,
+  RELIABILITY_SURFACES,
 } from './reliability-contract'
 import type {
   BridgeStatusEvent,
@@ -44,13 +45,6 @@ interface RuntimeHealthAggregatorOptions {
 interface RuntimeHealthAggregatorEvents {
   snapshot: (snapshot: ReliabilitySnapshot) => void
 }
-
-const RELIABILITY_SURFACES: ReadonlyArray<ReliabilitySourceSurface> = [
-  'chat_runtime',
-  'workflow_board',
-  'symphony',
-  'mcp',
-]
 
 export class RuntimeHealthAggregator extends EventEmitter {
   private readonly now: () => string

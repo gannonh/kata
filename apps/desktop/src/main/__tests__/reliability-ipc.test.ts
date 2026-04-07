@@ -233,4 +233,51 @@ describe('reliability recovery IPC handler', () => {
 
     unregister()
   })
+
+  test('returns unsupported outcome for mcp reconnect action without server-specific context', async () => {
+    const unregister = registerSessionIpc(createCommonOptions())
+
+    const result = await handlers.get(IPC_CHANNELS.reliabilityRequestRecoveryAction)?.({}, {
+      sourceSurface: 'mcp',
+      action: 'reconnect',
+    })
+
+    expect(result.success).toBe(false)
+    expect(result.outcome).toBe('failed')
+    expect(result.code).toBe('MCP_RECOVERY_ACTION_UNSUPPORTED')
+
+    unregister()
+  })
+
+  test('redacts thrown recovery errors before returning them over reliability IPC', async () => {
+    const mcpConfigBridge = {
+      listServers: vi.fn(async () => {
+        throw new Error('Authorization: bearer secret-token api_key=secret sk-abc123')
+      }),
+      getServer: vi.fn(),
+      saveServer: vi.fn(),
+      deleteServer: vi.fn(),
+      getRuntimeServer: vi.fn(),
+    } as any
+
+    const unregister = registerSessionIpc({
+      ...createCommonOptions(),
+      mcpConfigBridge,
+    })
+
+    const result = await handlers.get(IPC_CHANNELS.reliabilityRequestRecoveryAction)?.({}, {
+      sourceSurface: 'mcp',
+      action: 'refresh_state',
+    })
+
+    expect(result.success).toBe(false)
+    expect(result.code).toBe('RECOVERY_ACTION_THROW')
+    expect(result.message).toContain('bearer ***')
+    expect(result.message).toContain('api_key=***')
+    expect(result.message).toContain('sk-abc***')
+    expect(result.message).not.toContain('secret-token')
+    expect(result.message).not.toContain('abc123')
+
+    unregister()
+  })
 })
