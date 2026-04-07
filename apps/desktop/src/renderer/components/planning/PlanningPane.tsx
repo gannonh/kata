@@ -1,5 +1,6 @@
 import { useAtomValue, useSetAtom } from 'jotai'
-import { Loader2, X } from 'lucide-react'
+import { X } from 'lucide-react'
+import { Spinner } from '@/components/ui/spinner'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type {
   ParsedContext,
@@ -353,7 +354,7 @@ export function PlanningPane() {
         >
           {loading && !activeArtifact ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
-              <Loader2 className="size-5 animate-spin" />
+              <Spinner className="size-5" />
               <p>Loading planning artifacts…</p>
             </div>
           ) : null}
@@ -400,7 +401,7 @@ export function PlanningPane() {
         {isFetching ? (
           <div className="pointer-events-none absolute inset-x-4 top-3 z-10 flex justify-end">
             <div className="inline-flex items-center gap-2 rounded-md border border-border bg-background/95 px-2.5 py-1 text-xs text-muted-foreground shadow-sm backdrop-blur-sm">
-              <Loader2 className="size-3.5 animate-spin" />
+              <Spinner className="size-3.5" />
               <span>Fetching...</span>
             </div>
           </div>

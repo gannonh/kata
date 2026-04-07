@@ -1,5 +1,6 @@
 import { useAtomValue, useSetAtom } from 'jotai'
-import { AlertCircle, Loader2, RotateCcw, Square, Play } from 'lucide-react'
+import { AlertCircle, RotateCcw, Square, Play } from 'lucide-react'
+import { Spinner } from '@/components/ui/spinner'
 import { symphonyCommandPendingAtom, symphonyStatusAtom, runSymphonyCommandAtom } from '@/atoms/symphony'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -131,7 +132,7 @@ export function SymphonyRuntimePanel() {
 
           {pending ? (
             <span className={cn('inline-flex items-center gap-1 text-muted-foreground')}>
-              <Loader2 className="size-3 animate-spin" />
+              <Spinner className="size-3" />
               Applying runtime command…
             </span>
           ) : null}

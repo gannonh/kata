@@ -1,5 +1,5 @@
 import { useAtomValue, useSetAtom } from 'jotai'
-import { Loader2 } from 'lucide-react'
+import { Spinner } from '@/components/ui/spinner'
 import type { WorkflowBoardColumn, WorkflowColumnId } from '@shared/types'
 import {
   collapsedWorkflowColumnsAtom,
@@ -128,7 +128,7 @@ export function KanbanPane() {
       <div className="min-h-0 flex-1 overflow-x-auto px-3 py-3">
         {loading ? (
           <div className="flex h-full items-center justify-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" />
+            <Spinner className="size-4" />
             <span>Loading workflow board…</span>
           </div>
         ) : (

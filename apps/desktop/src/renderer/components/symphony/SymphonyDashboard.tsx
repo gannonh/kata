@@ -1,5 +1,6 @@
 import { useAtomValue, useSetAtom } from 'jotai'
-import { Loader2, RefreshCcw } from 'lucide-react'
+import { RefreshCcw } from 'lucide-react'
+import { Spinner } from '@/components/ui/spinner'
 import {
   refreshSymphonyDashboardAtom,
   respondToEscalationAtom,
@@ -48,7 +49,7 @@ export function SymphonyDashboard() {
               disabled={loading}
               data-testid="symphony-dashboard-refresh"
             >
-              {loading ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCcw className="size-3.5" />}
+              {loading ? <Spinner className="size-3.5" /> : <RefreshCcw className="size-3.5" />}
               Refresh
             </Button>
           </div>
