@@ -13,6 +13,10 @@ import { WorkflowBoardService } from './workflow-board-service'
 import { McpConfigBridge } from './mcp-config-bridge'
 import { McpService } from './mcp-service'
 import { RuntimeHealthAggregator } from './runtime-health-aggregator'
+import {
+  mapSymphonyOperatorSnapshotToReliability,
+  mapWorkflowBoardSnapshotToReliability,
+} from './reliability-contract'
 import type { SymphonySupervisor } from './symphony-supervisor'
 import type { SymphonyOperatorService } from './symphony-operator-service'
 import {
@@ -141,6 +145,17 @@ export function registerSessionIpc({
         if (sourceSurface === 'workflow_board') {
           const response = await workflowBoardService.refreshBoard()
           reliabilityAggregator.ingestWorkflowSnapshot(response.snapshot)
+
+          const reliabilitySignal = mapWorkflowBoardSnapshotToReliability(response.snapshot)
+          if (reliabilitySignal) {
+            return {
+              success: false,
+              outcome: 'failed' as const,
+              code: 'WORKFLOW_REFRESH_UNHEALTHY',
+              message: reliabilitySignal.message,
+            }
+          }
+
           return {
             success: true,
             outcome: 'succeeded' as const,
@@ -150,7 +165,36 @@ export function registerSessionIpc({
         }
 
         if (sourceSurface === 'symphony') {
-          if (symphonySupervisor) {
+          const refreshOperatorSnapshot = async () => {
+            const snapshot = await symphonyOperatorService!.refreshBaseline()
+            reliabilityAggregator.ingestSymphonyOperatorSnapshot(snapshot)
+
+            const reliabilitySignal = mapSymphonyOperatorSnapshotToReliability(snapshot)
+            if (reliabilitySignal) {
+              return {
+                success: false,
+                outcome: 'failed' as const,
+                code: 'SYMPHONY_DASHBOARD_REFRESH_UNHEALTHY',
+                message: reliabilitySignal.message,
+              }
+            }
+
+            return {
+              success: true,
+              outcome: 'succeeded' as const,
+              code: 'SYMPHONY_DASHBOARD_REFRESHED',
+              message: 'Symphony operator snapshot refreshed.',
+            }
+          }
+
+          const shouldRefreshOperatorSnapshot =
+            action === 'reconnect' || action === 'refresh_state' || action === 'inspect'
+
+          if (shouldRefreshOperatorSnapshot && symphonyOperatorService) {
+            return refreshOperatorSnapshot()
+          }
+
+          if (action === 'restart_process' && symphonySupervisor) {
             const commandResult = await symphonySupervisor.restart()
             return {
               success: commandResult.success,
@@ -165,22 +209,20 @@ export function registerSessionIpc({
           }
 
           if (symphonyOperatorService) {
-            const snapshot = await symphonyOperatorService.refreshBaseline()
-            reliabilityAggregator.ingestSymphonyOperatorSnapshot(snapshot)
+            return refreshOperatorSnapshot()
+          }
+
+          if (symphonySupervisor) {
+            const commandResult = await symphonySupervisor.restart()
             return {
-              success: snapshot.connection.state !== 'disconnected',
-              outcome:
-                snapshot.connection.state !== 'disconnected'
-                  ? ('succeeded' as const)
-                  : ('failed' as const),
-              code:
-                snapshot.connection.state !== 'disconnected'
-                  ? 'SYMPHONY_DASHBOARD_REFRESHED'
-                  : 'SYMPHONY_DASHBOARD_REFRESH_FAILED',
+              success: commandResult.success,
+              outcome: commandResult.success ? ('succeeded' as const) : ('failed' as const),
+              code: commandResult.success ? 'SYMPHONY_RESTARTED' : 'SYMPHONY_RESTART_FAILED',
               message:
-                snapshot.connection.state !== 'disconnected'
-                  ? 'Symphony operator snapshot refreshed.'
-                  : snapshot.connection.lastError ?? 'Symphony operator refresh failed.',
+                commandResult.error?.message ??
+                (commandResult.success
+                  ? 'Symphony runtime restart requested.'
+                  : 'Symphony runtime restart failed.'),
             }
           }
 
