@@ -295,7 +295,7 @@ export function KanbanHeader({
       {rightPaneOverride ? (
         <div className="border-b border-border bg-muted/70 px-4 py-2 text-xs text-muted-foreground">
           Manual pane override is active.
-          <Button type="button" variant="link" className="ml-1 h-auto p-0 text-xs text-blue-400 hover:text-blue-300" onClick={onClearOverride}>
+          <Button type="button" variant="link" className="ml-1 h-auto p-0 text-xs" onClick={onClearOverride}>
             Return to auto mode
           </Button>
         </div>

@@ -223,7 +223,7 @@ export function SliceCard({ card }: SliceCardProps) {
           {card.url ? (
             <button
               type="button"
-              className="text-blue-400 hover:text-blue-300 hover:underline"
+              className="text-primary hover:underline"
               onClick={openCardIssue}
             >
               {card.identifier}

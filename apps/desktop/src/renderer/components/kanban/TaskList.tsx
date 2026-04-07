@@ -170,7 +170,7 @@ export function TaskList({ tasks, issueActions = {}, onOpenIssue }: TaskListProp
                       {task.url && onOpenIssue ? (
                         <button
                           type="button"
-                          className="text-blue-400 hover:text-blue-300 hover:underline"
+                          className="text-primary hover:underline"
                           onClick={() => onOpenIssue(task)}
                         >
                           {task.identifier}
