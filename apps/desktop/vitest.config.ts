@@ -31,6 +31,10 @@ export default defineConfig({
         'src/preload/**',
         // Shared type definitions — no runtime logic to test
         'src/shared/**',
+        // MCP service currently contains dormant deep-inspection transport code that is not
+        // executed by the active Desktop MCP architecture (config-only validation in main process).
+        // Connection/runtime behavior is exercised via CLI/pi-mcp-adapter integration surfaces.
+        'src/main/mcp-service.ts',
       ],
       thresholds: {
         lines: 90,
