@@ -217,7 +217,7 @@ export function SliceCard({ card }: SliceCardProps) {
   }
 
   return (
-    <Card size="sm" className="gap-3 rounded-xl border border-border/70 py-3 shadow-none">
+    <Card size="sm" className="max-h-[70vh] gap-3 overflow-y-auto rounded-xl border border-border/70 py-3 shadow-none">
       <CardHeader className="px-3 pb-0">
         <CardTitle className="text-sm leading-tight">
           {card.url ? (
