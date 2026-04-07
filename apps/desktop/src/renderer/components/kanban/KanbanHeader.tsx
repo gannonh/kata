@@ -290,11 +290,7 @@ export function KanbanHeader({
         </div>
       ) : null}
 
-      {board?.scope?.note ? (
-        <div className="border-b border-border bg-muted/60 px-4 py-2 text-xs text-muted-foreground" data-testid="workflow-board-scope-note">
-          {board.scope.note}
-        </div>
-      ) : null}
+
 
       {rightPaneOverride ? (
         <div className="border-b border-border bg-muted/70 px-4 py-2 text-xs text-muted-foreground">
