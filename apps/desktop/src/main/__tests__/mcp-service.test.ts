@@ -80,10 +80,14 @@ describe('McpService', () => {
     })
 
     const service = createService()
-    const response = await service.reconnectServer('local')
+    const refresh = await service.refreshStatus('local')
+    const reconnect = await service.reconnectServer('local')
 
-    expect(response.success).toBe(true)
-    expect(response.status?.phase).toBe('configured')
+    expect(reconnect.success).toBe(refresh.success)
+    expect(reconnect.status?.serverName).toBe(refresh.status?.serverName)
+    expect(reconnect.status?.phase).toBe(refresh.status?.phase)
+    expect(reconnect.status?.toolNames).toEqual(refresh.status?.toolNames)
+    expect(reconnect.status?.toolCount).toBe(refresh.status?.toolCount)
   })
 
   test('returns malformed-config status when config is invalid JSON', async () => {

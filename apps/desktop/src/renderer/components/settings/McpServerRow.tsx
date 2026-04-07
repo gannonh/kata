@@ -51,29 +51,21 @@ export function summarizeMcpServer(server: McpServerSummary): string {
 
 interface McpServerRowProps {
   server: McpServerSummary
-  status?: McpServerStatus
-  statusPending?: boolean
   pendingDelete?: boolean
   onEdit: (server: McpServerSummary) => void
   onRequestDelete: (name: string) => void
   onConfirmDelete: (name: string) => void
   onCancelDelete: () => void
-  onRefresh: (name: string) => void
-  onReconnect: (name: string) => void
   mutationPending?: boolean
 }
 
 export function McpServerRow({
   server,
-  status,
-  statusPending,
   pendingDelete,
   onEdit,
   onRequestDelete,
   onConfirmDelete,
   onCancelDelete,
-  onRefresh,
-  onReconnect,
   mutationPending,
 }: McpServerRowProps) {
   return (

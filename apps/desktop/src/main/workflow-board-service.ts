@@ -308,8 +308,8 @@ export class WorkflowBoardService {
   private scopeKey = 'workspace:none::session:none'
   private requestedScope: WorkflowBoardScope = 'project'
   private lastScopeDiagnostics: WorkflowBoardScopeDiagnostics = {
-    requested: 'milestone',
-    resolved: 'milestone',
+    requested: 'project',
+    resolved: 'project',
     reason: 'requested',
   }
   private trackerConfigured = false

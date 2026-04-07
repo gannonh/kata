@@ -10,11 +10,8 @@ import {
   mcpMutationPendingAtom,
   mcpMutationSuccessAtom,
   mcpServerStatusesAtom,
-  mcpStatusPendingByServerAtom,
-  reconnectMcpServerAtom,
   saveMcpServerAtom,
   useMcpConfigBridge,
-  refreshMcpServerStatusAtom,
 } from '@/atoms/mcp'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -40,13 +37,10 @@ export function McpServerPanel() {
   const mutationError = useAtomValue(mcpMutationErrorAtom)
   const mutationSuccess = useAtomValue(mcpMutationSuccessAtom)
   const statuses = useAtomValue(mcpServerStatusesAtom)
-  const statusPendingByServer = useAtomValue(mcpStatusPendingByServerAtom)
 
   const refreshConfig = useSetAtom(loadMcpConfigAtom)
   const saveServer = useSetAtom(saveMcpServerAtom)
   const deleteServer = useSetAtom(deleteMcpServerAtom)
-  const refreshStatus = useSetAtom(refreshMcpServerStatusAtom)
-  const reconnectServer = useSetAtom(reconnectMcpServerAtom)
 
   const [editorOpen, setEditorOpen] = useState(false)
   const [editingServer, setEditingServer] = useState<McpServerSummary | undefined>(undefined)
@@ -167,8 +161,6 @@ export function McpServerPanel() {
               <McpServerRow
                 key={server.name}
                 server={server}
-                status={statuses[server.name]}
-                statusPending={statusPendingByServer[server.name]}
                 pendingDelete={pendingDeleteName === server.name}
                 mutationPending={mutationPending}
                 onEdit={openEditDialog}
@@ -178,12 +170,6 @@ export function McpServerPanel() {
                   setPendingDeleteName(null)
                 }}
                 onCancelDelete={() => setPendingDeleteName(null)}
-                onRefresh={(name) => {
-                  void refreshStatus(name)
-                }}
-                onReconnect={(name) => {
-                  void reconnectServer(name)
-                }}
               />
             ))}
           </div>

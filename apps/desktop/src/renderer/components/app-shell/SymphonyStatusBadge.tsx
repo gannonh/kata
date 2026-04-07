@@ -1,10 +1,7 @@
 import { useAtomValue, useSetAtom } from 'jotai'
 import { Spinner } from '@/components/ui/spinner'
 import { symphonyCommandPendingAtom, symphonyStatusAtom, runSymphonyCommandAtom } from '@/atoms/symphony'
-import {
-  formatSymphonyPhaseLabel,
-  deriveSymphonyControlState,
-} from '../settings/SymphonyRuntimePanel'
+import { formatSymphonyPhaseLabel } from '../settings/SymphonyRuntimePanel'
 
 function statusDotColor(phase: string): string {
   if (phase === 'ready') return 'bg-emerald-500'
@@ -16,12 +13,6 @@ export function SymphonyStatusBadge() {
   const status = useAtomValue(symphonyStatusAtom)
   const pending = useAtomValue(symphonyCommandPendingAtom)
   const runCommand = useSetAtom(runSymphonyCommandAtom)
-
-  const controls = deriveSymphonyControlState({
-    phase: status.phase,
-    managedProcessRunning: status.managedProcessRunning,
-    pending,
-  })
 
   const isRunning = status.phase === 'ready'
   const isTransitioning = pending || status.phase === 'starting' || status.phase === 'restarting' || status.phase === 'stopping'
