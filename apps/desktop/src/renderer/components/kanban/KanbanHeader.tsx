@@ -242,19 +242,6 @@ export function KanbanHeader({
             Collapse cards
           </Button>
 
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="h-7 px-2 text-[11px]"
-            aria-label="Open MCP tab"
-            onClick={onOpenMcpSettings}
-            disabled={mcpShortcutDisabled}
-            title="Open MCP settings (⌘⇧M / Ctrl+Shift+M)"
-            data-testid="kanban-open-mcp-settings"
-          >
-            MCP
-          </Button>
 
           <Button type="button" size="icon" variant="ghost" aria-label="Open planning view" onClick={onOpenPlanningView}>
             <LayoutGrid className="size-4" />
@@ -302,8 +289,7 @@ export function KanbanHeader({
       </div>
 
       <div className="border-b border-border bg-background/80 px-4 py-1 text-[11px] text-muted-foreground">
-        Shortcuts: <span className="font-mono">⌘⇧M</span> open MCP settings ·{' '}
-        <span className="font-mono">⌘⇧R</span> refresh board
+        Shortcuts: <span className="font-mono">⌘⇧R</span> refresh board
       </div>
 
       {actionLockReason ? (
