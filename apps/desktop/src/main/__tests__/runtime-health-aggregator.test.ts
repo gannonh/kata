@@ -266,4 +266,22 @@ describe('RuntimeHealthAggregator', () => {
     expect(mcpSurface?.status).toBe('healthy')
     expect(mcpSurface?.signal).toBeNull()
   })
+
+  test('handles listener lifecycle and unknown/internal surface fallbacks safely', () => {
+    const aggregator = new RuntimeHealthAggregator({ now: () => '2026-04-07T20:00:00.000Z' }) as any
+    const listener = vi.fn()
+
+    aggregator.on('snapshot', listener)
+    aggregator.off('snapshot', listener)
+
+    aggregator.updateSurface('not_a_surface', null)
+    expect(listener).not.toHaveBeenCalled()
+
+    aggregator.surfaces.delete('mcp')
+    const snapshot = aggregator.getSnapshot()
+    const mcpSurface = snapshot.surfaces.find((surface: { sourceSurface: string }) => surface.sourceSurface === 'mcp')
+
+    expect(mcpSurface?.status).toBe('healthy')
+    expect(mcpSurface?.signal).toBeNull()
+  })
 })
