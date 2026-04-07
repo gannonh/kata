@@ -219,7 +219,7 @@ export function SliceCard({ card, collapsed = false, onToggleCollapse }: SliceCa
   }
 
   return (
-    <Card size="sm" className="max-h-[70vh] gap-0 overflow-y-auto rounded-xl border border-border/70 py-3 shadow-none">
+    <Card size="sm" className="max-h-[70vh] shrink-0 !gap-0 !overflow-y-auto rounded-xl border border-border/70 py-3 shadow-none">
       <CardHeader className="px-3 pb-0">
         <CardTitle className="flex items-start justify-between gap-1 text-sm leading-tight">
           <span className="min-w-0">
@@ -240,8 +240,11 @@ export function SliceCard({ card, collapsed = false, onToggleCollapse }: SliceCa
           {onToggleCollapse ? (
             <button
               type="button"
-              className="mt-0.5 flex-none text-muted-foreground hover:text-foreground"
-              onClick={onToggleCollapse}
+              className="flex-none rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+              onClick={(e) => {
+                e.stopPropagation()
+                onToggleCollapse()
+              }}
               aria-label={collapsed ? 'Expand card' : 'Collapse card'}
             >
               <ChevronDown className={`size-3.5 transition-transform ${collapsed ? '-rotate-90' : ''}`} />
