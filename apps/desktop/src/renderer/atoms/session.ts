@@ -18,6 +18,12 @@ export const sessionCreatingAtom = atom<boolean>(false)
 export const sessionSwitchingAtom = atom<boolean>(false)
 export const sessionHistoryLoadingAtom = atom<boolean>(false)
 
+const sessionHistoryRequestTokenAtom = atom<number>(0)
+
+const invalidateSessionHistoryRequestAtom = atom(null, (get, set) => {
+  set(sessionHistoryRequestTokenAtom, get(sessionHistoryRequestTokenAtom) + 1)
+})
+
 export const currentSessionIdAtom = atomWithStorage<string | null>(
   CURRENT_SESSION_STORAGE_KEY,
   null,
@@ -87,6 +93,13 @@ const hydrateSessionHistoryAtom = atom(
       return
     }
 
+    const requestToken = get(sessionHistoryRequestTokenAtom) + 1
+    set(sessionHistoryRequestTokenAtom, requestToken)
+
+    const isStaleRequest = (): boolean =>
+      get(sessionHistoryRequestTokenAtom) !== requestToken ||
+      get(currentSessionIdAtom) !== trimmedSessionId
+
     set(sessionHistoryLoadingAtom, true)
     set(sessionHistoryErrorAtom, null)
     set(resetChatStateAtom)
@@ -103,17 +116,28 @@ const hydrateSessionHistoryAtom = atom(
         resolvedSessionPath,
       )
 
+      if (isStaleRequest()) {
+        return
+      }
+
       if (!historyResponse.success) {
         set(sessionHistoryErrorAtom, historyResponse.error ?? 'Unable to load session history')
         return
       }
 
       for (const event of historyResponse.events) {
+        if (isStaleRequest()) {
+          return
+        }
         set(applyChatEventAtom, event)
       }
 
+      if (isStaleRequest()) {
+        return
+      }
+
       // History replay may leave isStreamingAtom true if the session ended
-      // without a terminal event (agent_end/turn_end). Force it off — 
+      // without a terminal event (agent_end/turn_end). Force it off —
       // replayed history is never streaming. Also clear per-message streaming
       // flags so UI elements don't appear "in progress" after replay.
       set(isStreamingAtom, false)
@@ -134,10 +158,14 @@ const hydrateSessionHistoryAtom = atom(
         })
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      set(sessionHistoryErrorAtom, `Unable to load history for ${trimmedSessionId}: ${message}`)
+      if (!isStaleRequest()) {
+        const message = error instanceof Error ? error.message : String(error)
+        set(sessionHistoryErrorAtom, `Unable to load history for ${trimmedSessionId}: ${message}`)
+      }
     } finally {
-      set(sessionHistoryLoadingAtom, false)
+      if (get(sessionHistoryRequestTokenAtom) === requestToken) {
+        set(sessionHistoryLoadingAtom, false)
+      }
     }
   },
 )
@@ -197,6 +225,8 @@ export const createSessionAtom = atom(null, async (get, set) => {
   set(sessionCreatingAtom, true)
   set(sessionListErrorAtom, null)
   set(sessionHistoryErrorAtom, null)
+  set(invalidateSessionHistoryRequestAtom)
+  set(sessionHistoryLoadingAtom, false)
 
   try {
     const response = await window.api.sessions.create()
@@ -263,6 +293,7 @@ export const switchSessionAtom = atom(null, async (get, set, sessionId: string) 
   set(sessionSwitchingAtom, true)
   set(sessionListErrorAtom, null)
   set(sessionHistoryErrorAtom, null)
+  set(invalidateSessionHistoryRequestAtom)
 
   try {
     const switchResponse = await window.api.sessions.switch(trimmedSessionId)
@@ -295,6 +326,8 @@ export const pickWorkspaceAtom = atom(null, async () => {
 export const switchWorkspaceAtom = atom(null, async (get, set, workspacePath: string) => {
   set(sessionListErrorAtom, null)
   set(sessionHistoryErrorAtom, null)
+  set(invalidateSessionHistoryRequestAtom)
+  set(sessionHistoryLoadingAtom, false)
 
   try {
     const response = await window.api.workspace.set(workspacePath)

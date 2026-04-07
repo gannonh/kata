@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import {
   Group,
@@ -97,6 +97,7 @@ function isEditableTarget(target: EventTarget | null): boolean {
 export function AppShell() {
   const defaultLayout = useMemo(readInitialLayout, [])
   const initializeSessions = useSetAtom(initializeSessionsAtom)
+  const initializedSessionsRef = useRef(false)
 
   const settingsOpen = useAtomValue(settingsPanelOpenAtom)
   const settingsTab = useAtomValue(settingsPanelTabAtom)
@@ -122,6 +123,11 @@ export function AppShell() {
   const refreshWorkflowBoard = useSetAtom(refreshWorkflowBoardAtom)
 
   useEffect(() => {
+    if (initializedSessionsRef.current) {
+      return
+    }
+
+    initializedSessionsRef.current = true
     void initializeSessions()
   }, [initializeSessions])
 
