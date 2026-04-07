@@ -156,3 +156,19 @@ Currently starting Symphony requires: click Settings → click Symphony tab → 
 **Expected:** Clicking the "Symphony: Idle" badge (or a control near it) should expose Start/Stop/Restart without leaving the current view.
 
 ---
+
+## 10. Card height should not be dynamic based on viewport — use expand/collapse chevron
+
+**Severity:** High
+**Slice:** S01 / S07
+
+Currently, card height changes dynamically based on the available viewport height. When the window is tall, cards show full detail (status, Symphony info, action buttons, task toggle). When the window is short, cards compress to just title + status badge, losing the action surface entirely.
+
+This is unpredictable and means the user loses controls based on window size. Instead, each card should have an explicit expand/collapse chevron:
+
+- **Collapsed:** 2 lines max — ticket identifier + title (e.g., "KAT-2362 · [S01] Kanban Interaction Closure")
+- **Expanded (default):** Full card with status, Symphony execution info, action buttons (Open Linear issue, Add task), status dropdown, Show tasks toggle
+
+The user toggles each card independently. Include an "Expand all / Collapse all" action in the board header (similar to the existing column expand/collapse). Collapse state could optionally persist per session.
+
+---
