@@ -1,10 +1,10 @@
 ---
 version: 1
 workflow:                                                                                                                                                        
-    mode: linear                                                                                                                                                   
+  mode: linear                                                                                                                                                   
 linear:                                                                                                                                                          
-    teamKey: KAT                                                                                                                                                   
-    projectSlug: 459f9835e809
+  teamKey: KAT                                                                                                                                                   
+  projectSlug: 459f9835e809
 pr:
   enabled: true
   auto_create: true
@@ -12,25 +12,24 @@ pr:
   review_on_create: false
   linear_link: true
 always_use_skills: 
-    - /Volumes/EVO/kata/kata-mono/.agents/skills/releasing-kata/SKILL.md
-    - /Users/gannonhall/.agents/skills/pull-requests/SKILL.md
+  - /Volumes/EVO/kata/kata-mono/.agents/skills/releasing-kata/SKILL.md
+  - /Users/gannonhall/.agents/skills/pull-requests/SKILL.md
 prefer_skills: []
 avoid_skills: []
 skill_rules: []
 custom_instructions: []
 models: 
-    research: claude-sonnet-4-6
-    planning: claude-opus-4-6
-    execution: claude-opus-4-6
-    completion: claude-sonnet-4-6
-    review: claude-sonnet-4-6 
+  research: claude-sonnet-4-6
+  planning: claude-opus-4-6
+  execution: claude-opus-4-6
+  completion: claude-sonnet-4-6
+  review: claude-sonnet-4-6 
 skill_discovery: auto
 auto_supervisor: {}
 symphony:
   url: http://localhost:8081
   workflow_path: ../symphony/WORKFLOW-cli.md
   console_position: below-output
-
 ---
 
 # Kata Preferences
@@ -78,13 +77,3 @@ linear:
   teamKey: KAT
   projectId: 12345678-1234-1234-1234-1234567890ab
 ```
-
-<!-- codex models
-
-models: 
-    research: gpt-5.3-codex-spark
-    planning: gpt-5.4
-    execution: gpt-5.3-codex-spark
-    completion: gpt-5.3-codex-spark
-
--->
