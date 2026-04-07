@@ -838,6 +838,7 @@ describe('WorkflowBoardService', () => {
     }))
 
     service.setActive(true)
+    service.setScope({ scopeKey: 'workspace:test::session:test', requestedScope: 'milestone' })
     const response = await service.refreshBoard()
     const matchedCard = response.snapshot.columns[0]?.cards[0]
 
@@ -913,6 +914,7 @@ describe('WorkflowBoardService', () => {
     }))
 
     service.setActive(true)
+    service.setScope({ scopeKey: 'workspace:test::session:test', requestedScope: 'milestone' })
     const response = await service.refreshBoard()
 
     expect(response.snapshot.columns[0]?.cards[0]?.symphony?.pendingEscalations).toBe(1)
@@ -995,6 +997,7 @@ describe('WorkflowBoardService', () => {
     }))
 
     service.setActive(true)
+    service.setScope({ scopeKey: 'workspace:test::session:test', requestedScope: 'milestone' })
     const response = await service.refreshBoard()
 
     expect(response.snapshot.columns[0]?.cards[0]?.symphony?.pendingEscalations).toBe(2)
@@ -1091,6 +1094,7 @@ describe('WorkflowBoardService', () => {
     })
 
     service.setActive(true)
+    service.setScope({ scopeKey: 'workspace:test::session:test', requestedScope: 'milestone' })
     const client = (service as any).linearClient
     client.fetchActiveMilestoneSnapshot = vi
       .fn()
@@ -1130,6 +1134,7 @@ describe('WorkflowBoardService', () => {
     })
 
     service.setActive(true)
+    service.setScope({ scopeKey: 'workspace:test::session:test', requestedScope: 'milestone' })
     ;(service as any).linearClient.fetchActiveMilestoneSnapshot = vi.fn(async () => ({
       backend: 'linear',
       fetchedAt: '2026-04-04T00:00:00.000Z',
@@ -1397,9 +1402,11 @@ describe('WorkflowBoardService', () => {
     const response = await service.refreshBoard()
 
     expect(response.snapshot.scope?.requested).toBe('active')
-    expect(response.snapshot.scope?.resolved).toBe('project')
+    expect(response.snapshot.scope?.resolved).toBe('active')
     expect(response.snapshot.scope?.reason).toBe('operator_state_stale')
-    expect(response.snapshot.columns.find((column) => column.id === 'todo')?.cards.length).toBe(1)
+    // When active scope is unavailable, the board shows empty columns
+    // instead of falling back to the full project backlog
+    expect(response.snapshot.columns.find((column) => column.id === 'todo')?.cards.length).toBe(0)
   })
 
   test('switches fetch strategy between milestone and project scopes', async () => {
@@ -1479,6 +1486,7 @@ describe('WorkflowBoardService', () => {
     ;(service as any).linearClient.fetchActiveMilestoneSnapshot = vi.fn(() => deferredFetch)
 
     service.setActive(true)
+    service.setScope({ scopeKey: 'workspace:test::session:test', requestedScope: 'milestone' })
     const firstPromise = service.refreshBoard()
     const secondPromise = service.refreshBoard()
 
@@ -1511,6 +1519,7 @@ describe('WorkflowBoardService', () => {
     ;(service as any).linearClient.fetchActiveMilestoneSnapshot = vi.fn(() => deferredFetch)
 
     service.setActive(true)
+    service.setScope({ scopeKey: 'workspace:test::session:test', requestedScope: 'milestone' })
     const refreshPromise = service.refreshBoard()
 
     service.setActive(false)
@@ -1550,6 +1559,7 @@ describe('WorkflowBoardService', () => {
     })
 
     service.setActive(true)
+    service.setScope({ scopeKey: 'workspace:test::session:test', requestedScope: 'milestone' })
     const refreshPromise = service.refreshBoard()
     service.setActive(false)
 
@@ -1588,6 +1598,7 @@ describe('WorkflowBoardService', () => {
       .mockImplementationOnce(() => secondFetch)
 
     service.setActive(true)
+    service.setScope({ scopeKey: 'workspace:test::session:test', requestedScope: 'milestone' })
 
     service.setScope('workspace:a::session:first')
     const firstRefresh = service.refreshBoard()
@@ -1884,6 +1895,7 @@ describe('WorkflowBoardService', () => {
     ;(service as any).linearClient.moveIssueToColumn = moveIssueToColumn
 
     service.setActive(true)
+    service.setScope({ scopeKey: 'workspace:test::session:test', requestedScope: 'milestone' })
 
     const moved = await service.moveEntity({
       entityKind: 'slice',

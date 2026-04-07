@@ -25,21 +25,35 @@ export function BoardStateNotice({ board, error }: BoardStateNoticeProps) {
     })
   }
 
-  if (board?.scope?.requested === 'active' && board.scope.resolved !== 'active') {
-    const reason = board.scope.reason
+  const activeUnavailable =
+    board?.scope?.requested === 'active' &&
+    board.scope.reason !== 'requested' &&
+    (board.scope.reason === 'operator_state_unavailable' ||
+      board.scope.reason === 'operator_state_disconnected' ||
+      board.scope.reason === 'operator_state_stale')
+
+  if (activeUnavailable) {
+    const reason = board!.scope!.reason
     const message =
       reason === 'operator_state_unavailable'
-        ? 'Symphony is not running. Start Symphony to use Active scope. Showing project-wide view instead.'
+        ? 'Symphony is not running. Start Symphony to see active work.'
         : reason === 'operator_state_disconnected'
-          ? 'Symphony is disconnected. Showing project-wide view until connection is restored.'
+          ? 'Symphony is disconnected. Active work will appear when the connection is restored.'
           : reason === 'operator_state_stale'
-            ? 'Symphony state is stale. Showing project-wide view until a fresh update arrives.'
-            : board.scope.note ??
-              `Active scope is unavailable (${reason}). Showing ${board.scope.resolved} scope instead.`
+            ? 'Symphony state is stale. Active work will appear when a fresh update arrives.'
+            : board!.scope!.note ?? `Active scope is unavailable (${reason}).`
     notices.push({
       id: 'active-fallback',
       tone: 'warning',
       message,
+    })
+  } else if (board?.scope?.requested === 'active' && board.scope.resolved !== 'active') {
+    notices.push({
+      id: 'active-fallback',
+      tone: 'warning',
+      message:
+        board.scope.note ??
+        `Active scope is unavailable (${board.scope.reason}). Showing ${board.scope.resolved} scope instead.`,
     })
   } else if (board?.symphony?.staleReason) {
     // Only show symphony-stale when it's NOT already covered by the active-fallback notice

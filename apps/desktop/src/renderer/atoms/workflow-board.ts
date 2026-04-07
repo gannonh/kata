@@ -79,7 +79,7 @@ const workflowBoardWorkspaceKeyAtom = atom((get) => get(workingDirectoryAtom) ||
 export const workflowBoardScopeAtom = atom<WorkflowBoardScope, [WorkflowBoardScope], void>(
   (get) => {
     const workspaceKey = get(workflowBoardWorkspaceKeyAtom)
-    return get(workflowBoardScopePreferencesAtom)[workspaceKey] ?? 'milestone'
+    return get(workflowBoardScopePreferencesAtom)[workspaceKey] ?? 'project'
   },
   (get, set, nextScope) => {
     const workspaceKey = get(workflowBoardWorkspaceKeyAtom)
