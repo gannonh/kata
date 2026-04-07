@@ -127,33 +127,39 @@ export function registerSessionIpc({
 
   const canSendToRenderer = (): boolean => !window.isDestroyed() && !window.webContents.isDestroyed()
 
-  const sendEventToRenderer = (chatEvent: ChatEvent): void => {
+  /** Safe send that catches frame disposal errors (e.g. when an MCP server spawn crashes the renderer). */
+  const safeSend = (channel: string, ...args: unknown[]): boolean => {
     if (!canSendToRenderer()) {
-      log.warn('[desktop-ipc] skipping event dispatch: renderer window is destroyed')
-      return
+      return false
     }
+    try {
+      window.webContents.send(channel, ...args)
+      return true
+    } catch (error) {
+      log.warn('[desktop-ipc] send failed (frame may be disposed)', {
+        channel,
+        error: error instanceof Error ? error.message : String(error),
+      })
+      return false
+    }
+  }
 
-    window.webContents.send(IPC_CHANNELS.sessionEvents, chatEvent)
-    log.debug('[desktop-ipc] outbound event', chatEvent)
+  const sendEventToRenderer = (chatEvent: ChatEvent): void => {
+    if (safeSend(IPC_CHANNELS.sessionEvents, chatEvent)) {
+      log.debug('[desktop-ipc] outbound event', chatEvent)
+    }
   }
 
   const sendBridgeStatus = (status: BridgeStatusEvent): void => {
-    if (!canSendToRenderer()) {
-      log.warn('[desktop-ipc] skipping bridge status dispatch: renderer window is destroyed')
-      return
+    if (safeSend(IPC_CHANNELS.sessionBridgeStatus, status)) {
+      log.debug('[desktop-ipc] bridge status', status)
     }
-
-    window.webContents.send(IPC_CHANNELS.sessionBridgeStatus, status)
-    log.debug('[desktop-ipc] bridge status', status)
   }
 
   const sendPlanningArtifactToRenderer = (artifact: PlanningArtifact): void => {
-    if (!canSendToRenderer()) {
-      log.warn('[desktop-ipc] skipping planning artifact dispatch: renderer window is destroyed')
+    if (!safeSend(IPC_CHANNELS.planningArtifactUpdated, artifact)) {
       return
     }
-
-    window.webContents.send(IPC_CHANNELS.planningArtifactUpdated, artifact)
     log.debug('[desktop-ipc] planning artifact pushed', {
       title: artifact.title,
       artifactKey: artifact.artifactKey,
@@ -165,12 +171,9 @@ export function registerSessionIpc({
   }
 
   const sendSymphonyStatusToRenderer = (status: SymphonyRuntimeStatus): void => {
-    if (!canSendToRenderer()) {
-      log.warn('[desktop-ipc] skipping symphony status dispatch: renderer window is destroyed')
+    if (!safeSend(IPC_CHANNELS.symphonyStatus, status)) {
       return
     }
-
-    window.webContents.send(IPC_CHANNELS.symphonyStatus, status)
     log.debug('[desktop-ipc] symphony status', {
       phase: status.phase,
       pid: status.pid,
@@ -179,22 +182,16 @@ export function registerSessionIpc({
   }
 
   const sendPlanningFetchStateToRenderer = (event: PlanningArtifactFetchStateEvent): void => {
-    if (!canSendToRenderer()) {
-      log.warn('[desktop-ipc] skipping planning fetch state dispatch: renderer window is destroyed')
+    if (!safeSend(IPC_CHANNELS.planningArtifactFetchState, event)) {
       return
     }
-
-    window.webContents.send(IPC_CHANNELS.planningArtifactFetchState, event)
     log.debug('[desktop-ipc] planning fetch state', event)
   }
 
   const sendSymphonyDashboardSnapshot = (snapshot: SymphonyOperatorSnapshot): void => {
-    if (!canSendToRenderer()) {
-      log.warn('[desktop-ipc] skipping symphony dashboard snapshot dispatch: renderer window is destroyed')
+    if (!safeSend(IPC_CHANNELS.symphonyDashboardSnapshot, snapshot)) {
       return
     }
-
-    window.webContents.send(IPC_CHANNELS.symphonyDashboardSnapshot, snapshot)
     log.debug('[desktop-ipc] symphony dashboard snapshot', {
       connectionState: snapshot.connection.state,
       workers: snapshot.workers.length,
@@ -504,16 +501,12 @@ export function registerSessionIpc({
   }
 
   const onExtensionUiRequest = (request: ExtensionUIRequest): void => {
-    if (!canSendToRenderer()) {
-      log.warn('[desktop-ipc] skipping extension ui request dispatch: renderer window is destroyed')
-      return
+    if (safeSend(IPC_CHANNELS.sessionExtensionUiRequest, request)) {
+      log.debug('[desktop-ipc] outbound extension ui request', {
+        id: request.id,
+        method: request.method,
+      })
     }
-
-    window.webContents.send(IPC_CHANNELS.sessionExtensionUiRequest, request)
-    log.debug('[desktop-ipc] outbound extension ui request', {
-      id: request.id,
-      method: request.method,
-    })
   }
 
   const onStatus = (status: BridgeStatusEvent): void => {
@@ -1399,10 +1392,7 @@ export function registerSessionIpc({
         dispatchedAt: new Date().toISOString(),
       }
 
-      const dispatched = canSendToRenderer()
-      if (dispatched) {
-        window.webContents.send(IPC_CHANNELS.workflowShellAction, eventPayload)
-      }
+      const dispatched = safeSend(IPC_CHANNELS.workflowShellAction, eventPayload)
 
       return {
         success: dispatched,
