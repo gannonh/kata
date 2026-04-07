@@ -909,38 +909,4 @@ setTimeout(() => {
     expect(debugEvents.some((event) => event.type === 'bridge:error')).toBe(true)
     expect(bridge.getState().status).toBe('crashed')
   })
-
-  test('trackSessionId and getKnownSessionIds manage the session registry', () => {
-    const bridge = new PiAgentBridge(process.cwd())
-
-    expect(bridge.getKnownSessionIds().size).toBe(0)
-
-    bridge.trackSessionId('session-1')
-    bridge.trackSessionId('session-2')
-    expect(bridge.getKnownSessionIds().size).toBe(2)
-    expect(bridge.getKnownSessionIds().has('session-1')).toBe(true)
-    expect(bridge.getKnownSessionIds().has('session-2')).toBe(true)
-
-    // Duplicates are ignored
-    bridge.trackSessionId('session-1')
-    expect(bridge.getKnownSessionIds().size).toBe(2)
-
-    // Empty/whitespace strings are ignored
-    bridge.trackSessionId('')
-    bridge.trackSessionId('   ')
-    expect(bridge.getKnownSessionIds().size).toBe(2)
-  })
-
-  test('switchWorkspace clears known session IDs', async () => {
-    const bridge = new PiAgentBridge('/first/workspace') as any
-    bridge.trackSessionId('session-from-first-workspace')
-    expect(bridge.getKnownSessionIds().size).toBe(1)
-
-    // Mock restart to avoid actual subprocess spawn
-    vi.spyOn(bridge, 'restart').mockResolvedValue(undefined)
-
-    await bridge.switchWorkspace('/second/workspace')
-    expect(bridge.getKnownSessionIds().size).toBe(0)
-    expect(bridge.getWorkspacePath()).toBe('/second/workspace')
-  })
 })

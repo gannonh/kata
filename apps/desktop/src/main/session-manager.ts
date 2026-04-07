@@ -144,14 +144,7 @@ export class DesktopSessionManager {
     private readonly sessionsDirectory = path.join(homedir(), '.kata-cli', 'sessions'),
   ) {}
 
-  /**
-   * List sessions for the given workspace directory.
-   *
-   */
-  public async listSessions(
-    cwd: string,
-    _knownSessionIds?: ReadonlySet<string>,
-  ): Promise<SessionListResponse> {
+  public async listSessions(cwd: string): Promise<SessionListResponse> {
     const normalizedCwd = normalizePath(cwd)
 
     let entries: Array<{ filePath: string }> = []
@@ -202,7 +195,6 @@ export class DesktopSessionManager {
           continue
         }
 
-
         const metadata = await this.parseSessionFile(entry.filePath)
         sessionItems.push({
           id: metadata.id,
@@ -233,7 +225,6 @@ export class DesktopSessionManager {
       cwd: normalizedCwd,
       count: sessionItems.length,
       warningCount: warnings.length,
-
     })
 
     return {
@@ -262,10 +253,7 @@ export class DesktopSessionManager {
     }
   }
 
-  public async resolveSessionPathById(
-    sessionId: string,
-    cwd: string,
-  ): Promise<string | null> {
+  public async resolveSessionPathById(sessionId: string, cwd: string): Promise<string | null> {
     const trimmedSessionId = sessionId.trim()
     if (!trimmedSessionId) {
       throw new Error('Session ID is required')

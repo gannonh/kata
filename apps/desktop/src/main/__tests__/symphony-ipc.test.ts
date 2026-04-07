@@ -32,9 +32,6 @@ function createBridgeStub() {
   return Object.assign(emitter, {
     getState: vi.fn(() => ({ status: 'running', pid: 1, running: true })),
     getWorkspacePath: vi.fn(() => process.cwd()),
-    getKnownSessionIds: vi.fn(() => new Set<string>()),
-    trackSessionId: vi.fn(),
-    captureCurrentSessionId: vi.fn(async () => null),
     prompt: vi.fn(),
     abort: vi.fn(),
     restart: vi.fn(),

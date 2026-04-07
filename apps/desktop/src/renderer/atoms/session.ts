@@ -42,10 +42,9 @@ const applySessionListResponseAtom = atom(
 
     const existingSessionId = get(currentSessionIdAtom)
 
-    // If we already have a current session ID, keep it even if it's not in the
-    // list yet — the bridge subprocess owns the session and the file may not
-    // have been flushed when the list was read. Only fall back to sessions[0]
-    // when there's genuinely no current session (e.g. first launch).
+    // If we already have a current session ID, keep it — the CLI subprocess
+    // owns the session even if the file hasn't been flushed to disk yet.
+    // Only select sessions[0] on first launch when no session ID exists.
     if (existingSessionId) {
       return
     }
@@ -183,16 +182,13 @@ export const createSessionAtom = atom(null, async (get, set) => {
 
   try {
     const response = await window.api.sessions.create()
-
-    // Always reset chat state — the CLI subprocess has already switched
-    // to the new session regardless of whether we got the ID back.
-    set(resetChatStateAtom)
-    set(resetPlanningSessionStateAtom)
-
     if (!response.success) {
       set(sessionListErrorAtom, response.error ?? 'Unable to create session')
       return
     }
+
+    set(resetChatStateAtom)
+    set(resetPlanningSessionStateAtom)
 
     // Set the new session ID BEFORE refreshing the list so
     // applySessionListResponseAtom sees it as current and doesn't
