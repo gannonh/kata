@@ -220,7 +220,19 @@ export function SliceCard({ card }: SliceCardProps) {
     <Card size="sm" className="gap-3 rounded-xl border border-border/70 py-3 shadow-none">
       <CardHeader className="px-3 pb-0">
         <CardTitle className="text-sm leading-tight">
-          {card.identifier} · {card.title}
+          {card.url ? (
+            <button
+              type="button"
+              className="text-blue-400 hover:text-blue-300 hover:underline"
+              onClick={openCardIssue}
+            >
+              {card.identifier}
+            </button>
+          ) : (
+            <span>{card.identifier}</span>
+          )}
+          {' · '}
+          {card.title}
         </CardTitle>
       </CardHeader>
 
