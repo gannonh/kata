@@ -60,10 +60,25 @@ export function ChatPanel() {
     }
   }, [applyBridgeStatus, applyChatEvent, refreshSessions])
 
+  // Auto-scroll: use instant scroll during streaming (smooth can't keep up with
+  // rapid text_delta updates) and smooth scroll for discrete events like new
+  // messages or tool completions.
+  const isStreamingRef = useRef(isStreaming)
+  isStreamingRef.current = isStreaming
+
   useEffect(() => {
-    scrollRef.current?.scrollTo({
-      top: scrollRef.current.scrollHeight,
-      behavior: 'smooth',
+    const el = scrollRef.current
+    if (!el) return
+
+    // Only auto-scroll if the user is already near the bottom (within 150px).
+    // This prevents hijacking the scroll position when the user has scrolled up
+    // to read earlier content.
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    if (distanceFromBottom > 150) return
+
+    el.scrollTo({
+      top: el.scrollHeight,
+      behavior: isStreamingRef.current ? 'instant' : 'smooth',
     })
   }, [messages, tools])
 
