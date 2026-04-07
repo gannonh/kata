@@ -267,6 +267,52 @@ describe('PiAgentBridge additional coverage', () => {
     expect(sendSpy).toHaveBeenNthCalledWith(2, { type: 'abort' })
   })
 
+  test('injects one-time reliability crash fault for prompt in test mode', async () => {
+    const previousTestMode = process.env.KATA_TEST_MODE
+    const previousFaultMode = process.env.KATA_DESKTOP_RELIABILITY_CHAT_FAULT
+
+    process.env.KATA_TEST_MODE = '1'
+    process.env.KATA_DESKTOP_RELIABILITY_CHAT_FAULT = 'process_crash_once'
+
+    try {
+      const bridge = new PiAgentBridge(process.cwd())
+      const sendSpy = vi
+        .spyOn(bridge, 'send')
+        .mockResolvedValue({ command: 'prompt', success: true } as CommandResult)
+      const crashes: Array<{ exitCode: number | null; signal: NodeJS.Signals | null; stderrLines: string[] }> = []
+      const statuses: string[] = []
+
+      bridge.on('crash', (payload) => {
+        crashes.push(payload)
+      })
+
+      bridge.on('status', (status) => {
+        statuses.push(status.state)
+      })
+
+      await expect(bridge.prompt('trigger injected crash')).rejects.toThrow('Injected test subprocess crash fault.')
+      expect(crashes).toHaveLength(1)
+      expect(crashes[0]?.exitCode).toBe(137)
+      expect(statuses.at(-1)).toBe('crashed')
+      expect(sendSpy).not.toHaveBeenCalled()
+
+      await bridge.prompt('second prompt should proceed')
+      expect(sendSpy).toHaveBeenCalledWith({ type: 'prompt', message: 'second prompt should proceed' })
+    } finally {
+      if (previousTestMode === undefined) {
+        delete process.env.KATA_TEST_MODE
+      } else {
+        process.env.KATA_TEST_MODE = previousTestMode
+      }
+
+      if (previousFaultMode === undefined) {
+        delete process.env.KATA_DESKTOP_RELIABILITY_CHAT_FAULT
+      } else {
+        process.env.KATA_DESKTOP_RELIABILITY_CHAT_FAULT = previousFaultMode
+      }
+    }
+  })
+
   test('getAvailableModels returns only valid model entries', async () => {
     const bridge = new PiAgentBridge(process.cwd())
 

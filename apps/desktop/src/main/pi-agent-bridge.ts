@@ -63,6 +63,8 @@ export class PiAgentBridge extends EventEmitter {
   private startPromise: Promise<void> | null = null
   private permissionMode: PermissionMode = 'ask'
   private selectedModel: string | null
+  private readonly reliabilityFaultMode = process.env.KATA_DESKTOP_RELIABILITY_CHAT_FAULT?.trim() ?? null
+  private reliabilityFaultInjected = false
 
   constructor(
     private workspacePath: string,
@@ -356,6 +358,11 @@ export class PiAgentBridge extends EventEmitter {
   }
 
   public prompt(message: string): Promise<CommandResult> {
+    if (this.shouldInjectPromptCrashFault()) {
+      const error = this.injectPromptCrashFault()
+      return Promise.reject(error)
+    }
+
     return this.send({ type: 'prompt', message })
   }
 
@@ -503,6 +510,42 @@ export class PiAgentBridge extends EventEmitter {
         }
       }
     }
+  }
+
+  private shouldInjectPromptCrashFault(): boolean {
+    return (
+      process.env.KATA_TEST_MODE === '1' &&
+      this.reliabilityFaultMode === 'process_crash_once' &&
+      !this.reliabilityFaultInjected
+    )
+  }
+
+  private injectPromptCrashFault(): Error {
+    this.reliabilityFaultInjected = true
+
+    const stderrLines = ['Injected test subprocess crash fault.']
+    this.status = 'crashed'
+
+    this.emit('debug', {
+      type: 'bridge:test-fault',
+      fault: 'process_crash_once',
+    })
+
+    this.emit('crash', {
+      exitCode: 137,
+      signal: 'SIGKILL',
+      stderrLines,
+    })
+
+    this.emitStatus({
+      state: 'crashed',
+      pid: this.child?.pid ?? null,
+      message: stderrLines[0],
+      exitCode: 137,
+      signal: 'SIGKILL',
+    })
+
+    return new Error(stderrLines[0])
   }
 
   private writeJsonLine(payload: Record<string, unknown>): Promise<void> {

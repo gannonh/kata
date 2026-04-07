@@ -113,6 +113,12 @@ export class RuntimeHealthAggregator extends EventEmitter {
 
   public ingestChatBridgeStatus(status: BridgeStatusEvent | null | undefined): ReliabilitySnapshot {
     this.chatBridgeSignal = mapChatBridgeStatusToReliability(status)
+
+    // A recovered bridge status supersedes any prior crash-only signal.
+    if (status && status.state !== 'crashed') {
+      this.chatCrashSignal = null
+    }
+
     this.syncChatSurface()
     return this.toSnapshot()
   }

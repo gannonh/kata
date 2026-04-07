@@ -1,6 +1,6 @@
 import { test as base, _electron as electron } from '@playwright/test'
 import type { ElectronApplication, Page } from '@playwright/test'
-import { existsSync, mkdtempSync, rmSync, mkdirSync } from 'node:fs'
+import { chmodSync, existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -15,6 +15,80 @@ function createIsolatedDataDir(): string {
   mkdirSync(path.join(dataDir, 'workspace'), { recursive: true })
   mkdirSync(path.join(dataDir, '.kata-cli', 'agent'), { recursive: true })
   return dataDir
+}
+
+function createMockKataRpcBinary(dataDir: string): string {
+  const executablePath = path.join(dataDir, 'kata-rpc-mock')
+
+  writeFileSync(
+    executablePath,
+    `#!/usr/bin/env node
+const readline = require('node:readline')
+
+const rl = readline.createInterface({ input: process.stdin })
+
+function respond(message, data = {}, success = true, error) {
+  const payload = {
+    type: 'response',
+    id: message.id,
+    command: message.type,
+    success,
+    data,
+  }
+
+  if (error) payload.error = error
+
+  process.stdout.write(JSON.stringify(payload) + '\\n')
+}
+
+process.stdout.write(JSON.stringify({ type: 'event', event: { type: 'agent_ready' } }) + '\\n')
+
+rl.on('line', (line) => {
+  let message
+  try {
+    message = JSON.parse(line)
+  } catch {
+    return
+  }
+
+  switch (message.type) {
+    case 'prompt':
+      respond(message, { ok: true })
+      break
+    case 'abort':
+      respond(message, { ok: true })
+      break
+    case 'shutdown':
+      respond(message, { ok: true })
+      setTimeout(() => process.exit(0), 10)
+      break
+    case 'get_available_models':
+      respond(message, {
+        models: [
+          {
+            provider: 'anthropic',
+            id: 'claude-sonnet-4-6',
+            reasoning: true,
+          },
+        ],
+      })
+      break
+    case 'set_model':
+    case 'set_thinking_level':
+    case 'switch_session':
+      respond(message, { cancelled: false })
+      break
+    default:
+      respond(message, { ok: true })
+      break
+  }
+})
+`,
+    'utf8',
+  )
+
+  chmodSync(executablePath, 0o755)
+  return executablePath
 }
 
 async function waitForAppReady(window: Page): Promise<void> {
@@ -68,7 +142,7 @@ async function dismissOnboardingIfPresent(window: Page): Promise<void> {
 }
 
 export async function startMockWorkflowRuntime(page: Page): Promise<void> {
-  await page.getByRole('heading', { name: /Workflow Board/i }).waitFor({ state: 'visible' })
+  await page.getByTestId('kanban-refresh-board').waitFor({ state: 'visible' })
 
   const startResult = await page.evaluate(async () => {
     try {
@@ -120,10 +194,12 @@ type DesktopFixtures = {
     | 'kanban_disconnected'
     | 'assembled_healthy'
     | 'assembled_failure_recovery'
+  chatRuntimeFaultMode: 'none' | 'process_crash_once'
 }
 
 export const test = base.extend<DesktopFixtures>({
   symphonyMockMode: ['ready', { option: true }],
+  chatRuntimeFaultMode: ['none', { option: true }],
   workspaceDir: async ({}, use) => {
     const dataDir = createIsolatedDataDir()
     const workspaceDir = path.join(dataDir, 'workspace')
@@ -133,7 +209,10 @@ export const test = base.extend<DesktopFixtures>({
       try { rmSync(dataDir, { recursive: true, force: true }) } catch { /* noop */ }
     }
   },
-  electronApp: async ({ workspaceDir, symphonyMockMode, mcpConfigPath }, use) => {
+  electronApp: async ({ workspaceDir, symphonyMockMode, chatRuntimeFaultMode, mcpConfigPath }, use) => {
+    const mockKataBinary = chatRuntimeFaultMode === 'process_crash_once'
+      ? createMockKataRpcBinary(path.dirname(workspaceDir))
+      : null
     const dataDir = path.dirname(workspaceDir)
     const mainEntry = path.join(__dirname, '../../dist/main.cjs')
     const preloadEntry = path.join(__dirname, '../../dist/preload.cjs')
@@ -167,6 +246,8 @@ export const test = base.extend<DesktopFixtures>({
         KATA_DESKTOP_SYMPHONY_DASHBOARD_MOCK: symphonyMockMode,
         KATA_SYMPHONY_URL: 'http://127.0.0.1:8080',
         KATA_DESKTOP_MCP_CONFIG_PATH: mcpConfigPath,
+        KATA_DESKTOP_RELIABILITY_CHAT_FAULT: chatRuntimeFaultMode,
+        ...(mockKataBinary ? { KATA_BIN_PATH: mockKataBinary } : {}),
         // Force packaged-file mode for deterministic e2e: if a parent shell exported
         // VITE_DEV_SERVER_URL we would silently bind to an arbitrary dev server.
         VITE_DEV_SERVER_URL: '',

@@ -210,6 +210,30 @@ describe('RuntimeHealthAggregator', () => {
     expect(chatSurface?.signal?.diagnostics?.detail).toContain('bearer ***')
   })
 
+  test('clears chat crash reliability state once bridge reports running again', () => {
+    const aggregator = new RuntimeHealthAggregator({ now: () => '2026-04-07T20:00:00.000Z' })
+
+    aggregator.ingestChatSubprocessCrash({
+      message: 'fatal',
+      exitCode: 137,
+      signal: 'SIGKILL',
+      stderrLines: ['Process exited unexpectedly'],
+      timestamp: '2026-04-07T20:00:00.000Z',
+    })
+
+    expect(getSurface(aggregator.getSnapshot(), 'chat_runtime')?.status).toBe('degraded')
+
+    aggregator.ingestChatBridgeStatus({
+      state: 'running',
+      pid: 42,
+      updatedAt: Date.parse('2026-04-07T20:00:02.000Z'),
+    })
+
+    const recoveredSurface = getSurface(aggregator.getSnapshot(), 'chat_runtime')
+    expect(recoveredSurface?.status).toBe('healthy')
+    expect(recoveredSurface?.signal).toBeNull()
+  })
+
   test('tracks MCP config failures and returns to healthy after successful refresh', () => {
     const aggregator = new RuntimeHealthAggregator({ now: () => '2026-04-07T20:00:00.000Z' })
 
