@@ -275,8 +275,8 @@ export function AppShell() {
             source: 'settings_panel',
           })
         }}
-        returnToWorkflowDisabled={false}
-        returnToWorkflowDisabledReason={null}
+        returnToWorkflowDisabled={mcpBusy}
+        returnToWorkflowDisabledReason={mcpBusy ? 'MCP operation in progress' : null}
       />
     </main>
   )

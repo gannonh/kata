@@ -35,13 +35,14 @@ export function BoardStateNotice({ board, error }: BoardStateNoticeProps) {
   if (activeUnavailable) {
     const reason = board!.scope!.reason
     const message =
-      reason === 'operator_state_unavailable'
+      board!.scope!.note ??
+      (reason === 'operator_state_unavailable'
         ? 'Symphony is not running. Start Symphony to see active work.'
         : reason === 'operator_state_disconnected'
           ? 'Symphony is disconnected. Active work will appear when the connection is restored.'
           : reason === 'operator_state_stale'
             ? 'Symphony state is stale. Active work will appear when a fresh update arrives.'
-            : board!.scope!.note ?? `Active scope is unavailable (${reason}).`
+            : `Active scope is unavailable (${reason}).`)
     notices.push({
       id: 'active-fallback',
       tone: 'warning',

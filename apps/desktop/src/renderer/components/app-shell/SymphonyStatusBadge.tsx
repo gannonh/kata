@@ -26,12 +26,16 @@ export function SymphonyStatusBadge() {
   const isRunning = status.phase === 'ready'
   const isTransitioning = pending || status.phase === 'starting' || status.phase === 'restarting' || status.phase === 'stopping'
 
-  const handleClick = () => {
+  const handleClick = async () => {
     if (isTransitioning) return
-    if (isRunning) {
-      void runCommand('stop')
-    } else {
-      void runCommand('start')
+    try {
+      if (isRunning) {
+        await runCommand('stop')
+      } else {
+        await runCommand('start')
+      }
+    } catch (error) {
+      console.error('[SymphonyStatusBadge] command failed', error)
     }
   }
 
@@ -39,7 +43,7 @@ export function SymphonyStatusBadge() {
     <button
       type="button"
       className="flex items-center gap-2 rounded-md border border-border/70 bg-background/70 px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
-      onClick={handleClick}
+      onClick={() => { void handleClick() }}
       disabled={isTransitioning}
       title={isTransitioning ? 'Symphony is transitioning…' : isRunning ? 'Click to stop Symphony' : 'Click to start Symphony'}
       data-testid="symphony-status-badge"

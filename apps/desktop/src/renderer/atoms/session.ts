@@ -44,23 +44,23 @@ const applySessionListResponseAtom = atom(
   (get, set, response: SessionListResponse) => {
     const existingSessionId = get(currentSessionIdAtom)
 
-    // Check if the current session ID exists in the pre-overwrite list
-    // (which may contain a placeholder from createSessionAtom) BEFORE
-    // we replace it with the disk response.
+    // Check if the current session has an unsaved placeholder in the list
+    // (injected by createSessionAtom before the file is flushed to disk).
+    // Only placeholders (path === '') are preserved; stale persisted sessions
+    // that disappeared from the disk response are not reinserted.
     const previousList = get(sessionListAtom)
-    const inPreviousList = existingSessionId
-      ? previousList.some((session) => session.id === existingSessionId)
-      : false
+    const placeholder = existingSessionId
+      ? previousList.find(
+          (session) => session.id === existingSessionId && session.path === '',
+        )
+      : undefined
 
-    // Merge: if the current session has a placeholder in the previous list
-    // but isn't on disk yet, preserve the placeholder in the new list.
     const inDiskResponse = existingSessionId
       ? response.sessions.some((session) => session.id === existingSessionId)
       : false
 
-    if (existingSessionId && inPreviousList && !inDiskResponse) {
-      const placeholder = previousList.find((s) => s.id === existingSessionId)
-      set(sessionListAtom, placeholder ? [placeholder, ...response.sessions] : response.sessions)
+    if (placeholder && !inDiskResponse) {
+      set(sessionListAtom, [placeholder, ...response.sessions])
     } else {
       set(sessionListAtom, response.sessions)
     }
@@ -68,8 +68,8 @@ const applySessionListResponseAtom = atom(
     set(sessionWarningsAtom, response.warnings)
     set(sessionDirectoryAtom, response.directory)
 
-    // Current session is accounted for — either in disk response or preserved.
-    if (existingSessionId && (inDiskResponse || inPreviousList)) {
+    // Current session is accounted for — either in disk response or preserved as placeholder.
+    if (existingSessionId && (inDiskResponse || Boolean(placeholder))) {
       return
     }
 
@@ -238,7 +238,7 @@ export const createSessionAtom = atom(null, async (get, set) => {
     // Set the new session ID FIRST, then clear chat state.
     // This ensures the sidebar selection updates before the chat clears,
     // preventing any re-render from rehydrating the old session.
-    const newSessionId = response.sessionId
+    const newSessionId = response.sessionId ?? null
     set(currentSessionIdAtom, newSessionId)
     set(resetChatStateAtom)
     set(resetPlanningSessionStateAtom)
