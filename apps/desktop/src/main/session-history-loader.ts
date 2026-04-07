@@ -169,7 +169,8 @@ function parseAssistantContent(content: unknown, fallbackLine: number): Assistan
 
     const blockType = asString(block.type)
 
-    if (blockType === 'tool_use') {
+    // Tool blocks: Anthropic uses 'tool_use', OpenAI/codex uses 'toolCall'
+    if (blockType === 'tool_use' || blockType === 'toolCall') {
       const toolCallId =
         asString(block.id) ??
         asString(block.toolCallId) ??
@@ -179,6 +180,7 @@ function parseAssistantContent(content: unknown, fallbackLine: number): Assistan
       const args =
         asRecord(block.input) ??
         asRecord(block.args) ??
+        asRecord(block.arguments) ??
         {}
 
       blocks.push({
@@ -190,6 +192,7 @@ function parseAssistantContent(content: unknown, fallbackLine: number): Assistan
       continue
     }
 
+    // Text content
     const text = asString(block.text)
     if (text) {
       if (blockType === 'thinking' || blockType === 'reasoning') {
@@ -200,9 +203,17 @@ function parseAssistantContent(content: unknown, fallbackLine: number): Assistan
       continue
     }
 
+    // Thinking content: may use 'thinking' field (OpenAI) instead of 'text'
     const thinking = asString(block.thinking)
     if (thinking) {
       blocks.push({ type: 'thinking', text: thinking })
+      continue
+    }
+
+    // Thinking block with empty/encrypted content — still emit so the
+    // message isn't treated as a ghost (it had thinking activity).
+    if (blockType === 'thinking' || blockType === 'reasoning') {
+      blocks.push({ type: 'thinking', text: '' })
     }
   }
 
@@ -226,7 +237,7 @@ export class SessionHistoryLoader {
       }
     }
 
-    const adapter = new RpcEventAdapter()
+    const adapter = new RpcEventAdapter('history')
     const events: ChatEvent[] = []
     const toolMetaByCallId = new Map<string, ToolMeta>()
     const unresolvedToolOrder: string[] = []
@@ -256,6 +267,29 @@ export class SessionHistoryLoader {
 
       if (index === 0 && asString(entry.type) === 'session') {
         sessionId = asString(entry.id)
+      }
+
+      // custom_message entries are slash-command prompts (e.g. /kata plan).
+      // Treat them as user messages so the prompt appears in history.
+      if (asString(entry.type) === 'custom_message') {
+        const content = asString(entry.content)
+        const display = entry.display
+        // Only show custom messages that have displayable content.
+        // display:false means it was a hidden system prompt — but we still
+        // show a short label so the user sees something in the chat.
+        if (content) {
+          userMessageCounter += 1
+          const customType = asString(entry.customType)
+          const label = customType
+            ? customType.replace(/^kata-/, '/kata ').replace(/-/g, ' ')
+            : content.slice(0, 100)
+          events.push({
+            type: 'history_user_message',
+            messageId: `history:user:${userMessageCounter}`,
+            text: display === false ? label : content.slice(0, 500),
+          })
+        }
+        continue
       }
 
       if (asString(entry.type) !== 'message') {

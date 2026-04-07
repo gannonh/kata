@@ -8,7 +8,7 @@ This mono-repo is comprised of the following primary applications:
 
 - Kata Symphony: `apps/symphony` - @kata/symphony — Rust binary (Cargo scripts via package.json)
 - Kata CLI: `apps/cli` - @kata-sh/cli — published NPM CLI agent
-- Kata Desktop: `apps/electron` - Electron app (primary UI)
+- Kata Desktop: `apps/desktop` - Electron app (primary UI)
 - Context Indexer: `apps/context` - @kata/context — context indexing tool (Vitest, native Node addon)
 - Orchestrator: `apps/orchestrator` - @kata-sh/orc — meta-prompting system
 
@@ -22,14 +22,11 @@ bun run lint                     # ESLint across all packages
 bun run typecheck                # TypeScript across all packages
 bun run test                     # Test runner across all packages
 bun run test:affected            # Only changed packages
-bun run test:watch               # Watch mode (packages + electron src)
+bun run test:watch               # Watch mode
 bun run test:coverage            # Coverage report
-bun run test:e2e                 # Mocked Electron Playwright e2e
-bun run test:e2e:live            # Live e2e (real credentials, local-only)
-bun run electron:dev             # Dev with hot reload
-bun run electron:build           # Build main + preload + renderer + resources + assets
-bun run electron:start           # Build then launch
-bun run electron:dist:mac        # macOS DMG
+cd apps/desktop && bun run dev:renderer  # Desktop renderer dev mode
+cd apps/desktop && bun run build         # Build Desktop main + preload + renderer
+cd apps/desktop && bun run test:e2e      # Desktop Playwright E2E
 bun run print:system-prompt      # Debug: print the agent system prompt
 ```
 
@@ -39,16 +36,16 @@ bun run print:system-prompt      # Debug: print the agent system prompt
 apps/
 ├── cli/              # @kata-sh/cli — published NPM CLI agent
 ├── context/          # @kata/context — context indexing tool (Vitest, native Node addon)
-├── electron/         # Kata Desktop — Electron app (primary UI)
+├── desktop/          # Kata Desktop — Electron app (primary UI)
 ├── orchestrator/     # @kata-sh/orc — meta-prompting system
 ├── symphony/         # @kata/symphony — Rust binary (Cargo scripts via package.json)
 ├── viewer/           # Session viewer (Vite)
 └── online-docs/      # @kata/online-docs — documentation site (Fumadocs/Next.js)
 
 packages/
-├── core/             # @craft-agent/core — shared TypeScript types
-├── shared/           # @craft-agent/shared — business logic (agent, auth, config, MCP, channels, daemon)
-├── ui/               # @craft-agent/ui — shared React components (chat, markdown)
+├── core/             # Shared TypeScript types
+├── shared/           # Shared business logic (agent, auth, config, MCP, channels, daemon)
+├── ui/               # Shared React components (chat, markdown)
 └── mermaid/          # Mermaid diagram → SVG renderer
 ```
 
@@ -82,7 +79,7 @@ Pre-push hook runs `turbo run lint typecheck test --affected` — same command a
 `ci.yml` on pull_request to main:
 
 - `validate`: `turbo run lint typecheck test --affected` (JS/TS + Rust via Turborepo)
-- `e2e-mocked`: Playwright desktop E2E (only on electron version bump)
+- `e2e`: Desktop Playwright E2E in `apps/desktop`
 - `gate`: aggregates results, sole required branch protection check
 
 Release workflows trigger on push to main with path filters:
@@ -114,4 +111,4 @@ This repo uses git worktrees. Each worktree has a standby branch (e.g. `wt-cli-s
 - `apps/context` uses Vitest (not Bun test) because better-sqlite3 is a native Node addon that Bun doesn't support.
 - Electron main process runs in Node.js, not Bun. Don't use `import.meta.dir` or Bun-only APIs in code that runs there.
 - Asset paths: use `getBundledAssetsDir(subfolder)` for bundled assets, never `import.meta.dir`.
-- Debug logs: `~/Library/Logs/@craft-agent/electron/` on macOS.
+- Desktop debug logs: check Electron main process console or `apps/desktop/src/main/logger.ts`.

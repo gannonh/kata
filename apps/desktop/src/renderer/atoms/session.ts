@@ -18,6 +18,12 @@ export const sessionCreatingAtom = atom<boolean>(false)
 export const sessionSwitchingAtom = atom<boolean>(false)
 export const sessionHistoryLoadingAtom = atom<boolean>(false)
 
+const sessionHistoryRequestTokenAtom = atom<number>(0)
+
+const invalidateSessionHistoryRequestAtom = atom(null, (get, set) => {
+  set(sessionHistoryRequestTokenAtom, get(sessionHistoryRequestTokenAtom) + 1)
+})
+
 export const currentSessionIdAtom = atomWithStorage<string | null>(
   CURRENT_SESSION_STORAGE_KEY,
   null,
@@ -36,15 +42,34 @@ export const sessionSidebarOpenAtom = atomWithStorage<boolean>(
 const applySessionListResponseAtom = atom(
   null,
   (get, set, response: SessionListResponse) => {
-    set(sessionListAtom, response.sessions)
+    const existingSessionId = get(currentSessionIdAtom)
+
+    // Check if the current session has an unsaved placeholder in the list
+    // (injected by createSessionAtom before the file is flushed to disk).
+    // Only placeholders (path === '') are preserved; stale persisted sessions
+    // that disappeared from the disk response are not reinserted.
+    const previousList = get(sessionListAtom)
+    const placeholder = existingSessionId
+      ? previousList.find(
+          (session) => session.id === existingSessionId && session.path === '',
+        )
+      : undefined
+
+    const inDiskResponse = existingSessionId
+      ? response.sessions.some((session) => session.id === existingSessionId)
+      : false
+
+    if (placeholder && !inDiskResponse) {
+      set(sessionListAtom, [placeholder, ...response.sessions])
+    } else {
+      set(sessionListAtom, response.sessions)
+    }
+
     set(sessionWarningsAtom, response.warnings)
     set(sessionDirectoryAtom, response.directory)
 
-    const existingSessionId = get(currentSessionIdAtom)
-    if (
-      existingSessionId &&
-      response.sessions.some((session) => session.id === existingSessionId)
-    ) {
+    // Current session is accounted for — either in disk response or preserved as placeholder.
+    if (existingSessionId && (inDiskResponse || Boolean(placeholder))) {
       return
     }
 
@@ -68,6 +93,13 @@ const hydrateSessionHistoryAtom = atom(
       return
     }
 
+    const requestToken = get(sessionHistoryRequestTokenAtom) + 1
+    set(sessionHistoryRequestTokenAtom, requestToken)
+
+    const isStaleRequest = (): boolean =>
+      get(sessionHistoryRequestTokenAtom) !== requestToken ||
+      get(currentSessionIdAtom) !== trimmedSessionId
+
     set(sessionHistoryLoadingAtom, true)
     set(sessionHistoryErrorAtom, null)
     set(resetChatStateAtom)
@@ -84,17 +116,28 @@ const hydrateSessionHistoryAtom = atom(
         resolvedSessionPath,
       )
 
+      if (isStaleRequest()) {
+        return
+      }
+
       if (!historyResponse.success) {
         set(sessionHistoryErrorAtom, historyResponse.error ?? 'Unable to load session history')
         return
       }
 
       for (const event of historyResponse.events) {
+        if (isStaleRequest()) {
+          return
+        }
         set(applyChatEventAtom, event)
       }
 
+      if (isStaleRequest()) {
+        return
+      }
+
       // History replay may leave isStreamingAtom true if the session ended
-      // without a terminal event (agent_end/turn_end). Force it off — 
+      // without a terminal event (agent_end/turn_end). Force it off —
       // replayed history is never streaming. Also clear per-message streaming
       // flags so UI elements don't appear "in progress" after replay.
       set(isStreamingAtom, false)
@@ -115,10 +158,14 @@ const hydrateSessionHistoryAtom = atom(
         })
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      set(sessionHistoryErrorAtom, `Unable to load history for ${trimmedSessionId}: ${message}`)
+      if (!isStaleRequest()) {
+        const message = error instanceof Error ? error.message : String(error)
+        set(sessionHistoryErrorAtom, `Unable to load history for ${trimmedSessionId}: ${message}`)
+      }
     } finally {
-      set(sessionHistoryLoadingAtom, false)
+      if (get(sessionHistoryRequestTokenAtom) === requestToken) {
+        set(sessionHistoryLoadingAtom, false)
+      }
     }
   },
 )
@@ -178,6 +225,8 @@ export const createSessionAtom = atom(null, async (get, set) => {
   set(sessionCreatingAtom, true)
   set(sessionListErrorAtom, null)
   set(sessionHistoryErrorAtom, null)
+  set(invalidateSessionHistoryRequestAtom)
+  set(sessionHistoryLoadingAtom, false)
 
   try {
     const response = await window.api.sessions.create()
@@ -186,17 +235,40 @@ export const createSessionAtom = atom(null, async (get, set) => {
       return
     }
 
+    // Set the new session ID FIRST, then clear chat state.
+    // This ensures the sidebar selection updates before the chat clears,
+    // preventing any re-render from rehydrating the old session.
+    const newSessionId = response.sessionId ?? null
+    set(currentSessionIdAtom, newSessionId)
     set(resetChatStateAtom)
     set(resetPlanningSessionStateAtom)
 
-    // Set the new session ID BEFORE refreshing the list so
-    // applySessionListResponseAtom sees it as current and doesn't
-    // fall back to sessions[0] (which would be the old session).
-    if (response.sessionId) {
-      set(currentSessionIdAtom, response.sessionId)
+    if (newSessionId) {
+      // Inject a placeholder entry so the new session appears in the
+      // sidebar immediately, before the file is flushed to disk.
+      const now = new Date().toISOString()
+      set(sessionListAtom, [
+        {
+          id: newSessionId,
+          path: '',
+          name: null,
+          title: 'New session',
+          model: null,
+          provider: null,
+          created: now,
+          modified: now,
+          messageCount: 0,
+          firstMessagePreview: null,
+        },
+        ...get(sessionListAtom),
+      ])
     }
 
-    await set(refreshSessionListAtom)
+    // Do NOT call refreshSessionListAtom here. The new session file may not
+    // be flushed to disk yet, and the refresh would trigger applySessionListResponseAtom
+    // which can race with the placeholder and overwrite currentSessionIdAtom.
+    // The placeholder in the list is sufficient. The next natural refresh
+    // (agent_end, manual Refresh click, or session switch) will pick it up.
 
     set(requestPlanningReloadAtom)
   } finally {
@@ -221,6 +293,7 @@ export const switchSessionAtom = atom(null, async (get, set, sessionId: string) 
   set(sessionSwitchingAtom, true)
   set(sessionListErrorAtom, null)
   set(sessionHistoryErrorAtom, null)
+  set(invalidateSessionHistoryRequestAtom)
 
   try {
     const switchResponse = await window.api.sessions.switch(trimmedSessionId)
@@ -253,6 +326,8 @@ export const pickWorkspaceAtom = atom(null, async () => {
 export const switchWorkspaceAtom = atom(null, async (get, set, workspacePath: string) => {
   set(sessionListErrorAtom, null)
   set(sessionHistoryErrorAtom, null)
+  set(invalidateSessionHistoryRequestAtom)
+  set(sessionHistoryLoadingAtom, false)
 
   try {
     const response = await window.api.workspace.set(workspacePath)

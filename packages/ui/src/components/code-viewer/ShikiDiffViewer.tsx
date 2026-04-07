@@ -11,34 +11,10 @@
 import * as React from 'react'
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { FileDiff, type FileDiffMetadata, type FileDiffProps } from '@pierre/diffs/react'
-import { parseDiffFromFile, DIFFS_TAG_NAME, registerCustomTheme, resolveTheme, type FileContents } from '@pierre/diffs'
+import { parseDiffFromFile, DIFFS_TAG_NAME, type FileContents } from '@pierre/diffs'
 import { cn } from '../../lib/utils'
 import { LANGUAGE_MAP } from './language-map'
-
-// Register the diffs-container custom element if not already registered
-// This is necessary because the React component renders a custom element
-if (typeof HTMLElement !== 'undefined' && !customElements.get(DIFFS_TAG_NAME)) {
-  class FileDiffContainer extends HTMLElement {
-    constructor() {
-      super()
-      if (this.shadowRoot != null) return
-      this.attachShadow({ mode: 'open' })
-    }
-  }
-  customElements.define(DIFFS_TAG_NAME, FileDiffContainer)
-}
-
-// Register custom themes based on pierre-dark/light but with transparent background.
-// This lets the container's var(--background) CSS variable show through,
-// so the diff viewer respects custom app themes (e.g. Dracula).
-registerCustomTheme('craft-dark', async () => {
-  const theme = await resolveTheme('pierre-dark')
-  return { ...theme, name: 'craft-dark', bg: 'transparent', colors: { ...theme.colors, 'editor.background': 'transparent' } }
-})
-registerCustomTheme('craft-light', async () => {
-  const theme = await resolveTheme('pierre-light')
-  return { ...theme, name: 'craft-light', bg: 'transparent', colors: { ...theme.colors, 'editor.background': 'transparent' } }
-})
+import './shiki-themes'
 
 export interface ShikiDiffViewerProps {
   /** Original (before) content */
@@ -54,7 +30,7 @@ export interface ShikiDiffViewerProps {
   /** Theme mode */
   theme?: 'light' | 'dark'
   /** Shiki theme name (e.g., 'dracula', 'github-dark'). When provided, uses the matching
-   *  Shiki theme natively. Falls back to craft-dark/craft-light (transparent bg) if not set. */
+   *  Shiki theme natively. Falls back to kata-dark/kata-light (transparent bg) if not set. */
   shikiTheme?: string
   /** Disable background highlighting on changed lines */
   disableBackground?: boolean
@@ -133,8 +109,8 @@ export function ShikiDiffViewer({
   }, [oldFile, newFile])
 
   // Diff options - use the app's Shiki theme if available, otherwise fall back
-  // to craft-dark/craft-light which have transparent bg for CSS variable theming
-  const resolvedThemeName = shikiTheme || (theme === 'dark' ? 'craft-dark' : 'craft-light')
+  // to kata-dark/kata-light which have transparent bg for CSS variable theming
+  const resolvedThemeName = shikiTheme || (theme === 'dark' ? 'kata-dark' : 'kata-light')
   // When onFileHeaderClick is provided, inject CSS to make the header look clickable
   const unsafeCSS = onFileHeaderClick
     ? '[data-diffs-header] { cursor: pointer; } [data-diffs-header]:hover [data-title] { text-decoration: underline; }'
@@ -189,7 +165,7 @@ export function ShikiDiffViewer({
       }
       header.addEventListener('click', handleClick)
       // Store cleanup ref so we can remove listener
-      ;(header as any).__craftClickCleanup = () => header.removeEventListener('click', handleClick)
+      ;(header as any).__kataClickCleanup = () => header.removeEventListener('click', handleClick)
     }, 150)
 
     return () => {
@@ -197,7 +173,7 @@ export function ShikiDiffViewer({
       const diffsContainer = containerRef.current?.querySelector(DIFFS_TAG_NAME)
       const header = diffsContainer?.shadowRoot?.querySelector('[data-diffs-header]')
       if (header) {
-        ;(header as any).__craftClickCleanup?.()
+        ;(header as any).__kataClickCleanup?.()
       }
     }
   }, [filePath, disableFileHeader, onFileHeaderClick])

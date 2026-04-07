@@ -79,7 +79,7 @@ const workflowBoardWorkspaceKeyAtom = atom((get) => get(workingDirectoryAtom) ||
 export const workflowBoardScopeAtom = atom<WorkflowBoardScope, [WorkflowBoardScope], void>(
   (get) => {
     const workspaceKey = get(workflowBoardWorkspaceKeyAtom)
-    return get(workflowBoardScopePreferencesAtom)[workspaceKey] ?? 'milestone'
+    return get(workflowBoardScopePreferencesAtom)[workspaceKey] ?? 'project'
   },
   (get, set, nextScope) => {
     const workspaceKey = get(workflowBoardWorkspaceKeyAtom)
@@ -108,10 +108,66 @@ export const clearWorkflowBoardReturnContextAtom = atom(null, (_get, set) => {
   set(workflowBoardReturnContextAtom, null)
 })
 
+// --- Card collapse state ---
+
+const collapsedWorkflowCardsAtom = atom<Set<string>>(new Set<string>())
+
+export const isWorkflowCardCollapsedAtom = atom((get) => {
+  const collapsed = get(collapsedWorkflowCardsAtom)
+  return (cardId: string) => collapsed.has(cardId)
+})
+
+export const toggleWorkflowCardCollapsedAtom = atom(
+  null,
+  (get, set, cardId: string) => {
+    const current = new Set(get(collapsedWorkflowCardsAtom))
+    if (current.has(cardId)) {
+      current.delete(cardId)
+    } else {
+      current.add(cardId)
+    }
+    set(collapsedWorkflowCardsAtom, current)
+  },
+)
+
+export const collapseAllWorkflowCardsAtom = atom(null, (get, set) => {
+  const board = get(workflowBoardAtom)
+  if (!board) return
+  const allCardIds = new Set<string>()
+  for (const col of board.columns) {
+    for (const card of col.cards) {
+      allCardIds.add(card.id)
+    }
+  }
+  set(collapsedWorkflowCardsAtom, allCardIds)
+})
+
+export const expandAllWorkflowCardsAtom = atom(null, (_get, set) => {
+  set(collapsedWorkflowCardsAtom, new Set())
+})
+
+// --- Column collapse state ---
+
 export const collapsedWorkflowColumnsAtom = atom((get) => {
   const collapseKey = get(workflowBoardCollapseKeyAtom)
-  const collapsed = get(workflowBoardCollapsedColumnsAtom)[collapseKey] ?? []
-  return new Set<WorkflowColumnId>(collapsed)
+  const explicitCollapsed = get(workflowBoardCollapsedColumnsAtom)[collapseKey]
+
+  // When the user has explicitly set collapse state, respect it.
+  if (explicitCollapsed) {
+    return new Set<WorkflowColumnId>(explicitCollapsed)
+  }
+
+  // Otherwise, auto-collapse empty columns so the board gives more
+  // space to columns that have cards.
+  const snapshot = get(workflowBoardAtom)
+  if (!snapshot) {
+    return new Set<WorkflowColumnId>()
+  }
+
+  const emptyColumnIds = snapshot.columns
+    .filter((col) => col.cards.length === 0)
+    .map((col) => col.id)
+  return new Set<WorkflowColumnId>(emptyColumnIds)
 })
 
 export const toggleWorkflowColumnCollapsedAtom = atom(
@@ -119,7 +175,11 @@ export const toggleWorkflowColumnCollapsedAtom = atom(
   (get, set, columnId: WorkflowColumnId) => {
     const collapseKey = get(workflowBoardCollapseKeyAtom)
     const existingMap = get(workflowBoardCollapsedColumnsAtom)
-    const current = new Set(existingMap[collapseKey] ?? [])
+
+    // Seed from the computed collapsed set (which includes auto-collapsed
+    // empty columns) rather than the raw stored value, so toggling one
+    // column doesn't lose the auto-collapse state of others.
+    const current = new Set(get(collapsedWorkflowColumnsAtom))
 
     if (current.has(columnId)) {
       current.delete(columnId)
@@ -137,13 +197,13 @@ export const toggleWorkflowColumnCollapsedAtom = atom(
 export const resetWorkflowCollapsedColumnsAtom = atom(null, (get, set) => {
   const collapseKey = get(workflowBoardCollapseKeyAtom)
   const existingMap = get(workflowBoardCollapsedColumnsAtom)
-  if (!(collapseKey in existingMap)) {
-    return
-  }
 
-  const next = { ...existingMap }
-  delete next[collapseKey]
-  set(workflowBoardCollapsedColumnsAtom, next)
+  // Explicitly set an empty array (not delete) so the auto-collapse
+  // logic doesn't re-collapse empty columns after expand-all.
+  set(workflowBoardCollapsedColumnsAtom, {
+    ...existingMap,
+    [collapseKey]: [],
+  })
 })
 
 export const workflowBoardHasCardsAtom = atom((get) => {

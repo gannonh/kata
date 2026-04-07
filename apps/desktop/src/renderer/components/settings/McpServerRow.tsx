@@ -11,6 +11,10 @@ export function formatMcpStatusLabel(status: McpServerStatus | undefined): strin
     return 'Connected'
   }
 
+  if (status.phase === 'configured') {
+    return 'Configured'
+  }
+
   if (status.phase === 'unsupported') {
     return 'Unsupported'
   }
@@ -29,7 +33,7 @@ export function mcpStatusBadgeVariant(
     return 'default'
   }
 
-  if (status.phase === 'unsupported') {
+  if (status.phase === 'configured' || status.phase === 'unsupported') {
     return 'secondary'
   }
 
@@ -47,29 +51,21 @@ export function summarizeMcpServer(server: McpServerSummary): string {
 
 interface McpServerRowProps {
   server: McpServerSummary
-  status?: McpServerStatus
-  statusPending?: boolean
   pendingDelete?: boolean
   onEdit: (server: McpServerSummary) => void
   onRequestDelete: (name: string) => void
   onConfirmDelete: (name: string) => void
   onCancelDelete: () => void
-  onRefresh: (name: string) => void
-  onReconnect: (name: string) => void
   mutationPending?: boolean
 }
 
 export function McpServerRow({
   server,
-  status,
-  statusPending,
   pendingDelete,
   onEdit,
   onRequestDelete,
   onConfirmDelete,
   onCancelDelete,
-  onRefresh,
-  onReconnect,
   mutationPending,
 }: McpServerRowProps) {
   return (
@@ -108,33 +104,6 @@ export function McpServerRow({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Badge
-            variant={mcpStatusBadgeVariant(status)}
-            data-testid={`mcp-status-badge-${server.name}`}
-          >
-            {statusPending ? 'Checking…' : formatMcpStatusLabel(status)}
-          </Badge>
-
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => onRefresh(server.name)}
-            disabled={Boolean(statusPending)}
-            data-testid={`mcp-refresh-${server.name}`}
-          >
-            Refresh
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => onReconnect(server.name)}
-            disabled={Boolean(statusPending)}
-            data-testid={`mcp-reconnect-${server.name}`}
-          >
-            Reconnect
-          </Button>
           <Button
             type="button"
             size="sm"
@@ -184,23 +153,6 @@ export function McpServerRow({
         </div>
       </div>
 
-      {status?.error ? (
-        <p className="mt-2 text-xs text-destructive" data-testid={`mcp-status-error-${server.name}`}>
-          {status.error.message}
-        </p>
-      ) : null}
-
-      {status?.toolCount ? (
-        <p className="mt-2 text-xs text-muted-foreground" data-testid={`mcp-tools-${server.name}`}>
-          Tools ({status.toolCount}): {status.toolNames.join(', ')}
-        </p>
-      ) : null}
-
-      {status?.checkedAt ? (
-        <p className="mt-1 text-[11px] text-muted-foreground">
-          Last checked: {new Date(status.checkedAt).toLocaleString()}
-        </p>
-      ) : null}
     </article>
   )
 }

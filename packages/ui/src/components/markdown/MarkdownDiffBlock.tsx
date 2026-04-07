@@ -15,34 +15,9 @@
 
 import * as React from 'react'
 import { PatchDiff, type PatchDiffProps } from '@pierre/diffs/react'
-import { DIFFS_TAG_NAME, registerCustomTheme, resolveTheme } from '@pierre/diffs'
 import { cn } from '../../lib/utils'
 import { CodeBlock } from './CodeBlock'
-
-// ── Custom element + theme registration (same as ShikiDiffViewer) ──────────
-// Idempotent: safe to run even if ShikiDiffViewer already registered these.
-
-if (typeof HTMLElement !== 'undefined' && !customElements.get(DIFFS_TAG_NAME)) {
-  class FileDiffContainer extends HTMLElement {
-    constructor() {
-      super()
-      if (this.shadowRoot != null) return
-      this.attachShadow({ mode: 'open' })
-    }
-  }
-  customElements.define(DIFFS_TAG_NAME, FileDiffContainer)
-}
-
-// Transparent-bg variants of pierre's built-in themes so the app's
-// CSS variable (--background) shows through for custom theme support.
-registerCustomTheme('craft-dark', async () => {
-  const theme = await resolveTheme('pierre-dark')
-  return { ...theme, name: 'craft-dark', bg: 'transparent', colors: { ...theme.colors, 'editor.background': 'transparent' } }
-})
-registerCustomTheme('craft-light', async () => {
-  const theme = await resolveTheme('pierre-light')
-  return { ...theme, name: 'craft-light', bg: 'transparent', colors: { ...theme.colors, 'editor.background': 'transparent' } }
-})
+import '../code-viewer/shiki-themes'
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -132,9 +107,10 @@ export interface MarkdownDiffBlockProps {
 
 export function MarkdownDiffBlock({ code, className }: MarkdownDiffBlockProps) {
   const dark = isDarkMode()
-  const themeName = dark ? 'craft-dark' : 'craft-light'
+  const themeName = dark ? 'kata-dark' : 'kata-light'
 
   // Build the same options used in ShikiDiffViewer for visual consistency
+  // Theme names match the shared registration in shiki-themes.ts
   const options: PatchDiffProps<undefined>['options'] = React.useMemo(() => ({
     theme: themeName,
     diffStyle: 'unified' as const,

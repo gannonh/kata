@@ -59,7 +59,7 @@ export function MessageInput({ disabled = false, stopDisabled = disabled, onSubm
               handleSend()
             }
           }}
-          className="h-20 resize-none border-0 bg-transparent px-0 py-0 text-sm text-foreground shadow-none focus-visible:border-transparent focus-visible:ring-0"
+          className="h-20 resize-none rounded-none border-0 bg-transparent px-0 py-0 text-sm text-foreground shadow-none focus-visible:border-transparent focus-visible:ring-0"
           placeholder="Ask Kata to help with your code..."
           disabled={disabled || submitting}
         />

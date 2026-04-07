@@ -151,6 +151,8 @@ interface KanbanHeaderProps {
   actionLockReason?: string | null
   onScopeChange: (scope: WorkflowBoardScope) => void
   onExpandAllColumns: () => void
+  onExpandAllCards: () => void
+  onCollapseAllCards: () => void
   onOpenPlanningView: () => void
   onOpenMcpSettings: () => void
   onRefresh: () => void
@@ -172,6 +174,8 @@ export function KanbanHeader({
   actionLockReason,
   onScopeChange,
   onExpandAllColumns,
+  onExpandAllCards,
+  onCollapseAllCards,
   onOpenPlanningView,
   onOpenMcpSettings,
   onRefresh,
@@ -220,16 +224,24 @@ export function KanbanHeader({
           <Button
             type="button"
             size="sm"
-            variant="outline"
-            className="h-7 px-2 text-[11px]"
-            aria-label="Open MCP tab"
-            onClick={onOpenMcpSettings}
-            disabled={mcpShortcutDisabled}
-            title="Open MCP settings (⌘⇧M / Ctrl+Shift+M)"
-            data-testid="kanban-open-mcp-settings"
+            variant="ghost"
+            className="mr-1 h-7 px-2 text-[11px]"
+            onClick={onExpandAllCards}
+            data-testid="kanban-expand-all-cards"
           >
-            MCP
+            Expand cards
           </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="mr-1 h-7 px-2 text-[11px]"
+            onClick={onCollapseAllCards}
+            data-testid="kanban-collapse-all-cards"
+          >
+            Collapse cards
+          </Button>
+
 
           <Button type="button" size="icon" variant="ghost" aria-label="Open planning view" onClick={onOpenPlanningView}>
             <LayoutGrid className="size-4" />
@@ -277,8 +289,7 @@ export function KanbanHeader({
       </div>
 
       <div className="border-b border-border bg-background/80 px-4 py-1 text-[11px] text-muted-foreground">
-        Shortcuts: <span className="font-mono">⌘⇧M</span> open MCP settings ·{' '}
-        <span className="font-mono">⌘⇧R</span> refresh board
+        Shortcuts: <span className="font-mono">⌘⇧R</span> refresh board
       </div>
 
       {actionLockReason ? (
@@ -290,16 +301,12 @@ export function KanbanHeader({
         </div>
       ) : null}
 
-      {board?.scope?.note ? (
-        <div className="border-b border-border bg-muted/60 px-4 py-2 text-xs text-muted-foreground" data-testid="workflow-board-scope-note">
-          {board.scope.note}
-        </div>
-      ) : null}
+
 
       {rightPaneOverride ? (
         <div className="border-b border-border bg-muted/70 px-4 py-2 text-xs text-muted-foreground">
           Manual pane override is active.
-          <Button type="button" variant="link" className="ml-1 h-auto p-0 text-xs" onClick={onClearOverride}>
+          <Button type="button" variant="link" className="ml-1 h-auto p-0 text-xs text-sidebar-primary" onClick={onClearOverride}>
             Return to auto mode
           </Button>
         </div>

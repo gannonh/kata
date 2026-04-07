@@ -139,7 +139,7 @@ export function ModelSelector() {
   return (
     <div className="flex min-w-[16rem] flex-col gap-1">
       <Select
-        value={selectedModel ?? undefined}
+        value={selectedModel ?? ''}
         disabled={loading || availableModels.length === 0}
         onValueChange={(value) => {
           void handleChange(value)

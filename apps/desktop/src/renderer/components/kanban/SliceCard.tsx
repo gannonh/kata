@@ -28,6 +28,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 interface SliceCardProps {
   card: WorkflowBoardSliceCard
+  collapsed?: boolean
+  onToggleCollapse?: () => void
 }
 
 function executionTone(freshness: 'fresh' | 'stale' | 'disconnected' | 'unknown'): string {
@@ -97,7 +99,7 @@ function moveStateTone(phase: 'pending' | 'success' | 'error'): string {
   return 'text-destructive'
 }
 
-export function SliceCard({ card }: SliceCardProps) {
+export function SliceCard({ card, collapsed = false, onToggleCollapse }: SliceCardProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [showEscalationComposer, setShowEscalationComposer] = useState(false)
   const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false)
@@ -217,14 +219,41 @@ export function SliceCard({ card }: SliceCardProps) {
   }
 
   return (
-    <Card size="sm" className="gap-3 rounded-xl border border-border/70 py-3 shadow-none">
+    <Card size="sm" className="max-h-[70vh] shrink-0 !gap-0 !overflow-y-auto rounded-xl border border-border/70 py-3 shadow-none">
       <CardHeader className="px-3 pb-0">
-        <CardTitle className="text-sm leading-tight">
-          {card.identifier} · {card.title}
+        <CardTitle className="flex items-start justify-between gap-1 text-sm leading-tight">
+          <span className="min-w-0">
+            {card.url ? (
+              <button
+                type="button"
+                className="text-sidebar-primary hover:underline"
+                onClick={openCardIssue}
+              >
+                {card.identifier}
+              </button>
+            ) : (
+              <span>{card.identifier}</span>
+            )}
+            {' · '}
+            {card.title}
+          </span>
+          {onToggleCollapse ? (
+            <button
+              type="button"
+              className="flex-none rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+              onClick={(e) => {
+                e.stopPropagation()
+                onToggleCollapse()
+              }}
+              aria-label={collapsed ? 'Expand card' : 'Collapse card'}
+            >
+              <ChevronDown className={`size-3.5 transition-transform ${collapsed ? '-rotate-90' : ''}`} />
+            </button>
+          ) : null}
         </CardTitle>
       </CardHeader>
 
-      <CardContent className="space-y-2 px-3">
+      {collapsed ? null : <CardContent className="space-y-2 px-3 pt-3">
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>{card.stateName}</span>
           <Badge variant="outline" className="text-[10px]">
@@ -434,7 +463,7 @@ export function SliceCard({ card }: SliceCardProps) {
             await submitCreateTask(values)
           }}
         />
-      </CardContent>
+      </CardContent>}
     </Card>
   )
 }

@@ -306,10 +306,10 @@ export class WorkflowBoardService {
   private active = false
   private planningActive = false
   private scopeKey = 'workspace:none::session:none'
-  private requestedScope: WorkflowBoardScope = 'milestone'
+  private requestedScope: WorkflowBoardScope = 'project'
   private lastScopeDiagnostics: WorkflowBoardScopeDiagnostics = {
-    requested: 'milestone',
-    resolved: 'milestone',
+    requested: 'project',
+    resolved: 'project',
     reason: 'requested',
   }
   private trackerConfigured = false
@@ -1168,20 +1168,26 @@ export class WorkflowBoardService {
       note = 'Milestone scope is unavailable for GitHub trackers. Showing project scope.'
     }
 
+    // When Active scope is requested, determine whether Symphony can provide
+    // active-work data. If not, keep resolvedScope as 'active' but produce
+    // an empty board so the user sees "no active work" instead of a misleading
+    // full project backlog.
+    let activeUnavailable = false
+
     if (this.requestedScope === 'active') {
       const symphonyEnvelope = snapshot.symphony
       if (!symphonyEnvelope || symphonyEnvelope.provenance === 'unavailable') {
-        resolvedScope = 'project'
+        activeUnavailable = true
         resolutionReason = 'operator_state_unavailable'
-        note = 'Active scope requires Symphony operator state. Showing broader workflow scope.'
+        note = 'Symphony is not running. Start Symphony to see active work.'
       } else if (symphonyEnvelope.freshness === 'stale') {
-        resolvedScope = 'project'
+        activeUnavailable = true
         resolutionReason = 'operator_state_stale'
-        note = symphonyEnvelope.staleReason ?? 'Symphony operator state is stale. Showing broader workflow scope.'
+        note = symphonyEnvelope.staleReason ?? 'Symphony state is stale. Start or reconnect Symphony to see active work.'
       } else if (symphonyEnvelope.freshness === 'disconnected') {
-        resolvedScope = 'project'
+        activeUnavailable = true
         resolutionReason = 'operator_state_disconnected'
-        note = symphonyEnvelope.staleReason ?? 'Symphony runtime is disconnected. Showing broader workflow scope.'
+        note = symphonyEnvelope.staleReason ?? 'Symphony is disconnected. Active work will appear when the connection is restored.'
       }
     }
 
@@ -1190,10 +1196,21 @@ export class WorkflowBoardService {
     let activeMatchCount: number | undefined
 
     if (resolvedScope === 'active') {
-      const activeOnly = projectActiveScope(snapshot)
-      scopedSnapshot = activeOnly.snapshot
-      activeMatchCount = activeOnly.matchIdentifiers.length
-      activeMatchIdentifiers = activeOnly.matchIdentifiers
+      if (activeUnavailable) {
+        // Return empty columns so the board shows "no active work" rather
+        // than falling back to the full project backlog.
+        scopedSnapshot = {
+          ...snapshot,
+          columns: snapshot.columns.map((col) => ({ ...col, cards: [] })),
+        }
+        activeMatchCount = 0
+        activeMatchIdentifiers = []
+      } else {
+        const activeOnly = projectActiveScope(snapshot)
+        scopedSnapshot = activeOnly.snapshot
+        activeMatchCount = activeOnly.matchIdentifiers.length
+        activeMatchIdentifiers = activeOnly.matchIdentifiers
+      }
     }
 
     const diagnostics: WorkflowBoardScopeDiagnostics = {

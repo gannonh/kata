@@ -186,7 +186,7 @@ export function ExtensionUIHandler() {
       }
 
       if (!isSupportedInteractiveRequest(request)) {
-        console.warn('[ExtensionUIHandler] unsupported extension_ui_request method; auto-cancelling', {
+        console.debug('[ExtensionUIHandler] unsupported extension_ui_request method; auto-cancelling', {
           id: request.id,
           method: request.method,
         })

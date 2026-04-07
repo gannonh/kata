@@ -18,7 +18,7 @@ This is the Kata monorepo for five AI agent products:
 
 - Kata CLI in `apps/cli`
 - Kata Symphony in `apps/symphony`
-- Kata Desktop in `apps/electron`
+- Kata Desktop in `apps/desktop`
 - Kata Orchestrator in `apps/orchestrator`
 - Kata Context in `apps/context`
 
@@ -30,7 +30,7 @@ The repo also contains shared packages that support the product apps.
 | ------------------------------------------------ | ------------------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
 | [Kata CLI](apps/cli/README.md)                   | `apps/cli`          | Terminal-based coding work with guided and autonomous execution modes                              | `npx @kata-sh/cli`                                          |
 | [Kata Symphony](apps/symphony/README.md)         | `apps/symphony`     | Headless orchestrator: polls Linear, dispatches parallel agent sessions, manages full PR lifecycle | `cargo build --release`                                     |
-| [Kata Desktop](apps/electron/README.md)          | `apps/electron`     | Desktop-based agent work with workspaces, session management, sources, and approval controls       | [GitHub Releases](https://github.com/gannonh/kata/releases) |
+| [Kata Desktop](apps/desktop/AGENTS.md)            | `apps/desktop`      | Native GUI with planning view, workflow kanban, and Symphony operator surface                       | [GitHub Releases](https://github.com/gannonh/kata/releases) |
 | [Kata Orchestrator](apps/orchestrator/README.md) | `apps/orchestrator` | Spec-driven workflows for Claude Code, OpenCode, Gemini CLI, and Codex                             | `npx @kata-sh/orc@latest`                                   |
 | Kata Context                                     | `apps/context`      | Structural, semantic, and memory-based codebase understanding for AI coding agents                 | `npx @kata/context`                                         |
 
@@ -96,22 +96,33 @@ Read more in [apps/symphony/README.md](apps/symphony/README.md).
 
 ## Kata Desktop
 
-Kata Desktop is a desktop app for working with AI agents across multiple sessions and workspaces. It includes Git context, permission modes, MCP integrations, external sources, background tasks, file attachments, and persistent session state.
+Kata Desktop is a native Electron app that brings together Kata CLI's structured planning and Symphony's autonomous orchestration in one surface. It wraps the CLI as a subprocess in JSON-RPC mode, so it inherits all CLI capabilities: multi-provider support, extensions, skills, MCP, Linear/GitHub integration, and the Kata planning methodology.
 
 Download a release from [GitHub Releases](https://github.com/gannonh/kata/releases), or run it from source:
 
 ```bash
+cd apps/desktop
 bun install
-bun run electron:start
+bun run build && bun run start
 ```
+
+Key features:
+
+- **Chat** — Streaming chat with tool rendering, thinking blocks, permission modes (Explore/Ask/Auto), multi-provider support
+- **Planning view** — Right-pane live rendering of planning artifacts (roadmaps, requirements, decisions) as the agent works
+- **Workflow kanban** — Linear-backed kanban board showing slice and task execution state in real time
+- **Symphony operator** — Start/stop Symphony from the app, watch workers execute, respond to escalations inline
+- **Sessions** — Multi-session sidebar with persistence, workspace picker, model selector
+
+The app bundles everything — CLI runtime, Symphony binary, Bun — so it works out of the box.
 
 Use Kata Desktop when you want:
 
-- a desktop workspace for managing multiple agent sessions
-- approval controls for read, edit, and autonomous actions
-- connected sources such as MCP servers, REST APIs, and local files
+- planning and execution in one GUI with live artifact updates
+- a kanban view of Linear workflow state backed by agent execution
+- a built-in Symphony operator surface without running a separate dashboard
 
-Read more in [apps/electron/README.md](apps/electron/README.md).
+Read more in [apps/desktop/AGENTS.md](apps/desktop/AGENTS.md).
 
 ## Kata Orchestrator
 
@@ -152,7 +163,7 @@ npx @kata/context
 | `apps/cli`          | Kata CLI                                                   |
 | `apps/symphony`     | Kata Symphony (Rust)                                       |
 | `apps/context`      | Kata Context                                               |
-| `apps/electron`     | Kata Desktop                                               |
+| `apps/desktop`      | Kata Desktop                                               |
 | `apps/orchestrator` | Kata Orchestrator                                          |
 | `apps/online-docs`  | Documentation site                                         |
 | `apps/viewer`       | Session viewer                                             |
@@ -181,7 +192,7 @@ Common commands:
 | --------------------------------- | ---------------------------------------------- |
 | `bun run validate`                | Lint + typecheck + test all packages via Turbo |
 | `bun run validate:affected`       | Same, only changed packages                    |
-| `bun run electron:dev`            | Start Kata Desktop in development mode         |
+| `cd apps/desktop && bun run dev:renderer` | Start Desktop renderer in dev mode |
 | `cd apps/symphony && cargo build` | Build Kata Symphony                            |
 
 ## Testing
@@ -192,8 +203,7 @@ All testing is orchestrated by Turborepo. Each package owns its test runner.
 | ----------------------- | --------------------------------------------- |
 | `bun run test`          | All package tests via Turborepo               |
 | `bun run test:affected` | Only changed packages                         |
-| `bun run test:e2e`      | Desktop Playwright E2E (mocked)               |
-| `bun run test:e2e:live` | Desktop Playwright E2E (real accounts, local) |
+| `cd apps/desktop && bun run test:e2e` | Desktop Playwright E2E            |
 
 | Package    | Test runner | Notes                                   |
 | ---------- | ----------- | --------------------------------------- |
@@ -205,4 +215,4 @@ A pre-push git hook runs `turbo run lint typecheck test --affected` before every
 
 ## License
 
-Kata CLI and Kata Orchestrator use MIT. Kata Desktop uses Apache 2.0.
+Kata CLI and Kata Orchestrator use MIT.

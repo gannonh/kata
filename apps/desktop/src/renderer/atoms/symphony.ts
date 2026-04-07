@@ -1,9 +1,10 @@
 import { atom, useAtomValue, useSetAtom } from 'jotai'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import type {
   SymphonyRuntimeCommandResult,
   SymphonyRuntimeStatus,
 } from '@shared/types'
+import { refreshWorkflowBoardAtom, workflowBoardActiveAtom } from './workflow-board'
 
 const FALLBACK_STATUS: SymphonyRuntimeStatus = {
   phase: 'disconnected',
@@ -60,18 +61,32 @@ export const refreshSymphonyStatusAtom = atom(null, async (_get, set) => {
 export function useSymphonyBridge(): void {
   const setStatus = useSetAtom(symphonyStatusAtom)
   const refresh = useSetAtom(refreshSymphonyStatusAtom)
+  const refreshBoard = useSetAtom(refreshWorkflowBoardAtom)
+  const boardActive = useAtomValue(workflowBoardActiveAtom)
+  const boardActiveRef = useRef(boardActive)
+  boardActiveRef.current = boardActive
+  const prevPhaseRef = useRef<string | null>(null)
 
   useEffect(() => {
     void refresh()
 
     const unsubscribe = window.api.symphony.onStatus((status) => {
+      const prevPhase = prevPhaseRef.current
+      prevPhaseRef.current = status.phase
       setStatus(status)
+
+      // When Symphony transitions to ready, refresh the board so the
+      // Active scope and Symphony banners update immediately instead of
+      // waiting for the next poll cycle.
+      if (status.phase === 'ready' && prevPhase !== 'ready' && boardActiveRef.current) {
+        void refreshBoard()
+      }
     })
 
     return () => {
       unsubscribe()
     }
-  }, [refresh, setStatus])
+  }, [refresh, setStatus, refreshBoard])
 }
 
 export function useSymphonyStatus(): SymphonyRuntimeStatus {

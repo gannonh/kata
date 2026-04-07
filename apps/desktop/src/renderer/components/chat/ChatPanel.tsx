@@ -60,10 +60,48 @@ export function ChatPanel() {
     }
   }, [applyBridgeStatus, applyChatEvent, refreshSessions])
 
+  // Auto-scroll: pinned to bottom by default. Detaches when the user scrolls
+  // up manually, re-attaches when they scroll back near the bottom or when a
+  // new user message is sent.
+  const isStreamingRef = useRef(isStreaming)
+  isStreamingRef.current = isStreaming
+  const userScrolledUpRef = useRef(false)
+  const prevMessageCountRef = useRef(messages.length)
+
+  // Detect user scroll-up: if the user scrolls away from the bottom, stop
+  // auto-scrolling. Re-attach when they scroll back near the bottom.
   useEffect(() => {
-    scrollRef.current?.scrollTo({
-      top: scrollRef.current.scrollHeight,
-      behavior: 'smooth',
+    const el = scrollRef.current
+    if (!el) return
+
+    const handleScroll = () => {
+      const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+      userScrolledUpRef.current = distanceFromBottom > 80
+    }
+
+    el.addEventListener('scroll', handleScroll, { passive: true })
+    return () => el.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+
+    // Always re-attach auto-scroll when the user sends a new message
+    const hasNewUserMessage =
+      messages.length > prevMessageCountRef.current &&
+      messages[messages.length - 1]?.role === 'user'
+    prevMessageCountRef.current = messages.length
+
+    if (hasNewUserMessage) {
+      userScrolledUpRef.current = false
+    }
+
+    if (userScrolledUpRef.current) return
+
+    el.scrollTo({
+      top: el.scrollHeight,
+      behavior: isStreamingRef.current ? 'instant' : 'smooth',
     })
   }, [messages, tools])
 

@@ -165,7 +165,22 @@ export function TaskList({ tasks, issueActions = {}, onOpenIssue }: TaskListProp
             <li key={task.id} className="rounded-md border border-border/60 bg-background/50 px-2 py-1.5">
               <div className="flex items-center justify-between gap-2">
                 <p className="truncate text-xs font-medium text-foreground">
-                  {task.identifier ? `${task.identifier} · ` : ''}
+                  {task.identifier ? (
+                    <>
+                      {task.url && onOpenIssue ? (
+                        <button
+                          type="button"
+                          className="text-sidebar-primary hover:underline"
+                          onClick={() => onOpenIssue(task)}
+                        >
+                          {task.identifier}
+                        </button>
+                      ) : (
+                        <span>{task.identifier}</span>
+                      )}
+                      {' · '}
+                    </>
+                  ) : null}
                   {task.title}
                 </p>
                 <Badge
