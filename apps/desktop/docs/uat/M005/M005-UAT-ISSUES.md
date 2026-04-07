@@ -116,9 +116,9 @@ Ticket numbers displayed on cards (e.g., "KAT-2326") are plain text. They should
 
 ---
 
-## 7. Inconsistent card rendering between Project and Milestone views
+## 7. ~~Inconsistent card rendering between Project and Milestone views~~ (superseded by #10)
 
-**Severity:** High
+**Severity:** ~~High~~ N/A
 **Slice:** S01
 
 **Project view** shows cards collapsed to just the title (e.g., "KAT-2085 · [S01] App Shell with CLI Subprocess Chat"). **Milestone view** shows cards fully expanded with status, Symphony execution info, "Open Linear issue" / "Add task" buttons, "Current: Done" dropdown, and "Show tasks" toggle.
