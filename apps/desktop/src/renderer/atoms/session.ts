@@ -205,13 +205,13 @@ export const createSessionAtom = atom(null, async (get, set) => {
       return
     }
 
-    set(resetChatStateAtom)
-    set(resetPlanningSessionStateAtom)
-
-    // Always clear the old session ID so the sidebar deselects it.
-    // Then set the new one if we got it back from the bridge.
+    // Set the new session ID FIRST, then clear chat state.
+    // This ensures the sidebar selection updates before the chat clears,
+    // preventing any re-render from rehydrating the old session.
     const newSessionId = response.sessionId
     set(currentSessionIdAtom, newSessionId)
+    set(resetChatStateAtom)
+    set(resetPlanningSessionStateAtom)
 
     if (newSessionId) {
       // Inject a placeholder entry so the new session appears in the
