@@ -28,6 +28,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 interface SliceCardProps {
   card: WorkflowBoardSliceCard
+  collapsed?: boolean
+  onToggleCollapse?: () => void
 }
 
 function executionTone(freshness: 'fresh' | 'stale' | 'disconnected' | 'unknown'): string {
@@ -97,7 +99,7 @@ function moveStateTone(phase: 'pending' | 'success' | 'error'): string {
   return 'text-destructive'
 }
 
-export function SliceCard({ card }: SliceCardProps) {
+export function SliceCard({ card, collapsed = false, onToggleCollapse }: SliceCardProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [showEscalationComposer, setShowEscalationComposer] = useState(false)
   const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false)
@@ -217,26 +219,38 @@ export function SliceCard({ card }: SliceCardProps) {
   }
 
   return (
-    <Card size="sm" className="max-h-[70vh] gap-3 overflow-y-auto rounded-xl border border-border/70 py-3 shadow-none">
+    <Card size="sm" className="max-h-[70vh] gap-0 overflow-y-auto rounded-xl border border-border/70 py-3 shadow-none">
       <CardHeader className="px-3 pb-0">
-        <CardTitle className="text-sm leading-tight">
-          {card.url ? (
+        <CardTitle className="flex items-start gap-1 text-sm leading-tight">
+          {onToggleCollapse ? (
             <button
               type="button"
-              className="text-sidebar-primary hover:underline"
-              onClick={openCardIssue}
+              className="mt-0.5 flex-none text-muted-foreground hover:text-foreground"
+              onClick={onToggleCollapse}
+              aria-label={collapsed ? 'Expand card' : 'Collapse card'}
             >
-              {card.identifier}
+              <ChevronDown className={`size-3.5 transition-transform ${collapsed ? '-rotate-90' : ''}`} />
             </button>
-          ) : (
-            <span>{card.identifier}</span>
-          )}
-          {' · '}
-          {card.title}
+          ) : null}
+          <span className="min-w-0">
+            {card.url ? (
+              <button
+                type="button"
+                className="text-sidebar-primary hover:underline"
+                onClick={openCardIssue}
+              >
+                {card.identifier}
+              </button>
+            ) : (
+              <span>{card.identifier}</span>
+            )}
+            {' · '}
+            {card.title}
+          </span>
         </CardTitle>
       </CardHeader>
 
-      <CardContent className="space-y-2 px-3">
+      {collapsed ? null : <CardContent className="space-y-2 px-3 pt-3">
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>{card.stateName}</span>
           <Badge variant="outline" className="text-[10px]">
@@ -446,7 +460,7 @@ export function SliceCard({ card }: SliceCardProps) {
             await submitCreateTask(values)
           }}
         />
-      </CardContent>
+      </CardContent>}
     </Card>
   )
 }

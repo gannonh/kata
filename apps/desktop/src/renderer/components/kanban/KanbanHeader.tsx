@@ -151,6 +151,8 @@ interface KanbanHeaderProps {
   actionLockReason?: string | null
   onScopeChange: (scope: WorkflowBoardScope) => void
   onExpandAllColumns: () => void
+  onExpandAllCards: () => void
+  onCollapseAllCards: () => void
   onOpenPlanningView: () => void
   onOpenMcpSettings: () => void
   onRefresh: () => void
@@ -172,6 +174,8 @@ export function KanbanHeader({
   actionLockReason,
   onScopeChange,
   onExpandAllColumns,
+  onExpandAllCards,
+  onCollapseAllCards,
   onOpenPlanningView,
   onOpenMcpSettings,
   onRefresh,
@@ -216,6 +220,27 @@ export function KanbanHeader({
               Expand {collapsedColumnCount} column{collapsedColumnCount === 1 ? '' : 's'}
             </Button>
           ) : null}
+
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="mr-1 h-7 px-2 text-[11px]"
+            onClick={onExpandAllCards}
+            data-testid="kanban-expand-all-cards"
+          >
+            Expand cards
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="mr-1 h-7 px-2 text-[11px]"
+            onClick={onCollapseAllCards}
+            data-testid="kanban-collapse-all-cards"
+          >
+            Collapse cards
+          </Button>
 
           <Button
             type="button"

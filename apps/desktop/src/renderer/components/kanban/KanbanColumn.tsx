@@ -1,5 +1,7 @@
+import { useAtomValue, useSetAtom } from 'jotai'
 import { ChevronsLeftRightEllipsis } from 'lucide-react'
 import type { WorkflowBoardColumn } from '@shared/types'
+import { isWorkflowCardCollapsedAtom, toggleWorkflowCardCollapsedAtom } from '@/atoms/workflow-board'
 import { SliceCard } from '@/components/kanban/SliceCard'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -67,9 +69,24 @@ export function KanbanColumn({ column, collapsed, onToggleCollapse }: KanbanColu
         {column.cards.length === 0 ? (
           <p className="px-1 py-2 text-xs text-muted-foreground">No slices</p>
         ) : (
-          column.cards.map((card) => <SliceCard key={card.id} card={card} />)
+          column.cards.map((card) => (
+            <SliceCardWithCollapse key={card.id} card={card} />
+          ))
         )}
       </div>
     </section>
+  )
+}
+
+function SliceCardWithCollapse({ card }: { card: WorkflowBoardColumn['cards'][number] }) {
+  const isCollapsed = useAtomValue(isWorkflowCardCollapsedAtom)
+  const toggleCollapse = useSetAtom(toggleWorkflowCardCollapsedAtom)
+
+  return (
+    <SliceCard
+      card={card}
+      collapsed={isCollapsed(card.id)}
+      onToggleCollapse={() => toggleCollapse(card.id)}
+    />
   )
 }

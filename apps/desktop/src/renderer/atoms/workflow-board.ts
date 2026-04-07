@@ -108,6 +108,46 @@ export const clearWorkflowBoardReturnContextAtom = atom(null, (_get, set) => {
   set(workflowBoardReturnContextAtom, null)
 })
 
+// --- Card collapse state ---
+
+const collapsedWorkflowCardsAtom = atom<Set<string>>(new Set<string>())
+
+export const isWorkflowCardCollapsedAtom = atom((get) => {
+  const collapsed = get(collapsedWorkflowCardsAtom)
+  return (cardId: string) => collapsed.has(cardId)
+})
+
+export const toggleWorkflowCardCollapsedAtom = atom(
+  null,
+  (get, set, cardId: string) => {
+    const current = new Set(get(collapsedWorkflowCardsAtom))
+    if (current.has(cardId)) {
+      current.delete(cardId)
+    } else {
+      current.add(cardId)
+    }
+    set(collapsedWorkflowCardsAtom, current)
+  },
+)
+
+export const collapseAllWorkflowCardsAtom = atom(null, (get, set) => {
+  const board = get(workflowBoardAtom)
+  if (!board) return
+  const allCardIds = new Set<string>()
+  for (const col of board.columns) {
+    for (const card of col.cards) {
+      allCardIds.add(card.id)
+    }
+  }
+  set(collapsedWorkflowCardsAtom, allCardIds)
+})
+
+export const expandAllWorkflowCardsAtom = atom(null, (_get, set) => {
+  set(collapsedWorkflowCardsAtom, new Set())
+})
+
+// --- Column collapse state ---
+
 export const collapsedWorkflowColumnsAtom = atom((get) => {
   const collapseKey = get(workflowBoardCollapseKeyAtom)
   const explicitCollapsed = get(workflowBoardCollapsedColumnsAtom)[collapseKey]

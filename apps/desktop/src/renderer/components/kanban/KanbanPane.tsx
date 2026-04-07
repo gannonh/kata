@@ -2,7 +2,9 @@ import { useAtomValue, useSetAtom } from 'jotai'
 import { Spinner } from '@/components/ui/spinner'
 import type { WorkflowBoardColumn, WorkflowColumnId } from '@shared/types'
 import {
+  collapseAllWorkflowCardsAtom,
   collapsedWorkflowColumnsAtom,
+  expandAllWorkflowCardsAtom,
   refreshWorkflowBoardAtom,
   resetWorkflowCollapsedColumnsAtom,
   toggleWorkflowColumnCollapsedAtom,
@@ -57,6 +59,8 @@ export function KanbanPane() {
   const clearOverride = useSetAtom(clearRightPaneOverrideAtom)
   const toggleCollapsedColumn = useSetAtom(toggleWorkflowColumnCollapsedAtom)
   const resetCollapsedColumns = useSetAtom(resetWorkflowCollapsedColumnsAtom)
+  const expandAllCards = useSetAtom(expandAllWorkflowCardsAtom)
+  const collapseAllCards = useSetAtom(collapseAllWorkflowCardsAtom)
 
   const rightPaneOverride = useAtomValue(rightPaneOverrideAtom)
   const paneResolution = useAtomValue(rightPaneResolutionAtom)
@@ -102,6 +106,8 @@ export function KanbanPane() {
         onExpandAllColumns={() => {
           resetCollapsedColumns()
         }}
+        onExpandAllCards={() => expandAllCards()}
+        onCollapseAllCards={() => collapseAllCards()}
         onOpenPlanningView={() => setRightPaneOverride('planning')}
         onOpenMcpSettings={() => {
           if (mcpShortcutDisabled) {
