@@ -41,10 +41,12 @@ const applySessionListResponseAtom = atom(
     set(sessionDirectoryAtom, response.directory)
 
     const existingSessionId = get(currentSessionIdAtom)
-    if (
-      existingSessionId &&
-      response.sessions.some((session) => session.id === existingSessionId)
-    ) {
+
+    // If we already have a current session ID, keep it even if it's not in the
+    // list yet — the bridge subprocess owns the session and the file may not
+    // have been flushed when the list was read. Only fall back to sessions[0]
+    // when there's genuinely no current session (e.g. first launch).
+    if (existingSessionId) {
       return
     }
 

@@ -772,7 +772,7 @@ export function registerSessionIpc({
     const workspacePath = bridge.getWorkspacePath()
 
     try {
-      return await sessionManager.listSessions(workspacePath, bridge.getKnownSessionIds())
+      return await sessionManager.listSessions(workspacePath)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       log.error('[desktop-ipc] session list failed', {
@@ -860,7 +860,6 @@ export function registerSessionIpc({
         const sessionPath = await sessionManager.resolveSessionPathById(
           trimmedSessionId,
           workspacePath,
-          bridge.getKnownSessionIds(),
         )
         if (!sessionPath) {
           return {
