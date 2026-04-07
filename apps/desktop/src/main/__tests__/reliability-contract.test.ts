@@ -38,6 +38,7 @@ describe('reliability-contract', () => {
     expect(redactReliabilityText(raw)).toContain('api_key=***')
     expect(redactReliabilityText(raw)).toContain('sk-abc123***')
     expect(redactReliabilityText(raw)).toContain('token=***')
+    expect(redactReliabilityText('sk-abc123')).toBe('sk-abc123***')
   })
 
   test('maps workflow snapshot errors into canonical reliability signals', () => {
