@@ -1,5 +1,6 @@
 import { McpConfigBridge } from './mcp-config-bridge'
-import type { McpServerStatus, McpServerStatusResponse } from '../shared/types'
+import type { McpServerStatus, McpServerStatusResponse, ReliabilitySignal } from '../shared/types'
+import { mapMcpStatusResponseToReliability } from './reliability-contract'
 
 interface McpServiceOptions {
   configBridge: McpConfigBridge
@@ -11,10 +12,15 @@ const DEFAULT_REQUEST_TIMEOUT_MS = 10_000
 export class McpService {
   private readonly configBridge: McpConfigBridge
   private readonly requestTimeoutMs: number
+  private lastReliabilitySignal: ReliabilitySignal | null = null
 
   constructor(options: McpServiceOptions) {
     this.configBridge = options.configBridge
     this.requestTimeoutMs = options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS
+  }
+
+  public getReliabilitySignal(): ReliabilitySignal | null {
+    return this.lastReliabilitySignal
   }
 
   public async refreshStatus(serverName: string): Promise<McpServerStatusResponse> {
@@ -31,14 +37,16 @@ export class McpService {
         mapBridgeErrorCode(runtimeServerResponse.error.code),
         runtimeServerResponse.error.message,
       )
-      return { success: false, status, error: status.error }
+      const response: McpServerStatusResponse = { success: false, status, error: status.error }
+      this.lastReliabilitySignal = mapMcpStatusResponseToReliability(response)
+      return response
     }
 
     const server = runtimeServerResponse.server
     const checkedAt = new Date().toISOString()
 
     if (!server.enabled) {
-      return {
+      const response: McpServerStatusResponse = {
         success: true,
         status: {
           serverName: server.name,
@@ -48,9 +56,11 @@ export class McpService {
           toolCount: 0,
         },
       }
+      this.lastReliabilitySignal = mapMcpStatusResponseToReliability(response)
+      return response
     }
 
-    return {
+    const response: McpServerStatusResponse = {
       success: true,
       status: {
         serverName: server.name,
@@ -60,6 +70,8 @@ export class McpService {
         toolCount: 0,
       },
     }
+    this.lastReliabilitySignal = mapMcpStatusResponseToReliability(response)
+    return response
   }
 
   public async reconnectServer(serverName: string): Promise<McpServerStatusResponse> {

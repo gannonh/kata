@@ -1298,6 +1298,57 @@ export interface McpServerStatusResponse {
   }
 }
 
+export type ReliabilityClass = 'config' | 'auth' | 'network' | 'process' | 'stale' | 'unknown'
+
+export type ReliabilitySeverity = 'info' | 'warning' | 'error' | 'critical'
+
+export type ReliabilityRecoveryAction =
+  | 'fix_config'
+  | 'reauthenticate'
+  | 'retry_request'
+  | 'restart_process'
+  | 'reconnect'
+  | 'refresh_state'
+  | 'inspect'
+
+export type ReliabilityRecoveryOutcome = 'pending' | 'succeeded' | 'failed' | 'none'
+
+export type ReliabilitySourceSurface = 'chat_runtime' | 'workflow_board' | 'symphony' | 'mcp'
+
+export interface ReliabilityDiagnostics {
+  code?: string
+  detail?: string
+  occurredAt?: string
+}
+
+export interface ReliabilitySignal {
+  code: string
+  class: ReliabilityClass
+  severity: ReliabilitySeverity
+  sourceSurface: ReliabilitySourceSurface
+  recoveryAction: ReliabilityRecoveryAction
+  outcome: ReliabilityRecoveryOutcome
+  message: string
+  timestamp: string
+  staleSince?: string
+  lastKnownGoodAt?: string
+  diagnostics?: ReliabilityDiagnostics
+}
+
+export interface ReliabilitySurfaceState {
+  sourceSurface: ReliabilitySourceSurface
+  status: 'healthy' | 'degraded'
+  signal: ReliabilitySignal | null
+  updatedAt: string
+  lastHealthyAt?: string
+}
+
+export interface ReliabilitySnapshot {
+  generatedAt: string
+  overallStatus: 'healthy' | 'degraded'
+  surfaces: ReliabilitySurfaceState[]
+}
+
 export type ArtifactType = 'roadmap' | 'requirements' | 'decisions' | 'context' | 'slice'
 
 export type RoadmapRisk = 'high' | 'medium' | 'low'

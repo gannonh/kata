@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import type { SymphonyRuntimeStatus } from '../shared/types'
+import type { SymphonyRuntimeStatus, ReliabilitySignal } from '../shared/types'
 import type {
   SymphonyEscalationResponseCommandResult,
   SymphonyEscalationResponseResult,
@@ -7,6 +7,11 @@ import type {
   SymphonyOperatorSnapshot,
   SymphonyOperatorWorkerRow,
 } from '../shared/types'
+import {
+  mapSymphonyOperatorSnapshotToReliability,
+  mapSymphonyRuntimeStatusToReliability,
+  pickPrimaryReliabilitySignal,
+} from './reliability-contract'
 
 const STALE_AFTER_MS = 30_000
 
@@ -90,6 +95,13 @@ export class SymphonyOperatorService extends EventEmitter {
   public getSnapshot(): SymphonyOperatorSnapshot {
     this.refreshFreshness()
     return this.snapshot
+  }
+
+  public getReliabilitySignal(): ReliabilitySignal | null {
+    return pickPrimaryReliabilitySignal([
+      mapSymphonyRuntimeStatusToReliability(this.runtimeStatus),
+      mapSymphonyOperatorSnapshotToReliability(this.snapshot),
+    ])
   }
 
   public async refreshBaseline(options: { advanceMockScenario?: boolean } = {}): Promise<SymphonyOperatorSnapshot> {

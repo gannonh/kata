@@ -128,4 +128,17 @@ describe('McpService', () => {
     expect(response.success).toBe(false)
     expect(response.status?.error?.code).toBe('SERVER_NOT_FOUND')
   })
+
+  test('exposes canonical MCP reliability signal for config/status failures', async () => {
+    await fs.writeFile(configPath, '{bad-json', 'utf8')
+
+    const service = createService()
+    await service.refreshStatus('local')
+
+    const reliability = service.getReliabilitySignal()
+    expect(reliability?.sourceSurface).toBe('mcp')
+    expect(reliability?.class).toBe('config')
+    expect(reliability?.recoveryAction).toBe('fix_config')
+    expect(reliability?.code).toBe('REL-MCP-CONFIG-MALFORMED_CONFIG')
+  })
 })
