@@ -1261,7 +1261,7 @@ export interface McpServerDeleteResponse {
 
 export interface McpServerStatus {
   serverName: string
-  phase: 'connected' | 'error' | 'unsupported'
+  phase: 'connected' | 'configured' | 'error' | 'unsupported'
   checkedAt: string
   toolNames: string[]
   toolCount: number

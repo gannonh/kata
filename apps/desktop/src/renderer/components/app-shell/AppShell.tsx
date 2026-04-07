@@ -269,10 +269,8 @@ export function AppShell() {
             source: 'settings_panel',
           })
         }}
-        returnToWorkflowDisabled={mcpBusy}
-        returnToWorkflowDisabledReason={
-          mcpBusy ? 'Finish pending MCP save/reconnect work before returning to the workflow board.' : null
-        }
+        returnToWorkflowDisabled={false}
+        returnToWorkflowDisabledReason={null}
       />
     </main>
   )

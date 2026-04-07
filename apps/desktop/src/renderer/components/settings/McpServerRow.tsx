@@ -11,6 +11,10 @@ export function formatMcpStatusLabel(status: McpServerStatus | undefined): strin
     return 'Connected'
   }
 
+  if (status.phase === 'configured') {
+    return 'Configured'
+  }
+
   if (status.phase === 'unsupported') {
     return 'Unsupported'
   }
@@ -29,7 +33,7 @@ export function mcpStatusBadgeVariant(
     return 'default'
   }
 
-  if (status.phase === 'unsupported') {
+  if (status.phase === 'configured' || status.phase === 'unsupported') {
     return 'secondary'
   }
 
