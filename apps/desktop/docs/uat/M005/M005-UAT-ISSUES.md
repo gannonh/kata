@@ -157,6 +157,22 @@ Currently starting Symphony requires: click Settings → click Symphony tab → 
 
 ---
 
+## 10a. MCP Refresh spawns server and can crash renderer
+
+**Severity:** High
+**Slice:** S03
+
+Clicking "Refresh" on an MCP server entry spawns the actual server process to do an initialize handshake. For servers like chrome-devtools-mcp with `--autoConnect`, this hijacks Electron's DevTools connection and crashes the renderer (white screen, "Render frame was disposed").
+
+Additionally, the status check blocks navigation with a confusing message: "Finish pending MCP save/reconnect work before returning to the workflow board." If the check times out, a TIMEOUT badge and error appear.
+
+**Expected:** 
+- Refresh should not spawn servers that can interfere with Electron internals
+- The blocking navigation message should be removed or made non-blocking
+- Timeout errors should be handled gracefully without alarming the user
+
+---
+
 ## 10. Card height should not be dynamic based on viewport — use expand/collapse chevron
 
 **Severity:** High
