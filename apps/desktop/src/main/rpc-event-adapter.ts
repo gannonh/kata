@@ -62,6 +62,12 @@ const LANGUAGE_BY_EXTENSION: Record<string, string> = {
 }
 
 export class RpcEventAdapter {
+  private readonly idPrefix: string
+
+  constructor(idPrefix = 'message') {
+    this.idPrefix = idPrefix
+  }
+
   public adapt(input: unknown): ChatEvent[] {
     if (!input || typeof input !== 'object') {
       return [
@@ -95,7 +101,7 @@ export class RpcEventAdapter {
         }
 
         if (role === 'user') {
-          const messageId = `message:${++this.messageIdCounter}`
+          const messageId = this.nextMessageId()
           return [{ type: 'message_start', role: 'user', messageId }]
         }
 
@@ -107,7 +113,7 @@ export class RpcEventAdapter {
         if (!this.currentAssistantMessageHadContent && this.currentAssistantMessageId !== null) {
           messageId = this.currentAssistantMessageId
         } else {
-          messageId = `message:${++this.messageIdCounter}`
+          messageId = this.nextMessageId()
           this.currentAssistantMessageId = messageId
           this.currentAssistantMessageHadContent = false
         }
@@ -119,7 +125,7 @@ export class RpcEventAdapter {
         const ameType = event.assistantMessageEvent?.type
         // Persist the ID if we had to synthesize one (recovery for missing message_start)
         if (this.currentAssistantMessageId === null) {
-          this.currentAssistantMessageId = `message:${++this.messageIdCounter}`
+          this.currentAssistantMessageId = this.nextMessageId()
           this.currentAssistantMessageHadContent = false
         }
         const messageId = this.currentAssistantMessageId
@@ -172,7 +178,7 @@ export class RpcEventAdapter {
         const stopReason = typeof message?.stopReason === 'string' ? message.stopReason : undefined
         // Persist the ID if we had to synthesize one (recovery for missing message_start)
         if (this.currentAssistantMessageId === null) {
-          this.currentAssistantMessageId = `message:${++this.messageIdCounter}`
+          this.currentAssistantMessageId = this.nextMessageId()
           this.currentAssistantMessageHadContent = false
         }
         const messageId = this.currentAssistantMessageId
@@ -508,6 +514,10 @@ export class RpcEventAdapter {
   }
 
   private messageIdCounter = 0
+
+  private nextMessageId(): string {
+    return `${this.idPrefix}:${++this.messageIdCounter}`
+  }
   private currentAssistantMessageId: string | null = null
   private currentAssistantMessageHadContent = false
   private readonly toolArgsCache = new Map<string, ToolArgs>()

@@ -226,7 +226,7 @@ export class SessionHistoryLoader {
       }
     }
 
-    const adapter = new RpcEventAdapter()
+    const adapter = new RpcEventAdapter('history')
     const events: ChatEvent[] = []
     const toolMetaByCallId = new Map<string, ToolMeta>()
     const unresolvedToolOrder: string[] = []
