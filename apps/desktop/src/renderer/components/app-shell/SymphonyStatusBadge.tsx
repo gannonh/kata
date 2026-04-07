@@ -1,15 +1,16 @@
 import { useAtomValue, useSetAtom } from 'jotai'
-import { Play, Square, RotateCcw } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Spinner } from '@/components/ui/spinner'
 import { symphonyCommandPendingAtom, symphonyStatusAtom, runSymphonyCommandAtom } from '@/atoms/symphony'
 import {
   formatSymphonyPhaseLabel,
-  phaseBadgeVariant,
   deriveSymphonyControlState,
 } from '../settings/SymphonyRuntimePanel'
+
+function statusDotColor(phase: string): string {
+  if (phase === 'ready') return 'bg-emerald-500'
+  if (phase === 'starting' || phase === 'restarting' || phase === 'stopping') return 'bg-amber-500'
+  return 'bg-red-500'
+}
 
 export function SymphonyStatusBadge() {
   const status = useAtomValue(symphonyStatusAtom)
@@ -22,61 +23,33 @@ export function SymphonyStatusBadge() {
     pending,
   })
 
+  const isRunning = status.phase === 'ready'
+  const isTransitioning = pending || status.phase === 'starting' || status.phase === 'restarting' || status.phase === 'stopping'
+
+  const handleClick = () => {
+    if (isTransitioning) return
+    if (isRunning) {
+      void runCommand('stop')
+    } else {
+      void runCommand('start')
+    }
+  }
+
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button type="button" className="cursor-pointer" data-testid="symphony-status-badge">
-          <Badge variant={phaseBadgeVariant(status.phase)}>
-            Symphony: {formatSymphonyPhaseLabel(status.phase)}
-          </Badge>
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-48 p-2" align="start">
-        <div className="flex flex-col gap-1">
-          {pending ? (
-            <div className="flex items-center justify-center gap-2 py-2 text-xs text-muted-foreground">
-              <Spinner className="size-3" />
-              <span>Working…</span>
-            </div>
-          ) : (
-            <>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                className="h-8 justify-start gap-2 text-xs"
-                disabled={!controls.canStart}
-                onClick={() => void runCommand('start')}
-              >
-                <Play className="size-3.5" />
-                Start
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                className="h-8 justify-start gap-2 text-xs"
-                disabled={!controls.canStop}
-                onClick={() => void runCommand('stop')}
-              >
-                <Square className="size-3.5" />
-                Stop
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                className="h-8 justify-start gap-2 text-xs"
-                disabled={!controls.canRestart}
-                onClick={() => void runCommand('restart')}
-              >
-                <RotateCcw className="size-3.5" />
-                Restart
-              </Button>
-            </>
-          )}
-        </div>
-      </PopoverContent>
-    </Popover>
+    <button
+      type="button"
+      className="flex items-center gap-2 rounded-md border border-border/70 bg-background/70 px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
+      onClick={handleClick}
+      disabled={isTransitioning}
+      title={isTransitioning ? 'Symphony is transitioning…' : isRunning ? 'Click to stop Symphony' : 'Click to start Symphony'}
+      data-testid="symphony-status-badge"
+    >
+      {isTransitioning ? (
+        <Spinner className="size-2.5" />
+      ) : (
+        <span className={`size-2.5 rounded-full ${statusDotColor(status.phase)}`} />
+      )}
+      Symphony: {formatSymphonyPhaseLabel(status.phase)}
+    </button>
   )
 }
