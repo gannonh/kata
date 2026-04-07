@@ -1,4 +1,5 @@
 import { EventEmitter } from 'node:events'
+import log from './logger'
 import {
   mapChatBridgeStatusToReliability,
   mapChatSubprocessCrashToReliability,
@@ -167,6 +168,12 @@ export class RuntimeHealthAggregator extends EventEmitter {
     const surface = this.surfaces.get(request.sourceSurface)
     const action = request.action ?? surface?.signal?.recoveryAction ?? 'inspect'
     const timestamp = this.now()
+    const preRecoverySignal = surface?.signal ? { ...surface.signal } : null
+
+    log.info('[runtime-health-aggregator] recovery requested', {
+      sourceSurface: request.sourceSurface,
+      action,
+    })
 
     let attempt: RecoveryAttempt
 
@@ -184,19 +191,37 @@ export class RuntimeHealthAggregator extends EventEmitter {
           action,
         })
       } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        log.error('[runtime-health-aggregator] recovery threw', {
+          sourceSurface: request.sourceSurface,
+          action,
+          error: message,
+        })
         attempt = {
           success: false,
           outcome: 'failed',
           code: 'RECOVERY_THROW',
-          message: error instanceof Error ? error.message : String(error),
+          message,
         }
       }
     }
 
-    const currentSurface = this.surfaces.get(request.sourceSurface)
-    if (currentSurface?.signal) {
+    log.info('[runtime-health-aggregator] recovery completed', {
+      sourceSurface: request.sourceSurface,
+      action,
+      success: attempt.success,
+      outcome: attempt.outcome,
+      code: attempt.code,
+      message: attempt.message,
+    })
+
+    const currentSurfaceSignal = this.surfaces.get(request.sourceSurface)?.signal
+    const signalForOutcome =
+      currentSurfaceSignal ?? (attempt.outcome === 'failed' ? preRecoverySignal : null)
+
+    if (signalForOutcome) {
       this.updateSurface(request.sourceSurface, {
-        ...currentSurface.signal,
+        ...signalForOutcome,
         recoveryAction: action,
         outcome: attempt.outcome,
         timestamp,

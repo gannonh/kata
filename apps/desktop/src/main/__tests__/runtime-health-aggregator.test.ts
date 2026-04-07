@@ -183,6 +183,48 @@ describe('RuntimeHealthAggregator', () => {
     expect(workflowSurface?.signal?.outcome).toBe('succeeded')
   })
 
+  test('preserves failed recovery outcome when callback clears the surface signal', async () => {
+    let aggregator!: RuntimeHealthAggregator
+
+    const requestRecovery = vi.fn(async () => {
+      aggregator.ingestWorkflowSnapshot(createWorkflowSnapshot())
+      return {
+        success: false,
+        outcome: 'failed' as const,
+        code: 'WORKFLOW_REFRESH_FAILED',
+        message: 'Workflow board is still degraded.',
+      }
+    })
+
+    aggregator = new RuntimeHealthAggregator({
+      now: () => '2026-04-07T20:00:00.000Z',
+      requestRecovery,
+    })
+
+    aggregator.ingestWorkflowSnapshot(
+      createWorkflowSnapshot({
+        status: 'error',
+        lastError: {
+          code: 'NETWORK',
+          message: 'Network timeout while refreshing workflow board',
+        },
+      }),
+    )
+
+    const result = await aggregator.requestRecoveryAction({
+      sourceSurface: 'workflow_board',
+      action: 'reconnect',
+    })
+
+    expect(result.success).toBe(false)
+    expect(result.outcome).toBe('failed')
+
+    const workflowSurface = getSurface(aggregator.getSnapshot(), 'workflow_board')
+    expect(workflowSurface?.status).toBe('degraded')
+    expect(workflowSurface?.signal?.outcome).toBe('failed')
+    expect(workflowSurface?.signal?.recoveryAction).toBe('reconnect')
+  })
+
   test('maps chat crashes into process reliability signals with redacted diagnostics', () => {
     const aggregator = new RuntimeHealthAggregator({ now: () => '2026-04-07T20:00:00.000Z' })
 

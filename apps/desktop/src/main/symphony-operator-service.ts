@@ -98,6 +98,7 @@ export class SymphonyOperatorService extends EventEmitter {
   }
 
   public getReliabilitySignal(): ReliabilitySignal | null {
+    this.refreshFreshness()
     return pickPrimaryReliabilitySignal([
       mapSymphonyRuntimeStatusToReliability(this.runtimeStatus),
       mapSymphonyOperatorSnapshotToReliability(this.snapshot),

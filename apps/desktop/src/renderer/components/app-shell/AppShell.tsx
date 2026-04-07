@@ -283,7 +283,7 @@ export function AppShell() {
   const reliabilityTone = reliabilitySeverityTone(primarySignal?.severity)
 
   return (
-    <main className="size-full bg-background text-foreground">
+    <main className="flex size-full min-h-0 flex-col bg-background text-foreground">
       {primaryReliabilitySurface && primarySignal ? (
         <div
           className={
@@ -329,7 +329,7 @@ export function AppShell() {
 
       <Group
         orientation="horizontal"
-        className="size-full"
+        className="min-h-0 flex-1"
         defaultLayout={defaultLayout}
         onLayoutChanged={(layout) => {
           try {

@@ -141,4 +141,44 @@ describe('McpService', () => {
     expect(reliability?.recoveryAction).toBe('fix_config')
     expect(reliability?.code).toBe('REL-MCP-CONFIG-MALFORMED_CONFIG')
   })
+
+  test('aggregates reliability across servers instead of last-write wins', async () => {
+    const serverState = {
+      broken: true,
+    }
+
+    const configBridge = {
+      getRuntimeServer: vi.fn(async (serverName: string) => {
+        if (serverName === 'broken' && serverState.broken) {
+          return {
+            success: false,
+            error: {
+              code: 'MALFORMED_CONFIG',
+              message: 'Invalid config',
+            },
+          }
+        }
+
+        return {
+          success: true,
+          server: {
+            name: serverName,
+            enabled: true,
+          },
+        }
+      }),
+    } as any
+
+    const service = new McpService({ configBridge })
+
+    await service.refreshStatus('broken')
+    expect(service.getReliabilitySignal()?.code).toBe('REL-MCP-CONFIG-MALFORMED_CONFIG')
+
+    await service.refreshStatus('healthy')
+    expect(service.getReliabilitySignal()?.code).toBe('REL-MCP-CONFIG-MALFORMED_CONFIG')
+
+    serverState.broken = false
+    await service.refreshStatus('broken')
+    expect(service.getReliabilitySignal()).toBeNull()
+  })
 })

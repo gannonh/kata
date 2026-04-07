@@ -524,6 +524,25 @@ export class PiAgentBridge extends EventEmitter {
     this.reliabilityFaultInjected = true
 
     const stderrLines = ['Injected test subprocess crash fault.']
+    const crashError = new Error(stderrLines[0])
+    const activeChild = this.child
+    const activePid = activeChild?.pid ?? null
+
+    if (activeChild) {
+      activeChild.removeAllListeners('exit')
+      activeChild.removeAllListeners('close')
+      activeChild.removeAllListeners('error')
+      activeChild.stderr.removeAllListeners('data')
+
+      if (!activeChild.killed && activeChild.exitCode === null) {
+        activeChild.kill('SIGKILL')
+      }
+
+      this.cleanupStreams()
+      this.child = null
+      this.rejectPending(crashError)
+    }
+
     this.status = 'crashed'
 
     this.emit('debug', {
@@ -539,13 +558,13 @@ export class PiAgentBridge extends EventEmitter {
 
     this.emitStatus({
       state: 'crashed',
-      pid: this.child?.pid ?? null,
+      pid: activePid,
       message: stderrLines[0],
       exitCode: 137,
       signal: 'SIGKILL',
     })
 
-    return new Error(stderrLines[0])
+    return crashError
   }
 
   private writeJsonLine(payload: Record<string, unknown>): Promise<void> {

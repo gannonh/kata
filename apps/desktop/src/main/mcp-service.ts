@@ -1,6 +1,9 @@
 import { McpConfigBridge } from './mcp-config-bridge'
 import type { McpServerStatus, McpServerStatusResponse, ReliabilitySignal } from '../shared/types'
-import { mapMcpStatusResponseToReliability } from './reliability-contract'
+import {
+  mapMcpStatusResponseToReliability,
+  pickPrimaryReliabilitySignal,
+} from './reliability-contract'
 
 interface McpServiceOptions {
   configBridge: McpConfigBridge
@@ -12,7 +15,7 @@ const DEFAULT_REQUEST_TIMEOUT_MS = 10_000
 export class McpService {
   private readonly configBridge: McpConfigBridge
   private readonly requestTimeoutMs: number
-  private lastReliabilitySignal: ReliabilitySignal | null = null
+  private readonly reliabilityByServer = new Map<string, ReliabilitySignal | null>()
 
   constructor(options: McpServiceOptions) {
     this.configBridge = options.configBridge
@@ -20,7 +23,7 @@ export class McpService {
   }
 
   public getReliabilitySignal(): ReliabilitySignal | null {
-    return this.lastReliabilitySignal
+    return pickPrimaryReliabilitySignal([...this.reliabilityByServer.values()])
   }
 
   public async refreshStatus(serverName: string): Promise<McpServerStatusResponse> {
@@ -38,7 +41,7 @@ export class McpService {
         runtimeServerResponse.error.message,
       )
       const response: McpServerStatusResponse = { success: false, status, error: status.error }
-      this.lastReliabilitySignal = mapMcpStatusResponseToReliability(response)
+      this.updateServerReliabilitySignal(serverName, response)
       return response
     }
 
@@ -56,7 +59,7 @@ export class McpService {
           toolCount: 0,
         },
       }
-      this.lastReliabilitySignal = mapMcpStatusResponseToReliability(response)
+      this.updateServerReliabilitySignal(serverName, response)
       return response
     }
 
@@ -70,7 +73,7 @@ export class McpService {
         toolCount: 0,
       },
     }
-    this.lastReliabilitySignal = mapMcpStatusResponseToReliability(response)
+    this.updateServerReliabilitySignal(serverName, response)
     return response
   }
 
@@ -81,6 +84,19 @@ export class McpService {
     // the connections. Spawning servers from the Electron main process
     // is unsafe (e.g. chrome-devtools-mcp hijacks Electron DevTools).
     return this.refreshStatus(serverName)
+  }
+
+  private updateServerReliabilitySignal(
+    serverName: string,
+    response: McpServerStatusResponse,
+  ): void {
+    const signal = mapMcpStatusResponseToReliability(response)
+    if (signal) {
+      this.reliabilityByServer.set(serverName, signal)
+      return
+    }
+
+    this.reliabilityByServer.delete(serverName)
   }
 
   private createErrorStatus(
@@ -114,5 +130,3 @@ function mapBridgeErrorCode(code: string): NonNullable<McpServerStatus['error']>
 
   return 'UNKNOWN'
 }
-
-
