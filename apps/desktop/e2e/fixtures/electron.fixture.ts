@@ -224,7 +224,9 @@ function seedWorkspacePreferences(workspaceDir: string, scenario: M006Integrated
 workflow:
   mode: linear
 projectId: test-project
-teamKey: KAT
+linear:
+  teamKey: KAT
+  projectSlug: test-project
 symphony:
   url: http://127.0.0.1:8080
 ---

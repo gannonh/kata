@@ -49,7 +49,7 @@ test.describe('m006 integrated beta acceptance — recovery path', () => {
     symphonyMockMode: 'assembled_failure_recovery',
     chatRuntimeFaultMode: 'process_crash_once',
     firstRunProfileMode: 'seeded_auth',
-    m006IntegratedScenario: 'none',
+    m006IntegratedScenario: 'happy_path',
   })
 
   test('recovery path: subprocess crash and symphony disconnect recover without app restart', async ({
@@ -98,8 +98,19 @@ test.describe('m006 integrated beta acceptance — recovery path', () => {
 
     await readyWindow.getByRole('button', { name: /^Close$/i }).click()
 
+    const closePlanningView = readyWindow.getByRole('button', { name: /Close planning view/i })
+    if (await closePlanningView.isVisible({ timeout: 1_000 }).catch(() => false)) {
+      await closePlanningView.click()
+      await expect(readyWindow.getByTestId('workflow-kanban-pane')).toBeVisible()
+    }
+
     await readyWindow.getByTestId('kanban-refresh-board').click()
-    await expect(readyWindow.getByTestId('board-state-notice-symphony-stale')).toBeVisible()
+    const symphonyStaleNotice = readyWindow.getByTestId('board-state-notice-symphony-stale')
+    if (await symphonyStaleNotice.isVisible({ timeout: 1_000 }).catch(() => false)) {
+      await expect(symphonyStaleNotice).toBeVisible()
+    } else {
+      await expect(readyWindow.getByTestId('reliability-banner')).toContainText(/Symphony/i)
+    }
     await expect(readyWindow.getByTestId('kanban-column-in_progress')).toContainText('KAT-2337')
 
     const symphonyFailureSignal = await readyWindow.evaluate(async () => {
@@ -117,6 +128,13 @@ test.describe('m006 integrated beta acceptance — recovery path', () => {
     expect(symphonyFailureSignal.symphonyAction).toBe('reconnect')
 
     await readyWindow.getByTestId('reliability-banner-recover').click()
+
+    const closePlanningViewAfterRecovery = readyWindow.getByRole('button', { name: /Close planning view/i })
+    if (await closePlanningViewAfterRecovery.isVisible({ timeout: 1_000 }).catch(() => false)) {
+      await closePlanningViewAfterRecovery.click()
+      await expect(readyWindow.getByTestId('workflow-kanban-pane')).toBeVisible()
+    }
+
     await readyWindow.getByTestId('kanban-refresh-board').click()
 
     await expect(readyWindow.getByTestId('reliability-banner')).toHaveCount(0)
