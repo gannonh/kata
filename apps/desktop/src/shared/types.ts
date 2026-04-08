@@ -55,6 +55,9 @@ export const IPC_CHANNELS = {
   mcpDeleteServer: 'mcp:delete-server',
   mcpRefreshStatus: 'mcp:refresh-status',
   mcpReconnectServer: 'mcp:reconnect-server',
+  reliabilityGetStatus: 'reliability:get-status',
+  reliabilityStatus: 'reliability:status',
+  reliabilityRequestRecoveryAction: 'reliability:request-recovery-action',
 } as const
 
 export type PermissionMode = 'explore' | 'ask' | 'auto'
@@ -1298,6 +1301,77 @@ export interface McpServerStatusResponse {
   }
 }
 
+export type ReliabilityClass = 'config' | 'auth' | 'network' | 'process' | 'stale' | 'unknown'
+
+export type ReliabilitySeverity = 'info' | 'warning' | 'error' | 'critical'
+
+export type ReliabilityRecoveryAction =
+  | 'fix_config'
+  | 'reauthenticate'
+  | 'retry_request'
+  | 'restart_process'
+  | 'reconnect'
+  | 'refresh_state'
+  | 'inspect'
+
+export type ReliabilityRecoveryOutcome = 'pending' | 'succeeded' | 'failed' | 'none'
+
+export type ReliabilitySourceSurface = 'chat_runtime' | 'workflow_board' | 'symphony' | 'mcp'
+
+export interface ReliabilityDiagnostics {
+  code?: string
+  detail?: string
+  occurredAt?: string
+}
+
+export interface ReliabilitySignal {
+  code: string
+  class: ReliabilityClass
+  severity: ReliabilitySeverity
+  sourceSurface: ReliabilitySourceSurface
+  recoveryAction: ReliabilityRecoveryAction
+  outcome: ReliabilityRecoveryOutcome
+  message: string
+  timestamp: string
+  staleSince?: string
+  lastKnownGoodAt?: string
+  diagnostics?: ReliabilityDiagnostics
+}
+
+export interface ReliabilitySurfaceState {
+  sourceSurface: ReliabilitySourceSurface
+  status: 'healthy' | 'degraded'
+  signal: ReliabilitySignal | null
+  updatedAt: string
+  lastHealthyAt?: string
+}
+
+export interface ReliabilitySnapshot {
+  generatedAt: string
+  overallStatus: 'healthy' | 'degraded'
+  surfaces: ReliabilitySurfaceState[]
+}
+
+export interface ReliabilityStatusResponse {
+  success: boolean
+  snapshot: ReliabilitySnapshot
+}
+
+export interface ReliabilityRecoveryRequest {
+  sourceSurface: ReliabilitySourceSurface
+  action?: ReliabilityRecoveryAction
+}
+
+export interface ReliabilityRecoveryResult {
+  success: boolean
+  sourceSurface: ReliabilitySourceSurface
+  action: ReliabilityRecoveryAction
+  outcome: 'succeeded' | 'failed'
+  code: string
+  message: string
+  timestamp: string
+}
+
 export type ArtifactType = 'roadmap' | 'requirements' | 'decisions' | 'context' | 'slice'
 
 export type RoadmapRisk = 'high' | 'medium' | 'low'
@@ -1445,6 +1519,13 @@ export interface DesktopApi {
     deleteServer: (name: string) => Promise<McpServerDeleteResponse>
     refreshStatus: (name: string) => Promise<McpServerStatusResponse>
     reconnectServer: (name: string) => Promise<McpServerStatusResponse>
+  }
+  reliability: {
+    getStatus: () => Promise<ReliabilityStatusResponse>
+    requestRecoveryAction: (
+      request: ReliabilityRecoveryRequest,
+    ) => Promise<ReliabilityRecoveryResult>
+    onStatus: (listener: (snapshot: ReliabilitySnapshot) => void) => () => void
   }
 }
 

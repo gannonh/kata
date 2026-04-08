@@ -125,16 +125,18 @@ function createMockChild(options: MockChildOptions = {}) {
     return true
   })
 
-  return {
-    killed: false,
-    pid: 4242,
-    exitCode: null,
-    stdin: {
-      writable: options.writable ?? true,
-      write,
-    },
-    kill: vi.fn(),
-  } as any
+  const child = new EventEmitter() as any
+  child.killed = false
+  child.pid = 4242
+  child.exitCode = null
+  child.stdin = {
+    writable: options.writable ?? true,
+    write,
+  }
+  child.stderr = new EventEmitter()
+  child.kill = vi.fn(() => true)
+
+  return child
 }
 
 function createTempExecutable(scriptContents: string): { executablePath: string; cleanup: () => void } {
@@ -265,6 +267,109 @@ describe('PiAgentBridge additional coverage', () => {
 
     expect(sendSpy).toHaveBeenNthCalledWith(1, { type: 'prompt', message: 'ship it' })
     expect(sendSpy).toHaveBeenNthCalledWith(2, { type: 'abort' })
+  })
+
+  test('injects one-time reliability crash fault for prompt in test mode', async () => {
+    const previousTestMode = process.env.KATA_TEST_MODE
+    const previousFaultMode = process.env.KATA_DESKTOP_RELIABILITY_CHAT_FAULT
+
+    process.env.KATA_TEST_MODE = '1'
+    process.env.KATA_DESKTOP_RELIABILITY_CHAT_FAULT = 'process_crash_once'
+
+    try {
+      const bridge = new PiAgentBridge(process.cwd())
+      const sendSpy = vi
+        .spyOn(bridge, 'send')
+        .mockResolvedValue({ command: 'prompt', success: true } as CommandResult)
+      const crashes: Array<{ exitCode: number | null; signal: NodeJS.Signals | null; stderrLines: string[] }> = []
+      const statuses: string[] = []
+
+      bridge.on('crash', (payload) => {
+        crashes.push(payload)
+      })
+
+      bridge.on('status', (status) => {
+        statuses.push(status.state)
+      })
+
+      await expect(bridge.prompt('trigger injected crash')).rejects.toThrow('Injected test subprocess crash fault.')
+      expect(crashes).toHaveLength(1)
+      expect(crashes[0]?.exitCode).toBe(137)
+      expect(statuses.at(-1)).toBe('crashed')
+      expect(sendSpy).not.toHaveBeenCalled()
+
+      await bridge.prompt('second prompt should proceed')
+      expect(sendSpy).toHaveBeenCalledWith({ type: 'prompt', message: 'second prompt should proceed' })
+    } finally {
+      if (previousTestMode === undefined) {
+        delete process.env.KATA_TEST_MODE
+      } else {
+        process.env.KATA_TEST_MODE = previousTestMode
+      }
+
+      if (previousFaultMode === undefined) {
+        delete process.env.KATA_DESKTOP_RELIABILITY_CHAT_FAULT
+      } else {
+        process.env.KATA_DESKTOP_RELIABILITY_CHAT_FAULT = previousFaultMode
+      }
+    }
+  })
+
+  test('injectPromptCrashFault tears down active subprocess state before reporting crash', () => {
+    const previousTestMode = process.env.KATA_TEST_MODE
+    const previousFaultMode = process.env.KATA_DESKTOP_RELIABILITY_CHAT_FAULT
+
+    process.env.KATA_TEST_MODE = '1'
+    process.env.KATA_DESKTOP_RELIABILITY_CHAT_FAULT = 'process_crash_once'
+
+    try {
+      const bridge = new PiAgentBridge(process.cwd()) as any
+      const child = createMockChild()
+      const closeReader = vi.fn()
+      bridge.child = child
+      bridge.status = 'running'
+      bridge.stdoutReader = {
+        removeAllListeners: vi.fn(),
+        close: closeReader,
+      }
+
+      let rejectedMessage: string | undefined
+      bridge.pending.set('cmd-1', {
+        command: 'prompt',
+        resolve: () => {},
+        reject: (error: Error) => {
+          rejectedMessage = error.message
+        },
+      })
+
+      const crashes: Array<{ exitCode: number | null; signal: NodeJS.Signals | null; stderrLines: string[] }> = []
+      bridge.on('crash', (payload: { exitCode: number | null; signal: NodeJS.Signals | null; stderrLines: string[] }) => {
+        crashes.push(payload)
+      })
+
+      const error = bridge.injectPromptCrashFault()
+
+      expect(error.message).toBe('Injected test subprocess crash fault.')
+      expect(child.kill).toHaveBeenCalledWith('SIGKILL')
+      expect(closeReader).toHaveBeenCalledTimes(1)
+      expect(bridge.child).toBeNull()
+      expect(bridge.pending.size).toBe(0)
+      expect(rejectedMessage).toBe('Injected test subprocess crash fault.')
+      expect(crashes).toHaveLength(1)
+      expect(crashes[0]?.stderrLines[0]).toBe('Injected test subprocess crash fault.')
+    } finally {
+      if (previousTestMode === undefined) {
+        delete process.env.KATA_TEST_MODE
+      } else {
+        process.env.KATA_TEST_MODE = previousTestMode
+      }
+
+      if (previousFaultMode === undefined) {
+        delete process.env.KATA_DESKTOP_RELIABILITY_CHAT_FAULT
+      } else {
+        process.env.KATA_DESKTOP_RELIABILITY_CHAT_FAULT = previousFaultMode
+      }
+    }
   })
 
   test('getAvailableModels returns only valid model entries', async () => {

@@ -273,6 +273,49 @@ describe('SymphonyOperatorService', () => {
     expect(response.result?.message).toContain('URL is unavailable')
   })
 
+  test('exposes canonical reliability signal when symphony runtime fails', async () => {
+    const service = new SymphonyOperatorService({
+      fetchImpl: vi.fn(async () => ({ ok: true, json: async () => ({}) }) as Response),
+      createWebSocket: () => fakeSocket,
+    })
+
+    await service.syncRuntimeStatus(DISCONNECTED_STATUS)
+    const signal = service.getReliabilitySignal()
+
+    expect(signal?.sourceSurface).toBe('symphony')
+    expect(signal?.class).toBe('process')
+    expect(signal?.recoveryAction).toBe('restart_process')
+    expect(signal?.code).toBe('REL-SYMPHONY-PROCESS-PROCESS_EXITED')
+  })
+
+  test('refreshes freshness before computing operator reliability signal', () => {
+    const service = new SymphonyOperatorService({
+      fetchImpl: vi.fn(async () => ({ ok: true, json: async () => ({}) }) as Response),
+      createWebSocket: () => fakeSocket,
+    }) as any
+
+    service.snapshot = {
+      fetchedAt: new Date(Date.now() - 60_000).toISOString(),
+      queueCount: 0,
+      completedCount: 0,
+      workers: [],
+      escalations: [],
+      connection: {
+        state: 'connected',
+        updatedAt: new Date(Date.now() - 60_000).toISOString(),
+      },
+      freshness: {
+        status: 'fresh',
+      },
+      response: {},
+    }
+
+    const signal = service.getReliabilitySignal()
+    expect(signal?.sourceSurface).toBe('symphony')
+    expect(signal?.class).toBe('stale')
+    expect(signal?.recoveryAction).toBe('refresh_state')
+  })
+
   test('preserves legacy kanban mock identifiers for board correlation', async () => {
     const service = new SymphonyOperatorService({
       env: { KATA_DESKTOP_SYMPHONY_DASHBOARD_MOCK: 'kanban_assigned' },

@@ -1243,6 +1243,25 @@ describe('WorkflowBoardService', () => {
     expect(second.snapshot.status).toBe('empty')
   })
 
+  test('exposes canonical workflow reliability signal for the latest board failure', async () => {
+    process.env.KATA_TEST_MODE = '1'
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+    })
+
+    service.setActive(true)
+    service.setScope('workspace:a::session:b::scenario:auth-failure')
+    await service.refreshBoard()
+
+    const reliability = service.getReliabilitySignal()
+    expect(reliability?.sourceSurface).toBe('workflow_board')
+    expect(reliability?.class).toBe('auth')
+    expect(reliability?.recoveryAction).toBe('reauthenticate')
+    expect(reliability?.code).toBe('REL-WORKFLOW-AUTH-UNAUTHORIZED')
+  })
+
   test('filters active scope to cards with live symphony assignments', async () => {
     const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-active-scope-'))
     mkdirSync(path.join(workspacePath, '.kata'), { recursive: true })

@@ -1,28 +1,56 @@
-import type { WorkflowBoardSnapshot } from '@shared/types'
+import type { ReliabilitySignal, WorkflowBoardSnapshot } from '@shared/types'
+import {
+  formatReliabilityActionLabel,
+  formatReliabilityClassLabel,
+  reliabilitySeverityTone,
+  useReliabilitySurfaceState,
+} from '@/atoms/reliability'
 
 interface BoardStateNoticeProps {
   board: WorkflowBoardSnapshot | null
   error: string | null
 }
 
+export function formatWorkflowReliabilityNotice(signal: ReliabilitySignal): string {
+  return (
+    `${formatReliabilityClassLabel(signal.class)} issue (${signal.code}). ` +
+    `${signal.message} ` +
+    `Recommended recovery: ${formatReliabilityActionLabel(signal.recoveryAction)}.` +
+    (signal.lastKnownGoodAt
+      ? ` Last known good: ${new Date(signal.lastKnownGoodAt).toLocaleTimeString()}.`
+      : '')
+  )
+}
+
 export function BoardStateNotice({ board, error }: BoardStateNoticeProps) {
+  const workflowReliability = useReliabilitySurfaceState('workflow_board')
   const notices: Array<{ id: string; tone: 'error' | 'warning'; message: string }> = []
 
-  if (error) {
-    notices.push({
-      id: 'board-error',
-      tone: 'error',
-      message: `${error} Last known board state is still shown so you can recover without losing context.`,
-    })
-  }
+  if (workflowReliability.signal) {
+    const tone = reliabilitySeverityTone(workflowReliability.signal.severity) === 'error' ? 'error' : 'warning'
 
-  if (board?.status === 'stale') {
     notices.push({
-      id: 'board-stale',
-      tone: 'warning',
-      message:
-        'Workflow data is stale. Retry refresh to reconcile rollback or remote changes before continuing board mutations.',
+      id: 'workflow-reliability',
+      tone,
+      message: formatWorkflowReliabilityNotice(workflowReliability.signal),
     })
+  } else {
+    if (error) {
+      notices.push({
+        id: 'board-error',
+        tone: 'error',
+        message: `${error} Last known board state is still shown so you can recover without losing context.`,
+      })
+    }
+
+    if (board?.status === 'stale') {
+      notices.push({
+        id: 'board-stale',
+        tone: 'warning',
+        message:
+          'Workflow data is stale. Retry refresh to reconcile rollback or remote changes before continuing board mutations.',
+      })
+    }
   }
 
   const activeUnavailable =

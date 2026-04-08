@@ -7,6 +7,7 @@ import { GithubWorkflowClient } from './github-workflow-client'
 import log from './logger'
 import { WorkflowContextService } from './workflow-context-service'
 import { readWorkspaceWorkflowTrackerConfig } from './workflow-config-reader'
+import { mapWorkflowBoardSnapshotToReliability } from './reliability-contract'
 import type {
   SymphonyOperatorSnapshot,
   WorkflowBoardScope,
@@ -31,6 +32,7 @@ import type {
   WorkflowColumnId,
   WorkflowSymphonyExecutionFreshness,
   WorkflowSymphonyExecutionProvenance,
+  ReliabilitySignal,
 } from '../shared/types'
 
 const TEST_LINEAR_WORKFLOW_FIXTURE: WorkflowBoardSnapshot = {
@@ -877,6 +879,10 @@ export class WorkflowBoardService {
       boardAvailable: Boolean(this.lastSnapshot),
       updatedAt: new Date().toISOString(),
     }
+  }
+
+  getReliabilitySignal(): ReliabilitySignal | null {
+    return mapWorkflowBoardSnapshotToReliability(this.lastSnapshot)
   }
 
   async getBoard(): Promise<WorkflowBoardSnapshotResponse> {
