@@ -82,3 +82,26 @@ test.describe('Onboarding wizard', () => {
     await expect(window.getByText('Onboarding')).toHaveCount(0)
   })
 })
+
+test.describe('Onboarding provider consistency', () => {
+  test.use({ firstRunProfileMode: 'seeded_auth' })
+
+  test('provider consistency keeps seeded providers marked as configured', async ({ electronApp }) => {
+    const window = await getOnboardingWindow(electronApp)
+
+    await window.getByRole('button', { name: /Get started/i }).click()
+    const openAiCard = window.getByRole('button', { name: /OpenAI/i }).first()
+
+    await expect(openAiCard.getByText(/Configured/i)).toBeVisible()
+  })
+})
+
+test.describe('Onboarding recovery messaging', () => {
+  test('recovery guidance appears when no provider key is configured', async ({ electronApp }) => {
+    const window = await getOnboardingWindow(electronApp)
+
+    await window.getByRole('button', { name: /Get started/i }).click()
+    await expect(window.getByTestId('onboarding-auth-guidance')).toBeVisible()
+    await expect(window.getByTestId('onboarding-auth-guidance')).toContainText(/Recovery/i)
+  })
+})
