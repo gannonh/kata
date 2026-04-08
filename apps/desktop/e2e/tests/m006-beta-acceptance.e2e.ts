@@ -65,6 +65,20 @@ test.describe('m006 integrated beta acceptance — recovery path', () => {
     await expect(readyWindow.getByTestId('reliability-banner')).toContainText(/Chat runtime/i)
     await expect(readyWindow.getByTestId('reliability-banner')).toContainText(/Process/i)
 
+    const chatFailureSignal = await readyWindow.evaluate(async () => {
+      const snapshot = await window.api.reliability.getStatus()
+      const chatSurface = snapshot.snapshot.surfaces.find((surface) => surface.sourceSurface === 'chat_runtime')
+      return {
+        status: chatSurface?.status ?? null,
+        failureClass: chatSurface?.signal?.class ?? null,
+        recoveryAction: chatSurface?.signal?.recoveryAction ?? null,
+      }
+    })
+
+    expect(chatFailureSignal.status).toBe('degraded')
+    expect(chatFailureSignal.failureClass).toBe('process')
+    expect(chatFailureSignal.recoveryAction).toBe('restart_process')
+
     await readyWindow.getByTestId('reliability-banner-recover').click()
     await expect(readyWindow.getByTestId('reliability-banner')).toHaveCount(0)
 
@@ -87,6 +101,20 @@ test.describe('m006 integrated beta acceptance — recovery path', () => {
     await readyWindow.getByTestId('kanban-refresh-board').click()
     await expect(readyWindow.getByTestId('board-state-notice-symphony-stale')).toBeVisible()
     await expect(readyWindow.getByTestId('kanban-column-in_progress')).toContainText('KAT-2337')
+
+    const symphonyFailureSignal = await readyWindow.evaluate(async () => {
+      const snapshot = await window.api.reliability.getStatus()
+      const symphonySurface = snapshot.snapshot.surfaces.find((surface) => surface.sourceSurface === 'symphony')
+      return {
+        symphonyStatus: symphonySurface?.status ?? null,
+        symphonyClass: symphonySurface?.signal?.class ?? null,
+        symphonyAction: symphonySurface?.signal?.recoveryAction ?? null,
+      }
+    })
+
+    expect(symphonyFailureSignal.symphonyStatus).toBe('degraded')
+    expect(symphonyFailureSignal.symphonyClass).toBe('network')
+    expect(symphonyFailureSignal.symphonyAction).toBe('reconnect')
 
     await readyWindow.getByTestId('reliability-banner-recover').click()
     await readyWindow.getByTestId('kanban-refresh-board').click()
