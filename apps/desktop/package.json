@@ -13,6 +13,7 @@
     "desktop:build": "bun run build",
     "prepare:builder-app": "bash ./scripts/prepare-builder-app.sh",
     "desktop:dist:mac": "bash ./scripts/package-mac.sh",
+    "dist:mac": "bun run desktop:dist:mac",
     "dev:main": "esbuild src/main/index.ts --bundle --platform=node --format=cjs --outfile=dist/main.cjs --external:electron --watch --sourcemap",
     "dev:preload": "esbuild src/preload/index.ts --bundle --platform=node --format=cjs --outfile=dist/preload.cjs --external:electron --watch --sourcemap",
     "dev:renderer": "vite dev --host 127.0.0.1 --port 5174 --strictPort",
@@ -24,7 +25,8 @@
     "test:e2e": "npx playwright test",
     "test:e2e:symphony-end-to-end": "npx playwright test e2e/tests/symphony-end-to-end.e2e.ts",
     "test:e2e:headed": "npx playwright test --headed",
-    "qa:m006:soak": "bun run scripts/qa/m006-soak-run.ts"
+    "qa:m006:soak": "bun run scripts/qa/m006-soak-run.ts",
+    "qa:m006:release-gate": "bun run scripts/qa/m006-release-gate.ts"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.2.8",
