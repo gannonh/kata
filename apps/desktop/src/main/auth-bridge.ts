@@ -4,6 +4,7 @@ import path from 'node:path'
 import log from './logger'
 import {
   ALL_AUTH_PROVIDERS,
+  AUTH_PROVIDER_ALIASES,
   type AuthProvider,
   type AuthProvidersResponse,
   type AuthRecord,
@@ -11,19 +12,16 @@ import {
   type AuthSetKeyResponse,
   type AuthRemoveKeyResponse,
   type AuthValidationResult,
+  type FirstRunCheckpointState,
+  type FirstRunProviderStateMap,
   type ProviderInfo,
   type ProviderStatusMap,
 } from '../shared/types'
+import { buildFirstRunReadinessSnapshot } from '../shared/first-run-readiness'
 
-const DEFAULT_AUTH_PATH = path.join(homedir(), '.kata-cli', 'agent', 'auth.json')
-
-/**
- * The CLI stores some providers under variant key names in auth.json.
- * Map canonical AuthProvider → alternate keys to check.
- */
-const AUTH_PROVIDER_ALIASES: Partial<Record<AuthProvider, string[]>> = {
-  openai: ['openai-codex'],
-}
+const DEFAULT_AUTH_PATH =
+  process.env.KATA_DESKTOP_AUTH_FILE_PATH?.trim() ||
+  path.join(homedir(), '.kata-cli', 'agent', 'auth.json')
 
 interface ValidationConfig {
   url: (key: string) => string
@@ -89,6 +87,28 @@ const PROVIDER_VALIDATION_CONFIG: Partial<Record<AuthProvider, ValidationConfig>
 const UNSUPPORTED_PROVIDER_MESSAGES: Partial<Record<AuthProvider, string>> = {
   bedrock: 'AWS Bedrock validation requires AWS credentials and region configuration',
   azure: 'Azure validation requires both API key and Azure endpoint configuration',
+}
+
+export function normalizeFirstRunAuthReadiness(input: {
+  providers: ProviderStatusMap
+  selectedProvider?: AuthProvider | null
+  now?: string
+}): {
+  providers: FirstRunProviderStateMap
+  checkpoint: FirstRunCheckpointState
+} {
+  const snapshot = buildFirstRunReadinessSnapshot({
+    providers: input.providers,
+    selectedProvider: input.selectedProvider ?? null,
+    bridgeStatus: 'running',
+    completedFirstTurn: false,
+    now: input.now,
+  })
+
+  return {
+    providers: snapshot.providers,
+    checkpoint: snapshot.checkpoints.auth,
+  }
 }
 
 export class AuthBridge {

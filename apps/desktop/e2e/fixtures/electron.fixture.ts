@@ -54,6 +54,7 @@ rl.on('line', (line) => {
   switch (message.type) {
     case 'prompt':
       respond(message, { ok: true })
+      process.stdout.write(JSON.stringify({ type: 'event', event: { type: 'agent_end' } }) + '\\n')
       break
     case 'abort':
       respond(message, { ok: true })
@@ -65,6 +66,11 @@ rl.on('line', (line) => {
     case 'get_available_models':
       respond(message, {
         models: [
+          {
+            provider: 'openai',
+            id: 'gpt-4.1',
+            reasoning: true,
+          },
           {
             provider: 'anthropic',
             id: 'claude-sonnet-4-6',
@@ -89,6 +95,30 @@ rl.on('line', (line) => {
 
   chmodSync(executablePath, 0o755)
   return executablePath
+}
+
+function seedAuthFixture(authFilePath: string, mode: 'clean' | 'seeded_auth'): void {
+  mkdirSync(path.dirname(authFilePath), { recursive: true })
+
+  if (mode === 'seeded_auth') {
+    writeFileSync(
+      authFilePath,
+      JSON.stringify(
+        {
+          openai: {
+            type: 'api_key',
+            key: 'sk-seeded-openai-key-1234567890',
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    )
+    return
+  }
+
+  writeFileSync(authFilePath, '{}\n', 'utf8')
 }
 
 async function waitForAppReady(window: Page): Promise<void> {
@@ -181,6 +211,7 @@ type DesktopFixtures = {
   electronApp: ElectronApplication
   workspaceDir: string
   mcpConfigPath: string
+  authFilePath: string
   mainWindow: Page
   readyWindow: Page
   symphonyMockMode:
@@ -195,11 +226,15 @@ type DesktopFixtures = {
     | 'assembled_healthy'
     | 'assembled_failure_recovery'
   chatRuntimeFaultMode: 'none' | 'process_crash_once'
+  firstRunProfileMode: 'clean' | 'seeded_auth'
+  firstRunStartupMode: 'healthy' | 'binary_missing'
 }
 
 export const test = base.extend<DesktopFixtures>({
   symphonyMockMode: ['ready', { option: true }],
   chatRuntimeFaultMode: ['none', { option: true }],
+  firstRunProfileMode: ['clean', { option: true }],
+  firstRunStartupMode: ['healthy', { option: true }],
   workspaceDir: async ({}, use) => {
     const dataDir = createIsolatedDataDir()
     const workspaceDir = path.join(dataDir, 'workspace')
@@ -209,11 +244,30 @@ export const test = base.extend<DesktopFixtures>({
       try { rmSync(dataDir, { recursive: true, force: true }) } catch { /* noop */ }
     }
   },
-  electronApp: async ({ workspaceDir, symphonyMockMode, chatRuntimeFaultMode, mcpConfigPath }, use) => {
-    const mockKataBinary = chatRuntimeFaultMode === 'process_crash_once'
-      ? createMockKataRpcBinary(path.dirname(workspaceDir))
-      : null
+  electronApp: async (
+    {
+      workspaceDir,
+      symphonyMockMode,
+      chatRuntimeFaultMode,
+      firstRunProfileMode,
+      firstRunStartupMode,
+      mcpConfigPath,
+      authFilePath,
+    },
+    use,
+  ) => {
     const dataDir = path.dirname(workspaceDir)
+    const mockKataBinary = createMockKataRpcBinary(dataDir)
+    const configuredKataBinary =
+      firstRunStartupMode === 'binary_missing' ? path.join(dataDir, 'missing-kata-binary') : mockKataBinary
+
+    const binaryMissingPathDir = path.join(dataDir, 'empty-path')
+    if (firstRunStartupMode === 'binary_missing') {
+      mkdirSync(binaryMissingPathDir, { recursive: true })
+    }
+
+    seedAuthFixture(authFilePath, firstRunProfileMode)
+
     const mainEntry = path.join(__dirname, '../../dist/main.cjs')
     const preloadEntry = path.join(__dirname, '../../dist/preload.cjs')
 
@@ -239,6 +293,7 @@ export const test = base.extend<DesktopFixtures>({
       args,
       env: {
         ...process.env,
+        ...(firstRunStartupMode === 'binary_missing' ? { PATH: binaryMissingPathDir } : {}),
         NODE_ENV: 'test',
         KATA_TEST_MODE: '1',
         KATA_WORKSPACE_PATH: workspaceDir,
@@ -246,8 +301,9 @@ export const test = base.extend<DesktopFixtures>({
         KATA_DESKTOP_SYMPHONY_DASHBOARD_MOCK: symphonyMockMode,
         KATA_SYMPHONY_URL: 'http://127.0.0.1:8080',
         KATA_DESKTOP_MCP_CONFIG_PATH: mcpConfigPath,
+        KATA_DESKTOP_AUTH_FILE_PATH: authFilePath,
         KATA_DESKTOP_RELIABILITY_CHAT_FAULT: chatRuntimeFaultMode,
-        ...(mockKataBinary ? { KATA_BIN_PATH: mockKataBinary } : {}),
+        KATA_BIN_PATH: configuredKataBinary,
         // Force packaged-file mode for deterministic e2e: if a parent shell exported
         // VITE_DEV_SERVER_URL we would silently bind to an arbitrary dev server.
         VITE_DEV_SERVER_URL: '',
@@ -274,6 +330,11 @@ export const test = base.extend<DesktopFixtures>({
   mcpConfigPath: async ({ workspaceDir }, use) => {
     const configPath = path.join(path.dirname(workspaceDir), '.kata-cli', 'agent', 'mcp.json')
     await use(configPath)
+  },
+
+  authFilePath: async ({ workspaceDir }, use) => {
+    const filePath = path.join(path.dirname(workspaceDir), '.kata-cli', 'agent', 'auth.json')
+    await use(filePath)
   },
 
   mainWindow: async ({ electronApp }, use) => {

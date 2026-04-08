@@ -10,7 +10,10 @@ import {
 } from '@/components/ui/dialog'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import type { FirstRunReadinessSnapshot } from '@shared/types'
 import type { SettingsTabId } from '@/atoms/right-pane'
+import { useReliabilitySnapshot } from '@/atoms/reliability'
+import { buildFirstRunGuidance, getFirstRunCheckpoint } from '@/lib/first-run-readiness'
 import { ProviderAuthPanel } from './ProviderAuthPanel'
 import { SymphonyRuntimePanel } from './SymphonyRuntimePanel'
 import { SymphonyDashboard } from '../symphony/SymphonyDashboard'
@@ -41,6 +44,12 @@ export function shouldShowReturnToWorkflowAction(
   return Boolean(onReturnToWorkflowBoard) && activeTab === 'mcp'
 }
 
+export function formatFirstRunStartupGuidance(
+  readiness: FirstRunReadinessSnapshot | null | undefined,
+): string | null {
+  return buildFirstRunGuidance(getFirstRunCheckpoint(readiness, 'startup'))
+}
+
 export function SettingsPanel({
   open,
   activeTab,
@@ -51,6 +60,8 @@ export function SettingsPanel({
   returnToWorkflowDisabledReason,
 }: SettingsPanelProps) {
   const showReturnToWorkflow = shouldShowReturnToWorkflowAction(activeTab, onReturnToWorkflowBoard)
+  const reliabilitySnapshot = useReliabilitySnapshot()
+  const startupGuidance = formatFirstRunStartupGuidance(reliabilitySnapshot.firstRunReadiness)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -70,6 +81,11 @@ export function SettingsPanel({
               {showReturnToWorkflow && returnToWorkflowDisabledReason ? (
                 <p className="text-xs text-amber-700 dark:text-amber-300" data-testid="settings-return-disabled-reason">
                   {returnToWorkflowDisabledReason}
+                </p>
+              ) : null}
+              {startupGuidance ? (
+                <p className="text-xs text-muted-foreground" data-testid="settings-startup-guidance">
+                  {startupGuidance}
                 </p>
               ) : null}
             </div>

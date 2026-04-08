@@ -7,6 +7,7 @@ import {
 } from '@shared/types'
 import { onboardingCompleteAtom } from '@/atoms/onboarding'
 import { selectedModelAtom } from '@/atoms/model'
+import { useReliabilitySnapshot } from '@/atoms/reliability'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { MODELS_REFRESH_EVENT } from '@/constants/providers'
@@ -33,6 +34,7 @@ function createMissingProviderMap(): ProviderStatusMap {
 export function OnboardingWizard() {
   const setOnboardingComplete = useSetAtom(onboardingCompleteAtom)
   const setSelectedModel = useSetAtom(selectedModelAtom)
+  const reliabilitySnapshot = useReliabilitySnapshot()
 
   const [step, setStep] = useState<OnboardingStep>('welcome')
   const [providers, setProviders] = useState<ProviderStatusMap>(createMissingProviderMap)
@@ -40,6 +42,8 @@ export function OnboardingWizard() {
   const [providersLoading, setProvidersLoading] = useState(false)
   const [providersError, setProvidersError] = useState<string | null>(null)
   const [resolvedModel, setResolvedModel] = useState<string | null>(null)
+
+  const firstRunReadiness = reliabilitySnapshot.firstRunReadiness ?? null
 
   const loadProviders = useCallback(async () => {
     setProvidersLoading(true)
@@ -126,6 +130,7 @@ export function OnboardingWizard() {
               selectedProvider={selectedProvider}
               loadError={providersError}
               loading={providersLoading}
+              readiness={firstRunReadiness}
               onBack={() => setStep('welcome')}
               onSelect={setSelectedProvider}
               onContinue={() => {
@@ -139,6 +144,7 @@ export function OnboardingWizard() {
           {step === 'key' && selectedProvider && (
             <KeyInputStep
               provider={selectedProvider}
+              readiness={firstRunReadiness}
               onBack={() => setStep('provider')}
               onSaved={async (provider) => {
                 await loadProviders()
@@ -153,6 +159,7 @@ export function OnboardingWizard() {
           {step === 'complete' && (
             <CompletionStep
               selectedModel={resolvedModel}
+              readiness={firstRunReadiness}
               onBack={() => setStep(selectedProvider ? 'key' : 'provider')}
               onFinish={() => setOnboardingComplete(true)}
             />

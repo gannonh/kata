@@ -1,17 +1,19 @@
 import { ArrowLeft, Check, ChevronRight, KeyRound } from 'lucide-react'
-import type { AuthProvider, ProviderStatusMap } from '@shared/types'
+import type { AuthProvider, FirstRunReadinessSnapshot, ProviderStatusMap } from '@shared/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
 import { ONBOARDING_PROVIDER_IDS, PROVIDER_METADATA } from '@/constants/providers'
+import { buildFirstRunGuidance, getFirstRunCheckpoint } from '@/lib/first-run-readiness'
 
 interface ProviderStepProps {
   providers: ProviderStatusMap
   selectedProvider: AuthProvider | null
   loadError: string | null
   loading: boolean
+  readiness?: FirstRunReadinessSnapshot | null
   onBack: () => void
   onSelect: (provider: AuthProvider) => void
   onContinue: () => void
@@ -22,10 +24,14 @@ export function ProviderStep({
   selectedProvider,
   loadError,
   loading,
+  readiness,
   onBack,
   onSelect,
   onContinue,
 }: ProviderStepProps) {
+  const authCheckpoint = getFirstRunCheckpoint(readiness, 'auth')
+  const authGuidance = buildFirstRunGuidance(authCheckpoint)
+
   return (
     <div className="flex h-full flex-col justify-between">
       <div className="flex flex-col gap-4">
@@ -42,12 +48,24 @@ export function ProviderStep({
           </div>
         )}
 
+        {authGuidance && (
+          <div
+            className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-200"
+            data-testid="onboarding-auth-guidance"
+          >
+            {authGuidance}
+          </div>
+        )}
+
         <div className="grid gap-3 md:grid-cols-2">
           {ONBOARDING_PROVIDER_IDS.map((provider) => {
             const metadata = PROVIDER_METADATA[provider]
             const info = providers[provider]
-            const configured = info.status === 'valid'
+            const readinessInfo = readiness?.providers?.[provider]
+            const configured = readinessInfo?.configured ?? info.status === 'valid'
+            const needsRecovery = (readinessInfo?.status ?? info.status) === 'expired' || (readinessInfo?.status ?? info.status) === 'invalid'
             const selected = selectedProvider === provider
+            const badgeLabel = configured ? 'Configured' : needsRecovery ? 'Fix key' : 'Add key'
 
             return (
               <Card
@@ -74,7 +92,7 @@ export function ProviderStep({
 
                   <Badge variant={configured ? 'secondary' : 'outline'} className="shrink-0">
                     {configured ? <Check data-icon="inline-start" /> : <KeyRound data-icon="inline-start" />}
-                    {configured ? 'Configured' : 'Add key'}
+                    {badgeLabel}
                   </Badge>
                 </CardContent>
               </Card>

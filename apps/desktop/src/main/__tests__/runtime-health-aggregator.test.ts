@@ -72,6 +72,17 @@ function getSurface(snapshot: ReliabilitySnapshot, sourceSurface: string) {
   return snapshot.surfaces.find((surface) => surface.sourceSurface === sourceSurface)
 }
 
+function createProviderStatuses(statusByProvider: Partial<Record<string, 'valid' | 'missing' | 'invalid' | 'expired'>> = {}) {
+  return {
+    anthropic: { provider: 'anthropic' as const, status: statusByProvider.anthropic ?? 'missing' },
+    openai: { provider: 'openai' as const, status: statusByProvider.openai ?? 'missing' },
+    google: { provider: 'google' as const, status: statusByProvider.google ?? 'missing' },
+    mistral: { provider: 'mistral' as const, status: statusByProvider.mistral ?? 'missing' },
+    bedrock: { provider: 'bedrock' as const, status: statusByProvider.bedrock ?? 'missing' },
+    azure: { provider: 'azure' as const, status: statusByProvider.azure ?? 'missing' },
+  }
+}
+
 describe('RuntimeHealthAggregator', () => {
   test('starts healthy across all reliability surfaces', () => {
     const aggregator = new RuntimeHealthAggregator({ now: () => '2026-04-07T20:00:00.000Z' })
@@ -83,6 +94,60 @@ describe('RuntimeHealthAggregator', () => {
       expect(surface.status).toBe('healthy')
       expect(surface.signal).toBeNull()
     }
+
+    expect(snapshot.firstRunReadiness?.checkpoints.auth.status).toBe('fail')
+    expect(snapshot.firstRunReadiness?.checkpoints.startup.status).toBe('fail')
+  })
+
+  test('composes first-run readiness checkpoints from auth/model/startup inputs', () => {
+    const aggregator = new RuntimeHealthAggregator({ now: () => '2026-04-07T20:00:00.000Z' })
+
+    aggregator.ingestFirstRunAuthState({
+      providers: createProviderStatuses({ openai: 'valid' }),
+      selectedProvider: 'openai',
+    })
+
+    aggregator.ingestFirstRunModelState({
+      selectedModel: 'openai/gpt-4.1',
+      availableModels: [{ provider: 'openai', id: 'gpt-4.1' }],
+      selectedProvider: 'openai',
+    })
+
+    aggregator.ingestFirstRunBridgeStatus({
+      state: 'running',
+      pid: 99,
+      updatedAt: Date.parse('2026-04-07T20:00:00.000Z'),
+    })
+
+    const readiness = aggregator.getFirstRunReadinessSnapshot()
+
+    expect(readiness.checkpoints.auth.status).toBe('pass')
+    expect(readiness.checkpoints.model.status).toBe('pass')
+    expect(readiness.checkpoints.startup.status).toBe('pass')
+    expect(readiness.checkpoints.first_turn.status).toBe('fail')
+
+    aggregator.ingestFirstTurnCompletion(true)
+
+    expect(aggregator.getFirstRunReadinessSnapshot().checkpoints.first_turn.status).toBe('pass')
+  })
+
+  test('keeps first-run readiness blocked when selected model provider is not configured', () => {
+    const aggregator = new RuntimeHealthAggregator({ now: () => '2026-04-07T20:00:00.000Z' })
+
+    aggregator.ingestFirstRunAuthState({
+      providers: createProviderStatuses({ google: 'valid' }),
+      selectedProvider: 'google',
+    })
+
+    aggregator.ingestFirstRunModelState({
+      selectedModel: 'openai/gpt-4.1',
+      availableModels: [{ provider: 'openai', id: 'gpt-4.1' }],
+      selectedProvider: 'google',
+    })
+
+    const readiness = aggregator.getFirstRunReadinessSnapshot()
+    expect(readiness.checkpoints.model.status).toBe('fail')
+    expect(readiness.checkpoints.model.failure?.code).toBe('MODEL_PROVIDER_NOT_CONFIGURED')
   })
 
   test('tracks workflow degradation without dropping last-known-good timestamp', () => {

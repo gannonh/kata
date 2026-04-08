@@ -75,6 +75,14 @@ export const ALL_AUTH_PROVIDERS = [
 
 export type AuthProvider = (typeof ALL_AUTH_PROVIDERS)[number]
 
+/**
+ * Auth.json can contain provider entries under alias keys.
+ * Canonical provider -> accepted alias keys.
+ */
+export const AUTH_PROVIDER_ALIASES: Partial<Record<AuthProvider, string[]>> = {
+  openai: ['openai-codex'],
+}
+
 export type ProviderStatus = 'valid' | 'missing' | 'expired' | 'invalid'
 
 export type ProviderAuthType = 'api_key' | 'oauth'
@@ -1350,6 +1358,7 @@ export interface ReliabilitySnapshot {
   generatedAt: string
   overallStatus: 'healthy' | 'degraded'
   surfaces: ReliabilitySurfaceState[]
+  firstRunReadiness?: FirstRunReadinessSnapshot
 }
 
 export interface ReliabilityStatusResponse {
@@ -1370,6 +1379,50 @@ export interface ReliabilityRecoveryResult {
   code: string
   message: string
   timestamp: string
+}
+
+export type FirstRunCheckpointId = 'auth' | 'model' | 'startup' | 'first_turn'
+
+export type FirstRunCheckpointStatus = 'pass' | 'fail'
+
+export interface FirstRunCheckpointFailure {
+  class: ReliabilityClass
+  severity: ReliabilitySeverity
+  code: string
+  message: string
+  recoveryAction: ReliabilityRecoveryAction
+  recoverable: boolean
+  timestamp: string
+  detail?: string
+}
+
+export interface FirstRunCheckpointState {
+  checkpoint: FirstRunCheckpointId
+  status: FirstRunCheckpointStatus
+  blockedBy?: FirstRunCheckpointId
+  failure?: FirstRunCheckpointFailure
+}
+
+export interface FirstRunProviderState {
+  provider: AuthProvider
+  status: ProviderStatus
+  configured: boolean
+  requiresKey: boolean
+  maskedKey?: string
+}
+
+export type FirstRunProviderStateMap = Record<AuthProvider, FirstRunProviderState>
+
+export interface FirstRunReadinessSnapshot {
+  generatedAt: string
+  providers: FirstRunProviderStateMap
+  selectedProvider: AuthProvider | null
+  selectedModel: string | null
+  availableModelCount: number
+  completedFirstTurn: boolean
+  checkpoints: Record<FirstRunCheckpointId, FirstRunCheckpointState>
+  blockedCheckpoint: FirstRunCheckpointId | null
+  overallStatus: 'ready' | 'blocked'
 }
 
 export type ArtifactType = 'roadmap' | 'requirements' | 'decisions' | 'context' | 'slice'

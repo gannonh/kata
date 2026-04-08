@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { AuthProvider, ProviderInfo, ProviderStatusMap } from '@shared/types'
+import type {
+  AuthProvider,
+  FirstRunCheckpointState,
+  FirstRunReadinessSnapshot,
+  ProviderInfo,
+  ProviderStatusMap,
+} from '@shared/types'
+import { useReliabilitySnapshot } from '@/atoms/reliability'
 import { Check, KeyRound, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -8,6 +15,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { MODELS_REFRESH_EVENT, PROVIDER_METADATA } from '@/constants/providers'
+import {
+  buildFirstRunGuidance,
+  formatFirstRunRecoveryAction,
+  getFirstRunCheckpoint,
+} from '@/lib/first-run-readiness'
 import { cn } from '@/lib/utils'
 
 const AUTH_FILE_DISPLAY_PATH = '~/.kata-cli/agent/auth.json'
@@ -33,6 +45,33 @@ function statusVariant(status: ProviderInfo['status']): 'secondary' | 'destructi
   return 'outline'
 }
 
+export function buildProviderAuthReadinessNotice(
+  readiness: FirstRunReadinessSnapshot | null | undefined,
+): string | null {
+  const authCheckpoint = getFirstRunCheckpoint(readiness, 'auth')
+  const modelCheckpoint = getFirstRunCheckpoint(readiness, 'model')
+
+  if (authCheckpoint?.status === 'fail' && authCheckpoint.failure) {
+    return authCheckpoint.failure.message
+  }
+
+  if (modelCheckpoint?.status === 'fail' && modelCheckpoint.failure) {
+    return modelCheckpoint.failure.message
+  }
+
+  return null
+}
+
+export function buildProviderAuthRecoveryAction(
+  checkpoint: FirstRunCheckpointState | null | undefined,
+): string | null {
+  if (!checkpoint || checkpoint.status === 'pass' || !checkpoint.failure) {
+    return null
+  }
+
+  return formatFirstRunRecoveryAction(checkpoint.failure.recoveryAction)
+}
+
 export function ProviderAuthPanel() {
   const [providers, setProviders] = useState<ProviderStatusMap | null>(null)
   const [loading, setLoading] = useState<boolean>(false)
@@ -42,6 +81,15 @@ export function ProviderAuthPanel() {
   const [actionError, setActionError] = useState<string | null>(null)
   const [actionSuccess, setActionSuccess] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+
+  const reliabilitySnapshot = useReliabilitySnapshot()
+  const firstRunReadiness = reliabilitySnapshot.firstRunReadiness ?? null
+  const authCheckpoint = getFirstRunCheckpoint(firstRunReadiness, 'auth')
+  const modelCheckpoint = getFirstRunCheckpoint(firstRunReadiness, 'model')
+  const startupCheckpoint = getFirstRunCheckpoint(firstRunReadiness, 'startup')
+  const readinessNotice = buildProviderAuthReadinessNotice(firstRunReadiness)
+  const readinessAction =
+    buildProviderAuthRecoveryAction(authCheckpoint?.status === 'fail' ? authCheckpoint : modelCheckpoint)
 
   const loadProviders = useCallback(async () => {
     setLoading(true)
@@ -61,8 +109,6 @@ export function ProviderAuthPanel() {
     void loadProviders()
   }, [loadProviders])
 
-  const activeInfo = providers?.[activeProvider]
-
   const providerRows = useMemo(() => {
     if (!providers) {
       return []
@@ -71,13 +117,24 @@ export function ProviderAuthPanel() {
     return PROVIDER_ORDER.map((provider) => {
       const metadata = PROVIDER_METADATA[provider]
       const info = providers[provider]
+      const readinessInfo = firstRunReadiness?.providers?.[provider]
+
       return {
         provider,
         metadata,
-        info,
+        info: {
+          ...info,
+          status: readinessInfo?.status ?? info.status,
+          maskedKey: readinessInfo?.maskedKey ?? info.maskedKey,
+        },
       }
     })
-  }, [providers])
+  }, [firstRunReadiness, providers])
+
+  const activeInfo = useMemo(() => {
+    const row = providerRows.find((providerRow) => providerRow.provider === activeProvider)
+    return row?.info ?? providers?.[activeProvider]
+  }, [activeProvider, providerRows, providers])
 
   const handleSave = async () => {
     const trimmed = apiKeyInput.trim()
@@ -137,6 +194,22 @@ export function ProviderAuthPanel() {
           <p className="mt-1">
             Check file: <span className="font-mono">{AUTH_FILE_DISPLAY_PATH}</span>
           </p>
+        </div>
+      )}
+
+      {readinessNotice && (
+        <div
+          className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-200"
+          data-testid="provider-auth-readiness-notice"
+        >
+          <p>{readinessNotice}</p>
+          {readinessAction && <p className="mt-1 font-medium">Suggested recovery: {readinessAction}</p>}
+        </div>
+      )}
+
+      {startupCheckpoint?.status === 'fail' && startupCheckpoint.failure && (
+        <div className="rounded-md border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+          {buildFirstRunGuidance(startupCheckpoint)}
         </div>
       )}
 

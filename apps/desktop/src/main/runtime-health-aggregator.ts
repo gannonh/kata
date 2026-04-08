@@ -12,9 +12,14 @@ import {
   RELIABILITY_SURFACES,
 } from './reliability-contract'
 import type {
+  AuthProvider,
+  AvailableModel,
+  BridgeLifecycleState,
   BridgeStatusEvent,
+  FirstRunReadinessSnapshot,
   McpConfigReadResponse,
   McpServerStatusResponse,
+  ProviderStatusMap,
   ReliabilityRecoveryAction,
   ReliabilityRecoveryRequest,
   ReliabilityRecoveryResult,
@@ -26,6 +31,8 @@ import type {
   SymphonyRuntimeStatus,
   WorkflowBoardSnapshot,
 } from '../shared/types'
+import { ALL_AUTH_PROVIDERS } from '../shared/types'
+import { buildFirstRunReadinessSnapshot } from '../shared/first-run-readiness'
 
 type RecoveryAttempt = {
   success: boolean
@@ -46,6 +53,20 @@ interface RuntimeHealthAggregatorEvents {
   snapshot: (snapshot: ReliabilitySnapshot) => void
 }
 
+function createMissingProviderStatusMap(): ProviderStatusMap {
+  const entries = ALL_AUTH_PROVIDERS.map((provider) => {
+    return [
+      provider,
+      {
+        provider,
+        status: 'missing' as const,
+      },
+    ] as const
+  })
+
+  return Object.fromEntries(entries) as ProviderStatusMap
+}
+
 export class RuntimeHealthAggregator extends EventEmitter {
   private readonly now: () => string
   private readonly requestRecovery?: RuntimeHealthAggregatorOptions['requestRecovery']
@@ -58,6 +79,14 @@ export class RuntimeHealthAggregator extends EventEmitter {
   private symphonyOperatorSignal: ReliabilitySignal | null = null
   private mcpConfigSignal: ReliabilitySignal | null = null
   private mcpStatusSignal: ReliabilitySignal | null = null
+
+  private firstRunProviders: ProviderStatusMap = createMissingProviderStatusMap()
+  private firstRunSelectedProvider: AuthProvider | null = null
+  private firstRunSelectedModel: string | null = null
+  private firstRunAvailableModels: AvailableModel[] = []
+  private firstRunBridgeStatus: BridgeLifecycleState = 'shutdown'
+  private firstTurnCompleted = false
+  private firstRunReadiness: FirstRunReadinessSnapshot | null = null
 
   constructor(options: RuntimeHealthAggregatorOptions = {}) {
     super()
@@ -74,6 +103,8 @@ export class RuntimeHealthAggregator extends EventEmitter {
         lastHealthyAt: startedAt,
       })
     }
+
+    this.recomputeFirstRunReadiness(startedAt)
   }
 
   override on<K extends keyof RuntimeHealthAggregatorEvents>(
@@ -101,6 +132,55 @@ export class RuntimeHealthAggregator extends EventEmitter {
     return this.toSnapshot()
   }
 
+  public getFirstRunReadinessSnapshot(): FirstRunReadinessSnapshot {
+    if (!this.firstRunReadiness) {
+      this.recomputeFirstRunReadiness(this.now())
+    }
+
+    return this.firstRunReadiness as FirstRunReadinessSnapshot
+  }
+
+  public ingestFirstRunAuthState(input: {
+    providers: ProviderStatusMap
+    selectedProvider?: AuthProvider | null
+  }): ReliabilitySnapshot {
+    this.firstRunProviders = input.providers
+    this.firstRunSelectedProvider = input.selectedProvider ?? this.firstRunSelectedProvider
+    this.recomputeFirstRunReadiness()
+    this.emit('snapshot', this.toSnapshot())
+    return this.toSnapshot()
+  }
+
+  public ingestFirstRunModelState(input: {
+    selectedModel?: string | null
+    availableModels?: AvailableModel[]
+    selectedProvider?: AuthProvider | null
+  }): ReliabilitySnapshot {
+    this.firstRunSelectedModel = input.selectedModel?.trim() || null
+    this.firstRunAvailableModels = input.availableModels ?? this.firstRunAvailableModels
+    this.firstRunSelectedProvider = input.selectedProvider ?? this.firstRunSelectedProvider
+    this.recomputeFirstRunReadiness()
+    this.emit('snapshot', this.toSnapshot())
+    return this.toSnapshot()
+  }
+
+  public ingestFirstRunBridgeStatus(status: BridgeStatusEvent | null | undefined): ReliabilitySnapshot {
+    if (status) {
+      this.firstRunBridgeStatus = status.state
+    }
+
+    this.recomputeFirstRunReadiness()
+    this.emit('snapshot', this.toSnapshot())
+    return this.toSnapshot()
+  }
+
+  public ingestFirstTurnCompletion(completed = true): ReliabilitySnapshot {
+    this.firstTurnCompleted = completed
+    this.recomputeFirstRunReadiness()
+    this.emit('snapshot', this.toSnapshot())
+    return this.toSnapshot()
+  }
+
   public ingestWorkflowSnapshot(snapshot: WorkflowBoardSnapshot | null | undefined): ReliabilitySnapshot {
     this.updateSurface('workflow_board', mapWorkflowBoardSnapshotToReliability(snapshot))
     return this.toSnapshot()
@@ -112,6 +192,11 @@ export class RuntimeHealthAggregator extends EventEmitter {
     // A recovered bridge status supersedes any prior crash-only signal.
     if (status && status.state !== 'crashed') {
       this.chatCrashSignal = null
+    }
+
+    if (status) {
+      this.firstRunBridgeStatus = status.state
+      this.recomputeFirstRunReadiness()
     }
 
     this.syncChatSurface()
@@ -126,6 +211,8 @@ export class RuntimeHealthAggregator extends EventEmitter {
     timestamp?: string
   }): ReliabilitySnapshot {
     this.chatCrashSignal = mapChatSubprocessCrashToReliability(input)
+    this.firstRunBridgeStatus = 'crashed'
+    this.recomputeFirstRunReadiness(input.timestamp)
     this.syncChatSurface()
     return this.toSnapshot()
   }
@@ -291,6 +378,20 @@ export class RuntimeHealthAggregator extends EventEmitter {
     this.emit('snapshot', this.toSnapshot())
   }
 
+  private recomputeFirstRunReadiness(nowOverride?: string): void {
+    const now = nowOverride ?? this.now()
+
+    this.firstRunReadiness = buildFirstRunReadinessSnapshot({
+      providers: this.firstRunProviders,
+      selectedProvider: this.firstRunSelectedProvider,
+      selectedModel: this.firstRunSelectedModel,
+      availableModels: this.firstRunAvailableModels,
+      bridgeStatus: this.firstRunBridgeStatus,
+      completedFirstTurn: this.firstTurnCompleted,
+      now,
+    })
+  }
+
   private toSnapshot(): ReliabilitySnapshot {
     const surfaces = RELIABILITY_SURFACES.map((surface) => {
       const state = this.surfaces.get(surface)
@@ -315,6 +416,7 @@ export class RuntimeHealthAggregator extends EventEmitter {
       generatedAt: this.now(),
       overallStatus: surfaces.some((surface) => surface.status === 'degraded') ? 'degraded' : 'healthy',
       surfaces,
+      ...(this.firstRunReadiness ? { firstRunReadiness: this.firstRunReadiness } : {}),
     }
   }
 }

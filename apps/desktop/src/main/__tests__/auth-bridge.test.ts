@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { promises as fs } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { AuthBridge } from '../auth-bridge'
+import { AuthBridge, normalizeFirstRunAuthReadiness } from '../auth-bridge'
 
 const originalFetch = globalThis.fetch
 
@@ -369,5 +369,43 @@ describe('AuthBridge', () => {
     await expect(bridge.getApiKey('google')).resolves.toBeNull()
     await expect(bridge.getApiKey('')).resolves.toBeNull()
     await expect(bridge.getApiKey('linear')).resolves.toBeNull()
+  })
+
+  test('normalizes auth checkpoint as pass when a provider is configured', () => {
+    const normalized = normalizeFirstRunAuthReadiness({
+      providers: {
+        anthropic: { provider: 'anthropic', status: 'missing' },
+        openai: { provider: 'openai', status: 'valid', maskedKey: '••••1234' },
+        google: { provider: 'google', status: 'missing' },
+        mistral: { provider: 'mistral', status: 'missing' },
+        bedrock: { provider: 'bedrock', status: 'missing' },
+        azure: { provider: 'azure', status: 'missing' },
+      },
+      selectedProvider: 'openai',
+      now: '2026-04-08T00:00:00.000Z',
+    })
+
+    expect(normalized.providers.openai.configured).toBe(true)
+    expect(normalized.providers.openai.requiresKey).toBe(false)
+    expect(normalized.checkpoint.status).toBe('pass')
+  })
+
+  test('fails auth checkpoint when selected provider requires key', () => {
+    const normalized = normalizeFirstRunAuthReadiness({
+      providers: {
+        anthropic: { provider: 'anthropic', status: 'valid', maskedKey: '••••1234' },
+        openai: { provider: 'openai', status: 'missing' },
+        google: { provider: 'google', status: 'missing' },
+        mistral: { provider: 'mistral', status: 'missing' },
+        bedrock: { provider: 'bedrock', status: 'missing' },
+        azure: { provider: 'azure', status: 'missing' },
+      },
+      selectedProvider: 'openai',
+      now: '2026-04-08T00:00:00.000Z',
+    })
+
+    expect(normalized.checkpoint.status).toBe('fail')
+    expect(normalized.checkpoint.failure?.code).toBe('AUTH_PROVIDER_KEY_REQUIRED')
+    expect(normalized.checkpoint.failure?.recoveryAction).toBe('reauthenticate')
   })
 })
