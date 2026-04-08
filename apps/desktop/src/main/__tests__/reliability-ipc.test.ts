@@ -32,6 +32,10 @@ function createBridgeStub() {
   return Object.assign(emitter, {
     getState: vi.fn(() => ({ status: 'running', pid: 1, running: true })),
     getWorkspacePath: vi.fn(() => process.cwd()),
+    getStabilityMetrics: vi.fn(() => ({
+      eventLoopLagMs: 0,
+      heapGrowthMb: 0,
+    })),
     prompt: vi.fn(),
     abort: vi.fn(),
     restart: vi.fn(),
@@ -192,6 +196,10 @@ describe('reliability recovery IPC handler', () => {
       off: vi.fn(),
       syncRuntimeStatus: vi.fn(async () => undefined),
       getSnapshot: vi.fn(() => createSymphonySnapshot()),
+      getStabilityMetrics: vi.fn(() => ({
+        reconnectSuccessRate: 1,
+        recoveryLatencyMs: 0,
+      })),
       refreshBaseline,
       respondToEscalation: vi.fn(),
     } as any
@@ -241,6 +249,10 @@ describe('reliability recovery IPC handler', () => {
       off: vi.fn(),
       syncRuntimeStatus: vi.fn(async () => undefined),
       getSnapshot: vi.fn(() => createSymphonySnapshot()),
+      getStabilityMetrics: vi.fn(() => ({
+        reconnectSuccessRate: 1,
+        recoveryLatencyMs: 0,
+      })),
       refreshBaseline,
       respondToEscalation: vi.fn(),
     } as any

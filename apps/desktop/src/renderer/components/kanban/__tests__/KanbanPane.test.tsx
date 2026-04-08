@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { formatScopeStatus, formatSymphonyBoardStatus, formatWorkflowBoardStatus } from '../KanbanHeader'
 import { summarizeColumnPresentation } from '../KanbanPane'
-import { formatWorkflowReliabilityNotice } from '../BoardStateNotice'
+import { formatWorkflowReliabilityNotice, formatWorkflowStabilityNotice } from '../BoardStateNotice'
 
 describe('KanbanPane status formatting', () => {
   test('renders loading state', () => {
@@ -176,6 +176,30 @@ describe('KanbanPane reliability messaging', () => {
 
     expect(message).toContain('Network issue (REL-WORKFLOW-NETWORK-NETWORK)')
     expect(message).toContain('Recommended recovery: Reconnect service.')
+    expect(message).toContain('Last known good:')
+  })
+
+  test('formats workflow stability notice with threshold guidance', () => {
+    const message = formatWorkflowStabilityNotice({
+      code: 'REL-LONGRUN-STALE_AGE_MS-BREACH',
+      metric: 'staleAgeMs',
+      sourceSurface: 'workflow_board',
+      failureClass: 'stale',
+      severity: 'critical',
+      recoveryAction: 'refresh_state',
+      comparator: 'max',
+      observedValue: 200000,
+      warningThreshold: 60000,
+      breachThreshold: 180000,
+      breached: true,
+      message: 'Stale age exceeded threshold (200000ms vs 180000ms).',
+      suggestedRecovery: 'Refresh workflow board and confirm tracker connectivity.',
+      timestamp: '2026-04-07T20:00:00.000Z',
+      lastKnownGoodAt: '2026-04-07T19:58:00.000Z',
+    })
+
+    expect(message).toContain('Stale age threshold breach')
+    expect(message).toContain('Suggested recovery: Refresh workflow board and confirm tracker connectivity.')
     expect(message).toContain('Last known good:')
   })
 })

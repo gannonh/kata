@@ -30,11 +30,14 @@ import {
   formatReliabilityActionLabel,
   formatReliabilityClassLabel,
   formatReliabilitySurfaceLabel,
+  formatStabilityMetricLabel,
+  formatStabilityStatusLabel,
   reliabilityRecoveryPendingAtom,
   reliabilitySeverityTone,
   requestReliabilityRecoveryActionAtom,
   useReliabilityBridge,
   useReliabilitySnapshot,
+  useStabilitySnapshot,
 } from '@/atoms/reliability'
 import { Button } from '@/components/ui/button'
 import { LeftPane } from './LeftPane'
@@ -135,6 +138,7 @@ export function AppShell() {
     Object.values(mcpStatusPendingByServer).some((isPending) => Boolean(isPending))
 
   const reliabilitySnapshot = useReliabilitySnapshot()
+  const stabilitySnapshot = useStabilitySnapshot()
   const reliabilityPendingBySurface = useAtomValue(reliabilityRecoveryPendingAtom)
   const requestReliabilityRecovery = useSetAtom(requestReliabilityRecoveryActionAtom)
 
@@ -280,7 +284,28 @@ export function AppShell() {
 
   const primarySignal = primaryReliabilitySurface?.signal ?? null
 
+  const primaryStabilityBreach = useMemo(() => {
+    if (stabilitySnapshot.breaches.length === 0) {
+      return null
+    }
+
+    return [...stabilitySnapshot.breaches].sort((left, right) => {
+      if (left.breached !== right.breached) {
+        return left.breached ? -1 : 1
+      }
+
+      const leftRank = reliabilitySeverityRank(left.severity)
+      const rightRank = reliabilitySeverityRank(right.severity)
+      if (leftRank !== rightRank) {
+        return rightRank - leftRank
+      }
+
+      return right.timestamp.localeCompare(left.timestamp)
+    })[0]
+  }, [stabilitySnapshot])
+
   const reliabilityTone = reliabilitySeverityTone(primarySignal?.severity)
+  const stabilityTone = reliabilitySeverityTone(primaryStabilityBreach?.severity)
 
   return (
     <main className="flex size-full min-h-0 flex-col bg-background text-foreground">
@@ -322,6 +347,47 @@ export function AppShell() {
               {reliabilityPendingBySurface[primaryReliabilitySurface.sourceSurface]
                 ? 'Recovering…'
                 : formatReliabilityActionLabel(primarySignal.recoveryAction)}
+            </Button>
+          </div>
+        </div>
+      ) : primaryStabilityBreach ? (
+        <div
+          className={
+            stabilityTone === 'error'
+              ? 'border-b border-destructive/30 bg-destructive/10 px-4 py-2 text-xs text-destructive'
+              : 'border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs text-amber-900 dark:text-amber-200'
+          }
+          data-testid="stability-banner"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="space-y-0.5">
+              <p className="font-medium">
+                Stability {formatStabilityStatusLabel(stabilitySnapshot.status)} ·{' '}
+                {formatStabilityMetricLabel(primaryStabilityBreach.metric)}
+              </p>
+              <p>
+                {primaryStabilityBreach.message} · Recovery: {primaryStabilityBreach.suggestedRecovery}
+                {primaryStabilityBreach.lastKnownGoodAt
+                  ? ` · Last known good: ${new Date(primaryStabilityBreach.lastKnownGoodAt).toLocaleTimeString()}`
+                  : ''}
+              </p>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                void requestReliabilityRecovery({
+                  sourceSurface: primaryStabilityBreach.sourceSurface,
+                  action: primaryStabilityBreach.recoveryAction,
+                })
+              }}
+              disabled={reliabilityPendingBySurface[primaryStabilityBreach.sourceSurface]}
+              data-testid="stability-banner-recover"
+            >
+              {reliabilityPendingBySurface[primaryStabilityBreach.sourceSurface]
+                ? 'Recovering…'
+                : formatReliabilityActionLabel(primaryStabilityBreach.recoveryAction)}
             </Button>
           </div>
         </div>

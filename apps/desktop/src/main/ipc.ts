@@ -87,6 +87,8 @@ import {
   type ReliabilityRecoveryResult,
   type ReliabilitySnapshot,
   type ReliabilityStatusResponse,
+  type StabilitySnapshot,
+  type StabilitySnapshotResponse,
 } from '../shared/types'
 
 interface RegisterIpcOptions {
@@ -157,6 +159,7 @@ export function registerSessionIpc({
 
         if (sourceSurface === 'workflow_board') {
           const response = await workflowBoardService.refreshBoard()
+          syncStabilityMetricsFromServices()
           reliabilityAggregator.ingestWorkflowSnapshot(response.snapshot)
 
           const reliabilitySignal = mapWorkflowBoardSnapshotToReliability(response.snapshot)
@@ -180,6 +183,7 @@ export function registerSessionIpc({
         if (sourceSurface === 'symphony') {
           const refreshOperatorSnapshot = async () => {
             const snapshot = await symphonyOperatorService!.refreshBaseline()
+            syncStabilityMetricsFromServices()
             reliabilityAggregator.ingestSymphonyOperatorSnapshot(snapshot)
 
             const reliabilitySignal = mapSymphonyOperatorSnapshotToReliability(snapshot)
@@ -261,6 +265,7 @@ export function registerSessionIpc({
           }
 
           const response = await resolvedMcpConfigBridge.listServers()
+          syncStabilityMetricsFromServices()
           reliabilityAggregator.ingestMcpConfigResponse(response)
 
           if (!response.success) {
@@ -378,6 +383,27 @@ export function registerSessionIpc({
     })
   }
 
+  const syncStabilityMetricsFromServices = (): StabilitySnapshot => {
+    reliabilityAggregator.ingestStabilityMetrics('chat_runtime', bridge.getStabilityMetrics(), {
+      publish: false,
+    })
+    reliabilityAggregator.ingestStabilityMetrics('workflow_board', workflowBoardService.getStabilityMetrics(), {
+      publish: false,
+    })
+
+    if (symphonyOperatorService) {
+      reliabilityAggregator.ingestStabilityMetrics('symphony', symphonyOperatorService.getStabilityMetrics(), {
+        publish: false,
+      })
+    }
+
+    reliabilityAggregator.ingestStabilityMetrics('mcp', resolvedMcpService.getStabilityMetrics(), {
+      publish: false,
+    })
+
+    return reliabilityAggregator.getStabilitySnapshot()
+  }
+
   const sendReliabilitySnapshot = (snapshot: ReliabilitySnapshot): void => {
     if (!safeSend(IPC_CHANNELS.reliabilityStatus, snapshot)) {
       return
@@ -388,6 +414,18 @@ export function registerSessionIpc({
       degradedSurfaces: snapshot.surfaces
         .filter((surface) => surface.status === 'degraded')
         .map((surface) => surface.sourceSurface),
+    })
+  }
+
+  const sendStabilitySnapshot = (snapshot: StabilitySnapshot): void => {
+    if (!safeSend(IPC_CHANNELS.reliabilityStabilitySnapshot, snapshot)) {
+      return
+    }
+
+    log.debug('[desktop-ipc] stability snapshot', {
+      status: snapshot.status,
+      breachCount: snapshot.breaches.length,
+      thresholdVersion: snapshot.version,
     })
   }
 
@@ -701,6 +739,7 @@ export function registerSessionIpc({
 
   const onStatus = (status: BridgeStatusEvent): void => {
     sendBridgeStatus(status)
+    syncStabilityMetricsFromServices()
     reliabilityAggregator.ingestChatBridgeStatus(status)
   }
 
@@ -717,6 +756,7 @@ export function registerSessionIpc({
       signal,
       stderrLines,
     })
+    syncStabilityMetricsFromServices()
     reliabilityAggregator.ingestChatSubprocessCrash({
       message: lastLine,
       exitCode,
@@ -733,12 +773,14 @@ export function registerSessionIpc({
 
   const onSymphonyStatus = (status: SymphonyRuntimeStatus): void => {
     sendSymphonyStatusToRenderer(status)
+    syncStabilityMetricsFromServices()
     reliabilityAggregator.ingestSymphonyRuntimeStatus(status)
     void symphonyOperatorService?.syncRuntimeStatus(status)
   }
 
   const onSymphonyDashboardSnapshot = (snapshot: SymphonyOperatorSnapshot): void => {
     sendSymphonyDashboardSnapshot(snapshot)
+    syncStabilityMetricsFromServices()
     reliabilityAggregator.ingestSymphonyOperatorSnapshot(snapshot)
   }
 
@@ -746,9 +788,14 @@ export function registerSessionIpc({
     sendReliabilitySnapshot(snapshot)
   }
 
+  const onStabilitySnapshot = (snapshot: StabilitySnapshot): void => {
+    sendStabilitySnapshot(snapshot)
+  }
+
   symphonySupervisor?.on('status', onSymphonyStatus)
   symphonyOperatorService?.on('snapshot', onSymphonyDashboardSnapshot)
   reliabilityAggregator.on('snapshot', onReliabilitySnapshot)
+  reliabilityAggregator.on('stability', onStabilitySnapshot)
 
   const initialState = bridge.getState()
   const initialBridgeStatus: BridgeStatusEvent = {
@@ -757,11 +804,13 @@ export function registerSessionIpc({
     updatedAt: Date.now(),
   }
   sendBridgeStatus(initialBridgeStatus)
+  syncStabilityMetricsFromServices()
   reliabilityAggregator.ingestChatBridgeStatus(initialBridgeStatus)
 
   if (symphonySupervisor) {
     const initialSymphonyStatus = symphonySupervisor.getStatus()
     sendSymphonyStatusToRenderer(initialSymphonyStatus)
+    syncStabilityMetricsFromServices()
     reliabilityAggregator.ingestSymphonyRuntimeStatus(initialSymphonyStatus)
     void symphonyOperatorService?.syncRuntimeStatus(initialSymphonyStatus)
   }
@@ -769,10 +818,12 @@ export function registerSessionIpc({
   if (symphonyOperatorService) {
     const initialDashboardSnapshot = symphonyOperatorService.getSnapshot()
     sendSymphonyDashboardSnapshot(initialDashboardSnapshot)
+    syncStabilityMetricsFromServices()
     reliabilityAggregator.ingestSymphonyOperatorSnapshot(initialDashboardSnapshot)
   }
 
   sendReliabilitySnapshot(reliabilityAggregator.getSnapshot())
+  sendStabilitySnapshot(syncStabilityMetricsFromServices())
 
   ipcMain.removeHandler(IPC_CHANNELS.sessionSend)
   ipcMain.removeHandler(IPC_CHANNELS.sessionStop)
@@ -823,6 +874,7 @@ export function registerSessionIpc({
   ipcMain.removeHandler(IPC_CHANNELS.mcpRefreshStatus)
   ipcMain.removeHandler(IPC_CHANNELS.mcpReconnectServer)
   ipcMain.removeHandler(IPC_CHANNELS.reliabilityGetStatus)
+  ipcMain.removeHandler(IPC_CHANNELS.reliabilityGetStabilitySnapshot)
   ipcMain.removeHandler(IPC_CHANNELS.reliabilityRequestRecoveryAction)
 
   ipcMain.handle(IPC_CHANNELS.sessionSend, async (_event, message: string) => {
@@ -1408,12 +1460,14 @@ export function registerSessionIpc({
 
   ipcMain.handle(IPC_CHANNELS.workflowGetBoard, async (): Promise<WorkflowBoardSnapshotResponse> => {
     const response = await workflowBoardService.getBoard()
+    syncStabilityMetricsFromServices()
     reliabilityAggregator.ingestWorkflowSnapshot(response.snapshot)
     return response
   })
 
   ipcMain.handle(IPC_CHANNELS.workflowRefreshBoard, async (): Promise<WorkflowBoardSnapshotResponse> => {
     const response = await workflowBoardService.refreshBoard()
+    syncStabilityMetricsFromServices()
     reliabilityAggregator.ingestWorkflowSnapshot(response.snapshot)
     return response
   })
@@ -1671,6 +1725,7 @@ export function registerSessionIpc({
   ipcMain.handle(IPC_CHANNELS.symphonyGetStatus, async (): Promise<SymphonyRuntimeStatusResponse> => {
     if (!symphonySupervisor) {
       const fallback = createSymphonyDisconnectedResult()
+      syncStabilityMetricsFromServices()
       reliabilityAggregator.ingestSymphonyRuntimeStatus(fallback.status)
       return {
         success: true,
@@ -1679,6 +1734,7 @@ export function registerSessionIpc({
     }
 
     const status = symphonySupervisor.getStatus()
+    syncStabilityMetricsFromServices()
     reliabilityAggregator.ingestSymphonyRuntimeStatus(status)
     return {
       success: true,
@@ -1710,6 +1766,7 @@ export function registerSessionIpc({
 
   ipcMain.handle(IPC_CHANNELS.symphonyGetDashboard, async (): Promise<SymphonyOperatorSnapshotResponse> => {
     const snapshot = symphonyOperatorService?.getSnapshot() ?? createUnavailableDashboardSnapshot()
+    syncStabilityMetricsFromServices()
     reliabilityAggregator.ingestSymphonyOperatorSnapshot(snapshot)
     return {
       success: true,
@@ -1720,6 +1777,7 @@ export function registerSessionIpc({
   ipcMain.handle(IPC_CHANNELS.symphonyRefreshDashboard, async (): Promise<SymphonyOperatorSnapshotResponse> => {
     if (!symphonyOperatorService) {
       const snapshot = createUnavailableDashboardSnapshot()
+      syncStabilityMetricsFromServices()
       reliabilityAggregator.ingestSymphonyOperatorSnapshot(snapshot)
       return {
         success: false,
@@ -1728,6 +1786,7 @@ export function registerSessionIpc({
     }
 
     const snapshot = await symphonyOperatorService.refreshBaseline()
+    syncStabilityMetricsFromServices()
     reliabilityAggregator.ingestSymphonyOperatorSnapshot(snapshot)
     return {
       success: true,
@@ -1740,6 +1799,7 @@ export function registerSessionIpc({
     async (_event, requestId: string, responseText: string): Promise<SymphonyEscalationResponseCommandResult> => {
       if (!symphonyOperatorService) {
         const snapshot = createUnavailableDashboardSnapshot()
+        syncStabilityMetricsFromServices()
         reliabilityAggregator.ingestSymphonyOperatorSnapshot(snapshot)
         return {
           success: false,
@@ -1748,6 +1808,7 @@ export function registerSessionIpc({
       }
 
       const response = await symphonyOperatorService.respondToEscalation(requestId, responseText)
+      syncStabilityMetricsFromServices()
       reliabilityAggregator.ingestSymphonyOperatorSnapshot(response.snapshot)
       return response
     },
@@ -1755,6 +1816,7 @@ export function registerSessionIpc({
 
   ipcMain.handle(IPC_CHANNELS.mcpListServers, async (): Promise<McpConfigReadResponse> => {
     const response = await resolvedMcpConfigBridge.listServers()
+    syncStabilityMetricsFromServices()
     reliabilityAggregator.ingestMcpConfigResponse(response)
     return response
   })
@@ -1781,6 +1843,7 @@ export function registerSessionIpc({
     IPC_CHANNELS.mcpRefreshStatus,
     async (_event, name: string): Promise<McpServerStatusResponse> => {
       const response = await resolvedMcpService.refreshStatus(name)
+      syncStabilityMetricsFromServices()
       reliabilityAggregator.ingestMcpStatusResponse(response)
       return response
     },
@@ -1790,6 +1853,7 @@ export function registerSessionIpc({
     IPC_CHANNELS.mcpReconnectServer,
     async (_event, name: string): Promise<McpServerStatusResponse> => {
       const response = await resolvedMcpService.reconnectServer(name)
+      syncStabilityMetricsFromServices()
       reliabilityAggregator.ingestMcpStatusResponse(response)
       return response
     },
@@ -1798,9 +1862,20 @@ export function registerSessionIpc({
   ipcMain.handle(
     IPC_CHANNELS.reliabilityGetStatus,
     async (): Promise<ReliabilityStatusResponse> => {
+      syncStabilityMetricsFromServices()
       return {
         success: true,
         snapshot: reliabilityAggregator.getSnapshot(),
+      }
+    },
+  )
+
+  ipcMain.handle(
+    IPC_CHANNELS.reliabilityGetStabilitySnapshot,
+    async (): Promise<StabilitySnapshotResponse> => {
+      return {
+        success: true,
+        snapshot: syncStabilityMetricsFromServices(),
       }
     },
   )
@@ -1833,6 +1908,7 @@ export function registerSessionIpc({
     symphonySupervisor?.off('status', onSymphonyStatus)
     symphonyOperatorService?.off('snapshot', onSymphonyDashboardSnapshot)
     reliabilityAggregator.off('snapshot', onReliabilitySnapshot)
+    reliabilityAggregator.off('stability', onStabilitySnapshot)
     planningToolDetector.off('artifact', onPlanningArtifactEvent)
 
     ipcMain.removeHandler(IPC_CHANNELS.sessionSend)
@@ -1884,6 +1960,7 @@ export function registerSessionIpc({
     ipcMain.removeHandler(IPC_CHANNELS.mcpRefreshStatus)
     ipcMain.removeHandler(IPC_CHANNELS.mcpReconnectServer)
     ipcMain.removeHandler(IPC_CHANNELS.reliabilityGetStatus)
+    ipcMain.removeHandler(IPC_CHANNELS.reliabilityGetStabilitySnapshot)
     ipcMain.removeHandler(IPC_CHANNELS.reliabilityRequestRecoveryAction)
   }
 }

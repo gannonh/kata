@@ -7,6 +7,10 @@ import type {
   ReliabilitySnapshot,
   ReliabilitySourceSurface,
   ReliabilitySurfaceState,
+  StabilityHealthStatus,
+  StabilityMetricName,
+  StabilitySnapshot,
+  ThresholdBreach,
 } from '@shared/types'
 
 const RELIABILITY_SURFACES: ReadonlyArray<ReliabilitySourceSurface> = [
@@ -28,6 +32,42 @@ function buildEmptySnapshot(): ReliabilitySnapshot {
       updatedAt: now,
       lastHealthyAt: now,
     })),
+  }
+}
+
+function buildEmptyStabilitySnapshot(): StabilitySnapshot {
+  const now = new Date(0).toISOString()
+  return {
+    version: 'unknown',
+    status: 'healthy',
+    metrics: {
+      eventLoopLagMs: 0,
+      heapGrowthMb: 0,
+      staleAgeMs: 0,
+      reconnectSuccessRate: 1,
+      recoveryLatencyMs: 0,
+      a11yViolationCounts: {
+        minor: 0,
+        moderate: 0,
+        serious: 0,
+        critical: 0,
+      },
+      collectedAt: now,
+    },
+    thresholds: {
+      version: 'unknown',
+      eventLoopLagMs: { warning: 0, breach: 0, comparator: 'max' },
+      heapGrowthMb: { warning: 0, breach: 0, comparator: 'max' },
+      staleAgeMs: { warning: 0, breach: 0, comparator: 'max' },
+      reconnectSuccessRate: { warning: 1, breach: 0, comparator: 'min' },
+      recoveryLatencyMs: { warning: 0, breach: 0, comparator: 'max' },
+      a11yViolationCounts: {
+        serious: { warning: 0, breach: 0, comparator: 'max' },
+        critical: { warning: 0, breach: 0, comparator: 'max' },
+      },
+    },
+    breaches: [],
+    generatedAt: now,
   }
 }
 
@@ -74,6 +114,37 @@ export function formatReliabilitySurfaceLabel(surface: ReliabilitySourceSurface)
       return 'MCP'
     default:
       return surface
+  }
+}
+
+export function formatStabilityMetricLabel(metric: StabilityMetricName): string {
+  switch (metric) {
+    case 'eventLoopLagMs':
+      return 'Event loop lag'
+    case 'heapGrowthMb':
+      return 'Heap growth'
+    case 'staleAgeMs':
+      return 'Stale age'
+    case 'reconnectSuccessRate':
+      return 'Reconnect success rate'
+    case 'recoveryLatencyMs':
+      return 'Recovery latency'
+    case 'a11yViolationCounts':
+      return 'Accessibility violations'
+    default:
+      return metric
+  }
+}
+
+export function formatStabilityStatusLabel(status: StabilityHealthStatus): string {
+  switch (status) {
+    case 'breached':
+      return 'Breached'
+    case 'degraded':
+      return 'Degraded'
+    case 'healthy':
+    default:
+      return 'Healthy'
   }
 }
 
@@ -129,6 +200,7 @@ function mergeReliabilitySnapshot(
 }
 
 export const reliabilitySnapshotAtom = atom<ReliabilitySnapshot>(buildEmptySnapshot())
+export const stabilitySnapshotAtom = atom<StabilitySnapshot>(buildEmptyStabilitySnapshot())
 export const reliabilityLoadingAtom = atom<boolean>(false)
 export const reliabilityRecoveryPendingAtom = atom<Record<ReliabilitySourceSurface, boolean>>({
   chat_runtime: false,
@@ -153,13 +225,32 @@ const setReliabilitySnapshotAtom = atom(
   },
 )
 
+const setStabilitySnapshotAtom = atom(null, (_get, set, snapshot: StabilitySnapshot) => {
+  set(stabilitySnapshotAtom, snapshot)
+})
+
+export const refreshStabilitySnapshotAtom = atom(null, async (_get, set) => {
+  const response = await window.api.reliability.getStabilitySnapshot()
+  if (response.success) {
+    set(setStabilitySnapshotAtom, response.snapshot)
+  }
+})
+
 export const refreshReliabilityStatusAtom = atom(null, async (_get, set) => {
   set(reliabilityLoadingAtom, true)
 
   try {
-    const response = await window.api.reliability.getStatus()
-    if (response.success) {
-      set(setReliabilitySnapshotAtom, response.snapshot)
+    const [statusResponse, stabilityResponse] = await Promise.all([
+      window.api.reliability.getStatus(),
+      window.api.reliability.getStabilitySnapshot(),
+    ])
+
+    if (statusResponse.success) {
+      set(setReliabilitySnapshotAtom, statusResponse.snapshot)
+    }
+
+    if (stabilityResponse.success) {
+      set(setStabilitySnapshotAtom, stabilityResponse.snapshot)
     }
   } finally {
     set(reliabilityLoadingAtom, false)
@@ -181,9 +272,17 @@ export const requestReliabilityRecoveryActionAtom = atom(
         [request.sourceSurface]: result,
       }))
 
-      const response = await window.api.reliability.getStatus()
-      if (response.success) {
-        set(setReliabilitySnapshotAtom, response.snapshot)
+      const [statusResponse, stabilityResponse] = await Promise.all([
+        window.api.reliability.getStatus(),
+        window.api.reliability.getStabilitySnapshot(),
+      ])
+
+      if (statusResponse.success) {
+        set(setReliabilitySnapshotAtom, statusResponse.snapshot)
+      }
+
+      if (stabilityResponse.success) {
+        set(setStabilitySnapshotAtom, stabilityResponse.snapshot)
       }
 
       return result
@@ -198,25 +297,34 @@ export const requestReliabilityRecoveryActionAtom = atom(
 
 export function useReliabilityBridge(): void {
   const setSnapshot = useSetAtom(setReliabilitySnapshotAtom)
+  const setStabilitySnapshot = useSetAtom(setStabilitySnapshotAtom)
   const refresh = useSetAtom(refreshReliabilityStatusAtom)
 
   useEffect(() => {
     let cancelled = false
 
-    const unsubscribe = window.api.reliability.onStatus((snapshot) => {
+    const unsubscribeStatus = window.api.reliability.onStatus((snapshot) => {
       if (cancelled) {
         return
       }
       setSnapshot(snapshot)
     })
 
+    const unsubscribeStability = window.api.reliability.onStabilitySnapshot((snapshot) => {
+      if (cancelled) {
+        return
+      }
+      setStabilitySnapshot(snapshot)
+    })
+
     void refresh()
 
     return () => {
       cancelled = true
-      unsubscribe()
+      unsubscribeStatus()
+      unsubscribeStability()
     }
-  }, [refresh, setSnapshot])
+  }, [refresh, setSnapshot, setStabilitySnapshot])
 }
 
 export function useReliabilitySnapshot(): ReliabilitySnapshot {
@@ -239,4 +347,27 @@ export function useReliabilitySurfaceState(
     snapshot.surfaces.find((surface) => surface.sourceSurface === sourceSurface) ??
     FALLBACK_SURFACE_STATE(sourceSurface)
   )
+}
+
+export function useStabilitySnapshot(): StabilitySnapshot {
+  return useAtomValue(stabilitySnapshotAtom)
+}
+
+export function useStabilityBreachesForSurface(
+  sourceSurface: ReliabilitySourceSurface,
+): ThresholdBreach[] {
+  const snapshot = useStabilitySnapshot()
+  return snapshot.breaches
+    .filter((breach) => breach.sourceSurface === sourceSurface)
+    .sort((left, right) => {
+      if (left.breached !== right.breached) {
+        return left.breached ? -1 : 1
+      }
+
+      if (left.severity !== right.severity) {
+        return left.severity === 'critical' ? -1 : 1
+      }
+
+      return right.timestamp.localeCompare(left.timestamp)
+    })
 }

@@ -1,5 +1,9 @@
 import { describe, expect, test } from 'vitest'
-import { connectionBadgeVariant, formatSymphonyReliabilityNotice } from '../SymphonyDashboard'
+import {
+  connectionBadgeVariant,
+  formatSymphonyReliabilityNotice,
+  formatSymphonyStabilityNotice,
+} from '../SymphonyDashboard'
 import { formatLastActivity } from '../WorkerTable'
 
 describe('SymphonyDashboard helpers', () => {
@@ -29,5 +33,27 @@ describe('SymphonyDashboard helpers', () => {
 
     expect(notice).toContain('Symphony operator is disconnected.')
     expect(notice).toContain('Recommended recovery: Reconnect service.')
+  })
+
+  test('formats stability notice with metric-specific recovery guidance', () => {
+    const notice = formatSymphonyStabilityNotice({
+      code: 'REL-LONGRUN-RECOVERY_LATENCY_MS-BREACH',
+      metric: 'recoveryLatencyMs',
+      sourceSurface: 'symphony',
+      failureClass: 'process',
+      severity: 'critical',
+      recoveryAction: 'restart_process',
+      comparator: 'max',
+      observedValue: 42000,
+      warningThreshold: 12000,
+      breachThreshold: 30000,
+      breached: true,
+      message: 'Recovery latency exceeded threshold (42000ms vs 30000ms).',
+      suggestedRecovery: 'Restart Symphony runtime and validate recovery checkpoints.',
+      timestamp: '2026-04-07T20:00:00.000Z',
+    })
+
+    expect(notice).toContain('Recovery latency: Recovery latency exceeded threshold')
+    expect(notice).toContain('Suggested recovery: Restart Symphony runtime and validate recovery checkpoints.')
   })
 })
