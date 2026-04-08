@@ -28,6 +28,10 @@ function createBridgeStub() {
   return Object.assign(emitter, {
     getState: vi.fn(() => ({ status: 'running', pid: 1, running: true })),
     getWorkspacePath: vi.fn(() => process.cwd()),
+    getStabilityMetrics: vi.fn(() => ({
+      eventLoopLagMs: 0,
+      heapGrowthMb: 0,
+    })),
     prompt: vi.fn(),
     abort: vi.fn(),
     restart: vi.fn(),
@@ -108,6 +112,9 @@ describe('mcp ipc handlers', () => {
     const mcpService = {
       refreshStatus: vi.fn(async () => ({ success: true, status: { serverName: 'local', phase: 'connected', checkedAt: new Date().toISOString(), toolNames: ['read'], toolCount: 1 } })),
       reconnectServer: vi.fn(async () => ({ success: true, status: { serverName: 'local', phase: 'connected', checkedAt: new Date().toISOString(), toolNames: ['read'], toolCount: 1 } })),
+      getStabilityMetrics: vi.fn(() => ({
+        a11yViolationCounts: { minor: 0, moderate: 0, serious: 0, critical: 0 },
+      })),
     } as any
 
     const unregister = registerSessionIpc({
@@ -170,6 +177,9 @@ describe('mcp ipc handlers', () => {
           code: 'CONNECTION_FAILED',
           message: 'unable to connect',
         },
+      })),
+      getStabilityMetrics: vi.fn(() => ({
+        a11yViolationCounts: { minor: 0, moderate: 0, serious: 0, critical: 0 },
       })),
     } as any
 
