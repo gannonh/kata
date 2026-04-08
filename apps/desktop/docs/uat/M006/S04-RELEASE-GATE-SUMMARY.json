@@ -1,0 +1,151 @@
+{
+  "version": "m006-s04-release-gate-v1",
+  "generatedAt": "2026-04-08T20:46:33.314Z",
+  "inputs": {
+    "uatReportPath": "docs/uat/M006/S04-BETA-UAT-REPORT.md",
+    "acceptanceReportPath": "docs/uat/M006/M006-ACCEPTANCE-REPORT.md",
+    "soakMetricsPath": "docs/uat/M006/S03-SOAK-METRICS.json",
+    "consumedEvidence": {
+      "s01": "docs/uat/M006/S01-UAT-REPORT.md",
+      "s02": "docs/uat/M006/S02-UAT-REPORT.md",
+      "s03": "docs/uat/M006/S03-UAT-REPORT.md"
+    }
+  },
+  "checkpoints": [
+    {
+      "name": "install",
+      "result": "pass",
+      "evidenceRef": "`docs/uat/M006/evidence/S04-RUN-TRANSCRIPT.md#1-build--dmg-packaging` + `docs/uat/M006/evidence/S04-RUN-TRANSCRIPT.md#2-packaged-installlaunchshutdown-smoke-clean-profile`",
+      "timestamp": "2026-04-08T20:39:14Z",
+      "failureReason": null
+    },
+    {
+      "name": "onboard",
+      "result": "pass",
+      "evidenceRef": "`docs/uat/M006/evidence/S04-RUN-TRANSCRIPT.md#3-integrated-m006-acceptance-automation` (happy-path assertion: chat input visible with seeded auth)",
+      "timestamp": "2026-04-08T20:40:11Z",
+      "failureReason": null
+    },
+    {
+      "name": "plan",
+      "result": "pass",
+      "evidenceRef": "`docs/uat/M006/evidence/S04-RUN-TRANSCRIPT.md#3-integrated-m006-acceptance-automation` (planning view + `[S04]`/`[S03]` tabs asserted)",
+      "timestamp": "2026-04-08T20:40:22Z",
+      "failureReason": null
+    },
+    {
+      "name": "execute",
+      "result": "pass",
+      "evidenceRef": "`docs/uat/M006/evidence/S04-RUN-TRANSCRIPT.md#3-integrated-m006-acceptance-automation` (kanban pane + board columns asserted)",
+      "timestamp": "2026-04-08T20:40:29Z",
+      "failureReason": null
+    },
+    {
+      "name": "operate-symphony",
+      "result": "pass",
+      "evidenceRef": "`docs/uat/M006/evidence/S04-RUN-TRANSCRIPT.md#3-integrated-m006-acceptance-automation` (runtime phase badge Ready + dashboard connected asserted)",
+      "timestamp": "2026-04-08T20:40:36Z",
+      "failureReason": null
+    },
+    {
+      "name": "operate-mcp",
+      "result": "pass",
+      "evidenceRef": "`docs/uat/M006/evidence/S04-RUN-TRANSCRIPT.md#3-integrated-m006-acceptance-automation` (MCP panel visible + fixture server row asserted)",
+      "timestamp": "2026-04-08T20:40:42Z",
+      "failureReason": null
+    },
+    {
+      "name": "trigger-failure",
+      "result": "pass",
+      "evidenceRef": "`docs/uat/M006/evidence/S04-RUN-TRANSCRIPT.md#3-integrated-m006-acceptance-automation` (chat runtime process failure banner + symphony disconnect degradation asserted)",
+      "timestamp": "2026-04-08T20:40:55Z",
+      "failureReason": null
+    },
+    {
+      "name": "recover",
+      "result": "pass",
+      "evidenceRef": "`docs/uat/M006/evidence/S04-RUN-TRANSCRIPT.md#3-integrated-m006-acceptance-automation` (recovery action clears degraded state; chat + kanban continue without restart)",
+      "timestamp": "2026-04-08T20:41:02Z",
+      "failureReason": null
+    },
+    {
+      "name": "shutdown",
+      "result": "pass",
+      "evidenceRef": "`docs/uat/M006/evidence/S04-RUN-TRANSCRIPT.md#2-packaged-installlaunchshutdown-smoke-clean-profile` + `docs/uat/M006/evidence/S04-RUN-TRANSCRIPT.md#3-integrated-m006-acceptance-automation` (symphony stop and packaged app quit)",
+      "timestamp": "2026-04-08T20:41:09Z",
+      "failureReason": null
+    }
+  ],
+  "checkpointSummary": {
+    "required": 9,
+    "passed": 9,
+    "failed": 0,
+    "skipped": 0,
+    "allRequiredPass": true
+  },
+  "criteria": [
+    {
+      "id": "m006-sc-01",
+      "description": "Packaged install + onboarding to usable chat session is proven without hidden recovery steps.",
+      "status": "pass",
+      "evidence": [
+        "docs/uat/M006/S02-UAT-REPORT.md",
+        "docs/uat/M006/S04-BETA-UAT-REPORT.md#checkpoint-results"
+      ],
+      "notes": []
+    },
+    {
+      "id": "m006-sc-02",
+      "description": "One integrated Desktop session proves plan → execute → Symphony operation → MCP operation with coherent UI state.",
+      "status": "pass",
+      "evidence": [
+        "docs/uat/M006/S04-BETA-UAT-REPORT.md#checkpoint-results"
+      ],
+      "notes": []
+    },
+    {
+      "id": "m006-sc-03",
+      "description": "Representative failures visibly degrade and recover while preserving last-known-good context.",
+      "status": "pass",
+      "evidence": [
+        "docs/uat/M006/S01-UAT-REPORT.md",
+        "docs/uat/M006/S04-BETA-UAT-REPORT.md#checkpoint-results"
+      ],
+      "notes": []
+    },
+    {
+      "id": "m006-sc-04",
+      "description": "Long-run stability and accessibility baseline remains release-ready with no unresolved threshold breach.",
+      "status": "pass",
+      "evidence": [
+        "docs/uat/M006/S03-UAT-REPORT.md",
+        "docs/uat/M006/S03-SOAK-METRICS.json"
+      ],
+      "notes": []
+    },
+    {
+      "id": "m006-sc-05",
+      "description": "Release evidence is complete in-repo and recommendation truthfully reflects remaining blocker state.",
+      "status": "pass",
+      "evidence": [
+        "docs/uat/M006/M006-ACCEPTANCE-REPORT.md",
+        "docs/uat/M006/S04-RELEASE-GATE-SUMMARY.json"
+      ],
+      "notes": []
+    }
+  ],
+  "criteriaSummary": {
+    "required": 5,
+    "passed": 5,
+    "failed": 0,
+    "allPass": true
+  },
+  "blockers": {
+    "p0": [],
+    "p1": []
+  },
+  "recommendation": {
+    "decision": "go",
+    "explicit": true
+  }
+}

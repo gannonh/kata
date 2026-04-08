@@ -58,10 +58,14 @@ Options:
   --help                        Show this help text
   --assert-checkpoints          Exit non-zero when any required checkpoint fails/missing
   --dry-run                     Evaluate and print status without writing report JSON
-  --report=<path>               Output JSON path (default: ${DEFAULT_REPORT_PATH})
-  --uat-report=<path>           S04 UAT markdown source (default: ${DEFAULT_UAT_REPORT_PATH})
-  --acceptance-report=<path>    Milestone acceptance report markdown source (default: ${DEFAULT_ACCEPTANCE_REPORT_PATH})
-  --soak-metrics=<path>         S03 soak metrics JSON source (default: ${DEFAULT_SOAK_METRICS_PATH})
+  --report=<path> | --report <path>
+                                Output JSON path (default: ${DEFAULT_REPORT_PATH})
+  --uat-report=<path> | --uat-report <path>
+                                S04 UAT markdown source (default: ${DEFAULT_UAT_REPORT_PATH})
+  --acceptance-report=<path> | --acceptance-report <path>
+                                Milestone acceptance report markdown source (default: ${DEFAULT_ACCEPTANCE_REPORT_PATH})
+  --soak-metrics=<path> | --soak-metrics <path>
+                                S03 soak metrics JSON source (default: ${DEFAULT_SOAK_METRICS_PATH})
 
 Input contract:
   The UAT report must include a markdown table with headers:
@@ -80,7 +84,17 @@ function parseArgs(argv: string[]): ReleaseGateOptions {
     soakMetricsPath: DEFAULT_SOAK_METRICS_PATH,
   }
 
-  for (const arg of argv) {
+  const consumeValue = (flag: string, index: number): [value: string, nextIndex: number] => {
+    const next = argv[index + 1]
+    if (!next || next.startsWith('--')) {
+      throw new Error(`Missing value for ${flag}. Run with --help for usage.`)
+    }
+    return [next, index + 1]
+  }
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index]!
+
     if (arg === '--help' || arg === '-h') {
       options.help = true
       continue
@@ -96,8 +110,22 @@ function parseArgs(argv: string[]): ReleaseGateOptions {
       continue
     }
 
+    if (arg === '--report') {
+      const [value, nextIndex] = consumeValue('--report', index)
+      options.reportPath = value
+      index = nextIndex
+      continue
+    }
+
     if (arg.startsWith('--report=')) {
       options.reportPath = arg.slice('--report='.length)
+      continue
+    }
+
+    if (arg === '--uat-report') {
+      const [value, nextIndex] = consumeValue('--uat-report', index)
+      options.uatReportPath = value
+      index = nextIndex
       continue
     }
 
@@ -106,8 +134,22 @@ function parseArgs(argv: string[]): ReleaseGateOptions {
       continue
     }
 
+    if (arg === '--acceptance-report') {
+      const [value, nextIndex] = consumeValue('--acceptance-report', index)
+      options.acceptanceReportPath = value
+      index = nextIndex
+      continue
+    }
+
     if (arg.startsWith('--acceptance-report=')) {
       options.acceptanceReportPath = arg.slice('--acceptance-report='.length)
+      continue
+    }
+
+    if (arg === '--soak-metrics') {
+      const [value, nextIndex] = consumeValue('--soak-metrics', index)
+      options.soakMetricsPath = value
+      index = nextIndex
       continue
     }
 
