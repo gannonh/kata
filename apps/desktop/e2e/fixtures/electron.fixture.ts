@@ -9,6 +9,9 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true'
+const MCP_FIXTURE_SCRIPT = path.resolve(__dirname, '../fixtures/mcp-stdio-server.mjs')
+
+type M006IntegratedScenario = 'none' | 'happy_path' | 'recovery_path'
 
 function createIsolatedDataDir(): string {
   const dataDir = mkdtempSync(path.join(tmpdir(), 'kata-desktop-e2e-'))
@@ -26,6 +29,12 @@ function createMockKataRpcBinary(dataDir: string): string {
 const readline = require('node:readline')
 
 const rl = readline.createInterface({ input: process.stdin })
+const m006Scenario = (process.env.KATA_DESKTOP_M006_SCENARIO || 'none').trim() || 'none'
+let planningSeeded = false
+
+function emitEvent(event) {
+  process.stdout.write(JSON.stringify({ type: 'event', event }) + '\\n')
+}
 
 function respond(message, data = {}, success = true, error) {
   const payload = {
@@ -41,7 +50,86 @@ function respond(message, data = {}, success = true, error) {
   process.stdout.write(JSON.stringify(payload) + '\\n')
 }
 
-process.stdout.write(JSON.stringify({ type: 'event', event: { type: 'agent_ready' } }) + '\\n')
+function emitPlanningArtifactsOnce() {
+  if (planningSeeded || m006Scenario === 'none') {
+    return
+  }
+
+  planningSeeded = true
+
+  const slices = [
+    {
+      toolCallId: 'm006-slice-s04',
+      kataId: 'S04',
+      title: 'Integrated Packaged Beta Acceptance and Release Gate',
+      description: 'Fixture-generated slice for integrated beta acceptance happy-path coverage.',
+      issueId: 'slice-m006-s04',
+      phase: 'in_progress',
+    },
+    {
+      toolCallId: 'm006-slice-s03',
+      kataId: 'S03',
+      title: 'Long-Run Stability, Performance, and Accessibility Baseline',
+      description: 'Fixture-generated slice showing prior milestone evidence context.',
+      issueId: 'slice-m006-s03',
+      phase: 'done',
+    },
+  ]
+
+  for (const slice of slices) {
+    emitEvent({
+      type: 'tool_execution_start',
+      toolCallId: slice.toolCallId,
+      toolName: 'kata_create_slice',
+      args: {
+        teamId: 'test-team',
+        projectId: 'test-project',
+        kataId: slice.kataId,
+        title: slice.title,
+        description: slice.description,
+      },
+    })
+
+    emitEvent({
+      type: 'tool_execution_end',
+      toolCallId: slice.toolCallId,
+      toolName: 'kata_create_slice',
+      result: {
+        id: slice.issueId,
+        phase: slice.phase,
+      },
+      isError: false,
+    })
+  }
+
+  emitEvent({
+    type: 'tool_execution_start',
+    toolCallId: 'm006-task-t02',
+    toolName: 'kata_create_task',
+    args: {
+      teamId: 'test-team',
+      projectId: 'test-project',
+      kataId: 'T02',
+      title: 'Add deterministic Electron coverage for integrated packaged beta path',
+      description: 'Fixture-generated task to populate slice details in planning view.',
+      sliceIssueId: 'slice-m006-s04',
+      phase: 'in_progress',
+    },
+  })
+
+  emitEvent({
+    type: 'tool_execution_end',
+    toolCallId: 'm006-task-t02',
+    toolName: 'kata_create_task',
+    result: {
+      id: 'task-m006-t02',
+      status: 'in_progress',
+    },
+    isError: false,
+  })
+}
+
+emitEvent({ type: 'agent_ready' })
 
 rl.on('line', (line) => {
   let message
@@ -54,7 +142,8 @@ rl.on('line', (line) => {
   switch (message.type) {
     case 'prompt':
       respond(message, { ok: true })
-      process.stdout.write(JSON.stringify({ type: 'event', event: { type: 'agent_end' } }) + '\\n')
+      emitPlanningArtifactsOnce()
+      emitEvent({ type: 'agent_end' })
       break
     case 'abort':
       respond(message, { ok: true })
@@ -119,6 +208,58 @@ function seedAuthFixture(authFilePath: string, mode: 'clean' | 'seeded_auth'): v
   }
 
   writeFileSync(authFilePath, '{}\n', 'utf8')
+}
+
+function seedWorkspacePreferences(workspaceDir: string, scenario: M006IntegratedScenario): void {
+  if (scenario === 'none') {
+    return
+  }
+
+  const preferencesPath = path.join(workspaceDir, '.kata', 'preferences.md')
+  mkdirSync(path.dirname(preferencesPath), { recursive: true })
+
+  writeFileSync(
+    preferencesPath,
+    `---
+workflow:
+  mode: linear
+projectId: test-project
+teamKey: KAT
+symphony:
+  url: http://127.0.0.1:8080
+---
+`,
+    'utf8',
+  )
+}
+
+function seedMcpFixtureConfig(mcpConfigPath: string, scenario: M006IntegratedScenario): void {
+  if (scenario === 'none') {
+    return
+  }
+
+  mkdirSync(path.dirname(mcpConfigPath), { recursive: true })
+
+  writeFileSync(
+    mcpConfigPath,
+    `${JSON.stringify(
+      {
+        settings: {
+          toolPrefix: 'server',
+          idleTimeout: 10,
+        },
+        mcpServers: {
+          'packaged-beta-fixture': {
+            command: process.execPath,
+            args: [MCP_FIXTURE_SCRIPT],
+          },
+        },
+      },
+      null,
+      2,
+    )}\n`,
+    'utf8',
+  )
 }
 
 async function waitForAppReady(window: Page): Promise<void> {
@@ -228,6 +369,7 @@ type DesktopFixtures = {
   chatRuntimeFaultMode: 'none' | 'process_crash_once'
   firstRunProfileMode: 'clean' | 'seeded_auth'
   firstRunStartupMode: 'healthy' | 'binary_missing'
+  m006IntegratedScenario: M006IntegratedScenario
 }
 
 export const test = base.extend<DesktopFixtures>({
@@ -235,6 +377,7 @@ export const test = base.extend<DesktopFixtures>({
   chatRuntimeFaultMode: ['none', { option: true }],
   firstRunProfileMode: ['clean', { option: true }],
   firstRunStartupMode: ['healthy', { option: true }],
+  m006IntegratedScenario: ['none', { option: true }],
   workspaceDir: async ({}, use) => {
     const dataDir = createIsolatedDataDir()
     const workspaceDir = path.join(dataDir, 'workspace')
@@ -251,6 +394,7 @@ export const test = base.extend<DesktopFixtures>({
       chatRuntimeFaultMode,
       firstRunProfileMode,
       firstRunStartupMode,
+      m006IntegratedScenario,
       mcpConfigPath,
       authFilePath,
     },
@@ -266,6 +410,8 @@ export const test = base.extend<DesktopFixtures>({
       mkdirSync(binaryMissingPathDir, { recursive: true })
     }
 
+    seedWorkspacePreferences(workspaceDir, m006IntegratedScenario)
+    seedMcpFixtureConfig(mcpConfigPath, m006IntegratedScenario)
     seedAuthFixture(authFilePath, firstRunProfileMode)
 
     const mainEntry = path.join(__dirname, '../../dist/main.cjs')
@@ -303,6 +449,7 @@ export const test = base.extend<DesktopFixtures>({
         KATA_DESKTOP_MCP_CONFIG_PATH: mcpConfigPath,
         KATA_DESKTOP_AUTH_FILE_PATH: authFilePath,
         KATA_DESKTOP_RELIABILITY_CHAT_FAULT: chatRuntimeFaultMode,
+        KATA_DESKTOP_M006_SCENARIO: m006IntegratedScenario,
         KATA_BIN_PATH: configuredKataBinary,
         // Force packaged-file mode for deterministic e2e: if a parent shell exported
         // VITE_DEV_SERVER_URL we would silently bind to an arbitrary dev server.
