@@ -120,7 +120,7 @@ const MCP_ERROR_CLASS: Record<string, ReliabilityClass> = {
 }
 
 const RELIABILITY_SECRET_PATTERNS: Array<[RegExp, string]> = [
-  [/(sk-[A-Za-z0-9_-]{3})[A-Za-z0-9_-]*/g, '$1***'],
+  [/(sk-[A-Za-z0-9_-]{1,3})[A-Za-z0-9_-]*/g, '$1***'],
   [/(api[_-]?key\s*[=:]\s*)([^\s]+)/gi, '$1***'],
   [/(token\s*[=:]\s*)([^\s]+)/gi, '$1***'],
   [/(authorization\s*[=:]\s*bearer\s+)([^\s]+)/gi, '$1***'],

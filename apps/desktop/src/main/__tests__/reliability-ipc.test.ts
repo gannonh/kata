@@ -126,6 +126,36 @@ describe('reliability recovery IPC handler', () => {
     unregister()
   })
 
+  test('returns failed chat runtime recovery when restart does not restore running bridge state', async () => {
+    const options = createCommonOptions()
+    const bridge = options.bridge
+
+    bridge.restart = vi.fn(async () => undefined)
+    bridge.getState = vi.fn(() => ({
+      status: 'crashed',
+      pid: null,
+      running: false,
+      message: 'spawn failed',
+    }))
+
+    const unregister = registerSessionIpc({
+      ...options,
+      bridge,
+    })
+
+    const result = await handlers.get(IPC_CHANNELS.reliabilityRequestRecoveryAction)?.({}, {
+      sourceSurface: 'chat_runtime',
+      action: 'restart_process',
+    })
+
+    expect(bridge.restart).toHaveBeenCalledTimes(1)
+    expect(result.success).toBe(false)
+    expect(result.outcome).toBe('failed')
+    expect(result.code).toBe('CHAT_RUNTIME_NOT_RUNNING')
+
+    unregister()
+  })
+
   test('uses symphony dashboard reconnect recovery before process restart when reconnect is requested', async () => {
     const supervisor = {
       on: vi.fn(),

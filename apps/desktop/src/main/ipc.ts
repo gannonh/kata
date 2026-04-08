@@ -136,6 +136,17 @@ export function registerSessionIpc({
       try {
         if (sourceSurface === 'chat_runtime') {
           await bridge.restart()
+          const bridgeState = bridge.getState()
+
+          if (!bridgeState.running || bridgeState.status !== 'running') {
+            return {
+              success: false,
+              outcome: 'failed' as const,
+              code: 'CHAT_RUNTIME_NOT_RUNNING',
+              message: 'Chat runtime failed to reach a healthy running state after restart.',
+            }
+          }
+
           return {
             success: true,
             outcome: 'succeeded' as const,

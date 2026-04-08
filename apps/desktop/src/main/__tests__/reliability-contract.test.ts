@@ -42,6 +42,9 @@ describe('reliability-contract', () => {
     const shortKeyRedaction = redactReliabilityText('sk-abc123')
     expect(shortKeyRedaction).toContain('***')
     expect(shortKeyRedaction).not.toContain('abc123')
+
+    expect(redactReliabilityText('sk-a')).toBe('sk-a***')
+    expect(redactReliabilityText('sk-ab')).toBe('sk-ab***')
   })
 
   test('maps workflow snapshot errors into canonical reliability signals', () => {
