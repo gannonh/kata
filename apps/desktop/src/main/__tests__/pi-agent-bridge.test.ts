@@ -3,8 +3,12 @@ import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import type { CommandResult } from '@shared/types'
-import { PiAgentBridge } from '../pi-agent-bridge'
+import type { CommandResult, ProviderStatusMap } from '@shared/types'
+import {
+  PiAgentBridge,
+  normalizeFirstRunModelReadiness,
+  normalizeFirstRunStartupReadiness,
+} from '../pi-agent-bridge'
 
 async function waitFor(condition: () => boolean, timeoutMs = 1_500): Promise<void> {
   const startedAt = Date.now()
@@ -1043,5 +1047,76 @@ setTimeout(() => {
 
     expect(debugEvents.some((event) => event.type === 'bridge:error')).toBe(true)
     expect(bridge.getState().status).toBe('crashed')
+  })
+
+  test('normalizes first-run model checkpoint and startup checkpoint', () => {
+    const providers: ProviderStatusMap = {
+      anthropic: { provider: 'anthropic', status: 'missing' as const },
+      openai: { provider: 'openai', status: 'valid' as const, maskedKey: '••••1234' },
+      google: { provider: 'google', status: 'missing' as const },
+      mistral: { provider: 'mistral', status: 'missing' as const },
+      bedrock: { provider: 'bedrock', status: 'missing' as const },
+      azure: { provider: 'azure', status: 'missing' as const },
+    }
+
+    const modelCheckpoint = normalizeFirstRunModelReadiness({
+      providers,
+      selectedProvider: 'openai',
+      selectedModel: 'openai/gpt-4.1',
+      availableModels: [{ provider: 'openai', id: 'gpt-4.1' }],
+      now: '2026-04-08T00:00:00.000Z',
+    })
+
+    const startupCheckpoint = normalizeFirstRunStartupReadiness({
+      bridgeStatus: 'running',
+      now: '2026-04-08T00:00:00.000Z',
+    })
+
+    expect(modelCheckpoint.status).toBe('pass')
+    expect(startupCheckpoint.status).toBe('pass')
+  })
+
+  test('treats aliased selected models as available when canonical provider model exists', () => {
+    const providers: ProviderStatusMap = {
+      anthropic: { provider: 'anthropic', status: 'missing' as const },
+      openai: { provider: 'openai', status: 'valid' as const, maskedKey: '••••1234' },
+      google: { provider: 'google', status: 'missing' as const },
+      mistral: { provider: 'mistral', status: 'missing' as const },
+      bedrock: { provider: 'bedrock', status: 'missing' as const },
+      azure: { provider: 'azure', status: 'missing' as const },
+    }
+
+    const checkpoint = normalizeFirstRunModelReadiness({
+      providers,
+      selectedProvider: 'openai',
+      selectedModel: 'openai-codex/gpt-4.1',
+      availableModels: [{ provider: 'openai', id: 'gpt-4.1' }],
+      now: '2026-04-08T00:00:00.000Z',
+    })
+
+    expect(checkpoint.status).toBe('pass')
+  })
+
+  test('fails model checkpoint when selected model provider is not configured', () => {
+    const providers: ProviderStatusMap = {
+      anthropic: { provider: 'anthropic', status: 'missing' as const },
+      openai: { provider: 'openai', status: 'missing' as const },
+      google: { provider: 'google', status: 'valid' as const, maskedKey: '••••5678' },
+      mistral: { provider: 'mistral', status: 'missing' as const },
+      bedrock: { provider: 'bedrock', status: 'missing' as const },
+      azure: { provider: 'azure', status: 'missing' as const },
+    }
+
+    const checkpoint = normalizeFirstRunModelReadiness({
+      providers,
+      selectedProvider: 'google',
+      selectedModel: 'openai/gpt-4.1',
+      availableModels: [{ provider: 'openai', id: 'gpt-4.1' }],
+      now: '2026-04-08T00:00:00.000Z',
+    })
+
+    expect(checkpoint.status).toBe('fail')
+    expect(checkpoint.failure?.code).toBe('MODEL_PROVIDER_NOT_CONFIGURED')
+    expect(checkpoint.failure?.recoveryAction).toBe('reauthenticate')
   })
 })

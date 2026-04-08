@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ArrowLeft, KeyRound } from 'lucide-react'
-import type { AuthProvider } from '@shared/types'
+import type { AuthProvider, FirstRunReadinessSnapshot } from '@shared/types'
+import { buildFirstRunGuidance, getFirstRunCheckpoint } from '@/lib/first-run-readiness'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -9,18 +10,21 @@ import { PROVIDER_METADATA } from '@/constants/providers'
 
 interface KeyInputStepProps {
   provider: AuthProvider
+  readiness?: FirstRunReadinessSnapshot | null
   onBack: () => void
   onSaved: (provider: AuthProvider) => Promise<void>
   onSkip: () => void
 }
 
-export function KeyInputStep({ provider, onBack, onSaved, onSkip }: KeyInputStepProps) {
+export function KeyInputStep({ provider, readiness, onBack, onSaved, onSkip }: KeyInputStepProps) {
   const [keyValue, setKeyValue] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   const metadata = PROVIDER_METADATA[provider]
+  const authGuidance = buildFirstRunGuidance(getFirstRunCheckpoint(readiness, 'auth'))
+  const modelGuidance = buildFirstRunGuidance(getFirstRunCheckpoint(readiness, 'model'))
 
   const validateAndSave = async (): Promise<void> => {
     const trimmed = keyValue.trim()
@@ -64,6 +68,21 @@ export function KeyInputStep({ provider, onBack, onSaved, onSkip }: KeyInputStep
             shared with Kata CLI.
           </p>
         </div>
+
+        {authGuidance && (
+          <div
+            className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-200"
+            data-testid="onboarding-key-auth-guidance"
+          >
+            {authGuidance}
+          </div>
+        )}
+
+        {modelGuidance && (
+          <div className="rounded-md border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+            {modelGuidance}
+          </div>
+        )}
 
         <div className="flex flex-col gap-2">
           <Label htmlFor="provider-api-key" className="text-xs uppercase tracking-wide text-muted-foreground">

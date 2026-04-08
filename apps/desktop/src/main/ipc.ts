@@ -725,6 +725,10 @@ export function registerSessionIpc({
     for (const chatEvent of adapter.adapt(rpcEvent)) {
       sendEventToRenderer(chatEvent)
       planningToolDetector.handleChatEvent(chatEvent)
+
+      if (chatEvent.type === 'agent_end') {
+        reliabilityAggregator.ingestFirstTurnCompletion(true)
+      }
     }
   }
 
@@ -806,6 +810,22 @@ export function registerSessionIpc({
   sendBridgeStatus(initialBridgeStatus)
   syncStabilityMetricsFromServices()
   reliabilityAggregator.ingestChatBridgeStatus(initialBridgeStatus)
+  reliabilityAggregator.ingestFirstRunModelState({
+    selectedModel: initialState.selectedModel,
+  })
+
+  void authBridge
+    .getProviders()
+    .then((response) => {
+      reliabilityAggregator.ingestFirstRunAuthState({
+        providers: response.providers,
+      })
+    })
+    .catch((error) => {
+      log.warn('[desktop-ipc] initial auth readiness snapshot failed', {
+        error: error instanceof Error ? error.message : String(error),
+      })
+    })
 
   if (symphonySupervisor) {
     const initialSymphonyStatus = symphonySupervisor.getStatus()
@@ -920,6 +940,11 @@ export function registerSessionIpc({
   ipcMain.handle(IPC_CHANNELS.sessionGetAvailableModels, async (): Promise<AvailableModelsResponse> => {
     try {
       const models = await bridge.getAvailableModels()
+      reliabilityAggregator.ingestFirstRunModelState({
+        selectedModel: bridge.getSelectedModel(),
+        availableModels: models,
+      })
+
       return {
         success: true,
         models,
@@ -963,6 +988,10 @@ export function registerSessionIpc({
           })
         }
       }
+
+      reliabilityAggregator.ingestFirstRunModelState({
+        selectedModel: model,
+      })
 
       log.info('[desktop-ipc] model switch', {
         model,
@@ -1288,14 +1317,25 @@ export function registerSessionIpc({
   })
 
   ipcMain.handle(IPC_CHANNELS.authGetProviders, async (): Promise<AuthProvidersResponse> => {
-    return authBridge.getProviders()
+    const response = await authBridge.getProviders()
+    reliabilityAggregator.ingestFirstRunAuthState({
+      providers: response.providers,
+    })
+    return response
   })
 
   ipcMain.handle(
     IPC_CHANNELS.authSetKey,
     async (_event, provider: AuthProvider, key: string): Promise<AuthSetKeyResponse> => {
       try {
-        return await authBridge.setProviderKey(provider, key)
+        const response = await authBridge.setProviderKey(provider, key)
+
+        const providersResponse = await authBridge.getProviders()
+        reliabilityAggregator.ingestFirstRunAuthState({
+          providers: providersResponse.providers,
+        })
+
+        return response
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
         return {
@@ -1311,7 +1351,14 @@ export function registerSessionIpc({
     IPC_CHANNELS.authRemoveKey,
     async (_event, provider: AuthProvider): Promise<AuthRemoveKeyResponse> => {
       try {
-        return await authBridge.removeProviderKey(provider)
+        const response = await authBridge.removeProviderKey(provider)
+
+        const providersResponse = await authBridge.getProviders()
+        reliabilityAggregator.ingestFirstRunAuthState({
+          providers: providersResponse.providers,
+        })
+
+        return response
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
         return {
