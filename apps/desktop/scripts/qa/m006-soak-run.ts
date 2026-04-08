@@ -140,6 +140,9 @@ async function main(): Promise<void> {
 
   const timeline: SoakTimelineEntry[] = []
 
+  // Deterministic threshold replay: this harness simulates a representative
+  // healthy→failure→recovery timeline for machine-checkable gating in CI.
+  // Real runtime proof is captured separately via live smoke/UAT artifacts.
   for (let index = 0; index < sampleCount; index += 1) {
     nowIndex = index
 
@@ -188,6 +191,7 @@ async function main(): Promise<void> {
       sampleCount,
       sampleSpacingMs,
       assertThresholds: options.assertThresholds,
+      evidenceMode: 'simulated-threshold-replay',
     },
     thresholds: finalSnapshot.thresholds,
     final: {
@@ -211,12 +215,18 @@ async function main(): Promise<void> {
   await mkdir(path.dirname(reportPath), { recursive: true })
   await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8')
 
-  if (options.assertThresholds && finalSnapshot.status !== 'healthy') {
-    throw new Error(
-      `Stability thresholds remain ${finalSnapshot.status} at end of soak run (${finalSnapshot.breaches
-        .map((breach) => breach.code)
-        .join(', ')}).`,
-    )
+  if (options.assertThresholds) {
+    if (!report.summary.failureWindowDetected) {
+      throw new Error('No degraded/breached failure window was detected during simulated soak replay.')
+    }
+
+    if (finalSnapshot.status !== 'healthy') {
+      throw new Error(
+        `Stability thresholds remain ${finalSnapshot.status} at end of soak run (${finalSnapshot.breaches
+          .map((breach) => breach.code)
+          .join(', ')}).`,
+      )
+    }
   }
 
   console.log(

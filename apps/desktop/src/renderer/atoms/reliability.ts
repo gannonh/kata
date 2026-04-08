@@ -155,7 +155,7 @@ export function reliabilitySeverityTone(
     return 'error'
   }
 
-  if (severity === 'warning') {
+  if (severity === 'serious' || severity === 'warning') {
     return 'warning'
   }
 
@@ -353,6 +353,14 @@ export function useStabilitySnapshot(): StabilitySnapshot {
   return useAtomValue(stabilitySnapshotAtom)
 }
 
+const STABILITY_SEVERITY_RANK: Record<string, number> = {
+  critical: 0,
+  serious: 1,
+  error: 2,
+  warning: 3,
+  info: 4,
+}
+
 export function useStabilityBreachesForSurface(
   sourceSurface: ReliabilitySourceSurface,
 ): ThresholdBreach[] {
@@ -365,7 +373,8 @@ export function useStabilityBreachesForSurface(
       }
 
       if (left.severity !== right.severity) {
-        return left.severity === 'critical' ? -1 : 1
+        return (STABILITY_SEVERITY_RANK[left.severity] ?? Number.MAX_SAFE_INTEGER) -
+          (STABILITY_SEVERITY_RANK[right.severity] ?? Number.MAX_SAFE_INTEGER)
       }
 
       return right.timestamp.localeCompare(left.timestamp)

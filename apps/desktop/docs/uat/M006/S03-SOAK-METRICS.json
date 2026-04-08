@@ -1,12 +1,13 @@
 {
   "version": "m006-s03-soak-v1",
-  "generatedAt": "2026-04-08T19:39:22.235Z",
+  "generatedAt": "2026-04-08T20:07:12.047Z",
   "metadata": {
     "durationMs": 10800000,
     "durationLabel": "180m",
     "sampleCount": 36,
     "sampleSpacingMs": 300000,
-    "assertThresholds": true
+    "assertThresholds": true,
+    "evidenceMode": "simulated-threshold-replay"
   },
   "thresholds": {
     "version": "m006-r020-v1",
@@ -64,15 +65,15 @@
         "serious": 0,
         "critical": 0
       },
-      "collectedAt": "2026-04-08T19:39:22.235Z"
+      "collectedAt": "2026-04-08T20:07:12.047Z"
     },
-    "lastKnownGoodAt": "2026-04-08T19:39:22.235Z"
+    "lastKnownGoodAt": "2026-04-08T20:07:12.047Z"
   },
   "timeline": [
     {
       "index": 0,
       "phase": "healthy",
-      "sampledAt": "2026-04-08T16:44:22.235Z",
+      "sampledAt": "2026-04-08T17:12:12.047Z",
       "status": "healthy",
       "breachCodes": [],
       "metrics": {
@@ -88,7 +89,7 @@
     {
       "index": 1,
       "phase": "healthy",
-      "sampledAt": "2026-04-08T16:49:22.235Z",
+      "sampledAt": "2026-04-08T17:17:12.047Z",
       "status": "healthy",
       "breachCodes": [],
       "metrics": {
@@ -104,7 +105,7 @@
     {
       "index": 2,
       "phase": "healthy",
-      "sampledAt": "2026-04-08T16:54:22.235Z",
+      "sampledAt": "2026-04-08T17:22:12.047Z",
       "status": "healthy",
       "breachCodes": [],
       "metrics": {
@@ -120,7 +121,7 @@
     {
       "index": 3,
       "phase": "healthy",
-      "sampledAt": "2026-04-08T16:59:22.235Z",
+      "sampledAt": "2026-04-08T17:27:12.047Z",
       "status": "healthy",
       "breachCodes": [],
       "metrics": {
@@ -136,7 +137,7 @@
     {
       "index": 4,
       "phase": "healthy",
-      "sampledAt": "2026-04-08T17:04:22.235Z",
+      "sampledAt": "2026-04-08T17:32:12.047Z",
       "status": "healthy",
       "breachCodes": [],
       "metrics": {
@@ -152,7 +153,7 @@
     {
       "index": 5,
       "phase": "healthy",
-      "sampledAt": "2026-04-08T17:09:22.235Z",
+      "sampledAt": "2026-04-08T17:37:12.047Z",
       "status": "healthy",
       "breachCodes": [],
       "metrics": {
@@ -168,7 +169,7 @@
     {
       "index": 6,
       "phase": "healthy",
-      "sampledAt": "2026-04-08T17:14:22.235Z",
+      "sampledAt": "2026-04-08T17:42:12.047Z",
       "status": "healthy",
       "breachCodes": [],
       "metrics": {
@@ -184,7 +185,7 @@
     {
       "index": 7,
       "phase": "healthy",
-      "sampledAt": "2026-04-08T17:19:22.235Z",
+      "sampledAt": "2026-04-08T17:47:12.047Z",
       "status": "healthy",
       "breachCodes": [],
       "metrics": {
@@ -200,7 +201,7 @@
     {
       "index": 8,
       "phase": "healthy",
-      "sampledAt": "2026-04-08T17:24:22.235Z",
+      "sampledAt": "2026-04-08T17:52:12.047Z",
       "status": "healthy",
       "breachCodes": [],
       "metrics": {
@@ -216,7 +217,7 @@
     {
       "index": 9,
       "phase": "healthy",
-      "sampledAt": "2026-04-08T17:29:22.235Z",
+      "sampledAt": "2026-04-08T17:57:12.047Z",
       "status": "healthy",
       "breachCodes": [],
       "metrics": {
@@ -232,7 +233,7 @@
     {
       "index": 10,
       "phase": "healthy",
-      "sampledAt": "2026-04-08T17:34:22.235Z",
+      "sampledAt": "2026-04-08T18:02:12.047Z",
       "status": "healthy",
       "breachCodes": [],
       "metrics": {
@@ -248,7 +249,7 @@
     {
       "index": 11,
       "phase": "healthy",
-      "sampledAt": "2026-04-08T17:39:22.235Z",
+      "sampledAt": "2026-04-08T18:07:12.047Z",
       "status": "healthy",
       "breachCodes": [],
       "metrics": {
@@ -264,7 +265,7 @@
     {
       "index": 12,
       "phase": "healthy",
-      "sampledAt": "2026-04-08T17:44:22.235Z",
+      "sampledAt": "2026-04-08T18:12:12.047Z",
       "status": "healthy",
       "breachCodes": [],
       "metrics": {
@@ -280,7 +281,7 @@
     {
       "index": 13,
       "phase": "healthy",
-      "sampledAt": "2026-04-08T17:49:22.235Z",
+      "sampledAt": "2026-04-08T18:17:12.047Z",
       "status": "healthy",
       "breachCodes": [],
       "metrics": {
@@ -296,7 +297,7 @@
     {
       "index": 14,
       "phase": "failure",
-      "sampledAt": "2026-04-08T17:54:22.235Z",
+      "sampledAt": "2026-04-08T18:22:12.047Z",
       "status": "breached",
       "breachCodes": [
         "REL-LONGRUN-EVENT_LOOP_LAG_MS-BREACH",
@@ -320,7 +321,7 @@
     {
       "index": 15,
       "phase": "failure",
-      "sampledAt": "2026-04-08T17:59:22.235Z",
+      "sampledAt": "2026-04-08T18:27:12.047Z",
       "status": "breached",
       "breachCodes": [
         "REL-LONGRUN-EVENT_LOOP_LAG_MS-BREACH",
@@ -344,7 +345,7 @@
     {
       "index": 16,
       "phase": "failure",
-      "sampledAt": "2026-04-08T18:04:22.235Z",
+      "sampledAt": "2026-04-08T18:32:12.047Z",
       "status": "breached",
       "breachCodes": [
         "REL-LONGRUN-EVENT_LOOP_LAG_MS-BREACH",
@@ -368,7 +369,7 @@
     {
       "index": 17,
       "phase": "failure",
-      "sampledAt": "2026-04-08T18:09:22.235Z",
+      "sampledAt": "2026-04-08T18:37:12.047Z",
       "status": "breached",
       "breachCodes": [
         "REL-LONGRUN-EVENT_LOOP_LAG_MS-BREACH",
@@ -392,7 +393,7 @@
     {
       "index": 18,
       "phase": "failure",
-      "sampledAt": "2026-04-08T18:14:22.235Z",
+      "sampledAt": "2026-04-08T18:42:12.047Z",
       "status": "breached",
       "breachCodes": [
         "REL-LONGRUN-EVENT_LOOP_LAG_MS-BREACH",
@@ -416,7 +417,7 @@
     {
       "index": 19,
       "phase": "recovery",
-      "sampledAt": "2026-04-08T18:19:22.235Z",
+      "sampledAt": "2026-04-08T18:47:12.047Z",
       "status": "healthy",
       "breachCodes": [],
       "metrics": {
@@ -432,7 +433,7 @@
     {
       "index": 20,
       "phase": "recovery",
-      "sampledAt": "2026-04-08T18:24:22.235Z",
+      "sampledAt": "2026-04-08T18:52:12.047Z",
       "status": "healthy",
       "breachCodes": [],
       "metrics": {
@@ -448,7 +449,7 @@
     {
       "index": 21,
       "phase": "recovery",
-      "sampledAt": "2026-04-08T18:29:22.235Z",
+      "sampledAt": "2026-04-08T18:57:12.047Z",
       "status": "healthy",
       "breachCodes": [],
       "metrics": {
@@ -464,7 +465,7 @@
     {
       "index": 22,
       "phase": "recovery",
-      "sampledAt": "2026-04-08T18:34:22.235Z",
+      "sampledAt": "2026-04-08T19:02:12.047Z",
       "status": "healthy",
       "breachCodes": [],
       "metrics": {
@@ -480,7 +481,7 @@
     {
       "index": 23,
       "phase": "recovery",
-      "sampledAt": "2026-04-08T18:39:22.235Z",
+      "sampledAt": "2026-04-08T19:07:12.047Z",
       "status": "healthy",
       "breachCodes": [],
       "metrics": {
@@ -496,7 +497,7 @@
     {
       "index": 24,
       "phase": "recovery",
-      "sampledAt": "2026-04-08T18:44:22.235Z",
+      "sampledAt": "2026-04-08T19:12:12.047Z",
       "status": "healthy",
       "breachCodes": [],
       "metrics": {
@@ -512,7 +513,7 @@
     {
       "index": 25,
       "phase": "recovery",
-      "sampledAt": "2026-04-08T18:49:22.235Z",
+      "sampledAt": "2026-04-08T19:17:12.047Z",
       "status": "healthy",
       "breachCodes": [],
       "metrics": {
@@ -528,7 +529,7 @@
     {
       "index": 26,
       "phase": "recovery",
-      "sampledAt": "2026-04-08T18:54:22.235Z",
+      "sampledAt": "2026-04-08T19:22:12.047Z",
       "status": "healthy",
       "breachCodes": [],
       "metrics": {
@@ -544,7 +545,7 @@
     {
       "index": 27,
       "phase": "recovery",
-      "sampledAt": "2026-04-08T18:59:22.235Z",
+      "sampledAt": "2026-04-08T19:27:12.047Z",
       "status": "healthy",
       "breachCodes": [],
       "metrics": {
@@ -560,7 +561,7 @@
     {
       "index": 28,
       "phase": "recovery",
-      "sampledAt": "2026-04-08T19:04:22.235Z",
+      "sampledAt": "2026-04-08T19:32:12.047Z",
       "status": "healthy",
       "breachCodes": [],
       "metrics": {
@@ -576,7 +577,7 @@
     {
       "index": 29,
       "phase": "recovery",
-      "sampledAt": "2026-04-08T19:09:22.235Z",
+      "sampledAt": "2026-04-08T19:37:12.047Z",
       "status": "healthy",
       "breachCodes": [],
       "metrics": {
@@ -592,7 +593,7 @@
     {
       "index": 30,
       "phase": "recovery",
-      "sampledAt": "2026-04-08T19:14:22.235Z",
+      "sampledAt": "2026-04-08T19:42:12.047Z",
       "status": "healthy",
       "breachCodes": [],
       "metrics": {
@@ -608,7 +609,7 @@
     {
       "index": 31,
       "phase": "recovery",
-      "sampledAt": "2026-04-08T19:19:22.235Z",
+      "sampledAt": "2026-04-08T19:47:12.047Z",
       "status": "healthy",
       "breachCodes": [],
       "metrics": {
@@ -624,7 +625,7 @@
     {
       "index": 32,
       "phase": "recovery",
-      "sampledAt": "2026-04-08T19:24:22.235Z",
+      "sampledAt": "2026-04-08T19:52:12.047Z",
       "status": "healthy",
       "breachCodes": [],
       "metrics": {
@@ -640,7 +641,7 @@
     {
       "index": 33,
       "phase": "recovery",
-      "sampledAt": "2026-04-08T19:29:22.235Z",
+      "sampledAt": "2026-04-08T19:57:12.047Z",
       "status": "healthy",
       "breachCodes": [],
       "metrics": {
@@ -656,7 +657,7 @@
     {
       "index": 34,
       "phase": "recovery",
-      "sampledAt": "2026-04-08T19:34:22.235Z",
+      "sampledAt": "2026-04-08T20:02:12.047Z",
       "status": "healthy",
       "breachCodes": [],
       "metrics": {
@@ -672,7 +673,7 @@
     {
       "index": 35,
       "phase": "recovery",
-      "sampledAt": "2026-04-08T19:39:22.235Z",
+      "sampledAt": "2026-04-08T20:07:12.047Z",
       "status": "healthy",
       "breachCodes": [],
       "metrics": {

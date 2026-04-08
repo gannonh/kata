@@ -35,6 +35,7 @@ function createBridgeStub() {
     getStabilityMetrics: vi.fn(() => ({
       eventLoopLagMs: 0,
       heapGrowthMb: 0,
+      collectedAt: new Date().toISOString(),
     })),
     prompt: vi.fn(),
     abort: vi.fn(),
@@ -104,6 +105,7 @@ describe('symphony ipc handlers', () => {
       getStabilityMetrics: vi.fn(() => ({
         reconnectSuccessRate: 1,
         recoveryLatencyMs: 0,
+        collectedAt: new Date().toISOString(),
       })),
       refreshBaseline: vi.fn(async () => dashboardSnapshot),
       respondToEscalation: vi.fn(async () => ({ success: true, snapshot: dashboardSnapshot })),

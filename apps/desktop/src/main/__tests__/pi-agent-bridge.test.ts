@@ -278,6 +278,7 @@ describe('PiAgentBridge additional coverage', () => {
       const lagFaultMetrics = bridge.getStabilityMetrics()
       expect(lagFaultMetrics.eventLoopLagMs).toBe(220)
       expect((lagFaultMetrics.heapGrowthMb ?? 0) >= 0).toBe(true)
+      expect(Number.isNaN(Date.parse(String(lagFaultMetrics.collectedAt)))).toBe(false)
     } finally {
       if (previousFaultMode === undefined) {
         delete process.env.KATA_DESKTOP_STABILITY_CHAT_FAULT
@@ -290,6 +291,7 @@ describe('PiAgentBridge additional coverage', () => {
     const baselineMetrics = bridge.getStabilityMetrics()
     expect((baselineMetrics.eventLoopLagMs ?? 0) >= 0).toBe(true)
     expect((baselineMetrics.heapGrowthMb ?? 0) >= 0).toBe(true)
+    expect(Number.isNaN(Date.parse(String(baselineMetrics.collectedAt)))).toBe(false)
   })
 
   test('injects one-time reliability crash fault for prompt in test mode', async () => {

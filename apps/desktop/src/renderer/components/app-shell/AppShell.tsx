@@ -109,7 +109,8 @@ function isEditableTarget(target: EventTarget | null): boolean {
 }
 
 function reliabilitySeverityRank(severity: string | undefined): number {
-  if (severity === 'critical') return 4
+  if (severity === 'critical') return 5
+  if (severity === 'serious') return 4
   if (severity === 'error') return 3
   if (severity === 'warning') return 2
   if (severity === 'info') return 1

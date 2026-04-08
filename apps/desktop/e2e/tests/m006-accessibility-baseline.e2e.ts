@@ -30,6 +30,11 @@ async function collectUnlabeledInteractiveViolations(
 
       return candidates
         .filter((node) => {
+          const hasNativeLabel =
+            (node instanceof HTMLInputElement ||
+              node instanceof HTMLTextAreaElement ||
+              node instanceof HTMLSelectElement) &&
+            ((node.labels?.length ?? 0) > 0 || Boolean(node.closest('label')))
           const ariaLabel = node.getAttribute('aria-label')?.trim() ?? ''
           const labelledBy = node.getAttribute('aria-labelledby')?.trim() ?? ''
           const title = node.getAttribute('title')?.trim() ?? ''
@@ -39,7 +44,7 @@ async function collectUnlabeledInteractiveViolations(
               ? node.placeholder?.trim() ?? ''
               : ''
 
-          return !ariaLabel && !labelledBy && !title && !text && !placeholder
+          return !hasNativeLabel && !ariaLabel && !labelledBy && !title && !text && !placeholder
         })
         .slice(0, 8)
         .map((node) => node.tagName.toLowerCase())

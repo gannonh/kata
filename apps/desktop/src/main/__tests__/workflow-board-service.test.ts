@@ -83,7 +83,17 @@ describe('WorkflowBoardService', () => {
     }
   })
 
-  test('returns neutral stale-age stability metric before first successful poll', () => {
+  test('returns neutral stale-age stability metric when no snapshot exists', () => {
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+    })
+
+    const metrics = service.getStabilityMetrics()
+    expect(metrics.staleAgeMs).toBe(0)
+  })
+
+  test('returns conservative stale-age metric when stale snapshot has no valid success timestamp', () => {
     const service = new WorkflowBoardService({
       authBridge: { getApiKey: vi.fn(async () => null) } as never,
       getWorkspacePath: () => '/tmp/workspace',
@@ -104,8 +114,10 @@ describe('WorkflowBoardService', () => {
       },
     }
 
-    const metrics = service.getStabilityMetrics()
-    expect(metrics.staleAgeMs).toBe(0)
+    expect(service.getStabilityMetrics().staleAgeMs).toBe(60000)
+
+    service.lastSnapshot.poll.lastSuccessAt = 'not-a-timestamp'
+    expect(service.getStabilityMetrics().staleAgeMs).toBe(60000)
   })
 
   test('applies fixture-mode slice moves and persists them across refreshes', async () => {
