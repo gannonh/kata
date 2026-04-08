@@ -83,6 +83,31 @@ describe('WorkflowBoardService', () => {
     }
   })
 
+  test('returns neutral stale-age stability metric before first successful poll', () => {
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => '/tmp/workspace',
+    }) as any
+
+    service.lastSnapshot = {
+      backend: 'linear',
+      fetchedAt: '2026-04-08T00:00:00.000Z',
+      status: 'stale',
+      source: { projectId: 'project-1' },
+      activeMilestone: null,
+      columns: [],
+      poll: {
+        status: 'error',
+        backend: 'linear',
+        lastAttemptAt: '2026-04-08T00:00:00.000Z',
+        lastSuccessAt: null,
+      },
+    }
+
+    const metrics = service.getStabilityMetrics()
+    expect(metrics.staleAgeMs).toBe(0)
+  })
+
   test('applies fixture-mode slice moves and persists them across refreshes', async () => {
     process.env.KATA_TEST_WORKFLOW_FIXTURE = '1'
 

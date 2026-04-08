@@ -889,11 +889,7 @@ export class WorkflowBoardService {
   getStabilityMetrics(): StabilityMetricInput {
     const now = Date.now()
     const lastSuccessAt = this.lastSnapshot?.poll.lastSuccessAt
-    const staleAgeMs = lastSuccessAt
-      ? Math.max(0, now - Date.parse(lastSuccessAt))
-      : this.lastSnapshot?.status === 'fresh' || this.lastSnapshot?.status === 'empty'
-        ? 0
-        : 60_000
+    const staleAgeMs = lastSuccessAt ? Math.max(0, now - Date.parse(lastSuccessAt)) : 0
 
     return {
       staleAgeMs,
