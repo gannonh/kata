@@ -22,7 +22,6 @@ export class McpService {
   private readonly configBridge: McpConfigBridge
   private readonly requestTimeoutMs: number
   private readonly reliabilityByServer = new Map<string, ReliabilitySignal | null>()
-  private readonly latestStatusByServer = new Map<string, McpServerStatusResponse>()
   private a11yViolationCounts: A11yViolationCounts = {
     minor: 0,
     moderate: 0,
@@ -40,14 +39,9 @@ export class McpService {
   }
 
   public getStabilityMetrics(): StabilityMetricInput {
-    const rowErrorCount = [...this.latestStatusByServer.values()].reduce((count, response) => {
-      return count + (response.status?.phase === 'error' ? 1 : 0)
-    }, 0)
-
     return {
       a11yViolationCounts: {
         ...this.a11yViolationCounts,
-        serious: Math.max(this.a11yViolationCounts.serious, rowErrorCount),
       },
       collectedAt: new Date().toISOString(),
     }
@@ -126,8 +120,6 @@ export class McpService {
     serverName: string,
     response: McpServerStatusResponse,
   ): void {
-    this.latestStatusByServer.set(serverName, response)
-
     const signal = mapMcpStatusResponseToReliability(response)
     if (signal) {
       this.reliabilityByServer.set(serverName, signal)

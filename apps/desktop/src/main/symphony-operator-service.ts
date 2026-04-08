@@ -110,15 +110,10 @@ export class SymphonyOperatorService extends EventEmitter {
   }
 
   public getStabilityMetrics(): StabilityMetricInput {
-    const reconnectSuccessRate =
-      this.reconnectAttempts > 0
-        ? this.reconnectSuccesses / this.reconnectAttempts
-        : this.snapshot.connection.state === 'connected'
-          ? 1
-          : 0
-
     return {
-      reconnectSuccessRate,
+      ...(this.reconnectAttempts > 0
+        ? { reconnectSuccessRate: this.reconnectSuccesses / this.reconnectAttempts }
+        : {}),
       recoveryLatencyMs: this.lastRecoveryLatencyMs,
       collectedAt: new Date().toISOString(),
     }

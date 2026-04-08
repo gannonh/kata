@@ -316,7 +316,7 @@ describe('SymphonyOperatorService', () => {
     expect(signal?.recoveryAction).toBe('refresh_state')
   })
 
-  test('emits reconnect success and recovery latency stability metrics across failure recovery', async () => {
+  test('omits reconnect success metrics until reconnect telemetry has real attempts', async () => {
     const service = new SymphonyOperatorService({
       env: { KATA_DESKTOP_SYMPHONY_DASHBOARD_MOCK: 'assembled_failure_recovery' },
       createWebSocket: () => fakeSocket,
@@ -324,7 +324,7 @@ describe('SymphonyOperatorService', () => {
 
     await service.syncRuntimeStatus(READY_STATUS)
 
-    expect(service.getStabilityMetrics().reconnectSuccessRate).toBe(1)
+    expect(service.getStabilityMetrics().reconnectSuccessRate).toBeUndefined()
 
     await service.refreshBaseline()
     const duringFailure = service.getStabilityMetrics()

@@ -912,7 +912,7 @@ setTimeout(() => {
     await expect(exitedPromise).resolves.toBe(true)
   })
 
-  test('cleanupStreams closes and clears active stdout reader', () => {
+  test('cleanupStreams closes stdout reader and tears down event-loop monitor interval', () => {
     const bridge = new PiAgentBridge(process.cwd()) as any
     const removeAllListeners = vi.fn()
     const close = vi.fn()
@@ -922,11 +922,16 @@ setTimeout(() => {
       close,
     }
 
+    bridge.startEventLoopLagMonitor(5)
+    bridge.eventLoopLagMs = 42
+
     bridge.cleanupStreams()
 
     expect(removeAllListeners).toHaveBeenCalledTimes(1)
     expect(close).toHaveBeenCalledTimes(1)
     expect(bridge.stdoutReader).toBeNull()
+    expect(bridge.eventLoopMonitor).toBeNull()
+    expect(bridge.eventLoopLagMs).toBe(0)
   })
 
   test('binary discovery supports env, packaged, and PATH fallback branches', () => {

@@ -79,7 +79,6 @@ export class PiAgentBridge extends EventEmitter {
   ) {
     super()
     this.selectedModel = initialModel?.trim() ? initialModel.trim() : null
-    this.startEventLoopLagMonitor()
   }
 
   override on<K extends keyof BridgeEvents>(event: K, listener: BridgeEvents[K]): this {
@@ -163,6 +162,8 @@ export class PiAgentBridge extends EventEmitter {
     }
 
     const command = discovery.resolvedPath
+
+    this.startEventLoopLagMonitor()
 
     this.emitStatus({
       state: 'spawning',
@@ -511,6 +512,7 @@ export class PiAgentBridge extends EventEmitter {
   public async shutdown(timeoutMs = 1_500): Promise<void> {
     const child = this.child
     if (!child) {
+      this.stopEventLoopLagMonitor()
       this.emitStatus({
         state: 'shutdown',
         pid: null,
@@ -568,6 +570,16 @@ export class PiAgentBridge extends EventEmitter {
     }, intervalMs)
 
     this.eventLoopMonitor.unref?.()
+  }
+
+  private stopEventLoopLagMonitor(): void {
+    if (!this.eventLoopMonitor) {
+      return
+    }
+
+    clearInterval(this.eventLoopMonitor)
+    this.eventLoopMonitor = null
+    this.eventLoopLagMs = 0
   }
 
   private injectPromptCrashFault(): Error {
@@ -870,6 +882,8 @@ export class PiAgentBridge extends EventEmitter {
       this.stdoutReader.close()
       this.stdoutReader = null
     }
+
+    this.stopEventLoopLagMonitor()
   }
 
   private pushStderr(line: string): void {
