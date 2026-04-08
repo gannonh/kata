@@ -11,7 +11,7 @@ const __dirname = path.dirname(__filename)
 const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true'
 const MCP_FIXTURE_SCRIPT = path.resolve(__dirname, '../fixtures/mcp-stdio-server.mjs')
 
-type M006IntegratedScenario = 'none' | 'happy_path' | 'recovery_path'
+type M006IntegratedScenario = 'none' | 'happy_path'
 
 function createIsolatedDataDir(): string {
   const dataDir = mkdtempSync(path.join(tmpdir(), 'kata-desktop-e2e-'))

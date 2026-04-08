@@ -250,9 +250,15 @@ function parseBlockers(markdown: string): { p0: string[]; p1: string[] } {
 
     for (const match of markdown.matchAll(regex)) {
       const value = (match[1] ?? '').trim()
-      if (!value || /^none$/i.test(value) || /^no(?:ne)?\b/i.test(value)) {
+      if (!value) {
         continue
       }
+
+      const normalized = value.replace(/[.!]+$/g, '').trim().toLowerCase()
+      if (normalized === 'none' || normalized === 'no') {
+        continue
+      }
+
       results.push(value)
     }
 
