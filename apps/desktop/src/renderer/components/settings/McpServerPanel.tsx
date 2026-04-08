@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
-import type { McpServerSummary, ReliabilitySignal } from '@shared/types'
+import type { McpServerSummary, ReliabilitySignal, ThresholdBreach } from '@shared/types'
 import {
   deleteMcpServerAtom,
   loadMcpConfigAtom,
@@ -16,10 +16,12 @@ import {
 import {
   formatReliabilityActionLabel,
   formatReliabilityClassLabel,
+  formatStabilityMetricLabel,
   reliabilityRecoveryPendingAtom,
   reliabilitySeverityTone,
   requestReliabilityRecoveryActionAtom,
   useReliabilitySurfaceState,
+  useStabilityBreachesForSurface,
 } from '@/atoms/reliability'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -40,6 +42,10 @@ export function formatMcpReliabilityNotice(signal: ReliabilitySignal): string {
   return `${signal.message} Recommended recovery: ${formatReliabilityActionLabel(signal.recoveryAction)}.`
 }
 
+export function formatMcpStabilityNotice(breach: ThresholdBreach): string {
+  return `${formatStabilityMetricLabel(breach.metric)}: ${breach.message} Suggested recovery: ${breach.suggestedRecovery}.`
+}
+
 export function McpServerPanel() {
   useMcpConfigBridge()
 
@@ -51,6 +57,7 @@ export function McpServerPanel() {
   const statuses = useAtomValue(mcpServerStatusesAtom)
   const reliabilityPendingBySurface = useAtomValue(reliabilityRecoveryPendingAtom)
   const mcpReliability = useReliabilitySurfaceState('mcp')
+  const mcpStabilityBreaches = useStabilityBreachesForSurface('mcp')
 
   const refreshConfig = useSetAtom(loadMcpConfigAtom)
   const saveServer = useSetAtom(saveMcpServerAtom)
@@ -143,6 +150,17 @@ export function McpServerPanel() {
             <AlertDescription>{formatMcpReliabilityNotice(mcpReliability.signal)}</AlertDescription>
           </Alert>
         ) : null}
+
+        {mcpStabilityBreaches.map((breach) => (
+          <Alert
+            key={breach.code}
+            variant={reliabilitySeverityTone(breach.severity) === 'error' ? 'destructive' : 'default'}
+            data-testid={`mcp-stability-${breach.code}`}
+          >
+            <AlertTitle>{formatStabilityMetricLabel(breach.metric)} · {breach.code}</AlertTitle>
+            <AlertDescription>{formatMcpStabilityNotice(breach)}</AlertDescription>
+          </Alert>
+        ))}
 
         {configState.provenance?.warning ? (
           <Alert data-testid="mcp-overlay-warning">

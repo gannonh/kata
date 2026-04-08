@@ -269,6 +269,9 @@ const api: DesktopApi = {
     getStatus: async () => {
       return ipcRenderer.invoke(IPC_CHANNELS.reliabilityGetStatus)
     },
+    getStabilitySnapshot: async () => {
+      return ipcRenderer.invoke(IPC_CHANNELS.reliabilityGetStabilitySnapshot)
+    },
     requestRecoveryAction: async (request: Parameters<DesktopApi['reliability']['requestRecoveryAction']>[0]) => {
       return ipcRenderer.invoke(IPC_CHANNELS.reliabilityRequestRecoveryAction, request)
     },
@@ -281,6 +284,17 @@ const api: DesktopApi = {
 
       return () => {
         ipcRenderer.removeListener(IPC_CHANNELS.reliabilityStatus, wrapped)
+      }
+    },
+    onStabilitySnapshot: (listener: Parameters<DesktopApi['reliability']['onStabilitySnapshot']>[0]) => {
+      const wrapped = (_event: Electron.IpcRendererEvent, snapshot: Parameters<Parameters<DesktopApi['reliability']['onStabilitySnapshot']>[0]>[0]) => {
+        listener(snapshot)
+      }
+
+      ipcRenderer.on(IPC_CHANNELS.reliabilityStabilitySnapshot, wrapped)
+
+      return () => {
+        ipcRenderer.removeListener(IPC_CHANNELS.reliabilityStabilitySnapshot, wrapped)
       }
     },
   },

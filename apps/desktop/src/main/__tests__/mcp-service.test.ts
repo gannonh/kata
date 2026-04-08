@@ -181,4 +181,30 @@ describe('McpService', () => {
     await service.refreshStatus('broken')
     expect(service.getReliabilitySignal()).toBeNull()
   })
+
+  test('does not fold MCP server connectivity errors into accessibility violation counts', async () => {
+    await writeConfig({
+      mcpServers: {
+        broken: {
+          command: 'node',
+        },
+      },
+    })
+
+    const service = createService()
+
+    await fs.writeFile(configPath, '{bad-json', 'utf8')
+    await service.refreshStatus('broken')
+
+    service.recordAccessibilityViolationCounts({ serious: 0, critical: 0 })
+    const metrics = service.getStabilityMetrics()
+
+    expect(metrics.a11yViolationCounts).toEqual({
+      minor: 0,
+      moderate: 0,
+      serious: 0,
+      critical: 0,
+    })
+    expect(metrics.collectedAt).toBeTruthy()
+  })
 })

@@ -1,9 +1,11 @@
-import type { ReliabilitySignal, WorkflowBoardSnapshot } from '@shared/types'
+import type { ReliabilitySignal, ThresholdBreach, WorkflowBoardSnapshot } from '@shared/types'
 import {
   formatReliabilityActionLabel,
   formatReliabilityClassLabel,
+  formatStabilityMetricLabel,
   reliabilitySeverityTone,
   useReliabilitySurfaceState,
+  useStabilityBreachesForSurface,
 } from '@/atoms/reliability'
 
 interface BoardStateNoticeProps {
@@ -22,8 +24,20 @@ export function formatWorkflowReliabilityNotice(signal: ReliabilitySignal): stri
   )
 }
 
+export function formatWorkflowStabilityNotice(breach: ThresholdBreach): string {
+  return (
+    `${formatStabilityMetricLabel(breach.metric)} threshold breach (${breach.code}). ` +
+    `${breach.message} ` +
+    `Suggested recovery: ${breach.suggestedRecovery}.` +
+    (breach.lastKnownGoodAt
+      ? ` Last known good: ${new Date(breach.lastKnownGoodAt).toLocaleTimeString()}.`
+      : '')
+  )
+}
+
 export function BoardStateNotice({ board, error }: BoardStateNoticeProps) {
   const workflowReliability = useReliabilitySurfaceState('workflow_board')
+  const workflowStabilityBreaches = useStabilityBreachesForSurface('workflow_board')
   const notices: Array<{ id: string; tone: 'error' | 'warning'; message: string }> = []
 
   if (workflowReliability.signal) {
@@ -34,7 +48,17 @@ export function BoardStateNotice({ board, error }: BoardStateNoticeProps) {
       tone,
       message: formatWorkflowReliabilityNotice(workflowReliability.signal),
     })
-  } else {
+  }
+
+  for (const breach of workflowStabilityBreaches) {
+    notices.push({
+      id: `workflow-stability-${breach.code}`,
+      tone: reliabilitySeverityTone(breach.severity) === 'error' ? 'error' : 'warning',
+      message: formatWorkflowStabilityNotice(breach),
+    })
+  }
+
+  if (!workflowReliability.signal) {
     if (error) {
       notices.push({
         id: 'board-error',

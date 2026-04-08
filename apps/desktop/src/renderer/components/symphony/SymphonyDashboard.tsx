@@ -1,6 +1,6 @@
 import { useAtomValue, useSetAtom } from 'jotai'
 import { RefreshCcw } from 'lucide-react'
-import type { ReliabilitySignal } from '@shared/types'
+import type { ReliabilitySignal, ThresholdBreach } from '@shared/types'
 import { Spinner } from '@/components/ui/spinner'
 import {
   refreshSymphonyDashboardAtom,
@@ -13,10 +13,12 @@ import {
 import {
   formatReliabilityActionLabel,
   formatReliabilityClassLabel,
+  formatStabilityMetricLabel,
   reliabilityRecoveryPendingAtom,
   reliabilitySeverityTone,
   requestReliabilityRecoveryActionAtom,
   useReliabilitySurfaceState,
+  useStabilityBreachesForSurface,
 } from '@/atoms/reliability'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -37,12 +39,17 @@ export function formatSymphonyReliabilityNotice(signal: ReliabilitySignal): stri
   return `${signal.message} Recommended recovery: ${formatReliabilityActionLabel(signal.recoveryAction)}.`
 }
 
+export function formatSymphonyStabilityNotice(breach: ThresholdBreach): string {
+  return `${formatStabilityMetricLabel(breach.metric)}: ${breach.message} Suggested recovery: ${breach.suggestedRecovery}.`
+}
+
 export function SymphonyDashboard() {
   const snapshot = useSymphonyDashboardSnapshot()
   const loading = useAtomValue(symphonyDashboardLoadingAtom)
   const drafts = useAtomValue(symphonyEscalationDraftsAtom)
   const reliabilityPendingBySurface = useAtomValue(reliabilityRecoveryPendingAtom)
   const symphonyReliability = useReliabilitySurfaceState('symphony')
+  const symphonyStabilityBreaches = useStabilityBreachesForSurface('symphony')
   const refresh = useSetAtom(refreshSymphonyDashboardAtom)
   const setDraft = useSetAtom(setSymphonyEscalationDraftAtom)
   const respond = useSetAtom(respondToEscalationAtom)
@@ -115,6 +122,17 @@ export function SymphonyDashboard() {
             <AlertDescription>{snapshot.freshness.staleReason ?? 'No recent updates from Symphony.'}</AlertDescription>
           </Alert>
         ) : null}
+
+        {symphonyStabilityBreaches.map((breach) => (
+          <Alert
+            key={breach.code}
+            variant={reliabilitySeverityTone(breach.severity) === 'error' ? 'destructive' : 'default'}
+            data-testid={`symphony-dashboard-stability-${breach.code}`}
+          >
+            <AlertTitle>{formatStabilityMetricLabel(breach.metric)} · {breach.code}</AlertTitle>
+            <AlertDescription>{formatSymphonyStabilityNotice(breach)}</AlertDescription>
+          </Alert>
+        ))}
 
         {snapshot.connection.lastError && !symphonyReliability.signal ? (
           <Alert variant="destructive" data-testid="symphony-dashboard-error">

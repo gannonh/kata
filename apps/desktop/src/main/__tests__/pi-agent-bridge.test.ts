@@ -273,6 +273,31 @@ describe('PiAgentBridge additional coverage', () => {
     expect(sendSpy).toHaveBeenNthCalledWith(2, { type: 'abort' })
   })
 
+  test('emits stability metrics for event-loop lag and heap growth budgets', () => {
+    const previousFaultMode = process.env.KATA_DESKTOP_STABILITY_CHAT_FAULT
+
+    process.env.KATA_DESKTOP_STABILITY_CHAT_FAULT = 'lag_spike'
+    try {
+      const bridge = new PiAgentBridge(process.cwd())
+      const lagFaultMetrics = bridge.getStabilityMetrics()
+      expect(lagFaultMetrics.eventLoopLagMs).toBe(220)
+      expect((lagFaultMetrics.heapGrowthMb ?? 0) >= 0).toBe(true)
+      expect(Number.isNaN(Date.parse(String(lagFaultMetrics.collectedAt)))).toBe(false)
+    } finally {
+      if (previousFaultMode === undefined) {
+        delete process.env.KATA_DESKTOP_STABILITY_CHAT_FAULT
+      } else {
+        process.env.KATA_DESKTOP_STABILITY_CHAT_FAULT = previousFaultMode
+      }
+    }
+
+    const bridge = new PiAgentBridge(process.cwd())
+    const baselineMetrics = bridge.getStabilityMetrics()
+    expect((baselineMetrics.eventLoopLagMs ?? 0) >= 0).toBe(true)
+    expect((baselineMetrics.heapGrowthMb ?? 0) >= 0).toBe(true)
+    expect(Number.isNaN(Date.parse(String(baselineMetrics.collectedAt)))).toBe(false)
+  })
+
   test('injects one-time reliability crash fault for prompt in test mode', async () => {
     const previousTestMode = process.env.KATA_TEST_MODE
     const previousFaultMode = process.env.KATA_DESKTOP_RELIABILITY_CHAT_FAULT
@@ -893,7 +918,7 @@ setTimeout(() => {
     await expect(exitedPromise).resolves.toBe(true)
   })
 
-  test('cleanupStreams closes and clears active stdout reader', () => {
+  test('cleanupStreams closes stdout reader and tears down event-loop monitor interval', () => {
     const bridge = new PiAgentBridge(process.cwd()) as any
     const removeAllListeners = vi.fn()
     const close = vi.fn()
@@ -903,11 +928,16 @@ setTimeout(() => {
       close,
     }
 
+    bridge.startEventLoopLagMonitor(5)
+    bridge.eventLoopLagMs = 42
+
     bridge.cleanupStreams()
 
     expect(removeAllListeners).toHaveBeenCalledTimes(1)
     expect(close).toHaveBeenCalledTimes(1)
     expect(bridge.stdoutReader).toBeNull()
+    expect(bridge.eventLoopMonitor).toBeNull()
+    expect(bridge.eventLoopLagMs).toBe(0)
   })
 
   test('binary discovery supports env, packaged, and PATH fallback branches', () => {

@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import type { SymphonyRuntimeStatus, ReliabilitySignal } from '../shared/types'
+import type { SymphonyRuntimeStatus, ReliabilitySignal, StabilityMetricInput } from '../shared/types'
 import type {
   SymphonyEscalationResponseCommandResult,
   SymphonyEscalationResponseResult,
@@ -63,6 +63,10 @@ export class SymphonyOperatorService extends EventEmitter {
   private readonly snapshot: SymphonyOperatorSnapshot = createEmptySnapshot()
   private mockBaselineStep = 0
   private mockAssembledHealthyResolved = false
+  private reconnectAttempts = 0
+  private reconnectSuccesses = 0
+  private lastDisconnectAtMs: number | null = null
+  private lastRecoveryLatencyMs = 0
 
   constructor(options: SymphonyOperatorServiceOptions = {}) {
     super()
@@ -103,6 +107,16 @@ export class SymphonyOperatorService extends EventEmitter {
       mapSymphonyRuntimeStatusToReliability(this.runtimeStatus),
       mapSymphonyOperatorSnapshotToReliability(this.snapshot),
     ])
+  }
+
+  public getStabilityMetrics(): StabilityMetricInput {
+    return {
+      ...(this.reconnectAttempts > 0
+        ? { reconnectSuccessRate: this.reconnectSuccesses / this.reconnectAttempts }
+        : {}),
+      recoveryLatencyMs: this.lastRecoveryLatencyMs,
+      collectedAt: new Date().toISOString(),
+    }
   }
 
   public async refreshBaseline(options: { advanceMockScenario?: boolean } = {}): Promise<SymphonyOperatorSnapshot> {
@@ -152,8 +166,7 @@ export class SymphonyOperatorService extends EventEmitter {
       if (escalationResponse.ok) {
         this.snapshot.connection.lastError = undefined
       }
-      this.snapshot.connection.state = 'connected'
-      this.snapshot.connection.updatedAt = new Date().toISOString()
+      this.markConnected()
       this.refreshFreshness()
       this.emitSnapshot()
       return this.snapshot
@@ -304,9 +317,7 @@ export class SymphonyOperatorService extends EventEmitter {
         latestStatus.url !== status.url
       ) {
         if (latestStatus?.phase === 'starting' || latestStatus?.phase === 'restarting') {
-          this.snapshot.connection.state = 'reconnecting'
-          this.snapshot.connection.updatedAt = new Date().toISOString()
-          this.snapshot.connection.lastError = latestStatus.lastError?.message
+          this.markReconnecting(latestStatus.lastError?.message)
           this.refreshFreshness()
           this.emitSnapshot()
         } else if (latestStatus && latestStatus.phase !== 'ready') {
@@ -322,9 +333,7 @@ export class SymphonyOperatorService extends EventEmitter {
 
     if (status.phase === 'restarting' || status.phase === 'starting') {
       this.stopStream()
-      this.snapshot.connection.state = 'reconnecting'
-      this.snapshot.connection.updatedAt = new Date().toISOString()
-      this.snapshot.connection.lastError = status.lastError?.message
+      this.markReconnecting(status.lastError?.message)
       this.refreshFreshness()
       this.emitSnapshot()
       return
@@ -366,9 +375,8 @@ export class SymphonyOperatorService extends EventEmitter {
       this.socketUrl = eventUrl
 
       socket.onopen = () => {
-        this.snapshot.connection.state = 'connected'
-        this.snapshot.connection.updatedAt = new Date().toISOString()
         this.snapshot.connection.lastError = undefined
+        this.markConnected()
         this.refreshFreshness()
         this.emitSnapshot()
       }
@@ -388,9 +396,7 @@ export class SymphonyOperatorService extends EventEmitter {
       }
 
       socket.onerror = () => {
-        this.snapshot.connection.state = 'reconnecting'
-        this.snapshot.connection.updatedAt = new Date().toISOString()
-        this.snapshot.connection.lastError = 'Event stream error.'
+        this.markReconnecting('Event stream error.')
         this.refreshFreshness()
         this.emitSnapshot()
       }
@@ -398,8 +404,7 @@ export class SymphonyOperatorService extends EventEmitter {
       socket.onclose = () => {
         this.socket = null
         this.socketUrl = null
-        this.snapshot.connection.state = 'reconnecting'
-        this.snapshot.connection.updatedAt = new Date().toISOString()
+        this.markReconnecting(this.snapshot.connection.lastError)
         this.refreshFreshness()
         this.emitSnapshot()
 
@@ -420,9 +425,7 @@ export class SymphonyOperatorService extends EventEmitter {
         }
       }
     } catch (error) {
-      this.snapshot.connection.state = 'reconnecting'
-      this.snapshot.connection.updatedAt = new Date().toISOString()
-      this.snapshot.connection.lastError = error instanceof Error ? error.message : String(error)
+      this.markReconnecting(error instanceof Error ? error.message : String(error))
       this.refreshFreshness()
       this.emitSnapshot()
     }
@@ -445,12 +448,42 @@ export class SymphonyOperatorService extends EventEmitter {
     }
   }
 
+  private markConnected(): void {
+    this.updateReconnectTelemetry('connected')
+    this.snapshot.connection.state = 'connected'
+    this.snapshot.connection.updatedAt = new Date().toISOString()
+  }
+
+  private markReconnecting(reason?: string): void {
+    this.updateReconnectTelemetry('reconnecting')
+    this.snapshot.connection.state = 'reconnecting'
+    this.snapshot.connection.updatedAt = new Date().toISOString()
+    this.snapshot.connection.lastError = reason
+  }
+
   private markDisconnected(reason: string): void {
+    this.updateReconnectTelemetry('disconnected')
     this.snapshot.connection.state = 'disconnected'
     this.snapshot.connection.updatedAt = new Date().toISOString()
     this.snapshot.connection.lastError = reason
     this.refreshFreshness(reason)
     this.emitSnapshot()
+  }
+
+  private updateReconnectTelemetry(nextState: 'connected' | 'reconnecting' | 'disconnected'): void {
+    const previousState = this.snapshot.connection.state
+
+    if ((nextState === 'reconnecting' || nextState === 'disconnected') && previousState === 'connected') {
+      this.reconnectAttempts += 1
+      this.lastDisconnectAtMs = Date.now()
+      return
+    }
+
+    if (nextState === 'connected' && previousState !== 'connected' && this.lastDisconnectAtMs !== null) {
+      this.reconnectSuccesses += 1
+      this.lastRecoveryLatencyMs = Math.max(0, Date.now() - this.lastDisconnectAtMs)
+      this.lastDisconnectAtMs = null
+    }
   }
 
   private applyStatePayload(
@@ -596,18 +629,21 @@ export class SymphonyOperatorService extends EventEmitter {
           },
         ]
 
-    this.snapshot.connection.state =
+    const nextConnectionState: 'connected' | 'reconnecting' | 'disconnected' =
       mockMode === 'reconnecting'
         ? 'reconnecting'
         : mockMode === 'kanban_disconnected' || isFailureDisconnectionPhase
           ? 'disconnected'
           : 'connected'
+
+    this.updateReconnectTelemetry(nextConnectionState)
+    this.snapshot.connection.state = nextConnectionState
     this.snapshot.connection.updatedAt = nowIso
     this.snapshot.connection.lastBaselineRefreshAt = nowIso
     this.snapshot.connection.lastError =
-      mockMode === 'reconnecting'
+      nextConnectionState === 'reconnecting'
         ? 'Mocked reconnect in progress.'
-        : mockMode === 'kanban_disconnected' || isFailureDisconnectionPhase
+        : nextConnectionState === 'disconnected'
           ? 'Mocked runtime disconnect.'
           : undefined
     this.refreshFreshness()

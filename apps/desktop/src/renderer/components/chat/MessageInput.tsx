@@ -47,6 +47,7 @@ export function MessageInput({ disabled = false, stopDisabled = disabled, onSubm
     <div className="border-t border-border p-4">
       <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-2">
         <Textarea
+          data-testid="chat-input"
           value={value}
           onChange={(event) => setValue(event.target.value)}
           onKeyDown={(event) => {

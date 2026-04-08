@@ -1,5 +1,11 @@
 import { McpConfigBridge } from './mcp-config-bridge'
-import type { McpServerStatus, McpServerStatusResponse, ReliabilitySignal } from '../shared/types'
+import type {
+  A11yViolationCounts,
+  McpServerStatus,
+  McpServerStatusResponse,
+  ReliabilitySignal,
+  StabilityMetricInput,
+} from '../shared/types'
 import {
   mapMcpStatusResponseToReliability,
   pickPrimaryReliabilitySignal,
@@ -16,6 +22,12 @@ export class McpService {
   private readonly configBridge: McpConfigBridge
   private readonly requestTimeoutMs: number
   private readonly reliabilityByServer = new Map<string, ReliabilitySignal | null>()
+  private a11yViolationCounts: A11yViolationCounts = {
+    minor: 0,
+    moderate: 0,
+    serious: 0,
+    critical: 0,
+  }
 
   constructor(options: McpServiceOptions) {
     this.configBridge = options.configBridge
@@ -24,6 +36,24 @@ export class McpService {
 
   public getReliabilitySignal(): ReliabilitySignal | null {
     return pickPrimaryReliabilitySignal([...this.reliabilityByServer.values()])
+  }
+
+  public getStabilityMetrics(): StabilityMetricInput {
+    return {
+      a11yViolationCounts: {
+        ...this.a11yViolationCounts,
+      },
+      collectedAt: new Date().toISOString(),
+    }
+  }
+
+  public recordAccessibilityViolationCounts(counts: Partial<A11yViolationCounts>): void {
+    this.a11yViolationCounts = {
+      minor: counts.minor ?? this.a11yViolationCounts.minor,
+      moderate: counts.moderate ?? this.a11yViolationCounts.moderate,
+      serious: counts.serious ?? this.a11yViolationCounts.serious,
+      critical: counts.critical ?? this.a11yViolationCounts.critical,
+    }
   }
 
   public async refreshStatus(serverName: string): Promise<McpServerStatusResponse> {

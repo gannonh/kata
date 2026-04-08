@@ -1,6 +1,10 @@
 import { describe, expect, test } from 'vitest'
 import { createMcpServerEditorDraft, parseArgs, validateMcpServerDraft } from '../McpServerEditorDialog'
-import { formatMcpProvenanceLabel, formatMcpReliabilityNotice } from '../McpServerPanel'
+import {
+  formatMcpProvenanceLabel,
+  formatMcpReliabilityNotice,
+  formatMcpStabilityNotice,
+} from '../McpServerPanel'
 import {
   formatMcpStatusLabel,
   mcpStatusBadgeVariant,
@@ -28,6 +32,28 @@ describe('MCP settings helpers', () => {
 
     expect(notice).toContain('Invalid JSON in mcp.json')
     expect(notice).toContain('Recommended recovery: Fix configuration.')
+  })
+
+  test('formats MCP stability notices with metric threshold guidance', () => {
+    const notice = formatMcpStabilityNotice({
+      code: 'REL-LONGRUN-A11Y_VIOLATION_COUNTS_CRITICAL-BREACH',
+      metric: 'a11yViolationCounts',
+      sourceSurface: 'mcp',
+      failureClass: 'config',
+      severity: 'critical',
+      recoveryAction: 'fix_config',
+      comparator: 'max',
+      observedValue: 1,
+      warningThreshold: 1,
+      breachThreshold: 1,
+      breached: true,
+      message: 'Accessibility violations exceeded threshold (1 vs 1).',
+      suggestedRecovery: 'Fix accessibility issues and rerun baseline checks.',
+      timestamp: '2026-04-07T20:00:00.000Z',
+    })
+
+    expect(notice).toContain('Accessibility violations: Accessibility violations exceeded threshold')
+    expect(notice).toContain('Suggested recovery: Fix accessibility issues and rerun baseline checks.')
   })
 
   test('summarizes stdio and http server rows for compact display', () => {

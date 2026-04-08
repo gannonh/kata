@@ -112,7 +112,7 @@ export function ChatPanel() {
   const errorTitle = bridgeStatus.state === 'crashed' ? 'Agent process crashed' : 'Agent error'
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col bg-background">
+    <div className="relative flex h-full min-h-0 flex-col bg-background" data-testid="chat-pane">
       <ExtensionUIHandler />
 
       {errorMessage && (

@@ -57,6 +57,8 @@ export const IPC_CHANNELS = {
   mcpReconnectServer: 'mcp:reconnect-server',
   reliabilityGetStatus: 'reliability:get-status',
   reliabilityStatus: 'reliability:status',
+  reliabilityGetStabilitySnapshot: 'reliability:get-stability-snapshot',
+  reliabilityStabilitySnapshot: 'reliability:stability-snapshot',
   reliabilityRequestRecoveryAction: 'reliability:request-recovery-action',
 } as const
 
@@ -1366,6 +1368,92 @@ export interface ReliabilityStatusResponse {
   snapshot: ReliabilitySnapshot
 }
 
+export type StabilityMetricName =
+  | 'eventLoopLagMs'
+  | 'heapGrowthMb'
+  | 'staleAgeMs'
+  | 'reconnectSuccessRate'
+  | 'recoveryLatencyMs'
+  | 'a11yViolationCounts'
+
+export type StabilityHealthStatus = 'healthy' | 'degraded' | 'breached'
+
+export interface A11yViolationCounts {
+  minor: number
+  moderate: number
+  serious: number
+  critical: number
+}
+
+export interface StabilityMetricSnapshot {
+  eventLoopLagMs: number
+  heapGrowthMb: number
+  staleAgeMs: number
+  reconnectSuccessRate: number
+  recoveryLatencyMs: number
+  a11yViolationCounts: A11yViolationCounts
+  collectedAt: string
+}
+
+export interface StabilityThresholdBand {
+  warning: number
+  breach: number
+  comparator: 'max' | 'min'
+}
+
+export interface StabilityThresholdSet {
+  version: string
+  eventLoopLagMs: StabilityThresholdBand
+  heapGrowthMb: StabilityThresholdBand
+  staleAgeMs: StabilityThresholdBand
+  reconnectSuccessRate: StabilityThresholdBand
+  recoveryLatencyMs: StabilityThresholdBand
+  a11yViolationCounts: {
+    serious: StabilityThresholdBand
+    critical: StabilityThresholdBand
+  }
+}
+
+export interface ThresholdBreach {
+  code: string
+  metric: StabilityMetricName
+  sourceSurface: ReliabilitySourceSurface
+  failureClass: ReliabilityClass
+  severity: ReliabilitySeverity
+  recoveryAction: ReliabilityRecoveryAction
+  comparator: 'max' | 'min'
+  observedValue: number
+  warningThreshold: number
+  breachThreshold: number
+  breached: boolean
+  message: string
+  suggestedRecovery: string
+  timestamp: string
+  lastKnownGoodAt?: string
+}
+
+export interface StabilitySnapshot {
+  version: string
+  status: StabilityHealthStatus
+  metrics: StabilityMetricSnapshot
+  thresholds: StabilityThresholdSet
+  breaches: ThresholdBreach[]
+  generatedAt: string
+  lastKnownGoodAt?: string
+}
+
+export type StabilityMetricInput = Partial<
+  Omit<StabilityMetricSnapshot, 'a11yViolationCounts' | 'collectedAt'>
+> & {
+  a11yViolationCounts?: Partial<A11yViolationCounts>
+  collectedAt?: string
+}
+
+export interface StabilitySnapshotResponse {
+  success: boolean
+  snapshot: StabilitySnapshot
+}
+
 export interface ReliabilityRecoveryRequest {
   sourceSurface: ReliabilitySourceSurface
   action?: ReliabilityRecoveryAction
@@ -1575,10 +1663,12 @@ export interface DesktopApi {
   }
   reliability: {
     getStatus: () => Promise<ReliabilityStatusResponse>
+    getStabilitySnapshot: () => Promise<StabilitySnapshotResponse>
     requestRecoveryAction: (
       request: ReliabilityRecoveryRequest,
     ) => Promise<ReliabilityRecoveryResult>
     onStatus: (listener: (snapshot: ReliabilitySnapshot) => void) => () => void
+    onStabilitySnapshot: (listener: (snapshot: StabilitySnapshot) => void) => () => void
   }
 }
 
