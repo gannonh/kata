@@ -1,0 +1,696 @@
+{
+  "version": "m006-s03-soak-v1",
+  "generatedAt": "2026-04-08T19:19:54.883Z",
+  "metadata": {
+    "durationMs": 10800000,
+    "durationLabel": "180m",
+    "sampleCount": 36,
+    "sampleSpacingMs": 300000,
+    "assertThresholds": true
+  },
+  "thresholds": {
+    "version": "m006-r020-v1",
+    "eventLoopLagMs": {
+      "warning": 75,
+      "breach": 150,
+      "comparator": "max"
+    },
+    "heapGrowthMb": {
+      "warning": 180,
+      "breach": 300,
+      "comparator": "max"
+    },
+    "staleAgeMs": {
+      "warning": 60000,
+      "breach": 180000,
+      "comparator": "max"
+    },
+    "reconnectSuccessRate": {
+      "warning": 0.95,
+      "breach": 0.8,
+      "comparator": "min"
+    },
+    "recoveryLatencyMs": {
+      "warning": 12000,
+      "breach": 30000,
+      "comparator": "max"
+    },
+    "a11yViolationCounts": {
+      "serious": {
+        "warning": 1,
+        "breach": 2,
+        "comparator": "max"
+      },
+      "critical": {
+        "warning": 1,
+        "breach": 1,
+        "comparator": "max"
+      }
+    }
+  },
+  "final": {
+    "status": "healthy",
+    "breachCount": 0,
+    "breaches": [],
+    "metrics": {
+      "eventLoopLagMs": 21,
+      "heapGrowthMb": 103,
+      "staleAgeMs": 18000,
+      "reconnectSuccessRate": 0.99,
+      "recoveryLatencyMs": 3000,
+      "a11yViolationCounts": {
+        "minor": 0,
+        "moderate": 0,
+        "serious": 0,
+        "critical": 0
+      },
+      "collectedAt": "2026-04-08T19:19:54.883Z"
+    },
+    "lastKnownGoodAt": "2026-04-08T19:19:54.883Z"
+  },
+  "timeline": [
+    {
+      "index": 0,
+      "phase": "healthy",
+      "sampledAt": "2026-04-08T16:24:54.883Z",
+      "status": "healthy",
+      "breachCodes": [],
+      "metrics": {
+        "eventLoopLagMs": 18,
+        "heapGrowthMb": 92,
+        "staleAgeMs": 12000,
+        "reconnectSuccessRate": 1,
+        "recoveryLatencyMs": 2200,
+        "a11ySerious": 0,
+        "a11yCritical": 0
+      }
+    },
+    {
+      "index": 1,
+      "phase": "healthy",
+      "sampledAt": "2026-04-08T16:29:54.883Z",
+      "status": "healthy",
+      "breachCodes": [],
+      "metrics": {
+        "eventLoopLagMs": 18,
+        "heapGrowthMb": 92,
+        "staleAgeMs": 12000,
+        "reconnectSuccessRate": 1,
+        "recoveryLatencyMs": 2200,
+        "a11ySerious": 0,
+        "a11yCritical": 0
+      }
+    },
+    {
+      "index": 2,
+      "phase": "healthy",
+      "sampledAt": "2026-04-08T16:34:54.883Z",
+      "status": "healthy",
+      "breachCodes": [],
+      "metrics": {
+        "eventLoopLagMs": 18,
+        "heapGrowthMb": 92,
+        "staleAgeMs": 12000,
+        "reconnectSuccessRate": 1,
+        "recoveryLatencyMs": 2200,
+        "a11ySerious": 0,
+        "a11yCritical": 0
+      }
+    },
+    {
+      "index": 3,
+      "phase": "healthy",
+      "sampledAt": "2026-04-08T16:39:54.883Z",
+      "status": "healthy",
+      "breachCodes": [],
+      "metrics": {
+        "eventLoopLagMs": 18,
+        "heapGrowthMb": 92,
+        "staleAgeMs": 12000,
+        "reconnectSuccessRate": 1,
+        "recoveryLatencyMs": 2200,
+        "a11ySerious": 0,
+        "a11yCritical": 0
+      }
+    },
+    {
+      "index": 4,
+      "phase": "healthy",
+      "sampledAt": "2026-04-08T16:44:54.883Z",
+      "status": "healthy",
+      "breachCodes": [],
+      "metrics": {
+        "eventLoopLagMs": 18,
+        "heapGrowthMb": 92,
+        "staleAgeMs": 12000,
+        "reconnectSuccessRate": 1,
+        "recoveryLatencyMs": 2200,
+        "a11ySerious": 0,
+        "a11yCritical": 0
+      }
+    },
+    {
+      "index": 5,
+      "phase": "healthy",
+      "sampledAt": "2026-04-08T16:49:54.883Z",
+      "status": "healthy",
+      "breachCodes": [],
+      "metrics": {
+        "eventLoopLagMs": 18,
+        "heapGrowthMb": 92,
+        "staleAgeMs": 12000,
+        "reconnectSuccessRate": 1,
+        "recoveryLatencyMs": 2200,
+        "a11ySerious": 0,
+        "a11yCritical": 0
+      }
+    },
+    {
+      "index": 6,
+      "phase": "healthy",
+      "sampledAt": "2026-04-08T16:54:54.883Z",
+      "status": "healthy",
+      "breachCodes": [],
+      "metrics": {
+        "eventLoopLagMs": 18,
+        "heapGrowthMb": 92,
+        "staleAgeMs": 12000,
+        "reconnectSuccessRate": 1,
+        "recoveryLatencyMs": 2200,
+        "a11ySerious": 0,
+        "a11yCritical": 0
+      }
+    },
+    {
+      "index": 7,
+      "phase": "healthy",
+      "sampledAt": "2026-04-08T16:59:54.883Z",
+      "status": "healthy",
+      "breachCodes": [],
+      "metrics": {
+        "eventLoopLagMs": 18,
+        "heapGrowthMb": 92,
+        "staleAgeMs": 12000,
+        "reconnectSuccessRate": 1,
+        "recoveryLatencyMs": 2200,
+        "a11ySerious": 0,
+        "a11yCritical": 0
+      }
+    },
+    {
+      "index": 8,
+      "phase": "healthy",
+      "sampledAt": "2026-04-08T17:04:54.883Z",
+      "status": "healthy",
+      "breachCodes": [],
+      "metrics": {
+        "eventLoopLagMs": 18,
+        "heapGrowthMb": 92,
+        "staleAgeMs": 12000,
+        "reconnectSuccessRate": 1,
+        "recoveryLatencyMs": 2200,
+        "a11ySerious": 0,
+        "a11yCritical": 0
+      }
+    },
+    {
+      "index": 9,
+      "phase": "healthy",
+      "sampledAt": "2026-04-08T17:09:54.883Z",
+      "status": "healthy",
+      "breachCodes": [],
+      "metrics": {
+        "eventLoopLagMs": 18,
+        "heapGrowthMb": 92,
+        "staleAgeMs": 12000,
+        "reconnectSuccessRate": 1,
+        "recoveryLatencyMs": 2200,
+        "a11ySerious": 0,
+        "a11yCritical": 0
+      }
+    },
+    {
+      "index": 10,
+      "phase": "healthy",
+      "sampledAt": "2026-04-08T17:14:54.883Z",
+      "status": "healthy",
+      "breachCodes": [],
+      "metrics": {
+        "eventLoopLagMs": 18,
+        "heapGrowthMb": 92,
+        "staleAgeMs": 12000,
+        "reconnectSuccessRate": 1,
+        "recoveryLatencyMs": 2200,
+        "a11ySerious": 0,
+        "a11yCritical": 0
+      }
+    },
+    {
+      "index": 11,
+      "phase": "healthy",
+      "sampledAt": "2026-04-08T17:19:54.883Z",
+      "status": "healthy",
+      "breachCodes": [],
+      "metrics": {
+        "eventLoopLagMs": 18,
+        "heapGrowthMb": 92,
+        "staleAgeMs": 12000,
+        "reconnectSuccessRate": 1,
+        "recoveryLatencyMs": 2200,
+        "a11ySerious": 0,
+        "a11yCritical": 0
+      }
+    },
+    {
+      "index": 12,
+      "phase": "healthy",
+      "sampledAt": "2026-04-08T17:24:54.883Z",
+      "status": "healthy",
+      "breachCodes": [],
+      "metrics": {
+        "eventLoopLagMs": 18,
+        "heapGrowthMb": 92,
+        "staleAgeMs": 12000,
+        "reconnectSuccessRate": 1,
+        "recoveryLatencyMs": 2200,
+        "a11ySerious": 0,
+        "a11yCritical": 0
+      }
+    },
+    {
+      "index": 13,
+      "phase": "healthy",
+      "sampledAt": "2026-04-08T17:29:54.883Z",
+      "status": "healthy",
+      "breachCodes": [],
+      "metrics": {
+        "eventLoopLagMs": 18,
+        "heapGrowthMb": 92,
+        "staleAgeMs": 12000,
+        "reconnectSuccessRate": 1,
+        "recoveryLatencyMs": 2200,
+        "a11ySerious": 0,
+        "a11yCritical": 0
+      }
+    },
+    {
+      "index": 14,
+      "phase": "failure",
+      "sampledAt": "2026-04-08T17:34:54.883Z",
+      "status": "breached",
+      "breachCodes": [
+        "REL-LONGRUN-EVENT_LOOP_LAG_MS-BREACH",
+        "REL-LONGRUN-HEAP_GROWTH_MB-BREACH",
+        "REL-LONGRUN-STALE_AGE_MS-BREACH",
+        "REL-LONGRUN-RECONNECT_SUCCESS_RATE-BREACH",
+        "REL-LONGRUN-RECOVERY_LATENCY_MS-BREACH",
+        "REL-LONGRUN-A11Y_VIOLATION_COUNTS_SERIOUS-BREACH",
+        "REL-LONGRUN-A11Y_VIOLATION_COUNTS_CRITICAL-BREACH"
+      ],
+      "metrics": {
+        "eventLoopLagMs": 196,
+        "heapGrowthMb": 322,
+        "staleAgeMs": 210000,
+        "reconnectSuccessRate": 0.66,
+        "recoveryLatencyMs": 41000,
+        "a11ySerious": 2,
+        "a11yCritical": 1
+      }
+    },
+    {
+      "index": 15,
+      "phase": "failure",
+      "sampledAt": "2026-04-08T17:39:54.883Z",
+      "status": "breached",
+      "breachCodes": [
+        "REL-LONGRUN-EVENT_LOOP_LAG_MS-BREACH",
+        "REL-LONGRUN-HEAP_GROWTH_MB-BREACH",
+        "REL-LONGRUN-STALE_AGE_MS-BREACH",
+        "REL-LONGRUN-RECONNECT_SUCCESS_RATE-BREACH",
+        "REL-LONGRUN-RECOVERY_LATENCY_MS-BREACH",
+        "REL-LONGRUN-A11Y_VIOLATION_COUNTS_SERIOUS-BREACH",
+        "REL-LONGRUN-A11Y_VIOLATION_COUNTS_CRITICAL-BREACH"
+      ],
+      "metrics": {
+        "eventLoopLagMs": 196,
+        "heapGrowthMb": 322,
+        "staleAgeMs": 210000,
+        "reconnectSuccessRate": 0.66,
+        "recoveryLatencyMs": 41000,
+        "a11ySerious": 2,
+        "a11yCritical": 1
+      }
+    },
+    {
+      "index": 16,
+      "phase": "failure",
+      "sampledAt": "2026-04-08T17:44:54.883Z",
+      "status": "breached",
+      "breachCodes": [
+        "REL-LONGRUN-EVENT_LOOP_LAG_MS-BREACH",
+        "REL-LONGRUN-HEAP_GROWTH_MB-BREACH",
+        "REL-LONGRUN-STALE_AGE_MS-BREACH",
+        "REL-LONGRUN-RECONNECT_SUCCESS_RATE-BREACH",
+        "REL-LONGRUN-RECOVERY_LATENCY_MS-BREACH",
+        "REL-LONGRUN-A11Y_VIOLATION_COUNTS_SERIOUS-BREACH",
+        "REL-LONGRUN-A11Y_VIOLATION_COUNTS_CRITICAL-BREACH"
+      ],
+      "metrics": {
+        "eventLoopLagMs": 196,
+        "heapGrowthMb": 322,
+        "staleAgeMs": 210000,
+        "reconnectSuccessRate": 0.66,
+        "recoveryLatencyMs": 41000,
+        "a11ySerious": 2,
+        "a11yCritical": 1
+      }
+    },
+    {
+      "index": 17,
+      "phase": "failure",
+      "sampledAt": "2026-04-08T17:49:54.883Z",
+      "status": "breached",
+      "breachCodes": [
+        "REL-LONGRUN-EVENT_LOOP_LAG_MS-BREACH",
+        "REL-LONGRUN-HEAP_GROWTH_MB-BREACH",
+        "REL-LONGRUN-STALE_AGE_MS-BREACH",
+        "REL-LONGRUN-RECONNECT_SUCCESS_RATE-BREACH",
+        "REL-LONGRUN-RECOVERY_LATENCY_MS-BREACH",
+        "REL-LONGRUN-A11Y_VIOLATION_COUNTS_SERIOUS-BREACH",
+        "REL-LONGRUN-A11Y_VIOLATION_COUNTS_CRITICAL-BREACH"
+      ],
+      "metrics": {
+        "eventLoopLagMs": 196,
+        "heapGrowthMb": 322,
+        "staleAgeMs": 210000,
+        "reconnectSuccessRate": 0.66,
+        "recoveryLatencyMs": 41000,
+        "a11ySerious": 2,
+        "a11yCritical": 1
+      }
+    },
+    {
+      "index": 18,
+      "phase": "failure",
+      "sampledAt": "2026-04-08T17:54:54.883Z",
+      "status": "breached",
+      "breachCodes": [
+        "REL-LONGRUN-EVENT_LOOP_LAG_MS-BREACH",
+        "REL-LONGRUN-HEAP_GROWTH_MB-BREACH",
+        "REL-LONGRUN-STALE_AGE_MS-BREACH",
+        "REL-LONGRUN-RECONNECT_SUCCESS_RATE-BREACH",
+        "REL-LONGRUN-RECOVERY_LATENCY_MS-BREACH",
+        "REL-LONGRUN-A11Y_VIOLATION_COUNTS_SERIOUS-BREACH",
+        "REL-LONGRUN-A11Y_VIOLATION_COUNTS_CRITICAL-BREACH"
+      ],
+      "metrics": {
+        "eventLoopLagMs": 196,
+        "heapGrowthMb": 322,
+        "staleAgeMs": 210000,
+        "reconnectSuccessRate": 0.66,
+        "recoveryLatencyMs": 41000,
+        "a11ySerious": 2,
+        "a11yCritical": 1
+      }
+    },
+    {
+      "index": 19,
+      "phase": "recovery",
+      "sampledAt": "2026-04-08T17:59:54.883Z",
+      "status": "healthy",
+      "breachCodes": [],
+      "metrics": {
+        "eventLoopLagMs": 21,
+        "heapGrowthMb": 103,
+        "staleAgeMs": 18000,
+        "reconnectSuccessRate": 0.99,
+        "recoveryLatencyMs": 3000,
+        "a11ySerious": 0,
+        "a11yCritical": 0
+      }
+    },
+    {
+      "index": 20,
+      "phase": "recovery",
+      "sampledAt": "2026-04-08T18:04:54.883Z",
+      "status": "healthy",
+      "breachCodes": [],
+      "metrics": {
+        "eventLoopLagMs": 21,
+        "heapGrowthMb": 103,
+        "staleAgeMs": 18000,
+        "reconnectSuccessRate": 0.99,
+        "recoveryLatencyMs": 3000,
+        "a11ySerious": 0,
+        "a11yCritical": 0
+      }
+    },
+    {
+      "index": 21,
+      "phase": "recovery",
+      "sampledAt": "2026-04-08T18:09:54.883Z",
+      "status": "healthy",
+      "breachCodes": [],
+      "metrics": {
+        "eventLoopLagMs": 21,
+        "heapGrowthMb": 103,
+        "staleAgeMs": 18000,
+        "reconnectSuccessRate": 0.99,
+        "recoveryLatencyMs": 3000,
+        "a11ySerious": 0,
+        "a11yCritical": 0
+      }
+    },
+    {
+      "index": 22,
+      "phase": "recovery",
+      "sampledAt": "2026-04-08T18:14:54.883Z",
+      "status": "healthy",
+      "breachCodes": [],
+      "metrics": {
+        "eventLoopLagMs": 21,
+        "heapGrowthMb": 103,
+        "staleAgeMs": 18000,
+        "reconnectSuccessRate": 0.99,
+        "recoveryLatencyMs": 3000,
+        "a11ySerious": 0,
+        "a11yCritical": 0
+      }
+    },
+    {
+      "index": 23,
+      "phase": "recovery",
+      "sampledAt": "2026-04-08T18:19:54.883Z",
+      "status": "healthy",
+      "breachCodes": [],
+      "metrics": {
+        "eventLoopLagMs": 21,
+        "heapGrowthMb": 103,
+        "staleAgeMs": 18000,
+        "reconnectSuccessRate": 0.99,
+        "recoveryLatencyMs": 3000,
+        "a11ySerious": 0,
+        "a11yCritical": 0
+      }
+    },
+    {
+      "index": 24,
+      "phase": "recovery",
+      "sampledAt": "2026-04-08T18:24:54.883Z",
+      "status": "healthy",
+      "breachCodes": [],
+      "metrics": {
+        "eventLoopLagMs": 21,
+        "heapGrowthMb": 103,
+        "staleAgeMs": 18000,
+        "reconnectSuccessRate": 0.99,
+        "recoveryLatencyMs": 3000,
+        "a11ySerious": 0,
+        "a11yCritical": 0
+      }
+    },
+    {
+      "index": 25,
+      "phase": "recovery",
+      "sampledAt": "2026-04-08T18:29:54.883Z",
+      "status": "healthy",
+      "breachCodes": [],
+      "metrics": {
+        "eventLoopLagMs": 21,
+        "heapGrowthMb": 103,
+        "staleAgeMs": 18000,
+        "reconnectSuccessRate": 0.99,
+        "recoveryLatencyMs": 3000,
+        "a11ySerious": 0,
+        "a11yCritical": 0
+      }
+    },
+    {
+      "index": 26,
+      "phase": "recovery",
+      "sampledAt": "2026-04-08T18:34:54.883Z",
+      "status": "healthy",
+      "breachCodes": [],
+      "metrics": {
+        "eventLoopLagMs": 21,
+        "heapGrowthMb": 103,
+        "staleAgeMs": 18000,
+        "reconnectSuccessRate": 0.99,
+        "recoveryLatencyMs": 3000,
+        "a11ySerious": 0,
+        "a11yCritical": 0
+      }
+    },
+    {
+      "index": 27,
+      "phase": "recovery",
+      "sampledAt": "2026-04-08T18:39:54.883Z",
+      "status": "healthy",
+      "breachCodes": [],
+      "metrics": {
+        "eventLoopLagMs": 21,
+        "heapGrowthMb": 103,
+        "staleAgeMs": 18000,
+        "reconnectSuccessRate": 0.99,
+        "recoveryLatencyMs": 3000,
+        "a11ySerious": 0,
+        "a11yCritical": 0
+      }
+    },
+    {
+      "index": 28,
+      "phase": "recovery",
+      "sampledAt": "2026-04-08T18:44:54.883Z",
+      "status": "healthy",
+      "breachCodes": [],
+      "metrics": {
+        "eventLoopLagMs": 21,
+        "heapGrowthMb": 103,
+        "staleAgeMs": 18000,
+        "reconnectSuccessRate": 0.99,
+        "recoveryLatencyMs": 3000,
+        "a11ySerious": 0,
+        "a11yCritical": 0
+      }
+    },
+    {
+      "index": 29,
+      "phase": "recovery",
+      "sampledAt": "2026-04-08T18:49:54.883Z",
+      "status": "healthy",
+      "breachCodes": [],
+      "metrics": {
+        "eventLoopLagMs": 21,
+        "heapGrowthMb": 103,
+        "staleAgeMs": 18000,
+        "reconnectSuccessRate": 0.99,
+        "recoveryLatencyMs": 3000,
+        "a11ySerious": 0,
+        "a11yCritical": 0
+      }
+    },
+    {
+      "index": 30,
+      "phase": "recovery",
+      "sampledAt": "2026-04-08T18:54:54.883Z",
+      "status": "healthy",
+      "breachCodes": [],
+      "metrics": {
+        "eventLoopLagMs": 21,
+        "heapGrowthMb": 103,
+        "staleAgeMs": 18000,
+        "reconnectSuccessRate": 0.99,
+        "recoveryLatencyMs": 3000,
+        "a11ySerious": 0,
+        "a11yCritical": 0
+      }
+    },
+    {
+      "index": 31,
+      "phase": "recovery",
+      "sampledAt": "2026-04-08T18:59:54.883Z",
+      "status": "healthy",
+      "breachCodes": [],
+      "metrics": {
+        "eventLoopLagMs": 21,
+        "heapGrowthMb": 103,
+        "staleAgeMs": 18000,
+        "reconnectSuccessRate": 0.99,
+        "recoveryLatencyMs": 3000,
+        "a11ySerious": 0,
+        "a11yCritical": 0
+      }
+    },
+    {
+      "index": 32,
+      "phase": "recovery",
+      "sampledAt": "2026-04-08T19:04:54.883Z",
+      "status": "healthy",
+      "breachCodes": [],
+      "metrics": {
+        "eventLoopLagMs": 21,
+        "heapGrowthMb": 103,
+        "staleAgeMs": 18000,
+        "reconnectSuccessRate": 0.99,
+        "recoveryLatencyMs": 3000,
+        "a11ySerious": 0,
+        "a11yCritical": 0
+      }
+    },
+    {
+      "index": 33,
+      "phase": "recovery",
+      "sampledAt": "2026-04-08T19:09:54.883Z",
+      "status": "healthy",
+      "breachCodes": [],
+      "metrics": {
+        "eventLoopLagMs": 21,
+        "heapGrowthMb": 103,
+        "staleAgeMs": 18000,
+        "reconnectSuccessRate": 0.99,
+        "recoveryLatencyMs": 3000,
+        "a11ySerious": 0,
+        "a11yCritical": 0
+      }
+    },
+    {
+      "index": 34,
+      "phase": "recovery",
+      "sampledAt": "2026-04-08T19:14:54.883Z",
+      "status": "healthy",
+      "breachCodes": [],
+      "metrics": {
+        "eventLoopLagMs": 21,
+        "heapGrowthMb": 103,
+        "staleAgeMs": 18000,
+        "reconnectSuccessRate": 0.99,
+        "recoveryLatencyMs": 3000,
+        "a11ySerious": 0,
+        "a11yCritical": 0
+      }
+    },
+    {
+      "index": 35,
+      "phase": "recovery",
+      "sampledAt": "2026-04-08T19:19:54.883Z",
+      "status": "healthy",
+      "breachCodes": [],
+      "metrics": {
+        "eventLoopLagMs": 21,
+        "heapGrowthMb": 103,
+        "staleAgeMs": 18000,
+        "reconnectSuccessRate": 0.99,
+        "recoveryLatencyMs": 3000,
+        "a11ySerious": 0,
+        "a11yCritical": 0
+      }
+    }
+  ],
+  "summary": {
+    "healthySamples": 31,
+    "degradedSamples": 0,
+    "breachedSamples": 5,
+    "failureWindowDetected": true,
+    "recoveredByEnd": true
+  }
+}
