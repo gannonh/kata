@@ -1,5 +1,6 @@
 import {
   ALL_AUTH_PROVIDERS,
+  AUTH_PROVIDER_ALIASES,
   type AuthProvider,
   type AvailableModel,
   type BridgeLifecycleState,
@@ -18,10 +19,6 @@ export const FIRST_RUN_CHECKPOINT_ORDER: readonly FirstRunCheckpointId[] = [
   'startup',
   'first_turn',
 ]
-
-const PROVIDER_ALIASES: Partial<Record<AuthProvider, string[]>> = {
-  openai: ['openai-codex'],
-}
 
 export class FirstRunInvariantError extends Error {
   constructor(message: string) {
@@ -55,7 +52,7 @@ function normalizeProvider(provider: string | null | undefined): AuthProvider | 
   }
 
   for (const canonical of ALL_AUTH_PROVIDERS) {
-    const aliases = PROVIDER_ALIASES[canonical] ?? []
+    const aliases = AUTH_PROVIDER_ALIASES[canonical] ?? []
     if (aliases.includes(normalized)) {
       return canonical
     }

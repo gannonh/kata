@@ -97,6 +97,8 @@ test.describe('Onboarding provider consistency', () => {
 })
 
 test.describe('Onboarding recovery messaging', () => {
+  test.use({ firstRunProfileMode: 'clean' })
+
   test('recovery guidance appears when no provider key is configured', async ({ electronApp }) => {
     const window = await getOnboardingWindow(electronApp)
 

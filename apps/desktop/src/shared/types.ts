@@ -75,6 +75,14 @@ export const ALL_AUTH_PROVIDERS = [
 
 export type AuthProvider = (typeof ALL_AUTH_PROVIDERS)[number]
 
+/**
+ * Auth.json can contain provider entries under alias keys.
+ * Canonical provider -> accepted alias keys.
+ */
+export const AUTH_PROVIDER_ALIASES: Partial<Record<AuthProvider, string[]>> = {
+  openai: ['openai-codex'],
+}
+
 export type ProviderStatus = 'valid' | 'missing' | 'expired' | 'invalid'
 
 export type ProviderAuthType = 'api_key' | 'oauth'

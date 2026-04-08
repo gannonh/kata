@@ -4,6 +4,7 @@ import path from 'node:path'
 import log from './logger'
 import {
   ALL_AUTH_PROVIDERS,
+  AUTH_PROVIDER_ALIASES,
   type AuthProvider,
   type AuthProvidersResponse,
   type AuthRecord,
@@ -21,14 +22,6 @@ import { buildFirstRunReadinessSnapshot } from '../shared/first-run-readiness'
 const DEFAULT_AUTH_PATH =
   process.env.KATA_DESKTOP_AUTH_FILE_PATH?.trim() ||
   path.join(homedir(), '.kata-cli', 'agent', 'auth.json')
-
-/**
- * The CLI stores some providers under variant key names in auth.json.
- * Map canonical AuthProvider → alternate keys to check.
- */
-const AUTH_PROVIDER_ALIASES: Partial<Record<AuthProvider, string[]>> = {
-  openai: ['openai-codex'],
-}
 
 interface ValidationConfig {
   url: (key: string) => string
