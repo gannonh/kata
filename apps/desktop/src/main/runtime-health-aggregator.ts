@@ -33,11 +33,6 @@ import type {
 } from '../shared/types'
 import { ALL_AUTH_PROVIDERS } from '../shared/types'
 import { buildFirstRunReadinessSnapshot } from '../shared/first-run-readiness'
-import { normalizeFirstRunAuthReadiness } from './auth-bridge'
-import {
-  normalizeFirstRunModelReadiness,
-  normalizeFirstRunStartupReadiness,
-} from './pi-agent-bridge'
 
 type RecoveryAttempt = {
   success: boolean
@@ -386,30 +381,7 @@ export class RuntimeHealthAggregator extends EventEmitter {
   private recomputeFirstRunReadiness(nowOverride?: string): void {
     const now = nowOverride ?? this.now()
 
-    const authNormalization = normalizeFirstRunAuthReadiness({
-      providers: this.firstRunProviders,
-      selectedProvider: this.firstRunSelectedProvider,
-      now,
-    })
-
-    const modelCheckpoint = normalizeFirstRunModelReadiness({
-      providers: this.firstRunProviders,
-      selectedProvider: this.firstRunSelectedProvider,
-      selectedModel: this.firstRunSelectedModel,
-      availableModels: this.firstRunAvailableModels,
-      now,
-    })
-
-    const startupCheckpoint = normalizeFirstRunStartupReadiness({
-      providers: this.firstRunProviders,
-      selectedProvider: this.firstRunSelectedProvider,
-      selectedModel: this.firstRunSelectedModel,
-      availableModels: this.firstRunAvailableModels,
-      bridgeStatus: this.firstRunBridgeStatus,
-      now,
-    })
-
-    const snapshot = buildFirstRunReadinessSnapshot({
+    this.firstRunReadiness = buildFirstRunReadinessSnapshot({
       providers: this.firstRunProviders,
       selectedProvider: this.firstRunSelectedProvider,
       selectedModel: this.firstRunSelectedModel,
@@ -418,27 +390,6 @@ export class RuntimeHealthAggregator extends EventEmitter {
       completedFirstTurn: this.firstTurnCompleted,
       now,
     })
-
-    // Keep checkpoint composition explicit: auth/model/startup come from their
-    // dedicated normalizers and first_turn from the composed snapshot.
-    const checkpoints = {
-      ...snapshot.checkpoints,
-      auth: authNormalization.checkpoint,
-      model: modelCheckpoint,
-      startup: startupCheckpoint,
-    }
-
-    const blockedCheckpoint =
-      (['auth', 'model', 'startup', 'first_turn'] as const).find(
-        (checkpoint) => checkpoints[checkpoint].status === 'fail',
-      ) ?? null
-
-    this.firstRunReadiness = {
-      ...snapshot,
-      checkpoints,
-      blockedCheckpoint,
-      overallStatus: blockedCheckpoint ? 'blocked' : 'ready',
-    }
   }
 
   private toSnapshot(): ReliabilitySnapshot {

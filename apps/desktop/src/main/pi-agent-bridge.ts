@@ -19,7 +19,10 @@ import {
   type ProviderStatusMap,
   type RpcCommand,
 } from '../shared/types'
-import { buildFirstRunReadinessSnapshot } from '../shared/first-run-readiness'
+import {
+  buildFirstRunReadinessSnapshot,
+  normalizeFirstRunStartupCheckpoint,
+} from '../shared/first-run-readiness'
 
 interface PendingCommand {
   command: string
@@ -76,24 +79,13 @@ export function normalizeFirstRunModelReadiness(input: {
 }
 
 export function normalizeFirstRunStartupReadiness(input: {
-  providers: ProviderStatusMap
-  selectedProvider?: AuthProvider | null
-  selectedModel?: string | null
-  availableModels?: AvailableModel[]
   bridgeStatus: BridgeLifecycleState
   now?: string
 }): FirstRunCheckpointState {
-  const snapshot = buildFirstRunReadinessSnapshot({
-    providers: input.providers,
-    selectedProvider: input.selectedProvider ?? null,
-    selectedModel: input.selectedModel ?? null,
-    availableModels: input.availableModels ?? [],
+  return normalizeFirstRunStartupCheckpoint({
     bridgeStatus: input.bridgeStatus,
-    completedFirstTurn: false,
     now: input.now,
   })
-
-  return snapshot.checkpoints.startup
 }
 
 export class PiAgentBridge extends EventEmitter {

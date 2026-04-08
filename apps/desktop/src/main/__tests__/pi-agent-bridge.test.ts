@@ -1038,10 +1038,6 @@ setTimeout(() => {
     })
 
     const startupCheckpoint = normalizeFirstRunStartupReadiness({
-      providers,
-      selectedProvider: 'openai',
-      selectedModel: 'openai/gpt-4.1',
-      availableModels: [{ provider: 'openai', id: 'gpt-4.1' }],
       bridgeStatus: 'running',
       now: '2026-04-08T00:00:00.000Z',
     })

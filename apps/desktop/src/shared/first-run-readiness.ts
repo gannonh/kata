@@ -104,12 +104,6 @@ function buildProviderStateMap(providers: ProviderStatusMap): FirstRunProviderSt
       )
     }
 
-    if (!configured && info.status === 'valid') {
-      throw new FirstRunInvariantError(
-        `Contradictory provider state for ${provider}: valid status requires configured=true`,
-      )
-    }
-
     const state: FirstRunProviderState = {
       provider,
       status: info.status,
@@ -313,6 +307,14 @@ function evaluateStartupCheckpoint(
       now,
     }),
   }
+}
+
+export function normalizeFirstRunStartupCheckpoint(input: {
+  bridgeStatus: BridgeLifecycleState
+  now?: string
+}): FirstRunCheckpointState {
+  const now = isoNow(input.now)
+  return evaluateStartupCheckpoint(input.bridgeStatus, now)
 }
 
 function evaluateFirstTurnCheckpoint(input: {
