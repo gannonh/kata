@@ -71,6 +71,27 @@ function normalizeModelProvider(selectedModel: string | null | undefined): AuthP
   return normalizeProvider(providerSegment)
 }
 
+function normalizeModelKey(modelRef: string | null | undefined): string | null {
+  const value = modelRef?.trim()
+  if (!value) {
+    return null
+  }
+
+  const separatorIndex = value.indexOf('/')
+  if (separatorIndex < 0) {
+    return value.toLowerCase()
+  }
+
+  const providerSegment = value.slice(0, separatorIndex).trim()
+  const modelId = value.slice(separatorIndex + 1).trim()
+  if (!providerSegment || !modelId) {
+    return null
+  }
+
+  const canonicalProvider = normalizeProvider(providerSegment) ?? providerSegment.toLowerCase()
+  return `${canonicalProvider}/${modelId}`
+}
+
 function toFailure(
   input: Omit<FirstRunCheckpointFailure, 'recoverable' | 'timestamp'> & {
     now: string
@@ -226,8 +247,13 @@ function evaluateModelCheckpoint(input: {
     }
   }
 
-  const selectedModelExists = input.availableModels.some(
-    (model) => `${model.provider}/${model.id}` === input.selectedModel,
+  const normalizedSelectedModel = normalizeModelKey(input.selectedModel)
+  const selectedModelExists = Boolean(
+    normalizedSelectedModel &&
+      input.availableModels.some((model) => {
+        const availableModelKey = normalizeModelKey(`${model.provider}/${model.id}`)
+        return availableModelKey === normalizedSelectedModel
+      }),
   )
 
   if (!selectedModelExists) {

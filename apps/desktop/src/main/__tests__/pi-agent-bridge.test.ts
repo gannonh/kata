@@ -1046,6 +1046,27 @@ setTimeout(() => {
     expect(startupCheckpoint.status).toBe('pass')
   })
 
+  test('treats aliased selected models as available when canonical provider model exists', () => {
+    const providers: ProviderStatusMap = {
+      anthropic: { provider: 'anthropic', status: 'missing' as const },
+      openai: { provider: 'openai', status: 'valid' as const, maskedKey: '••••1234' },
+      google: { provider: 'google', status: 'missing' as const },
+      mistral: { provider: 'mistral', status: 'missing' as const },
+      bedrock: { provider: 'bedrock', status: 'missing' as const },
+      azure: { provider: 'azure', status: 'missing' as const },
+    }
+
+    const checkpoint = normalizeFirstRunModelReadiness({
+      providers,
+      selectedProvider: 'openai',
+      selectedModel: 'openai-codex/gpt-4.1',
+      availableModels: [{ provider: 'openai', id: 'gpt-4.1' }],
+      now: '2026-04-08T00:00:00.000Z',
+    })
+
+    expect(checkpoint.status).toBe('pass')
+  })
+
   test('fails model checkpoint when selected model provider is not configured', () => {
     const providers: ProviderStatusMap = {
       anthropic: { provider: 'anthropic', status: 'missing' as const },

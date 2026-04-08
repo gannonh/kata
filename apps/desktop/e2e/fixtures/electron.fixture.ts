@@ -261,6 +261,11 @@ export const test = base.extend<DesktopFixtures>({
     const configuredKataBinary =
       firstRunStartupMode === 'binary_missing' ? path.join(dataDir, 'missing-kata-binary') : mockKataBinary
 
+    const binaryMissingPathDir = path.join(dataDir, 'empty-path')
+    if (firstRunStartupMode === 'binary_missing') {
+      mkdirSync(binaryMissingPathDir, { recursive: true })
+    }
+
     seedAuthFixture(authFilePath, firstRunProfileMode)
 
     const mainEntry = path.join(__dirname, '../../dist/main.cjs')
@@ -288,6 +293,7 @@ export const test = base.extend<DesktopFixtures>({
       args,
       env: {
         ...process.env,
+        ...(firstRunStartupMode === 'binary_missing' ? { PATH: binaryMissingPathDir } : {}),
         NODE_ENV: 'test',
         KATA_TEST_MODE: '1',
         KATA_WORKSPACE_PATH: workspaceDir,
