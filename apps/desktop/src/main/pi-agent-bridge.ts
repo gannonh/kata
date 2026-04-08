@@ -6,6 +6,7 @@ import { createRequire } from 'node:module'
 import readline from 'node:readline'
 import log from './logger'
 import {
+  type AuthProvider,
   type AvailableModel,
   type BridgeLifecycleState,
   type BridgeState,
@@ -13,9 +14,12 @@ import {
   type CommandResult,
   type ExtensionUIRequest,
   type ExtensionUIResponse,
+  type FirstRunCheckpointState,
   type PermissionMode,
+  type ProviderStatusMap,
   type RpcCommand,
 } from '../shared/types'
+import { buildFirstRunReadinessSnapshot } from '../shared/first-run-readiness'
 
 interface PendingCommand {
   command: string
@@ -49,6 +53,47 @@ interface BinaryDiscoveryResult {
   source: 'bundled' | 'path' | 'not_found'
   resolvedPath: string | null
   checkedPaths: string[]
+}
+
+export function normalizeFirstRunModelReadiness(input: {
+  providers: ProviderStatusMap
+  selectedProvider?: AuthProvider | null
+  selectedModel?: string | null
+  availableModels?: AvailableModel[]
+  now?: string
+}): FirstRunCheckpointState {
+  const snapshot = buildFirstRunReadinessSnapshot({
+    providers: input.providers,
+    selectedProvider: input.selectedProvider ?? null,
+    selectedModel: input.selectedModel ?? null,
+    availableModels: input.availableModels ?? [],
+    bridgeStatus: 'running',
+    completedFirstTurn: false,
+    now: input.now,
+  })
+
+  return snapshot.checkpoints.model
+}
+
+export function normalizeFirstRunStartupReadiness(input: {
+  providers: ProviderStatusMap
+  selectedProvider?: AuthProvider | null
+  selectedModel?: string | null
+  availableModels?: AvailableModel[]
+  bridgeStatus: BridgeLifecycleState
+  now?: string
+}): FirstRunCheckpointState {
+  const snapshot = buildFirstRunReadinessSnapshot({
+    providers: input.providers,
+    selectedProvider: input.selectedProvider ?? null,
+    selectedModel: input.selectedModel ?? null,
+    availableModels: input.availableModels ?? [],
+    bridgeStatus: input.bridgeStatus,
+    completedFirstTurn: false,
+    now: input.now,
+  })
+
+  return snapshot.checkpoints.startup
 }
 
 export class PiAgentBridge extends EventEmitter {
