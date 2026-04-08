@@ -33,6 +33,7 @@ import type {
   WorkflowSymphonyExecutionFreshness,
   WorkflowSymphonyExecutionProvenance,
   ReliabilitySignal,
+  StabilityMetricInput,
 } from '../shared/types'
 
 const TEST_LINEAR_WORKFLOW_FIXTURE: WorkflowBoardSnapshot = {
@@ -883,6 +884,21 @@ export class WorkflowBoardService {
 
   getReliabilitySignal(): ReliabilitySignal | null {
     return mapWorkflowBoardSnapshotToReliability(this.lastSnapshot)
+  }
+
+  getStabilityMetrics(): StabilityMetricInput {
+    const now = Date.now()
+    const lastSuccessAt = this.lastSnapshot?.poll.lastSuccessAt
+    const staleAgeMs = lastSuccessAt
+      ? Math.max(0, now - Date.parse(lastSuccessAt))
+      : this.lastSnapshot?.status === 'fresh' || this.lastSnapshot?.status === 'empty'
+        ? 0
+        : 60_000
+
+    return {
+      staleAgeMs,
+      collectedAt: new Date(now).toISOString(),
+    }
   }
 
   async getBoard(): Promise<WorkflowBoardSnapshotResponse> {

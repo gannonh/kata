@@ -51,6 +51,38 @@ describe('WorkflowBoardService', () => {
     expect(response.snapshot.symphony?.provenance).toBe('unavailable')
   })
 
+  test('emits stale-age stability metric from last successful workflow poll', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-04-08T00:00:00.000Z'))
+
+    try {
+      const service = new WorkflowBoardService({
+        authBridge: { getApiKey: vi.fn(async () => null) } as never,
+        getWorkspacePath: () => '/tmp/workspace',
+      }) as any
+
+      service.lastSnapshot = {
+        backend: 'linear',
+        fetchedAt: '2026-04-07T23:59:50.000Z',
+        status: 'stale',
+        source: { projectId: 'project-1' },
+        activeMilestone: null,
+        columns: [],
+        poll: {
+          status: 'error',
+          backend: 'linear',
+          lastAttemptAt: '2026-04-08T00:00:00.000Z',
+          lastSuccessAt: '2026-04-07T23:58:00.000Z',
+        },
+      }
+
+      const metrics = service.getStabilityMetrics()
+      expect(metrics.staleAgeMs).toBe(120000)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   test('applies fixture-mode slice moves and persists them across refreshes', async () => {
     process.env.KATA_TEST_WORKFLOW_FIXTURE = '1'
 

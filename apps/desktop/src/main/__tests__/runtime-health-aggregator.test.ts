@@ -83,6 +83,84 @@ describe('RuntimeHealthAggregator', () => {
       expect(surface.status).toBe('healthy')
       expect(surface.signal).toBeNull()
     }
+
+    const stability = aggregator.getStabilitySnapshot()
+    expect(stability.status).toBe('healthy')
+    expect(stability.breaches).toHaveLength(0)
+  })
+
+  test('evaluates long-run stability thresholds with deterministic breach mapping', () => {
+    const aggregator = new RuntimeHealthAggregator({ now: () => '2026-04-07T20:00:00.000Z' })
+
+    aggregator.ingestStabilityMetrics('chat_runtime', {
+      eventLoopLagMs: 220,
+      heapGrowthMb: 340,
+    })
+    aggregator.ingestStabilityMetrics('workflow_board', {
+      staleAgeMs: 190_000,
+    })
+    aggregator.ingestStabilityMetrics('symphony', {
+      reconnectSuccessRate: 0.62,
+      recoveryLatencyMs: 42_000,
+    })
+    aggregator.ingestStabilityMetrics('mcp', {
+      a11yViolationCounts: {
+        serious: 2,
+        critical: 1,
+      },
+    })
+
+    const stability = aggregator.getStabilitySnapshot()
+
+    expect(stability.status).toBe('breached')
+    expect(stability.breaches.length).toBeGreaterThanOrEqual(6)
+
+    const eventLoopBreach = stability.breaches.find((breach) => breach.metric === 'eventLoopLagMs')
+    expect(eventLoopBreach?.sourceSurface).toBe('chat_runtime')
+    expect(eventLoopBreach?.failureClass).toBe('process')
+    expect(eventLoopBreach?.recoveryAction).toBe('restart_process')
+    expect(eventLoopBreach?.code).toContain('EVENT_LOOP_LAG_MS')
+
+    const reconnectBreach = stability.breaches.find((breach) => breach.metric === 'reconnectSuccessRate')
+    expect(reconnectBreach?.sourceSurface).toBe('symphony')
+    expect(reconnectBreach?.failureClass).toBe('network')
+    expect(reconnectBreach?.recoveryAction).toBe('reconnect')
+
+    expect(stability.breaches.some((breach) => breach.metric === 'a11yViolationCounts')).toBe(true)
+  })
+
+  test('clears stability breaches only after metrics recover in-bounds', () => {
+    const now = vi
+      .fn<() => string>()
+      .mockReturnValueOnce('2026-04-07T20:00:00.000Z')
+      .mockReturnValueOnce('2026-04-07T20:00:05.000Z')
+      .mockReturnValueOnce('2026-04-07T20:00:10.000Z')
+      .mockReturnValue('2026-04-07T20:00:15.000Z')
+
+    const aggregator = new RuntimeHealthAggregator({ now })
+
+    aggregator.ingestStabilityMetrics('workflow_board', { staleAgeMs: 200_000 })
+    expect(aggregator.getStabilitySnapshot().status).toBe('breached')
+
+    aggregator.ingestStabilityMetrics('workflow_board', { staleAgeMs: 20_000 })
+
+    const recovered = aggregator.getStabilitySnapshot()
+    expect(recovered.status).toBe('healthy')
+    expect(recovered.breaches).toHaveLength(0)
+    expect(recovered.lastKnownGoodAt).toBeTruthy()
+  })
+
+  test('never reports contradictory healthy stability state when breaches exist', () => {
+    const aggregator = new RuntimeHealthAggregator({ now: () => '2026-04-07T20:00:00.000Z' })
+
+    aggregator.ingestStabilityMetrics('chat_runtime', {
+      eventLoopLagMs: 300,
+    })
+
+    const stability = aggregator.getStabilitySnapshot()
+    expect(stability.status).not.toBe('healthy')
+    expect(stability.breaches.length).toBeGreaterThan(0)
+    expect(stability.status === 'healthy' && stability.breaches.length > 0).toBe(false)
   })
 
   test('tracks workflow degradation without dropping last-known-good timestamp', () => {

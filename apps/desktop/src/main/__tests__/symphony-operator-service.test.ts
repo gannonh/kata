@@ -316,6 +316,26 @@ describe('SymphonyOperatorService', () => {
     expect(signal?.recoveryAction).toBe('refresh_state')
   })
 
+  test('emits reconnect success and recovery latency stability metrics across failure recovery', async () => {
+    const service = new SymphonyOperatorService({
+      env: { KATA_DESKTOP_SYMPHONY_DASHBOARD_MOCK: 'assembled_failure_recovery' },
+      createWebSocket: () => fakeSocket,
+    })
+
+    await service.syncRuntimeStatus(READY_STATUS)
+
+    expect(service.getStabilityMetrics().reconnectSuccessRate).toBe(1)
+
+    await service.refreshBaseline()
+    const duringFailure = service.getStabilityMetrics()
+    expect(duringFailure.reconnectSuccessRate).toBe(0)
+
+    await service.refreshBaseline()
+    const recovered = service.getStabilityMetrics()
+    expect(recovered.reconnectSuccessRate).toBe(1)
+    expect((recovered.recoveryLatencyMs ?? 0) >= 0).toBe(true)
+  })
+
   test('preserves legacy kanban mock identifiers for board correlation', async () => {
     const service = new SymphonyOperatorService({
       env: { KATA_DESKTOP_SYMPHONY_DASHBOARD_MOCK: 'kanban_assigned' },

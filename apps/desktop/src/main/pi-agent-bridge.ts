@@ -15,6 +15,7 @@ import {
   type ExtensionUIResponse,
   type PermissionMode,
   type RpcCommand,
+  type StabilityMetricInput,
 } from '../shared/types'
 
 interface PendingCommand {
@@ -64,7 +65,11 @@ export class PiAgentBridge extends EventEmitter {
   private permissionMode: PermissionMode = 'ask'
   private selectedModel: string | null
   private readonly reliabilityFaultMode = process.env.KATA_DESKTOP_RELIABILITY_CHAT_FAULT?.trim() ?? null
+  private readonly stabilityFaultMode = process.env.KATA_DESKTOP_STABILITY_CHAT_FAULT?.trim() ?? null
   private reliabilityFaultInjected = false
+  private readonly heapBaselineMb = Math.round((process.memoryUsage().heapUsed / 1024 / 1024) * 100) / 100
+  private eventLoopLagMs = 0
+  private eventLoopMonitor: NodeJS.Timeout | null = null
 
   constructor(
     private workspacePath: string,
@@ -74,6 +79,7 @@ export class PiAgentBridge extends EventEmitter {
   ) {
     super()
     this.selectedModel = initialModel?.trim() ? initialModel.trim() : null
+    this.startEventLoopLagMonitor()
   }
 
   override on<K extends keyof BridgeEvents>(event: K, listener: BridgeEvents[K]): this {
@@ -456,6 +462,33 @@ export class PiAgentBridge extends EventEmitter {
     return this.workspacePath
   }
 
+  public getStabilityMetrics(): StabilityMetricInput {
+    const heapGrowthMb =
+      Math.round((process.memoryUsage().heapUsed / 1024 / 1024 - this.heapBaselineMb) * 100) / 100
+
+    const baseMetrics: StabilityMetricInput = {
+      eventLoopLagMs: Math.max(0, this.eventLoopLagMs),
+      heapGrowthMb: Math.max(0, heapGrowthMb),
+      collectedAt: new Date().toISOString(),
+    }
+
+    if (this.stabilityFaultMode === 'lag_spike') {
+      return {
+        ...baseMetrics,
+        eventLoopLagMs: 220,
+      }
+    }
+
+    if (this.stabilityFaultMode === 'heap_growth') {
+      return {
+        ...baseMetrics,
+        heapGrowthMb: 340,
+      }
+    }
+
+    return baseMetrics
+  }
+
   public async switchWorkspace(nextWorkspacePath: string): Promise<void> {
     const normalized = nextWorkspacePath.trim()
     if (!normalized) {
@@ -518,6 +551,23 @@ export class PiAgentBridge extends EventEmitter {
       this.reliabilityFaultMode === 'process_crash_once' &&
       !this.reliabilityFaultInjected
     )
+  }
+
+  private startEventLoopLagMonitor(intervalMs = 1_000): void {
+    if (this.eventLoopMonitor) {
+      return
+    }
+
+    let expectedTickAt = Date.now() + intervalMs
+
+    this.eventLoopMonitor = setInterval(() => {
+      const now = Date.now()
+      const lag = Math.max(0, now - expectedTickAt)
+      this.eventLoopLagMs = Math.round(lag * 100) / 100
+      expectedTickAt = now + intervalMs
+    }, intervalMs)
+
+    this.eventLoopMonitor.unref?.()
   }
 
   private injectPromptCrashFault(): Error {

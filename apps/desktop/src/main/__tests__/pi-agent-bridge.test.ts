@@ -269,6 +269,29 @@ describe('PiAgentBridge additional coverage', () => {
     expect(sendSpy).toHaveBeenNthCalledWith(2, { type: 'abort' })
   })
 
+  test('emits stability metrics for event-loop lag and heap growth budgets', () => {
+    const previousFaultMode = process.env.KATA_DESKTOP_STABILITY_CHAT_FAULT
+
+    process.env.KATA_DESKTOP_STABILITY_CHAT_FAULT = 'lag_spike'
+    try {
+      const bridge = new PiAgentBridge(process.cwd())
+      const lagFaultMetrics = bridge.getStabilityMetrics()
+      expect(lagFaultMetrics.eventLoopLagMs).toBe(220)
+      expect((lagFaultMetrics.heapGrowthMb ?? 0) >= 0).toBe(true)
+    } finally {
+      if (previousFaultMode === undefined) {
+        delete process.env.KATA_DESKTOP_STABILITY_CHAT_FAULT
+      } else {
+        process.env.KATA_DESKTOP_STABILITY_CHAT_FAULT = previousFaultMode
+      }
+    }
+
+    const bridge = new PiAgentBridge(process.cwd())
+    const baselineMetrics = bridge.getStabilityMetrics()
+    expect((baselineMetrics.eventLoopLagMs ?? 0) >= 0).toBe(true)
+    expect((baselineMetrics.heapGrowthMb ?? 0) >= 0).toBe(true)
+  })
+
   test('injects one-time reliability crash fault for prompt in test mode', async () => {
     const previousTestMode = process.env.KATA_TEST_MODE
     const previousFaultMode = process.env.KATA_DESKTOP_RELIABILITY_CHAT_FAULT
