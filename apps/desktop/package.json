@@ -23,7 +23,8 @@
     "test:watch": "npx vitest",
     "test:e2e": "npx playwright test",
     "test:e2e:symphony-end-to-end": "npx playwright test e2e/tests/symphony-end-to-end.e2e.ts",
-    "test:e2e:headed": "npx playwright test --headed"
+    "test:e2e:headed": "npx playwright test --headed",
+    "qa:m006:soak": "bun run scripts/qa/m006-soak-run.ts"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.2.8",

@@ -18,6 +18,32 @@ import { WelcomeStep } from './WelcomeStep'
 
 type OnboardingStep = 'welcome' | 'provider' | 'key' | 'complete'
 
+export interface OnboardingAccessibilityCheckpoint {
+  id: string
+  severity: 'critical' | 'serious'
+  expectation: string
+}
+
+export function getOnboardingAccessibilityBaseline(): OnboardingAccessibilityCheckpoint[] {
+  return [
+    {
+      id: 'onboarding-heading',
+      severity: 'critical',
+      expectation: 'Onboarding heading and step indicator are visible.',
+    },
+    {
+      id: 'onboarding-primary-action',
+      severity: 'serious',
+      expectation: 'Get started button is visible and keyboard actionable.',
+    },
+    {
+      id: 'onboarding-provider-selection',
+      severity: 'serious',
+      expectation: 'Provider step exposes selectable provider cards with accessible names.',
+    },
+  ]
+}
+
 function createMissingProviderMap(): ProviderStatusMap {
   const entries = ALL_AUTH_PROVIDERS.map((provider) => [
     provider,
