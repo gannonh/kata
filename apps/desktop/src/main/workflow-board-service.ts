@@ -1903,6 +1903,13 @@ function deriveSymphonyEnvelope(operatorSnapshot: SymphonyOperatorSnapshot): {
   provenance: WorkflowSymphonyExecutionProvenance
   staleReason?: string
 } {
+  if (operatorSnapshot.connection.state === 'inactive') {
+    return {
+      freshness: 'unknown',
+      provenance: 'unavailable',
+    }
+  }
+
   if (operatorSnapshot.connection.state === 'disconnected') {
     return {
       freshness: 'disconnected',

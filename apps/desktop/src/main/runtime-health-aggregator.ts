@@ -97,9 +97,14 @@ export const DEFAULT_STABILITY_THRESHOLDS: StabilityThresholdSet = {
     breach: 150,
     comparator: 'max',
   },
+  // Heap thresholds calibrated against observed dev baselines:
+  // Electron main + CLI subprocess + Vite HMR routinely reach 200-400 MB in dev.
+  // Previous values (180/300) caused constant false alarms.
+  // 512 MB warning / 1024 MB breach still catches real leaks while staying
+  // above normal dev-mode noise. Production builds use less memory.
   heapGrowthMb: {
-    warning: 180,
-    breach: 300,
+    warning: 512,
+    breach: 1024,
     comparator: 'max',
   },
   staleAgeMs: {
@@ -476,6 +481,7 @@ export class RuntimeHealthAggregator extends EventEmitter {
   private chatBridgeSignal: ReliabilitySignal | null = null
   private chatCrashSignal: ReliabilitySignal | null = null
   private symphonyRuntimeSignal: ReliabilitySignal | null = null
+  private lastSymphonyRuntimePhase: string | null = null
   private symphonyOperatorSignal: ReliabilitySignal | null = null
   private mcpConfigSignal: ReliabilitySignal | null = null
   private mcpStatusSignal: ReliabilitySignal | null = null
@@ -668,6 +674,7 @@ export class RuntimeHealthAggregator extends EventEmitter {
   }
 
   public ingestSymphonyRuntimeStatus(status: SymphonyRuntimeStatus | null | undefined): ReliabilitySnapshot {
+    this.lastSymphonyRuntimePhase = status?.phase ?? null
     this.symphonyRuntimeSignal = mapSymphonyRuntimeStatusToReliability(status)
     this.syncSymphonySurface()
     return this.toSnapshot()
@@ -676,7 +683,26 @@ export class RuntimeHealthAggregator extends EventEmitter {
   public ingestSymphonyOperatorSnapshot(
     snapshot: SymphonyOperatorSnapshot | null | undefined,
   ): ReliabilitySnapshot {
-    this.symphonyOperatorSignal = mapSymphonyOperatorSnapshotToReliability(snapshot)
+    // Suppress operator-level signals when Symphony has never reached a connected state.
+    // The empty snapshot starts as 'inactive' (via createEmptySnapshot) so it won't
+    // produce a false alarm on its own, but startup-failure phases (starting, config_error,
+    // failed) would still surface bogus reconnect advice without this guard.
+    // Use the operator snapshot's own connection state as the primary signal.
+    // An 'inactive' snapshot means the operator was never started or was cleanly
+    // shut down — suppress to avoid false alarms from the default empty snapshot.
+    // Also suppress during startup-failure phases (config_error, failed) where
+    // the supervisor itself owns the failure surface and operator signals would
+    // be misleading (e.g. "reconnect" when the real fix is a config change).
+    // External Symphony mode (supervisor idle, operator connected via manual
+    // Refresh) works because the snapshot transitions out of 'inactive' on
+    // successful poll, so operatorSignalAllowed becomes true.
+    const operatorSignalAllowed =
+      snapshot?.connection.state !== 'inactive' &&
+      this.lastSymphonyRuntimePhase !== 'config_error' &&
+      this.lastSymphonyRuntimePhase !== 'failed'
+    this.symphonyOperatorSignal = operatorSignalAllowed
+      ? mapSymphonyOperatorSnapshotToReliability(snapshot)
+      : null
     this.syncSymphonySurface()
     return this.toSnapshot()
   }

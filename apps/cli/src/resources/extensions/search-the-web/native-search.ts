@@ -53,6 +53,49 @@ export interface NativeSearchPI {
   setActiveTools(tools: string[]): void;
 }
 
+function normalizeProviderName(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim().toLowerCase() : null;
+}
+
+function getProviderFromModelIdentifier(model: unknown): string | null {
+  if (typeof model !== "string") return null;
+  const trimmed = model.trim();
+  const slashIndex = trimmed.indexOf("/");
+  if (slashIndex <= 0) return null;
+  return normalizeProviderName(trimmed.slice(0, slashIndex));
+}
+
+export function detectAnthropicProviderForRequest(input: {
+  eventModel?: { provider?: unknown } | undefined;
+  payloadModel?: unknown;
+  modelSelectFired: boolean;
+  isAnthropicProvider: boolean;
+}): boolean {
+  // Prefer an explicit provider/model identifier from the payload. This is the
+  // most specific signal and avoids false positives when Anthropic-compatible
+  // providers (e.g. GitHub Copilot Claude models) surface provider metadata that
+  // looks Anthropic-like upstream.
+  const identifierProvider = getProviderFromModelIdentifier(input.payloadModel);
+  if (identifierProvider) {
+    return identifierProvider === "anthropic";
+  }
+
+  const eventProvider = normalizeProviderName(input.eventModel?.provider);
+  if (eventProvider) {
+    return eventProvider === "anthropic";
+  }
+
+  if (input.modelSelectFired) {
+    return input.isAnthropicProvider;
+  }
+
+  // No trustworthy provider signal is available. Do not guess based on the
+  // model name alone — providers like GitHub Copilot expose Claude-family model
+  // IDs that are not Anthropic API requests and will reject Anthropic-native
+  // web_search tool injection.
+  return false;
+}
+
 /**
  * Strip thinking/redacted_thinking blocks from assistant messages in the
  * conversation history.
@@ -152,21 +195,16 @@ export function registerNativeSearchHooks(
   // Inject native web search into Anthropic API requests
   pi.on("before_provider_request", (event: any) => {
     const payload = event.payload as Record<string, unknown>;
-    if (!payload) return;
+    if (!payload) return payload;
 
-    // Detect Anthropic provider from event model, model_select flag, or model name heuristic
-    const eventModel = event.model as { provider: string } | undefined;
-    let isAnthropic: boolean;
-    if (eventModel?.provider) {
-      isAnthropic = eventModel.provider === "anthropic";
-    } else if (modelSelectFired) {
-      isAnthropic = isAnthropicProvider;
-    } else {
-      const modelName =
-        typeof payload.model === "string" ? payload.model : "";
-      isAnthropic = modelName.startsWith("claude-");
-    }
-    if (!isAnthropic) return;
+    const eventModel = event.model as { provider?: unknown } | undefined;
+    const isAnthropic = detectAnthropicProviderForRequest({
+      eventModel,
+      payloadModel: payload.model,
+      modelSelectFired,
+      isAnthropicProvider,
+    });
+    if (!isAnthropic) return payload;
 
     // Strip thinking blocks from history to avoid signature validation errors
     const messages = payload.messages as
@@ -177,7 +215,7 @@ export function registerNativeSearchHooks(
     }
 
     // When preferring Brave, skip native search injection entirely
-    if (preferBraveSearch()) return;
+    if (preferBraveSearch()) return payload;
 
     if (!Array.isArray(payload.tools)) payload.tools = [];
 

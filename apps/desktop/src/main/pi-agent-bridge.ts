@@ -107,6 +107,9 @@ export class PiAgentBridge extends EventEmitter {
   private readonly heapBaselineMb = Math.round((process.memoryUsage().heapUsed / 1024 / 1024) * 100) / 100
   private eventLoopLagMs = 0
   private eventLoopMonitor: NodeJS.Timeout | null = null
+  private spawnTimestamp: number | null = null
+  private modelRetried = false
+  private skipModelOnNextStart = false
 
   constructor(
     private workspacePath: string,
@@ -207,10 +210,13 @@ export class PiAgentBridge extends EventEmitter {
       pid: null,
     })
 
+    const launchModel = this.skipModelOnNextStart ? null : this.selectedModel
+    this.skipModelOnNextStart = false
     const args = ['--mode', 'rpc', '--cwd', this.workspacePath]
-    if (this.selectedModel) {
-      args.push('--model', this.selectedModel)
+    if (launchModel) {
+      args.push('--model', launchModel)
     }
+    this.spawnTimestamp = Date.now()
     const child = spawn(command, args, {
       cwd: this.workspacePath,
       env: process.env,
@@ -281,6 +287,34 @@ export class PiAgentBridge extends EventEmitter {
       }
 
       this.rejectPending(new Error('RPC subprocess exited before response was received'))
+
+      // If the process crashed quickly and we had a --model flag, retry without it.
+      // This handles cases where a persisted model is invalid (e.g. wrong provider prefix,
+      // expired auth, removed model) — the user can still interact with the app and pick
+      // a valid model from the selector.
+      const FAST_CRASH_THRESHOLD_MS = 5_000
+      const timeSinceSpawn = this.spawnTimestamp ? Date.now() - this.spawnTimestamp : Infinity
+      const hadModelFlag = !!launchModel && !this.modelRetried
+      const isFastCrash = timeSinceSpawn < FAST_CRASH_THRESHOLD_MS
+      const stderrHint = stderrSnapshot.some(l => /no api key|invalid.*model|model.*not found/i.test(l))
+
+      if (!this.shuttingDown && hadModelFlag && isFastCrash && stderrHint) {
+        log.warn('[PiAgentBridge] fast crash with --model flag, retrying without model', {
+          failedModel: launchModel,
+          timeSinceSpawn,
+          stderrLines: stderrSnapshot,
+        })
+        this.modelRetried = true
+        this.skipModelOnNextStart = true
+        this.spawnTimestamp = null
+        // Fire-and-forget restart without the model flag
+        this.startInternal().catch((err) => {
+          log.error('[PiAgentBridge] retry without model failed', {
+            error: err instanceof Error ? err.message : String(err),
+          })
+        })
+        return
+      }
 
       if (!this.shuttingDown) {
         log.error('[PiAgentBridge] crash', {
@@ -462,6 +496,7 @@ export class PiAgentBridge extends EventEmitter {
 
     await this.send({ type: 'set_model', provider: trimmedProvider, modelId: trimmedModel })
     this.selectedModel = `${trimmedProvider}/${trimmedModel}`
+    this.modelRetried = false
   }
 
   public async setThinkingLevel(level: string): Promise<void> {

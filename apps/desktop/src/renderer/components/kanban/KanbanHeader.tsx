@@ -6,7 +6,17 @@ import type {
   WorkflowBoardSnapshot,
   WorkflowContextSnapshot,
 } from '@shared/types'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Separator } from '@/components/ui/separator'
 
 const SCOPE_OPTIONS: Array<{ scope: WorkflowBoardScope; label: string }> = [
@@ -146,7 +156,6 @@ interface KanbanHeaderProps {
   rightPaneOverride: RightPaneOverride
   paneResolution: RightPaneResolution
   workflowContext: WorkflowContextSnapshot
-  mcpShortcutDisabled: boolean
   refreshDisabled: boolean
   actionLockReason?: string | null
   onScopeChange: (scope: WorkflowBoardScope) => void
@@ -154,7 +163,6 @@ interface KanbanHeaderProps {
   onExpandAllCards: () => void
   onCollapseAllCards: () => void
   onOpenPlanningView: () => void
-  onOpenMcpSettings: () => void
   onRefresh: () => void
   onClearOverride: () => void
 }
@@ -169,7 +177,6 @@ export function KanbanHeader({
   rightPaneOverride,
   paneResolution,
   workflowContext,
-  mcpShortcutDisabled,
   refreshDisabled,
   actionLockReason,
   onScopeChange,
@@ -177,7 +184,6 @@ export function KanbanHeader({
   onExpandAllCards,
   onCollapseAllCards,
   onOpenPlanningView,
-  onOpenMcpSettings,
   onRefresh,
   onClearOverride,
 }: KanbanHeaderProps) {
@@ -208,57 +214,47 @@ export function KanbanHeader({
             ))}
           </div>
 
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="mr-1 h-7 px-2 text-[11px]"
+                data-testid="kanban-view-menu-trigger"
+              >
+                View
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuLabel>Board view</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  onSelect={onExpandAllColumns}
+                  disabled={collapsedColumnCount === 0}
+                  data-testid="kanban-expand-all-columns"
+                >
+                  Expand all columns
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={onExpandAllCards} data-testid="kanban-expand-all-cards">
+                  Expand all cards
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={onCollapseAllCards} data-testid="kanban-collapse-all-cards">
+                  Collapse all cards
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           {collapsedColumnCount > 0 ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="mr-1 h-7 px-2 text-[11px]"
-              onClick={onExpandAllColumns}
-              data-testid="kanban-expand-all-columns"
-            >
-              Expand {collapsedColumnCount} column{collapsedColumnCount === 1 ? '' : 's'}
-            </Button>
+            <Badge variant="secondary" className="mr-1">
+              {collapsedColumnCount} column{collapsedColumnCount === 1 ? '' : 's'} collapsed
+            </Badge>
           ) : null}
-
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="mr-1 h-7 px-2 text-[11px]"
-            onClick={onExpandAllCards}
-            data-testid="kanban-expand-all-cards"
-          >
-            Expand cards
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="mr-1 h-7 px-2 text-[11px]"
-            onClick={onCollapseAllCards}
-            data-testid="kanban-collapse-all-cards"
-          >
-            Collapse cards
-          </Button>
-
 
           <Button type="button" size="icon" variant="ghost" aria-label="Open planning view" onClick={onOpenPlanningView}>
             <LayoutGrid className="size-4" />
-          </Button>
-
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="mr-1 h-7 px-2 text-[11px]"
-            aria-label="Open MCP settings"
-            onClick={onOpenMcpSettings}
-            disabled={mcpShortcutDisabled}
-            title="Open MCP settings (⌘⇧M / Ctrl+Shift+M)"
-            data-testid="kanban-open-mcp-settings"
-          >
-            MCP
           </Button>
 
           <Button
@@ -303,8 +299,7 @@ export function KanbanHeader({
       </div>
 
       <div className="border-b border-border bg-background/80 px-4 py-1 text-[11px] text-muted-foreground">
-        Shortcuts: <span className="font-mono">⌘⇧M / Ctrl+Shift+M</span> open MCP settings ·{' '}
-        <span className="font-mono">⌘⇧R / Ctrl+Shift+R</span> refresh board
+        Shortcuts: <span className="font-mono">⌘⇧R / Ctrl+Shift+R</span> refresh board
       </div>
 
       {actionLockReason ? (

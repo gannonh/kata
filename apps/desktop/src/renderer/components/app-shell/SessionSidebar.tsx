@@ -1,4 +1,4 @@
-import { Plus, RefreshCw } from 'lucide-react'
+import { Plus, RefreshCw, Settings } from 'lucide-react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import {
   createSessionAtom,
@@ -20,9 +20,10 @@ import { SessionListItem } from './SessionListItem'
 
 interface SessionSidebarProps {
   open: boolean
+  onOpenSettings: () => void
 }
 
-export function SessionSidebar({ open }: SessionSidebarProps) {
+export function SessionSidebar({ open, onOpenSettings }: SessionSidebarProps) {
   const sessions = useAtomValue(sessionListAtom)
   const currentSessionId = useAtomValue(currentSessionIdAtom)
   const loading = useAtomValue(sessionListLoadingAtom)
@@ -40,7 +41,7 @@ export function SessionSidebar({ open }: SessionSidebarProps) {
   }
 
   return (
-    <aside className="flex h-full w-[18rem] min-w-0 shrink-0 flex-col overflow-hidden border-r border-border bg-background/80">
+    <aside className="flex h-full w-[20rem] min-w-0 shrink-0 flex-col overflow-hidden border-r border-border bg-background/80">
       <div className="flex min-w-0 flex-col gap-2 p-3">
         <Button
           type="button"
@@ -112,6 +113,15 @@ export function SessionSidebar({ open }: SessionSidebarProps) {
           ))}
         </div>
       </ScrollArea>
+
+      <Separator />
+
+      <div className="p-3">
+        <Button type="button" variant="outline" className="w-full" onClick={onOpenSettings}>
+          <Settings data-icon="inline-start" />
+          Settings
+        </Button>
+      </div>
     </aside>
   )
 }

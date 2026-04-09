@@ -336,6 +336,10 @@ export function mapSymphonyOperatorSnapshotToReliability(
     return null
   }
 
+  if (snapshot.connection.state === 'inactive') {
+    return null
+  }
+
   if (snapshot.response.lastResult && !snapshot.response.lastResult.ok) {
     const statusCode = snapshot.response.lastResult.status
     const reliabilityClass =

@@ -316,7 +316,7 @@ describe('SymphonyOperatorService', () => {
     expect(signal?.recoveryAction).toBe('refresh_state')
   })
 
-  test('omits reconnect success metrics until reconnect telemetry has real attempts', async () => {
+  test('reports healthy reconnect defaults until reconnect telemetry has real attempts', async () => {
     const service = new SymphonyOperatorService({
       env: { KATA_DESKTOP_SYMPHONY_DASHBOARD_MOCK: 'assembled_failure_recovery' },
       createWebSocket: () => fakeSocket,
@@ -324,7 +324,8 @@ describe('SymphonyOperatorService', () => {
 
     await service.syncRuntimeStatus(READY_STATUS)
 
-    expect(service.getStabilityMetrics().reconnectSuccessRate).toBeUndefined()
+    expect(service.getStabilityMetrics().reconnectSuccessRate).toBe(1)
+    expect(service.getStabilityMetrics().recoveryLatencyMs).toBe(0)
 
     await service.refreshBaseline()
     const duringFailure = service.getStabilityMetrics()
@@ -863,7 +864,7 @@ describe('SymphonyOperatorService', () => {
     await vi.advanceTimersByTimeAsync(1_200)
 
     expect(socketFactory).toHaveBeenCalledTimes(1)
-    expect(service.getSnapshot().connection.state).toBe('disconnected')
+    expect(service.getSnapshot().connection.state).toBe('inactive')
   })
 
   test('ignores blank stream messages and tolerates malformed payloads', async () => {
@@ -974,6 +975,6 @@ describe('SymphonyOperatorService', () => {
     expect(socketFactory).toHaveBeenCalledTimes(2)
 
     await healthyService.syncRuntimeStatus({ ...READY_STATUS, phase: 'idle' })
-    expect(healthyService.getSnapshot().connection.state).toBe('disconnected')
+    expect(healthyService.getSnapshot().connection.state).toBe('inactive')
   })
 })
