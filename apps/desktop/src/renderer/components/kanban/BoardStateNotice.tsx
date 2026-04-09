@@ -101,7 +101,8 @@ export function BoardStateNotice({ board, error }: BoardStateNoticeProps) {
     })
   } else if (
     board?.symphony?.staleReason &&
-    board.symphony.provenance !== 'unavailable'
+    board.symphony.provenance !== 'unavailable' &&
+    board.symphony.provenance !== 'runtime-disconnected'
   ) {
     // Only show symphony-stale when Symphony was actually connected at some point
     // and is NOT already covered by the active-fallback notice.
