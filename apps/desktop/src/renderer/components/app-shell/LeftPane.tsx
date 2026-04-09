@@ -38,17 +38,19 @@ export function LeftPane({ onOpenSettings }: LeftPaneProps) {
 
         <div className="flex flex-1 items-center justify-end gap-2">
           <ModelSelector />
-          <Button type="button" variant="outline" size="sm" onClick={onOpenSettings}>
-            <Settings data-icon="inline-start" />
-            Settings
-          </Button>
+          {!sessionSidebarOpen ? (
+            <Button type="button" variant="outline" size="sm" onClick={onOpenSettings}>
+              <Settings data-icon="inline-start" />
+              Settings
+            </Button>
+          ) : null}
         </div>
       </div>
 
       <Separator />
 
       <div className="flex min-h-0 flex-1">
-        <SessionSidebar open={sessionSidebarOpen} />
+        <SessionSidebar open={sessionSidebarOpen} onOpenSettings={onOpenSettings} />
 
         <div className="min-h-0 min-w-0 flex-1">
           <ChatPanel />

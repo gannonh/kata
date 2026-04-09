@@ -44,10 +44,10 @@ let unregisterSessionIpc: (() => void) | null = null
 function createWindow(): BrowserWindow {
   const isTestMode = process.env.KATA_TEST_MODE === '1'
   const window = new BrowserWindow({
-    width: 1400,
-    height: 900,
-    minWidth: 1024,
-    minHeight: 640,
+    width: 1600,
+    height: 980,
+    minWidth: 1200,
+    minHeight: 720,
     show: !isTestMode,
     title: 'Kata Desktop',
     webPreferences: {

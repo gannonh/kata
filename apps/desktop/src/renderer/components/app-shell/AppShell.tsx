@@ -47,9 +47,23 @@ import { SettingsPanel } from '../settings/SettingsPanel'
 const LAYOUT_STORAGE_KEY = 'kata-desktop:app-shell-layout'
 const LEFT_PANEL_ID = 'chat-pane'
 const RIGHT_PANEL_ID = 'context-pane'
+const PREVIOUS_DEFAULT_LAYOUTS: Layout[] = [
+  {
+    [LEFT_PANEL_ID]: 64,
+    [RIGHT_PANEL_ID]: 36,
+  },
+  {
+    [LEFT_PANEL_ID]: 68,
+    [RIGHT_PANEL_ID]: 32,
+  },
+]
 const DEFAULT_LAYOUT: Layout = {
-  [LEFT_PANEL_ID]: 64,
-  [RIGHT_PANEL_ID]: 36,
+  [LEFT_PANEL_ID]: 52,
+  [RIGHT_PANEL_ID]: 48,
+}
+
+function matchesLayout(left: number, right: number, target: Layout): boolean {
+  return left === target[LEFT_PANEL_ID] && right === target[RIGHT_PANEL_ID]
 }
 
 function readInitialLayout(): Layout {
@@ -75,6 +89,10 @@ function readInitialLayout(): Layout {
       left > 0 &&
       right > 0
     ) {
+      if (PREVIOUS_DEFAULT_LAYOUTS.some((layout) => matchesLayout(left, right, layout))) {
+        return DEFAULT_LAYOUT
+      }
+
       return {
         [LEFT_PANEL_ID]: left,
         [RIGHT_PANEL_ID]: right,

@@ -90,7 +90,6 @@ export function KanbanPane() {
         rightPaneOverride={rightPaneOverride}
         paneResolution={paneResolution}
         workflowContext={workflowContext}
-        mcpShortcutDisabled={false}
         refreshDisabled={refreshDisabled}
         actionLockReason={actionLockReason}
         onScopeChange={(scope) => {
@@ -102,12 +101,6 @@ export function KanbanPane() {
         onExpandAllCards={() => expandAllCards()}
         onCollapseAllCards={() => collapseAllCards()}
         onOpenPlanningView={() => setRightPaneOverride('planning')}
-        onOpenMcpSettings={() => {
-          void window.api.workflow.dispatchShellAction({
-            action: 'open_mcp_settings',
-            source: 'kanban_header',
-          })
-        }}
         onRefresh={() => {
           if (refreshDisabled) {
             return

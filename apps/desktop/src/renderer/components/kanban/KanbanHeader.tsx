@@ -146,7 +146,6 @@ interface KanbanHeaderProps {
   rightPaneOverride: RightPaneOverride
   paneResolution: RightPaneResolution
   workflowContext: WorkflowContextSnapshot
-  mcpShortcutDisabled: boolean
   refreshDisabled: boolean
   actionLockReason?: string | null
   onScopeChange: (scope: WorkflowBoardScope) => void
@@ -154,7 +153,6 @@ interface KanbanHeaderProps {
   onExpandAllCards: () => void
   onCollapseAllCards: () => void
   onOpenPlanningView: () => void
-  onOpenMcpSettings: () => void
   onRefresh: () => void
   onClearOverride: () => void
 }
@@ -169,7 +167,6 @@ export function KanbanHeader({
   rightPaneOverride,
   paneResolution,
   workflowContext,
-  mcpShortcutDisabled,
   refreshDisabled,
   actionLockReason,
   onScopeChange,
@@ -177,7 +174,6 @@ export function KanbanHeader({
   onExpandAllCards,
   onCollapseAllCards,
   onOpenPlanningView,
-  onOpenMcpSettings,
   onRefresh,
   onClearOverride,
 }: KanbanHeaderProps) {
@@ -249,20 +245,6 @@ export function KanbanHeader({
 
           <Button
             type="button"
-            size="sm"
-            variant="ghost"
-            className="mr-1 h-7 px-2 text-[11px]"
-            aria-label="Open MCP settings"
-            onClick={onOpenMcpSettings}
-            disabled={mcpShortcutDisabled}
-            title="Open MCP settings (⌘⇧M / Ctrl+Shift+M)"
-            data-testid="kanban-open-mcp-settings"
-          >
-            MCP
-          </Button>
-
-          <Button
-            type="button"
             size="icon"
             variant="ghost"
             aria-label="Refresh workflow board"
@@ -303,8 +285,7 @@ export function KanbanHeader({
       </div>
 
       <div className="border-b border-border bg-background/80 px-4 py-1 text-[11px] text-muted-foreground">
-        Shortcuts: <span className="font-mono">⌘⇧M / Ctrl+Shift+M</span> open MCP settings ·{' '}
-        <span className="font-mono">⌘⇧R / Ctrl+Shift+R</span> refresh board
+        Shortcuts: <span className="font-mono">⌘⇧R / Ctrl+Shift+R</span> refresh board
       </div>
 
       {actionLockReason ? (
