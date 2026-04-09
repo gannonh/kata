@@ -406,13 +406,29 @@ jobs:
         if: matrix.arch == 'arm64'
         run: |
           sudo dpkg --add-architecture arm64
-          # Pin existing Ubuntu sources to amd64 only, then add arm64 from ports.
-          # Ubuntu 24.04 runners use DEB822 .sources format — only modify that file,
-          # leave third-party .list files (e.g. microsoft-prod.list) untouched.
-          if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
-            sudo sed -i 's/^Architectures:.*/Architectures: amd64/' /etc/apt/sources.list.d/ubuntu.sources
-          fi
-          printf 'deb [arch=arm64] http://ports.ubuntu.com/ noble main restricted universe multiverse\ndeb [arch=arm64] http://ports.ubuntu.com/ noble-updates main restricted universe multiverse\n' | sudo tee /etc/apt/sources.list.d/arm64-cross.list
+          # GitHub's amd64 Ubuntu runners use archive/security.ubuntu.com sources.
+          # After adding arm64, apt will incorrectly try to fetch arm64 indexes there
+          # and fail with 404s. Replace the default sources with explicit amd64-only
+          # entries, then add explicit arm64 entries from ubuntu-ports.
+          printf '%s\n' \
+            'Types: deb' \
+            'URIs: http://archive.ubuntu.com/ubuntu/' \
+            'Suites: noble noble-updates noble-backports' \
+            'Components: main universe restricted multiverse' \
+            'Architectures: amd64' \
+            'Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg' \
+            '' \
+            'Types: deb' \
+            'URIs: http://security.ubuntu.com/ubuntu/' \
+            'Suites: noble-security' \
+            'Components: main universe restricted multiverse' \
+            'Architectures: amd64' \
+            'Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg' | sudo tee /etc/apt/sources.list.d/ubuntu.sources >/dev/null
+          printf '%s\n' \
+            'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ noble main universe restricted multiverse' \
+            'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ noble-updates main universe restricted multiverse' \
+            'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ noble-backports main universe restricted multiverse' \
+            'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ noble-security main universe restricted multiverse' | sudo tee /etc/apt/sources.list.d/arm64-cross.list >/dev/null
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libssl-dev:arm64 pkg-config
 
