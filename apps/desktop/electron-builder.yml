@@ -80,3 +80,4 @@ appImage:
 
 deb:
   artifactName: "Kata-Desktop-${arch}.${ext}"
+  maintainer: "Kata Contributors <hello@kata.sh>"
