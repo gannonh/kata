@@ -497,26 +497,30 @@ jobs:
 
       - name: Verify Linux artifacts
         run: |
-          set -e
+          set -euo pipefail
           echo "Checking for Linux ${{ matrix.arch }} artifacts..."
           ls -la apps/desktop/release/
-          if ! ls apps/desktop/release/Kata-Desktop-${{ matrix.arch }}.AppImage 1>/dev/null 2>&1; then
+          APPIMAGE=$(find apps/desktop/release -maxdepth 1 -type f -name '*.AppImage' | head -1)
+          DEB=$(find apps/desktop/release -maxdepth 1 -type f -name '*.deb' | head -1)
+          if [ -z "$APPIMAGE" ]; then
             echo "::error::AppImage for ${{ matrix.arch }} not found"
             exit 1
           fi
-          if ! ls apps/desktop/release/Kata-Desktop-${{ matrix.arch }}.deb 1>/dev/null 2>&1; then
-            echo "::error::deb package for ${{ matrix.arch }} not found"
+          if [ -z "$DEB" ]; then
+            echo "::error::.deb package for ${{ matrix.arch }} not found"
             exit 1
           fi
-          echo "Found Linux artifacts for ${{ matrix.arch }}"
+          echo "Found Linux artifacts:"
+          echo "  AppImage: $APPIMAGE"
+          echo "  deb: $DEB"
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: linux-${{ matrix.arch }}
           path: |
-            apps/desktop/release/Kata-Desktop-${{ matrix.arch }}.AppImage
-            apps/desktop/release/Kata-Desktop-${{ matrix.arch }}.deb
+            apps/desktop/release/*.AppImage
+            apps/desktop/release/*.deb
             apps/desktop/release/latest-linux.yml
 
   release:
