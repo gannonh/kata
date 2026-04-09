@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.0
+
+### Features
+
+- **Windows support** — NSIS installer for x64 and arm64 (Kata-Desktop-x64-Setup.exe, Kata-Desktop-arm64-Setup.exe)
+- **Linux support** — AppImage and .deb packages for x64 and arm64
+- **Cross-platform CI** — Release workflow now builds for macOS, Windows, and Linux in parallel
+- **Cross-platform binary discovery** — Desktop app correctly resolves bundled kata and Symphony binaries on all platforms (.exe/.cmd on Windows, shell scripts on macOS/Linux)
+
+### Fixes
+
+- **False Symphony reliability banner** — Suppressed the yellow "Symphony operator is reconnecting" warning that flashed during normal Symphony startup transitions
+
 ## 0.1.1
 
 ### Features

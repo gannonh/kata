@@ -217,10 +217,13 @@ export class PiAgentBridge extends EventEmitter {
       args.push('--model', launchModel)
     }
     this.spawnTimestamp = Date.now()
+    // On Windows, .cmd files require shell: true for child_process.spawn
+    const useShell = process.platform === 'win32' && command.toLowerCase().endsWith('.cmd')
     const child = spawn(command, args, {
       cwd: this.workspacePath,
       env: process.env,
       stdio: 'pipe',
+      ...(useShell ? { shell: true } : {}),
     })
 
     this.child = child
@@ -724,13 +727,20 @@ export class PiAgentBridge extends EventEmitter {
     const checkedPaths: string[] = []
 
     if (isPackaged) {
-      const bundledPath = path.join(process.resourcesPath, 'kata')
-      checkedPaths.push(bundledPath)
-      if (this.isExecutableFile(bundledPath)) {
-        return {
-          source: 'bundled',
-          resolvedPath: bundledPath,
-          checkedPaths,
+      // On Windows, look for kata.cmd; on macOS/Linux, look for kata shell script
+      const bundledCandidates =
+        process.platform === 'win32'
+          ? [path.join(process.resourcesPath, 'kata.cmd'), path.join(process.resourcesPath, 'kata')]
+          : [path.join(process.resourcesPath, 'kata')]
+
+      for (const bundledPath of bundledCandidates) {
+        checkedPaths.push(bundledPath)
+        if (this.isExecutableFile(bundledPath)) {
+          return {
+            source: 'bundled',
+            resolvedPath: bundledPath,
+            checkedPaths,
+          }
         }
       }
     }

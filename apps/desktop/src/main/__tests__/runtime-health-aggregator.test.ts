@@ -287,6 +287,64 @@ describe('RuntimeHealthAggregator', () => {
     expect(symphonySurface?.signal?.code).toBe('REL-SYMPHONY-PROCESS-PROCESS_EXITED')
   })
 
+  test('suppresses all reliability signals during normal symphony startup transition', () => {
+    const aggregator = new RuntimeHealthAggregator({ now: () => '2026-04-07T20:00:00.000Z' })
+
+    // Supervisor reports starting phase
+    aggregator.ingestSymphonyRuntimeStatus(
+      createSymphonyStatus({
+        phase: 'starting',
+        managedProcessRunning: false,
+        pid: null,
+        url: null,
+      }),
+    )
+
+    // Operator sees reconnecting because Symphony isn't ready yet
+    aggregator.ingestSymphonyOperatorSnapshot(
+      createSymphonySnapshot({
+        connection: {
+          state: 'reconnecting',
+          lastError: 'Symphony operator is reconnecting.',
+          updatedAt: '2026-04-07T20:00:01.000Z',
+        },
+      }),
+    )
+
+    // Normal startup is not a reliability issue — no banner should appear.
+    // The header bar already shows "Symphony: Starting".
+    const symphonySurface = getSurface(aggregator.getSnapshot(), 'symphony')
+    expect(symphonySurface?.status).toBe('healthy')
+    expect(symphonySurface?.signal).toBeNull()
+  })
+
+  test('suppresses all reliability signals during symphony restart transition', () => {
+    const aggregator = new RuntimeHealthAggregator({ now: () => '2026-04-07T20:00:00.000Z' })
+
+    aggregator.ingestSymphonyRuntimeStatus(
+      createSymphonyStatus({
+        phase: 'restarting',
+        managedProcessRunning: false,
+        pid: null,
+        url: null,
+      }),
+    )
+
+    aggregator.ingestSymphonyOperatorSnapshot(
+      createSymphonySnapshot({
+        connection: {
+          state: 'reconnecting',
+          lastError: 'Symphony operator is reconnecting.',
+          updatedAt: '2026-04-07T20:00:01.000Z',
+        },
+      }),
+    )
+
+    const symphonySurface = getSurface(aggregator.getSnapshot(), 'symphony')
+    expect(symphonySurface?.status).toBe('healthy')
+    expect(symphonySurface?.signal).toBeNull()
+  })
+
   test('supports recovery-action execution and records recovery outcome', async () => {
     const requestRecovery = vi.fn(async () => ({
       success: true,

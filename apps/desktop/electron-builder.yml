@@ -47,3 +47,37 @@ dmg:
   window:
     width: 540
     height: 380
+
+win:
+  icon: resources/icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+        - arm64
+
+nsis:
+  artifactName: "Kata-Desktop-${arch}-Setup.${ext}"
+  oneClick: true
+  perMachine: false
+  allowToChangeInstallationDirectory: false
+  deleteAppDataOnUninstall: false
+
+linux:
+  icon: resources/icon.png
+  category: Development
+  target:
+    - target: AppImage
+      arch:
+        - x64
+        - arm64
+    - target: deb
+      arch:
+        - x64
+        - arm64
+
+appImage:
+  artifactName: "Kata-Desktop-${arch}.${ext}"
+
+deb:
+  artifactName: "Kata-Desktop-${arch}.${ext}"
