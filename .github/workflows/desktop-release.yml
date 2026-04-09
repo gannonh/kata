@@ -528,7 +528,8 @@ LAUNCHER
           cp artifacts/linux-x64/*.deb release-files/
           cp artifacts/linux-arm64/*.AppImage release-files/
           cp artifacts/linux-arm64/*.deb release-files/
-          cp artifacts/linux-x64/latest-linux.yml release-files/ 2>/dev/null || true
+          cp artifacts/linux-x64/latest-linux.yml release-files/latest-linux.yml 2>/dev/null || true
+          cp artifacts/linux-arm64/latest-linux.yml release-files/latest-linux-arm64.yml 2>/dev/null || true
           echo "Files to be released:"
           ls -la release-files/
 
