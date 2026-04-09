@@ -314,11 +314,7 @@ jobs:
           echo "Bun binary replaced with ${BUN_DOWNLOAD}"
 
           # Create Windows launcher script (kata.cmd)
-          cat > vendor/kata.cmd <<'LAUNCHER'
-@echo off
-set "SCRIPT_DIR=%~dp0"
-"%SCRIPT_DIR%bun\bun.exe" "%SCRIPT_DIR%kata-runtime\dist\loader.js" %*
-LAUNCHER
+          printf '@echo off\r\nset "SCRIPT_DIR=%%~dp0"\r\n"%%SCRIPT_DIR%%bun\\bun.exe" "%%SCRIPT_DIR%%kata-runtime\\dist\\loader.js" %%*\r\n' > vendor/kata.cmd
 
       - name: Build Symphony for Windows ${{ matrix.arch }}
         shell: bash
