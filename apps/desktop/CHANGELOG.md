@@ -1,34 +1,27 @@
 # Changelog
 
-## 1.1.0
+## 0.1.1
 
 ### Features
 
-- **MCP server management** — New settings panel for viewing, adding, editing, and deleting MCP server configurations without touching JSON files
-- **Symphony controls** — Single-click Start/Stop/Restart toggle with live status dot replaces the old popover menu
-- **Kanban improvements** — Expand/collapse chevrons on slice cards, clickable Linear ticket identifiers, auto-collapsed empty columns, scrollable card content, board auto-refresh when Symphony becomes ready
-- **Workflow board mutations** — Read-write kanban: move entities between columns, create tasks, update task details directly from the board
-- **Workflow ↔ MCP shortcuts** — Keyboard shortcuts (⌘⇧M / ⌘⇧B / ⌘⇧R) for MCP settings, return-to-kanban, and board refresh with failure recovery
+- **Roomier default shell** — Wider default window (1600×980), balanced 52/48 pane split, wider session sidebar (20rem)
+- **Settings in sidebar** — Settings button moved to the session sidebar footer for a cleaner header
+- **Compact kanban header** — Replaced 3 expand/collapse buttons with a single View dropdown menu; removed redundant MCP button
+- **shadcn defaults enforced** — Hard rule in AGENTS.md requiring shadcn default components for all UI work
 
 ### Fixes
 
-- **Session history replay race** — Stale session history no longer replays into the chat after clicking New Session or switching sessions; request-token invalidation ensures only the latest hydration applies
-- **Session sidebar isolation** — Sidebar only shows sessions owned by this Desktop instance; subagent and external CLI sessions no longer pollute the list
-- **Session creation reliability** — New session ID is set before clearing chat state, preventing re-render from rehydrating old content; placeholder entry appears in sidebar immediately
-- **MCP server safety** — Desktop no longer spawns MCP server processes from the Electron main process (prevents renderer crashes from servers like chrome-devtools-mcp)
-- **IPC frame disposal** — All `webContents.send` calls wrapped in try-catch to prevent crashes when the renderer frame is disposed during MCP server lifecycle events
-- **Kanban styling** — Semantic link colors, proper card rendering in Project scope, improved Active scope fallback messaging, better contrast for action links
-- **StrictMode double-init** — Session initialization guarded against React 19 Strict Mode double-invocation
-
-## 1.0.0
-
-See [GitHub Release](https://github.com/gannonh/kata/releases/tag/desktop-v1.0.0) for initial release notes.
-
-## 0.1.1
-
-### Fixes
-
-- **Session isolation** — Desktop sidebar now only shows sessions owned by this instance. Subagent child processes and external CLI sessions sharing the same workspace no longer pollute the session list or cause silent session switching.
+- **GitHub Copilot Claude models** — Fixed native web-search injection incorrectly treating `github-copilot/claude-*` as Anthropic, causing 400 errors on Copilot's Anthropic-compatible endpoint
+- **Bridge model retry** — Fast-crash recovery no longer clears `selectedModel`; uses `skipModelOnNextStart` flag to preserve downstream state
+- **Bridge retry reset** — `modelRetried` flag now resets on explicit `setModel()` so subsequent bad models can still recover
+- **Symphony inactive state** — Stopped/idle Symphony no longer surfaces false reliability or stability failures
+- **Operator signal suppression** — Uses operator snapshot connection state as source of truth instead of supervisor phase; external Symphony mode now correctly surfaces operator failures
+- **Reliability contract ordering** — Inactive guard moved before `lastResult` check to prevent stale error signals on shutdown
+- **Active scope notice** — `operator_state_unavailable` now surfaces an explicit message instead of showing an empty board
+- **Dropdown menu semantics** — Kanban View menu items use `onSelect` instead of `onClick` for proper Radix keyboard/pointer handling
+- **Dead code removal** — Removed unreachable duplicate phase check in symphony-operator-service
+- **Heap thresholds** — Raised to 512/1024 MB with documented rationale to match observed Electron dev baselines
+- **Native search handler** — Consistent return behavior across all exit paths
 
 ## 0.1.0
 
@@ -43,3 +36,8 @@ Initial release of Kata Desktop — the native GUI for the Kata coding agent pla
 - **Workflow Kanban** — Right-pane kanban board for Linear workflow state with task expansion
 - **Symphony Integration** — Start/stop/restart Symphony from the GUI, live worker dashboard, escalation handling, Symphony-aware kanban cards with worker assignment and live tool indicators
 - **Settings** — Provider management, Symphony configuration, appearance settings
+- **MCP server management** — Settings panel for viewing, adding, editing, and deleting MCP server configurations
+- **Symphony controls** — Single-click Start/Stop/Restart toggle with live status dot
+- **Kanban improvements** — Expand/collapse chevrons on slice cards, clickable Linear ticket identifiers, auto-collapsed empty columns, scrollable card content
+- **Workflow board mutations** — Read-write kanban: move entities between columns, create tasks, update task details
+- **Session isolation** — Sidebar only shows sessions owned by this Desktop instance
