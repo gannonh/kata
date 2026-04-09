@@ -353,10 +353,6 @@ export class SymphonyOperatorService extends EventEmitter {
       return
     }
 
-    if (status.phase === 'stopping' || status.phase === 'stopped' || status.phase === 'idle') {
-      this.stopStream()
-      this.markInactive()
-    }
   }
 
   public dispose(): void {

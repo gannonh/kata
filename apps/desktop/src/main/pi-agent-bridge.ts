@@ -305,7 +305,11 @@ export class PiAgentBridge extends EventEmitter {
         this.selectedModel = null
         this.spawnTimestamp = null
         // Fire-and-forget restart without the model flag
-        void this.startInternal()
+        this.startInternal().catch((err) => {
+          log.error('[PiAgentBridge] retry without model failed', {
+            error: err instanceof Error ? err.message : String(err),
+          })
+        })
         return
       }
 
@@ -489,6 +493,7 @@ export class PiAgentBridge extends EventEmitter {
 
     await this.send({ type: 'set_model', provider: trimmedProvider, modelId: trimmedModel })
     this.selectedModel = `${trimmedProvider}/${trimmedModel}`
+    this.modelRetried = false
   }
 
   public async setThinkingLevel(level: string): Promise<void> {

@@ -130,7 +130,7 @@ describe('registerNativeSearchHooks', () => {
 
     const payload: Record<string, unknown> = {
       model: 'claude-opus-4-1',
-      tools: [{ name: 'search-the-web' }],
+      tools: [{ name: 'search-the-web' }, { name: 'search_and_read' }, { name: 'other-tool' }],
       messages: [],
     }
 
@@ -139,5 +139,7 @@ describe('registerNativeSearchHooks', () => {
     expect(Array.isArray(payload.tools)).toBe(true)
     expect((payload.tools as Array<Record<string, unknown>>).some((tool) => tool.type === 'web_search_20250305')).toBe(true)
     expect((payload.tools as Array<Record<string, unknown>>).some((tool) => tool.name === 'search-the-web')).toBe(false)
+    expect((payload.tools as Array<Record<string, unknown>>).some((tool) => tool.name === 'search_and_read')).toBe(false)
+    expect((payload.tools as Array<Record<string, unknown>>).some((tool) => tool.name === 'other-tool')).toBe(true)
   })
 })

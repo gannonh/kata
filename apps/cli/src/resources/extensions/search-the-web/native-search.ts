@@ -195,7 +195,7 @@ export function registerNativeSearchHooks(
   // Inject native web search into Anthropic API requests
   pi.on("before_provider_request", (event: any) => {
     const payload = event.payload as Record<string, unknown>;
-    if (!payload) return;
+    if (!payload) return payload;
 
     const eventModel = event.model as { provider?: unknown } | undefined;
     const isAnthropic = detectAnthropicProviderForRequest({
@@ -204,7 +204,7 @@ export function registerNativeSearchHooks(
       modelSelectFired,
       isAnthropicProvider,
     });
-    if (!isAnthropic) return;
+    if (!isAnthropic) return payload;
 
     // Strip thinking blocks from history to avoid signature validation errors
     const messages = payload.messages as
@@ -215,7 +215,7 @@ export function registerNativeSearchHooks(
     }
 
     // When preferring Brave, skip native search injection entirely
-    if (preferBraveSearch()) return;
+    if (preferBraveSearch()) return payload;
 
     if (!Array.isArray(payload.tools)) payload.tools = [];
 

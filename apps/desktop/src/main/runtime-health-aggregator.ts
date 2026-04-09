@@ -680,13 +680,18 @@ export class RuntimeHealthAggregator extends EventEmitter {
   ): ReliabilitySnapshot {
     // Suppress operator-level signals when Symphony has never been started.
     // The empty snapshot starts as 'disconnected' which would produce a false alarm.
-    const symphonyNeverStarted =
-      !this.lastSymphonyRuntimePhase ||
-      this.lastSymphonyRuntimePhase === 'idle' ||
-      this.lastSymphonyRuntimePhase === 'stopped'
-    this.symphonyOperatorSignal = symphonyNeverStarted
-      ? null
-      : mapSymphonyOperatorSnapshotToReliability(snapshot)
+    // Only surface operator-level reliability signals when the runtime has
+    // actually reached a connected state. This avoids false alarms from the
+    // default disconnected operator snapshot during startup failures, idle,
+    // or stopped states — while still allowing external Symphony connections
+    // that have reached 'ready'.
+    const CONNECTED_PHASES = new Set(['ready', 'restarting', 'disconnected'])
+    const operatorSignalAllowed =
+      !!this.lastSymphonyRuntimePhase &&
+      CONNECTED_PHASES.has(this.lastSymphonyRuntimePhase)
+    this.symphonyOperatorSignal = operatorSignalAllowed
+      ? mapSymphonyOperatorSnapshotToReliability(snapshot)
+      : null
     this.syncSymphonySurface()
     return this.toSnapshot()
   }

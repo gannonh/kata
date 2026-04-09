@@ -231,16 +231,16 @@ export function KanbanHeader({
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
                 <DropdownMenuItem
-                  onClick={onExpandAllColumns}
+                  onSelect={onExpandAllColumns}
                   disabled={collapsedColumnCount === 0}
                   data-testid="kanban-expand-all-columns"
                 >
                   Expand all columns
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={onExpandAllCards} data-testid="kanban-expand-all-cards">
+                <DropdownMenuItem onSelect={onExpandAllCards} data-testid="kanban-expand-all-cards">
                   Expand all cards
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={onCollapseAllCards} data-testid="kanban-collapse-all-cards">
+                <DropdownMenuItem onSelect={onCollapseAllCards} data-testid="kanban-collapse-all-cards">
                   Collapse all cards
                 </DropdownMenuItem>
               </DropdownMenuGroup>

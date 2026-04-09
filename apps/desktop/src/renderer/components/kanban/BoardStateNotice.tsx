@@ -83,7 +83,8 @@ export function BoardStateNotice({ board, error }: BoardStateNoticeProps) {
     board?.scope?.requested === 'active' &&
     board.scope.reason !== 'requested' &&
     (board.scope.reason === 'operator_state_disconnected' ||
-      board.scope.reason === 'operator_state_stale')
+      board.scope.reason === 'operator_state_stale' ||
+      board.scope.reason === 'operator_state_unavailable')
 
   if (activeUnavailable) {
     const reason = board!.scope!.reason
@@ -93,7 +94,9 @@ export function BoardStateNotice({ board, error }: BoardStateNoticeProps) {
         ? 'Symphony is disconnected. Active work will appear when the connection is restored.'
         : reason === 'operator_state_stale'
           ? 'Symphony state is stale. Active work will appear when a fresh update arrives.'
-          : `Active scope is unavailable (${reason}).`)
+          : reason === 'operator_state_unavailable'
+            ? 'Symphony is not running. Start Symphony in Settings to see active work.'
+            : `Active scope is unavailable (${reason}).`)
     notices.push({
       id: 'active-fallback',
       tone: 'warning',
