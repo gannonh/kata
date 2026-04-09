@@ -287,6 +287,69 @@ describe('RuntimeHealthAggregator', () => {
     expect(symphonySurface?.signal?.code).toBe('REL-SYMPHONY-PROCESS-PROCESS_EXITED')
   })
 
+  test('suppresses operator reconnecting signal during symphony startup transition', () => {
+    const aggregator = new RuntimeHealthAggregator({ now: () => '2026-04-07T20:00:00.000Z' })
+
+    // Supervisor reports starting phase
+    aggregator.ingestSymphonyRuntimeStatus(
+      createSymphonyStatus({
+        phase: 'starting',
+        managedProcessRunning: false,
+        pid: null,
+        url: null,
+      }),
+    )
+
+    // Operator sees reconnecting because Symphony isn't ready yet
+    aggregator.ingestSymphonyOperatorSnapshot(
+      createSymphonySnapshot({
+        connection: {
+          state: 'reconnecting',
+          lastError: 'Symphony operator is reconnecting.',
+          updatedAt: '2026-04-07T20:00:01.000Z',
+        },
+      }),
+    )
+
+    // The runtime 'starting' signal should be the only one surfaced (warning severity),
+    // not the operator reconnecting signal — startup is expected, not a network failure.
+    const symphonySurface = getSurface(aggregator.getSnapshot(), 'symphony')
+    expect(symphonySurface?.status).toBe('degraded')
+    expect(symphonySurface?.signal?.class).toBe('process')
+    expect(symphonySurface?.signal?.code).toBe('REL-SYMPHONY-PROCESS-RESTARTING')
+    expect(symphonySurface?.signal?.severity).toBe('warning')
+    // No network/reconnecting signal should leak through
+    expect(symphonySurface?.signal?.code).not.toContain('RECONNECTING')
+  })
+
+  test('suppresses operator reconnecting signal during symphony restart transition', () => {
+    const aggregator = new RuntimeHealthAggregator({ now: () => '2026-04-07T20:00:00.000Z' })
+
+    aggregator.ingestSymphonyRuntimeStatus(
+      createSymphonyStatus({
+        phase: 'restarting',
+        managedProcessRunning: false,
+        pid: null,
+        url: null,
+      }),
+    )
+
+    aggregator.ingestSymphonyOperatorSnapshot(
+      createSymphonySnapshot({
+        connection: {
+          state: 'reconnecting',
+          lastError: 'Symphony operator is reconnecting.',
+          updatedAt: '2026-04-07T20:00:01.000Z',
+        },
+      }),
+    )
+
+    const symphonySurface = getSurface(aggregator.getSnapshot(), 'symphony')
+    expect(symphonySurface?.status).toBe('degraded')
+    expect(symphonySurface?.signal?.class).toBe('process')
+    expect(symphonySurface?.signal?.code).not.toContain('RECONNECTING')
+  })
+
   test('supports recovery-action execution and records recovery outcome', async () => {
     const requestRecovery = vi.fn(async () => ({
       success: true,
