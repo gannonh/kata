@@ -291,24 +291,10 @@ export function mapSymphonyRuntimeStatusToReliability(
     return null
   }
 
-  if (status.phase === 'starting' || status.phase === 'restarting') {
-    return toSignal({
-      sourceSurface: 'symphony',
-      reliabilityClass: 'process',
-      sourceCode: 'RESTARTING',
-      message: status.lastError?.message ?? 'Symphony runtime is recovering.',
-      timestamp: status.updatedAt,
-      outcome: 'pending',
-      severity: 'warning',
-      recoveryAction: 'restart_process',
-      diagnostics: {
-        code: status.lastError?.code,
-        detail: status.lastError?.details,
-      },
-    })
-  }
-
-  if (status.phase === 'idle' || status.phase === 'stopped') {
+  if (status.phase === 'starting' || status.phase === 'restarting' || status.phase === 'idle' || status.phase === 'stopped') {
+    // Normal transitional and inactive phases are not reliability issues.
+    // The header bar already shows "Symphony: Starting" during transitions.
+    // If startup fails, the phase moves to 'failed' and gets surfaced then.
     return null
   }
 
