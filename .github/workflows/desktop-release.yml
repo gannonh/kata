@@ -315,12 +315,10 @@ jobs:
 
           # Create Windows launcher script (kata.cmd)
           cat > vendor/kata.cmd <<'LAUNCHER'
-          @echo off
-          set "SCRIPT_DIR=%~dp0"
-          "%SCRIPT_DIR%bun\bun.exe" "%SCRIPT_DIR%kata-runtime\dist\loader.js" %*
-          LAUNCHER
-          # Strip leading whitespace from heredoc
-          sed -i 's/^          //' vendor/kata.cmd
+@echo off
+set "SCRIPT_DIR=%~dp0"
+"%SCRIPT_DIR%bun\bun.exe" "%SCRIPT_DIR%kata-runtime\dist\loader.js" %*
+LAUNCHER
 
       - name: Build Symphony for Windows ${{ matrix.arch }}
         shell: bash
@@ -436,7 +434,7 @@ jobs:
           TEMP_DIR=$(mktemp -d)
           curl -fSL "https://github.com/oven-sh/bun/releases/download/${BUN_VERSION}/${BUN_DOWNLOAD}.zip" -o "$TEMP_DIR/${BUN_DOWNLOAD}.zip"
           curl -fSL "https://github.com/oven-sh/bun/releases/download/${BUN_VERSION}/SHASUMS256.txt" -o "$TEMP_DIR/SHASUMS256.txt"
-          cd "$TEMP_DIR" && grep "${BUN_DOWNLOAD}.zip" SHASUMS256.txt | shasum -a 256 -c - && cd -
+          cd "$TEMP_DIR" && grep "${BUN_DOWNLOAD}.zip" SHASUMS256.txt | sha256sum -c - && cd -
           unzip -o "$TEMP_DIR/${BUN_DOWNLOAD}.zip" -d "$TEMP_DIR"
           cp "$TEMP_DIR/${BUN_DOWNLOAD}/bun" vendor/bun/bun
           chmod +x vendor/bun/bun
@@ -520,7 +518,11 @@ jobs:
           # Windows
           cp artifacts/windows-x64/*.exe release-files/
           cp artifacts/windows-arm64/*.exe release-files/
-          cp artifacts/windows-x64/latest.yml release-files/ 2>/dev/null || true
+          # Merge latest.yml from both architectures — electron-builder generates per-arch content.
+          # Copy both and rename to avoid collision; auto-update is currently disabled (publish: null)
+          # but this keeps the metadata correct for when it's enabled.
+          cp artifacts/windows-x64/latest.yml release-files/latest.yml 2>/dev/null || true
+          cp artifacts/windows-arm64/latest.yml release-files/latest-arm64.yml 2>/dev/null || true
           # Linux
           cp artifacts/linux-x64/*.AppImage release-files/
           cp artifacts/linux-x64/*.deb release-files/

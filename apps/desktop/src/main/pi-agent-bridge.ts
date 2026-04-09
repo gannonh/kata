@@ -217,10 +217,13 @@ export class PiAgentBridge extends EventEmitter {
       args.push('--model', launchModel)
     }
     this.spawnTimestamp = Date.now()
+    // On Windows, .cmd files require shell: true for child_process.spawn
+    const useShell = process.platform === 'win32' && command.toLowerCase().endsWith('.cmd')
     const child = spawn(command, args, {
       cwd: this.workspacePath,
       env: process.env,
       stdio: 'pipe',
+      ...(useShell ? { shell: true } : {}),
     })
 
     this.child = child
