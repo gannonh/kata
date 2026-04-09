@@ -99,8 +99,12 @@ export function BoardStateNotice({ board, error }: BoardStateNoticeProps) {
       tone: 'warning',
       message,
     })
-  } else if (board?.symphony?.staleReason) {
-    // Only show symphony-stale when it's NOT already covered by the active-fallback notice
+  } else if (
+    board?.symphony?.staleReason &&
+    board.symphony.provenance !== 'unavailable'
+  ) {
+    // Only show symphony-stale when Symphony was actually connected at some point
+    // and is NOT already covered by the active-fallback notice.
     notices.push({
       id: 'symphony-stale',
       tone: 'warning',
