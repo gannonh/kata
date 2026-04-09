@@ -109,6 +109,7 @@ export class PiAgentBridge extends EventEmitter {
   private eventLoopMonitor: NodeJS.Timeout | null = null
   private spawnTimestamp: number | null = null
   private modelRetried = false
+  private skipModelOnNextStart = false
 
   constructor(
     private workspacePath: string,
@@ -209,9 +210,11 @@ export class PiAgentBridge extends EventEmitter {
       pid: null,
     })
 
+    const launchModel = this.skipModelOnNextStart ? null : this.selectedModel
+    this.skipModelOnNextStart = false
     const args = ['--mode', 'rpc', '--cwd', this.workspacePath]
-    if (this.selectedModel) {
-      args.push('--model', this.selectedModel)
+    if (launchModel) {
+      args.push('--model', launchModel)
     }
     this.spawnTimestamp = Date.now()
     const child = spawn(command, args, {
@@ -291,18 +294,18 @@ export class PiAgentBridge extends EventEmitter {
       // a valid model from the selector.
       const FAST_CRASH_THRESHOLD_MS = 5_000
       const timeSinceSpawn = this.spawnTimestamp ? Date.now() - this.spawnTimestamp : Infinity
-      const hadModelFlag = !!this.selectedModel && !this.modelRetried
+      const hadModelFlag = !!launchModel && !this.modelRetried
       const isFastCrash = timeSinceSpawn < FAST_CRASH_THRESHOLD_MS
       const stderrHint = stderrSnapshot.some(l => /no api key|invalid.*model|model.*not found/i.test(l))
 
       if (!this.shuttingDown && hadModelFlag && isFastCrash && stderrHint) {
         log.warn('[PiAgentBridge] fast crash with --model flag, retrying without model', {
-          failedModel: this.selectedModel,
+          failedModel: launchModel,
           timeSinceSpawn,
           stderrLines: stderrSnapshot,
         })
         this.modelRetried = true
-        this.selectedModel = null
+        this.skipModelOnNextStart = true
         this.spawnTimestamp = null
         // Fire-and-forget restart without the model flag
         this.startInternal().catch((err) => {

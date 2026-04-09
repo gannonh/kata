@@ -687,15 +687,19 @@ export class RuntimeHealthAggregator extends EventEmitter {
     // The empty snapshot starts as 'inactive' (via createEmptySnapshot) so it won't
     // produce a false alarm on its own, but startup-failure phases (starting, config_error,
     // failed) would still surface bogus reconnect advice without this guard.
-    // Only surface operator-level reliability signals when the runtime has
-    // actually reached a connected state. This avoids false alarms from the
-    // default disconnected operator snapshot during startup failures, idle,
-    // or stopped states — while still allowing external Symphony connections
-    // that have reached 'ready'.
-    const CONNECTED_PHASES = new Set(['ready', 'restarting', 'disconnected'])
+    // Use the operator snapshot's own connection state as the primary signal.
+    // An 'inactive' snapshot means the operator was never started or was cleanly
+    // shut down — suppress to avoid false alarms from the default empty snapshot.
+    // Also suppress during startup-failure phases (config_error, failed) where
+    // the supervisor itself owns the failure surface and operator signals would
+    // be misleading (e.g. "reconnect" when the real fix is a config change).
+    // External Symphony mode (supervisor idle, operator connected via manual
+    // Refresh) works because the snapshot transitions out of 'inactive' on
+    // successful poll, so operatorSignalAllowed becomes true.
     const operatorSignalAllowed =
-      !!this.lastSymphonyRuntimePhase &&
-      CONNECTED_PHASES.has(this.lastSymphonyRuntimePhase)
+      snapshot?.connection.state !== 'inactive' &&
+      this.lastSymphonyRuntimePhase !== 'config_error' &&
+      this.lastSymphonyRuntimePhase !== 'failed'
     this.symphonyOperatorSignal = operatorSignalAllowed
       ? mapSymphonyOperatorSnapshotToReliability(snapshot)
       : null
