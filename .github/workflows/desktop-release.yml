@@ -250,7 +250,8 @@ jobs:
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     strategy:
       matrix:
-        arch: [x64, arm64]
+        # Bun does not publish Windows arm64 binaries, so only x64 is supported
+        arch: [x64]
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -404,8 +405,13 @@ jobs:
       - name: Install cross-compilation tools
         if: matrix.arch == 'arm64'
         run: |
+          sudo dpkg --add-architecture arm64
+          # Add arm64 package sources for cross-compilation libraries
+          sudo sed -i 's/^deb /deb [arch=amd64] /' /etc/apt/sources.list.d/*.list 2>/dev/null || true
+          echo 'deb [arch=arm64] http://ports.ubuntu.com/ noble main restricted universe multiverse' | sudo tee /etc/apt/sources.list.d/arm64.list
+          echo 'deb [arch=arm64] http://ports.ubuntu.com/ noble-updates main restricted universe multiverse' | sudo tee -a /etc/apt/sources.list.d/arm64.list
           sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libssl-dev:arm64 pkg-config
 
       - name: Cache Cargo registry and build
         uses: actions/cache@v5
@@ -440,6 +446,11 @@ jobs:
       - name: Build Symphony for Linux ${{ matrix.arch }}
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+          PKG_CONFIG_ALLOW_CROSS: '1'
+          PKG_CONFIG_PATH: ${{ matrix.arch == 'arm64' && '/usr/lib/aarch64-linux-gnu/pkgconfig' || '' }}
+          OPENSSL_DIR: ${{ matrix.arch == 'arm64' && '/usr' || '' }}
+          OPENSSL_INCLUDE_DIR: ${{ matrix.arch == 'arm64' && '/usr/include/aarch64-linux-gnu' || '' }}
+          OPENSSL_LIB_DIR: ${{ matrix.arch == 'arm64' && '/usr/lib/aarch64-linux-gnu' || '' }}
         run: |
           TARGET="${{ matrix.arch == 'arm64' && 'aarch64-unknown-linux-gnu' || 'x86_64-unknown-linux-gnu' }}"
           echo "Building Symphony for $TARGET..."
@@ -511,14 +522,9 @@ jobs:
           cp artifacts/macos-x64/*.dmg release-files/
           cp artifacts/macos-x64/*.zip release-files/
           cp artifacts/macos-arm64/latest-mac.yml release-files/ 2>/dev/null || true
-          # Windows
+          # Windows (x64 only — Bun does not publish Windows arm64 binaries)
           cp artifacts/windows-x64/*.exe release-files/
-          cp artifacts/windows-arm64/*.exe release-files/
-          # Merge latest.yml from both architectures — electron-builder generates per-arch content.
-          # Copy both and rename to avoid collision; auto-update is currently disabled (publish: null)
-          # but this keeps the metadata correct for when it's enabled.
           cp artifacts/windows-x64/latest.yml release-files/latest.yml 2>/dev/null || true
-          cp artifacts/windows-arm64/latest.yml release-files/latest-arm64.yml 2>/dev/null || true
           # Linux
           cp artifacts/linux-x64/*.AppImage release-files/
           cp artifacts/linux-x64/*.deb release-files/

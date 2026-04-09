@@ -54,7 +54,6 @@ win:
     - target: nsis
       arch:
         - x64
-        - arm64
 
 nsis:
   artifactName: "Kata-Desktop-${arch}-Setup.${ext}"
