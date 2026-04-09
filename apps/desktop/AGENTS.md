@@ -18,6 +18,7 @@ Desktop wraps the Kata CLI as a subprocess in JSON-RPC mode (`kata --mode rpc`).
 - **Never import from `@craft-agent/*` packages.** This is a clean break. Use `packages/ui/` for shared React components. Use pi-coding-agent via the CLI subprocess, not as an embedded library.
 - **No "Craft Agents" naming anywhere.** The product name is "Kata Desktop". The package scope should use `@kata/desktop` or similar.
 - **Electron main process runs Node.js, not Bun.** Don't use `import.meta.dir` or Bun-only APIs in main process code. The CLI subprocess runs Bun, but the Electron process itself is Node.js.
+- **Desktop UI must stick to shadcn default components and patterns on Tailwind v4.** Do not introduce custom design systems, custom-styled primitives, or ad hoc component patterns when a shadcn default component/composition exists. For any substantial UI change — new screens, large layout changes, major visual refactors, or component-library decisions — read and follow `.agents/skills/shadcn/SKILL.md` first.
 
 ## Architecture
 
@@ -141,7 +142,7 @@ Reference: `apps/cli/src/resources/extensions/linear/` (Linear client), `apps/sy
 ## Tech Stack
 
 - **Runtime:** Electron (Node.js main process, Chromium renderer)
-- **UI:** React 19 + Vite + Tailwind CSS v4 + Radix UI + Jotai
+- **UI:** React 19 + Vite + Tailwind CSS v4 + shadcn/ui default components + Radix UI + Jotai
 - **Shared components:** `packages/ui/` (chat, markdown, code-viewer, terminal)
 - **Diagrams:** `packages/mermaid/` (Mermaid → SVG)
 - **Build:** esbuild (main/preload) + Vite (renderer) + electron-builder (distribution)

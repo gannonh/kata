@@ -6,7 +6,17 @@ import type {
   WorkflowBoardSnapshot,
   WorkflowContextSnapshot,
 } from '@shared/types'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Separator } from '@/components/ui/separator'
 
 const SCOPE_OPTIONS: Array<{ scope: WorkflowBoardScope; label: string }> = [
@@ -204,40 +214,44 @@ export function KanbanHeader({
             ))}
           </div>
 
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="mr-1 h-7 px-2 text-[11px]"
+                data-testid="kanban-view-menu-trigger"
+              >
+                View
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuLabel>Board view</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  onClick={onExpandAllColumns}
+                  disabled={collapsedColumnCount === 0}
+                  data-testid="kanban-expand-all-columns"
+                >
+                  Expand all columns
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onExpandAllCards} data-testid="kanban-expand-all-cards">
+                  Expand all cards
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onCollapseAllCards} data-testid="kanban-collapse-all-cards">
+                  Collapse all cards
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           {collapsedColumnCount > 0 ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="mr-1 h-7 px-2 text-[11px]"
-              onClick={onExpandAllColumns}
-              data-testid="kanban-expand-all-columns"
-            >
-              Expand {collapsedColumnCount} column{collapsedColumnCount === 1 ? '' : 's'}
-            </Button>
+            <Badge variant="secondary" className="mr-1">
+              {collapsedColumnCount} column{collapsedColumnCount === 1 ? '' : 's'} collapsed
+            </Badge>
           ) : null}
-
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="mr-1 h-7 px-2 text-[11px]"
-            onClick={onExpandAllCards}
-            data-testid="kanban-expand-all-cards"
-          >
-            Expand cards
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="mr-1 h-7 px-2 text-[11px]"
-            onClick={onCollapseAllCards}
-            data-testid="kanban-collapse-all-cards"
-          >
-            Collapse cards
-          </Button>
-
 
           <Button type="button" size="icon" variant="ghost" aria-label="Open planning view" onClick={onOpenPlanningView}>
             <LayoutGrid className="size-4" />
