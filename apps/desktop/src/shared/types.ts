@@ -1067,7 +1067,7 @@ export interface SymphonyRuntimeStatusResponse {
   status: SymphonyRuntimeStatus
 }
 
-export type SymphonyOperatorConnectionState = 'connected' | 'reconnecting' | 'disconnected'
+export type SymphonyOperatorConnectionState = 'connected' | 'reconnecting' | 'disconnected' | 'inactive'
 
 export type SymphonyOperatorFreshnessStatus = 'fresh' | 'stale'
 

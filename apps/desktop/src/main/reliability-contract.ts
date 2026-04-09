@@ -358,6 +358,10 @@ export function mapSymphonyOperatorSnapshotToReliability(
     })
   }
 
+  if (snapshot.connection.state === 'inactive') {
+    return null
+  }
+
   if (snapshot.connection.state === 'disconnected') {
     return toSignal({
       sourceSurface: 'symphony',

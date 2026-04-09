@@ -28,10 +28,10 @@ import { EscalationList } from './EscalationList'
 import { WorkerTable } from './WorkerTable'
 
 export function connectionBadgeVariant(
-  state: 'connected' | 'reconnecting' | 'disconnected',
+  state: 'connected' | 'reconnecting' | 'disconnected' | 'inactive',
 ): 'default' | 'secondary' | 'destructive' {
   if (state === 'connected') return 'default'
-  if (state === 'reconnecting') return 'secondary'
+  if (state === 'reconnecting' || state === 'inactive') return 'secondary'
   return 'destructive'
 }
 
@@ -116,7 +116,7 @@ export function SymphonyDashboard() {
             </AlertTitle>
             <AlertDescription>{formatSymphonyReliabilityNotice(symphonyReliability.signal)}</AlertDescription>
           </Alert>
-        ) : snapshot.freshness.status === 'stale' && !snapshot.connection.lastError ? (
+        ) : snapshot.connection.state !== 'inactive' && snapshot.freshness.status === 'stale' && !snapshot.connection.lastError ? (
           <Alert variant="destructive" data-testid="symphony-dashboard-stale">
             <AlertTitle>Dashboard is stale</AlertTitle>
             <AlertDescription>{snapshot.freshness.staleReason ?? 'No recent updates from Symphony.'}</AlertDescription>

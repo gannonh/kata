@@ -110,11 +110,13 @@ export class SymphonyOperatorService extends EventEmitter {
   }
 
   public getStabilityMetrics(): StabilityMetricInput {
+    const runtimePhase = this.runtimeStatus?.phase ?? null
+    const isInactive = !runtimePhase || runtimePhase === 'idle' || runtimePhase === 'stopped' || runtimePhase === 'stopping'
+
     return {
-      ...(this.reconnectAttempts > 0
-        ? { reconnectSuccessRate: this.reconnectSuccesses / this.reconnectAttempts }
-        : {}),
-      recoveryLatencyMs: this.lastRecoveryLatencyMs,
+      reconnectSuccessRate:
+        !isInactive && this.reconnectAttempts > 0 ? this.reconnectSuccesses / this.reconnectAttempts : 1,
+      recoveryLatencyMs: !isInactive && this.lastRecoveryLatencyMs > 0 ? this.lastRecoveryLatencyMs : 0,
       collectedAt: new Date().toISOString(),
     }
   }
@@ -302,6 +304,12 @@ export class SymphonyOperatorService extends EventEmitter {
     }
     const syncRevision = ++this.runtimeSyncRevision
 
+    if (status.phase === 'stopping' || status.phase === 'stopped' || status.phase === 'idle') {
+      this.stopStream()
+      this.markInactive()
+      return
+    }
+
     if (!status.url || status.phase === 'config_error' || status.phase === 'failed') {
       this.stopStream()
       this.markDisconnected(status.lastError?.message ?? 'Symphony runtime unavailable.')
@@ -347,7 +355,7 @@ export class SymphonyOperatorService extends EventEmitter {
 
     if (status.phase === 'stopping' || status.phase === 'stopped' || status.phase === 'idle') {
       this.stopStream()
-      this.markDisconnected('Symphony runtime is not running.')
+      this.markInactive()
     }
   }
 
@@ -470,7 +478,32 @@ export class SymphonyOperatorService extends EventEmitter {
     this.emitSnapshot()
   }
 
-  private updateReconnectTelemetry(nextState: 'connected' | 'reconnecting' | 'disconnected'): void {
+  private markInactive(): void {
+    const nowIso = new Date().toISOString()
+    this.resetReconnectTelemetry()
+    this.snapshot.connection.state = 'inactive'
+    this.snapshot.connection.updatedAt = nowIso
+    this.snapshot.connection.lastError = undefined
+    this.snapshot.connection.lastEventSequence = undefined
+    this.snapshot.connection.lastBaselineRefreshAt = undefined
+    this.snapshot.fetchedAt = nowIso
+    this.snapshot.workers = []
+    this.snapshot.escalations = []
+    this.snapshot.queueCount = 0
+    this.snapshot.completedCount = 0
+    this.snapshot.freshness.status = 'fresh'
+    this.snapshot.freshness.staleReason = undefined
+    this.emitSnapshot()
+  }
+
+  private resetReconnectTelemetry(): void {
+    this.reconnectAttempts = 0
+    this.reconnectSuccesses = 0
+    this.lastDisconnectAtMs = null
+    this.lastRecoveryLatencyMs = 0
+  }
+
+  private updateReconnectTelemetry(nextState: 'connected' | 'reconnecting' | 'disconnected' | 'inactive'): void {
     const previousState = this.snapshot.connection.state
 
     if ((nextState === 'reconnecting' || nextState === 'disconnected') && previousState === 'connected') {
@@ -715,12 +748,11 @@ function createEmptySnapshot(): SymphonyOperatorSnapshot {
     workers: [],
     escalations: [],
     connection: {
-      state: 'disconnected',
+      state: 'inactive',
       updatedAt: nowIso,
     },
     freshness: {
-      status: 'stale',
-      staleReason: 'No baseline has been loaded yet.',
+      status: 'fresh',
     },
     response: {},
   }
