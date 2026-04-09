@@ -241,8 +241,260 @@ jobs:
             apps/desktop/release/Kata-Desktop-${{ matrix.arch }}.zip
             apps/desktop/release/latest-mac.yml
 
+  build-windows:
+    needs: check-version
+    if: needs.check-version.outputs.should_release == 'true'
+    runs-on: windows-latest
+    env:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+    strategy:
+      matrix:
+        arch: [x64, arm64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@4bc047ad259df6fc24a6c9b0f9a0cb08cf17fbe5 # v2.0.1
+        with:
+          bun-version: '1.3.8'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: '22'
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.arch == 'arm64' && 'aarch64-pc-windows-msvc' || 'x86_64-pc-windows-msvc' }}
+
+      - name: Cache Cargo registry and build
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            apps/symphony/target
+          key: ${{ runner.os }}-${{ matrix.arch }}-cargo-${{ hashFiles('apps/symphony/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.arch }}-cargo-
+
+      - name: Bundle CLI runtime and Bun binary
+        shell: bash
+        run: |
+          cd apps/desktop && bun run bundle:cli
+
+          # Replace host-arch Bun with correct target-arch Bun binary
+          BUN_VERSION="bun-v1.3.8"
+          BUN_ARCH="${{ matrix.arch == 'arm64' && 'aarch64' || 'x64' }}"
+          BUN_DOWNLOAD="bun-windows-${BUN_ARCH}"
+          echo "Downloading Bun ${BUN_VERSION} for windows-${BUN_ARCH}..."
+          TEMP_DIR=$(mktemp -d)
+          curl -fSL "https://github.com/oven-sh/bun/releases/download/${BUN_VERSION}/${BUN_DOWNLOAD}.zip" -o "$TEMP_DIR/${BUN_DOWNLOAD}.zip"
+          curl -fSL "https://github.com/oven-sh/bun/releases/download/${BUN_VERSION}/SHASUMS256.txt" -o "$TEMP_DIR/SHASUMS256.txt"
+          cd "$TEMP_DIR" && grep "${BUN_DOWNLOAD}.zip" SHASUMS256.txt | sha256sum -c - && cd -
+          unzip -o "$TEMP_DIR/${BUN_DOWNLOAD}.zip" -d "$TEMP_DIR"
+          # Windows Bun zip contains bun.exe
+          cp "$TEMP_DIR/${BUN_DOWNLOAD}/bun.exe" vendor/bun/bun.exe
+          rm -f vendor/bun/bun
+          rm -rf "$TEMP_DIR"
+          echo "Bun binary replaced with ${BUN_DOWNLOAD}"
+
+          # Create Windows launcher script (kata.cmd)
+          cat > vendor/kata.cmd <<'LAUNCHER'
+          @echo off
+          set "SCRIPT_DIR=%~dp0"
+          "%SCRIPT_DIR%bun\bun.exe" "%SCRIPT_DIR%kata-runtime\dist\loader.js" %*
+          LAUNCHER
+          # Strip leading whitespace from heredoc
+          sed -i 's/^          //' vendor/kata.cmd
+
+      - name: Build Symphony for Windows ${{ matrix.arch }}
+        shell: bash
+        run: |
+          TARGET="${{ matrix.arch == 'arm64' && 'aarch64-pc-windows-msvc' || 'x86_64-pc-windows-msvc' }}"
+          echo "Building Symphony for $TARGET..."
+          cd apps/symphony && cargo build --release --target "$TARGET"
+
+          BUILT_BIN="target/$TARGET/release/symphony.exe"
+          if [ -f "$BUILT_BIN" ]; then
+            cp "$BUILT_BIN" ../desktop/vendor/symphony.exe
+            echo "Symphony binary staged for $TARGET"
+          else
+            echo "::error::Symphony binary not found at $BUILT_BIN"
+            exit 1
+          fi
+
+      - name: Build Desktop app
+        run: cd apps/desktop && bun run build
+
+      - name: Package for Windows ${{ matrix.arch }}
+        shell: bash
+        run: |
+          cd apps/desktop
+          npx electron-builder --config electron-builder.yml --win nsis --${{ matrix.arch }}
+
+      - name: Verify Windows artifacts
+        shell: bash
+        run: |
+          set -e
+          echo "Checking for Windows ${{ matrix.arch }} artifacts..."
+          ls -la apps/desktop/release/
+          if ! ls apps/desktop/release/Kata-Desktop-${{ matrix.arch }}-Setup.exe 1>/dev/null 2>&1; then
+            echo "::error::NSIS installer for ${{ matrix.arch }} not found"
+            exit 1
+          fi
+          echo "Found Windows artifacts for ${{ matrix.arch }}"
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: windows-${{ matrix.arch }}
+          path: |
+            apps/desktop/release/Kata-Desktop-${{ matrix.arch }}-Setup.exe
+            apps/desktop/release/latest.yml
+
+  build-linux:
+    needs: check-version
+    if: needs.check-version.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    env:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+    strategy:
+      matrix:
+        arch: [x64, arm64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@4bc047ad259df6fc24a6c9b0f9a0cb08cf17fbe5 # v2.0.1
+        with:
+          bun-version: '1.3.8'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: '22'
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.arch == 'arm64' && 'aarch64-unknown-linux-gnu' || 'x86_64-unknown-linux-gnu' }}
+
+      - name: Install cross-compilation tools
+        if: matrix.arch == 'arm64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+
+      - name: Cache Cargo registry and build
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            apps/symphony/target
+          key: ${{ runner.os }}-${{ matrix.arch }}-cargo-${{ hashFiles('apps/symphony/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.arch }}-cargo-
+
+      - name: Bundle CLI runtime and Bun binary
+        run: |
+          cd apps/desktop && bun run bundle:cli
+
+          # Replace host-arch Bun with correct target-arch Bun binary
+          BUN_VERSION="bun-v1.3.8"
+          BUN_ARCH="${{ matrix.arch == 'arm64' && 'aarch64' || 'x64' }}"
+          BUN_DOWNLOAD="bun-linux-${BUN_ARCH}"
+          echo "Downloading Bun ${BUN_VERSION} for linux-${BUN_ARCH}..."
+          TEMP_DIR=$(mktemp -d)
+          curl -fSL "https://github.com/oven-sh/bun/releases/download/${BUN_VERSION}/${BUN_DOWNLOAD}.zip" -o "$TEMP_DIR/${BUN_DOWNLOAD}.zip"
+          curl -fSL "https://github.com/oven-sh/bun/releases/download/${BUN_VERSION}/SHASUMS256.txt" -o "$TEMP_DIR/SHASUMS256.txt"
+          cd "$TEMP_DIR" && grep "${BUN_DOWNLOAD}.zip" SHASUMS256.txt | shasum -a 256 -c - && cd -
+          unzip -o "$TEMP_DIR/${BUN_DOWNLOAD}.zip" -d "$TEMP_DIR"
+          cp "$TEMP_DIR/${BUN_DOWNLOAD}/bun" vendor/bun/bun
+          chmod +x vendor/bun/bun
+          rm -rf "$TEMP_DIR"
+          echo "Bun binary replaced with ${BUN_DOWNLOAD}"
+
+      - name: Build Symphony for Linux ${{ matrix.arch }}
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+        run: |
+          TARGET="${{ matrix.arch == 'arm64' && 'aarch64-unknown-linux-gnu' || 'x86_64-unknown-linux-gnu' }}"
+          echo "Building Symphony for $TARGET..."
+          cd apps/symphony && cargo build --release --target "$TARGET"
+
+          BUILT_BIN="target/$TARGET/release/symphony"
+          if [ -f "$BUILT_BIN" ]; then
+            cp "$BUILT_BIN" ../desktop/vendor/symphony
+            chmod +x ../desktop/vendor/symphony
+            echo "Symphony binary staged for $TARGET"
+          else
+            echo "::error::Symphony binary not found at $BUILT_BIN"
+            exit 1
+          fi
+
+      - name: Build Desktop app
+        run: cd apps/desktop && bun run build
+
+      - name: Package for Linux ${{ matrix.arch }}
+        run: |
+          cd apps/desktop
+          npx electron-builder --config electron-builder.yml --linux AppImage deb --${{ matrix.arch }}
+
+      - name: Verify Linux artifacts
+        run: |
+          set -e
+          echo "Checking for Linux ${{ matrix.arch }} artifacts..."
+          ls -la apps/desktop/release/
+          if ! ls apps/desktop/release/Kata-Desktop-${{ matrix.arch }}.AppImage 1>/dev/null 2>&1; then
+            echo "::error::AppImage for ${{ matrix.arch }} not found"
+            exit 1
+          fi
+          if ! ls apps/desktop/release/Kata-Desktop-${{ matrix.arch }}.deb 1>/dev/null 2>&1; then
+            echo "::error::deb package for ${{ matrix.arch }} not found"
+            exit 1
+          fi
+          echo "Found Linux artifacts for ${{ matrix.arch }}"
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: linux-${{ matrix.arch }}
+          path: |
+            apps/desktop/release/Kata-Desktop-${{ matrix.arch }}.AppImage
+            apps/desktop/release/Kata-Desktop-${{ matrix.arch }}.deb
+            apps/desktop/release/latest-linux.yml
+
   release:
-    needs: [check-version, build-macos]
+    needs: [check-version, build-macos, build-windows, build-linux]
     if: needs.check-version.outputs.should_release == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -259,11 +511,22 @@ jobs:
       - name: Prepare release files
         run: |
           mkdir -p release-files
+          # macOS
           cp artifacts/macos-arm64/*.dmg release-files/
           cp artifacts/macos-arm64/*.zip release-files/
           cp artifacts/macos-x64/*.dmg release-files/
           cp artifacts/macos-x64/*.zip release-files/
           cp artifacts/macos-arm64/latest-mac.yml release-files/ 2>/dev/null || true
+          # Windows
+          cp artifacts/windows-x64/*.exe release-files/
+          cp artifacts/windows-arm64/*.exe release-files/
+          cp artifacts/windows-x64/latest.yml release-files/ 2>/dev/null || true
+          # Linux
+          cp artifacts/linux-x64/*.AppImage release-files/
+          cp artifacts/linux-x64/*.deb release-files/
+          cp artifacts/linux-arm64/*.AppImage release-files/
+          cp artifacts/linux-arm64/*.deb release-files/
+          cp artifacts/linux-x64/latest-linux.yml release-files/ 2>/dev/null || true
           echo "Files to be released:"
           ls -la release-files/
 

@@ -724,13 +724,20 @@ export class PiAgentBridge extends EventEmitter {
     const checkedPaths: string[] = []
 
     if (isPackaged) {
-      const bundledPath = path.join(process.resourcesPath, 'kata')
-      checkedPaths.push(bundledPath)
-      if (this.isExecutableFile(bundledPath)) {
-        return {
-          source: 'bundled',
-          resolvedPath: bundledPath,
-          checkedPaths,
+      // On Windows, look for kata.cmd; on macOS/Linux, look for kata shell script
+      const bundledCandidates =
+        process.platform === 'win32'
+          ? [path.join(process.resourcesPath, 'kata.cmd'), path.join(process.resourcesPath, 'kata')]
+          : [path.join(process.resourcesPath, 'kata')]
+
+      for (const bundledPath of bundledCandidates) {
+        checkedPaths.push(bundledPath)
+        if (this.isExecutableFile(bundledPath)) {
+          return {
+            source: 'bundled',
+            resolvedPath: bundledPath,
+            checkedPaths,
+          }
         }
       }
     }
