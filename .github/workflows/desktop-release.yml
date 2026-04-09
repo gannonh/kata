@@ -465,13 +465,15 @@ jobs:
       - name: Build Symphony for Linux ${{ matrix.arch }}
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
-          PKG_CONFIG_ALLOW_CROSS: '1'
-          PKG_CONFIG_PATH: ${{ matrix.arch == 'arm64' && '/usr/lib/aarch64-linux-gnu/pkgconfig' || '' }}
-          OPENSSL_DIR: ${{ matrix.arch == 'arm64' && '/usr' || '' }}
-          OPENSSL_INCLUDE_DIR: ${{ matrix.arch == 'arm64' && '/usr/include/aarch64-linux-gnu' || '' }}
-          OPENSSL_LIB_DIR: ${{ matrix.arch == 'arm64' && '/usr/lib/aarch64-linux-gnu' || '' }}
         run: |
           TARGET="${{ matrix.arch == 'arm64' && 'aarch64-unknown-linux-gnu' || 'x86_64-unknown-linux-gnu' }}"
+          if [ "${{ matrix.arch }}" = "arm64" ]; then
+            export PKG_CONFIG_ALLOW_CROSS=1
+            export PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig
+            export OPENSSL_DIR=/usr
+            export OPENSSL_INCLUDE_DIR=/usr/include/aarch64-linux-gnu
+            export OPENSSL_LIB_DIR=/usr/lib/aarch64-linux-gnu
+          fi
           echo "Building Symphony for $TARGET..."
           cd apps/symphony && cargo build --release --target "$TARGET"
 
