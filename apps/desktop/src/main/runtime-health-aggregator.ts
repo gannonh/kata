@@ -97,6 +97,11 @@ export const DEFAULT_STABILITY_THRESHOLDS: StabilityThresholdSet = {
     breach: 150,
     comparator: 'max',
   },
+  // Heap thresholds calibrated against observed dev baselines:
+  // Electron main + CLI subprocess + Vite HMR routinely reach 200-400 MB in dev.
+  // Previous values (180/300) caused constant false alarms.
+  // 512 MB warning / 1024 MB breach still catches real leaks while staying
+  // above normal dev-mode noise. Production builds use less memory.
   heapGrowthMb: {
     warning: 512,
     breach: 1024,
@@ -678,8 +683,10 @@ export class RuntimeHealthAggregator extends EventEmitter {
   public ingestSymphonyOperatorSnapshot(
     snapshot: SymphonyOperatorSnapshot | null | undefined,
   ): ReliabilitySnapshot {
-    // Suppress operator-level signals when Symphony has never been started.
-    // The empty snapshot starts as 'disconnected' which would produce a false alarm.
+    // Suppress operator-level signals when Symphony has never reached a connected state.
+    // The empty snapshot starts as 'inactive' (via createEmptySnapshot) so it won't
+    // produce a false alarm on its own, but startup-failure phases (starting, config_error,
+    // failed) would still surface bogus reconnect advice without this guard.
     // Only surface operator-level reliability signals when the runtime has
     // actually reached a connected state. This avoids false alarms from the
     // default disconnected operator snapshot during startup failures, idle,
