@@ -98,8 +98,8 @@ export const DEFAULT_STABILITY_THRESHOLDS: StabilityThresholdSet = {
     comparator: 'max',
   },
   heapGrowthMb: {
-    warning: 180,
-    breach: 300,
+    warning: 512,
+    breach: 1024,
     comparator: 'max',
   },
   staleAgeMs: {
@@ -476,6 +476,7 @@ export class RuntimeHealthAggregator extends EventEmitter {
   private chatBridgeSignal: ReliabilitySignal | null = null
   private chatCrashSignal: ReliabilitySignal | null = null
   private symphonyRuntimeSignal: ReliabilitySignal | null = null
+  private lastSymphonyRuntimePhase: string | null = null
   private symphonyOperatorSignal: ReliabilitySignal | null = null
   private mcpConfigSignal: ReliabilitySignal | null = null
   private mcpStatusSignal: ReliabilitySignal | null = null
@@ -668,6 +669,7 @@ export class RuntimeHealthAggregator extends EventEmitter {
   }
 
   public ingestSymphonyRuntimeStatus(status: SymphonyRuntimeStatus | null | undefined): ReliabilitySnapshot {
+    this.lastSymphonyRuntimePhase = status?.phase ?? null
     this.symphonyRuntimeSignal = mapSymphonyRuntimeStatusToReliability(status)
     this.syncSymphonySurface()
     return this.toSnapshot()
@@ -676,7 +678,15 @@ export class RuntimeHealthAggregator extends EventEmitter {
   public ingestSymphonyOperatorSnapshot(
     snapshot: SymphonyOperatorSnapshot | null | undefined,
   ): ReliabilitySnapshot {
-    this.symphonyOperatorSignal = mapSymphonyOperatorSnapshotToReliability(snapshot)
+    // Suppress operator-level signals when Symphony has never been started.
+    // The empty snapshot starts as 'disconnected' which would produce a false alarm.
+    const symphonyNeverStarted =
+      !this.lastSymphonyRuntimePhase ||
+      this.lastSymphonyRuntimePhase === 'idle' ||
+      this.lastSymphonyRuntimePhase === 'stopped'
+    this.symphonyOperatorSignal = symphonyNeverStarted
+      ? null
+      : mapSymphonyOperatorSnapshotToReliability(snapshot)
     this.syncSymphonySurface()
     return this.toSnapshot()
   }

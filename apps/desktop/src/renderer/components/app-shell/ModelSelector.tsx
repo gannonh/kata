@@ -6,7 +6,6 @@ import {
   modelLoadingAtom,
   selectedModelAtom,
 } from '@/atoms/model'
-import { useReliabilitySnapshot } from '@/atoms/reliability'
 import {
   Select,
   SelectContent,
@@ -16,10 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Button } from '@/components/ui/button'
-import type { FirstRunReadinessSnapshot } from '@shared/types'
 import { MODELS_REFRESH_EVENT, PROVIDER_METADATA } from '@/constants/providers'
-import { buildFirstRunGuidance, getFirstRunCheckpoint } from '@/lib/first-run-readiness'
 
 function toModelIdentifier(provider: string, id: string): string {
   return `${provider}/${id}`
@@ -31,24 +27,11 @@ function formatProviderLabel(provider: string): string {
   return metadata?.name ?? provider
 }
 
-export function buildModelSelectorReadinessNotice(
-  readiness: FirstRunReadinessSnapshot | null | undefined,
-): string | null {
-  const startupGuidance = buildFirstRunGuidance(getFirstRunCheckpoint(readiness, 'startup'))
-  if (startupGuidance) {
-    return startupGuidance
-  }
-
-  return buildFirstRunGuidance(getFirstRunCheckpoint(readiness, 'model'))
-}
-
 export function ModelSelector() {
   const [selectedModel, setSelectedModel] = useAtom(selectedModelAtom)
   const [availableModels, setAvailableModels] = useAtom(availableModelsAtom)
   const [loading, setLoading] = useAtom(modelLoadingAtom)
   const [error, setError] = useAtom(modelErrorAtom)
-  const reliabilitySnapshot = useReliabilitySnapshot()
-  const readinessNotice = buildModelSelectorReadinessNotice(reliabilitySnapshot.firstRunReadiness)
 
   const refreshModels = useCallback(async () => {
     setLoading(true)
@@ -184,23 +167,6 @@ export function ModelSelector() {
       </Select>
 
       {error && <p className="text-[11px] text-destructive">{error}</p>}
-
-      {readinessNotice && (
-        <div className="space-y-1" data-testid="model-selector-readiness-notice">
-          <p className="text-[11px] text-muted-foreground">{readinessNotice}</p>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-auto px-0 py-0 text-[11px]"
-            onClick={() => {
-              void refreshModels()
-            }}
-          >
-            Retry model check
-          </Button>
-        </div>
-      )}
     </div>
   )
 }
