@@ -21,6 +21,15 @@ function createExecutable(workspacePath: string, name = 'symphony'): string {
   return executablePath
 }
 
+describe('test environment isolation (R029)', () => {
+  test('KATA_SYMPHONY_BIN_PATH is stripped from process.env by test-setup.ts', () => {
+    // The Vitest setup file (src/test-setup.ts) deletes KATA_SYMPHONY_BIN_PATH
+    // from process.env before any test file runs. This smoke test confirms the
+    // stripping worked, even if the developer's shell had the var exported.
+    expect(process.env.KATA_SYMPHONY_BIN_PATH).toBeUndefined()
+  })
+})
+
 describe('resolveSymphonyLaunch', () => {
   const cleanups: Array<() => void> = []
 
