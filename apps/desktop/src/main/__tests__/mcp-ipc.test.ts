@@ -297,6 +297,68 @@ describe('mcp ipc handlers', () => {
     unregister()
   })
 
+  test('server-scoped reconnect with serverName routes through mcpService.reconnectServer', async () => {
+    const mcpConfigBridge = {
+      listServers: vi.fn(async () => ({
+        success: true,
+        provenance: { mode: 'global_only', globalConfigPath: '/tmp/mcp.json' },
+        servers: [],
+      })),
+      getServer: vi.fn(),
+      saveServer: vi.fn(),
+      deleteServer: vi.fn(),
+    } as any
+
+    const mcpService = {
+      refreshStatus: vi.fn(),
+      reconnectServer: vi.fn(async () => ({
+        success: true,
+        status: {
+          serverName: 'my-server',
+          phase: 'connected',
+          checkedAt: new Date().toISOString(),
+          toolNames: ['read'],
+          toolCount: 1,
+        },
+      })),
+      getStabilityMetrics: vi.fn(() => ({
+        a11yViolationCounts: { minor: 0, moderate: 0, serious: 0, critical: 0 },
+      })),
+    } as any
+
+    const unregister = registerSessionIpc({
+      bridge: createBridgeStub(),
+      authBridge: {
+        getProviders: vi.fn(async () => ({ success: true, providers: {} })),
+        setProviderKey: vi.fn(),
+        removeProviderKey: vi.fn(),
+        validateKey: vi.fn(),
+      } as any,
+      sessionManager: {
+        listSessions: vi.fn(async () => ({ sessions: [], warnings: [], directory: process.cwd() })),
+        getSessionInfo: vi.fn(),
+        resolveSessionPathById: vi.fn(async () => null),
+      } as any,
+      window: createWindowStub(),
+      mcpConfigBridge,
+      mcpService,
+    })
+
+    const result = await handlers.get(IPC_CHANNELS.reliabilityRequestRecoveryAction)?.({}, {
+      sourceSurface: 'mcp',
+      action: 'reconnect',
+      serverName: 'my-server',
+    })
+
+    expect(result.success).toBe(true)
+    expect(result.code).toBe('MCP_SERVER_RECONNECTED')
+    expect(mcpService.reconnectServer).toHaveBeenCalledWith('my-server')
+    // Must NOT return MCP_RECOVERY_ACTION_UNSUPPORTED when serverName is provided
+    expect(result.code).not.toBe('MCP_RECOVERY_ACTION_UNSUPPORTED')
+
+    unregister()
+  })
+
   test('defense-in-depth: reconnect without server context returns graceful failure, not crash', async () => {
     const mcpConfigBridge = {
       listServers: vi.fn(async () => ({

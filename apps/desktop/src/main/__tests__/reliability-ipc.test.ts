@@ -291,6 +291,42 @@ describe('reliability recovery IPC handler', () => {
     unregister()
   })
 
+  test('server-scoped reconnect with serverName succeeds via mcpService.reconnectServer', async () => {
+    const mcpService = {
+      refreshStatus: vi.fn(),
+      reconnectServer: vi.fn(async () => ({
+        success: true,
+        status: {
+          serverName: 'my-server',
+          phase: 'connected' as const,
+          checkedAt: new Date().toISOString(),
+          toolNames: ['read'],
+          toolCount: 1,
+        },
+      })),
+      getStabilityMetrics: vi.fn(() => ({
+        a11yViolationCounts: { minor: 0, moderate: 0, serious: 0, critical: 0 },
+      })),
+    } as any
+
+    const unregister = registerSessionIpc({
+      ...createCommonOptions(),
+      mcpService,
+    })
+
+    const result = await handlers.get(IPC_CHANNELS.reliabilityRequestRecoveryAction)?.({}, {
+      sourceSurface: 'mcp',
+      action: 'reconnect',
+      serverName: 'my-server',
+    })
+
+    expect(result.success).toBe(true)
+    expect(result.code).toBe('MCP_SERVER_RECONNECTED')
+    expect(mcpService.reconnectServer).toHaveBeenCalledWith('my-server')
+
+    unregister()
+  })
+
   test('server-scoped MCP error propagates serverName through aggregator to reliability snapshot', async () => {
     const mcpService = {
       refreshStatus: vi.fn(async () => ({

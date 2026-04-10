@@ -140,9 +140,13 @@ export function McpServerPanel() {
                 size="sm"
                 variant="outline"
                 onClick={() => {
+                  const signal = mcpReliability.signal!
                   void requestRecoveryAction({
                     sourceSurface: 'mcp',
-                    action: mcpReliability.signal!.recoveryAction,
+                    action: signal.recoveryAction,
+                    ...(signal.diagnostics?.serverName
+                      ? { serverName: signal.diagnostics.serverName }
+                      : {}),
                   })
                 }}
                 disabled={reliabilityPendingBySurface.mcp}
@@ -274,6 +278,7 @@ export function McpServerPanel() {
                     void requestRecoveryAction({
                       sourceSurface: 'mcp',
                       action: mcpReliability.signal!.recoveryAction,
+                      serverName: mcpReliability.signal!.diagnostics?.serverName,
                     })
                   } : undefined}
                   recoveryPending={isAffected ? reliabilityPendingBySurface.mcp : false}

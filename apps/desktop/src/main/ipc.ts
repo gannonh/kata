@@ -134,7 +134,7 @@ export function registerSessionIpc({
   const resolvedMcpService = mcpService ?? new McpService({ configBridge: resolvedMcpConfigBridge })
 
   const reliabilityAggregator = new RuntimeHealthAggregator({
-    requestRecovery: async ({ sourceSurface, action }) => {
+    requestRecovery: async ({ sourceSurface, action, serverName }) => {
       try {
         if (sourceSurface === 'chat_runtime') {
           await bridge.restart()
@@ -252,6 +252,29 @@ export function registerSessionIpc({
         }
 
         if (sourceSurface === 'mcp') {
+          // Server-scoped reconnect: route through mcpService when serverName is present.
+          if ((action === 'reconnect' || action === 'reauthenticate') && serverName) {
+            const response = await resolvedMcpService.reconnectServer(serverName)
+            syncStabilityMetricsFromServices()
+            reliabilityAggregator.ingestMcpStatusResponse(response)
+
+            if (!response.success) {
+              return {
+                success: false,
+                outcome: 'failed' as const,
+                code: response.error?.code ?? 'MCP_RECONNECT_FAILED',
+                message: response.error?.message ?? `MCP server reconnect failed for ${serverName}.`,
+              }
+            }
+
+            return {
+              success: true,
+              outcome: 'succeeded' as const,
+              code: 'MCP_SERVER_RECONNECTED',
+              message: `MCP server ${serverName} reconnected successfully.`,
+            }
+          }
+
           const supportsConfigRefresh =
             action === 'refresh_state' || action === 'inspect' || action === 'fix_config'
 

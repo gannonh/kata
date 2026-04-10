@@ -55,6 +55,7 @@ interface RuntimeHealthAggregatorOptions {
   requestRecovery?: (request: {
     sourceSurface: ReliabilitySourceSurface
     action: ReliabilityRecoveryAction
+    serverName?: string
   }) => Promise<RecoveryAttempt>
   stabilityThresholds?: StabilityThresholdSet
 }
@@ -751,6 +752,7 @@ export class RuntimeHealthAggregator extends EventEmitter {
         attempt = await this.requestRecovery({
           sourceSurface: request.sourceSurface,
           action,
+          serverName: request.serverName,
         })
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)

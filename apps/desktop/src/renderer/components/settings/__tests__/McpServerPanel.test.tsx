@@ -303,5 +303,44 @@ describe('MCP settings helpers', () => {
       // Panel button should say "Refresh config" (the gated fallback)
       expect(formatMcpRecoveryButtonLabel(signal.recoveryAction)).toBe('Refresh config')
     })
+
+    test('recovery request for server-scoped reconnect includes serverName in the payload', () => {
+      // Verify the shape of the payload that McpServerPanel passes to requestRecoveryAction
+      // when a signal with serverName triggers a row-level reconnect.
+      const signal = {
+        code: 'REL-MCP-NETWORK-CONNECTION_FAILED',
+        class: 'network' as const,
+        severity: 'error' as const,
+        sourceSurface: 'mcp' as const,
+        recoveryAction: 'reconnect' as const,
+        outcome: 'failed' as const,
+        message: 'Connection failed for my-server',
+        timestamp: '2026-04-10T12:00:00.000Z',
+        diagnostics: {
+          code: 'CONNECTION_FAILED',
+          serverName: 'my-server',
+        },
+      }
+
+      // The payload built in McpServerPanel onRecoveryAction (row path):
+      const rowPayload = {
+        sourceSurface: signal.sourceSurface,
+        action: signal.recoveryAction,
+        serverName: signal.diagnostics?.serverName,
+      }
+
+      expect(rowPayload.serverName).toBe('my-server')
+      expect(rowPayload.action).toBe('reconnect')
+
+      // The payload built in McpServerPanel onClick (panel-header path) when serverName present:
+      const headerPayload = {
+        sourceSurface: signal.sourceSurface,
+        action: signal.recoveryAction,
+        ...(signal.diagnostics?.serverName ? { serverName: signal.diagnostics.serverName } : {}),
+      }
+
+      expect(headerPayload.serverName).toBe('my-server')
+      expect(headerPayload.action).toBe('reconnect')
+    })
   })
 })

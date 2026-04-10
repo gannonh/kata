@@ -1467,6 +1467,8 @@ export interface StabilitySnapshotResponse {
 export interface ReliabilityRecoveryRequest {
   sourceSurface: ReliabilitySourceSurface
   action?: ReliabilityRecoveryAction
+  /** Server identity for server-scoped MCP recovery actions (e.g. reconnect). */
+  serverName?: string
 }
 
 export interface ReliabilityRecoveryResult {
