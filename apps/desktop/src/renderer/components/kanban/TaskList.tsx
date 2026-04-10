@@ -1,7 +1,9 @@
 import { useAtomValue, useSetAtom } from 'jotai'
+import { GitPullRequest } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
 import {
   WORKFLOW_COLUMNS,
+  type WorkflowBoardPrMetadata,
   type WorkflowBoardTask,
   type WorkflowColumnId,
 } from '@shared/types'
@@ -34,6 +36,26 @@ const TASK_STATE_TONE: Record<WorkflowBoardTask['columnId'], string> = {
   human_review: 'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/40 dark:text-fuchsia-300',
   merging: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
   done: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
+}
+
+function TaskPrIndicator({ prMetadata }: { prMetadata: WorkflowBoardPrMetadata }) {
+  return (
+    <a
+      href={prMetadata.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-foreground"
+      data-testid={`task-pr-badge-${prMetadata.number}`}
+      onClick={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        window.open(prMetadata.url, '_blank', 'noopener,noreferrer')
+      }}
+    >
+      <GitPullRequest className="size-2.5" />
+      <span>#{prMetadata.number}</span>
+    </a>
+  )
 }
 
 export function getTaskMoveTargetOptions(currentColumnId: WorkflowBoardTask['columnId']) {
@@ -178,6 +200,12 @@ export function TaskList({ tasks, issueActions = {}, onOpenIssue }: TaskListProp
                       ) : (
                         <span>{task.identifier}</span>
                       )}
+                      {task.prMetadata ? (
+                        <>
+                          {' '}
+                          <TaskPrIndicator prMetadata={task.prMetadata} />
+                        </>
+                      ) : null}
                       {' · '}
                     </>
                   ) : null}

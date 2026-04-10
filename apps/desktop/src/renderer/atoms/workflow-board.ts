@@ -150,15 +150,16 @@ export const expandAllWorkflowCardsAtom = atom(null, (_get, set) => {
 
 export const collapsedWorkflowColumnsAtom = atom((get) => {
   const collapseKey = get(workflowBoardCollapseKeyAtom)
-  const explicitCollapsed = get(workflowBoardCollapsedColumnsAtom)[collapseKey]
+  const storedMap = get(workflowBoardCollapsedColumnsAtom)
+  const hasExplicitState = collapseKey in storedMap
 
   // When the user has explicitly set collapse state, respect it.
-  if (explicitCollapsed) {
-    return new Set<WorkflowColumnId>(explicitCollapsed)
+  if (hasExplicitState) {
+    return new Set<WorkflowColumnId>(storedMap[collapseKey] ?? [])
   }
 
-  // Otherwise, auto-collapse empty columns so the board gives more
-  // space to columns that have cards.
+  // Otherwise, auto-collapse empty columns and auto-expand non-empty
+  // columns so the board gives more space to columns that have cards.
   const snapshot = get(workflowBoardAtom)
   if (!snapshot) {
     return new Set<WorkflowColumnId>()
@@ -204,6 +205,27 @@ export const resetWorkflowCollapsedColumnsAtom = atom(null, (get, set) => {
     ...existingMap,
     [collapseKey]: [],
   })
+})
+
+/**
+ * Clears explicit column collapse overrides so auto-presentation
+ * (auto-collapse empty, auto-expand non-empty) resumes.
+ */
+export const resetColumnCollapseOverridesAtom = atom(null, (get, set) => {
+  const collapseKey = get(workflowBoardCollapseKeyAtom)
+  const existingMap = get(workflowBoardCollapsedColumnsAtom)
+  const { [collapseKey]: _removed, ...rest } = existingMap
+  set(workflowBoardCollapsedColumnsAtom, rest)
+})
+
+/**
+ * Returns true when the user has explicit column collapse overrides
+ * for the current workspace/scope, meaning "Reset columns to auto"
+ * would have an effect.
+ */
+export const hasExplicitColumnOverridesAtom = atom((get) => {
+  const collapseKey = get(workflowBoardCollapseKeyAtom)
+  return collapseKey in get(workflowBoardCollapsedColumnsAtom)
 })
 
 export const workflowBoardHasCardsAtom = atom((get) => {

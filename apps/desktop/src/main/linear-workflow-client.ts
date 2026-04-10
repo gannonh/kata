@@ -4,6 +4,7 @@ import {
   WORKFLOW_COLUMNS,
   type WorkflowBoardColumn,
   type WorkflowBoardErrorCode,
+  type WorkflowBoardPrMetadata,
   type WorkflowBoardSliceCard,
   type WorkflowBoardSnapshot,
   type WorkflowBoardTask,
@@ -70,17 +71,28 @@ interface LinearWorkflowProjectRef {
   id?: string
 }
 
+interface LinearWorkflowAttachment {
+  id?: string
+  url?: string
+  metadata?: string | Record<string, unknown>
+  sourceType?: string
+}
+
 interface LinearWorkflowIssue {
   id?: string
   identifier?: string
   title?: string
   description?: string
   url?: string
+  branchName?: string
   parent?: { id?: string } | null
   team?: LinearWorkflowTeamRef | null
   project?: LinearWorkflowProjectRef | null
   state?: LinearWorkflowState | null
   projectMilestone?: LinearWorkflowMilestone | null
+  attachments?: {
+    nodes?: LinearWorkflowAttachment[]
+  } | null
   children?: {
     nodes?: LinearWorkflowIssue[]
     pageInfo?: LinearWorkflowPageInfo
@@ -594,6 +606,7 @@ export class LinearWorkflowClient {
                 title
                 description
                 url
+                branchName
                 parent {
                   id
                 }
@@ -613,6 +626,14 @@ export class LinearWorkflowClient {
                   name
                   sortOrder
                 }
+                attachments(filter: { sourceType: { eq: "github" } }) {
+                  nodes {
+                    id
+                    url
+                    metadata
+                    sourceType
+                  }
+                }
                 children(first: 100) {
                   nodes {
                     id
@@ -620,6 +641,7 @@ export class LinearWorkflowClient {
                     title
                     description
                     url
+                    branchName
                     parent {
                       id
                     }
@@ -633,6 +655,14 @@ export class LinearWorkflowClient {
                       id
                       name
                       type
+                    }
+                    attachments(filter: { sourceType: { eq: "github" } }) {
+                      nodes {
+                        id
+                        url
+                        metadata
+                        sourceType
+                      }
                     }
                   }
                   pageInfo {
@@ -696,6 +726,8 @@ export class LinearWorkflowClient {
                   id
                   identifier
                   title
+                  description
+                  branchName
                   state {
                     id
                     name
@@ -711,6 +743,14 @@ export class LinearWorkflowClient {
                     id
                   }
                   url
+                  attachments(filter: { sourceType: { eq: "github" } }) {
+                    nodes {
+                      id
+                      url
+                      metadata
+                      sourceType
+                    }
+                  }
                 }
                 pageInfo {
                   hasNextPage
@@ -1051,6 +1091,71 @@ function toLinearIssueDetailResult(issue: LinearWorkflowIssue): LinearIssueDetai
   }
 }
 
+export function extractPrMetadataFromAttachments(
+  attachments: LinearWorkflowAttachment[] | undefined,
+  branchName: string | undefined,
+): WorkflowBoardPrMetadata | undefined {
+  if (!attachments || attachments.length === 0) {
+    return undefined
+  }
+
+  for (const attachment of attachments) {
+    const url = attachment.url?.trim()
+    if (!url) {
+      continue
+    }
+
+    // Check if URL looks like a GitHub PR URL
+    const prUrlMatch = url.match(/github\.com\/[^/]+\/[^/]+\/pull\/(\d+)/)
+    if (!prUrlMatch) {
+      continue
+    }
+
+    const prNumber = Number(prUrlMatch[1])
+
+    // Parse metadata if available
+    let title: string | undefined
+    let status: string | undefined
+
+    const rawMetadata = attachment.metadata
+    if (rawMetadata) {
+      const metadata =
+        typeof rawMetadata === 'string' ? safeJsonParse(rawMetadata) : rawMetadata
+
+      if (metadata && typeof metadata === 'object') {
+        const metaRecord = metadata as Record<string, unknown>
+        if (typeof metaRecord.title === 'string') {
+          title = metaRecord.title
+        }
+        if (typeof metaRecord.status === 'string') {
+          status = metaRecord.status
+        } else if (typeof metaRecord.state === 'string') {
+          status = metaRecord.state
+        }
+      }
+    }
+
+    return {
+      number: prNumber,
+      url,
+      title,
+      status,
+      branchName: branchName?.trim() || undefined,
+    }
+  }
+
+  return undefined
+}
+
+function safeJsonParse(value: string): Record<string, unknown> | null {
+  try {
+    const parsed = JSON.parse(value)
+    return typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : null
+  } catch {
+    return null
+  }
+}
+
 export function createEmptyWorkflowColumns(): WorkflowBoardColumn[] {
   return WORKFLOW_COLUMNS.map((column) => ({
     id: column.id,
@@ -1085,6 +1190,10 @@ export function normalizeLinearBoard(input: {
         .filter((task) => task.id && task.title)
         .map((task) => {
           const taskColumnId = mapLinearStateToColumnId(task.state?.name, task.state?.type)
+          const taskPrMetadata = extractPrMetadataFromAttachments(
+            task.attachments?.nodes ?? undefined,
+            task.branchName,
+          )
           return {
             id: task.id as string,
             identifier: task.identifier,
@@ -1098,6 +1207,7 @@ export function normalizeLinearBoard(input: {
             projectId: task.project?.id?.trim() || issue.project?.id?.trim() || undefined,
             parentSliceId: task.parent?.id?.trim() || issue.id?.trim() || undefined,
             url: task.url?.trim() || undefined,
+            prMetadata: taskPrMetadata,
           } satisfies WorkflowBoardTask
         })
 
@@ -1105,6 +1215,10 @@ export function normalizeLinearBoard(input: {
       const doneTasks = tasks.filter((task) => task.columnId === 'done').length
       const milestoneId = issue.projectMilestone?.id?.trim()
       const milestoneName = issue.projectMilestone?.name?.trim()
+      const slicePrMetadata = extractPrMetadataFromAttachments(
+        issue.attachments?.nodes ?? undefined,
+        issue.branchName,
+      )
 
       return {
         id: issue.id as string,
@@ -1124,6 +1238,7 @@ export function normalizeLinearBoard(input: {
           done: doneTasks,
         },
         tasks,
+        prMetadata: slicePrMetadata,
       } satisfies WorkflowBoardSliceCard
     })
 
@@ -1135,6 +1250,11 @@ export function normalizeLinearBoard(input: {
   for (const column of columns) {
     column.cards.sort((left, right) => left.identifier.localeCompare(right.identifier))
   }
+
+  log.debug('[linear-workflow-client] PR metadata extraction', {
+    cardsWithPr: sliceCards.filter((c) => c.prMetadata).length,
+    cardsWithoutPr: sliceCards.filter((c) => !c.prMetadata).length,
+  })
 
   const hasCards = columns.some((column) => column.cards.length > 0)
   const activeMilestoneId = scope === 'project' ? input.activeMilestoneId : input.milestoneId

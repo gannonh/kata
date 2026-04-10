@@ -1,9 +1,10 @@
 import { useAtomValue, useSetAtom } from 'jotai'
-import { AlertCircle, ChevronDown, MessageSquareText } from 'lucide-react'
+import { AlertCircle, ChevronDown, GitPullRequest, MessageSquareText } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import {
   WORKFLOW_COLUMNS,
   type WorkflowBoardEscalationRequest,
+  type WorkflowBoardPrMetadata,
   type WorkflowBoardSliceCard,
   type WorkflowBoardTask,
 } from '@shared/types'
@@ -73,6 +74,38 @@ export function isInlineEscalationEnabled(symphony: WorkflowBoardSliceCard['symp
 
 export function getMoveTargetOptions(currentColumnId: WorkflowBoardSliceCard['columnId']) {
   return WORKFLOW_COLUMNS.filter((column) => column.id !== currentColumnId)
+}
+
+function prStatusColor(status: string | undefined): string {
+  if (!status) return 'bg-muted-foreground'
+  const lower = status.toLowerCase()
+  if (lower === 'merged') return 'bg-violet-500'
+  if (lower === 'open') return 'bg-emerald-500'
+  if (lower === 'closed') return 'bg-red-500'
+  return 'bg-muted-foreground'
+}
+
+export function PrBadge({ prMetadata }: { prMetadata: WorkflowBoardPrMetadata }) {
+  return (
+    <a
+      href={prMetadata.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+      data-testid={`pr-badge-${prMetadata.number}`}
+      onClick={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        window.open(prMetadata.url, '_blank', 'noopener,noreferrer')
+      }}
+    >
+      <GitPullRequest className="size-3" />
+      <span>#{prMetadata.number}</span>
+      {prMetadata.status ? (
+        <span className={`size-1.5 rounded-full ${prStatusColor(prMetadata.status)}`} />
+      ) : null}
+    </a>
+  )
 }
 
 function formatMoveStateMessage(moveState: { phase: 'pending' | 'success' | 'error'; message: string }): string {
@@ -234,6 +267,12 @@ export function SliceCard({ card, collapsed = false, onToggleCollapse }: SliceCa
             ) : (
               <span>{card.identifier}</span>
             )}
+            {card.prMetadata ? (
+              <>
+                {' '}
+                <PrBadge prMetadata={card.prMetadata} />
+              </>
+            ) : null}
             {' · '}
             {card.title}
           </span>

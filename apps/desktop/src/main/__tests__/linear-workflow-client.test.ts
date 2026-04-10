@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import {
   LinearWorkflowClient,
   LinearWorkflowClientError,
+  extractPrMetadataFromAttachments,
   mapLinearStateToColumnId,
   normalizeLinearBoard,
 } from '../linear-workflow-client'
@@ -1780,5 +1781,167 @@ describe('normalizeLinearBoard', () => {
 
     const todoColumn = snapshot.columns.find((column) => column.id === 'todo')
     expect(todoColumn?.cards[0]?.taskCounts).toEqual({ total: 2, done: 1 })
+  })
+
+  test('populates prMetadata on slices and tasks from attachments', () => {
+    const snapshot = normalizeLinearBoard({
+      projectId: 'project-1',
+      milestoneId: 'milestone-1',
+      milestoneName: 'Milestone 1',
+      issues: [
+        {
+          id: 'slice-1',
+          identifier: 'KAT-1',
+          title: 'Slice with PR',
+          branchName: 'feat/my-branch',
+          state: { name: 'In Progress', type: 'started' },
+          projectMilestone: { id: 'milestone-1', name: 'Milestone 1' },
+          attachments: {
+            nodes: [
+              {
+                id: 'att-1',
+                url: 'https://github.com/kata-sh/kata/pull/42',
+                metadata: JSON.stringify({ title: 'Fix bug', status: 'open' }),
+                sourceType: 'github',
+              },
+            ],
+          },
+          children: {
+            nodes: [
+              {
+                id: 'task-1',
+                title: 'Task with PR',
+                branchName: 'feat/task-branch',
+                state: { name: 'Todo', type: 'unstarted' },
+                attachments: {
+                  nodes: [
+                    {
+                      id: 'att-2',
+                      url: 'https://github.com/kata-sh/kata/pull/43',
+                      metadata: '{}',
+                      sourceType: 'github',
+                    },
+                  ],
+                },
+              },
+              {
+                id: 'task-2',
+                title: 'Task without PR',
+                state: { name: 'Todo', type: 'unstarted' },
+              },
+            ],
+          },
+        } as never,
+      ],
+    })
+
+    const inProgressColumn = snapshot.columns.find((col) => col.id === 'in_progress')
+    const card = inProgressColumn?.cards[0]
+    expect(card?.prMetadata).toEqual({
+      number: 42,
+      url: 'https://github.com/kata-sh/kata/pull/42',
+      title: 'Fix bug',
+      status: 'open',
+      branchName: 'feat/my-branch',
+    })
+
+    const taskWithPr = card?.tasks.find((t) => t.id === 'task-1')
+    expect(taskWithPr?.prMetadata).toEqual({
+      number: 43,
+      url: 'https://github.com/kata-sh/kata/pull/43',
+      branchName: 'feat/task-branch',
+    })
+
+    const taskWithoutPr = card?.tasks.find((t) => t.id === 'task-2')
+    expect(taskWithoutPr?.prMetadata).toBeUndefined()
+  })
+})
+
+describe('extractPrMetadataFromAttachments', () => {
+  test('returns undefined when no attachments exist', () => {
+    expect(extractPrMetadataFromAttachments(undefined, undefined)).toBeUndefined()
+    expect(extractPrMetadataFromAttachments([], undefined)).toBeUndefined()
+  })
+
+  test('extracts PR metadata from a GitHub PR URL attachment', () => {
+    const result = extractPrMetadataFromAttachments(
+      [
+        {
+          id: 'att-1',
+          url: 'https://github.com/kata-sh/kata/pull/42',
+          metadata: JSON.stringify({ title: 'My PR', status: 'open' }),
+        },
+      ],
+      'feat/branch',
+    )
+
+    expect(result).toEqual({
+      number: 42,
+      url: 'https://github.com/kata-sh/kata/pull/42',
+      title: 'My PR',
+      status: 'open',
+      branchName: 'feat/branch',
+    })
+  })
+
+  test('parses metadata as JSON object when it is already an object', () => {
+    const result = extractPrMetadataFromAttachments(
+      [
+        {
+          id: 'att-1',
+          url: 'https://github.com/org/repo/pull/99',
+          metadata: { title: 'Object PR', state: 'merged' } as unknown as string,
+        },
+      ],
+      undefined,
+    )
+
+    expect(result).toEqual({
+      number: 99,
+      url: 'https://github.com/org/repo/pull/99',
+      title: 'Object PR',
+      status: 'merged',
+    })
+  })
+
+  test('skips non-PR URL attachments', () => {
+    const result = extractPrMetadataFromAttachments(
+      [
+        {
+          id: 'att-1',
+          url: 'https://github.com/kata-sh/kata/issues/42',
+        },
+      ],
+      undefined,
+    )
+
+    expect(result).toBeUndefined()
+  })
+
+  test('skips attachments with empty or missing URL', () => {
+    const result = extractPrMetadataFromAttachments(
+      [{ id: 'att-1', url: '' }, { id: 'att-2' }],
+      undefined,
+    )
+
+    expect(result).toBeUndefined()
+  })
+
+  test('handles invalid JSON metadata gracefully', () => {
+    const result = extractPrMetadataFromAttachments(
+      [
+        {
+          id: 'att-1',
+          url: 'https://github.com/org/repo/pull/5',
+          metadata: 'not-json',
+        },
+      ],
+      undefined,
+    )
+
+    expect(result).toEqual({
+      number: 5,
+      url: 'https://github.com/org/repo/pull/5',
+    })
   })
 })
