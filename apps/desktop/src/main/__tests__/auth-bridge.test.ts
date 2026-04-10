@@ -374,12 +374,13 @@ describe('AuthBridge', () => {
   test('normalizes auth checkpoint as pass when a provider is configured', () => {
     const normalized = normalizeFirstRunAuthReadiness({
       providers: {
-        anthropic: { provider: 'anthropic', status: 'missing' },
-        openai: { provider: 'openai', status: 'valid', maskedKey: '••••1234' },
-        google: { provider: 'google', status: 'missing' },
-        mistral: { provider: 'mistral', status: 'missing' },
-        bedrock: { provider: 'bedrock', status: 'missing' },
-        azure: { provider: 'azure', status: 'missing' },
+        anthropic: { provider: 'anthropic', status: 'missing', authType: 'api_key' },
+        openai: { provider: 'openai', status: 'valid', authType: 'api_key', maskedKey: '••••1234' },
+        google: { provider: 'google', status: 'missing', authType: 'api_key' },
+        mistral: { provider: 'mistral', status: 'missing', authType: 'api_key' },
+        bedrock: { provider: 'bedrock', status: 'missing', authType: 'api_key' },
+        azure: { provider: 'azure', status: 'missing', authType: 'api_key' },
+        'github-copilot': { provider: 'github-copilot', status: 'missing', authType: 'oauth' },
       },
       selectedProvider: 'openai',
       now: '2026-04-08T00:00:00.000Z',
@@ -393,12 +394,13 @@ describe('AuthBridge', () => {
   test('fails auth checkpoint when selected provider requires key', () => {
     const normalized = normalizeFirstRunAuthReadiness({
       providers: {
-        anthropic: { provider: 'anthropic', status: 'valid', maskedKey: '••••1234' },
-        openai: { provider: 'openai', status: 'missing' },
-        google: { provider: 'google', status: 'missing' },
-        mistral: { provider: 'mistral', status: 'missing' },
-        bedrock: { provider: 'bedrock', status: 'missing' },
-        azure: { provider: 'azure', status: 'missing' },
+        anthropic: { provider: 'anthropic', status: 'valid', authType: 'api_key', maskedKey: '••••1234' },
+        openai: { provider: 'openai', status: 'missing', authType: 'api_key' },
+        google: { provider: 'google', status: 'missing', authType: 'api_key' },
+        mistral: { provider: 'mistral', status: 'missing', authType: 'api_key' },
+        bedrock: { provider: 'bedrock', status: 'missing', authType: 'api_key' },
+        azure: { provider: 'azure', status: 'missing', authType: 'api_key' },
+        'github-copilot': { provider: 'github-copilot', status: 'missing', authType: 'oauth' },
       },
       selectedProvider: 'openai',
       now: '2026-04-08T00:00:00.000Z',
@@ -407,5 +409,126 @@ describe('AuthBridge', () => {
     expect(normalized.checkpoint.status).toBe('fail')
     expect(normalized.checkpoint.failure?.code).toBe('AUTH_PROVIDER_KEY_REQUIRED')
     expect(normalized.checkpoint.failure?.recoveryAction).toBe('reauthenticate')
+  })
+
+  test('includes github-copilot in provider list with authType oauth', async () => {
+    const bridge = new AuthBridge(authFilePath)
+    const response = await bridge.getProviders()
+
+    expect(response.success).toBe(true)
+    expect(response.providers['github-copilot']).toBeDefined()
+    expect(response.providers['github-copilot'].authType).toBe('oauth')
+    expect(response.providers['github-copilot'].provider).toBe('github-copilot')
+  })
+
+  test('authType is always populated for all providers', async () => {
+    await fs.writeFile(
+      authFilePath,
+      JSON.stringify({ anthropic: { type: 'api_key', key: 'test-key' } }, null, 2),
+      'utf8',
+    )
+
+    const bridge = new AuthBridge(authFilePath)
+    const response = await bridge.getProviders()
+
+    expect(response.success).toBe(true)
+    for (const provider of Object.values(response.providers)) {
+      expect(provider.authType).toBeDefined()
+      expect(['api_key', 'oauth']).toContain(provider.authType)
+    }
+  })
+
+  test('detects github-copilot as valid when token file exists', async () => {
+    // Create a mock token file for GitHub Copilot
+    const copilotDir = path.join(tempDir, '.config', 'github-copilot')
+    await fs.mkdir(copilotDir, { recursive: true })
+    await fs.writeFile(path.join(copilotDir, 'hosts.json'), '{}', 'utf8')
+
+    // Override HOME so the bridge finds our mock token
+    const originalHome = process.env.HOME
+    process.env.HOME = tempDir
+    try {
+      const bridge = new AuthBridge(authFilePath)
+      const response = await bridge.getProviders()
+
+      expect(response.providers['github-copilot']).toMatchObject({
+        provider: 'github-copilot',
+        status: 'valid',
+        authType: 'oauth',
+      })
+    } finally {
+      process.env.HOME = originalHome
+    }
+  })
+
+  test('detects github-copilot as missing when no token file exists', async () => {
+    const bridge = new AuthBridge(authFilePath)
+    const response = await bridge.getProviders()
+
+    expect(response.providers['github-copilot']).toMatchObject({
+      provider: 'github-copilot',
+      status: 'missing',
+      authType: 'oauth',
+    })
+  })
+
+  test('rejects setProviderKey for OAuth providers', async () => {
+    const bridge = new AuthBridge(authFilePath)
+    const result = await bridge.setProviderKey('github-copilot', 'some-key')
+
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('OAuth authentication')
+    expect(result.error).toContain('cannot be configured with an API key')
+  })
+
+  test('rejects removeProviderKey for OAuth providers', async () => {
+    const bridge = new AuthBridge(authFilePath)
+    const result = await bridge.removeProviderKey('github-copilot')
+
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('OAuth authentication')
+    expect(result.error).toContain('cannot be removed here')
+  })
+
+  test('rejects validateKey for OAuth providers', async () => {
+    const bridge = new AuthBridge(authFilePath)
+    const result = await bridge.validateKey('github-copilot', 'some-key')
+
+    expect(result.valid).toBe(false)
+    expect(result.error).toContain('OAuth authentication')
+  })
+
+  test('mixed provider map returns correct types for API-key and OAuth providers', async () => {
+    await fs.writeFile(
+      authFilePath,
+      JSON.stringify(
+        {
+          anthropic: { type: 'api_key', key: 'anthropic-key' },
+          openai: { type: 'api_key', key: 'openai-key' },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    )
+
+    const bridge = new AuthBridge(authFilePath)
+    const response = await bridge.getProviders()
+
+    expect(response.success).toBe(true)
+
+    // API-key providers
+    expect(response.providers.anthropic.authType).toBe('api_key')
+    expect(response.providers.anthropic.status).toBe('valid')
+    expect(response.providers.openai.authType).toBe('api_key')
+    expect(response.providers.openai.status).toBe('valid')
+
+    // Unconfigured API-key providers
+    expect(response.providers.google.authType).toBe('api_key')
+    expect(response.providers.google.status).toBe('missing')
+
+    // OAuth providers
+    expect(response.providers['github-copilot'].authType).toBe('oauth')
+    expect(['valid', 'missing']).toContain(response.providers['github-copilot'].status)
   })
 })

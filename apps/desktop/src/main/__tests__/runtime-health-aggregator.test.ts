@@ -74,12 +74,13 @@ function getSurface(snapshot: ReliabilitySnapshot, sourceSurface: string) {
 
 function createProviderStatuses(statusByProvider: Partial<Record<string, 'valid' | 'missing' | 'invalid' | 'expired'>> = {}) {
   return {
-    anthropic: { provider: 'anthropic' as const, status: statusByProvider.anthropic ?? 'missing' },
-    openai: { provider: 'openai' as const, status: statusByProvider.openai ?? 'missing' },
-    google: { provider: 'google' as const, status: statusByProvider.google ?? 'missing' },
-    mistral: { provider: 'mistral' as const, status: statusByProvider.mistral ?? 'missing' },
-    bedrock: { provider: 'bedrock' as const, status: statusByProvider.bedrock ?? 'missing' },
-    azure: { provider: 'azure' as const, status: statusByProvider.azure ?? 'missing' },
+    anthropic: { provider: 'anthropic' as const, status: statusByProvider.anthropic ?? 'missing', authType: 'api_key' as const },
+    openai: { provider: 'openai' as const, status: statusByProvider.openai ?? 'missing', authType: 'api_key' as const },
+    google: { provider: 'google' as const, status: statusByProvider.google ?? 'missing', authType: 'api_key' as const },
+    mistral: { provider: 'mistral' as const, status: statusByProvider.mistral ?? 'missing', authType: 'api_key' as const },
+    bedrock: { provider: 'bedrock' as const, status: statusByProvider.bedrock ?? 'missing', authType: 'api_key' as const },
+    azure: { provider: 'azure' as const, status: statusByProvider.azure ?? 'missing', authType: 'api_key' as const },
+    'github-copilot': { provider: 'github-copilot' as const, status: statusByProvider['github-copilot'] ?? 'missing', authType: 'oauth' as const },
   }
 }
 

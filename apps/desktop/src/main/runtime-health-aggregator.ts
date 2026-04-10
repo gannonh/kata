@@ -40,7 +40,7 @@ import type {
   ThresholdBreach,
   WorkflowBoardSnapshot,
 } from '../shared/types'
-import { ALL_AUTH_PROVIDERS } from '../shared/types'
+import { ALL_AUTH_PROVIDERS, OAUTH_PROVIDERS } from '../shared/types'
 import { buildFirstRunReadinessSnapshot } from '../shared/first-run-readiness'
 
 type RecoveryAttempt = {
@@ -459,11 +459,13 @@ function hasThresholdStateContradiction(
 
 function createMissingProviderStatusMap(): ProviderStatusMap {
   const entries = ALL_AUTH_PROVIDERS.map((provider) => {
+    const authType = OAUTH_PROVIDERS.has(provider) ? 'oauth' as const : 'api_key' as const
     return [
       provider,
       {
         provider,
         status: 'missing' as const,
+        authType,
       },
     ] as const
   })

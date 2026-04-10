@@ -73,6 +73,7 @@ export const ALL_AUTH_PROVIDERS = [
   'mistral',
   'bedrock',
   'azure',
+  'github-copilot',
 ] as const
 
 export type AuthProvider = (typeof ALL_AUTH_PROVIDERS)[number]
@@ -85,6 +86,14 @@ export const AUTH_PROVIDER_ALIASES: Partial<Record<AuthProvider, string[]>> = {
   openai: ['openai-codex'],
 }
 
+/**
+ * Providers that authenticate via OAuth sessions rather than API keys.
+ * These are detected by probing for token files on disk, not by reading auth.json.
+ */
+export const OAUTH_PROVIDERS: ReadonlySet<AuthProvider> = new Set<AuthProvider>([
+  'github-copilot',
+])
+
 export type ProviderStatus = 'valid' | 'missing' | 'expired' | 'invalid'
 
 export type ProviderAuthType = 'api_key' | 'oauth'
@@ -92,7 +101,7 @@ export type ProviderAuthType = 'api_key' | 'oauth'
 export interface ProviderInfo {
   provider: AuthProvider
   status: ProviderStatus
-  authType?: ProviderAuthType
+  authType: ProviderAuthType
   maskedKey?: string
 }
 

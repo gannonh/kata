@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSetAtom } from 'jotai'
 import {
   ALL_AUTH_PROVIDERS,
+  OAUTH_PROVIDERS,
   type AuthProvider,
   type ProviderStatusMap,
 } from '@shared/types'
@@ -46,13 +47,17 @@ export function getOnboardingAccessibilityBaseline(): OnboardingAccessibilityChe
 }
 
 function createMissingProviderMap(): ProviderStatusMap {
-  const entries = ALL_AUTH_PROVIDERS.map((provider) => [
-    provider,
-    {
+  const entries = ALL_AUTH_PROVIDERS.map((provider) => {
+    const authType = OAUTH_PROVIDERS.has(provider) ? 'oauth' as const : 'api_key' as const
+    return [
       provider,
-      status: 'missing' as const,
-    },
-  ])
+      {
+        provider,
+        status: 'missing' as const,
+        authType,
+      },
+    ]
+  })
 
   return Object.fromEntries(entries) as ProviderStatusMap
 }
