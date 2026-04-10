@@ -291,6 +291,141 @@ describe('reliability recovery IPC handler', () => {
     unregister()
   })
 
+  test('server-scoped reconnect with serverName succeeds via mcpService.reconnectServer', async () => {
+    const mcpService = {
+      refreshStatus: vi.fn(),
+      reconnectServer: vi.fn(async () => ({
+        success: true,
+        status: {
+          serverName: 'my-server',
+          phase: 'connected' as const,
+          checkedAt: new Date().toISOString(),
+          toolNames: ['read'],
+          toolCount: 1,
+        },
+      })),
+      getStabilityMetrics: vi.fn(() => ({
+        a11yViolationCounts: { minor: 0, moderate: 0, serious: 0, critical: 0 },
+      })),
+    } as any
+
+    const unregister = registerSessionIpc({
+      ...createCommonOptions(),
+      mcpService,
+    })
+
+    const result = await handlers.get(IPC_CHANNELS.reliabilityRequestRecoveryAction)?.({}, {
+      sourceSurface: 'mcp',
+      action: 'reconnect',
+      serverName: 'my-server',
+    })
+
+    expect(result.success).toBe(true)
+    expect(result.code).toBe('MCP_SERVER_RECONNECTED')
+    expect(mcpService.reconnectServer).toHaveBeenCalledWith('my-server')
+
+    unregister()
+  })
+
+  test('server-scoped MCP error propagates serverName through aggregator to reliability snapshot', async () => {
+    const mcpService = {
+      refreshStatus: vi.fn(async () => ({
+        success: false,
+        status: {
+          serverName: 'my-failing-server',
+          phase: 'error' as const,
+          checkedAt: '2026-04-10T12:00:00.000Z',
+          toolNames: [],
+          toolCount: 0,
+          error: {
+            code: 'CONNECTION_FAILED' as const,
+            message: 'Unable to connect to my-failing-server',
+          },
+        },
+        error: {
+          code: 'CONNECTION_FAILED' as const,
+          message: 'Unable to connect to my-failing-server',
+        },
+      })),
+      reconnectServer: vi.fn(),
+      getStabilityMetrics: vi.fn(() => ({
+        a11yViolationCounts: { minor: 0, moderate: 0, serious: 0, critical: 0 },
+      })),
+    } as any
+
+    const unregister = registerSessionIpc({
+      ...createCommonOptions(),
+      mcpService,
+    })
+
+    // Trigger a server-scoped error through the refresh status handler
+    await handlers.get(IPC_CHANNELS.mcpRefreshStatus)?.({}, 'my-failing-server')
+
+    // Verify the reliability snapshot propagates serverName
+    const statusResult = await handlers.get(IPC_CHANNELS.reliabilityGetStatus)?.({})
+    expect(statusResult.success).toBe(true)
+
+    const mcpSurface = statusResult.snapshot.surfaces.find(
+      (s: any) => s.sourceSurface === 'mcp',
+    )
+    expect(mcpSurface).toBeTruthy()
+    expect(mcpSurface?.status).toBe('degraded')
+    expect(mcpSurface?.signal).toBeTruthy()
+    expect(mcpSurface?.signal?.diagnostics?.serverName).toBe('my-failing-server')
+    expect(mcpSurface?.signal?.recoveryAction).toBe('reconnect')
+
+    unregister()
+  })
+
+  test('config-read error produces gated fix_config action in reliability snapshot, not reconnect', async () => {
+    const mcpConfigBridge = {
+      listServers: vi.fn(async () => ({
+        success: false,
+        provenance: {
+          mode: 'global_only' as const,
+          globalConfigPath: '/tmp/mcp.json',
+        },
+        servers: [],
+        error: {
+          code: 'MALFORMED_CONFIG' as const,
+          message: 'Invalid JSON in mcp.json',
+        },
+      })),
+      getServer: vi.fn(),
+      saveServer: vi.fn(),
+      deleteServer: vi.fn(),
+    } as any
+
+    const mcpService = {
+      refreshStatus: vi.fn(),
+      reconnectServer: vi.fn(),
+      getStabilityMetrics: vi.fn(() => ({
+        a11yViolationCounts: { minor: 0, moderate: 0, serious: 0, critical: 0 },
+      })),
+    } as any
+
+    const unregister = registerSessionIpc({
+      ...createCommonOptions(),
+      mcpConfigBridge,
+      mcpService,
+    })
+
+    // Trigger config read error
+    await handlers.get(IPC_CHANNELS.mcpListServers)?.({})
+
+    // Verify the reliability snapshot has a gated action
+    const statusResult = await handlers.get(IPC_CHANNELS.reliabilityGetStatus)?.({})
+    const mcpSurface = statusResult.snapshot.surfaces.find(
+      (s: any) => s.sourceSurface === 'mcp',
+    )
+    expect(mcpSurface?.signal).toBeTruthy()
+    expect(mcpSurface?.signal?.recoveryAction).toBe('fix_config')
+    expect(mcpSurface?.signal?.recoveryAction).not.toBe('reconnect')
+    expect(mcpSurface?.signal?.diagnostics?.serverName).toBeUndefined()
+
+    unregister()
+  })
+
   test('redacts thrown recovery errors before returning them over reliability IPC', async () => {
     const mcpConfigBridge = {
       listServers: vi.fn(async () => {

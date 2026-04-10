@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
-import type { McpServerSummary, ReliabilitySignal, ThresholdBreach } from '@shared/types'
+import type { McpServerSummary, ReliabilityRecoveryAction, ReliabilitySignal, ThresholdBreach } from '@shared/types'
 import {
   deleteMcpServerAtom,
   loadMcpConfigAtom,
@@ -40,6 +40,28 @@ export function formatMcpProvenanceLabel(mode: 'global_only' | 'overlay_present'
 
 export function formatMcpReliabilityNotice(signal: ReliabilitySignal): string {
   return `${signal.message} Recommended recovery: ${formatReliabilityActionLabel(signal.recoveryAction)}.`
+}
+
+/**
+ * Map gated recovery actions to concise button labels.
+ * These labels are intentionally shorter than the generic `formatReliabilityActionLabel`
+ * to fit in the panel header action buttons.
+ */
+export function formatMcpRecoveryButtonLabel(action: ReliabilityRecoveryAction): string {
+  switch (action) {
+    case 'fix_config':
+      return 'Refresh config'
+    case 'refresh_state':
+      return 'Refresh config'
+    case 'reconnect':
+      return 'Reconnect'
+    case 'reauthenticate':
+      return 'Re-authenticate'
+    case 'inspect':
+      return 'Inspect'
+    default:
+      return formatReliabilityActionLabel(action)
+  }
 }
 
 export function formatMcpStabilityNotice(breach: ThresholdBreach): string {
@@ -118,9 +140,13 @@ export function McpServerPanel() {
                 size="sm"
                 variant="outline"
                 onClick={() => {
+                  const signal = mcpReliability.signal!
                   void requestRecoveryAction({
                     sourceSurface: 'mcp',
-                    action: mcpReliability.signal!.recoveryAction,
+                    action: signal.recoveryAction,
+                    ...(signal.diagnostics?.serverName
+                      ? { serverName: signal.diagnostics.serverName }
+                      : {}),
                   })
                 }}
                 disabled={reliabilityPendingBySurface.mcp}
@@ -128,7 +154,7 @@ export function McpServerPanel() {
               >
                 {reliabilityPendingBySurface.mcp
                   ? 'Recovering…'
-                  : formatReliabilityActionLabel(mcpReliability.signal.recoveryAction)}
+                  : formatMcpRecoveryButtonLabel(mcpReliability.signal.recoveryAction)}
               </Button>
             ) : null}
             <Button type="button" size="sm" onClick={openCreateDialog} data-testid="mcp-add-server">
@@ -205,7 +231,16 @@ export function McpServerPanel() {
           </Alert>
         ) : null}
 
-        {serverErrorCount > 0 ? (
+        {mcpReliability.signal && !mcpReliability.signal.diagnostics?.serverName && !configState.error ? (
+          <Alert data-testid="mcp-server-identity-fallback">
+            <AlertTitle>Server identity unavailable</AlertTitle>
+            <AlertDescription>
+              Refresh config to identify the affected server. Once identified, a targeted recovery action will appear on the server row.
+            </AlertDescription>
+          </Alert>
+        ) : null}
+
+        {serverErrorCount > 0 && !mcpReliability.signal?.diagnostics?.serverName ? (
           <Alert data-testid="mcp-row-recovery-hint">
             <AlertTitle>Server connection errors stay row-scoped</AlertTitle>
             <AlertDescription>
@@ -221,21 +256,35 @@ export function McpServerPanel() {
           </div>
         ) : (
           <div className="space-y-2">
-            {servers.map((server) => (
-              <McpServerRow
-                key={server.name}
-                server={server}
-                pendingDelete={pendingDeleteName === server.name}
-                mutationPending={mutationPending}
-                onEdit={openEditDialog}
-                onRequestDelete={setPendingDeleteName}
-                onConfirmDelete={(name) => {
-                  void deleteServer(name)
-                  setPendingDeleteName(null)
-                }}
-                onCancelDelete={() => setPendingDeleteName(null)}
-              />
-            ))}
+            {servers.map((server) => {
+              const affectedServerName = mcpReliability.signal?.diagnostics?.serverName
+              const isAffected = Boolean(affectedServerName && affectedServerName === server.name)
+              return (
+                <McpServerRow
+                  key={server.name}
+                  server={server}
+                  pendingDelete={pendingDeleteName === server.name}
+                  mutationPending={mutationPending}
+                  onEdit={openEditDialog}
+                  onRequestDelete={setPendingDeleteName}
+                  onConfirmDelete={(name) => {
+                    void deleteServer(name)
+                    setPendingDeleteName(null)
+                  }}
+                  onCancelDelete={() => setPendingDeleteName(null)}
+                  isAffectedByReliabilitySignal={isAffected}
+                  reliabilityRecoveryAction={isAffected ? mcpReliability.signal?.recoveryAction : undefined}
+                  onRecoveryAction={isAffected ? () => {
+                    void requestRecoveryAction({
+                      sourceSurface: 'mcp',
+                      action: mcpReliability.signal!.recoveryAction,
+                      serverName: mcpReliability.signal!.diagnostics?.serverName,
+                    })
+                  } : undefined}
+                  recoveryPending={isAffected ? reliabilityPendingBySurface.mcp : false}
+                />
+              )
+            })}
           </div>
         )}
       </CardContent>

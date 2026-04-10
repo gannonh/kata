@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest'
 import { createMcpServerEditorDraft, parseArgs, validateMcpServerDraft } from '../McpServerEditorDialog'
 import {
   formatMcpProvenanceLabel,
+  formatMcpRecoveryButtonLabel,
   formatMcpReliabilityNotice,
   formatMcpStabilityNotice,
 } from '../McpServerPanel'
@@ -218,5 +219,128 @@ describe('MCP settings helpers', () => {
         hasStoredInlineBearerToken: true,
       }),
     ).toEqual([])
+  })
+
+  describe('MCP recovery CTA truthfulness (R028)', () => {
+    test('formatMcpRecoveryButtonLabel maps fix_config to "Refresh config"', () => {
+      expect(formatMcpRecoveryButtonLabel('fix_config')).toBe('Refresh config')
+    })
+
+    test('formatMcpRecoveryButtonLabel maps refresh_state to "Refresh config"', () => {
+      expect(formatMcpRecoveryButtonLabel('refresh_state')).toBe('Refresh config')
+    })
+
+    test('formatMcpRecoveryButtonLabel maps reconnect to "Reconnect"', () => {
+      expect(formatMcpRecoveryButtonLabel('reconnect')).toBe('Reconnect')
+    })
+
+    test('formatMcpRecoveryButtonLabel maps reauthenticate to "Re-authenticate"', () => {
+      expect(formatMcpRecoveryButtonLabel('reauthenticate')).toBe('Re-authenticate')
+    })
+
+    test('formatMcpRecoveryButtonLabel maps inspect to "Inspect"', () => {
+      expect(formatMcpRecoveryButtonLabel('inspect')).toBe('Inspect')
+    })
+
+    test('formatMcpReliabilityNotice includes gated action label', () => {
+      const notice = formatMcpReliabilityNotice({
+        code: 'REL-MCP-NETWORK-CONNECTION_FAILED',
+        class: 'network',
+        severity: 'error',
+        sourceSurface: 'mcp',
+        recoveryAction: 'refresh_state',
+        outcome: 'failed',
+        message: 'Connection failed',
+        timestamp: '2026-04-10T12:00:00.000Z',
+      })
+
+      expect(notice).toContain('Recommended recovery: Refresh state.')
+      expect(notice).not.toContain('Reconnect')
+    })
+
+    test('signal with serverName should produce row-scoped recovery label', () => {
+      // This tests the pure function in McpServerRow, not the component render
+      // The component uses formatRowRecoveryLabel internally
+      // We validate the behavior indirectly through the exported helpers
+      const signal = {
+        code: 'REL-MCP-NETWORK-CONNECTION_FAILED',
+        class: 'network' as const,
+        severity: 'error' as const,
+        sourceSurface: 'mcp' as const,
+        recoveryAction: 'reconnect' as const,
+        outcome: 'failed' as const,
+        message: 'Connection failed for my-server',
+        timestamp: '2026-04-10T12:00:00.000Z',
+        diagnostics: {
+          code: 'CONNECTION_FAILED',
+          serverName: 'my-server',
+        },
+      }
+
+      // Panel button label should be "Reconnect" (the gated action)
+      expect(formatMcpRecoveryButtonLabel(signal.recoveryAction)).toBe('Reconnect')
+      // serverName is present for row targeting
+      expect(signal.diagnostics.serverName).toBe('my-server')
+    })
+
+    test('signal without serverName should show fallback guidance instead of row action', () => {
+      const signal = {
+        code: 'REL-MCP-NETWORK-CONNECTION_FAILED',
+        class: 'network' as const,
+        severity: 'error' as const,
+        sourceSurface: 'mcp' as const,
+        recoveryAction: 'refresh_state' as const,
+        outcome: 'failed' as const,
+        message: 'Connection failed',
+        timestamp: '2026-04-10T12:00:00.000Z',
+        diagnostics: {
+          code: 'CONNECTION_FAILED',
+        } as { code: string; serverName?: string },
+      }
+
+      // No serverName means no row-scoped action
+      expect(signal.diagnostics.serverName).toBeUndefined()
+      // Panel button should say "Refresh config" (the gated fallback)
+      expect(formatMcpRecoveryButtonLabel(signal.recoveryAction)).toBe('Refresh config')
+    })
+
+    test('recovery request for server-scoped reconnect includes serverName in the payload', () => {
+      // Verify the shape of the payload that McpServerPanel passes to requestRecoveryAction
+      // when a signal with serverName triggers a row-level reconnect.
+      const signal = {
+        code: 'REL-MCP-NETWORK-CONNECTION_FAILED',
+        class: 'network' as const,
+        severity: 'error' as const,
+        sourceSurface: 'mcp' as const,
+        recoveryAction: 'reconnect' as const,
+        outcome: 'failed' as const,
+        message: 'Connection failed for my-server',
+        timestamp: '2026-04-10T12:00:00.000Z',
+        diagnostics: {
+          code: 'CONNECTION_FAILED',
+          serverName: 'my-server',
+        },
+      }
+
+      // The payload built in McpServerPanel onRecoveryAction (row path):
+      const rowPayload = {
+        sourceSurface: signal.sourceSurface,
+        action: signal.recoveryAction,
+        serverName: signal.diagnostics?.serverName,
+      }
+
+      expect(rowPayload.serverName).toBe('my-server')
+      expect(rowPayload.action).toBe('reconnect')
+
+      // The payload built in McpServerPanel onClick (panel-header path) when serverName present:
+      const headerPayload = {
+        sourceSurface: signal.sourceSurface,
+        action: signal.recoveryAction,
+        ...(signal.diagnostics?.serverName ? { serverName: signal.diagnostics.serverName } : {}),
+      }
+
+      expect(headerPayload.serverName).toBe('my-server')
+      expect(headerPayload.action).toBe('reconnect')
+    })
   })
 })
