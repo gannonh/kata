@@ -73,10 +73,9 @@ export function ArtifactTabs({
               key={artifact.artifactKey}
               value={artifact.artifactKey}
               className={cn(
-                'relative shrink-0 rounded-md border border-input bg-transparent px-3 py-1.5 text-xs text-muted-foreground shadow-none',
-                'hover:bg-muted hover:text-foreground',
-                'data-active:border-border data-active:bg-muted data-active:text-foreground',
-                'dark:data-active:border-input dark:data-active:bg-input/30',
+                'relative shrink-0 border border-transparent bg-transparent px-3 py-1.5 text-xs text-muted-foreground shadow-none',
+                'hover:text-foreground',
+                'data-active:text-foreground',
               )}
             >
               <span>{formatArtifactTitle(artifact.title, typeCounts)}</span>
