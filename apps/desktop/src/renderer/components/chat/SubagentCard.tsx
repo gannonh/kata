@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
@@ -72,9 +72,11 @@ function mapResultItem(item: SubagentResultItem, toolStatus: ToolCallView['statu
   const status: 'running' | 'done' | 'error' =
     item.exitCode === -1 && toolStatus === 'running'
       ? 'running'
-      : item.exitCode !== 0
-        ? 'error'
-        : 'done'
+      : item.exitCode === -1
+        ? 'done'
+        : item.exitCode !== 0
+          ? 'error'
+          : 'done'
 
   return {
     agent: item.agent,
@@ -177,6 +179,10 @@ export function formatResultStatusLabel(item: SubagentResultItemView): string {
 
 export function SubagentCard({ tool }: SubagentCardProps) {
   const [isOpen, setIsOpen] = useState(tool.status !== 'done')
+  // Auto-collapse when the tool finishes
+  useEffect(() => {
+    if (tool.status === 'done') setIsOpen(false)
+  }, [tool.status])
   const view = useMemo(() => buildSubagentViewModel(tool), [tool])
 
   const showResultList = (view.mode === 'parallel' || view.mode === 'chain') && view.results.length > 0

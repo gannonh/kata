@@ -285,6 +285,40 @@ describe('buildSubagentViewModel', () => {
     expect(view.results[0]).toMatchObject({ agent: 'scout', status: 'done' })
   })
 
+  test('exitCode -1 when toolStatus done → maps to done (not error)', () => {
+    // Regression guard: exitCode -1 is the "not yet available" sentinel.
+    // When the outer tool is done, an unresolved exit code should be 'done', not 'error'.
+    const tool = makeToolCallView({
+      status: 'done',
+      result: makeSubagentResult({
+        mode: 'parallel',
+        results: [
+          { agent: 'scout', task: 'Find files', exitCode: -1 },
+        ],
+      }),
+    })
+    const view = buildSubagentViewModel(tool)
+
+    expect(view.results).toHaveLength(1)
+    expect(view.results[0]!.status).toBe('done')
+  })
+
+  test('exitCode -1 when toolStatus running → maps to running', () => {
+    const tool = makeToolCallView({
+      status: 'running',
+      result: makeSubagentResult({
+        mode: 'parallel',
+        results: [
+          { agent: 'worker', task: 'Running task', exitCode: -1 },
+        ],
+      }),
+    })
+    const view = buildSubagentViewModel(tool)
+
+    expect(view.results).toHaveLength(1)
+    expect(view.results[0]!.status).toBe('running')
+  })
+
   test('result mode takes priority over args mode', () => {
     const tool = makeToolCallView({
       status: 'done',

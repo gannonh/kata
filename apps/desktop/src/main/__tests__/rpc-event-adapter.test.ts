@@ -1301,6 +1301,42 @@ describe('Real RPC event shapes', () => {
       })
     })
 
+    test('update event with partialResult field → prefers event.partialResult over event.result', () => {
+      adapter.adapt({
+        type: 'tool_execution_start',
+        toolCallId: 'tool-sub-upd-partial',
+        toolName: 'subagent',
+        args: {
+          tasks: [
+            { agent: 'scout', task: 'Find files' },
+            { agent: 'worker', task: 'Fix bug' },
+          ],
+        },
+      })
+
+      const [event] = adapter.adapt({
+        type: 'tool_execution_update',
+        toolCallId: 'tool-sub-upd-partial',
+        toolName: 'subagent',
+        partialResult: {
+          mode: 'parallel',
+          results: [
+            { agent: 'scout', task: 'Find files', exitCode: 0 },
+          ],
+        },
+        // result is absent (as during streaming) — partialResult must be used
+      })
+
+      expect(event).toMatchObject({
+        type: 'tool_update',
+        toolName: 'subagent',
+        partialResult: {
+          mode: 'parallel',
+          results: [{ agent: 'scout', task: 'Find files', exitCode: 0 }],
+        },
+      })
+    })
+
     test('result without details wrapper → extracts from top level', () => {
       adapter.adapt({
         type: 'tool_execution_start',

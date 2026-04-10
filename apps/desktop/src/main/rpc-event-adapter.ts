@@ -220,7 +220,7 @@ export class RpcEventAdapter {
             toolName,
             status: typeof event.status === 'string' ? event.status : undefined,
             partialStdout: toolName === 'bash' ? this.extractPartialStdout(event) : undefined,
-            partialResult: toolName === 'subagent' ? this.extractSubagentResult(event.result ?? event.message) : undefined,
+            partialResult: toolName === 'subagent' ? this.extractSubagentResult(event.partialResult ?? event.result ?? event.message) : undefined,
           },
         ]
       }
