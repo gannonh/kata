@@ -21,6 +21,15 @@ function createExecutable(workspacePath: string, name = 'symphony'): string {
   return executablePath
 }
 
+describe('test environment isolation (R029)', () => {
+  test('KATA_SYMPHONY_BIN_PATH is stripped from process.env by test-setup.ts', () => {
+    // The Vitest setup file (src/test-setup.ts) deletes KATA_SYMPHONY_BIN_PATH
+    // from process.env before any test file runs. This smoke test confirms the
+    // stripping worked, even if the developer's shell had the var exported.
+    expect(process.env.KATA_SYMPHONY_BIN_PATH).toBeUndefined()
+  })
+})
+
 describe('resolveSymphonyLaunch', () => {
   const cleanups: Array<() => void> = []
 
@@ -51,6 +60,7 @@ describe('resolveSymphonyLaunch', () => {
       appIsPackaged: false,
       env: {
         ...process.env,
+        // KATA_SYMPHONY_BIN_PATH absent — stripped by test-setup.ts (R029)
         KATA_SYMPHONY_URL: 'http://localhost:8080',
       },
     })
@@ -199,6 +209,8 @@ describe('resolveSymphonyLaunch', () => {
     const result = await resolveSymphonyLaunch({
       workspacePath: workspace.workspacePath,
       appIsPackaged: false,
+      // KATA_SYMPHONY_BIN_PATH absent — stripped by test-setup.ts (R029).
+      // This test exercises config validation; binary resolution is not reached.
       env: process.env,
     })
 
@@ -225,6 +237,8 @@ describe('resolveSymphonyLaunch', () => {
     const result = await resolveSymphonyLaunch({
       workspacePath: workspace.workspacePath,
       appIsPackaged: false,
+      // KATA_SYMPHONY_BIN_PATH absent — stripped by test-setup.ts (R029).
+      // This test exercises workflow path validation; binary resolution is not reached.
       env: process.env,
     })
 
@@ -252,6 +266,8 @@ describe('resolveSymphonyLaunch', () => {
     const result = await resolveSymphonyLaunch({
       workspacePath: workspace.workspacePath,
       appIsPackaged: false,
+      // KATA_SYMPHONY_BIN_PATH absent — stripped by test-setup.ts (R029).
+      // This test exercises workflow path validation; binary resolution is not reached.
       env: process.env,
     })
 
@@ -277,6 +293,8 @@ describe('resolveSymphonyLaunch', () => {
     const result = await resolveSymphonyLaunch({
       workspacePath: workspace.workspacePath,
       appIsPackaged: false,
+      // KATA_SYMPHONY_BIN_PATH absent — stripped by test-setup.ts (R029).
+      // This test exercises URL validation; binary resolution is not reached.
       env: process.env,
     })
 
@@ -332,6 +350,7 @@ describe('resolveSymphonyLaunch', () => {
       appIsPackaged: false,
       env: {
         ...process.env,
+        // KATA_SYMPHONY_BIN_PATH absent — stripped by test-setup.ts (R029)
         KATA_SYMPHONY_URL: 'http://localhost:8080',
       },
     })
@@ -355,6 +374,7 @@ describe('resolveSymphonyLaunch', () => {
       appIsPackaged: false,
       env: {
         ...process.env,
+        // KATA_SYMPHONY_BIN_PATH absent — stripped by test-setup.ts (R029)
         KATA_SYMPHONY_URL: '',
         SYMPHONY_URL: '',
       },
@@ -409,6 +429,8 @@ describe('resolveSymphonyLaunch', () => {
       resourcesPath,
       env: {
         ...process.env,
+        // KATA_SYMPHONY_BIN_PATH absent — stripped by test-setup.ts (R029).
+        // With no env override, the packaged binary should be discovered via resourcesPath.
         KATA_SYMPHONY_URL: 'http://localhost:8080',
       },
     })
@@ -501,7 +523,7 @@ describe('resolveSymphonyLaunch', () => {
         ...process.env,
         KATA_SYMPHONY_URL: 'http://localhost:8080',
         KATA_SYMPHONY_BIN_PATH: '',
-        PATH: `${binDir}:${process.env.PATH ?? ''}`,
+        PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ''}`,
       },
     })
 
@@ -536,5 +558,72 @@ describe('resolveSymphonyLaunch', () => {
     }
 
     expect(result.error.code).toBe('BINARY_NOT_FOUND')
+  })
+
+  // --- R029 regression tests ---
+
+  test('R029: KATA_SYMPHONY_BIN_PATH takes priority when explicitly set in env', async () => {
+    // Regression guard: when a test explicitly provides KATA_SYMPHONY_BIN_PATH,
+    // it must be used — proving the env var → bundled → PATH priority is preserved.
+    const workspace = createWorkspace()
+    cleanups.push(workspace.cleanup)
+
+    writeFileSync(path.join(workspace.workspacePath, 'WORKFLOW.md'), '# workflow\n', 'utf8')
+    const explicitBinary = createExecutable(workspace.workspacePath, 'explicit-priority-bin')
+
+    // Also place a binary on PATH to prove the env var wins
+    const binDir = mkdtempSync(path.join(tmpdir(), 'desktop-symphony-r029-path-'))
+    cleanups.push(() => rmSync(binDir, { recursive: true, force: true }))
+    createExecutable(binDir, 'symphony')
+
+    const result = await resolveSymphonyLaunch({
+      workspacePath: workspace.workspacePath,
+      appIsPackaged: false,
+      env: {
+        ...process.env,
+        KATA_SYMPHONY_URL: 'http://localhost:8080',
+        KATA_SYMPHONY_BIN_PATH: explicitBinary,
+        PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ''}`,
+      },
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+
+    expect(result.launch.command).toBe(explicitBinary)
+    expect(result.launch.source).toBe('env')
+  })
+
+  test('R029: PATH discovery works when KATA_SYMPHONY_BIN_PATH is absent', async () => {
+    // Regression guard: when no KATA_SYMPHONY_BIN_PATH is in the env object
+    // (as guaranteed by test-setup.ts stripping it from process.env), the
+    // binary is discovered via PATH. This proves no host leakage occurs.
+    const workspace = createWorkspace()
+    cleanups.push(workspace.cleanup)
+
+    writeFileSync(path.join(workspace.workspacePath, 'WORKFLOW.md'), '# workflow\n', 'utf8')
+
+    const binDir = mkdtempSync(path.join(tmpdir(), 'desktop-symphony-r029-nodiscovery-'))
+    cleanups.push(() => rmSync(binDir, { recursive: true, force: true }))
+    const pathBinary = createExecutable(binDir, 'symphony')
+
+    // Confirm the var is not in process.env (setup file guarantee)
+    expect(process.env.KATA_SYMPHONY_BIN_PATH).toBeUndefined()
+
+    const result = await resolveSymphonyLaunch({
+      workspacePath: workspace.workspacePath,
+      appIsPackaged: false,
+      env: {
+        ...process.env,
+        KATA_SYMPHONY_URL: 'http://localhost:8080',
+        PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ''}`,
+      },
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+
+    expect(result.launch.command).toBe(pathBinary)
+    expect(result.launch.source).toBe('path')
   })
 })

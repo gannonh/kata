@@ -170,6 +170,8 @@ describe('SymphonySupervisor', () => {
       appIsPackaged: false,
       env: {
         ...process.env,
+        // KATA_SYMPHONY_BIN_PATH absent — stripped by test-setup.ts (R029).
+        // Mock mode bypasses binary resolution entirely.
         KATA_DESKTOP_SYMPHONY_MOCK: 'ready',
         KATA_SYMPHONY_URL: 'http://127.0.0.1:7000',
       },
@@ -194,6 +196,8 @@ describe('SymphonySupervisor', () => {
       appIsPackaged: false,
       env: {
         ...process.env,
+        // KATA_SYMPHONY_BIN_PATH absent — stripped by test-setup.ts (R029).
+        // Mock mode bypasses binary resolution entirely.
         KATA_DESKTOP_SYMPHONY_MOCK: 'assembled_healthy',
       },
     })
@@ -213,6 +217,8 @@ describe('SymphonySupervisor', () => {
       appIsPackaged: false,
       env: {
         ...process.env,
+        // KATA_SYMPHONY_BIN_PATH absent — stripped by test-setup.ts (R029).
+        // Mock mode bypasses binary resolution entirely.
         KATA_DESKTOP_SYMPHONY_MOCK: 'config_error',
       },
     })
@@ -227,6 +233,8 @@ describe('SymphonySupervisor', () => {
       appIsPackaged: false,
       env: {
         ...process.env,
+        // KATA_SYMPHONY_BIN_PATH absent — stripped by test-setup.ts (R029).
+        // Mock mode bypasses binary resolution entirely.
         KATA_DESKTOP_SYMPHONY_MOCK: 'readiness_error',
       },
     })
@@ -457,6 +465,8 @@ describe('SymphonySupervisor', () => {
     const supervisor = new SymphonySupervisor({
       workspacePath: workspace.workspacePath,
       appIsPackaged: false,
+      // KATA_SYMPHONY_BIN_PATH absent — stripped by test-setup.ts (R029).
+      // stop() doesn't need binary resolution; this just confirms idle stop works.
       env: process.env,
     })
 

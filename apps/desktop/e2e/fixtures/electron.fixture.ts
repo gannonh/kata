@@ -448,6 +448,10 @@ export const test = base.extend<DesktopFixtures>({
         KATA_DESKTOP_SYMPHONY_MOCK: symphonyMockMode,
         KATA_DESKTOP_SYMPHONY_DASHBOARD_MOCK: symphonyMockMode,
         KATA_SYMPHONY_URL: 'http://127.0.0.1:8080',
+        // R029: prevent host-level binary override from affecting e2e tests.
+        // The app should fall through to mock mode (KATA_DESKTOP_SYMPHONY_MOCK) or
+        // bundled/PATH discovery — never use a developer's local binary.
+        KATA_SYMPHONY_BIN_PATH: '',
         KATA_DESKTOP_MCP_CONFIG_PATH: mcpConfigPath,
         KATA_DESKTOP_AUTH_FILE_PATH: authFilePath,
         KATA_DESKTOP_RELIABILITY_CHAT_FAULT: chatRuntimeFaultMode,
