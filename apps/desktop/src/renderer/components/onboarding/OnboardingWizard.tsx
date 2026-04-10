@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSetAtom } from 'jotai'
 import {
   ALL_AUTH_PROVIDERS,
+  OAUTH_PROVIDERS,
   type AuthProvider,
   type ProviderStatusMap,
 } from '@shared/types'
@@ -46,13 +47,17 @@ export function getOnboardingAccessibilityBaseline(): OnboardingAccessibilityChe
 }
 
 function createMissingProviderMap(): ProviderStatusMap {
-  const entries = ALL_AUTH_PROVIDERS.map((provider) => [
-    provider,
-    {
+  const entries = ALL_AUTH_PROVIDERS.map((provider) => {
+    const authType = OAUTH_PROVIDERS.has(provider) ? 'oauth' as const : 'api_key' as const
+    return [
       provider,
-      status: 'missing' as const,
-    },
-  ])
+      {
+        provider,
+        status: 'missing' as const,
+        authType,
+      },
+    ]
+  })
 
   return Object.fromEntries(entries) as ProviderStatusMap
 }
@@ -68,6 +73,8 @@ export function OnboardingWizard() {
   const [providersLoading, setProvidersLoading] = useState(false)
   const [providersError, setProvidersError] = useState<string | null>(null)
   const [resolvedModel, setResolvedModel] = useState<string | null>(null)
+  const [skipping, setSkipping] = useState(false)
+  const [keyStepVisited, setKeyStepVisited] = useState(false)
 
   const firstRunReadiness = reliabilitySnapshot.firstRunReadiness ?? null
 
@@ -155,12 +162,32 @@ export function OnboardingWizard() {
               providers={providers}
               selectedProvider={selectedProvider}
               loadError={providersError}
-              loading={providersLoading}
+              loading={providersLoading || skipping}
               readiness={firstRunReadiness}
               onBack={() => setStep('welcome')}
               onSelect={setSelectedProvider}
               onContinue={() => {
-                if (selectedProvider) {
+                if (!selectedProvider) return
+                const info = providers[selectedProvider]
+                if (info?.status === 'valid') {
+                  // Provider already configured — skip key entry, auto-select model, go to completion
+                  if (skipping) return
+                  void (async () => {
+                    setSkipping(true)
+                    try {
+                      const model = await selectModelForProvider(selectedProvider)
+                      setResolvedModel(model)
+                    } catch (err) {
+                      // Model selection failed — still advance past key entry
+                      console.error('[OnboardingWizard] Model auto-selection failed:', err)
+                      setResolvedModel(null)
+                    } finally {
+                      setSkipping(false)
+                      setStep('complete')
+                    }
+                  })()
+                } else {
+                  setKeyStepVisited(true)
                   setStep('key')
                 }
               }}
@@ -171,7 +198,10 @@ export function OnboardingWizard() {
             <KeyInputStep
               provider={selectedProvider}
               readiness={firstRunReadiness}
-              onBack={() => setStep('provider')}
+              onBack={() => {
+                setKeyStepVisited(false)
+                setStep('provider')
+              }}
               onSaved={async (provider) => {
                 await loadProviders()
                 const model = await selectModelForProvider(provider)
@@ -186,7 +216,7 @@ export function OnboardingWizard() {
             <CompletionStep
               selectedModel={resolvedModel}
               readiness={firstRunReadiness}
-              onBack={() => setStep(selectedProvider ? 'key' : 'provider')}
+              onBack={() => setStep(keyStepVisited ? 'key' : 'provider')}
               onFinish={() => setOnboardingComplete(true)}
             />
           )}

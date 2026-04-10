@@ -44,6 +44,12 @@ export const PROVIDER_METADATA: Record<AuthProvider, ProviderMetadata> = {
     shortName: 'Azure',
     description: 'Provider currently requires endpoint + key',
   },
+  'github-copilot': {
+    id: 'github-copilot',
+    name: 'GitHub Copilot',
+    shortName: 'Copilot',
+    description: 'Authenticated via GitHub Copilot CLI session',
+  },
 }
 
 export const ONBOARDING_PROVIDER_IDS: AuthProvider[] = [

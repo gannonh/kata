@@ -1,6 +1,7 @@
 import {
   ALL_AUTH_PROVIDERS,
   AUTH_PROVIDER_ALIASES,
+  OAUTH_PROVIDERS,
   type AuthProvider,
   type AvailableModel,
   type BridgeLifecycleState,
@@ -113,8 +114,12 @@ function toFailure(
 function buildProviderStateMap(providers: ProviderStatusMap): FirstRunProviderStateMap {
   const entries = ALL_AUTH_PROVIDERS.map((provider) => {
     const info = providers[provider]
+    const isOAuth = OAUTH_PROVIDERS.has(provider) || info.authType === 'oauth'
     const configured = info.status === 'valid'
-    const requiresKey = info.status === 'missing' || info.status === 'invalid' || info.status === 'expired'
+    // OAuth providers never "require a key" — they are set up externally via CLI
+    const requiresKey = isOAuth
+      ? false
+      : info.status === 'missing' || info.status === 'invalid' || info.status === 'expired'
 
     if (configured && requiresKey) {
       throw new FirstRunInvariantError(
@@ -166,6 +171,23 @@ function evaluateAuthCheckpoint(
         }),
       }
     }
+
+    // OAuth provider selected but not connected — show CLI-setup guidance instead of key entry
+    const isSelectedOAuth = OAUTH_PROVIDERS.has(selectedProvider)
+    if (isSelectedOAuth && !selected.configured) {
+      return {
+        checkpoint: 'auth',
+        status: 'fail',
+        failure: toFailure({
+          class: 'auth',
+          severity: 'error',
+          code: 'AUTH_OAUTH_PROVIDER_NOT_CONNECTED',
+          message: `Connect ${selectedProvider} via the Kata CLI to continue onboarding.`,
+          recoveryAction: 'reauthenticate',
+          now,
+        }),
+      }
+    }
   }
 
   if (configuredProviders.length === 0) {
@@ -176,7 +198,8 @@ function evaluateAuthCheckpoint(
         class: 'auth',
         severity: 'error',
         code: 'AUTH_PROVIDER_NOT_CONFIGURED',
-        message: 'No providers are configured. Add an API key to unlock first-run setup.',
+        message:
+          'No providers are configured. Add an API key or connect an OAuth provider via the Kata CLI to unlock first-run setup.',
         recoveryAction: 'reauthenticate',
         now,
       }),

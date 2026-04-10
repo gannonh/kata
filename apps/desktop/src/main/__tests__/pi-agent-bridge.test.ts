@@ -1051,12 +1051,13 @@ setTimeout(() => {
 
   test('normalizes first-run model checkpoint and startup checkpoint', () => {
     const providers: ProviderStatusMap = {
-      anthropic: { provider: 'anthropic', status: 'missing' as const },
-      openai: { provider: 'openai', status: 'valid' as const, maskedKey: '••••1234' },
-      google: { provider: 'google', status: 'missing' as const },
-      mistral: { provider: 'mistral', status: 'missing' as const },
-      bedrock: { provider: 'bedrock', status: 'missing' as const },
-      azure: { provider: 'azure', status: 'missing' as const },
+      anthropic: { provider: 'anthropic', status: 'missing' as const, authType: 'api_key' as const },
+      openai: { provider: 'openai', status: 'valid' as const, authType: 'api_key' as const, maskedKey: '••••1234' },
+      google: { provider: 'google', status: 'missing' as const, authType: 'api_key' as const },
+      mistral: { provider: 'mistral', status: 'missing' as const, authType: 'api_key' as const },
+      bedrock: { provider: 'bedrock', status: 'missing' as const, authType: 'api_key' as const },
+      azure: { provider: 'azure', status: 'missing' as const, authType: 'api_key' as const },
+      'github-copilot': { provider: 'github-copilot', status: 'missing' as const, authType: 'oauth' as const },
     }
 
     const modelCheckpoint = normalizeFirstRunModelReadiness({
@@ -1078,12 +1079,13 @@ setTimeout(() => {
 
   test('treats aliased selected models as available when canonical provider model exists', () => {
     const providers: ProviderStatusMap = {
-      anthropic: { provider: 'anthropic', status: 'missing' as const },
-      openai: { provider: 'openai', status: 'valid' as const, maskedKey: '••••1234' },
-      google: { provider: 'google', status: 'missing' as const },
-      mistral: { provider: 'mistral', status: 'missing' as const },
-      bedrock: { provider: 'bedrock', status: 'missing' as const },
-      azure: { provider: 'azure', status: 'missing' as const },
+      anthropic: { provider: 'anthropic', status: 'missing' as const, authType: 'api_key' as const },
+      openai: { provider: 'openai', status: 'valid' as const, authType: 'api_key' as const, maskedKey: '••••1234' },
+      google: { provider: 'google', status: 'missing' as const, authType: 'api_key' as const },
+      mistral: { provider: 'mistral', status: 'missing' as const, authType: 'api_key' as const },
+      bedrock: { provider: 'bedrock', status: 'missing' as const, authType: 'api_key' as const },
+      azure: { provider: 'azure', status: 'missing' as const, authType: 'api_key' as const },
+      'github-copilot': { provider: 'github-copilot', status: 'missing' as const, authType: 'oauth' as const },
     }
 
     const checkpoint = normalizeFirstRunModelReadiness({
@@ -1099,12 +1101,13 @@ setTimeout(() => {
 
   test('fails model checkpoint when selected model provider is not configured', () => {
     const providers: ProviderStatusMap = {
-      anthropic: { provider: 'anthropic', status: 'missing' as const },
-      openai: { provider: 'openai', status: 'missing' as const },
-      google: { provider: 'google', status: 'valid' as const, maskedKey: '••••5678' },
-      mistral: { provider: 'mistral', status: 'missing' as const },
-      bedrock: { provider: 'bedrock', status: 'missing' as const },
-      azure: { provider: 'azure', status: 'missing' as const },
+      anthropic: { provider: 'anthropic', status: 'missing' as const, authType: 'api_key' as const },
+      openai: { provider: 'openai', status: 'missing' as const, authType: 'api_key' as const },
+      google: { provider: 'google', status: 'valid' as const, authType: 'api_key' as const, maskedKey: '••••5678' },
+      mistral: { provider: 'mistral', status: 'missing' as const, authType: 'api_key' as const },
+      bedrock: { provider: 'bedrock', status: 'missing' as const, authType: 'api_key' as const },
+      azure: { provider: 'azure', status: 'missing' as const, authType: 'api_key' as const },
+      'github-copilot': { provider: 'github-copilot', status: 'missing' as const, authType: 'oauth' as const },
     }
 
     const checkpoint = normalizeFirstRunModelReadiness({

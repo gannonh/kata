@@ -31,6 +31,7 @@ describe('SettingsPanel workflow return affordance', () => {
           mistral: { provider: 'mistral', status: 'missing', configured: false, requiresKey: true },
           bedrock: { provider: 'bedrock', status: 'missing', configured: false, requiresKey: true },
           azure: { provider: 'azure', status: 'missing', configured: false, requiresKey: true },
+          'github-copilot': { provider: 'github-copilot', status: 'missing', configured: false, requiresKey: false },
         },
         checkpoints: {
           auth: { checkpoint: 'auth', status: 'pass' },

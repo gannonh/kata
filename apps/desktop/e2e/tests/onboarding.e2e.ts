@@ -94,6 +94,27 @@ test.describe('Onboarding provider consistency', () => {
 
     await expect(openAiCard.getByText(/Configured/i)).toBeVisible()
   })
+
+  test('configured provider skips key entry and advances to completion', async ({ electronApp }) => {
+    const window = await getOnboardingWindow(electronApp)
+
+    // Step 1 → 2: "Get started"
+    await window.getByRole('button', { name: /Get started/i }).click()
+    await expect(window.getByText('Step 2 of 4').first()).toBeVisible()
+
+    // Select the pre-configured OpenAI provider (seeded with valid key)
+    const openAiCard = window.getByRole('button', { name: /OpenAI/i }).first()
+    await openAiCard.click()
+    await expect(openAiCard.getByText(/Configured/i)).toBeVisible()
+
+    // Click Continue — should skip key entry (step 3) and go to completion (step 4)
+    await window.getByRole('button', { name: /^Continue$/i }).click()
+
+    // Should be on step 4 (completion), NOT step 3 (key entry)
+    await expect(window.getByText('Step 4 of 4').first()).toBeVisible({ timeout: 5_000 })
+    await expect(window.getByText('Step 3 of 4')).toHaveCount(0)
+    await expect(window.getByRole('button', { name: /Start chatting/i })).toBeVisible()
+  })
 })
 
 test.describe('Onboarding recovery messaging', () => {

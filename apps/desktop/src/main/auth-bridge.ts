@@ -1,10 +1,11 @@
 import { promises as fs } from 'node:fs'
-import { homedir } from 'node:os'
+import { homedir, platform } from 'node:os'
 import path from 'node:path'
 import log from './logger'
 import {
   ALL_AUTH_PROVIDERS,
   AUTH_PROVIDER_ALIASES,
+  OAUTH_PROVIDERS,
   type AuthProvider,
   type AuthProvidersResponse,
   type AuthRecord,
@@ -89,6 +90,24 @@ const UNSUPPORTED_PROVIDER_MESSAGES: Partial<Record<AuthProvider, string>> = {
   azure: 'Azure validation requires both API key and Azure endpoint configuration',
 }
 
+/**
+ * Token file paths probed to detect OAuth provider sessions.
+ * Paths are resolved relative to $HOME. We only check for file existence,
+ * never read or expose token contents.
+ */
+const OAUTH_TOKEN_PATHS: Partial<Record<AuthProvider, string[]>> = {
+  'github-copilot':
+    platform() === 'win32'
+      ? [
+          path.join('AppData', 'Local', 'GitHub Copilot', 'hosts.json'),
+          path.join('AppData', 'Local', 'GitHub Copilot', 'apps.json'),
+        ]
+      : [
+          path.join('.config', 'github-copilot', 'hosts.json'),
+          path.join('.config', 'github-copilot', 'apps.json'),
+        ],
+}
+
 export function normalizeFirstRunAuthReadiness(input: {
   providers: ProviderStatusMap
   selectedProvider?: AuthProvider | null
@@ -149,7 +168,7 @@ export class AuthBridge {
   public async getProviders(): Promise<AuthProvidersResponse> {
     try {
       const auth = await this.readAuthFile()
-      const providers = this.toProviderStatusMap(auth)
+      const providers = await this.toProviderStatusMap(auth)
 
       log.info('[auth-bridge] auth:read', {
         path: this.authFilePath,
@@ -177,6 +196,13 @@ export class AuthBridge {
   }
 
   public async validateKey(provider: AuthProvider, key: string): Promise<AuthValidationResult> {
+    if (OAUTH_PROVIDERS.has(provider)) {
+      return {
+        valid: false,
+        error: `${provider} uses OAuth authentication and does not accept API keys.`,
+      }
+    }
+
     const trimmedKey = key.trim()
     if (!trimmedKey) {
       return {
@@ -261,6 +287,14 @@ export class AuthBridge {
   }
 
   public async setProviderKey(provider: AuthProvider, key: string): Promise<AuthSetKeyResponse> {
+    if (OAUTH_PROVIDERS.has(provider)) {
+      return {
+        success: false,
+        provider,
+        error: `${provider} uses OAuth authentication and cannot be configured with an API key. Set it up via the Kata CLI.`,
+      }
+    }
+
     const validation = await this.validateKey(provider, key)
     if (!validation.valid) {
       return {
@@ -311,6 +345,14 @@ export class AuthBridge {
   }
 
   public async removeProviderKey(provider: AuthProvider): Promise<AuthRemoveKeyResponse> {
+    if (OAUTH_PROVIDERS.has(provider)) {
+      return {
+        success: false,
+        provider,
+        error: `${provider} uses OAuth authentication and cannot be removed here. Manage it via the Kata CLI.`,
+      }
+    }
+
     try {
       const auth = await this.readAuthFile()
       delete auth[provider]
@@ -379,11 +421,17 @@ export class AuthBridge {
     await fs.rename(tempPath, this.authFilePath)
   }
 
-  private toProviderStatusMap(auth: AuthRecord): ProviderStatusMap {
-    const entries = ALL_AUTH_PROVIDERS.map((provider) => [
-      provider,
-      this.toProviderInfo(provider, this.resolveAuthRecord(auth, provider)),
-    ])
+  private async toProviderStatusMap(auth: AuthRecord): Promise<ProviderStatusMap> {
+    const entries: [AuthProvider, ProviderInfo][] = []
+
+    for (const provider of ALL_AUTH_PROVIDERS) {
+      if (OAUTH_PROVIDERS.has(provider)) {
+        const oauthStatus = await this.detectOAuthProvider(provider)
+        entries.push([provider, oauthStatus])
+      } else {
+        entries.push([provider, this.toProviderInfo(provider, this.resolveAuthRecord(auth, provider))])
+      }
+    }
 
     return Object.fromEntries(entries) as ProviderStatusMap
   }
@@ -413,7 +461,9 @@ export class AuthBridge {
   private emptyProviderStatusMap(): ProviderStatusMap {
     const entries = ALL_AUTH_PROVIDERS.map((provider) => [
       provider,
-      this.toProviderInfo(provider, undefined),
+      OAUTH_PROVIDERS.has(provider)
+        ? { provider, status: 'missing' as const, authType: 'oauth' as const }
+        : this.toProviderInfo(provider, undefined),
     ])
 
     return Object.fromEntries(entries) as ProviderStatusMap
@@ -424,6 +474,7 @@ export class AuthBridge {
       return {
         provider,
         status: 'missing',
+        authType: OAUTH_PROVIDERS.has(provider) ? 'oauth' : 'api_key',
       }
     }
 
@@ -451,7 +502,35 @@ export class AuthBridge {
     return {
       provider,
       status: 'invalid',
+      authType: OAUTH_PROVIDERS.has(provider) ? 'oauth' : 'api_key',
     }
+  }
+
+  /**
+   * Detect whether an OAuth-backed provider has an active session by probing
+   * for token files on disk. Never reads or exposes token contents.
+   */
+  private async detectOAuthProvider(provider: AuthProvider): Promise<ProviderInfo> {
+    const tokenPaths = OAUTH_TOKEN_PATHS[provider]
+    if (!tokenPaths || tokenPaths.length === 0) {
+      log.debug('[auth-bridge] oauth:detect no token paths configured', { provider })
+      return { provider, status: 'missing', authType: 'oauth' }
+    }
+
+    const home = homedir()
+    for (const relativePath of tokenPaths) {
+      const fullPath = path.join(home, relativePath)
+      try {
+        await fs.access(fullPath)
+        log.debug('[auth-bridge] oauth:detect token file found', { provider, authType: 'oauth', status: 'valid' })
+        return { provider, status: 'valid', authType: 'oauth' }
+      } catch {
+        // File not found — continue to next path
+      }
+    }
+
+    log.debug('[auth-bridge] oauth:detect no token files found', { provider, authType: 'oauth', status: 'missing' })
+    return { provider, status: 'missing', authType: 'oauth' }
   }
 
   private maskKey(value: string | undefined): string | undefined {

@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest'
 import { ONBOARDING_PROVIDER_IDS, PROVIDER_METADATA } from './providers'
 
 describe('PROVIDER_METADATA', () => {
-  test('contains expected metadata for all six providers', () => {
+  test('contains expected metadata for all providers', () => {
     expect(PROVIDER_METADATA).toEqual({
       anthropic: {
         id: 'anthropic',
@@ -39,6 +39,12 @@ describe('PROVIDER_METADATA', () => {
         name: 'Azure OpenAI',
         shortName: 'Azure',
         description: 'Provider currently requires endpoint + key',
+      },
+      'github-copilot': {
+        id: 'github-copilot',
+        name: 'GitHub Copilot',
+        shortName: 'Copilot',
+        description: 'Authenticated via GitHub Copilot CLI session',
       },
     })
   })
