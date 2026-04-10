@@ -74,6 +74,7 @@ export function OnboardingWizard() {
   const [providersError, setProvidersError] = useState<string | null>(null)
   const [resolvedModel, setResolvedModel] = useState<string | null>(null)
   const [skipping, setSkipping] = useState(false)
+  const [keyStepVisited, setKeyStepVisited] = useState(false)
 
   const firstRunReadiness = reliabilitySnapshot.firstRunReadiness ?? null
 
@@ -185,6 +186,7 @@ export function OnboardingWizard() {
                     }
                   })()
                 } else {
+                  setKeyStepVisited(true)
                   setStep('key')
                 }
               }}
@@ -195,7 +197,10 @@ export function OnboardingWizard() {
             <KeyInputStep
               provider={selectedProvider}
               readiness={firstRunReadiness}
-              onBack={() => setStep('provider')}
+              onBack={() => {
+                setKeyStepVisited(false)
+                setStep('provider')
+              }}
               onSaved={async (provider) => {
                 await loadProviders()
                 const model = await selectModelForProvider(provider)
@@ -210,7 +215,7 @@ export function OnboardingWizard() {
             <CompletionStep
               selectedModel={resolvedModel}
               readiness={firstRunReadiness}
-              onBack={() => setStep(selectedProvider ? 'key' : 'provider')}
+              onBack={() => setStep(keyStepVisited ? 'key' : 'provider')}
               onFinish={() => setOnboardingComplete(true)}
             />
           )}
