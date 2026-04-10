@@ -11,7 +11,9 @@ pr:
   base_branch: main
   review_on_create: false
   linear_link: false
-always_use_skills: []
+always_use_skills: 
+  - /Volumes/EVO/kata/kata-mono/.agents/skills/releasing-kata/SKILL.md
+  - /Volumes/EVO/kata/kata-mono/.agents/skills/shadcn/SKILL.md
 prefer_skills: []
 avoid_skills: []
 skill_rules: []

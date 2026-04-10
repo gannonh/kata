@@ -64,7 +64,7 @@ export function ArtifactTabs({
       }}
       className="mt-2"
     >
-      <TabsList className="h-auto w-full justify-start overflow-x-auto px-4">
+      <TabsList className="h-auto w-full justify-start gap-1 overflow-x-auto bg-transparent px-4 py-1">
         {sortedArtifacts.map((artifact) => {
           const hasUnviewedUpdate = hasUnviewedUpdatesByKey[artifact.artifactKey] === true
 
@@ -72,11 +72,16 @@ export function ArtifactTabs({
             <TabsTrigger
               key={artifact.artifactKey}
               value={artifact.artifactKey}
-              className="relative shrink-0 text-xs"
+              className={cn(
+                'relative shrink-0 rounded-md border border-input bg-transparent px-3 py-1.5 text-xs text-muted-foreground shadow-none',
+                'hover:bg-muted hover:text-foreground',
+                'data-active:border-border data-active:bg-muted data-active:text-foreground',
+                'dark:data-active:border-input dark:data-active:bg-input/30',
+              )}
             >
               <span>{formatArtifactTitle(artifact.title, typeCounts)}</span>
               {hasUnviewedUpdate ? (
-                <span className="absolute top-1 right-1 size-1.5 rounded-full bg-primary" aria-label="updated" />
+                <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-primary" aria-label="updated" />
               ) : null}
             </TabsTrigger>
           )

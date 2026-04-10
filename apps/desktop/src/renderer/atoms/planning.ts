@@ -313,6 +313,11 @@ export function usePlanningArtifactBridge(): void {
       setArtifactFetchInFlightCount((current) => Math.max(0, current - 1))
       delete pendingTriggerToolNameByArtifactKeyRef.current[event.artifactKey]
 
+      if (event.error?.code === 'NOT_FOUND') {
+        setError(null)
+        return
+      }
+
       if (event.error) {
         setError(event.error.message)
       }
