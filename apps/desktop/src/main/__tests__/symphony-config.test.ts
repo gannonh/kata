@@ -523,7 +523,7 @@ describe('resolveSymphonyLaunch', () => {
         ...process.env,
         KATA_SYMPHONY_URL: 'http://localhost:8080',
         KATA_SYMPHONY_BIN_PATH: '',
-        PATH: `${binDir}:${process.env.PATH ?? ''}`,
+        PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ''}`,
       },
     })
 
@@ -583,7 +583,7 @@ describe('resolveSymphonyLaunch', () => {
         ...process.env,
         KATA_SYMPHONY_URL: 'http://localhost:8080',
         KATA_SYMPHONY_BIN_PATH: explicitBinary,
-        PATH: `${binDir}:${process.env.PATH ?? ''}`,
+        PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ''}`,
       },
     })
 
@@ -616,7 +616,7 @@ describe('resolveSymphonyLaunch', () => {
       env: {
         ...process.env,
         KATA_SYMPHONY_URL: 'http://localhost:8080',
-        PATH: `${binDir}:${process.env.PATH ?? ''}`,
+        PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ''}`,
       },
     })
 
