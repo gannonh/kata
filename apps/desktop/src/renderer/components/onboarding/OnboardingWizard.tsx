@@ -73,6 +73,7 @@ export function OnboardingWizard() {
   const [providersLoading, setProvidersLoading] = useState(false)
   const [providersError, setProvidersError] = useState<string | null>(null)
   const [resolvedModel, setResolvedModel] = useState<string | null>(null)
+  const [skipping, setSkipping] = useState(false)
 
   const firstRunReadiness = reliabilitySnapshot.firstRunReadiness ?? null
 
@@ -160,7 +161,7 @@ export function OnboardingWizard() {
               providers={providers}
               selectedProvider={selectedProvider}
               loadError={providersError}
-              loading={providersLoading}
+              loading={providersLoading || skipping}
               readiness={firstRunReadiness}
               onBack={() => setStep('welcome')}
               onSelect={setSelectedProvider}
@@ -169,15 +170,19 @@ export function OnboardingWizard() {
                 const info = providers[selectedProvider]
                 if (info?.status === 'valid') {
                   // Provider already configured — skip key entry, auto-select model, go to completion
+                  if (skipping) return
                   void (async () => {
+                    setSkipping(true)
                     try {
                       const model = await selectModelForProvider(selectedProvider)
                       setResolvedModel(model)
                     } catch {
                       // Model selection failed — still advance past key entry
                       setResolvedModel(null)
+                    } finally {
+                      setSkipping(false)
+                      setStep('complete')
                     }
-                    setStep('complete')
                   })()
                 } else {
                   setStep('key')

@@ -1,5 +1,5 @@
 import { promises as fs } from 'node:fs'
-import { homedir } from 'node:os'
+import { homedir, platform } from 'node:os'
 import path from 'node:path'
 import log from './logger'
 import {
@@ -96,10 +96,16 @@ const UNSUPPORTED_PROVIDER_MESSAGES: Partial<Record<AuthProvider, string>> = {
  * never read or expose token contents.
  */
 const OAUTH_TOKEN_PATHS: Partial<Record<AuthProvider, string[]>> = {
-  'github-copilot': [
-    path.join('.config', 'github-copilot', 'hosts.json'),
-    path.join('.config', 'github-copilot', 'apps.json'),
-  ],
+  'github-copilot':
+    platform() === 'win32'
+      ? [
+          path.join('AppData', 'Local', 'GitHub Copilot', 'hosts.json'),
+          path.join('AppData', 'Local', 'GitHub Copilot', 'apps.json'),
+        ]
+      : [
+          path.join('.config', 'github-copilot', 'hosts.json'),
+          path.join('.config', 'github-copilot', 'apps.json'),
+        ],
 }
 
 export function normalizeFirstRunAuthReadiness(input: {
