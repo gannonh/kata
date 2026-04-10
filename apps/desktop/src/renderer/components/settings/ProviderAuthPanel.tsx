@@ -6,6 +6,7 @@ import type {
   ProviderInfo,
   ProviderStatusMap,
 } from '@shared/types'
+import { OAUTH_PROVIDERS } from '@shared/types'
 import { useReliabilitySnapshot } from '@/atoms/reliability'
 import { Check, KeyRound, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -31,6 +32,7 @@ const PROVIDER_ORDER: AuthProvider[] = [
   'mistral',
   'bedrock',
   'azure',
+  'github-copilot',
 ]
 
 function statusVariant(status: ProviderInfo['status']): 'secondary' | 'destructive' | 'outline' {
@@ -136,6 +138,8 @@ export function ProviderAuthPanel() {
     return row?.info ?? providers?.[activeProvider]
   }, [activeProvider, providerRows, providers])
 
+  const activeIsOAuth = OAUTH_PROVIDERS.has(activeProvider)
+
   const handleSave = async () => {
     const trimmed = apiKeyInput.trim()
     if (!trimmed) {
@@ -226,34 +230,49 @@ export function ProviderAuthPanel() {
               <p className="text-xs text-muted-foreground">No providers available</p>
             )}
 
-            {providerRows.map(({ provider, metadata, info }) => (
-              <Button
-                key={provider}
-                type="button"
-                variant="ghost"
-                onClick={() => {
-                  setActiveProvider(provider)
-                  setActionError(null)
-                  setActionSuccess(null)
-                  setApiKeyInput('')
-                }}
-                className={cn(
-                  'h-auto w-full justify-between rounded-md border border-border bg-background/30 px-2 py-2 text-left',
-                  activeProvider === provider
-                    ? 'border-ring bg-accent text-foreground'
-                    : 'text-muted-foreground hover:bg-accent/70 hover:text-foreground',
-                )}
-              >
-                <span className="flex flex-col gap-0.5">
-                  <span className="font-medium text-foreground">{metadata.name}</span>
-                  <span className="text-xs text-muted-foreground">{info.maskedKey ?? 'Not configured'}</span>
-                </span>
+            {providerRows.map(({ provider, metadata, info }) => {
+              const isOAuth = OAUTH_PROVIDERS.has(provider)
+              let statusLabel: string
+              if (isOAuth && info.status === 'valid') {
+                statusLabel = 'Authenticated'
+              } else if (isOAuth && info.status === 'missing') {
+                statusLabel = 'Not connected'
+              } else {
+                statusLabel = info.status
+              }
+              const subtitleLabel = isOAuth
+                ? (info.status === 'valid' ? 'OAuth session' : 'Set up in CLI')
+                : (info.maskedKey ?? 'Not configured')
 
-                <Badge variant={statusVariant(info.status)} className="capitalize">
-                  {info.status}
-                </Badge>
-              </Button>
-            ))}
+              return (
+                <Button
+                  key={provider}
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    setActiveProvider(provider)
+                    setActionError(null)
+                    setActionSuccess(null)
+                    setApiKeyInput('')
+                  }}
+                  className={cn(
+                    'h-auto w-full justify-between rounded-md border border-border bg-background/30 px-2 py-2 text-left',
+                    activeProvider === provider
+                      ? 'border-ring bg-accent text-foreground'
+                      : 'text-muted-foreground hover:bg-accent/70 hover:text-foreground',
+                  )}
+                >
+                  <span className="flex flex-col gap-0.5">
+                    <span className="font-medium text-foreground">{metadata.name}</span>
+                    <span className="text-xs text-muted-foreground">{subtitleLabel}</span>
+                  </span>
+
+                  <Badge variant={statusVariant(info.status)} className="capitalize">
+                    {statusLabel}
+                  </Badge>
+                </Button>
+              )
+            })}
           </CardContent>
         </Card>
 
@@ -267,67 +286,96 @@ export function ProviderAuthPanel() {
             <div className="flex items-center gap-2 text-xs">
               <span className="text-muted-foreground">Status:</span>
               <Badge variant={statusVariant(activeInfo?.status ?? 'missing')} className="capitalize">
-                {activeInfo?.status ?? 'missing'}
+                {activeIsOAuth
+                  ? (activeInfo?.status === 'valid' ? 'Authenticated' : 'Not connected')
+                  : (activeInfo?.status ?? 'missing')}
               </Badge>
+              {activeIsOAuth && (
+                <span className="text-xs text-muted-foreground">(OAuth)</span>
+              )}
             </div>
 
             <Separator />
 
-            {activeInfo?.maskedKey ? (
-              <div className="rounded-md border border-border bg-accent/60 px-3 py-2 text-xs text-muted-foreground">
-                <p>
-                  Saved key: <span className="font-mono text-foreground">{activeInfo.maskedKey}</span>
-                </p>
+            {activeIsOAuth ? (
+              <div
+                className="rounded-md border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground"
+                data-testid="settings-oauth-provider-info"
+              >
+                {activeInfo?.status === 'valid' ? (
+                  <p>
+                    <span className="font-medium text-foreground">Authenticated</span> — this provider
+                    is connected via an OAuth session managed by the Kata CLI.
+                  </p>
+                ) : (
+                  <>
+                    <p className="font-medium text-foreground">Not connected</p>
+                    <p className="mt-1">
+                      Run <code className="rounded bg-accent px-1">kata</code> in your terminal to
+                      authenticate with {PROVIDER_METADATA[activeProvider].name}.
+                    </p>
+                  </>
+                )}
               </div>
             ) : (
-              <div className="flex flex-col gap-2">
-                <Label
-                  htmlFor="provider-auth-input"
-                  className="text-xs uppercase tracking-wide text-muted-foreground"
-                >
-                  API key
-                </Label>
-                <Input
-                  id="provider-auth-input"
-                  type="password"
-                  value={apiKeyInput}
-                  onChange={(event) => setApiKeyInput(event.target.value)}
-                  placeholder={`Enter ${PROVIDER_METADATA[activeProvider].shortName} key`}
-                  className="h-9 text-xs"
-                />
-              </div>
+              <>
+                {activeInfo?.maskedKey ? (
+                  <div className="rounded-md border border-border bg-accent/60 px-3 py-2 text-xs text-muted-foreground">
+                    <p>
+                      Saved key: <span className="font-mono text-foreground">{activeInfo.maskedKey}</span>
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    <Label
+                      htmlFor="provider-auth-input"
+                      className="text-xs uppercase tracking-wide text-muted-foreground"
+                    >
+                      API key
+                    </Label>
+                    <Input
+                      id="provider-auth-input"
+                      type="password"
+                      value={apiKeyInput}
+                      onChange={(event) => setApiKeyInput(event.target.value)}
+                      placeholder={`Enter ${PROVIDER_METADATA[activeProvider].shortName} key`}
+                      className="h-9 text-xs"
+                    />
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-2">
+                  {!activeInfo?.maskedKey && (
+                    <Button
+                      type="button"
+                      disabled={submitting}
+                      onClick={() => {
+                        void handleSave()
+                      }}
+                      size="sm"
+                    >
+                      <KeyRound data-icon="inline-start" />
+                      {submitting ? 'Validating…' : 'Validate & Save'}
+                    </Button>
+                  )}
+
+                  {activeInfo?.maskedKey && (
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      disabled={submitting}
+                      onClick={() => {
+                        void handleRemove()
+                      }}
+                      size="sm"
+                    >
+                      <Trash2 data-icon="inline-start" />
+                      {submitting ? 'Removing…' : 'Remove key'}
+                    </Button>
+                  )}
+                </div>
+              </>
             )}
-
-            <div className="flex flex-wrap gap-2">
-              {!activeInfo?.maskedKey && (
-                <Button
-                  type="button"
-                  disabled={submitting}
-                  onClick={() => {
-                    void handleSave()
-                  }}
-                  size="sm"
-                >
-                  <KeyRound data-icon="inline-start" />
-                  {submitting ? 'Validating…' : 'Validate & Save'}
-                </Button>
-              )}
-
-              {activeInfo?.maskedKey && (
-                <Button
-                  type="button"
-                  variant="destructive"
-                  disabled={submitting}
-                  onClick={() => {
-                    void handleRemove()
-                  }}
-                  size="sm"
-                >
-                  <Trash2 data-icon="inline-start" />
-                  {submitting ? 'Removing…' : 'Remove key'}
-                </Button>
-              )}
-            </div>
 
             {actionError && <p className="text-xs text-destructive">{actionError}</p>}
             {actionSuccess && (
