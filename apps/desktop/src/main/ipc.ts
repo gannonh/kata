@@ -699,16 +699,19 @@ export function registerSessionIpc({
         pushUpdate: true,
       })
 
+      const expectedMissingArtifact = response.error?.code === 'NOT_FOUND'
+
       sendPlanningFetchStateToRenderer({
         state: 'end',
         title: planningEvent.title,
         artifactKey: planningEvent.artifactKey,
         toolName: planningEvent.toolName,
-        error: response.success ? undefined : response.error,
+        error: response.success || expectedMissingArtifact ? undefined : response.error,
       })
 
       if (!response.success) {
-        log.warn('[desktop-ipc] planning artifact fetch failed', {
+        const logMethod = expectedMissingArtifact ? log.info.bind(log) : log.warn.bind(log)
+        logMethod('[desktop-ipc] planning artifact fetch failed', {
           title: planningEvent.title,
           artifactKey: planningEvent.artifactKey,
           toolName: planningEvent.toolName,

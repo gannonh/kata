@@ -88,6 +88,11 @@ export function PlanningPane() {
         }
 
         if (!response.success || !response.artifact) {
+          if (response.error?.code === 'NOT_FOUND') {
+            setPlanningError(null)
+            return
+          }
+
           setPlanningError(response.error?.message ?? 'Unable to fetch artifact')
           return
         }
