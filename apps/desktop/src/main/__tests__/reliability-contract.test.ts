@@ -312,7 +312,7 @@ describe('reliability-contract', () => {
       expect(signal?.diagnostics?.serverName).toBeUndefined()
     })
 
-    test('config-read network error still maps to fix_config (not reconnect)', () => {
+    test('config-read unknown error still maps to fix_config (not reconnect)', () => {
       const signal = mapMcpConfigReadResponseToReliability({
         success: false,
         provenance: {
@@ -321,13 +321,13 @@ describe('reliability-contract', () => {
         },
         servers: [],
         error: {
-          code: 'CONNECTION_FAILED',
-          message: 'Unable to read config due to network issue',
+          code: 'UNKNOWN',
+          message: 'Unable to read config due to unknown issue',
         },
       })
 
       expect(signal).toBeTruthy()
-      // Even though CONNECTION_FAILED is classified as network (default: reconnect),
+      // Even though UNKNOWN is classified as unknown (default: inspect),
       // config-read errors are always clamped to fix_config
       expect(signal?.recoveryAction).toBe('fix_config')
     })

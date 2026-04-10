@@ -1,4 +1,4 @@
-import type { McpServerStatus, McpServerSummary } from '@shared/types'
+import type { McpServerStatus, McpServerSummary, ReliabilityRecoveryAction } from '@shared/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
@@ -49,6 +49,17 @@ export function summarizeMcpServer(server: McpServerSummary): string {
   return server.summary.url
 }
 
+function formatRowRecoveryLabel(action: ReliabilityRecoveryAction, serverName: string): string {
+  switch (action) {
+    case 'reconnect':
+      return `Reconnect ${serverName}`
+    case 'reauthenticate':
+      return `Re-authenticate ${serverName}`
+    default:
+      return `Recover ${serverName}`
+  }
+}
+
 interface McpServerRowProps {
   server: McpServerSummary
   pendingDelete?: boolean
@@ -57,6 +68,10 @@ interface McpServerRowProps {
   onConfirmDelete: (name: string) => void
   onCancelDelete: () => void
   mutationPending?: boolean
+  isAffectedByReliabilitySignal?: boolean
+  reliabilityRecoveryAction?: ReliabilityRecoveryAction
+  onRecoveryAction?: () => void
+  recoveryPending?: boolean
 }
 
 export function McpServerRow({
@@ -67,11 +82,20 @@ export function McpServerRow({
   onConfirmDelete,
   onCancelDelete,
   mutationPending,
+  isAffectedByReliabilitySignal,
+  reliabilityRecoveryAction,
+  onRecoveryAction,
+  recoveryPending,
 }: McpServerRowProps) {
   return (
     <article
-      className="rounded-lg border border-border bg-background/40 p-3"
+      className={`rounded-lg border p-3 ${
+        isAffectedByReliabilitySignal
+          ? 'border-destructive bg-destructive/5'
+          : 'border-border bg-background/40'
+      }`}
       data-testid={`mcp-server-row-${server.name}`}
+      data-affected={isAffectedByReliabilitySignal ? 'true' : undefined}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
@@ -153,6 +177,20 @@ export function McpServerRow({
         </div>
       </div>
 
+      {isAffectedByReliabilitySignal && reliabilityRecoveryAction && onRecoveryAction ? (
+        <div className="mt-2 flex items-center gap-2" data-testid={`mcp-row-recovery-${server.name}`}>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={onRecoveryAction}
+            disabled={recoveryPending}
+            data-testid={`mcp-row-recovery-action-${server.name}`}
+          >
+            {recoveryPending ? 'Recovering…' : formatRowRecoveryLabel(reliabilityRecoveryAction, server.name)}
+          </Button>
+        </div>
+      ) : null}
     </article>
   )
 }
