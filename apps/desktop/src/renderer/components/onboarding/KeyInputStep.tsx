@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ArrowLeft, KeyRound } from 'lucide-react'
 import type { AuthProvider, FirstRunReadinessSnapshot } from '@shared/types'
+import { OAUTH_PROVIDERS } from '@shared/types'
 import { buildFirstRunGuidance, getFirstRunCheckpoint } from '@/lib/first-run-readiness'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,8 +24,48 @@ export function KeyInputStep({ provider, readiness, onBack, onSaved, onSkip }: K
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   const metadata = PROVIDER_METADATA[provider]
+  const isOAuth = OAUTH_PROVIDERS.has(provider)
   const authGuidance = buildFirstRunGuidance(getFirstRunCheckpoint(readiness, 'auth'))
   const modelGuidance = buildFirstRunGuidance(getFirstRunCheckpoint(readiness, 'model'))
+
+  if (isOAuth) {
+    return (
+      <div className="flex h-full flex-col justify-between">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <h2 className="text-2xl font-semibold text-foreground">{metadata.name}</h2>
+            <p className="text-sm text-muted-foreground">
+              This provider authenticates through an OAuth session, not an API key.
+            </p>
+          </div>
+
+          <div
+            className="rounded-md border border-border bg-muted/50 px-4 py-3 text-sm text-muted-foreground"
+            data-testid="onboarding-oauth-guidance"
+          >
+            <p className="font-medium text-foreground">Set up via Kata CLI</p>
+            <p className="mt-1">
+              Run <code className="rounded bg-accent px-1">kata</code> in your terminal to authenticate with{' '}
+              {metadata.name}. Once connected, return here and the provider will show as configured.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-6 flex flex-col gap-4">
+          <Separator />
+          <div className="flex items-center justify-between">
+            <Button type="button" variant="outline" onClick={onBack}>
+              <ArrowLeft data-icon="inline-start" />
+              Back
+            </Button>
+            <Button type="button" variant="ghost" onClick={onSkip} className="text-muted-foreground">
+              Skip for now
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   const validateAndSave = async (): Promise<void> => {
     const trimmed = keyValue.trim()

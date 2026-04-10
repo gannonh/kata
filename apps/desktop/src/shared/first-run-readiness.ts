@@ -1,6 +1,7 @@
 import {
   ALL_AUTH_PROVIDERS,
   AUTH_PROVIDER_ALIASES,
+  OAUTH_PROVIDERS,
   type AuthProvider,
   type AvailableModel,
   type BridgeLifecycleState,
@@ -113,8 +114,12 @@ function toFailure(
 function buildProviderStateMap(providers: ProviderStatusMap): FirstRunProviderStateMap {
   const entries = ALL_AUTH_PROVIDERS.map((provider) => {
     const info = providers[provider]
+    const isOAuth = OAUTH_PROVIDERS.has(provider) || info.authType === 'oauth'
     const configured = info.status === 'valid'
-    const requiresKey = info.status === 'missing' || info.status === 'invalid' || info.status === 'expired'
+    // OAuth providers never "require a key" — they are set up externally via CLI
+    const requiresKey = isOAuth
+      ? false
+      : info.status === 'missing' || info.status === 'invalid' || info.status === 'expired'
 
     if (configured && requiresKey) {
       throw new FirstRunInvariantError(

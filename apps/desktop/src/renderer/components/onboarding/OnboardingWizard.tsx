@@ -165,7 +165,21 @@ export function OnboardingWizard() {
               onBack={() => setStep('welcome')}
               onSelect={setSelectedProvider}
               onContinue={() => {
-                if (selectedProvider) {
+                if (!selectedProvider) return
+                const info = providers[selectedProvider]
+                if (info?.status === 'valid') {
+                  // Provider already configured — skip key entry, auto-select model, go to completion
+                  void (async () => {
+                    try {
+                      const model = await selectModelForProvider(selectedProvider)
+                      setResolvedModel(model)
+                    } catch {
+                      // Model selection failed — still advance past key entry
+                      setResolvedModel(null)
+                    }
+                    setStep('complete')
+                  })()
+                } else {
                   setStep('key')
                 }
               }}
