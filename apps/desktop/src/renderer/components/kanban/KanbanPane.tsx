@@ -5,7 +5,9 @@ import {
   collapseAllWorkflowCardsAtom,
   collapsedWorkflowColumnsAtom,
   expandAllWorkflowCardsAtom,
+  hasExplicitColumnOverridesAtom,
   refreshWorkflowBoardAtom,
+  resetColumnCollapseOverridesAtom,
   resetWorkflowCollapsedColumnsAtom,
   toggleWorkflowColumnCollapsedAtom,
   workflowBoardAtom,
@@ -54,11 +56,14 @@ export function KanbanPane() {
   const selectedScope = useAtomValue(workflowBoardScopeAtom)
   const collapsedColumns = useAtomValue(collapsedWorkflowColumnsAtom)
 
+  const hasExplicitOverrides = useAtomValue(hasExplicitColumnOverridesAtom)
+
   const setRightPaneOverride = useSetAtom(setRightPaneOverrideAtom)
   const setScope = useSetAtom(workflowBoardScopeAtom)
   const clearOverride = useSetAtom(clearRightPaneOverrideAtom)
   const toggleCollapsedColumn = useSetAtom(toggleWorkflowColumnCollapsedAtom)
   const resetCollapsedColumns = useSetAtom(resetWorkflowCollapsedColumnsAtom)
+  const resetColumnOverrides = useSetAtom(resetColumnCollapseOverridesAtom)
   const expandAllCards = useSetAtom(expandAllWorkflowCardsAtom)
   const collapseAllCards = useSetAtom(collapseAllWorkflowCardsAtom)
 
@@ -87,6 +92,7 @@ export function KanbanPane() {
         selectedScope={selectedScope}
         collapsedColumnCount={presentation.collapsedColumnCount}
         hiddenCardCount={presentation.hiddenCardCount}
+        hasExplicitColumnOverrides={hasExplicitOverrides}
         rightPaneOverride={rightPaneOverride}
         paneResolution={paneResolution}
         workflowContext={workflowContext}
@@ -97,6 +103,9 @@ export function KanbanPane() {
         }}
         onExpandAllColumns={() => {
           resetCollapsedColumns()
+        }}
+        onResetColumnOverrides={() => {
+          resetColumnOverrides()
         }}
         onExpandAllCards={() => expandAllCards()}
         onCollapseAllCards={() => collapseAllCards()}

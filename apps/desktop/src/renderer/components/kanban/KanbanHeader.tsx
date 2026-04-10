@@ -153,6 +153,7 @@ interface KanbanHeaderProps {
   selectedScope: WorkflowBoardScope
   collapsedColumnCount: number
   hiddenCardCount: number
+  hasExplicitColumnOverrides: boolean
   rightPaneOverride: RightPaneOverride
   paneResolution: RightPaneResolution
   workflowContext: WorkflowContextSnapshot
@@ -160,6 +161,7 @@ interface KanbanHeaderProps {
   actionLockReason?: string | null
   onScopeChange: (scope: WorkflowBoardScope) => void
   onExpandAllColumns: () => void
+  onResetColumnOverrides: () => void
   onExpandAllCards: () => void
   onCollapseAllCards: () => void
   onOpenPlanningView: () => void
@@ -174,6 +176,7 @@ export function KanbanHeader({
   selectedScope,
   collapsedColumnCount,
   hiddenCardCount,
+  hasExplicitColumnOverrides,
   rightPaneOverride,
   paneResolution,
   workflowContext,
@@ -181,6 +184,7 @@ export function KanbanHeader({
   actionLockReason,
   onScopeChange,
   onExpandAllColumns,
+  onResetColumnOverrides,
   onExpandAllCards,
   onCollapseAllCards,
   onOpenPlanningView,
@@ -236,6 +240,13 @@ export function KanbanHeader({
                   data-testid="kanban-expand-all-columns"
                 >
                   Expand all columns
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={onResetColumnOverrides}
+                  disabled={!hasExplicitColumnOverrides}
+                  data-testid="kanban-reset-columns"
+                >
+                  Reset columns to auto
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={onExpandAllCards} data-testid="kanban-expand-all-cards">
                   Expand all cards
