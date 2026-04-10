@@ -291,11 +291,25 @@ export interface WriteArgs {
   content: string
 }
 
+export interface SubagentTaskItem {
+  agent: string
+  task: string
+  cwd?: string
+}
+
+export interface SubagentArgs {
+  agent?: string
+  task?: string
+  tasks?: SubagentTaskItem[]
+  chain?: SubagentTaskItem[]
+  mode: 'single' | 'parallel' | 'chain'
+}
+
 export interface UnknownToolArgs {
   raw: unknown
 }
 
-export type ToolArgs = EditArgs | BashArgs | ReadArgs | WriteArgs | UnknownToolArgs
+export type ToolArgs = EditArgs | BashArgs | ReadArgs | WriteArgs | SubagentArgs | UnknownToolArgs
 
 export interface EditResult {
   path?: string
@@ -333,12 +347,27 @@ export interface WriteResult {
   raw?: unknown
 }
 
+export interface SubagentResultItem {
+  agent: string
+  task: string
+  exitCode: number
+  errorMessage?: string
+  model?: string
+  step?: number
+}
+
+export interface SubagentResult {
+  mode: string
+  results: SubagentResultItem[]
+  raw?: unknown
+}
+
 export interface UnknownToolResult {
   raw: unknown
   parseError?: string
 }
 
-export type ToolResult = EditResult | BashResult | ReadResult | WriteResult | UnknownToolResult
+export type ToolResult = EditResult | BashResult | ReadResult | WriteResult | SubagentResult | UnknownToolResult
 
 export interface ExtensionUIRequestBase {
   id: string
@@ -411,6 +440,7 @@ export type ChatEvent =
       toolName: string
       status?: string
       partialStdout?: string
+      partialResult?: ToolResult
     }
   | {
       type: 'tool_end'

@@ -237,6 +237,7 @@ export const applyChatEventAtom = atom(null, (get, set, event: ChatEvent) => {
             partialStdout: event.partialStdout
               ? `${tool.partialStdout ?? ''}${event.partialStdout}`
               : tool.partialStdout,
+            result: event.partialResult ?? tool.result,
           }
         }),
       )
