@@ -80,7 +80,7 @@ export function SessionListItem({
       )}
     >
       <p
-        className="text-xs font-medium leading-snug text-card-foreground"
+        className="min-w-0 text-xs font-medium leading-snug text-card-foreground [overflow-wrap:anywhere]"
         style={{
           display: '-webkit-box',
           overflow: 'hidden',
