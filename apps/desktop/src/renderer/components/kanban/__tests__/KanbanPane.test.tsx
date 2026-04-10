@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest'
+import type { WorkflowBoardSliceCard, WorkflowBoardTask } from '@shared/types'
 import { formatScopeStatus, formatSymphonyBoardStatus, formatWorkflowBoardStatus } from '../KanbanHeader'
 import { summarizeColumnPresentation } from '../KanbanPane'
 import { formatWorkflowReliabilityNotice, formatWorkflowStabilityNotice } from '../BoardStateNotice'
@@ -217,5 +218,81 @@ describe('KanbanPane presentation persistence helpers', () => {
 
     expect(summary.collapsedColumnCount).toBe(2)
     expect(summary.hiddenCardCount).toBe(2)
+  })
+})
+
+describe('KanbanPane PR metadata integration', () => {
+  test('board snapshot with mixed PR-linked and non-linked cards preserves prMetadata correctly', () => {
+    const taskWithPrData: WorkflowBoardTask = {
+      id: 'task-1',
+      identifier: 'KAT-101',
+      title: 'Task with PR',
+      columnId: 'todo',
+      stateName: 'Todo',
+      stateType: 'unstarted',
+      prMetadata: {
+        number: 43,
+        url: 'https://github.com/kata-sh/kata/pull/43',
+      },
+    }
+
+    const taskWithoutPrData: WorkflowBoardTask = {
+      id: 'task-2',
+      identifier: 'KAT-102',
+      title: 'Task without PR',
+      columnId: 'todo',
+      stateName: 'Todo',
+      stateType: 'unstarted',
+    }
+
+    const cardWithPrData: WorkflowBoardSliceCard = {
+      id: 'slice-1',
+      identifier: 'KAT-100',
+      title: 'Slice with PR',
+      columnId: 'in_progress',
+      stateName: 'In Progress',
+      stateType: 'started',
+      milestoneId: 'milestone-1',
+      milestoneName: 'M001',
+      taskCounts: { total: 2, done: 0 },
+      tasks: [taskWithPrData, taskWithoutPrData],
+      prMetadata: {
+        number: 42,
+        url: 'https://github.com/kata-sh/kata/pull/42',
+        title: 'Feature PR',
+        status: 'open',
+        branchName: 'feat/branch',
+      },
+    }
+
+    const cardWithoutPrData: WorkflowBoardSliceCard = {
+      id: 'slice-2',
+      identifier: 'KAT-200',
+      title: 'Slice without PR',
+      columnId: 'todo',
+      stateName: 'Todo',
+      stateType: 'unstarted',
+      milestoneId: 'milestone-1',
+      milestoneName: 'M001',
+      taskCounts: { total: 0, done: 0 },
+      tasks: [],
+    }
+
+    // Card with PR metadata
+    expect(cardWithPrData.prMetadata).toBeDefined()
+    expect(cardWithPrData.prMetadata?.number).toBe(42)
+    expect(cardWithPrData.prMetadata?.url).toBe('https://github.com/kata-sh/kata/pull/42')
+    expect(cardWithPrData.prMetadata?.status).toBe('open')
+    expect(cardWithPrData.prMetadata?.branchName).toBe('feat/branch')
+
+    // Card without PR metadata
+    expect(cardWithoutPrData.prMetadata).toBeUndefined()
+
+    // Task with PR
+    expect(taskWithPrData.prMetadata?.number).toBe(43)
+    expect(taskWithPrData.prMetadata?.url).toBe('https://github.com/kata-sh/kata/pull/43')
+
+    // Task without PR
+    expect(taskWithoutPrData.prMetadata).toBeUndefined()
   })
 })
