@@ -6,6 +6,10 @@ import {
   type EditResult,
   type ReadArgs,
   type ReadResult,
+  type SubagentArgs,
+  type SubagentResult,
+  type SubagentResultItem,
+  type SubagentTaskItem,
   type ToolArgs,
   type ToolResult,
   type WriteArgs,
@@ -216,6 +220,7 @@ export class RpcEventAdapter {
             toolName,
             status: typeof event.status === 'string' ? event.status : undefined,
             partialStdout: toolName === 'bash' ? this.extractPartialStdout(event) : undefined,
+            partialResult: toolName === 'subagent' ? this.extractSubagentResult(event.result ?? event.message) : undefined,
           },
         ]
       }
@@ -300,6 +305,9 @@ export class RpcEventAdapter {
           content: asString(argRecord?.content) ?? '',
         } satisfies WriteArgs
 
+      case 'subagent':
+        return this.extractSubagentArgs(argRecord)
+
       default:
         return {
           raw: args,
@@ -317,6 +325,8 @@ export class RpcEventAdapter {
         return this.extractReadResult(args, result)
       case 'write':
         return this.extractWriteResult(args, result)
+      case 'subagent':
+        return this.extractSubagentResult(result)
       default:
         return {
           raw: result,
@@ -419,6 +429,70 @@ export class RpcEventAdapter {
       bytesWritten: asNumber(resultRecord?.bytesWritten) ?? byteLength(content),
       raw: result,
     }
+  }
+
+  private extractSubagentArgs(argRecord: Record<string, unknown> | null): SubagentArgs {
+    const agent = asString(argRecord?.agent)
+    const task = asString(argRecord?.task)
+    const tasks = this.extractSubagentTaskItems(argRecord?.tasks)
+    const chain = this.extractSubagentTaskItems(argRecord?.chain)
+
+    // Derive mode: chain > tasks (parallel) > single
+    const mode = chain.length > 0 ? 'chain' : tasks.length > 0 ? 'parallel' : 'single'
+
+    const result: SubagentArgs = { mode }
+    if (agent) result.agent = agent
+    if (task) result.task = task
+    if (tasks.length > 0) result.tasks = tasks
+    if (chain.length > 0) result.chain = chain
+
+    return result
+  }
+
+  private extractSubagentTaskItems(items: unknown): SubagentTaskItem[] {
+    if (!Array.isArray(items)) return []
+    const result: SubagentTaskItem[] = []
+    for (const item of items) {
+      const rec = asRecord(item)
+      if (!rec) continue
+      const agent = asString(rec.agent)
+      const task = asString(rec.task)
+      if (agent && task) {
+        const entry: SubagentTaskItem = { agent, task }
+        const cwd = asString(rec.cwd)
+        if (cwd) entry.cwd = cwd
+        result.push(entry)
+      }
+    }
+    return result
+  }
+
+  private extractSubagentResult(result: unknown): SubagentResult {
+    const resultRecord = asRecord(result)
+
+    // The subagent tool returns { details: { mode, results: [...] } } or directly { mode, results }
+    const detailsRecord = asRecord(resultRecord?.details) ?? resultRecord
+    const mode = asString(detailsRecord?.mode) ?? 'single'
+
+    const rawResults = Array.isArray(detailsRecord?.results) ? detailsRecord.results : []
+    const results: SubagentResultItem[] = []
+    for (const item of rawResults) {
+      const rec = asRecord(item)
+      if (!rec) continue
+      const agent = asString(rec.agent) ?? 'unknown'
+      const task = asString(rec.task) ?? ''
+      const exitCode = asNumber(rec.exitCode) ?? -1
+      const entry: SubagentResultItem = { agent, task, exitCode }
+      const errorMessage = asString(rec.errorMessage)
+      if (errorMessage) entry.errorMessage = errorMessage
+      const model = asString(rec.model)
+      if (model) entry.model = model
+      const step = asNumber(rec.step)
+      if (step !== undefined) entry.step = step
+      results.push(entry)
+    }
+
+    return { mode, results, raw: result }
   }
 
   private extractPartialStdout(event: RpcEvent): string | undefined {

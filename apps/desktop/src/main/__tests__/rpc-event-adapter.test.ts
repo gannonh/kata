@@ -1030,4 +1030,305 @@ describe('Real RPC event shapes', () => {
       expect(events, `expected [] for ame type ${ameType}`).toEqual([])
     }
   })
+
+  // ── Subagent extraction tests ───────────────────────────────────────────────
+
+  describe('subagent arg extraction', () => {
+    test('single-mode args → SubagentArgs with agent + task + mode', () => {
+      const [event] = adapter.adapt({
+        type: 'tool_execution_start',
+        toolCallId: 'tool-sub-1',
+        toolName: 'subagent',
+        args: {
+          agent: 'scout',
+          task: 'Find the auth module',
+        },
+      })
+
+      expect(event).toMatchObject({
+        type: 'tool_start',
+        toolCallId: 'tool-sub-1',
+        toolName: 'subagent',
+        args: {
+          agent: 'scout',
+          task: 'Find the auth module',
+          mode: 'single',
+        },
+      })
+      // Should not have tasks/chain fields
+      const args = (event as unknown as { args: Record<string, unknown> }).args
+      expect(args).not.toHaveProperty('tasks')
+      expect(args).not.toHaveProperty('chain')
+    })
+
+    test('parallel-mode args with tasks[] → correct extraction', () => {
+      const [event] = adapter.adapt({
+        type: 'tool_execution_start',
+        toolCallId: 'tool-sub-2',
+        toolName: 'subagent',
+        args: {
+          tasks: [
+            { agent: 'scout', task: 'Find auth module' },
+            { agent: 'worker', task: 'Fix the bug in login.ts' },
+          ],
+        },
+      })
+
+      expect(event).toMatchObject({
+        type: 'tool_start',
+        toolName: 'subagent',
+        args: {
+          mode: 'parallel',
+          tasks: [
+            { agent: 'scout', task: 'Find auth module' },
+            { agent: 'worker', task: 'Fix the bug in login.ts' },
+          ],
+        },
+      })
+    })
+
+    test('chain-mode args → correct extraction with mode chain', () => {
+      const [event] = adapter.adapt({
+        type: 'tool_execution_start',
+        toolCallId: 'tool-sub-3',
+        toolName: 'subagent',
+        args: {
+          chain: [
+            { agent: 'scout', task: 'Find context for auth' },
+            { agent: 'worker', task: 'Implement the fix based on {previous}' },
+          ],
+        },
+      })
+
+      expect(event).toMatchObject({
+        type: 'tool_start',
+        toolName: 'subagent',
+        args: {
+          mode: 'chain',
+          chain: [
+            { agent: 'scout', task: 'Find context for auth' },
+            { agent: 'worker', task: 'Implement the fix based on {previous}' },
+          ],
+        },
+      })
+    })
+
+    test('chain takes priority over tasks when both present', () => {
+      const [event] = adapter.adapt({
+        type: 'tool_execution_start',
+        toolCallId: 'tool-sub-4',
+        toolName: 'subagent',
+        args: {
+          tasks: [{ agent: 'scout', task: 'parallel task' }],
+          chain: [{ agent: 'worker', task: 'chain task' }],
+        },
+      })
+
+      const args = (event as unknown as { args: Record<string, unknown> }).args
+      expect(args).toMatchObject({ mode: 'chain' })
+    })
+
+    test('missing/null args → single mode with no agent or task', () => {
+      const [event] = adapter.adapt({
+        type: 'tool_execution_start',
+        toolCallId: 'tool-sub-5',
+        toolName: 'subagent',
+        args: null,
+      })
+
+      expect(event).toMatchObject({
+        type: 'tool_start',
+        toolName: 'subagent',
+        args: { mode: 'single' },
+      })
+    })
+  })
+
+  describe('subagent result extraction', () => {
+    test('result with exitCode 0 → done SubagentResult', () => {
+      // Start event to populate cache
+      adapter.adapt({
+        type: 'tool_execution_start',
+        toolCallId: 'tool-sub-res-1',
+        toolName: 'subagent',
+        args: { agent: 'scout', task: 'Find files' },
+      })
+
+      const [event] = adapter.adapt({
+        type: 'tool_execution_end',
+        toolCallId: 'tool-sub-res-1',
+        toolName: 'subagent',
+        result: {
+          details: {
+            mode: 'single',
+            results: [
+              { agent: 'scout', task: 'Find files', exitCode: 0, model: 'claude-sonnet-4-5' },
+            ],
+          },
+        },
+        isError: false,
+      })
+
+      expect(event).toMatchObject({
+        type: 'tool_end',
+        toolName: 'subagent',
+        isError: false,
+        result: {
+          mode: 'single',
+          results: [
+            { agent: 'scout', task: 'Find files', exitCode: 0, model: 'claude-sonnet-4-5' },
+          ],
+        },
+      })
+    })
+
+    test('result with exitCode non-zero → error with message', () => {
+      adapter.adapt({
+        type: 'tool_execution_start',
+        toolCallId: 'tool-sub-res-2',
+        toolName: 'subagent',
+        args: { agent: 'worker', task: 'Deploy the app' },
+      })
+
+      const [event] = adapter.adapt({
+        type: 'tool_execution_end',
+        toolCallId: 'tool-sub-res-2',
+        toolName: 'subagent',
+        result: {
+          details: {
+            mode: 'single',
+            results: [
+              {
+                agent: 'worker',
+                task: 'Deploy the app',
+                exitCode: 1,
+                errorMessage: 'Permission denied',
+              },
+            ],
+          },
+        },
+        isError: true,
+      })
+
+      expect(event).toMatchObject({
+        type: 'tool_end',
+        toolName: 'subagent',
+        isError: true,
+        result: {
+          mode: 'single',
+          results: [
+            {
+              agent: 'worker',
+              task: 'Deploy the app',
+              exitCode: 1,
+              errorMessage: 'Permission denied',
+            },
+          ],
+        },
+      })
+    })
+
+    test('parallel result with mixed exit codes', () => {
+      adapter.adapt({
+        type: 'tool_execution_start',
+        toolCallId: 'tool-sub-res-3',
+        toolName: 'subagent',
+        args: {
+          tasks: [
+            { agent: 'scout', task: 'Find files' },
+            { agent: 'worker', task: 'Fix bug' },
+          ],
+        },
+      })
+
+      const [event] = adapter.adapt({
+        type: 'tool_execution_end',
+        toolCallId: 'tool-sub-res-3',
+        toolName: 'subagent',
+        result: {
+          details: {
+            mode: 'parallel',
+            results: [
+              { agent: 'scout', task: 'Find files', exitCode: 0 },
+              { agent: 'worker', task: 'Fix bug', exitCode: 1, errorMessage: 'Build failed' },
+            ],
+          },
+        },
+        isError: false,
+      })
+
+      const result = (event as unknown as { result: { mode: string; results: Array<Record<string, unknown>> } }).result
+      expect(result.mode).toBe('parallel')
+      expect(result.results).toHaveLength(2)
+      expect(result.results[0]).toMatchObject({ agent: 'scout', exitCode: 0 })
+      expect(result.results[1]).toMatchObject({ agent: 'worker', exitCode: 1, errorMessage: 'Build failed' })
+    })
+
+    test('update event → partial SubagentResult extracted', () => {
+      adapter.adapt({
+        type: 'tool_execution_start',
+        toolCallId: 'tool-sub-upd-1',
+        toolName: 'subagent',
+        args: {
+          tasks: [
+            { agent: 'scout', task: 'Find files' },
+            { agent: 'worker', task: 'Fix bug' },
+          ],
+        },
+      })
+
+      const [event] = adapter.adapt({
+        type: 'tool_execution_update',
+        toolCallId: 'tool-sub-upd-1',
+        toolName: 'subagent',
+        result: {
+          mode: 'parallel',
+          results: [
+            { agent: 'scout', task: 'Find files', exitCode: 0 },
+          ],
+        },
+      })
+
+      expect(event).toMatchObject({
+        type: 'tool_update',
+        toolName: 'subagent',
+        partialResult: {
+          mode: 'parallel',
+          results: [
+            { agent: 'scout', task: 'Find files', exitCode: 0 },
+          ],
+        },
+      })
+    })
+
+    test('result without details wrapper → extracts from top level', () => {
+      adapter.adapt({
+        type: 'tool_execution_start',
+        toolCallId: 'tool-sub-res-4',
+        toolName: 'subagent',
+        args: { agent: 'scout', task: 'Find files' },
+      })
+
+      const [event] = adapter.adapt({
+        type: 'tool_execution_end',
+        toolCallId: 'tool-sub-res-4',
+        toolName: 'subagent',
+        result: {
+          mode: 'single',
+          results: [
+            { agent: 'scout', task: 'Find files', exitCode: 0 },
+          ],
+        },
+        isError: false,
+      })
+
+      expect(event).toMatchObject({
+        type: 'tool_end',
+        result: {
+          mode: 'single',
+          results: [{ agent: 'scout', exitCode: 0 }],
+        },
+      })
+    })
+  })
 })
