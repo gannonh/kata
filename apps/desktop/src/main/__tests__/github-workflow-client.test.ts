@@ -469,4 +469,41 @@ describe('extractPrMetadataFromGithubIssue', () => {
 
     expect(result).toBeUndefined()
   })
+
+  test('returns undefined for standalone #N without a PR hint (issue reference)', () => {
+    // #123 in a plain body could be an issue, not a PR — guard prevents false positives
+    const result = extractPrMetadataFromGithubIssue(
+      'Closes #123 and fixes #456',
+      'owner',
+      'repo',
+    )
+
+    expect(result).toBeUndefined()
+  })
+
+  test('extracts PR metadata from shorthand #N when body contains a PR hint', () => {
+    const result = extractPrMetadataFromGithubIssue(
+      'Linked PR #42 closes this issue',
+      'owner',
+      'repo',
+    )
+
+    expect(result).toEqual({
+      number: 42,
+      url: 'https://github.com/owner/repo/pull/42',
+    })
+  })
+
+  test('extracts PR metadata from shorthand #N when body says "pull request"', () => {
+    const result = extractPrMetadataFromGithubIssue(
+      'Fixed by pull request #99',
+      'owner',
+      'repo',
+    )
+
+    expect(result).toEqual({
+      number: 99,
+      url: 'https://github.com/owner/repo/pull/99',
+    })
+  })
 })

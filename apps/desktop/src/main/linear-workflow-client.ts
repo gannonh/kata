@@ -726,6 +726,8 @@ export class LinearWorkflowClient {
                   id
                   identifier
                   title
+                  description
+                  branchName
                   state {
                     id
                     name
@@ -741,6 +743,14 @@ export class LinearWorkflowClient {
                     id
                   }
                   url
+                  attachments(filter: { sourceType: { eq: "github" } }) {
+                    nodes {
+                      id
+                      url
+                      metadata
+                      sourceType
+                    }
+                  }
                 }
                 pageInfo {
                   hasNextPage

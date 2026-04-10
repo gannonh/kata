@@ -589,8 +589,10 @@ export function extractPrMetadataFromGithubIssue(
 
   // Also match shorthand #N references that could be PRs within the same repo
   // Only match standalone #N patterns (not inside URLs already matched)
+  // Require an explicit PR hint to avoid mislabeling issue references as PRs
+  const hasPrHint = /\b(pr|pull request)\b/i.test(body)
   const shorthandPattern = /(?:^|\s)#(\d+)(?:\s|$|[.,;)])/g
-  while ((match = shorthandPattern.exec(body)) !== null) {
+  while (hasPrHint && (match = shorthandPattern.exec(body)) !== null) {
     const refNumber = Number(match[1])
 
     return {
