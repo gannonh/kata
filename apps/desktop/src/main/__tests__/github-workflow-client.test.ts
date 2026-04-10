@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { GithubWorkflowClient } from '../github-workflow-client'
+import { GithubWorkflowClient, extractPrMetadataFromGithubIssue } from '../github-workflow-client'
 
 const originalFetch = globalThis.fetch
 const originalGhToken = process.env.GH_TOKEN
@@ -333,5 +333,140 @@ describe('GithubWorkflowClient', () => {
       code: 'UNKNOWN',
       message: 'boom',
     })
+  })
+
+  test('populates prMetadata on label-mode cards from issue body PR references', async () => {
+    process.env.GH_TOKEN = 'ghp_test'
+
+    globalThis.fetch = vi.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify([
+          {
+            id: 1001,
+            number: 10,
+            title: 'Issue with PR link',
+            body: 'Related PR: https://github.com/kata-sh/kata/pull/42',
+            html_url: 'https://github.com/kata-sh/kata/issues/10',
+            labels: [{ name: 'symphony:in-progress' }],
+          },
+          {
+            id: 1002,
+            number: 11,
+            title: 'Issue without PR link',
+            body: 'No PR reference here',
+            html_url: 'https://github.com/kata-sh/kata/issues/11',
+            labels: [{ name: 'symphony:todo' }],
+          },
+        ]),
+        { status: 200 },
+      ),
+    ) as unknown as typeof fetch
+
+    const client = new GithubWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
+    const snapshot = await client.fetchSnapshot({
+      config: {
+        kind: 'github',
+        repoOwner: 'kata-sh',
+        repoName: 'kata',
+        stateMode: 'labels',
+        labelPrefix: 'symphony',
+      },
+    })
+
+    const inProgressCard = snapshot.columns.find((c) => c.id === 'in_progress')?.cards[0]
+    expect(inProgressCard?.prMetadata).toEqual({
+      number: 42,
+      url: 'https://github.com/kata-sh/kata/pull/42',
+    })
+
+    const todoCard = snapshot.columns.find((c) => c.id === 'todo')?.cards[0]
+    expect(todoCard?.prMetadata).toBeUndefined()
+  })
+
+  test('filters out PR-type issues while still extracting PR references from regular issues', async () => {
+    process.env.GH_TOKEN = 'ghp_test'
+
+    globalThis.fetch = vi.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify([
+          {
+            id: 1001,
+            number: 10,
+            title: 'Regular issue',
+            body: 'See https://github.com/kata-sh/kata/pull/42',
+            html_url: 'https://github.com/kata-sh/kata/issues/10',
+            labels: [{ name: 'symphony:todo' }],
+          },
+          {
+            id: 1002,
+            number: 42,
+            title: 'This is a PR',
+            pull_request: { url: 'https://api.github.com/repos/kata-sh/kata/pulls/42' },
+            labels: [{ name: 'symphony:in-progress' }],
+          },
+        ]),
+        { status: 200 },
+      ),
+    ) as unknown as typeof fetch
+
+    const client = new GithubWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
+    const snapshot = await client.fetchSnapshot({
+      config: {
+        kind: 'github',
+        repoOwner: 'kata-sh',
+        repoName: 'kata',
+        stateMode: 'labels',
+        labelPrefix: 'symphony',
+      },
+    })
+
+    // PR-type issue should be filtered out
+    const allCards = snapshot.columns.flatMap((c) => c.cards)
+    expect(allCards).toHaveLength(1)
+    expect(allCards[0]?.identifier).toBe('#10')
+    expect(allCards[0]?.prMetadata?.number).toBe(42)
+  })
+})
+
+describe('extractPrMetadataFromGithubIssue', () => {
+  test('returns undefined for empty or missing body', () => {
+    expect(extractPrMetadataFromGithubIssue(undefined, 'owner', 'repo')).toBeUndefined()
+    expect(extractPrMetadataFromGithubIssue('', 'owner', 'repo')).toBeUndefined()
+  })
+
+  test('extracts PR metadata from a full GitHub PR URL in body', () => {
+    const result = extractPrMetadataFromGithubIssue(
+      'Related: https://github.com/kata-sh/kata/pull/99',
+      'kata-sh',
+      'kata',
+    )
+
+    expect(result).toEqual({
+      number: 99,
+      url: 'https://github.com/kata-sh/kata/pull/99',
+    })
+  })
+
+  test('extracts first PR URL when multiple are present', () => {
+    const result = extractPrMetadataFromGithubIssue(
+      'See https://github.com/org/repo/pull/10 and https://github.com/org/repo/pull/20',
+      'org',
+      'repo',
+    )
+
+    expect(result).toEqual({
+      number: 10,
+      url: 'https://github.com/org/repo/pull/10',
+    })
+  })
+
+  test('returns undefined when body has no PR references', () => {
+    const result = extractPrMetadataFromGithubIssue(
+      'This is a regular issue body with no PR links',
+      'owner',
+      'repo',
+    )
+
+    expect(result).toBeUndefined()
   })
 })

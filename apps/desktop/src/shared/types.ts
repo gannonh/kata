@@ -722,6 +722,14 @@ export interface WorkflowBoardSymphonySnapshot {
   }
 }
 
+export interface WorkflowBoardPrMetadata {
+  number: number
+  url: string
+  title?: string
+  status?: string
+  branchName?: string
+}
+
 export interface WorkflowBoardTask {
   id: string
   identifier?: string
@@ -735,6 +743,7 @@ export interface WorkflowBoardTask {
   projectId?: string
   parentSliceId?: string
   url?: string
+  prMetadata?: WorkflowBoardPrMetadata
   symphony?: WorkflowSymphonyExecutionSummary
 }
 
@@ -756,6 +765,7 @@ export interface WorkflowBoardSliceCard {
     done: number
   }
   tasks: WorkflowBoardTask[]
+  prMetadata?: WorkflowBoardPrMetadata
   symphony?: WorkflowSymphonyExecutionSummary
 }
 

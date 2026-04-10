@@ -2,6 +2,7 @@ import { AuthBridge } from './auth-bridge'
 import log from './logger'
 import {
   type WorkflowBoardErrorCode,
+  type WorkflowBoardPrMetadata,
   type WorkflowBoardSliceCard,
   type WorkflowBoardSnapshot,
   type WorkflowTrackerConfig,
@@ -22,6 +23,7 @@ interface GithubIssueResponse {
   id?: number
   number?: number
   title?: string
+  body?: string
   html_url?: string
   labels?: GithubIssueLabel[]
   pull_request?: unknown
@@ -154,6 +156,12 @@ export class GithubWorkflowClient {
         continue
       }
 
+      const prMetadata = extractPrMetadataFromGithubIssue(
+        issue.body,
+        config.repoOwner,
+        config.repoName,
+      )
+
       cards.push({
         id: String(issue.id ?? issueNumber),
         identifier: `#${issueNumber}`,
@@ -166,8 +174,14 @@ export class GithubWorkflowClient {
         milestoneName: `${config.repoOwner}/${config.repoName}`,
         taskCounts: { total: 0, done: 0 },
         tasks: [],
+        prMetadata,
       })
     }
+
+    log.debug('[github-workflow-client] PR metadata extraction', {
+      cardsWithPr: cards.filter((c) => c.prMetadata).length,
+      cardsWithoutPr: cards.filter((c) => !c.prMetadata).length,
+    })
 
     const hasCards = cards.length > 0
     const nowIso = new Date().toISOString()
@@ -255,6 +269,11 @@ export class GithubWorkflowClient {
         tasks: [],
       })
     }
+
+    log.debug('[github-workflow-client] PR metadata extraction', {
+      cardsWithPr: cards.filter((c) => c.prMetadata).length,
+      cardsWithoutPr: cards.filter((c) => !c.prMetadata).length,
+    })
 
     const hasCards = cards.length > 0
     const nowIso = new Date().toISOString()
@@ -543,6 +562,44 @@ export class GithubWorkflowClient {
       'GitHub token required. Set GH_TOKEN/GITHUB_TOKEN or configure provider "github" in auth.json.',
     )
   }
+}
+
+export function extractPrMetadataFromGithubIssue(
+  body: string | undefined,
+  repoOwner: string,
+  repoName: string,
+): WorkflowBoardPrMetadata | undefined {
+  if (!body) {
+    return undefined
+  }
+
+  // Match GitHub PR URLs in the issue body
+  const prUrlPattern = /https:\/\/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/g
+  let match: RegExpExecArray | null
+
+  while ((match = prUrlPattern.exec(body)) !== null) {
+    const prNumber = Number(match[3])
+    const prUrl = match[0]
+
+    return {
+      number: prNumber,
+      url: prUrl,
+    }
+  }
+
+  // Also match shorthand #N references that could be PRs within the same repo
+  // Only match standalone #N patterns (not inside URLs already matched)
+  const shorthandPattern = /(?:^|\s)#(\d+)(?:\s|$|[.,;)])/g
+  while ((match = shorthandPattern.exec(body)) !== null) {
+    const refNumber = Number(match[1])
+
+    return {
+      number: refNumber,
+      url: `https://github.com/${repoOwner}/${repoName}/pull/${refNumber}`,
+    }
+  }
+
+  return undefined
 }
 
 function extractStateFromLabels(
