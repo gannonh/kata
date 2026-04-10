@@ -177,8 +177,9 @@ export function OnboardingWizard() {
                     try {
                       const model = await selectModelForProvider(selectedProvider)
                       setResolvedModel(model)
-                    } catch {
+                    } catch (err) {
                       // Model selection failed — still advance past key entry
+                      console.error('[OnboardingWizard] Model auto-selection failed:', err)
                       setResolvedModel(null)
                     } finally {
                       setSkipping(false)

@@ -112,6 +112,7 @@ test.describe('Onboarding provider consistency', () => {
 
     // Should be on step 4 (completion), NOT step 3 (key entry)
     await expect(window.getByText('Step 4 of 4').first()).toBeVisible({ timeout: 5_000 })
+    await expect(window.getByText('Step 3 of 4')).toHaveCount(0)
     await expect(window.getByRole('button', { name: /Start chatting/i })).toBeVisible()
   })
 })

@@ -136,4 +136,20 @@ describe('buildFirstRunReadinessSnapshot', () => {
     expect(snapshot.checkpoints.auth.status).toBe('fail')
     expect(snapshot.checkpoints.auth.failure?.code).toBe('AUTH_PROVIDER_KEY_REQUIRED')
   })
+
+  test('selected missing OAuth provider fails auth with OAuth-specific code', () => {
+    const providers = createProviders()
+    // github-copilot is missing (default), but it is selected
+
+    const snapshot = buildFirstRunReadinessSnapshot({
+      providers,
+      selectedProvider: 'github-copilot',
+      now: '2026-04-08T00:00:00.000Z',
+    })
+
+    expect(snapshot.checkpoints.auth.status).toBe('fail')
+    expect(snapshot.checkpoints.auth.failure?.code).toBe('AUTH_OAUTH_PROVIDER_NOT_CONNECTED')
+    // requiresKey must remain false — OAuth providers never ask for a key
+    expect(snapshot.providers['github-copilot'].requiresKey).toBe(false)
+  })
 })

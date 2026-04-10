@@ -171,6 +171,23 @@ function evaluateAuthCheckpoint(
         }),
       }
     }
+
+    // OAuth provider selected but not connected — show CLI-setup guidance instead of key entry
+    const isSelectedOAuth = OAUTH_PROVIDERS.has(selectedProvider)
+    if (isSelectedOAuth && !selected.configured) {
+      return {
+        checkpoint: 'auth',
+        status: 'fail',
+        failure: toFailure({
+          class: 'auth',
+          severity: 'error',
+          code: 'AUTH_OAUTH_PROVIDER_NOT_CONNECTED',
+          message: `Connect ${selectedProvider} via the Kata CLI to continue onboarding.`,
+          recoveryAction: 'reauthenticate',
+          now,
+        }),
+      }
+    }
   }
 
   if (configuredProviders.length === 0) {
@@ -181,7 +198,8 @@ function evaluateAuthCheckpoint(
         class: 'auth',
         severity: 'error',
         code: 'AUTH_PROVIDER_NOT_CONFIGURED',
-        message: 'No providers are configured. Add an API key to unlock first-run setup.',
+        message:
+          'No providers are configured. Add an API key or connect an OAuth provider via the Kata CLI to unlock first-run setup.',
         recoveryAction: 'reauthenticate',
         now,
       }),

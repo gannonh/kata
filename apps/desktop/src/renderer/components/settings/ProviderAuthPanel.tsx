@@ -235,13 +235,17 @@ export function ProviderAuthPanel() {
               let statusLabel: string
               if (isOAuth && info.status === 'valid') {
                 statusLabel = 'Authenticated'
-              } else if (isOAuth && info.status === 'missing') {
+              } else if (isOAuth && (info.status === 'missing' || info.status === 'expired')) {
                 statusLabel = 'Not connected'
               } else {
                 statusLabel = info.status
               }
               const subtitleLabel = isOAuth
-                ? (info.status === 'valid' ? 'OAuth session' : 'Set up in CLI')
+                ? (info.status === 'valid'
+                    ? 'OAuth session'
+                    : info.status === 'expired'
+                      ? 'OAuth session expired'
+                      : 'Set up in CLI')
                 : (info.maskedKey ?? 'Not configured')
 
               return (
