@@ -1341,6 +1341,7 @@ export interface ReliabilityDiagnostics {
   code?: string
   detail?: string
   occurredAt?: string
+  serverName?: string
 }
 
 export interface ReliabilitySignal {

@@ -11,6 +11,7 @@ import {
   mapChatBridgeStatusToReliability,
   mapChatSubprocessCrashToReliability,
   mapMcpConfigReadResponseToReliability,
+  mapMcpServerStatusToReliability,
   mapMcpStatusResponseToReliability,
   mapSymphonyOperatorSnapshotToReliability,
   mapSymphonyRuntimeStatusToReliability,
@@ -287,5 +288,151 @@ describe('reliability-contract', () => {
     expect(code).toMatch(/^REL-SYMPHONY-UNKNOWN-/)
     const suffix = code.split('-').slice(3).join('-')
     expect(suffix.length).toBeLessThanOrEqual(32)
+  })
+
+  describe('MCP recovery action gating (R028)', () => {
+    test('config-read error always maps to fix_config, never reconnect or reauthenticate', () => {
+      const signal = mapMcpConfigReadResponseToReliability({
+        success: false,
+        provenance: {
+          mode: 'global_only',
+          globalConfigPath: '/tmp/mcp.json',
+        },
+        servers: [],
+        error: {
+          code: 'MALFORMED_CONFIG',
+          message: 'Invalid JSON in mcp.json',
+        },
+      })
+
+      expect(signal).toBeTruthy()
+      expect(signal?.recoveryAction).toBe('fix_config')
+      expect(signal?.recoveryAction).not.toBe('reconnect')
+      expect(signal?.recoveryAction).not.toBe('reauthenticate')
+      expect(signal?.diagnostics?.serverName).toBeUndefined()
+    })
+
+    test('config-read network error still maps to fix_config (not reconnect)', () => {
+      const signal = mapMcpConfigReadResponseToReliability({
+        success: false,
+        provenance: {
+          mode: 'global_only',
+          globalConfigPath: '/tmp/mcp.json',
+        },
+        servers: [],
+        error: {
+          code: 'CONNECTION_FAILED',
+          message: 'Unable to read config due to network issue',
+        },
+      })
+
+      expect(signal).toBeTruthy()
+      // Even though CONNECTION_FAILED is classified as network (default: reconnect),
+      // config-read errors are always clamped to fix_config
+      expect(signal?.recoveryAction).toBe('fix_config')
+    })
+
+    test('server-status error with server name allows reconnect and populates serverName', () => {
+      const signal = mapMcpServerStatusToReliability({
+        serverName: 'my-server',
+        phase: 'error',
+        checkedAt: '2026-04-10T12:00:00.000Z',
+        toolNames: [],
+        toolCount: 0,
+        error: {
+          code: 'CONNECTION_FAILED',
+          message: 'Unable to connect to my-server',
+        },
+      })
+
+      expect(signal).toBeTruthy()
+      expect(signal?.recoveryAction).toBe('reconnect')
+      expect(signal?.diagnostics?.serverName).toBe('my-server')
+    })
+
+    test('server-status error without server name clamps to refresh_state', () => {
+      const signal = mapMcpServerStatusToReliability({
+        serverName: '',
+        phase: 'error',
+        checkedAt: '2026-04-10T12:00:00.000Z',
+        toolNames: [],
+        toolCount: 0,
+        error: {
+          code: 'CONNECTION_FAILED',
+          message: 'Unable to connect',
+        },
+      })
+
+      expect(signal).toBeTruthy()
+      expect(signal?.recoveryAction).toBe('refresh_state')
+      expect(signal?.diagnostics?.serverName).toBeUndefined()
+    })
+
+    test('server-status auth error with server name allows reauthenticate', () => {
+      const signal = mapMcpServerStatusToReliability({
+        serverName: 'linear',
+        phase: 'error',
+        checkedAt: '2026-04-10T12:00:00.000Z',
+        toolNames: [],
+        toolCount: 0,
+        error: {
+          code: 'MISSING_BEARER_TOKEN',
+          message: 'Bearer token missing for linear',
+        },
+      })
+
+      expect(signal).toBeTruthy()
+      expect(signal?.recoveryAction).toBe('reauthenticate')
+      expect(signal?.diagnostics?.serverName).toBe('linear')
+    })
+
+    test('status-response error without embedded status has no server context, clamps to refresh_state', () => {
+      const signal = mapMcpStatusResponseToReliability({
+        success: false,
+        error: {
+          code: 'CONNECTION_FAILED',
+          message: 'Network error checking server status',
+        },
+      })
+
+      expect(signal).toBeTruthy()
+      // CONNECTION_FAILED would default to reconnect, but no server context → refresh_state
+      expect(signal?.recoveryAction).toBe('refresh_state')
+      expect(signal?.diagnostics?.serverName).toBeUndefined()
+    })
+
+    test('status-response with embedded server status delegates to server gating', () => {
+      const signal = mapMcpStatusResponseToReliability({
+        success: false,
+        status: {
+          serverName: 'remote-api',
+          phase: 'error',
+          checkedAt: '2026-04-10T12:00:00.000Z',
+          toolNames: [],
+          toolCount: 0,
+          error: {
+            code: 'UNREACHABLE',
+            message: 'Server unreachable',
+          },
+        },
+      })
+
+      expect(signal).toBeTruthy()
+      expect(signal?.recoveryAction).toBe('reconnect')
+      expect(signal?.diagnostics?.serverName).toBe('remote-api')
+    })
+
+    test('unknown MCP error maps to inspect action', () => {
+      const signal = mapMcpStatusResponseToReliability({
+        success: false,
+        error: {
+          code: 'UNKNOWN',
+          message: 'Something unexpected happened',
+        },
+      })
+
+      expect(signal).toBeTruthy()
+      expect(signal?.recoveryAction).toBe('inspect')
+    })
   })
 })

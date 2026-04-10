@@ -177,6 +177,7 @@ function toSignal(input: {
     code?: string
     detail?: string
     occurredAt?: string
+    serverName?: string
   }
   severity?: ReliabilitySeverity
   recoveryAction?: ReliabilityRecoveryAction
@@ -203,6 +204,7 @@ function toSignal(input: {
                 }
               : {}),
             ...(input.diagnostics.occurredAt ? { occurredAt: input.diagnostics.occurredAt } : {}),
+            ...(input.diagnostics.serverName ? { serverName: input.diagnostics.serverName } : {}),
           },
         }
       : {}),
@@ -395,6 +397,36 @@ function classifyMcpCode(code: string | undefined, message: string | undefined):
   return classifyMessageFallback(message)
 }
 
+/**
+ * Actions the MCP recovery handler in ipc.ts can execute at the panel level
+ * (i.e. without server-specific context).
+ */
+const MCP_PANEL_EXECUTABLE_ACTIONS: ReadonlySet<ReliabilityRecoveryAction> = new Set([
+  'refresh_state',
+  'fix_config',
+  'inspect',
+])
+
+/**
+ * Gate an MCP recovery action: if the action requires server-scoped context
+ * (e.g. `reconnect`, `reauthenticate`) but no server name is available,
+ * downgrade to a panel-executable fallback.
+ */
+function gateMcpRecoveryAction(
+  defaultAction: ReliabilityRecoveryAction,
+  serverName: string | undefined,
+): ReliabilityRecoveryAction {
+  if (MCP_PANEL_EXECUTABLE_ACTIONS.has(defaultAction)) {
+    return defaultAction
+  }
+  // Server-scoped actions are only allowed when server identity is known
+  if (serverName) {
+    return defaultAction
+  }
+  // Downgrade to a safe panel-level action
+  return 'refresh_state'
+}
+
 export function mapMcpConfigReadResponseToReliability(
   response: McpConfigReadResponse | null | undefined,
 ): ReliabilitySignal | null {
@@ -403,11 +435,14 @@ export function mapMcpConfigReadResponseToReliability(
   }
 
   const reliabilityClass = classifyMcpCode(response.error.code, response.error.message)
+  // Config-read errors are never server-scoped — always use fix_config
+  const recoveryAction: ReliabilityRecoveryAction = 'fix_config'
   return toSignal({
     sourceSurface: 'mcp',
     reliabilityClass,
     sourceCode: response.error.code,
     message: response.error.message,
+    recoveryAction,
     diagnostics: {
       code: response.error.code,
     },
@@ -423,14 +458,19 @@ export function mapMcpServerStatusToReliability(
   }
 
   const reliabilityClass = classifyMcpCode(status.error.code, status.error.message)
+  const defaults = RELIABILITY_CLASS_DEFAULTS[reliabilityClass]
+  const serverName = status.serverName || undefined
+  const recoveryAction = gateMcpRecoveryAction(defaults.recoveryAction, serverName)
   return toSignal({
     sourceSurface: 'mcp',
     reliabilityClass,
     sourceCode: status.error.code,
     message: status.error.message,
     timestamp: status.checkedAt,
+    recoveryAction,
     diagnostics: {
       code: status.error.code,
+      ...(serverName ? { serverName } : {}),
     },
     outcome: 'failed',
   })
@@ -449,11 +489,15 @@ export function mapMcpStatusResponseToReliability(
 
   if (response.error) {
     const reliabilityClass = classifyMcpCode(response.error.code, response.error.message)
+    const defaults = RELIABILITY_CLASS_DEFAULTS[reliabilityClass]
+    // Response-level errors without embedded status have no server context
+    const recoveryAction = gateMcpRecoveryAction(defaults.recoveryAction, undefined)
     return toSignal({
       sourceSurface: 'mcp',
       reliabilityClass,
       sourceCode: response.error.code,
       message: response.error.message,
+      recoveryAction,
       diagnostics: {
         code: response.error.code,
       },
