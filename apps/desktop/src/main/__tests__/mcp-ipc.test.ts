@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { IPC_CHANNELS } from '@shared/types'
+import { IPC_CHANNELS, type McpConfigReadResponse } from '@shared/types'
 
 const handlers = new Map<string, (...args: any[]) => any>()
 
@@ -213,6 +213,140 @@ describe('mcp ipc handlers', () => {
     expect(mcpService.reconnectServer).toHaveBeenCalledWith('server-a')
     expect(refreshResult.success).toBe(true)
     expect(reconnectResult.success).toBe(false)
+
+    unregister()
+  })
+
+  test('malformed config error flows through recovery handler with gated action (fix_config succeeds)', async () => {
+    // Simulate: config is malformed on first read → listServers returns error
+    // Then recovery action fix_config re-reads → succeeds the second time
+    let callCount = 0
+    const mcpConfigBridge = {
+      listServers: vi.fn(async (): Promise<McpConfigReadResponse> => {
+        callCount++
+        if (callCount === 1) {
+          // First call: malformed config
+          return {
+            success: false,
+            provenance: {
+              mode: 'global_only',
+              globalConfigPath: '/tmp/mcp.json',
+            },
+            servers: [],
+            error: {
+              code: 'MALFORMED_CONFIG',
+              message: 'Invalid JSON in mcp.json',
+            },
+          }
+        }
+        // Second call (recovery): config is fixed
+        return {
+          success: true,
+          provenance: {
+            mode: 'global_only',
+            globalConfigPath: '/tmp/mcp.json',
+          },
+          servers: [],
+        }
+      }),
+      getServer: vi.fn(),
+      saveServer: vi.fn(),
+      deleteServer: vi.fn(),
+    } as any
+
+    const mcpService = {
+      refreshStatus: vi.fn(),
+      reconnectServer: vi.fn(),
+      getStabilityMetrics: vi.fn(() => ({
+        a11yViolationCounts: { minor: 0, moderate: 0, serious: 0, critical: 0 },
+      })),
+    } as any
+
+    const unregister = registerSessionIpc({
+      bridge: createBridgeStub(),
+      authBridge: {
+        getProviders: vi.fn(async () => ({ success: true, providers: {} })),
+        setProviderKey: vi.fn(),
+        removeProviderKey: vi.fn(),
+        validateKey: vi.fn(),
+      } as any,
+      sessionManager: {
+        listSessions: vi.fn(async () => ({ sessions: [], warnings: [], directory: process.cwd() })),
+        getSessionInfo: vi.fn(),
+        resolveSessionPathById: vi.fn(async () => null),
+      } as any,
+      window: createWindowStub(),
+      mcpConfigBridge,
+      mcpService,
+    })
+
+    // First: trigger the error by listing servers (populates aggregator with config error signal)
+    await handlers.get(IPC_CHANNELS.mcpListServers)?.({})
+
+    // The gated action for a config error should be fix_config, which the handler supports
+    const recoveryResult = await handlers.get(IPC_CHANNELS.reliabilityRequestRecoveryAction)?.({}, {
+      sourceSurface: 'mcp',
+      action: 'fix_config',
+    })
+
+    // fix_config is a supported action → should succeed (no MCP_RECOVERY_ACTION_UNSUPPORTED)
+    expect(recoveryResult.success).toBe(true)
+    expect(recoveryResult.code).toBe('MCP_CONFIG_REFRESHED')
+    expect(recoveryResult.code).not.toBe('MCP_RECOVERY_ACTION_UNSUPPORTED')
+
+    unregister()
+  })
+
+  test('defense-in-depth: reconnect without server context returns graceful failure, not crash', async () => {
+    const mcpConfigBridge = {
+      listServers: vi.fn(async () => ({
+        success: true,
+        provenance: { mode: 'global_only', globalConfigPath: '/tmp/mcp.json' },
+        servers: [],
+      })),
+      getServer: vi.fn(),
+      saveServer: vi.fn(),
+      deleteServer: vi.fn(),
+    } as any
+
+    const mcpService = {
+      refreshStatus: vi.fn(),
+      reconnectServer: vi.fn(),
+      getStabilityMetrics: vi.fn(() => ({
+        a11yViolationCounts: { minor: 0, moderate: 0, serious: 0, critical: 0 },
+      })),
+    } as any
+
+    const unregister = registerSessionIpc({
+      bridge: createBridgeStub(),
+      authBridge: {
+        getProviders: vi.fn(async () => ({ success: true, providers: {} })),
+        setProviderKey: vi.fn(),
+        removeProviderKey: vi.fn(),
+        validateKey: vi.fn(),
+      } as any,
+      sessionManager: {
+        listSessions: vi.fn(async () => ({ sessions: [], warnings: [], directory: process.cwd() })),
+        getSessionInfo: vi.fn(),
+        resolveSessionPathById: vi.fn(async () => null),
+      } as any,
+      window: createWindowStub(),
+      mcpConfigBridge,
+      mcpService,
+    })
+
+    // Bypass gating: directly send 'reconnect' action without server context
+    // The handler should return a graceful failure (existing MCP_RECOVERY_ACTION_UNSUPPORTED guard)
+    const result = await handlers.get(IPC_CHANNELS.reliabilityRequestRecoveryAction)?.({}, {
+      sourceSurface: 'mcp',
+      action: 'reconnect',
+    })
+
+    expect(result.success).toBe(false)
+    expect(result.outcome).toBe('failed')
+    expect(result.code).toBe('MCP_RECOVERY_ACTION_UNSUPPORTED')
+    // Verify it didn't throw/crash — the result is a structured failure
+    expect(result.message).toBeTruthy()
 
     unregister()
   })
