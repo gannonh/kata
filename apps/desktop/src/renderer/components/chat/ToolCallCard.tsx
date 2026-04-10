@@ -7,6 +7,7 @@ import type { ToolCallView } from '@/atoms/chat'
 import { BashOutputCard } from './BashOutputCard'
 import { FileEditCard } from './FileEditCard'
 import { FileReadCard } from './FileReadCard'
+import { SubagentCard } from './SubagentCard'
 import { WriteCard } from './WriteCard'
 
 interface ToolCallCardProps {
@@ -94,6 +95,8 @@ export function ToolCallCard({ tool }: ToolCallCardProps) {
       return <FileReadCard tool={tool} />
     case 'write':
       return <WriteCard tool={tool} />
+    case 'subagent':
+      return <SubagentCard tool={tool} />
     default:
       return <GenericToolCallCard tool={tool} />
   }
