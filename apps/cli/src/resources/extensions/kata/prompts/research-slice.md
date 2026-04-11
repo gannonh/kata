@@ -14,6 +14,12 @@ Pay particular attention to **Forward Intelligence** sections — they contain h
 
 {{backendRules}}
 
+### Linear Discovery Rule
+
+- Enumerate slices with `kata_list_slices({ projectId, teamId, milestoneId })` and tasks with `kata_list_tasks({ sliceIssueId })`.
+- After selecting a specific dependency slice or task, use `linear_get_issue(id)` for the full issue body/comments.
+- Do **not** use `linear_list_issues` to enumerate Kata slices during research.
+
 Then research what this slice needs:
 0. If `REQUIREMENTS.md` was preloaded above, identify which Active requirements this slice owns or supports. Research should target these requirements — surfacing risks, unknowns, and implementation constraints that could affect whether the slice actually delivers them.
 1. If a `Kata Skill Preferences` block is present in system context, use it to decide which skills to load and follow during research, without relaxing required verification or artifact rules

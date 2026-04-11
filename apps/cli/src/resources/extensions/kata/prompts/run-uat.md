@@ -8,6 +8,12 @@ All relevant context has been preloaded below. Start working immediately without
 
 {{backendRules}}
 
+### Linear Discovery Rule
+
+- Enumerate slices with `kata_list_slices({ projectId, teamId, milestoneId })`.
+- After selecting a specific slice, use `linear_get_issue(id)` for the full issue body/comments.
+- Do **not** use `linear_list_issues` to enumerate Kata slices during UAT.
+
 If a `Kata Skill Preferences` block is present in system context, use it to decide which skills to load and follow during UAT execution, without relaxing required verification or artifact rules.
 
 ---

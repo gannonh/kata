@@ -8,6 +8,12 @@ All relevant context has been preloaded below — start working immediately with
 
 {{backendRules}}
 
+### Linear Discovery Rule
+
+- Enumerate slices with `kata_list_slices({ projectId, teamId, milestoneId })`.
+- After selecting a specific slice, use `linear_get_issue(id)` for the full issue body/comments.
+- Do **not** use `linear_list_issues` to enumerate Kata slices for planning.
+
 Then:
 1. Read the template at `~/.kata-cli/agent/extensions/kata/templates/roadmap.md`
 2. Read the `REQUIREMENTS` document via `kata_read_document("REQUIREMENTS")` if it exists. Treat **Active** requirements as the capability contract for planning. If it does not exist, continue in legacy compatibility mode but explicitly note that requirement coverage is operating without a contract.

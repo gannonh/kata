@@ -495,6 +495,11 @@ describe("LinearBackend research prompts", () => {
     const p = await b.buildPrompt("planning", makeState({ phase: "planning" }), { dispatchResearch: "slice" });
     assert.match(p, /S01-RESEARCH/);
   });
+
+  it("research-slice uses milestone-scoped kata_list_slices for dependency lookup", async () => {
+    const p = await b.buildPrompt("planning", makeState({ phase: "planning" }), { dispatchResearch: "slice" });
+    assert.match(p, /kata_list_slices\(\{ projectId, teamId, milestoneId: "milestone-linear-1" \}\)/);
+  });
 });
 
 // ─── Other prompts ──────────────────────────────────────────────────────────
@@ -547,6 +552,11 @@ describe("LinearBackend other prompts", () => {
     assert.match(p, /S01-ASSESSMENT/);
   });
 
+  it("plan-slice uses milestone-scoped kata_list_slices for dependency lookup", async () => {
+    const p = await b.buildPrompt("planning", makeState({ phase: "planning" }));
+    assert.match(p, /kata_list_slices\(\{ projectId, teamId, milestoneId: "milestone-linear-1" \}\)/);
+  });
+
   it("uat reads S02-UAT", async () => {
     const p = await b.buildPrompt("executing", makeState(), { uatSliceId: "S02" });
     assert.match(p, /S02-UAT/i);
@@ -555,6 +565,11 @@ describe("LinearBackend other prompts", () => {
   it("uat writes S02-UAT-RESULT", async () => {
     const p = await b.buildPrompt("executing", makeState(), { uatSliceId: "S02" });
     assert.match(p, /S02-UAT-RESULT/);
+  });
+
+  it("uat uses milestone-scoped kata_list_slices for slice lookup", async () => {
+    const p = await b.buildPrompt("executing", makeState(), { uatSliceId: "S02" });
+    assert.match(p, /kata_list_slices\(\{ projectId, teamId, milestoneId: "milestone-linear-1" \}\)/);
   });
 });
 

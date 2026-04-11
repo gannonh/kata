@@ -62,6 +62,14 @@ These are raw JSONL debug artifacts — used automatically for retry diagnostics
 - `Ctrl+Alt+G` — toggle dashboard overlay
 - `Ctrl+Alt+B` — show shell processes
 
+### Linear Discovery Rule
+
+When working in Linear mode:
+
+- Use `kata_list_slices({ projectId, teamId, milestoneId })` and `kata_list_tasks({ sliceIssueId })` for discovery and enumeration.
+- After you know the exact issue you need, use `linear_get_issue(id)` for the full issue body and comments.
+- Do **not** use `linear_list_issues` to enumerate Kata slices for planning, reassessment, UAT, or summary flows. Project-scoped issue listings can flood context unexpectedly.
+
 ## Execution Heuristics
 
 ### Tool-routing hierarchy
