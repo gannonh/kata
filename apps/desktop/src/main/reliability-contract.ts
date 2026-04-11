@@ -293,9 +293,9 @@ export function mapSymphonyRuntimeStatusToReliability(
     return null
   }
 
-  if (status.phase === 'starting' || status.phase === 'restarting' || status.phase === 'idle' || status.phase === 'stopped') {
+  if (status.phase === 'starting' || status.phase === 'restarting' || status.phase === 'stopping' || status.phase === 'idle' || status.phase === 'stopped') {
     // Normal transitional and inactive phases are not reliability issues.
-    // The header bar already shows "Symphony: Starting" during transitions.
+    // The header bar already shows "Symphony: Starting/Stopping" during transitions.
     // If startup fails, the phase moves to 'failed' and gets surfaced then.
     return null
   }

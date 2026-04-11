@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.2.1
+
+### Fixes
+
+- **OAuth provider detection (KAT-2498)** — Desktop now reads OAuth records from `~/.kata-cli/agent/auth.json` (where `kata login` writes them) instead of only probing the GitHub Copilot CLI's `~/.config/github-copilot/` token store. `refresh`-backed sessions are treated as valid regardless of access-token expiry, so Anthropic Claude Pro/Max, OpenAI Codex subscription, and GitHub Copilot no longer report as "Not connected" or "Expired" when `kata` still considers them authenticated.
+- **Settings OAuth rendering** — Provider row and detail-pane rendering is driven by the runtime `info.authType` field, so OAuth-authenticated Anthropic and OpenAI rows show the OAuth detail card instead of the API-key form + "Valid" badge.
+- **Return to workflow board button** — Removed the dedicated button from the Settings header; `Close` is enough, and `⌘⇧B` / `Ctrl+Shift+B` remains available for power users.
+
+### Features
+
+- **Onboarding polish** — Welcome heading now reads "Agentic Development Environment". Provider picker (step 2) shows OAuth-authenticated providers as "Authenticated" instead of "Configured", and GitHub Copilot now appears in the provider list. Onboarding key-entry step receives the provider's runtime auth type so dual-mode providers render correctly.
+- **Default model** — App-wide default is now `openai-codex/gpt-5.3-codex`, wired through a shared `DEFAULT_MODEL` constant. Main process falls back to it when settings has no persisted model, the onboarding completion step shows it when available, and the renderer atom seeds with it.
+- **Pop-up window sizing** — External links (PR badges on the workflow board, etc.) open in-app windows sized to 1200×1000 instead of Electron's default 800×600. New windows are sandboxed with no IPC access to the main process.
+- **Session sidebar width** — Default sidebar width is now 17rem (272px) for a balanced layout against the chat pane and workflow board.
+- **MCP tool-exposure control** — Server editor dialog exposes the pi-mcp-adapter `directTools` field with three modes: proxy (default), promote every tool, or allowlist. Allowlist mode surfaces a textarea for tool names and requires at least one entry before save.
+- **mcp-remote bridge annotation** — stdio servers that wrap `mcp-remote URL` now show a "bridges URL" badge so the STDIO label isn't misleading for OAuth-protected HTTP servers like Linear.
+- **Direct-tools row badge** — Servers with `directTools: true` or an allowlist show a compact badge summarizing the exposure mode.
+- **Transport lock helper text** — The Settings MCP editor explains why Transport is disabled during edit ("Transport is fixed after creation. Remove and re-add the server to switch.").
+- **Editor dialog copy** — Dialog description replaced with "Define how this MCP server connects and exposes tools." Tool-exposure control is plumbed through shared types so unknown `directTools` values survive round-trips through the editor.
+
 ## 0.2.0
 
 ### Features

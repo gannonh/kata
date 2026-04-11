@@ -425,11 +425,11 @@ export class AuthBridge {
     const entries: [AuthProvider, ProviderInfo][] = []
 
     for (const provider of ALL_AUTH_PROVIDERS) {
+      const record = this.resolveAuthRecord(auth, provider)
       if (OAUTH_PROVIDERS.has(provider)) {
-        const oauthStatus = await this.detectOAuthProvider(provider)
-        entries.push([provider, oauthStatus])
+        entries.push([provider, await this.detectOAuthProvider(provider, record)])
       } else {
-        entries.push([provider, this.toProviderInfo(provider, this.resolveAuthRecord(auth, provider))])
+        entries.push([provider, this.toProviderInfo(provider, record)])
       }
     }
 
@@ -488,8 +488,15 @@ export class AuthBridge {
     }
 
     if (record.type === 'oauth') {
-      const expiresAt = record.expires ? Number(record.expires) : null
-      const isExpired = Number.isFinite(expiresAt) && expiresAt !== null && expiresAt <= Date.now()
+      // A refresh token means the session is live — the orchestrator will swap
+      // a stale access token for a fresh one on the next request. We must not
+      // mark these sessions as "expired" just because `record.expires` (which
+      // describes only the access token) is in the past. Only flag expired
+      // when there is no refresh token AND the access token has lapsed.
+      const hasRefresh = typeof record.refresh === 'string' && record.refresh.trim().length > 0
+      const expiresAt = parseOAuthExpires(record.expires)
+      const accessExpired = expiresAt !== null && expiresAt <= Date.now()
+      const isExpired = !hasRefresh && accessExpired
 
       return {
         provider,
@@ -507,29 +514,42 @@ export class AuthBridge {
   }
 
   /**
-   * Detect whether an OAuth-backed provider has an active session by probing
-   * for token files on disk. Never reads or exposes token contents.
+   * Detect whether an OAuth-backed provider has an active session.
+   *
+   * Precedence:
+   *   1. `kata login` writes OAuth tokens to `auth.json` as `{ type: 'oauth', … }`.
+   *      That is the primary source of truth and is preferred when present.
+   *   2. Fallback: probe filesystem token files from `OAUTH_TOKEN_PATHS` for
+   *      providers whose session was established outside `kata` (e.g. via the
+   *      GitHub Copilot CLI writing to `~/.config/github-copilot/hosts.json`).
+   *
+   * Never reads or exposes token contents from the filesystem fallback.
    */
-  private async detectOAuthProvider(provider: AuthProvider): Promise<ProviderInfo> {
-    const tokenPaths = OAUTH_TOKEN_PATHS[provider]
-    if (!tokenPaths || tokenPaths.length === 0) {
-      log.debug('[auth-bridge] oauth:detect no token paths configured', { provider })
-      return { provider, status: 'missing', authType: 'oauth' }
+  private async detectOAuthProvider(
+    provider: AuthProvider,
+    record: AuthRecordEntry | undefined,
+  ): Promise<ProviderInfo> {
+    if (record?.type === 'oauth') {
+      log.debug('[auth-bridge] oauth:detect auth.json record found', { provider })
+      return this.toProviderInfo(provider, record)
     }
 
-    const home = homedir()
-    for (const relativePath of tokenPaths) {
-      const fullPath = path.join(home, relativePath)
-      try {
-        await fs.access(fullPath)
-        log.debug('[auth-bridge] oauth:detect token file found', { provider, authType: 'oauth', status: 'valid' })
-        return { provider, status: 'valid', authType: 'oauth' }
-      } catch {
-        // File not found — continue to next path
+    const tokenPaths = OAUTH_TOKEN_PATHS[provider]
+    if (tokenPaths && tokenPaths.length > 0) {
+      const home = homedir()
+      for (const relativePath of tokenPaths) {
+        const fullPath = path.join(home, relativePath)
+        try {
+          await fs.access(fullPath)
+          log.debug('[auth-bridge] oauth:detect token file found', { provider, status: 'valid' })
+          return { provider, status: 'valid', authType: 'oauth' }
+        } catch {
+          // File not found — continue to next path
+        }
       }
     }
 
-    log.debug('[auth-bridge] oauth:detect no token files found', { provider, authType: 'oauth', status: 'missing' })
+    log.debug('[auth-bridge] oauth:detect no credentials found', { provider, status: 'missing' })
     return { provider, status: 'missing', authType: 'oauth' }
   }
 
@@ -559,4 +579,40 @@ export class AuthBridge {
   private toErrorMessage(error: unknown): string {
     return error instanceof Error ? error.message : String(error)
   }
+}
+
+/**
+ * Parse an `OAuthAuthRecordEntry.expires` value into a millisecond timestamp.
+ *
+ * The CLI writes numeric values (e.g. `1775897875980`), but hand-edited or
+ * upstream-synced configs occasionally use numeric strings or ISO-8601
+ * timestamps. `Number("2026-04-08T00:00:00Z")` returns `NaN`, which would
+ * previously silently bypass the expired-session check. Try in order:
+ *   1. Numeric input as-is.
+ *   2. Coerce string via `Number(...)` — handles `"1775897875980"`.
+ *   3. Fall back to `Date.parse(...)` — handles ISO timestamps.
+ * Returns `null` when none of those produce a finite timestamp.
+ *
+ * Exported for unit tests; not part of the public module API.
+ */
+export function parseOAuthExpires(value: string | number | undefined | null): number | null {
+  if (value === undefined || value === null || value === '') {
+    return null
+  }
+
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null
+  }
+
+  if (typeof value !== 'string') {
+    return null
+  }
+
+  const numeric = Number(value)
+  if (Number.isFinite(numeric)) {
+    return numeric
+  }
+
+  const parsed = Date.parse(value)
+  return Number.isFinite(parsed) ? parsed : null
 }

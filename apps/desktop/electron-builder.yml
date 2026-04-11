@@ -4,6 +4,7 @@ copyright: Copyright © 2026 Kata Contributors
 
 beforeBuild: scripts/beforeBuild.cjs
 afterPack: scripts/afterPack.cjs
+afterSign: scripts/afterSign.cjs
 
 directories:
   output: release

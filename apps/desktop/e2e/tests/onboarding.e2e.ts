@@ -21,7 +21,7 @@ test.describe('Onboarding wizard', () => {
   test('appears on first launch with welcome content', async ({ electronApp }) => {
     const window = await getOnboardingWindow(electronApp)
 
-    await expect(window.getByText('Welcome to your coding co-pilot')).toBeVisible()
+    await expect(window.getByText('Agentic Development Environment')).toBeVisible()
     await expect(window.getByText('Step 1 of 4').first()).toBeVisible()
     await expect(window.getByRole('button', { name: /Get started/i })).toBeVisible()
   })

@@ -147,3 +147,4 @@ apps/context/docs/specs/
 apps/context/docs/superpowers/
 
 apps/desktop/.env.development
+apps/desktop/.claude/scheduled_tasks.lock

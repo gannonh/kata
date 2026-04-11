@@ -24,9 +24,6 @@ interface SettingsPanelProps {
   activeTab: SettingsTabId
   onOpenChange: (open: boolean) => void
   onActiveTabChange: (tab: SettingsTabId) => void
-  onReturnToWorkflowBoard?: () => void
-  returnToWorkflowDisabled?: boolean
-  returnToWorkflowDisabledReason?: string | null
 }
 
 const SETTINGS_TABS: Array<{ id: SettingsTabId; label: string }> = [
@@ -36,13 +33,6 @@ const SETTINGS_TABS: Array<{ id: SettingsTabId; label: string }> = [
   { id: 'general', label: 'General' },
   { id: 'appearance', label: 'Appearance' },
 ]
-
-export function shouldShowReturnToWorkflowAction(
-  activeTab: SettingsTabId,
-  onReturnToWorkflowBoard?: () => void,
-): boolean {
-  return Boolean(onReturnToWorkflowBoard) && activeTab === 'mcp'
-}
 
 export function formatFirstRunStartupGuidance(
   readiness: FirstRunReadinessSnapshot | null | undefined,
@@ -55,11 +45,7 @@ export function SettingsPanel({
   activeTab,
   onOpenChange,
   onActiveTabChange,
-  onReturnToWorkflowBoard,
-  returnToWorkflowDisabled,
-  returnToWorkflowDisabledReason,
 }: SettingsPanelProps) {
-  const showReturnToWorkflow = shouldShowReturnToWorkflowAction(activeTab, onReturnToWorkflowBoard)
   const reliabilitySnapshot = useReliabilitySnapshot()
   const startupGuidance = formatFirstRunStartupGuidance(reliabilitySnapshot.firstRunReadiness)
 
@@ -78,11 +64,6 @@ export function SettingsPanel({
               <DialogDescription className="text-xs text-muted-foreground">
                 Manage providers, preferences, and desktop defaults.
               </DialogDescription>
-              {showReturnToWorkflow && returnToWorkflowDisabledReason ? (
-                <p className="text-xs text-amber-700 dark:text-amber-300" data-testid="settings-return-disabled-reason">
-                  {returnToWorkflowDisabledReason}
-                </p>
-              ) : null}
               {startupGuidance ? (
                 <p className="text-xs text-muted-foreground" data-testid="settings-startup-guidance">
                   {startupGuidance}
@@ -91,20 +72,6 @@ export function SettingsPanel({
             </div>
 
             <div className="flex items-center gap-2">
-              {showReturnToWorkflow ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={onReturnToWorkflowBoard}
-                  disabled={Boolean(returnToWorkflowDisabled)}
-                  title="Return to workflow board (⌘⇧B / Ctrl+Shift+B)"
-                  data-testid="settings-return-to-workflow"
-                >
-                  Return to workflow board
-                </Button>
-              ) : null}
-
               <DialogClose asChild>
                 <Button type="button" variant="outline" size="sm">
                   Close

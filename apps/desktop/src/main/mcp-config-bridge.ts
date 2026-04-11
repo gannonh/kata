@@ -5,6 +5,7 @@ import log from './logger'
 import type {
   McpConfigProvenance,
   McpConfigReadResponse,
+  McpDirectTools,
   McpHttpServerInput,
   McpServerDeleteResponse,
   McpServerInput,
@@ -404,6 +405,7 @@ export class McpConfigBridge {
   private toServerSummary(name: string, rawServer: JsonObject): McpServerSummary {
     const transport = inferTransport(rawServer)
     const enabled = !toBoolean(rawServer.disabled)
+    const directTools = asDirectTools(rawServer.directTools)
 
     if (transport === 'http') {
       const auth = normalizeAuthMode(rawServer.auth)
@@ -414,6 +416,7 @@ export class McpConfigBridge {
         name,
         transport,
         enabled,
+        directTools,
         summary: {
           transport,
           url: asNonEmptyString(rawServer.url) ?? '',
@@ -430,6 +433,7 @@ export class McpConfigBridge {
       name,
       transport: 'stdio',
       enabled,
+      directTools,
       summary: {
         transport: 'stdio',
         command: asNonEmptyString(rawServer.command) ?? '',
@@ -605,6 +609,8 @@ function normalizeServerForWrite(existingServer: JsonObject, input: McpServerInp
       nextStdioServer.env = sanitizeEnvMap(input.env)
     }
 
+    applyDirectToolsToWrite(nextStdioServer, input.directTools)
+
     delete nextStdioServer.url
     delete nextStdioServer.auth
     delete nextStdioServer.bearerToken
@@ -649,12 +655,61 @@ function normalizeHttpServerForWrite(existingServer: JsonObject, input: McpHttpS
     }
   }
 
+  applyDirectToolsToWrite(nextHttpServer, input.directTools)
+
   delete nextHttpServer.command
   delete nextHttpServer.args
   delete nextHttpServer.env
   delete nextHttpServer.cwd
 
   return nextHttpServer
+}
+
+/**
+ * Apply a directTools input to a server-to-write object.
+ *
+ * Semantics:
+ * - `undefined` → leave whatever the existing server had (no-op). This keeps
+ *   legacy CLI-managed values intact when the dialog has no opinion.
+ * - `false` → remove the field entirely. Matches pi-mcp-adapter default
+ *   (proxy-only) without leaving noise in mcp.json.
+ * - `true` → promote every tool.
+ * - `string[]` → allowlist. Empty arrays are persisted (disable everything)
+ *   because they are still meaningful per pi-mcp-adapter semantics.
+ */
+function applyDirectToolsToWrite(target: JsonObject, directTools: McpDirectTools | undefined): void {
+  if (directTools === undefined) {
+    return
+  }
+
+  if (directTools === false) {
+    delete target.directTools
+    return
+  }
+
+  if (directTools === true) {
+    target.directTools = true
+    return
+  }
+
+  target.directTools = [...directTools]
+}
+
+function asDirectTools(value: unknown): McpDirectTools | undefined {
+  if (value === true || value === false) {
+    return value
+  }
+
+  if (Array.isArray(value)) {
+    // Trim whitespace so hand-edited configs with " foo " still match the
+    // exact tool name pi-mcp-adapter uses when registering direct tools.
+    return value
+      .filter((entry): entry is string => typeof entry === 'string')
+      .map((entry) => entry.trim())
+      .filter((entry) => entry.length > 0)
+  }
+
+  return undefined
 }
 
 function sanitizeEnvMap(value: Record<string, string>): Record<string, string> {

@@ -1,6 +1,5 @@
 import { ArrowLeft, Check, ChevronRight, KeyRound } from 'lucide-react'
 import type { AuthProvider, FirstRunReadinessSnapshot, ProviderStatusMap } from '@shared/types'
-import { OAUTH_PROVIDERS } from '@shared/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -65,11 +64,13 @@ export function ProviderStep({
             const readinessInfo = readiness?.providers?.[provider]
             const configured = readinessInfo?.configured ?? info.status === 'valid'
             const needsRecovery = (readinessInfo?.status ?? info.status) === 'expired' || (readinessInfo?.status ?? info.status) === 'invalid'
-            const isOAuth = OAUTH_PROVIDERS.has(provider)
+            const isOAuth = info.authType === 'oauth'
             const selected = selectedProvider === provider
 
             let badgeLabel: string
-            if (configured) {
+            if (configured && isOAuth) {
+              badgeLabel = 'Authenticated'
+            } else if (configured) {
               badgeLabel = 'Configured'
             } else if (isOAuth) {
               badgeLabel = 'Set up in CLI'

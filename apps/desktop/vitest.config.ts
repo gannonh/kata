@@ -10,7 +10,7 @@ export default defineConfig({
   },
   test: {
     setupFiles: ['./src/test-setup.ts'],
-    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx', 'scripts/**/*.test.ts'],
     passWithNoTests: true,
     testTimeout: 15_000,
     coverage: {

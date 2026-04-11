@@ -346,6 +346,37 @@ describe('RuntimeHealthAggregator', () => {
     expect(symphonySurface?.signal).toBeNull()
   })
 
+  test('suppresses all reliability signals during normal symphony stop transition', () => {
+    const aggregator = new RuntimeHealthAggregator({ now: () => '2026-04-07T20:00:00.000Z' })
+
+    // Supervisor reports stopping phase (user clicked stop)
+    aggregator.ingestSymphonyRuntimeStatus(
+      createSymphonyStatus({
+        phase: 'stopping',
+        managedProcessRunning: true,
+        pid: 123,
+        url: 'http://localhost:8080',
+      }),
+    )
+
+    // Operator sees disconnected because Symphony is shutting down
+    aggregator.ingestSymphonyOperatorSnapshot(
+      createSymphonySnapshot({
+        connection: {
+          state: 'disconnected',
+          lastError: 'Symphony operator is disconnected.',
+          updatedAt: '2026-04-07T20:00:01.000Z',
+        },
+      }),
+    )
+
+    // Normal stop is not a reliability issue — no banner should appear.
+    // The header bar already shows "Symphony: Stopping".
+    const symphonySurface = getSurface(aggregator.getSnapshot(), 'symphony')
+    expect(symphonySurface?.status).toBe('healthy')
+    expect(symphonySurface?.signal).toBeNull()
+  })
+
   test('supports recovery-action execution and records recovery outcome', async () => {
     const requestRecovery = vi.fn(async () => ({
       success: true,

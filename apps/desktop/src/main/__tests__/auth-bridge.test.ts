@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { promises as fs } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { AuthBridge, normalizeFirstRunAuthReadiness } from '../auth-bridge'
+import { AuthBridge, normalizeFirstRunAuthReadiness, parseOAuthExpires } from '../auth-bridge'
 
 const originalFetch = globalThis.fetch
 
@@ -470,6 +470,183 @@ describe('AuthBridge', () => {
       status: 'missing',
       authType: 'oauth',
     })
+  })
+
+  // Regression: KAT-2498 — Desktop must read `kata login`'s OAuth record from
+  // auth.json, not just probe the GitHub Copilot CLI's token store. Without this
+  // precedence, users who only authenticate through `kata login github-copilot`
+  // see "Not connected" even though the CLI recognizes them.
+  test('detects github-copilot as valid from auth.json oauth record', async () => {
+    await fs.writeFile(
+      authFilePath,
+      JSON.stringify(
+        {
+          'github-copilot': {
+            type: 'oauth',
+            refresh: 'ghu_refresh_token_fixture',
+            access: 'tid=copilot_access_token_fixture',
+            expires: Date.now() + 60 * 60 * 1000,
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    )
+
+    const bridge = new AuthBridge(authFilePath)
+    const response = await bridge.getProviders()
+
+    expect(response.providers['github-copilot']).toMatchObject({
+      provider: 'github-copilot',
+      status: 'valid',
+      authType: 'oauth',
+    })
+    expect(response.providers['github-copilot'].maskedKey).toMatch(/^••••/)
+  })
+
+  // A stale access token does NOT mean the session is dead: as long as the
+  // refresh token is present, the orchestrator will swap in a fresh access
+  // token on the next request. KAT-2498: Desktop was falsely flagging
+  // Anthropic + Copilot as "expired" whenever their access tokens aged out,
+  // even though `kata login` still considered them authenticated.
+  test('treats oauth record as valid when refresh is present even if access token expiry is past', async () => {
+    await fs.writeFile(
+      authFilePath,
+      JSON.stringify(
+        {
+          'github-copilot': {
+            type: 'oauth',
+            refresh: 'ghu_refresh_token_fixture',
+            access: 'tid=copilot_access_token_fixture',
+            expires: Date.now() - 60 * 1000,
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    )
+
+    const bridge = new AuthBridge(authFilePath)
+    const response = await bridge.getProviders()
+
+    expect(response.providers['github-copilot']).toMatchObject({
+      provider: 'github-copilot',
+      status: 'valid',
+      authType: 'oauth',
+    })
+  })
+
+  test('parseOAuthExpires accepts numeric, numeric-string, and ISO-8601 forms', () => {
+    const now = Date.now()
+    expect(parseOAuthExpires(now)).toBe(now)
+    expect(parseOAuthExpires(String(now))).toBe(now)
+    expect(parseOAuthExpires('2026-04-08T00:00:00Z')).toBe(Date.parse('2026-04-08T00:00:00Z'))
+    expect(parseOAuthExpires(undefined)).toBeNull()
+    expect(parseOAuthExpires(null)).toBeNull()
+    expect(parseOAuthExpires('')).toBeNull()
+    expect(parseOAuthExpires('not-a-date')).toBeNull()
+    expect(parseOAuthExpires(Number.NaN)).toBeNull()
+  })
+
+  test('marks oauth record as expired when expires is an ISO string and no refresh token', async () => {
+    // Regression for CodeRabbit #10: earlier path used Number(record.expires),
+    // which returned NaN for ISO strings and silently treated expired sessions
+    // as valid. parseOAuthExpires routes string timestamps through Date.parse
+    // so the stale-access-token check fires correctly.
+    await fs.writeFile(
+      authFilePath,
+      JSON.stringify(
+        {
+          'github-copilot': {
+            type: 'oauth',
+            access: 'tid=copilot_access_token_fixture',
+            expires: new Date(Date.now() - 60 * 1000).toISOString(),
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    )
+
+    const bridge = new AuthBridge(authFilePath)
+    const response = await bridge.getProviders()
+
+    expect(response.providers['github-copilot']).toMatchObject({
+      provider: 'github-copilot',
+      status: 'expired',
+      authType: 'oauth',
+    })
+  })
+
+  test('detects oauth record as expired only when no refresh token and access has lapsed', async () => {
+    await fs.writeFile(
+      authFilePath,
+      JSON.stringify(
+        {
+          'github-copilot': {
+            type: 'oauth',
+            access: 'tid=copilot_access_token_fixture',
+            expires: Date.now() - 60 * 1000,
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    )
+
+    const bridge = new AuthBridge(authFilePath)
+    const response = await bridge.getProviders()
+
+    expect(response.providers['github-copilot']).toMatchObject({
+      provider: 'github-copilot',
+      status: 'expired',
+      authType: 'oauth',
+    })
+  })
+
+  test('auth.json oauth record takes precedence over filesystem token fallback', async () => {
+    // Both sources present — auth.json wins because `kata login` is the source of truth.
+    // The filesystem fallback exists for users who authed outside kata entirely.
+    const copilotDir = path.join(tempDir, '.config', 'github-copilot')
+    await fs.mkdir(copilotDir, { recursive: true })
+    await fs.writeFile(path.join(copilotDir, 'hosts.json'), '{}', 'utf8')
+
+    await fs.writeFile(
+      authFilePath,
+      JSON.stringify(
+        {
+          'github-copilot': {
+            type: 'oauth',
+            access: 'tid=kata_managed_token',
+            expires: Date.now() + 60 * 60 * 1000,
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    )
+
+    const originalHome = process.env.HOME
+    process.env.HOME = tempDir
+    try {
+      const bridge = new AuthBridge(authFilePath)
+      const response = await bridge.getProviders()
+
+      expect(response.providers['github-copilot']).toMatchObject({
+        provider: 'github-copilot',
+        status: 'valid',
+        authType: 'oauth',
+      })
+      // maskedKey proves the auth.json record was used, not the filesystem probe.
+      expect(response.providers['github-copilot'].maskedKey).toBe('••••oken')
+    } finally {
+      process.env.HOME = originalHome
+    }
   })
 
   test('rejects setProviderKey for OAuth providers', async () => {

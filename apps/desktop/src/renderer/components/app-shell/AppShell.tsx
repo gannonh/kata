@@ -453,14 +453,6 @@ export function AppShell() {
           closeSettingsPanel()
           clearReturnContext()
         }}
-        onReturnToWorkflowBoard={() => {
-          void window.api.workflow.dispatchShellAction({
-            action: 'return_to_kanban',
-            source: 'settings_panel',
-          })
-        }}
-        returnToWorkflowDisabled={mcpBusy}
-        returnToWorkflowDisabledReason={mcpBusy ? 'MCP operation in progress' : null}
       />
     </main>
   )

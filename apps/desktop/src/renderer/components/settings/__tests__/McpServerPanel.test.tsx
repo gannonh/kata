@@ -7,6 +7,8 @@ import {
   formatMcpStabilityNotice,
 } from '../McpServerPanel'
 import {
+  describeDirectTools,
+  detectMcpRemoteUpstream,
   formatMcpStatusLabel,
   mcpStatusBadgeVariant,
   summarizeMcpServer,
@@ -55,6 +57,151 @@ describe('MCP settings helpers', () => {
 
     expect(notice).toContain('Accessibility violations: Accessibility violations exceeded threshold')
     expect(notice).toContain('Suggested recovery: Fix accessibility issues and rerun baseline checks.')
+  })
+
+  test('detects mcp-remote stdio bridges and surfaces the upstream URL', () => {
+    const linearStdio = {
+      name: 'linear',
+      transport: 'stdio' as const,
+      enabled: true,
+      summary: {
+        transport: 'stdio' as const,
+        command: 'npx',
+        args: ['-y', 'mcp-remote', 'https://mcp.linear.app/mcp'],
+        envKeys: [],
+      },
+    }
+    expect(detectMcpRemoteUpstream(linearStdio)).toBe('https://mcp.linear.app/mcp')
+
+    const plainStdio = {
+      name: 'chrome-devtools',
+      transport: 'stdio' as const,
+      enabled: true,
+      summary: {
+        transport: 'stdio' as const,
+        command: 'npx',
+        args: ['-y', 'chrome-devtools-mcp@latest', '--autoConnect'],
+        envKeys: [],
+      },
+    }
+    expect(detectMcpRemoteUpstream(plainStdio)).toBeNull()
+
+    const httpServer = {
+      name: 'remote',
+      transport: 'http' as const,
+      enabled: true,
+      summary: {
+        transport: 'http' as const,
+        url: 'https://example.com/mcp',
+        auth: 'none' as const,
+        hasInlineBearerToken: false,
+      },
+    }
+    expect(detectMcpRemoteUpstream(httpServer)).toBeNull()
+  })
+
+  test('detects mcp-remote when packaged as a scoped npm module', () => {
+    const scopedStdio = {
+      name: 'linear-scoped',
+      transport: 'stdio' as const,
+      enabled: true,
+      summary: {
+        transport: 'stdio' as const,
+        command: 'npx',
+        args: ['-y', '@anthropic-ai/mcp-remote', 'https://mcp.linear.app/mcp'],
+        envKeys: [],
+      },
+    }
+    expect(detectMcpRemoteUpstream(scopedStdio)).toBe('https://mcp.linear.app/mcp')
+  })
+
+  test('detects mcp-remote when invoked directly as command', () => {
+    const directStdio = {
+      name: 'linear-direct',
+      transport: 'stdio' as const,
+      enabled: true,
+      summary: {
+        transport: 'stdio' as const,
+        command: 'mcp-remote',
+        args: ['https://mcp.linear.app/mcp'],
+        envKeys: [],
+      },
+    }
+    expect(detectMcpRemoteUpstream(directStdio)).toBe('https://mcp.linear.app/mcp')
+
+    const directAbsolutePath = {
+      name: 'linear-abs',
+      transport: 'stdio' as const,
+      enabled: true,
+      summary: {
+        transport: 'stdio' as const,
+        command: '/usr/local/bin/mcp-remote',
+        args: ['--verbose', 'https://mcp.linear.app/mcp'],
+        envKeys: [],
+      },
+    }
+    expect(detectMcpRemoteUpstream(directAbsolutePath)).toBe('https://mcp.linear.app/mcp')
+  })
+
+  test('describes directTools for promoted, allowlisted, and proxy-only servers', () => {
+    const baseSummary = {
+      transport: 'stdio' as const,
+      command: 'npx',
+      args: ['-y', 'server'],
+      envKeys: [],
+    }
+
+    expect(
+      describeDirectTools({
+        name: 'promoted',
+        transport: 'stdio',
+        enabled: true,
+        directTools: true,
+        summary: baseSummary,
+      }),
+    ).toBe('direct: all tools')
+
+    expect(
+      describeDirectTools({
+        name: 'allowlist',
+        transport: 'stdio',
+        enabled: true,
+        directTools: ['foo', 'bar'],
+        summary: baseSummary,
+      }),
+    ).toBe('direct: foo, bar')
+
+    expect(
+      describeDirectTools({
+        name: 'proxy',
+        transport: 'stdio',
+        enabled: true,
+        directTools: false,
+        summary: baseSummary,
+      }),
+    ).toBeNull()
+
+    expect(
+      describeDirectTools({
+        name: 'default',
+        transport: 'stdio',
+        enabled: true,
+        summary: baseSummary,
+      }),
+    ).toBeNull()
+
+    // Regression for PR #313 review: `directTools: []` is a meaningful state
+    // (promote no tools), distinct from proxy/default. The row badge should
+    // surface it instead of hiding it as null.
+    expect(
+      describeDirectTools({
+        name: 'empty-allowlist',
+        transport: 'stdio',
+        enabled: true,
+        directTools: [],
+        summary: baseSummary,
+      }),
+    ).toBe('direct: none')
   })
 
   test('summarizes stdio and http server rows for compact display', () => {
@@ -219,6 +366,67 @@ describe('MCP settings helpers', () => {
         hasStoredInlineBearerToken: true,
       }),
     ).toEqual([])
+
+    // Regression for PR #313 review: `directTools: []` is a meaningful
+    // persistable state ("promote none"). The validator used to reject
+    // allowlist mode when the parsed list was empty, which blocked saving
+    // any server that already had `directTools: []`. Now empty is allowed.
+    expect(
+      validateMcpServerDraft({
+        ...createMcpServerEditorDraft(),
+        name: 'local',
+        transport: 'stdio',
+        command: 'npx',
+        directToolsMode: 'allowlist',
+        directToolsAllowlistText: '   ,  , \n',
+      }),
+    ).toEqual([])
+  })
+
+  test('editor draft surfaces directTools mode and allowlist from server summary', () => {
+    const proxyDraft = createMcpServerEditorDraft({
+      name: 'proxy',
+      transport: 'stdio',
+      enabled: true,
+      directTools: false,
+      summary: {
+        transport: 'stdio',
+        command: 'npx',
+        args: ['-y', 'mcp-remote', 'https://mcp.linear.app/mcp'],
+        envKeys: [],
+      },
+    })
+    expect(proxyDraft.directToolsMode).toBe('proxy')
+    expect(proxyDraft.directToolsAllowlistText).toBe('')
+
+    const promotedDraft = createMcpServerEditorDraft({
+      name: 'promoted',
+      transport: 'stdio',
+      enabled: true,
+      directTools: true,
+      summary: {
+        transport: 'stdio',
+        command: 'npx',
+        args: ['-y', 'chrome-devtools-mcp@latest'],
+        envKeys: [],
+      },
+    })
+    expect(promotedDraft.directToolsMode).toBe('all')
+
+    const allowlistDraft = createMcpServerEditorDraft({
+      name: 'allowlist',
+      transport: 'stdio',
+      enabled: true,
+      directTools: ['search_repositories', 'get_file_contents'],
+      summary: {
+        transport: 'stdio',
+        command: 'npx',
+        args: ['-y', 'github-mcp'],
+        envKeys: [],
+      },
+    })
+    expect(allowlistDraft.directToolsMode).toBe('allowlist')
+    expect(allowlistDraft.directToolsAllowlistText).toBe('search_repositories, get_file_contents')
   })
 
   describe('MCP recovery CTA truthfulness (R028)', () => {
