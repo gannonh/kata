@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { promises as fs } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { AuthBridge, normalizeFirstRunAuthReadiness } from '../auth-bridge'
+import { AuthBridge, normalizeFirstRunAuthReadiness, parseOAuthExpires } from '../auth-bridge'
 
 const originalFetch = globalThis.fetch
 
@@ -534,6 +534,49 @@ describe('AuthBridge', () => {
     expect(response.providers['github-copilot']).toMatchObject({
       provider: 'github-copilot',
       status: 'valid',
+      authType: 'oauth',
+    })
+  })
+
+  test('parseOAuthExpires accepts numeric, numeric-string, and ISO-8601 forms', () => {
+    const now = Date.now()
+    expect(parseOAuthExpires(now)).toBe(now)
+    expect(parseOAuthExpires(String(now))).toBe(now)
+    expect(parseOAuthExpires('2026-04-08T00:00:00Z')).toBe(Date.parse('2026-04-08T00:00:00Z'))
+    expect(parseOAuthExpires(undefined)).toBeNull()
+    expect(parseOAuthExpires(null)).toBeNull()
+    expect(parseOAuthExpires('')).toBeNull()
+    expect(parseOAuthExpires('not-a-date')).toBeNull()
+    expect(parseOAuthExpires(Number.NaN)).toBeNull()
+  })
+
+  test('marks oauth record as expired when expires is an ISO string and no refresh token', async () => {
+    // Regression for CodeRabbit #10: earlier path used Number(record.expires),
+    // which returned NaN for ISO strings and silently treated expired sessions
+    // as valid. parseOAuthExpires routes string timestamps through Date.parse
+    // so the stale-access-token check fires correctly.
+    await fs.writeFile(
+      authFilePath,
+      JSON.stringify(
+        {
+          'github-copilot': {
+            type: 'oauth',
+            access: 'tid=copilot_access_token_fixture',
+            expires: new Date(Date.now() - 60 * 1000).toISOString(),
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    )
+
+    const bridge = new AuthBridge(authFilePath)
+    const response = await bridge.getProviders()
+
+    expect(response.providers['github-copilot']).toMatchObject({
+      provider: 'github-copilot',
+      status: 'expired',
       authType: 'oauth',
     })
   })

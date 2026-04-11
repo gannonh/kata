@@ -386,6 +386,55 @@ describe('McpConfigBridge', () => {
     expect(persisted.mcpServers.linear?.directTools).toBeUndefined()
   })
 
+  test('toServerSummary trims whitespace from directTools allowlist entries', async () => {
+    await writeConfig({
+      mcpServers: {
+        messy: {
+          command: 'npx',
+          args: ['-y', 'some-server'],
+          directTools: ['  search_repositories  ', '', 'get_file_contents\n', '   '],
+        },
+      },
+    })
+
+    const bridge = new McpConfigBridge({ configPath })
+    const response = await bridge.listServers()
+    expect(response.success).toBe(true)
+    const server = (response.servers ?? []).find((s) => s.name === 'messy')
+    expect(server?.directTools).toEqual(['search_repositories', 'get_file_contents'])
+  })
+
+  test('saveServer round-trips an empty directTools allowlist as [] (promote none)', async () => {
+    await writeConfig({
+      mcpServers: {
+        proxy_mode: {
+          command: 'npx',
+          args: ['-y', 'some-server'],
+        },
+      },
+    })
+
+    const bridge = new McpConfigBridge({ configPath })
+    const saveResponse = await bridge.saveServer({
+      name: 'proxy_mode',
+      transport: 'stdio',
+      command: 'npx',
+      args: ['-y', 'some-server'],
+      enabled: true,
+      directTools: [],
+    })
+    expect(saveResponse.success).toBe(true)
+
+    const persisted = JSON.parse(await fs.readFile(configPath, 'utf8')) as {
+      mcpServers: Record<string, Record<string, unknown>>
+    }
+    expect(persisted.mcpServers.proxy_mode?.directTools).toEqual([])
+
+    const roundTrip = await bridge.listServers()
+    const server = (roundTrip.servers ?? []).find((s) => s.name === 'proxy_mode')
+    expect(server?.directTools).toEqual([])
+  })
+
   test('saveServer allows bearer updates without re-entering an existing inline token', async () => {
     await writeConfig({
       mcpServers: {

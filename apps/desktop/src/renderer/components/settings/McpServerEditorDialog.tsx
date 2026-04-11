@@ -154,9 +154,11 @@ export function validateMcpServerDraft(draft: McpServerEditorDraft): string[] {
     }
   }
 
-  if (draft.directToolsMode === 'allowlist' && parseDirectToolsAllowlist(draft.directToolsAllowlistText).length === 0) {
-    errors.push('Tool exposure allowlist requires at least one tool name.')
-  }
+  // Note: an empty allowlist is intentionally allowed. The config bridge
+  // (`apps/desktop/src/main/mcp-config-bridge.ts`) treats `directTools: []` as
+  // a meaningful persistable state ("promote none"), and existing servers
+  // configured that way must round-trip cleanly through the editor. Rejecting
+  // empty input would block saving any unrelated edit on those servers.
 
   return errors
 }

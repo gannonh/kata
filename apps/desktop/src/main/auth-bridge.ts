@@ -494,9 +494,8 @@ export class AuthBridge {
       // describes only the access token) is in the past. Only flag expired
       // when there is no refresh token AND the access token has lapsed.
       const hasRefresh = typeof record.refresh === 'string' && record.refresh.trim().length > 0
-      const expiresAt = record.expires ? Number(record.expires) : null
-      const accessExpired =
-        Number.isFinite(expiresAt) && expiresAt !== null && expiresAt <= Date.now()
+      const expiresAt = parseOAuthExpires(record.expires)
+      const accessExpired = expiresAt !== null && expiresAt <= Date.now()
       const isExpired = !hasRefresh && accessExpired
 
       return {
@@ -580,4 +579,40 @@ export class AuthBridge {
   private toErrorMessage(error: unknown): string {
     return error instanceof Error ? error.message : String(error)
   }
+}
+
+/**
+ * Parse an `OAuthAuthRecordEntry.expires` value into a millisecond timestamp.
+ *
+ * The CLI writes numeric values (e.g. `1775897875980`), but hand-edited or
+ * upstream-synced configs occasionally use numeric strings or ISO-8601
+ * timestamps. `Number("2026-04-08T00:00:00Z")` returns `NaN`, which would
+ * previously silently bypass the expired-session check. Try in order:
+ *   1. Numeric input as-is.
+ *   2. Coerce string via `Number(...)` — handles `"1775897875980"`.
+ *   3. Fall back to `Date.parse(...)` — handles ISO timestamps.
+ * Returns `null` when none of those produce a finite timestamp.
+ *
+ * Exported for unit tests; not part of the public module API.
+ */
+export function parseOAuthExpires(value: string | number | undefined | null): number | null {
+  if (value === undefined || value === null || value === '') {
+    return null
+  }
+
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null
+  }
+
+  if (typeof value !== 'string') {
+    return null
+  }
+
+  const numeric = Number(value)
+  if (Number.isFinite(numeric)) {
+    return numeric
+  }
+
+  const parsed = Date.parse(value)
+  return Number.isFinite(parsed) ? parsed : null
 }

@@ -50,18 +50,44 @@ export function summarizeMcpServer(server: McpServerSummary): string {
 }
 
 /**
+ * True when a command-or-arg token identifies the `mcp-remote` proxy,
+ * covering the three realistic forms:
+ *   - plain `mcp-remote` (via `npx -y mcp-remote`)
+ *   - scoped package like `@anthropic-ai/mcp-remote`
+ *   - absolute path like `/usr/local/bin/mcp-remote`
+ */
+function isMcpRemoteToken(token: string): boolean {
+  if (!token) return false
+  if (token === 'mcp-remote') return true
+  if (token.endsWith('/mcp-remote')) return true
+  // Defensive: handles forms like `@scope/mcp-remote@latest` that pack a
+  // version suffix onto the end of the identifier.
+  if (token.includes('/mcp-remote')) return true
+  return false
+}
+
+/**
  * Detect when a stdio server is running `mcp-remote` as a proxy to a real
  * HTTP MCP endpoint. Used to annotate rows so users see "stdio · bridges
  * https://mcp.linear.app/mcp" instead of a bare STDIO label, which is
  * technically accurate but hides what the server actually talks to.
+ *
+ * Handles three invocation shapes:
+ *   1. `command: "npx", args: ["-y", "mcp-remote", "https://..."]`
+ *   2. `command: "npx", args: ["-y", "@scope/mcp-remote", "https://..."]`
+ *   3. `command: "mcp-remote", args: ["https://..."]`  (direct, no npx)
  */
 export function detectMcpRemoteUpstream(server: McpServerSummary): string | null {
   if (server.summary.transport !== 'stdio') return null
+  const command = server.summary.command
   const args = server.summary.args
-  const mcpRemoteIndex = args.findIndex((arg) => arg === 'mcp-remote' || arg.endsWith('/mcp-remote'))
-  if (mcpRemoteIndex === -1) return null
 
-  for (let index = mcpRemoteIndex + 1; index < args.length; index += 1) {
+  const commandIsMcpRemote = isMcpRemoteToken(command)
+  const mcpRemoteArgIndex = args.findIndex(isMcpRemoteToken)
+  if (!commandIsMcpRemote && mcpRemoteArgIndex === -1) return null
+
+  const startIndex = commandIsMcpRemote ? 0 : mcpRemoteArgIndex + 1
+  for (let index = startIndex; index < args.length; index += 1) {
     const candidate = args[index]
     if (!candidate || candidate.startsWith('-')) continue
     if (/^https?:\/\//i.test(candidate)) {
@@ -72,11 +98,18 @@ export function detectMcpRemoteUpstream(server: McpServerSummary): string | null
   return null
 }
 
+/**
+ * Summarize `directTools` as a compact row badge label. Distinguishes:
+ *   - `true`           → "direct: all tools"
+ *   - `[]`             → "direct: none" (promote nothing — meaningful, rare)
+ *   - `[a, b]`         → "direct: a, b"
+ *   - `false`/missing  → null (row keeps the default proxy behavior implicit)
+ */
 export function describeDirectTools(server: McpServerSummary): string | null {
   const directTools = server.directTools
   if (directTools === true) return 'direct: all tools'
-  if (Array.isArray(directTools) && directTools.length > 0) {
-    return `direct: ${directTools.join(', ')}`
+  if (Array.isArray(directTools)) {
+    return directTools.length > 0 ? `direct: ${directTools.join(', ')}` : 'direct: none'
   }
   return null
 }

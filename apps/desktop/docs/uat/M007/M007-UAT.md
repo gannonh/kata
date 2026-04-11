@@ -17,7 +17,7 @@
 | CP2 | Board PR Context | R026 | S02 | PASS | [07-board-pr-badges-done-column.png](./screenshots/07-board-pr-badges-done-column.png) |
 | CP3 | MCP Recovery | R028 | S03 | PASS | [04-mcp-error-refresh-config-cta.png](./screenshots/04-mcp-error-refresh-config-cta.png), [05-mcp-recovered.png](./screenshots/05-mcp-recovered.png) |
 | CP4 | Subagent Chat UX | R027 | S05 | PASS | [08-subagent-card-done.png](./screenshots/08-subagent-card-done.png) |
-| CP5 | Deterministic Validation | R029 | S04 | PASS | Vitest output: 41 files / 546 tests identical with and without `KATA_SYMPHONY_BIN_PATH` |
+| CP5 | Deterministic Validation | R029 | S04 | PASS | Vitest output: identical `Test Files` / `Tests` counts with and without `KATA_SYMPHONY_BIN_PATH` (43 / 567 on the PR #313 branch tip; see spot-check below) |
 
 **Overall:** 5 PASS. CP1 initially failed with a Copilot OAuth detection regression ([KAT-2498](https://linear.app/kata-sh/issue/KAT-2498)); the fix was authored, tested, and live-verified on this UAT branch. The walkthrough now passes clean end-to-end.
 
@@ -38,11 +38,12 @@ bun run desktop:dev
 
 1. On launch, the app should **skip the onboarding wizard** and go straight to chat (an Anthropic key is already configured in `~/.kata-cli/agent/auth.json`).
 2. Click **Settings** → **Providers** tab.
-3. Confirm each provider row reflects reality:
-   - **Anthropic** — masked key (`••••ZAAA`) + `valid`
-   - **OpenAI** — masked key + `valid`
+3. Confirm each provider row reflects reality (all OAuth providers below use `kata login` sessions stored in `~/.kata-cli/agent/auth.json`):
+   - **Anthropic** — `OAuth session Authenticated` (Claude Pro/Max session)
+   - **OpenAI** — `OAuth session Authenticated` (Codex subscription, aliased from `openai-codex`)
+   - **GitHub Copilot** — `OAuth session Authenticated`
    - **Google / Mistral / Bedrock / Azure** — `Not configured missing`
-   - **GitHub Copilot** — will show `Set up in CLI / Not connected`, which is the [KAT-2498](https://linear.app/kata-sh/issue/KAT-2498) bug. Confirm you see it — that's the regression blocking CP1.
+   - If any OAuth row reads `Not connected` or `Expired`, the [KAT-2498](https://linear.app/kata-sh/issue/KAT-2498) fix did not take effect — flag it immediately.
 
 ### CP2 — Board PR Context (R026)
 
@@ -84,19 +85,21 @@ bun run desktop:dev
 ### CP5 — Deterministic Validation (R029)
 
 Already verified via CLI but you can spot-check:
+
 ```bash
 cd apps/desktop
 KATA_SYMPHONY_BIN_PATH=/fake npx vitest run 2>&1 | tail -5
 unset KATA_SYMPHONY_BIN_PATH && npx vitest run 2>&1 | tail -5
 ```
-Both runs should report `41 passed / 543 passed`.
+
+Both runs should report identical `Test Files` / `Tests` counts. Exact numbers drift as tests are added; the invariant is *identical* across the two runs, not any specific count.
 
 ### What to report back
 
-- **CP1 Copilot bug** — confirm you see `Not connected` in Settings. If it shows as connected, KAT-2498 may not reproduce on your machine and we need to investigate why.
+- **CP1 OAuth rows** — confirm every OAuth-logged-in provider reads `OAuth session Authenticated` (not `Not connected` or `Expired`). A regression here reopens [KAT-2498](https://linear.app/kata-sh/issue/KAT-2498).
 - Any other surprises in CP2–CP5 (misrendering, stale data, broken recovery, crashes).
 - Rendering/layout issues you notice while poking around.
-- "Looks good" is a valid response — means we unblock the milestone once CP1 is fixed.
+- "Looks good" is a valid response — means we can merge.
 
 ---
 
@@ -183,19 +186,21 @@ Running and error states were not exercised live (happy-path test only). Unit-te
 
 ### CP5 — Deterministic Validation (R029): PASS
 
-Two consecutive vitest runs from `apps/desktop`:
+Two consecutive vitest runs from `apps/desktop` produce identical `Test Files` / `Tests` counts regardless of the host `KATA_SYMPHONY_*` env state. Exact totals drift as new tests land, so the acceptance invariant is *identical counts across the two runs*, not a fixed number.
+
+Snapshot at the PR #313 branch tip:
 
 ```
 $ KATA_SYMPHONY_BIN_PATH=/some/fake/path npx vitest run
- Test Files  41 passed (41)
-      Tests  543 passed (543)
+ Test Files  43 passed (43)
+      Tests  567 passed (567)
 
 $ unset KATA_SYMPHONY_BIN_PATH KATA_SYMPHONY_URL SYMPHONY_URL && npx vitest run
- Test Files  41 passed (41)
-      Tests  543 passed (543)
+ Test Files  43 passed (43)
+      Tests  567 passed (567)
 ```
 
-Identical: 41 files, 543 tests, zero failures, zero skips. Mechanism verified at `src/test-setup.ts:14-26` — registered in `vitest.config.ts` setupFiles, strips `KATA_SYMPHONY_BIN_PATH`, `KATA_SYMPHONY_URL`, and `SYMPHONY_URL` from `process.env` before any test file executes.
+Identical. Mechanism verified at `src/test-setup.ts:14-26` — registered in `vitest.config.ts` `setupFiles`, strips `KATA_SYMPHONY_BIN_PATH`, `KATA_SYMPHONY_URL`, and `SYMPHONY_URL` from `process.env` before any test file executes.
 
 ---
 
@@ -224,4 +229,4 @@ Identical: 41 files, 543 tests, zero failures, zero skips. Mechanism verified at
 
 ## Conclusion
 
-M007 acceptance **passes end-to-end**. All five checkpoints verified on this UAT branch after the CP1 regressions were fixed in the same changeset ([KAT-2498](https://linear.app/kata-sh/issue/KAT-2498)). The walkthrough is reproducible from this report, the evidence is captured in `screenshots/`, and the test suite is green (41 files / 546 tests) with deterministic results across host environments.
+M007 acceptance **passes end-to-end**. All five checkpoints verified on this UAT branch after the CP1 regressions were fixed in the same changeset ([KAT-2498](https://linear.app/kata-sh/issue/KAT-2498)). The walkthrough is reproducible from this report, the evidence is captured in `screenshots/`, and the test suite is green with deterministic results across host environments (43 files / 567 tests on the PR #313 branch tip, stable counts in back-to-back runs).

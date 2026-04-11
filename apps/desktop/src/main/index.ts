@@ -27,6 +27,7 @@ if (!app.isPackaged) {
 }
 import { AuthBridge } from './auth-bridge'
 import log from './logger'
+import { evaluateExternalWindowRequest } from './external-window-policy'
 import { PiAgentBridge } from './pi-agent-bridge'
 import { registerSessionIpc } from './ipc'
 import { DesktopSessionManager } from './session-manager'
@@ -61,9 +62,17 @@ function createWindow(): BrowserWindow {
 
   // Give in-app popups (PR badges, external links from the renderer) a
   // comfortable default size instead of Electron's 800x600 default, and
-  // isolate them from the main preload so they have no IPC access.
+  // isolate them from the main preload so they have no IPC access. See
+  // `evaluateExternalWindowRequest` — non-http(s) schemes are denied and
+  // URLs are never logged raw (they may carry OAuth query params).
   window.webContents.setWindowOpenHandler(({ url }) => {
-    log.info('[desktop-main] external window requested', { url })
+    const policy = evaluateExternalWindowRequest(url)
+    if (policy.decision === 'deny') {
+      log.warn('[desktop-main] external window denied', policy.logPayload)
+      return { action: 'deny' }
+    }
+
+    log.info('[desktop-main] external window requested', policy.logPayload)
     return {
       action: 'allow',
       overrideBrowserWindowOptions: {

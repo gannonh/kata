@@ -100,6 +100,49 @@ describe('MCP settings helpers', () => {
     expect(detectMcpRemoteUpstream(httpServer)).toBeNull()
   })
 
+  test('detects mcp-remote when packaged as a scoped npm module', () => {
+    const scopedStdio = {
+      name: 'linear-scoped',
+      transport: 'stdio' as const,
+      enabled: true,
+      summary: {
+        transport: 'stdio' as const,
+        command: 'npx',
+        args: ['-y', '@anthropic-ai/mcp-remote', 'https://mcp.linear.app/mcp'],
+        envKeys: [],
+      },
+    }
+    expect(detectMcpRemoteUpstream(scopedStdio)).toBe('https://mcp.linear.app/mcp')
+  })
+
+  test('detects mcp-remote when invoked directly as command', () => {
+    const directStdio = {
+      name: 'linear-direct',
+      transport: 'stdio' as const,
+      enabled: true,
+      summary: {
+        transport: 'stdio' as const,
+        command: 'mcp-remote',
+        args: ['https://mcp.linear.app/mcp'],
+        envKeys: [],
+      },
+    }
+    expect(detectMcpRemoteUpstream(directStdio)).toBe('https://mcp.linear.app/mcp')
+
+    const directAbsolutePath = {
+      name: 'linear-abs',
+      transport: 'stdio' as const,
+      enabled: true,
+      summary: {
+        transport: 'stdio' as const,
+        command: '/usr/local/bin/mcp-remote',
+        args: ['--verbose', 'https://mcp.linear.app/mcp'],
+        envKeys: [],
+      },
+    }
+    expect(detectMcpRemoteUpstream(directAbsolutePath)).toBe('https://mcp.linear.app/mcp')
+  })
+
   test('describes directTools for promoted, allowlisted, and proxy-only servers', () => {
     const baseSummary = {
       transport: 'stdio' as const,
@@ -146,6 +189,19 @@ describe('MCP settings helpers', () => {
         summary: baseSummary,
       }),
     ).toBeNull()
+
+    // Regression for PR #313 review: `directTools: []` is a meaningful state
+    // (promote no tools), distinct from proxy/default. The row badge should
+    // surface it instead of hiding it as null.
+    expect(
+      describeDirectTools({
+        name: 'empty-allowlist',
+        transport: 'stdio',
+        enabled: true,
+        directTools: [],
+        summary: baseSummary,
+      }),
+    ).toBe('direct: none')
   })
 
   test('summarizes stdio and http server rows for compact display', () => {
@@ -311,6 +367,10 @@ describe('MCP settings helpers', () => {
       }),
     ).toEqual([])
 
+    // Regression for PR #313 review: `directTools: []` is a meaningful
+    // persistable state ("promote none"). The validator used to reject
+    // allowlist mode when the parsed list was empty, which blocked saving
+    // any server that already had `directTools: []`. Now empty is allowed.
     expect(
       validateMcpServerDraft({
         ...createMcpServerEditorDraft(),
@@ -320,7 +380,7 @@ describe('MCP settings helpers', () => {
         directToolsMode: 'allowlist',
         directToolsAllowlistText: '   ,  , \n',
       }),
-    ).toContain('Tool exposure allowlist requires at least one tool name.')
+    ).toEqual([])
   })
 
   test('editor draft surfaces directTools mode and allowlist from server summary', () => {

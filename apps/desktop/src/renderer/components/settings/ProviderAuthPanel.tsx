@@ -6,6 +6,7 @@ import type {
   ProviderInfo,
   ProviderStatusMap,
 } from '@shared/types'
+import { OAUTH_PROVIDERS } from '@shared/types'
 import { useReliabilitySnapshot } from '@/atoms/reliability'
 import { Check, KeyRound, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -137,7 +138,14 @@ export function ProviderAuthPanel() {
     return row?.info ?? providers?.[activeProvider]
   }, [activeProvider, providerRows, providers])
 
-  const activeIsOAuth = activeInfo?.authType === 'oauth'
+  // When providers haven't loaded yet, fall back to the static OAUTH_PROVIDERS
+  // set so OAuth-only providers (github-copilot) render the correct UI during
+  // the initial loading tick instead of flashing the API-key form. Once the
+  // bridge responds we trust `info.authType` exclusively, because dual-mode
+  // providers like Anthropic and OpenAI can flip based on the actual record.
+  const activeIsOAuth =
+    activeInfo?.authType === 'oauth' ||
+    (activeInfo === undefined && OAUTH_PROVIDERS.has(activeProvider))
 
   const handleSave = async () => {
     const trimmed = apiKeyInput.trim()

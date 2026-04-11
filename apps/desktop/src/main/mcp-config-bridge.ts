@@ -701,8 +701,12 @@ function asDirectTools(value: unknown): McpDirectTools | undefined {
   }
 
   if (Array.isArray(value)) {
-    const list = value.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
-    return list
+    // Trim whitespace so hand-edited configs with " foo " still match the
+    // exact tool name pi-mcp-adapter uses when registering direct tools.
+    return value
+      .filter((entry): entry is string => typeof entry === 'string')
+      .map((entry) => entry.trim())
+      .filter((entry) => entry.length > 0)
   }
 
   return undefined
