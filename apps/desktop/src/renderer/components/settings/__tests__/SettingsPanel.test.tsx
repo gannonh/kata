@@ -1,19 +1,7 @@
 import { describe, expect, test } from 'vitest'
-import { formatFirstRunStartupGuidance, shouldShowReturnToWorkflowAction } from '../SettingsPanel'
+import { formatFirstRunStartupGuidance } from '../SettingsPanel'
 
-describe('SettingsPanel workflow return affordance', () => {
-  const noop = () => {}
-
-  test('shows return-to-workflow action only on the MCP tab', () => {
-    expect(shouldShowReturnToWorkflowAction('mcp', noop)).toBe(true)
-    expect(shouldShowReturnToWorkflowAction('providers', noop)).toBe(false)
-    expect(shouldShowReturnToWorkflowAction('symphony', noop)).toBe(false)
-  })
-
-  test('hides return-to-workflow action when no callback is provided', () => {
-    expect(shouldShowReturnToWorkflowAction('mcp')).toBe(false)
-  })
-
+describe('SettingsPanel', () => {
   test('formats startup guidance from first-run readiness checkpoint', () => {
     expect(
       formatFirstRunStartupGuidance({
