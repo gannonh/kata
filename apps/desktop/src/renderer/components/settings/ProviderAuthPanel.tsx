@@ -47,6 +47,34 @@ function statusVariant(status: ProviderInfo['status']): 'secondary' | 'destructi
   return 'outline'
 }
 
+/**
+ * Decide whether a provider row/detail pane should render the OAuth UI.
+ *
+ * Precedence:
+ *   1. If we have a live `activeInfo`, trust `info.authType` exclusively.
+ *      Dual-mode providers (Anthropic, OpenAI) flip here based on the actual
+ *      auth.json record.
+ *   2. Otherwise, only while the panel is loading for the very first time,
+ *      fall back to the static OAUTH_PROVIDERS set so OAuth-only providers
+ *      (github-copilot) don't flash the API-key form on first render.
+ *   3. Once loading is done, even if `activeInfo` is still undefined (e.g.
+ *      `getProviders()` failed and `providers` stayed `null`), do NOT fall
+ *      back — the API-key form must remain reachable so users can recover
+ *      via manual key entry.
+ *
+ * Exported for unit tests.
+ */
+export function computeActiveIsOAuth(
+  activeInfo: ProviderInfo | undefined,
+  activeProvider: AuthProvider,
+  loading: boolean,
+): boolean {
+  if (activeInfo?.authType === 'oauth') {
+    return true
+  }
+  return loading && activeInfo === undefined && OAUTH_PROVIDERS.has(activeProvider)
+}
+
 export function buildProviderAuthReadinessNotice(
   readiness: FirstRunReadinessSnapshot | null | undefined,
 ): string | null {
@@ -138,14 +166,7 @@ export function ProviderAuthPanel() {
     return row?.info ?? providers?.[activeProvider]
   }, [activeProvider, providerRows, providers])
 
-  // When providers haven't loaded yet, fall back to the static OAUTH_PROVIDERS
-  // set so OAuth-only providers (github-copilot) render the correct UI during
-  // the initial loading tick instead of flashing the API-key form. Once the
-  // bridge responds we trust `info.authType` exclusively, because dual-mode
-  // providers like Anthropic and OpenAI can flip based on the actual record.
-  const activeIsOAuth =
-    activeInfo?.authType === 'oauth' ||
-    (activeInfo === undefined && OAUTH_PROVIDERS.has(activeProvider))
+  const activeIsOAuth = computeActiveIsOAuth(activeInfo, activeProvider, loading)
 
   const handleSave = async () => {
     const trimmed = apiKeyInput.trim()
