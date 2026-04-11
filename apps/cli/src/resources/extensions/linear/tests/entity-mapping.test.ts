@@ -327,7 +327,7 @@ describe("ensureKataLabels", () => {
 
   it("passes fixed colors: #7C3AED for milestone, #2563EB for slice, #16A34A for task", async () => {
     const { client, ensureLabelCalls } = makeMockClient();
-    await ensureKataLabels(client, "team-1");
+    await ensureKataLabels(client, "team-colors");
     const byName = Object.fromEntries(ensureLabelCalls.map((c) => [c.name, c.opts?.color]));
     assert.equal(byName["kata:milestone"], "#7C3AED");
     assert.equal(byName["kata:slice"],     "#2563EB");
@@ -336,7 +336,7 @@ describe("ensureKataLabels", () => {
 
   it("returns a KataLabelSet with milestone, slice, and task labels", async () => {
     const { client } = makeMockClient();
-    const labelSet = await ensureKataLabels(client, "team-1");
+    const labelSet = await ensureKataLabels(client, "team-labelset");
     assert.equal(labelSet.milestone.name, "kata:milestone");
     assert.equal(labelSet.slice.name,     "kata:slice");
     assert.equal(labelSet.task.name,      "kata:task");
@@ -344,7 +344,7 @@ describe("ensureKataLabels", () => {
 
   it("returns the label IDs from ensureLabel (uses existing if already present)", async () => {
     const { client } = makeMockClient();
-    const labelSet = await ensureKataLabels(client, "team-1");
+    const labelSet = await ensureKataLabels(client, "team-label-ids");
     // The mock generates IDs as `label-<name>`
     assert.equal(labelSet.milestone.id, "label-kata:milestone");
     assert.equal(labelSet.slice.id,     "label-kata:slice");
