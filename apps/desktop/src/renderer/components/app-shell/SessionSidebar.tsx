@@ -41,7 +41,7 @@ export function SessionSidebar({ open, onOpenSettings }: SessionSidebarProps) {
   }
 
   return (
-    <aside className="flex h-full w-[22rem] shrink-0 flex-col overflow-hidden border-r border-border bg-background/80">
+    <aside className="flex h-full w-[17rem] shrink-0 flex-col overflow-hidden border-r border-border bg-background/80">
       <div className="flex min-w-0 flex-col gap-2 p-3">
         <Button
           type="button"
