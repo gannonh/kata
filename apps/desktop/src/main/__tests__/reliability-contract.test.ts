@@ -106,6 +106,24 @@ describe('reliability-contract', () => {
     expect(signal?.code).toBe('REL-SYMPHONY-CONFIG-WORKFLOW_PATH_MISSING')
   })
 
+  test('returns null for symphony stopping phase (normal transition)', () => {
+    const status: SymphonyRuntimeStatus = {
+      phase: 'stopping',
+      managedProcessRunning: true,
+      pid: 123,
+      url: 'http://localhost:8080',
+      diagnostics: {
+        stdout: [],
+        stderr: [],
+      },
+      updatedAt: '2026-04-07T20:01:00.000Z',
+      restartCount: 0,
+    }
+
+    const signal = mapSymphonyRuntimeStatusToReliability(status)
+    expect(signal).toBeNull()
+  })
+
   test('maps symphony operator staleness into canonical stale signal', () => {
     const snapshot: SymphonyOperatorSnapshot = {
       fetchedAt: '2026-04-07T20:02:00.000Z',

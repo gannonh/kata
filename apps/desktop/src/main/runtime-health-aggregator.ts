@@ -704,6 +704,7 @@ export class RuntimeHealthAggregator extends EventEmitter {
       snapshot?.connection.state !== 'inactive' &&
       this.lastSymphonyRuntimePhase !== 'starting' &&
       this.lastSymphonyRuntimePhase !== 'restarting' &&
+      this.lastSymphonyRuntimePhase !== 'stopping' &&
       this.lastSymphonyRuntimePhase !== 'config_error' &&
       this.lastSymphonyRuntimePhase !== 'failed'
     this.symphonyOperatorSignal = operatorSignalAllowed
