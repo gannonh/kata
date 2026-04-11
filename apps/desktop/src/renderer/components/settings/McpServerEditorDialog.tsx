@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { McpServerInput, McpServerSummary, McpServerTransport } from '@shared/types'
+import type {
+  McpDirectTools,
+  McpServerInput,
+  McpServerSummary,
+  McpServerTransport,
+} from '@shared/types'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -13,6 +18,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+
+export type DirectToolsMode = 'proxy' | 'all' | 'allowlist'
 
 export interface McpServerEditorDraft {
   name: string
@@ -28,6 +35,25 @@ export interface McpServerEditorDraft {
   bearerToken: string
   bearerTokenEnv: string
   hasStoredInlineBearerToken: boolean
+  directToolsMode: DirectToolsMode
+  directToolsAllowlistText: string
+}
+
+function deriveDirectToolsMode(directTools: McpDirectTools | undefined): DirectToolsMode {
+  if (directTools === true) return 'all'
+  if (Array.isArray(directTools)) return 'allowlist'
+  return 'proxy'
+}
+
+function formatDirectToolsAllowlist(directTools: McpDirectTools | undefined): string {
+  return Array.isArray(directTools) ? directTools.join(', ') : ''
+}
+
+function parseDirectToolsAllowlist(text: string): string[] {
+  return text
+    .split(/[\n,]/)
+    .map((entry) => entry.trim())
+    .filter(Boolean)
 }
 
 export function createMcpServerEditorDraft(server?: McpServerSummary): McpServerEditorDraft {
@@ -46,8 +72,13 @@ export function createMcpServerEditorDraft(server?: McpServerSummary): McpServer
       bearerToken: '',
       bearerTokenEnv: '',
       hasStoredInlineBearerToken: false,
+      directToolsMode: 'proxy',
+      directToolsAllowlistText: '',
     }
   }
+
+  const directToolsMode = deriveDirectToolsMode(server.directTools)
+  const directToolsAllowlistText = formatDirectToolsAllowlist(server.directTools)
 
   if (server.summary.transport === 'http') {
     return {
@@ -64,6 +95,8 @@ export function createMcpServerEditorDraft(server?: McpServerSummary): McpServer
       bearerToken: '',
       bearerTokenEnv: server.summary.bearerTokenEnv ?? '',
       hasStoredInlineBearerToken: server.summary.hasInlineBearerToken,
+      directToolsMode,
+      directToolsAllowlistText,
     }
   }
 
@@ -81,6 +114,8 @@ export function createMcpServerEditorDraft(server?: McpServerSummary): McpServer
     bearerToken: '',
     bearerTokenEnv: '',
     hasStoredInlineBearerToken: false,
+    directToolsMode,
+    directToolsAllowlistText,
   }
 }
 
@@ -117,6 +152,10 @@ export function validateMcpServerDraft(draft: McpServerEditorDraft): string[] {
     ) {
       errors.push('Bearer auth requires a token or token env key.')
     }
+  }
+
+  if (draft.directToolsMode === 'allowlist' && parseDirectToolsAllowlist(draft.directToolsAllowlistText).length === 0) {
+    errors.push('Tool exposure allowlist requires at least one tool name.')
   }
 
   return errors
@@ -240,7 +279,15 @@ function parseEnv(envText: string): Record<string, string> | undefined {
   return Object.keys(env).length > 0 ? env : undefined
 }
 
+function draftDirectToolsPayload(draft: McpServerEditorDraft): McpDirectTools {
+  if (draft.directToolsMode === 'all') return true
+  if (draft.directToolsMode === 'allowlist') return parseDirectToolsAllowlist(draft.directToolsAllowlistText)
+  return false
+}
+
 function toServerInput(draft: McpServerEditorDraft): McpServerInput {
+  const directTools = draftDirectToolsPayload(draft)
+
   if (draft.transport === 'http') {
     const input: McpServerInput = {
       name: draft.name.trim(),
@@ -248,6 +295,7 @@ function toServerInput(draft: McpServerEditorDraft): McpServerInput {
       enabled: draft.enabled,
       url: draft.url.trim(),
       auth: draft.auth,
+      directTools,
     }
 
     if (draft.auth === 'bearer') {
@@ -274,6 +322,7 @@ function toServerInput(draft: McpServerEditorDraft): McpServerInput {
     args: parseArgs(draft.argsText),
     cwd: draft.cwd.trim(),
     env: parseEnv(draft.envText),
+    directTools,
   }
 }
 
@@ -324,7 +373,7 @@ export function McpServerEditorDialog({
         <DialogHeader>
           <DialogTitle>{isEditing ? `Edit ${server?.name}` : 'Add MCP server'}</DialogTitle>
           <DialogDescription>
-            Configure stdio or HTTP MCP servers without hand-editing mcp.json.
+            Define how this MCP server connects and exposes tools.
           </DialogDescription>
         </DialogHeader>
 
@@ -340,7 +389,7 @@ export function McpServerEditorDialog({
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-start gap-3">
             <div className="grid gap-1.5">
               <Label htmlFor="mcp-server-transport">Transport</Label>
               <Select
@@ -361,9 +410,14 @@ export function McpServerEditorDialog({
                   <SelectItem value="http">http</SelectItem>
                 </SelectContent>
               </Select>
+              {isEditing ? (
+                <p className="max-w-[18rem] text-xs text-muted-foreground">
+                  Transport is fixed after creation. Remove and re-add the server to switch.
+                </p>
+              ) : null}
             </div>
 
-            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            <label className="mt-7 flex items-center gap-2 text-sm text-muted-foreground">
               <input
                 type="checkbox"
                 checked={draft.enabled}
@@ -528,6 +582,52 @@ export function McpServerEditorDialog({
               ) : null}
             </>
           )}
+
+          <div className="grid gap-1.5 border-t border-border pt-3">
+            <Label htmlFor="mcp-server-direct-tools-mode">Tool exposure</Label>
+            <Select
+              value={draft.directToolsMode}
+              onValueChange={(value) =>
+                setDraft((previous) => ({
+                  ...previous,
+                  directToolsMode: value as DirectToolsMode,
+                }))
+              }
+            >
+              <SelectTrigger
+                id="mcp-server-direct-tools-mode"
+                className="w-full"
+                data-testid="mcp-editor-direct-tools-mode"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="proxy">Via mcp proxy (default)</SelectItem>
+                <SelectItem value="all">Promote every tool as first-class</SelectItem>
+                <SelectItem value="allowlist">Promote an allowlist of tools</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Proxy keeps context small (agent discovers tools via <code className="rounded bg-accent px-1">mcp</code>).
+              Promoting registers tools alongside <code className="rounded bg-accent px-1">read</code>,{' '}
+              <code className="rounded bg-accent px-1">bash</code>, etc. — zero discovery friction but larger tool
+              manifest.
+            </p>
+            {draft.directToolsMode === 'allowlist' ? (
+              <Textarea
+                id="mcp-server-direct-tools-allowlist"
+                value={draft.directToolsAllowlistText}
+                onChange={(event) =>
+                  setDraft((previous) => ({
+                    ...previous,
+                    directToolsAllowlistText: event.target.value,
+                  }))
+                }
+                placeholder="search_repositories, get_file_contents"
+                data-testid="mcp-editor-direct-tools-allowlist"
+              />
+            ) : null}
+          </div>
 
           {localError ? (
             <p className="text-xs text-destructive" data-testid="mcp-editor-local-error">

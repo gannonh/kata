@@ -49,6 +49,38 @@ export function summarizeMcpServer(server: McpServerSummary): string {
   return server.summary.url
 }
 
+/**
+ * Detect when a stdio server is running `mcp-remote` as a proxy to a real
+ * HTTP MCP endpoint. Used to annotate rows so users see "stdio · bridges
+ * https://mcp.linear.app/mcp" instead of a bare STDIO label, which is
+ * technically accurate but hides what the server actually talks to.
+ */
+export function detectMcpRemoteUpstream(server: McpServerSummary): string | null {
+  if (server.summary.transport !== 'stdio') return null
+  const args = server.summary.args
+  const mcpRemoteIndex = args.findIndex((arg) => arg === 'mcp-remote' || arg.endsWith('/mcp-remote'))
+  if (mcpRemoteIndex === -1) return null
+
+  for (let index = mcpRemoteIndex + 1; index < args.length; index += 1) {
+    const candidate = args[index]
+    if (!candidate || candidate.startsWith('-')) continue
+    if (/^https?:\/\//i.test(candidate)) {
+      return candidate
+    }
+  }
+
+  return null
+}
+
+export function describeDirectTools(server: McpServerSummary): string | null {
+  const directTools = server.directTools
+  if (directTools === true) return 'direct: all tools'
+  if (Array.isArray(directTools) && directTools.length > 0) {
+    return `direct: ${directTools.join(', ')}`
+  }
+  return null
+}
+
 function formatRowRecoveryLabel(action: ReliabilityRecoveryAction, serverName: string): string {
   switch (action) {
     case 'reconnect':
@@ -87,6 +119,9 @@ export function McpServerRow({
   onRecoveryAction,
   recoveryPending,
 }: McpServerRowProps) {
+  const mcpRemoteUpstream = detectMcpRemoteUpstream(server)
+  const directToolsLabel = describeDirectTools(server)
+
   return (
     <article
       className={`rounded-lg border p-3 ${
@@ -104,6 +139,16 @@ export function McpServerRow({
             <Badge variant="secondary" className="uppercase">
               {server.transport}
             </Badge>
+            {mcpRemoteUpstream ? (
+              <Badge variant="outline" data-testid={`mcp-bridge-badge-${server.name}`}>
+                bridges {mcpRemoteUpstream}
+              </Badge>
+            ) : null}
+            {directToolsLabel ? (
+              <Badge variant="outline" data-testid={`mcp-direct-tools-badge-${server.name}`}>
+                {directToolsLabel}
+              </Badge>
+            ) : null}
             {!server.enabled ? <Badge variant="outline">Disabled</Badge> : null}
           </div>
 

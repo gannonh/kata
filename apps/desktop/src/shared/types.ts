@@ -1226,11 +1226,25 @@ export interface McpHttpServerSummary {
 
 export type McpServerSummaryTransport = McpStdioServerSummary | McpHttpServerSummary
 
+/**
+ * How a server's tools are registered with the agent:
+ * - `false` / undefined — proxy-only (default). Tools are discovered via the
+ *   single `mcp` proxy tool; cheap on context, higher discovery friction.
+ * - `true` — every tool from this server is registered as a first-class
+ *   agent tool alongside read/bash/edit/etc.
+ * - `string[]` — allowlist. Only the named tools are promoted; the rest stay
+ *   behind the proxy.
+ *
+ * See pi-mcp-adapter README for details.
+ */
+export type McpDirectTools = boolean | readonly string[]
+
 export interface McpServerSummary {
   name: string
   transport: McpServerTransport
   enabled: boolean
   summary: McpServerSummaryTransport
+  directTools?: McpDirectTools
 }
 
 export interface McpStdioServerInput {
@@ -1241,6 +1255,7 @@ export interface McpStdioServerInput {
   env?: Record<string, string>
   cwd?: string
   enabled?: boolean
+  directTools?: McpDirectTools
 }
 
 export interface McpHttpServerInput {
@@ -1251,6 +1266,7 @@ export interface McpHttpServerInput {
   bearerToken?: string
   bearerTokenEnv?: string
   enabled?: boolean
+  directTools?: McpDirectTools
 }
 
 export type McpServerInput = McpStdioServerInput | McpHttpServerInput
