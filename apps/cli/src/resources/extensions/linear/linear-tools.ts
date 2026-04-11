@@ -299,11 +299,15 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
   pi.registerTool({
     name: "linear_list_issues",
     label: "Linear: List Issues",
-    description: "List issues with optional filters: team, project, parent (for sub-issues), state, labels, assignee.",
-    promptSnippet: "List issues with optional filters: team, project, parent (for sub-issues), state, labels, assignee.",
+    description:
+      "Generic Linear issue listing with optional filters: team, project, milestone, parent, state, labels, assignee. " +
+      "For Kata milestone planning or slice lookup, prefer kata_list_slices with milestoneId — this tool returns full issue payloads and is heavier.",
+    promptSnippet:
+      "List generic Linear issues with optional filters. For Kata slice enumeration, prefer kata_list_slices with milestoneId.",
     parameters: Type.Object({
       teamId: Type.Optional(Type.String({ description: "Filter by team UUID" })),
       projectId: Type.Optional(Type.String({ description: "Filter by project UUID" })),
+      projectMilestoneId: Type.Optional(Type.String({ description: "Filter by project milestone UUID" })),
       parentId: Type.Optional(Type.String({ description: "Filter by parent issue UUID (lists sub-issues)" })),
       stateId: Type.Optional(Type.String({ description: "Filter by workflow state UUID" })),
       labelIds: Type.Optional(Type.Array(Type.String(), { description: "Filter by label UUIDs (issues with any of these labels)" })),
@@ -745,17 +749,21 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     name: "kata_list_slices",
     label: "Kata: List Slices",
     description:
-      "List all Linear issues representing Kata slices in a project. " +
-      "Resolves the kata:slice label automatically from the team.",
-    promptSnippet: "List all Linear issues representing Kata slices in a project.",
+      "List Linear issues representing Kata slices in a project. " +
+      "Pass milestoneId whenever the work is scoped to one milestone; omit it only when you intentionally need every slice in the project.",
+    promptSnippet:
+      "List Kata slices for a project. Pass milestoneId whenever you are working within one milestone.",
     parameters: Type.Object({
       projectId: Type.String({ description: "Project UUID to scope the query" }),
       teamId: Type.String({ description: "Team UUID (from kata_derive_state or preferences)" }),
+      milestoneId: Type.Optional(Type.String({
+        description: "Project milestone UUID — strongly recommended when planning, reviewing, or enumerating slices for a specific milestone. Omit only when you need every slice in the project (rare).",
+      })),
     }),
     async execute(_id, params) {
       return run(async () => {
         const labelSet = await ensureKataLabels(client, params.teamId);
-        return listKataSlices(client, params.projectId, labelSet.slice.id);
+        return listKataSlices(client, params.projectId, labelSet.slice.id, params.milestoneId);
       });
     },
   });

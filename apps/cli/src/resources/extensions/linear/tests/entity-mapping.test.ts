@@ -20,6 +20,7 @@ import {
   createKataMilestone,
   createKataSlice,
   createKataTask,
+  listKataSlices,
 } from "../linear-entities.ts";
 import type { LinearWorkflowState, LinearLabel, LinearIssue, LinearMilestone } from "../linear-types.ts";
 
@@ -602,5 +603,44 @@ describe("createKataTask", () => {
       sliceIssueId: "slice-uuid",
     });
     assert.ok(!("stateId" in createIssueCalls[0]), "should not have stateId");
+  });
+});
+
+describe("listKataSlices", () => {
+  it("forwards projectMilestoneId when milestoneId is provided", async () => {
+    const listIssueCalls: Array<Record<string, unknown>> = [];
+    const client = {
+      async listIssues(filter: Record<string, unknown>): Promise<LinearIssue[]> {
+        listIssueCalls.push(filter);
+        return [];
+      },
+    };
+
+    await listKataSlices(client, "proj-1", "label-slice", "milestone-uuid");
+
+    assert.equal(listIssueCalls.length, 1);
+    assert.deepEqual(listIssueCalls[0], {
+      projectId: "proj-1",
+      labelIds: ["label-slice"],
+      projectMilestoneId: "milestone-uuid",
+    });
+  });
+
+  it("omits projectMilestoneId when milestoneId is not provided", async () => {
+    const listIssueCalls: Array<Record<string, unknown>> = [];
+    const client = {
+      async listIssues(filter: Record<string, unknown>): Promise<LinearIssue[]> {
+        listIssueCalls.push(filter);
+        return [];
+      },
+    };
+
+    await listKataSlices(client, "proj-1", "label-slice");
+
+    assert.equal(listIssueCalls.length, 1);
+    assert.deepEqual(listIssueCalls[0], {
+      projectId: "proj-1",
+      labelIds: ["label-slice"],
+    });
   });
 });

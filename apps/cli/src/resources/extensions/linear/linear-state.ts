@@ -49,6 +49,7 @@ export interface LinearStateClient {
   listIssues(filter: {
     projectId?: string;
     parentId?: string;
+    projectMilestoneId?: string;
     labelIds?: string[];
     teamId?: string;
     stateId?: string;
@@ -92,6 +93,7 @@ function milestoneRef(m: LinearMilestone): ActiveRef {
   return {
     id: parsed?.kataId ?? m.id,
     title: parsed?.title ?? m.name,
+    linearIssueId: m.id,
   };
 }
 
@@ -101,6 +103,7 @@ function issueRef(issue: { id: string; title: string }): ActiveRef {
   return {
     id: parsed?.kataId ?? issue.id,
     title: parsed?.title ?? issue.title,
+    linearIssueId: issue.id,
   };
 }
 

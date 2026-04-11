@@ -121,6 +121,7 @@ export interface Continue {
 export interface ActiveRef {
   id: string;
   title: string;
+  linearIssueId?: string;
 }
 
 export interface MilestoneRegistryEntry {

@@ -197,6 +197,7 @@ describe("deriveLinearState: milestones with no slices", () => {
     assert.ok(state.activeMilestone, "activeMilestone should be set");
     assert.equal(state.activeMilestone.id, "M001");
     assert.equal(state.activeMilestone.title, "Bootstrap");
+    assert.equal(state.activeMilestone.linearIssueId, "mid-1");
     assert.equal(state.activeSlice, null);
     assert.equal(state.activeTask, null);
   });
@@ -308,6 +309,7 @@ describe("deriveLinearState: active slice with state backlog → planning", () =
     assert.ok(state.activeSlice);
     assert.equal(state.activeSlice.id, "S01");
     assert.equal(state.activeSlice.title, "Planning slice");
+    assert.equal(state.activeSlice.linearIssueId, s1.id);
   });
 
   it("selects the lowest non-terminal slice ID when API returns unsorted slices", async () => {
@@ -403,6 +405,7 @@ describe("deriveLinearState: active slice started, children exist but none termi
     assert.ok(state.activeTask, "activeTask should be set");
     assert.equal(state.activeTask.id, "T01");
     assert.equal(state.activeTask.title, "First task");
+    assert.equal(state.activeTask.linearIssueId, "child-[T01] First task");
   });
 
   it("selects the lowest non-terminal task ID when children are unsorted", async () => {

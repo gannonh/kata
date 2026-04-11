@@ -38,9 +38,9 @@ function initBareRemote(base: string): string {
 function makeState(overrides?: Partial<KataState>): KataState {
   return {
     phase: "executing",
-    activeMilestone: { id: "M001", title: "Test Milestone" },
-    activeSlice: { id: "S01", title: "Test Slice" },
-    activeTask: { id: "T01", title: "Test Task" },
+    activeMilestone: { id: "M001", title: "Test Milestone", linearIssueId: "milestone-linear-1" },
+    activeSlice: { id: "S01", title: "Test Slice", linearIssueId: "slice-linear-1" },
+    activeTask: { id: "T01", title: "Test Task", linearIssueId: "task-linear-1" },
     blockers: [],
     recentDecisions: [],
     nextAction: "Execute T01",
@@ -92,6 +92,76 @@ describe("LinearBackend.preparePrContext", () => {
       rmSync(base, { recursive: true, force: true });
       rmSync(remote, { recursive: true, force: true });
     }
+  });
+});
+
+describe("LinearBackend milestone-scoped slice helpers", () => {
+  it("resolveSliceScope scopes the slice lookup by active milestone UUID", async () => {
+    const backend = makeBackend();
+    const listIssuesCalls: Array<Record<string, unknown>> = [];
+
+    backend.deriveState = async () => makeState({ phase: "planning" });
+    (backend as any).client = {
+      async listIssues(filter: Record<string, unknown>) {
+        listIssuesCalls.push(filter);
+        return [{
+          id: "slice-linear-1",
+          identifier: "KAT-1",
+          title: "[S01] Test Slice",
+          state: { id: "state-started", name: "In Progress", type: "started", color: "#000", position: 0 },
+          labels: [],
+          children: { nodes: [] },
+          createdAt: "2024-01-01T00:00:00.000Z",
+          updatedAt: "2024-01-01T00:00:00.000Z",
+        }];
+      },
+      async listMilestones() {
+        return [];
+      },
+    };
+
+    const scope = await backend.resolveSliceScope("M001", "S01");
+
+    assert.deepEqual(scope, { issueId: "slice-linear-1" });
+    assert.deepEqual(listIssuesCalls[0], {
+      projectId: "proj-123",
+      labelIds: ["label-789"],
+      projectMilestoneId: "milestone-linear-1",
+    });
+  });
+
+  it("isSlicePlanned scopes the slice lookup by milestone UUID", async () => {
+    const backend = makeBackend();
+    const listIssuesCalls: Array<Record<string, unknown>> = [];
+
+    backend.deriveState = async () => makeState({ phase: "planning" });
+    (backend as any).client = {
+      async listIssues(filter: Record<string, unknown>) {
+        listIssuesCalls.push(filter);
+        return [{
+          id: "slice-linear-1",
+          identifier: "KAT-1",
+          title: "[S01] Test Slice",
+          state: { id: "state-started", name: "In Progress", type: "started", color: "#000", position: 0 },
+          labels: [],
+          children: { nodes: [{ id: "task-linear-1", identifier: "KAT-2", title: "[T01] Test Task", state: { id: "state-started", name: "In Progress", type: "started", color: "#000", position: 0 } }] },
+          createdAt: "2024-01-01T00:00:00.000Z",
+          updatedAt: "2024-01-01T00:00:00.000Z",
+        }];
+      },
+      async listMilestones() {
+        return [];
+      },
+    };
+
+    const planned = await backend.isSlicePlanned("M001", "S01");
+
+    assert.equal(planned, true);
+    assert.deepEqual(listIssuesCalls[0], {
+      projectId: "proj-123",
+      labelIds: ["label-789"],
+      projectMilestoneId: "milestone-linear-1",
+    });
   });
 });
 
@@ -196,6 +266,30 @@ describe("LinearBackend.buildPrompt dispatch-time overrides", () => {
   it("override priority: uat > reassess > research", async () => {
     const p = await b.buildPrompt("executing", s(), { uatSliceId: "S01", reassessSliceId: "S01", dispatchResearch: "milestone" });
     assert.match(p, /Run UAT/);
+  });
+});
+
+describe("LinearBackend milestone-scoped planning prompts", () => {
+  const b = makeBackend();
+
+  it("plan milestone prompt includes the active milestone UUID in kata_list_slices", async () => {
+    const p = await b.buildPrompt("pre-planning", makeState({ phase: "pre-planning", activeSlice: null, activeTask: null }));
+    assert.match(p, /kata_list_slices\(\{ projectId, teamId, milestoneId: "milestone-linear-1" \}\)/);
+  });
+
+  it("planning prompts explicitly forbid linear_list_issues for slice enumeration", async () => {
+    const p = await b.buildPrompt("pre-planning", makeState({ phase: "pre-planning", activeSlice: null, activeTask: null }));
+    assert.match(p, /do NOT use linear_list_issues/i);
+  });
+
+  it("complete milestone prompt includes the active milestone UUID in kata_list_slices", async () => {
+    const p = await b.buildPrompt("completing-milestone", makeState({ phase: "completing-milestone", activeSlice: null, activeTask: null }));
+    assert.match(p, /kata_list_slices\(\{ projectId, teamId, milestoneId: "milestone-linear-1" \}\)/);
+  });
+
+  it("reassess roadmap prompt includes the active milestone UUID in kata_list_slices", async () => {
+    const p = await b.buildPrompt("executing", makeState(), { reassessSliceId: "S01" });
+    assert.match(p, /kata_list_slices\(\{ projectId, teamId, milestoneId: "milestone-linear-1" \}\)/);
   });
 });
 
