@@ -59,6 +59,28 @@ function createWindow(): BrowserWindow {
     },
   })
 
+  // Give in-app popups (PR badges, external links from the renderer) a
+  // comfortable default size instead of Electron's 800x600 default, and
+  // isolate them from the main preload so they have no IPC access.
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    log.info('[desktop-main] external window requested', { url })
+    return {
+      action: 'allow',
+      overrideBrowserWindowOptions: {
+        width: 1200,
+        height: 1000,
+        minWidth: 800,
+        minHeight: 600,
+        title: 'Kata Desktop',
+        webPreferences: {
+          contextIsolation: true,
+          nodeIntegration: false,
+          sandbox: true,
+        },
+      },
+    }
+  })
+
   const devServerUrl = process.env.VITE_DEV_SERVER_URL
   if (devServerUrl) {
     void window.loadURL(devServerUrl)
