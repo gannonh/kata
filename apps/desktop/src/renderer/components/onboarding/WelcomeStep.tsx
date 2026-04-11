@@ -10,7 +10,7 @@ export function WelcomeStep({ onNext }: WelcomeStepProps) {
     <div className="flex h-full flex-col justify-between">
       <div className="flex flex-col gap-3">
         <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Kata Desktop</p>
-        <h2 className="text-3xl font-semibold text-foreground">Welcome to your coding co-pilot</h2>
+        <h2 className="text-3xl font-semibold text-foreground">Agentic Development Environment</h2>
         <p className="max-w-xl text-sm text-muted-foreground">
           Connect an AI provider, pick a model, and start chatting in under a minute.
         </p>

@@ -49,7 +49,13 @@ describe('PROVIDER_METADATA', () => {
     })
   })
 
-  test('keeps onboarding list focused to directly supported API-key providers', () => {
-    expect(ONBOARDING_PROVIDER_IDS).toEqual(['anthropic', 'openai', 'google', 'mistral'])
+  test('onboarding list covers the directly supported providers including OAuth-capable ones', () => {
+    expect(ONBOARDING_PROVIDER_IDS).toEqual([
+      'anthropic',
+      'openai',
+      'google',
+      'github-copilot',
+      'mistral',
+    ])
   })
 })

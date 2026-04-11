@@ -94,6 +94,13 @@ export const OAUTH_PROVIDERS: ReadonlySet<AuthProvider> = new Set<AuthProvider>(
   'github-copilot',
 ])
 
+/**
+ * Default model used when no persisted selection exists. The CLI resolves this
+ * to the OpenAI Codex subscription model, which is the cheapest/fastest default
+ * for users authenticated via `kata login openai-codex` (ChatGPT Plus/Pro).
+ */
+export const DEFAULT_MODEL = 'openai-codex/gpt-5.3-codex'
+
 export type ProviderStatus = 'valid' | 'missing' | 'expired' | 'invalid'
 
 export type ProviderAuthType = 'api_key' | 'oauth'

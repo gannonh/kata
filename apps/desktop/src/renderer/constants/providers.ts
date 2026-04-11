@@ -56,6 +56,7 @@ export const ONBOARDING_PROVIDER_IDS: AuthProvider[] = [
   'anthropic',
   'openai',
   'google',
+  'github-copilot',
   'mistral',
 ]
 

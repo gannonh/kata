@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSetAtom } from 'jotai'
 import {
   ALL_AUTH_PROVIDERS,
+  DEFAULT_MODEL,
   OAUTH_PROVIDERS,
   type AuthProvider,
   type ProviderStatusMap,
@@ -109,9 +110,17 @@ export function OnboardingWizard() {
         return null
       }
 
-      const preferred =
-        modelResponse.models.find((model) => model.provider.toLowerCase() === provider) ??
-        modelResponse.models[0]
+      // Precedence: app default → provider-matching → first available.
+      // The default wins when it's in the list so users who just log in via
+      // `kata login openai-codex` land on the canonical default regardless of
+      // whichever provider card they clicked in step 2.
+      const defaultMatch = modelResponse.models.find(
+        (model) => `${model.provider}/${model.id}` === DEFAULT_MODEL,
+      )
+      const providerMatch = modelResponse.models.find(
+        (model) => model.provider.toLowerCase() === provider,
+      )
+      const preferred = defaultMatch ?? providerMatch ?? modelResponse.models[0]
 
       if (!preferred) {
         return null

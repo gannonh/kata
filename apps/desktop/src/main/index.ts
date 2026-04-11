@@ -32,6 +32,7 @@ import { registerSessionIpc } from './ipc'
 import { DesktopSessionManager } from './session-manager'
 import { SymphonySupervisor } from './symphony-supervisor'
 import { SymphonyOperatorService } from './symphony-operator-service'
+import { DEFAULT_MODEL } from '../shared/types'
 
 const SETTINGS_PATH = path.join(homedir(), '.kata-cli', 'agent', 'settings.json')
 
@@ -125,7 +126,10 @@ async function writeSettings(updates: Record<string, unknown>): Promise<void> {
 async function loadPersistedModel(): Promise<string | null> {
   const settings = await readSettings()
   const model = settings.model
-  return typeof model === 'string' && model.trim() ? model.trim() : null
+  if (typeof model === 'string' && model.trim()) {
+    return model.trim()
+  }
+  return DEFAULT_MODEL
 }
 
 async function persistSelectedModel(model: string): Promise<void> {

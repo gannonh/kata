@@ -1,13 +1,14 @@
 import { atom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
 import type { AvailableModel, ThinkingLevel } from '@shared/types'
+import { DEFAULT_MODEL } from '@shared/types'
 
 export const SELECTED_MODEL_STORAGE_KEY = 'kata-desktop:selected-model'
 export const THINKING_LEVEL_STORAGE_KEY = 'kata-desktop:thinking-level'
 
 export const selectedModelAtom = atomWithStorage<string | null>(
   SELECTED_MODEL_STORAGE_KEY,
-  null,
+  DEFAULT_MODEL,
 )
 
 export const thinkingLevelAtom = atomWithStorage<ThinkingLevel>(

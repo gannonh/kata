@@ -68,7 +68,9 @@ export function ProviderStep({
             const selected = selectedProvider === provider
 
             let badgeLabel: string
-            if (configured) {
+            if (configured && isOAuth) {
+              badgeLabel = 'Authenticated'
+            } else if (configured) {
               badgeLabel = 'Configured'
             } else if (isOAuth) {
               badgeLabel = 'Set up in CLI'
