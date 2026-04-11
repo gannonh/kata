@@ -6,7 +6,6 @@ import type {
   ProviderInfo,
   ProviderStatusMap,
 } from '@shared/types'
-import { OAUTH_PROVIDERS } from '@shared/types'
 import { useReliabilitySnapshot } from '@/atoms/reliability'
 import { Check, KeyRound, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -138,7 +137,7 @@ export function ProviderAuthPanel() {
     return row?.info ?? providers?.[activeProvider]
   }, [activeProvider, providerRows, providers])
 
-  const activeIsOAuth = OAUTH_PROVIDERS.has(activeProvider)
+  const activeIsOAuth = activeInfo?.authType === 'oauth'
 
   const handleSave = async () => {
     const trimmed = apiKeyInput.trim()
@@ -231,7 +230,7 @@ export function ProviderAuthPanel() {
             )}
 
             {providerRows.map(({ provider, metadata, info }) => {
-              const isOAuth = OAUTH_PROVIDERS.has(provider)
+              const isOAuth = info.authType === 'oauth'
               let statusLabel: string
               if (isOAuth && info.status === 'valid') {
                 statusLabel = 'Authenticated'

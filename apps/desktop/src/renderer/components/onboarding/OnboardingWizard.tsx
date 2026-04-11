@@ -197,6 +197,7 @@ export function OnboardingWizard() {
           {step === 'key' && selectedProvider && (
             <KeyInputStep
               provider={selectedProvider}
+              authType={providers[selectedProvider]?.authType ?? 'api_key'}
               readiness={firstRunReadiness}
               onBack={() => {
                 setKeyStepVisited(false)

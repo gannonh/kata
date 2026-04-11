@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { ArrowLeft, KeyRound } from 'lucide-react'
-import type { AuthProvider, FirstRunReadinessSnapshot } from '@shared/types'
-import { OAUTH_PROVIDERS } from '@shared/types'
+import type { AuthProvider, FirstRunReadinessSnapshot, ProviderAuthType } from '@shared/types'
 import { buildFirstRunGuidance, getFirstRunCheckpoint } from '@/lib/first-run-readiness'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,20 +10,21 @@ import { PROVIDER_METADATA } from '@/constants/providers'
 
 interface KeyInputStepProps {
   provider: AuthProvider
+  authType: ProviderAuthType
   readiness?: FirstRunReadinessSnapshot | null
   onBack: () => void
   onSaved: (provider: AuthProvider) => Promise<void>
   onSkip: () => void
 }
 
-export function KeyInputStep({ provider, readiness, onBack, onSaved, onSkip }: KeyInputStepProps) {
+export function KeyInputStep({ provider, authType, readiness, onBack, onSaved, onSkip }: KeyInputStepProps) {
   const [keyValue, setKeyValue] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   const metadata = PROVIDER_METADATA[provider]
-  const isOAuth = OAUTH_PROVIDERS.has(provider)
+  const isOAuth = authType === 'oauth'
   const authGuidance = buildFirstRunGuidance(getFirstRunCheckpoint(readiness, 'auth'))
   const modelGuidance = buildFirstRunGuidance(getFirstRunCheckpoint(readiness, 'model'))
 

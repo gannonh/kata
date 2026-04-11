@@ -4,7 +4,6 @@ import {
   buildProviderAuthRecoveryAction,
 } from '../ProviderAuthPanel'
 import type { FirstRunReadinessSnapshot, ProviderInfo } from '@shared/types'
-import { OAUTH_PROVIDERS } from '@shared/types'
 
 function createReadiness(
   overrides: Partial<FirstRunReadinessSnapshot['checkpoints']> = {},
@@ -99,62 +98,69 @@ describe('ProviderAuthPanel first-run readiness helpers', () => {
   })
 })
 
-describe('OAuth provider rendering logic', () => {
-  test('OAUTH_PROVIDERS contains github-copilot', () => {
-    expect(OAUTH_PROVIDERS.has('github-copilot')).toBe(true)
+// These tests pin the runtime contract the UI depends on: ProviderAuthPanel
+// and the onboarding steps pick their rendering (OAuth vs. API-key) from
+// info.authType, not from a static whitelist. Providers like Anthropic and
+// OpenAI can be authed either way depending on the auth.json record, so the
+// rendering must be driven by live data.
+describe('Provider rendering is driven by runtime authType', () => {
+  test('OAuth-authed dual-mode provider surfaces authType: oauth', () => {
+    const anthropicOAuth: ProviderInfo = {
+      provider: 'anthropic',
+      status: 'valid',
+      authType: 'oauth',
+      maskedKey: '••••ZAAA',
+    }
+
+    expect(anthropicOAuth.authType).toBe('oauth')
+    expect(anthropicOAuth.status).toBe('valid')
   })
 
-  test('OAuth provider with valid status should not show API key input', () => {
-    const oauthValidProvider: ProviderInfo = {
+  test('API-key-authed dual-mode provider surfaces authType: api_key', () => {
+    const anthropicKey: ProviderInfo = {
+      provider: 'anthropic',
+      status: 'valid',
+      authType: 'api_key',
+      maskedKey: '••••1234',
+    }
+
+    expect(anthropicKey.authType).toBe('api_key')
+  })
+
+  test('github-copilot always surfaces authType: oauth regardless of status', () => {
+    const valid: ProviderInfo = {
       provider: 'github-copilot',
       status: 'valid',
       authType: 'oauth',
     }
-
-    // OAuth provider should be rendered as authenticated row — no maskedKey, no API-key input
-    expect(OAUTH_PROVIDERS.has(oauthValidProvider.provider)).toBe(true)
-    expect(oauthValidProvider.authType).toBe('oauth')
-    expect(oauthValidProvider.status).toBe('valid')
-    expect(oauthValidProvider.maskedKey).toBeUndefined()
-  })
-
-  test('OAuth provider with missing status should show CLI guidance', () => {
-    const oauthMissingProvider: ProviderInfo = {
+    const missing: ProviderInfo = {
       provider: 'github-copilot',
       status: 'missing',
       authType: 'oauth',
     }
 
-    expect(OAUTH_PROVIDERS.has(oauthMissingProvider.provider)).toBe(true)
-    expect(oauthMissingProvider.status).toBe('missing')
-    expect(oauthMissingProvider.authType).toBe('oauth')
+    expect(valid.authType).toBe('oauth')
+    expect(missing.authType).toBe('oauth')
   })
 
-  test('API-key provider is not in OAUTH_PROVIDERS', () => {
-    expect(OAUTH_PROVIDERS.has('anthropic')).toBe(false)
-    expect(OAUTH_PROVIDERS.has('openai')).toBe(false)
-  })
-
-  test('mixed provider list has correct auth types', () => {
+  test('mixed provider map covers both auth modes without relying on provider id', () => {
     const providers: Record<string, ProviderInfo> = {
-      anthropic: { provider: 'anthropic', status: 'valid', authType: 'api_key', maskedKey: '••••1234' },
-      openai: { provider: 'openai', status: 'missing', authType: 'api_key' },
+      // Anthropic authenticated via Claude Pro/Max OAuth (kata login anthropic)
+      anthropic: { provider: 'anthropic', status: 'valid', authType: 'oauth', maskedKey: '••••ZAAA' },
+      // OpenAI authenticated via Codex subscription OAuth (kata login openai-codex, aliased to openai)
+      openai: { provider: 'openai', status: 'valid', authType: 'oauth', maskedKey: '••••Geqo' },
+      // Google unconfigured
+      google: { provider: 'google', status: 'missing', authType: 'api_key' },
+      // Copilot OAuth
       'github-copilot': { provider: 'github-copilot', status: 'valid', authType: 'oauth' },
     }
 
-    // API-key providers should have api_key authType
-    expect(providers.anthropic!.authType).toBe('api_key')
-    expect(providers.openai!.authType).toBe('api_key')
-    // OAuth providers should have oauth authType
-    expect(providers['github-copilot']!.authType).toBe('oauth')
+    const oauthRows = Object.values(providers).filter((info) => info.authType === 'oauth')
+    const apiKeyRows = Object.values(providers).filter((info) => info.authType === 'api_key')
 
-    // Only github-copilot is OAuth
-    for (const [key, info] of Object.entries(providers)) {
-      if (OAUTH_PROVIDERS.has(key as 'github-copilot')) {
-        expect(info.authType).toBe('oauth')
-      } else {
-        expect(info.authType).toBe('api_key')
-      }
-    }
+    expect(oauthRows.map((row) => row.provider).sort()).toEqual(
+      ['anthropic', 'github-copilot', 'openai'].sort(),
+    )
+    expect(apiKeyRows.map((row) => row.provider)).toEqual(['google'])
   })
 })
