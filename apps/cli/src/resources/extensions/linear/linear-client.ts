@@ -40,6 +40,7 @@ import type {
   LabelCreateInput,
   DocumentCreateInput,
   DocumentUpdateInput,
+  DocumentListFilter,
 } from "./linear-types.js";
 
 const LINEAR_API_ENDPOINT = "https://api.linear.app/graphql";
@@ -615,6 +616,27 @@ export class LinearClient {
     }
   `;
 
+  private buildIssueFilter(filter: IssueFilter): Record<string, unknown> | undefined {
+    const gqlFilter: Record<string, unknown> = {};
+    if (filter.teamId) gqlFilter.team = { id: { eq: filter.teamId } };
+    if (filter.projectId) gqlFilter.project = { id: { eq: filter.projectId } };
+    if (filter.parentId) gqlFilter.parent = { id: { eq: filter.parentId } };
+    if (filter.projectMilestoneId) {
+      gqlFilter.projectMilestone = { id: { eq: filter.projectMilestoneId } };
+    }
+    if (filter.stateId) gqlFilter.state = { id: { eq: filter.stateId } };
+    if (filter.assigneeId) gqlFilter.assignee = { id: { eq: filter.assigneeId } };
+    if (filter.labelIds?.length) {
+      gqlFilter.labels = { some: { id: { in: filter.labelIds } } };
+    }
+    return Object.keys(gqlFilter).length > 0 ? gqlFilter : undefined;
+  }
+
+  private normalizeLabels(rawLabels: unknown): LinearLabel[] {
+    const labels = rawLabels as { nodes?: LinearLabel[] } | LinearLabel[] | undefined;
+    return Array.isArray(labels) ? labels : (labels?.nodes ?? []);
+  }
+
   async createIssue(input: IssueCreateInput): Promise<LinearIssue> {
     const data = await this.graphql<{
       issueCreate: { success: boolean; issue: LinearIssue };
@@ -649,18 +671,7 @@ export class LinearClient {
   }
 
   async listIssues(filter: IssueFilter): Promise<LinearIssue[]> {
-    const gqlFilter: Record<string, unknown> = {};
-    if (filter.teamId) gqlFilter.team = { id: { eq: filter.teamId } };
-    if (filter.projectId) gqlFilter.project = { id: { eq: filter.projectId } };
-    if (filter.parentId) gqlFilter.parent = { id: { eq: filter.parentId } };
-    if (filter.projectMilestoneId) {
-      gqlFilter.projectMilestone = { id: { eq: filter.projectMilestoneId } };
-    }
-    if (filter.stateId) gqlFilter.state = { id: { eq: filter.stateId } };
-    if (filter.assigneeId) gqlFilter.assignee = { id: { eq: filter.assigneeId } };
-    if (filter.labelIds && filter.labelIds.length > 0) {
-      gqlFilter.labels = { some: { id: { in: filter.labelIds } } };
-    }
+    const gqlFilter = this.buildIssueFilter(filter);
 
     return this.paginate(async (cursor) => {
       const data = await this.graphql<{
@@ -680,7 +691,7 @@ export class LinearClient {
       `, {
         first: filter.first ?? 50,
         after: cursor,
-        filter: Object.keys(gqlFilter).length > 0 ? gqlFilter : undefined,
+        filter: gqlFilter,
       });
       return {
         ...data.issues,
@@ -690,16 +701,7 @@ export class LinearClient {
   }
 
   async listIssueSummaries(filter: IssueFilter): Promise<LinearIssueSummary[]> {
-    const gqlFilter: Record<string, unknown> = {};
-    if (filter.teamId) gqlFilter.team = { id: { eq: filter.teamId } };
-    if (filter.projectId) gqlFilter.project = { id: { eq: filter.projectId } };
-    if (filter.parentId) gqlFilter.parent = { id: { eq: filter.parentId } };
-    if (filter.projectMilestoneId) {
-      gqlFilter.projectMilestone = { id: { eq: filter.projectMilestoneId } };
-    }
-    if (filter.stateId) gqlFilter.state = { id: { eq: filter.stateId } };
-    if (filter.assigneeId) gqlFilter.assignee = { id: { eq: filter.assigneeId } };
-    if (filter.labelIds?.length) gqlFilter.labels = { some: { id: { in: filter.labelIds } } };
+    const gqlFilter = this.buildIssueFilter(filter);
 
     return this.paginate(async (cursor) => {
       const data = await this.graphql<{
@@ -719,14 +721,14 @@ export class LinearClient {
       `, {
         first: filter.first ?? 50,
         after: cursor,
-        filter: Object.keys(gqlFilter).length > 0 ? gqlFilter : undefined,
+        filter: gqlFilter,
       });
 
       return {
         ...data.issues,
         nodes: data.issues.nodes.map((issue) => ({
           ...issue,
-          labels: Array.isArray(issue.labels) ? issue.labels : (issue.labels as { nodes?: LinearLabel[] })?.nodes ?? [],
+          labels: this.normalizeLabels(issue.labels),
         })),
       };
     });
@@ -905,8 +907,7 @@ export class LinearClient {
 
   /** Normalize issue labels from connection format to flat array and include relation helpers. */
   private normalizeIssue(issue: LinearIssue): LinearIssue {
-    const raw = issue.labels as unknown as { nodes?: LinearLabel[] } | LinearLabel[];
-    const labels = Array.isArray(raw) ? raw : (raw?.nodes ?? []);
+    const labels = this.normalizeLabels(issue.labels);
     const relations = this.normalizeRelations(issue);
     const blockedBy = relations
       .filter((relation) => relation.type === "blocked_by")
@@ -1096,6 +1097,20 @@ export class LinearClient {
     updatedAt
   `;
 
+  private buildDocumentFilter(opts?: DocumentListFilter): Record<string, unknown> | undefined {
+    const filter: Record<string, unknown> = {};
+    if (opts?.projectId) {
+      filter.project = { id: { eq: opts.projectId } };
+    }
+    if (opts?.issueId) {
+      filter.issue = { id: { eq: opts.issueId } };
+    }
+    if (opts?.title) {
+      filter.title = { eq: opts.title };
+    }
+    return Object.keys(filter).length > 0 ? filter : undefined;
+  }
+
   async createDocument(input: DocumentCreateInput): Promise<LinearDocument> {
     const data = await this.graphql<{
       documentCreate: { success: boolean; document: LinearDocument };
@@ -1129,19 +1144,10 @@ export class LinearClient {
     }
   }
 
-  async listDocuments(opts?: {
-    projectId?: string;
-    issueId?: string;
-    title?: string;
-    first?: number;
-  }): Promise<LinearDocument[]> {
+  async listDocuments(opts?: DocumentListFilter): Promise<LinearDocument[]> {
+    const filter = this.buildDocumentFilter(opts);
+
     return this.paginate(async (cursor) => {
-      const filter: Record<string, unknown> = {};
-      if (opts?.projectId) {
-        filter.project = { id: { eq: opts.projectId } };
-      }
-      if (opts?.issueId) filter.issue = { id: { eq: opts.issueId } };
-      if (opts?.title)   filter.title = { eq: opts.title };
       const data = await this.graphql<{
         documents: { nodes: LinearDocument[]; pageInfo: LinearPageInfo };
       }>(`
@@ -1159,24 +1165,16 @@ export class LinearClient {
       `, {
         first: opts?.first ?? 50,
         after: cursor,
-        filter: Object.keys(filter).length > 0 ? filter : undefined,
+        filter,
       });
       return data.documents;
     });
   }
 
-  async listDocumentSummaries(opts?: {
-    projectId?: string;
-    issueId?: string;
-    title?: string;
-    first?: number;
-  }): Promise<LinearDocumentSummary[]> {
-    return this.paginate(async (cursor) => {
-      const filter: Record<string, unknown> = {};
-      if (opts?.projectId) filter.project = { id: { eq: opts.projectId } };
-      if (opts?.issueId) filter.issue = { id: { eq: opts.issueId } };
-      if (opts?.title) filter.title = { eq: opts.title };
+  async listDocumentSummaries(opts?: DocumentListFilter): Promise<LinearDocumentSummary[]> {
+    const filter = this.buildDocumentFilter(opts);
 
+    return this.paginate(async (cursor) => {
       const data = await this.graphql<{
         documents: { nodes: LinearDocumentSummary[]; pageInfo: LinearPageInfo };
       }>(`
@@ -1194,7 +1192,7 @@ export class LinearClient {
       `, {
         first: opts?.first ?? 50,
         after: cursor,
-        filter: Object.keys(filter).length > 0 ? filter : undefined,
+        filter,
       });
 
       return data.documents;

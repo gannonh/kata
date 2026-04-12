@@ -287,6 +287,13 @@ export interface IssueFilter {
   first?: number;
 }
 
+export interface DocumentListFilter {
+  projectId?: string;
+  issueId?: string;
+  title?: string;
+  first?: number;
+}
+
 export interface IssueRelationCreateInput {
   issueId: string;
   relatedIssueId: string;
