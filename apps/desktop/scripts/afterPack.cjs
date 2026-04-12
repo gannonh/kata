@@ -2,7 +2,7 @@
  * electron-builder afterPack hook
  *
  * 1. Copies pre-compiled macOS 26+ Liquid Glass icon (Assets.car) into the app bundle.
- * 2. Copies bundled runtime resources (kata, kata-runtime, bun, symphony) into Contents/Resources.
+ * 2. Copies bundled runtime resources (kata, kata-runtime, symphony) into Contents/Resources.
  * 3. Strips executable permissions from script files to prevent notarization issues.
  *
  * To regenerate Assets.car after icon changes:
@@ -36,7 +36,6 @@ function copyVendorResources(projectDir, resourcesDir, platform) {
   const items = [
     { src: isWindows ? 'kata.cmd' : 'kata', type: 'file', executable: true },
     { src: 'kata-runtime', type: 'dir' },
-    { src: 'bun', type: 'dir', executableChild: isWindows ? 'bun.exe' : 'bun' },
     { src: isWindows ? 'symphony.exe' : 'symphony', type: 'file', executable: true, optional: true },
   ];
 
