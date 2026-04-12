@@ -599,6 +599,7 @@ export class LinearClient {
         id
         name
         color
+        isGroup
       }
     }
     parent {

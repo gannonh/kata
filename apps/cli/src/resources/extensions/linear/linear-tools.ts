@@ -1031,17 +1031,11 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     }),
     async execute(_id, params) {
       return run(async () => {
-        const summaryClient = client as LinearClient & {
-          listDocumentSummaries?: (opts?: { projectId?: string; issueId?: string; title?: string; first?: number }) => Promise<Array<{ id: string; title: string; project?: { id: string; name: string } | null; issue?: { id: string; identifier: string } | null; updatedAt: string }>>;
-          listDocuments?: (opts?: { projectId?: string; issueId?: string; title?: string; first?: number }) => Promise<Array<{ id: string; title: string; project?: { id: string; name: string } | null; issue?: { id: string; identifier: string } | null; updatedAt: string }>>;
-        };
         const docsQuery = {
           ...(params.projectId !== undefined ? { projectId: params.projectId } : {}),
           ...(params.first !== undefined ? { first: params.first } : {}),
         };
-        const docs = typeof summaryClient.listDocumentSummaries === "function"
-          ? await summaryClient.listDocumentSummaries(docsQuery)
-          : await summaryClient.listDocuments?.(docsQuery) ?? [];
+        const docs = await client.listDocumentSummaries(docsQuery);
         return renderInventoryResult({
           noun: "documents",
           items: docs,
@@ -1565,17 +1559,9 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
         return fail(new Error("Exactly one of projectId or issueId is required"));
       }
       return run(async () => {
-        const summaryClient = client as LinearClient & {
-          listDocumentSummaries?: (opts?: { projectId?: string; issueId?: string; title?: string; first?: number }) => Promise<Array<{ id: string; title: string; project?: { id: string; name: string } | null; issue?: { id: string; identifier: string } | null; updatedAt: string }>>;
-          listDocuments?: (opts?: { projectId?: string; issueId?: string; title?: string; first?: number }) => Promise<Array<{ id: string; title: string; project?: { id: string; name: string } | null; issue?: { id: string; identifier: string } | null; updatedAt: string }>>;
-        };
-        const docs = typeof summaryClient.listDocumentSummaries === "function"
-          ? await summaryClient.listDocumentSummaries(hasProject
-              ? { projectId: params.projectId!, first: params.first }
-              : { issueId: params.issueId!, first: params.first })
-          : await summaryClient.listDocuments?.(hasProject
-              ? { projectId: params.projectId!, first: params.first }
-              : { issueId: params.issueId!, first: params.first }) ?? [];
+        const docs = await client.listDocumentSummaries(hasProject
+          ? { projectId: params.projectId!, first: params.first }
+          : { issueId: params.issueId!, first: params.first });
         return renderInventoryResult({
           noun: "documents",
           items: docs,

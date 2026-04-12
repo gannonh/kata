@@ -33,7 +33,7 @@ export function renderPagedTextField(opts: {
   if (!rawBody) return opts.emptyMessage;
 
   const offset = opts.offset ?? 1;
-  const limit = opts.limit ?? DEFAULT_TEXT_PAGE_LIMIT;
+  const limit = Math.min(opts.limit ?? DEFAULT_TEXT_PAGE_LIMIT, DEFAULT_TEXT_PAGE_LIMIT);
   const maxBytes = opts.maxBytes ?? HARDENED_MAX_BYTES;
   assertOneIndexedOffset(offset);
   assertPositiveLimit(limit);
@@ -52,20 +52,25 @@ export function renderPagedTextField(opts: {
 
   const shownStart = offset;
   const shownEnd = shownStart + Math.max(truncation.outputLines - 1, 0);
-  let text = truncation.content;
 
+  // Build footer first, then fit body within remaining budget so the footer
+  // is never dropped by a final truncation pass.
+  const footerParts: string[] = [];
   if (shownEnd < lines.length) {
-    text += `\n\n[Showing ${opts.label} lines ${shownStart}-${shownEnd} of ${lines.length}. Use offset=${shownEnd + 1} to continue.]`;
+    footerParts.push(`[Showing ${opts.label} lines ${shownStart}-${shownEnd} of ${lines.length}. Use offset=${shownEnd + 1} to continue.]`);
   }
-
   if (truncation.truncated && truncation.truncatedBy === "bytes") {
-    text += `\n[Truncated to ${formatSize(maxBytes)} while preserving full lines.]`;
+    footerParts.push(`[Truncated to ${formatSize(maxBytes)} while preserving full lines.]`);
   }
 
-  return truncateHead(text, {
-    maxLines: limit + 4,
-    maxBytes,
-  }).content;
+  const footer = footerParts.length > 0 ? "\n\n" + footerParts.join("\n") : "";
+  const footerBytes = Buffer.byteLength(footer, "utf8");
+  const bodyBudget = maxBytes - footerBytes;
+
+  const fittedBody = bodyBudget > 0
+    ? truncateHead(truncation.content, { maxLines: limit, maxBytes: bodyBudget }).content
+    : "";
+  return fittedBody + footer;
 }
 
 export function renderPagedInventory<T>(opts: {
@@ -78,7 +83,7 @@ export function renderPagedInventory<T>(opts: {
   omittedFieldsNote?: string;
 }): string {
   const offset = opts.offset ?? 1;
-  const limit = opts.limit ?? DEFAULT_LIST_PAGE_LIMIT;
+  const limit = Math.min(opts.limit ?? DEFAULT_LIST_PAGE_LIMIT, DEFAULT_LIST_PAGE_LIMIT);
   assertOneIndexedOffset(offset);
   assertPositiveLimit(limit);
 
@@ -91,24 +96,54 @@ export function renderPagedInventory<T>(opts: {
 
   const startIndex = offset - 1;
   const page = opts.items.slice(startIndex, startIndex + limit);
-  const lines = page.map((item, pageIndex) => opts.renderItem(item, startIndex + pageIndex + 1));
-  let text = lines.join("\n");
-  const shownStart = offset;
-  const shownEnd = offset + page.length - 1;
+  const renderedItems = page.map((item, pageIndex) => opts.renderItem(item, startIndex + pageIndex + 1));
 
-  if (shownEnd < opts.items.length) {
-    text += `\n\n[Showing items ${shownStart}-${shownEnd} of ${opts.items.length}. Use offset=${shownEnd + 1} to continue.]`;
+  const fitsWithinHardLimit = (value: string): boolean => {
+    const lineCount = value.length === 0 ? 0 : value.split("\n").length;
+    return lineCount <= DEFAULT_MAX_LINES && Buffer.byteLength(value, "utf8") <= HARDENED_MAX_BYTES;
+  };
+
+  const buildSuffix = (shownCount: number, truncatedBySize: boolean): string => {
+    const parts: string[] = [];
+    const shownEnd = shownCount > 0 ? offset + shownCount - 1 : offset - 1;
+    const hasMoreItems = shownEnd < opts.items.length;
+
+    if (hasMoreItems) {
+      if (shownCount > 0) {
+        parts.push(`[Showing items ${offset}-${shownEnd}. Use offset=${shownEnd + 1} to continue.]`);
+      } else {
+        parts.push(`[Output limit reached before item ${offset} could be shown. Use offset=${offset} to continue.]`);
+      }
+    }
+
+    if (truncatedBySize) {
+      parts.push(
+        `[Additional ${opts.noun} from this page were omitted to preserve continuation instructions within ${DEFAULT_MAX_LINES} lines/${HARDENED_MAX_BYTES} bytes.]`,
+      );
+    }
+
+    if (opts.omittedFieldsNote) {
+      parts.push(opts.omittedFieldsNote);
+    }
+
+    return parts.join("\n");
+  };
+
+  let shownCount = renderedItems.length;
+  while (shownCount >= 0) {
+    const body = renderedItems.slice(0, shownCount).join("\n");
+    const truncatedBySize = shownCount < renderedItems.length;
+    const suffix = buildSuffix(shownCount, truncatedBySize);
+    const candidate = body && suffix ? `${body}\n\n${suffix}` : body || suffix;
+
+    if (fitsWithinHardLimit(candidate)) {
+      return candidate;
+    }
+
+    shownCount -= 1;
   }
-  if (opts.omittedFieldsNote) {
-    text += `\n${opts.omittedFieldsNote}`;
-  }
 
-  const truncation = truncateHead(text, {
-    maxLines: DEFAULT_MAX_LINES,
-    maxBytes: HARDENED_MAX_BYTES,
-  });
-
-  return truncation.content;
+  return buildSuffix(0, true);
 }
 
 export function renderMutationSummary(opts: {

@@ -64,7 +64,7 @@ describe("renderPagedInventory", () => {
 
     expect(text).toContain("2. b");
     expect(text).toContain("3. c");
-    expect(text).toContain("Showing items 2-3 of 4. Use offset=4 to continue.");
+    expect(text).toContain("Showing items 2-3. Use offset=4 to continue.");
     expect(text).toContain("Document contents omitted from list output.");
   });
 });
