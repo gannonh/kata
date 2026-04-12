@@ -521,12 +521,12 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
   pi.registerTool({
     name: "linear_get_document",
     label: "Linear: Get Document",
-    description: "Get a document by UUID. Returns full markdown content.",
-    promptSnippet: "Get a document by UUID.",
+    description: "Get a document by UUID. Returns compact metadata with paged markdown content via offset/limit.",
+    promptSnippet: "Read one document by UUID with optional offset/limit paging.",
     parameters: Type.Object({
       id: Type.String({ description: "Document UUID" }),
-      offset: Type.Optional(Type.Number({ description: "Line number to start reading from (1-indexed)" })),
-      limit: Type.Optional(Type.Number({ description: "Maximum number of content lines to read" })),
+      offset: Type.Optional(Type.Integer({ minimum: 1, description: "Line number to start reading from (1-indexed)" })),
+      limit: Type.Optional(Type.Integer({ minimum: 1, description: "Maximum number of content lines to read" })),
     }),
     async execute(_id, params) {
       return run(async () => {
@@ -554,12 +554,12 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
   pi.registerTool({
     name: "linear_list_documents",
     label: "Linear: List Documents",
-    description: "List documents, optionally filtered by project.",
-    promptSnippet: "List documents, optionally filtered by project.",
+    description: "List document inventory metadata, optionally filtered by project. Document content is omitted from list output.",
+    promptSnippet: "List document inventory metadata (content omitted), optionally filtered by project.",
     parameters: Type.Object({
       projectId: Type.Optional(Type.String({ description: "Filter by project UUID" })),
-      offset: Type.Optional(Type.Number({ description: "Item number to start from (1-indexed)" })),
-      limit: Type.Optional(Type.Number({ description: "Maximum number of items to return" })),
+      offset: Type.Optional(Type.Integer({ minimum: 1, description: "Item number to start from (1-indexed)" })),
+      limit: Type.Optional(Type.Integer({ minimum: 1, description: "Maximum number of items to return" })),
     }),
     async execute(_id, params) {
       return run(async () => {
@@ -869,16 +869,16 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     label: "Kata: Read Document",
     description:
       "Read a Kata artifact document by title from the attachment target. " +
-      "Returns the document (with full markdown content) if found, or null if not yet written. " +
+      "Returns compact metadata with paged markdown content when found, or null if not yet written. " +
       "null is the canonical signal for 'document does not exist yet'. " +
       "Exactly one of projectId or issueId must be provided.",
-    promptSnippet: "Read a Kata artifact document by title from the attachment target.",
+    promptSnippet: "Read one Kata artifact by title with optional offset/limit paging.",
     parameters: Type.Object({
       title: Type.String({ description: "Document title to look up, e.g. 'M001-ROADMAP'" }),
       projectId: Type.Optional(Type.String({ description: "Project UUID — scope the lookup to this project" })),
       issueId: Type.Optional(Type.String({ description: "Issue UUID — scope the lookup to this issue" })),
-      offset: Type.Optional(Type.Number({ description: "Line number to start reading from (1-indexed)" })),
-      limit: Type.Optional(Type.Number({ description: "Maximum number of content lines to read" })),
+      offset: Type.Optional(Type.Integer({ minimum: 1, description: "Line number to start reading from (1-indexed)" })),
+      limit: Type.Optional(Type.Integer({ minimum: 1, description: "Maximum number of content lines to read" })),
     }),
     async execute(_id, params) {
       const hasProject = params.projectId !== undefined;
@@ -915,16 +915,16 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     name: "kata_list_documents",
     label: "Kata: List Documents",
     description:
-      "List all Kata documents attached to a given project or issue. " +
+      "List Kata document inventory metadata attached to a given project or issue. " +
       "Zero-side-effect inspection surface — does not modify any state. " +
-      "Returns an array of LinearDocument objects; empty array means no documents exist. " +
+      "Document content is omitted from list output; use kata_read_document for paged content reads. " +
       "Exactly one of projectId or issueId must be provided.",
-    promptSnippet: "List all Kata documents attached to a given project or issue.",
+    promptSnippet: "List Kata document inventory metadata for a project or issue (content omitted).",
     parameters: Type.Object({
       projectId: Type.Optional(Type.String({ description: "Project UUID — list documents attached to this project" })),
       issueId: Type.Optional(Type.String({ description: "Issue UUID — list documents attached to this issue" })),
-      offset: Type.Optional(Type.Number({ description: "Item number to start from (1-indexed)" })),
-      limit: Type.Optional(Type.Number({ description: "Maximum number of items to return" })),
+      offset: Type.Optional(Type.Integer({ minimum: 1, description: "Item number to start from (1-indexed)" })),
+      limit: Type.Optional(Type.Integer({ minimum: 1, description: "Maximum number of items to return" })),
     }),
     async execute(_id, params) {
       const hasProject = params.projectId !== undefined;

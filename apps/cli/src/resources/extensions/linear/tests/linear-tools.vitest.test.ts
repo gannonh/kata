@@ -124,7 +124,7 @@ describe("registerLinearTools run helper", () => {
 });
 
 describe("registerLinearTools document outputs", () => {
-  it("linear_list_documents omits document content and exposes item paging", async () => {
+  function registerDocumentToolsForTest(clientOverrides: Record<string, unknown> = {}) {
     const tools = new Map<string, any>();
     const pi = {
       registerTool(tool: any) {
@@ -132,6 +132,17 @@ describe("registerLinearTools document outputs", () => {
       },
     };
     const client = {
+      async getDocument() {
+        return {
+          id: "doc-1",
+          title: "M001-ROADMAP",
+          content: ["a", "b", "c", "d"].join("\n"),
+          project: { id: "proj-1", name: "Desktop" },
+          issue: null,
+          createdAt: "2026-04-12T00:00:00.000Z",
+          updatedAt: "2026-04-12T00:00:00.000Z",
+        };
+      },
       async listDocumentSummaries() {
         return [
           {
@@ -144,9 +155,83 @@ describe("registerLinearTools document outputs", () => {
           },
         ];
       },
+      async listDocuments() {
+        return [
+          {
+            id: "doc-1",
+            title: "M001-ROADMAP",
+            content: ["a", "b", "c", "d"].join("\n"),
+            project: { id: "proj-1", name: "Desktop" },
+            issue: null,
+            createdAt: "2026-04-12T00:00:00.000Z",
+            updatedAt: "2026-04-12T00:00:00.000Z",
+          },
+        ];
+      },
+      ...clientOverrides,
     };
 
     registerLinearTools(pi as any, client as any);
+    return { tools };
+  }
+
+  it("advertises compact/paged document contracts in tool metadata", () => {
+    const { tools } = registerDocumentToolsForTest();
+
+    expect(tools.get("linear_get_document").description).toMatch(/paged markdown content/i);
+    expect(tools.get("linear_get_document").promptSnippet).toMatch(/offset\/limit/i);
+    expect(tools.get("kata_read_document").description).toMatch(/compact metadata with paged markdown content/i);
+    expect(tools.get("kata_list_documents").description).toMatch(/content is omitted/i);
+  });
+
+  it("linear_get_document pages content lines", async () => {
+    const { tools } = registerDocumentToolsForTest();
+
+    const result = await tools.get("linear_get_document").execute("tool-1", {
+      id: "doc-1",
+      offset: 2,
+      limit: 2,
+    });
+    const text = result.content[0].text;
+
+    expect(text).toContain("b");
+    expect(text).toContain("c");
+    expect(text).toContain("Showing content lines 2-3 of 4. Use offset=4 to continue.");
+  });
+
+  it("linear_get_document returns an error when the document does not exist", async () => {
+    const { tools } = registerDocumentToolsForTest({
+      async getDocument() {
+        return null;
+      },
+    });
+
+    const result = await tools.get("linear_get_document").execute("tool-1", { id: "doc-missing" });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("Document not found: doc-missing");
+  });
+
+  it("linear_get_document rejects invalid paging parameters", async () => {
+    const { tools } = registerDocumentToolsForTest();
+    const tool = tools.get("linear_get_document");
+
+    const cases = [
+      { params: { id: "doc-1", offset: 0 }, expected: "offset must be >= 1" },
+      { params: { id: "doc-1", offset: 99 }, expected: "offset 99 is beyond end of content (4 lines total)" },
+      { params: { id: "doc-1", limit: 0 }, expected: "limit must be >= 1" },
+    ];
+
+    for (const testCase of cases) {
+      const result = await tool.execute("tool-1", testCase.params);
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain(testCase.expected);
+    }
+  });
+
+  it("linear_list_documents omits document content and exposes item paging", async () => {
+    const { tools } = registerDocumentToolsForTest();
+
     const result = await tools.get("linear_list_documents").execute("tool-1", { projectId: "proj-1" });
     const text = result.content[0].text;
 
@@ -155,28 +240,20 @@ describe("registerLinearTools document outputs", () => {
     expect(text).not.toContain('"content"');
   });
 
-  it("kata_read_document accepts offset/limit and pages content lines", async () => {
-    const tools = new Map<string, any>();
-    const pi = {
-      registerTool(tool: any) {
-        tools.set(tool.name, tool);
-      },
-    };
-    const client = {
-      async listDocuments() {
-        return [{
-          id: "doc-1",
-          title: "M001-ROADMAP",
-          content: ["a", "b", "c", "d"].join("\n"),
-          project: { id: "proj-1", name: "Desktop" },
-          issue: null,
-          createdAt: "2026-04-12T00:00:00.000Z",
-          updatedAt: "2026-04-12T00:00:00.000Z",
-        }];
-      },
-    };
+  it("kata_list_documents returns inventory output with omitted-content guidance", async () => {
+    const { tools } = registerDocumentToolsForTest();
 
-    registerLinearTools(pi as any, client as any);
+    const result = await tools.get("kata_list_documents").execute("tool-1", { issueId: "issue-1" });
+    const text = result.content[0].text;
+
+    expect(text).toContain("M001-ROADMAP");
+    expect(text).toContain("Document contents omitted from list output. Use kata_read_document to read one document.");
+    expect(text).not.toContain('"content"');
+  });
+
+  it("kata_read_document accepts offset/limit and pages content lines", async () => {
+    const { tools } = registerDocumentToolsForTest();
+
     const result = await tools.get("kata_read_document").execute("tool-1", {
       title: "M001-ROADMAP",
       projectId: "proj-1",
@@ -188,5 +265,21 @@ describe("registerLinearTools document outputs", () => {
     expect(text).toContain("b");
     expect(text).toContain("c");
     expect(text).toContain("Showing content lines 2-3 of 4. Use offset=4 to continue.");
+  });
+
+  it("kata_read_document returns JSON null when the document does not exist", async () => {
+    const { tools } = registerDocumentToolsForTest({
+      async listDocuments() {
+        return [];
+      },
+    });
+
+    const result = await tools.get("kata_read_document").execute("tool-1", {
+      title: "M001-ROADMAP",
+      projectId: "proj-1",
+    });
+
+    expect(result.isError).toBeUndefined();
+    expect(result.content[0].text).toBe("null");
   });
 });
