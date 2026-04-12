@@ -1025,12 +1025,23 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     promptSnippet: "List document inventory metadata (content omitted), optionally filtered by project.",
     parameters: Type.Object({
       projectId: Type.Optional(Type.String({ description: "Filter by project UUID" })),
+      first: Type.Optional(Type.Number({ description: "Max results per page (backward-compatible pass-through to the client query)" })),
       offset: Type.Optional(Type.Integer({ minimum: 1, description: "Item number to start from (1-indexed)" })),
       limit: Type.Optional(Type.Integer({ minimum: 1, description: "Maximum number of items to return" })),
     }),
     async execute(_id, params) {
       return run(async () => {
-        const docs = await client.listDocumentSummaries({ projectId: params.projectId });
+        const summaryClient = client as LinearClient & {
+          listDocumentSummaries?: (opts?: { projectId?: string; issueId?: string; title?: string; first?: number }) => Promise<Array<{ id: string; title: string; project?: { id: string; name: string } | null; issue?: { id: string; identifier: string } | null; updatedAt: string }>>;
+          listDocuments?: (opts?: { projectId?: string; issueId?: string; title?: string; first?: number }) => Promise<Array<{ id: string; title: string; project?: { id: string; name: string } | null; issue?: { id: string; identifier: string } | null; updatedAt: string }>>;
+        };
+        const docsQuery = {
+          ...(params.projectId !== undefined ? { projectId: params.projectId } : {}),
+          ...(params.first !== undefined ? { first: params.first } : {}),
+        };
+        const docs = typeof summaryClient.listDocumentSummaries === "function"
+          ? await summaryClient.listDocumentSummaries(docsQuery)
+          : await summaryClient.listDocuments?.(docsQuery) ?? [];
         return renderInventoryResult({
           noun: "documents",
           items: docs,
@@ -1543,6 +1554,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     parameters: Type.Object({
       projectId: Type.Optional(Type.String({ description: "Project UUID — list documents attached to this project" })),
       issueId: Type.Optional(Type.String({ description: "Issue UUID — list documents attached to this issue" })),
+      first: Type.Optional(Type.Number({ description: "Max results per page (backward-compatible pass-through to the client query)" })),
       offset: Type.Optional(Type.Integer({ minimum: 1, description: "Item number to start from (1-indexed)" })),
       limit: Type.Optional(Type.Integer({ minimum: 1, description: "Maximum number of items to return" })),
     }),
@@ -1553,9 +1565,17 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
         return fail(new Error("Exactly one of projectId or issueId is required"));
       }
       return run(async () => {
-        const docs = await client.listDocumentSummaries(hasProject
-          ? { projectId: params.projectId! }
-          : { issueId: params.issueId! });
+        const summaryClient = client as LinearClient & {
+          listDocumentSummaries?: (opts?: { projectId?: string; issueId?: string; title?: string; first?: number }) => Promise<Array<{ id: string; title: string; project?: { id: string; name: string } | null; issue?: { id: string; identifier: string } | null; updatedAt: string }>>;
+          listDocuments?: (opts?: { projectId?: string; issueId?: string; title?: string; first?: number }) => Promise<Array<{ id: string; title: string; project?: { id: string; name: string } | null; issue?: { id: string; identifier: string } | null; updatedAt: string }>>;
+        };
+        const docs = typeof summaryClient.listDocumentSummaries === "function"
+          ? await summaryClient.listDocumentSummaries(hasProject
+              ? { projectId: params.projectId!, first: params.first }
+              : { issueId: params.issueId!, first: params.first })
+          : await summaryClient.listDocuments?.(hasProject
+              ? { projectId: params.projectId!, first: params.first }
+              : { issueId: params.issueId!, first: params.first }) ?? [];
         return renderInventoryResult({
           noun: "documents",
           items: docs,

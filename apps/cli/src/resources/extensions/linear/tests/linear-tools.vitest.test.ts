@@ -552,6 +552,73 @@ it("kata_write_document returns a compact summary instead of echoing full conten
   expect(Buffer.byteLength(text, "utf8")).toBeLessThanOrEqual(50 * 1024);
 });
 
+describe("registerLinearTools regression coverage", () => {
+  it("kata_list_documents keeps broad project inventories under 50KB", async () => {
+    const tools = new Map<string, any>();
+    const pi = { registerTool(tool: any) { tools.set(tool.name, tool); } };
+    const client = {
+      async listDocumentSummaries() {
+        return Array.from({ length: 400 }, (_, i) => ({
+          id: `doc-${i + 1}`,
+          title: `M${String(i + 1).padStart(3, "0")}-ROADMAP`,
+          project: { id: "proj-1", name: "Desktop" },
+          issue: null,
+          createdAt: "2026-04-12T00:00:00.000Z",
+          updatedAt: "2026-04-12T00:00:00.000Z",
+        }));
+      },
+    };
+
+    registerLinearTools(pi as any, client as any);
+    const result = await tools.get("kata_list_documents").execute("tool-1", {
+      projectId: "proj-1",
+    });
+
+    const text = result.content[0].text;
+    expect(Buffer.byteLength(text, "utf8")).toBeLessThanOrEqual(50 * 1024);
+    expect(text).toContain("Showing items 1-");
+    expect(text).toContain("Use offset=");
+  });
+
+  it("linear_get_issue keeps huge descriptions under 50KB while preserving continuation guidance", async () => {
+    const tools = new Map<string, any>();
+    const pi = { registerTool(tool: any) { tools.set(tool.name, tool); } };
+    const hugeDescription = Array.from({ length: 2500 }, (_, i) => `step-${i + 1}`).join("\n");
+    const client = {
+      async getIssue() {
+        return {
+          id: "issue-1",
+          identifier: "KAT-2504",
+          title: "Symphony context flood",
+          description: hugeDescription,
+          priority: 2,
+          estimate: 5,
+          url: "https://linear.app/kata/issue/KAT-2504",
+          state: { id: "state-1", name: "In Progress", type: "started", color: "#000", position: 1 },
+          assignee: null,
+          labels: [],
+          parent: null,
+          children: { nodes: [] },
+          project: { id: "proj-1", name: "Desktop" },
+          projectMilestone: null,
+          relations: [],
+          blockedBy: [],
+          createdAt: "2026-04-12T00:00:00.000Z",
+          updatedAt: "2026-04-12T00:00:00.000Z",
+        };
+      },
+    };
+
+    registerLinearTools(pi as any, client as any);
+    const result = await tools.get("linear_get_issue").execute("tool-1", { id: "KAT-2504" });
+    const text = result.content[0].text;
+
+    expect(Buffer.byteLength(text, "utf8")).toBeLessThanOrEqual(50 * 1024);
+    expect(text).toContain("Showing description lines 1-");
+    expect(text).toContain("Use offset=");
+  });
+});
+
 describe("registerLinearTools mutation output hardening", () => {
   it("linear_update_issue returns compact output and follow-up read guidance", async () => {
     const tools = new Map<string, any>();
