@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.2
+
+### Fixes
+
+- **Surface real Symphony startup failures** — Desktop now promotes recent Symphony stdout/stderr into the runtime error state and renders those details in the Settings runtime panel, so config and launch failures no longer collapse into a generic `PROCESS_EXITED` banner.
+- **Model/runtime state cleanup** — Desktop no longer keeps a stale Desktop-only selected-model preference path around after fast restarts. The renderer follows the live CLI runtime model state, which reduces confusing startup recovery behavior during bridge reconnects.
+
 ## 0.2.1
 
 ### Fixes
