@@ -950,6 +950,7 @@ setTimeout(() => {
       expect(envBridge.discoverBinary(false)).toMatchObject({
         source: 'path',
         resolvedPath: process.execPath,
+        runtimeMode: 'kata-cli',
       })
 
       const packagedBridge = new PiAgentBridge(process.cwd()) as any
@@ -964,6 +965,7 @@ setTimeout(() => {
       expect(packagedBridge.discoverBinary(true)).toMatchObject({
         source: 'bundled',
         resolvedPath: path.join('/tmp/kata-resources', 'kata'),
+        runtimeMode: 'electron-node',
       })
 
       const fallbackBridge = new PiAgentBridge(process.cwd(), 'node') as any
@@ -1011,6 +1013,127 @@ setTimeout(() => {
     }
   })
 
+  test('packaged discovery returns not_found with checked launcher path when launcher is missing', () => {
+    const originalBinPath = process.env.KATA_BIN_PATH
+    const originalResourcesPath = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath
+
+    try {
+      delete process.env.KATA_BIN_PATH
+      Object.defineProperty(process, 'resourcesPath', {
+        value: '/tmp/missing-kata-resources',
+        configurable: true,
+      })
+
+      const bridge = new PiAgentBridge(process.cwd(), 'kata-command-that-does-not-exist') as any
+      const result = bridge.discoverBinary(true)
+
+      expect(result.source).toBe('not_found')
+      expect(result.runtimeMode).toBe('electron-node')
+      expect(result.checkedPaths).toContain(path.join('/tmp/missing-kata-resources', 'kata'))
+      expect(result.checkedPaths).toContain('kata-command-that-does-not-exist')
+    } finally {
+      if (originalBinPath === undefined) {
+        delete process.env.KATA_BIN_PATH
+      } else {
+        process.env.KATA_BIN_PATH = originalBinPath
+      }
+
+      Object.defineProperty(process, 'resourcesPath', {
+        value: originalResourcesPath,
+        configurable: true,
+      })
+    }
+  })
+
+  test('packaged launcher spawns with rpc args and emits runtimeMode electron-node', async () => {
+    const { executablePath, cleanup } = createTempExecutable(`#!/usr/bin/env node
+const readline = require('node:readline')
+const rl = readline.createInterface({ input: process.stdin })
+rl.on('line', (line) => {
+  const message = JSON.parse(line)
+  if (message.type === 'shutdown') {
+    process.stdout.write(JSON.stringify({ type: 'response', id: message.id, command: 'shutdown', success: true }) + '\\n')
+    setTimeout(() => process.exit(0), 10)
+  }
+})
+`)
+
+    const resourcesDir = path.dirname(executablePath)
+    const bundledLauncherPath = path.join(resourcesDir, 'kata')
+    const originalBinPath = process.env.KATA_BIN_PATH
+    const originalResourcesPath = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath
+
+    // Ensure discoverBinary sees a bundled launcher named "kata"
+    writeFileSync(bundledLauncherPath, `#!/usr/bin/env node
+const readline = require('node:readline')
+const rl = readline.createInterface({ input: process.stdin })
+rl.on('line', (line) => {
+  const message = JSON.parse(line)
+  if (message.type === 'shutdown') {
+    process.stdout.write(JSON.stringify({ type: 'response', id: message.id, command: 'shutdown', success: true }) + '\\n')
+    setTimeout(() => process.exit(0), 10)
+  }
+})
+`)
+    chmodSync(bundledLauncherPath, 0o755)
+
+    try {
+      delete process.env.KATA_BIN_PATH
+      Object.defineProperty(process, 'resourcesPath', {
+        value: resourcesDir,
+        configurable: true,
+      })
+
+      const workspacePath = '/tmp/kata-packaged-workspace'
+      const bridge = new PiAgentBridge(workspacePath, 'kata-command-that-does-not-exist') as any
+      const debugEvents: Array<Record<string, unknown>> = []
+      const statuses: string[] = []
+
+      vi.spyOn(bridge, 'isElectronPackaged').mockReturnValue(true)
+
+      bridge.on('debug', (event: Record<string, unknown>) => {
+        debugEvents.push(event)
+      })
+
+      bridge.on('status', (event: { state: string }) => {
+        statuses.push(event.state)
+      })
+
+      await bridge.start()
+      await waitFor(() => statuses.includes('running'))
+
+      const discoveryEvent = debugEvents.find((event) => event.type === 'bridge:binary-discovery')
+      expect(discoveryEvent).toMatchObject({
+        source: 'bundled',
+        path: bundledLauncherPath,
+        runtimeMode: 'electron-node',
+      })
+
+      const spawnEvent = debugEvents.find((event) => event.type === 'bridge:spawn')
+      expect(spawnEvent).toMatchObject({
+        command: bundledLauncherPath,
+        args: ['--mode', 'rpc', '--cwd', workspacePath],
+        runtimeMode: 'electron-node',
+      })
+
+      await bridge.shutdown(250)
+      await waitFor(() => statuses.includes('shutdown'))
+    } finally {
+      if (originalBinPath === undefined) {
+        delete process.env.KATA_BIN_PATH
+      } else {
+        process.env.KATA_BIN_PATH = originalBinPath
+      }
+
+      Object.defineProperty(process, 'resourcesPath', {
+        value: originalResourcesPath,
+        configurable: true,
+      })
+
+      cleanup()
+    }
+  })
+
   test('isExecutableFile and RPC type guards return false for invalid values', () => {
     const bridge = new PiAgentBridge(process.cwd()) as any
 
@@ -1031,6 +1154,7 @@ setTimeout(() => {
       source: 'path',
       resolvedPath: '/definitely/missing/kata-bin',
       checkedPaths: ['/definitely/missing/kata-bin'],
+      runtimeMode: 'kata-cli',
     })
     vi.spyOn(bridge, 'isElectronPackaged').mockReturnValue(false)
 

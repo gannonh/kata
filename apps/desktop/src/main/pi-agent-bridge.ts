@@ -53,10 +53,13 @@ interface BridgeEvents {
   debug: (payload: Record<string, unknown>) => void
 }
 
+type BridgeRuntimeMode = 'electron-node' | 'kata-cli'
+
 interface BinaryDiscoveryResult {
   source: 'bundled' | 'path' | 'not_found'
   resolvedPath: string | null
   checkedPaths: string[]
+  runtimeMode: BridgeRuntimeMode
 }
 
 export function normalizeFirstRunModelReadiness(input: {
@@ -171,6 +174,7 @@ export class PiAgentBridge extends EventEmitter {
       path: discovery.resolvedPath,
       checkedPaths: discovery.checkedPaths,
       isPackaged,
+      runtimeMode: discovery.runtimeMode,
     })
 
     this.emit('debug', {
@@ -179,6 +183,7 @@ export class PiAgentBridge extends EventEmitter {
       path: discovery.resolvedPath,
       checkedPaths: discovery.checkedPaths,
       isPackaged,
+      runtimeMode: discovery.runtimeMode,
     })
 
     if (discovery.source === 'not_found' || !discovery.resolvedPath) {
@@ -234,6 +239,7 @@ export class PiAgentBridge extends EventEmitter {
       args,
       cwd: this.workspacePath,
       pid: child.pid,
+      runtimeMode: discovery.runtimeMode,
     })
 
     this.emit('debug', {
@@ -242,6 +248,7 @@ export class PiAgentBridge extends EventEmitter {
       args,
       cwd: this.workspacePath,
       pid: child.pid,
+      runtimeMode: discovery.runtimeMode,
     })
 
     this.emitStatus({
@@ -740,6 +747,7 @@ export class PiAgentBridge extends EventEmitter {
             source: 'bundled',
             resolvedPath: bundledPath,
             checkedPaths,
+            runtimeMode: 'electron-node',
           }
         }
       }
@@ -754,6 +762,7 @@ export class PiAgentBridge extends EventEmitter {
           source: 'path',
           resolvedPath: fromEnv,
           checkedPaths,
+          runtimeMode: 'kata-cli',
         }
       }
 
@@ -781,6 +790,7 @@ export class PiAgentBridge extends EventEmitter {
             source: 'path',
             resolvedPath: discovered,
             checkedPaths,
+            runtimeMode: 'kata-cli',
           }
         }
 
@@ -795,6 +805,7 @@ export class PiAgentBridge extends EventEmitter {
       source: 'not_found',
       resolvedPath: null,
       checkedPaths,
+      runtimeMode: isPackaged ? 'electron-node' : 'kata-cli',
     }
   }
 
