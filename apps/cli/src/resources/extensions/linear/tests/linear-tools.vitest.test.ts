@@ -552,6 +552,114 @@ it("kata_write_document returns a compact summary instead of echoing full conten
   expect(Buffer.byteLength(text, "utf8")).toBeLessThanOrEqual(50 * 1024);
 });
 
+describe("registerLinearTools mutation output hardening", () => {
+  it("linear_update_issue returns compact output and follow-up read guidance", async () => {
+    const tools = new Map<string, any>();
+    const pi = { registerTool(tool: any) { tools.set(tool.name, tool); } };
+    const hiddenToken = "VERY-LONG-DESCRIPTION-TOKEN".repeat(3000);
+    const client = {
+      async updateIssue() {
+        return {
+          id: "issue-1",
+          identifier: "KAT-12",
+          title: "Refine metadata",
+          description: hiddenToken,
+          state: { id: "state-1", name: "In Progress", type: "started", color: "#000", position: 1 },
+          project: { id: "proj-1", name: "Kata CLI" },
+          projectMilestone: { id: "mile-1", name: "[M001] Foundation" },
+        };
+      },
+    };
+
+    registerLinearTools(pi as any, client as any);
+    const result = await tools.get("linear_update_issue").execute("tool-1", {
+      id: "issue-1",
+      description: hiddenToken,
+    });
+
+    const text = result.content[0].text;
+    expect(text).toContain("Issue updated.");
+    expect(text).toContain("Full description not echoed. Use linear_get_issue to inspect content.");
+    expect(text).not.toContain(hiddenToken);
+    expect(Buffer.byteLength(text, "utf8")).toBeLessThanOrEqual(50 * 1024);
+  });
+
+  it("linear_add_comment omits body from compact mutation output", async () => {
+    const tools = new Map<string, any>();
+    const pi = { registerTool(tool: any) { tools.set(tool.name, tool); } };
+    const hiddenToken = "COMMENT-BODY-SECRET-TOKEN".repeat(3000);
+    const client = {
+      async createComment() {
+        return {
+          id: "comment-1",
+          body: hiddenToken,
+          createdAt: "2026-04-12T00:00:00.000Z",
+          url: "https://linear.app/kata/comment/1",
+        };
+      },
+    };
+
+    registerLinearTools(pi as any, client as any);
+    const result = await tools.get("linear_add_comment").execute("tool-1", {
+      issueId: "issue-1",
+      body: hiddenToken,
+    });
+
+    const text = result.content[0].text;
+    expect(text).toContain("Comment created.");
+    expect(text).toContain("Body omitted from mutation output. Use Linear UI to inspect full comment content.");
+    expect(text).not.toContain(hiddenToken);
+    expect(Buffer.byteLength(text, "utf8")).toBeLessThanOrEqual(50 * 1024);
+  });
+
+  it("kata_update_issue_state stays compact even if updated issue includes large fields", async () => {
+    const tools = new Map<string, any>();
+    const pi = { registerTool(tool: any) { tools.set(tool.name, tool); } };
+    const hiddenToken = "STATE-MUTATION-HIDDEN-TOKEN".repeat(3000);
+    const client = {
+      async listWorkflowStates() {
+        return [
+          { id: "state-started", name: "In Progress", type: "started", color: "#000", position: 2 },
+        ];
+      },
+      async updateIssue() {
+        return {
+          id: "issue-1",
+          identifier: "KAT-12",
+          description: hiddenToken,
+          state: { id: "state-started", name: "In Progress", type: "started", color: "#000", position: 2 },
+        };
+      },
+    };
+
+    registerLinearTools(pi as any, client as any);
+    const result = await tools.get("kata_update_issue_state").execute("tool-1", {
+      issueId: "issue-1",
+      phase: "executing",
+      teamId: "team-1",
+    });
+
+    const text = result.content[0].text;
+    expect(text).toContain("Issue state updated.");
+    expect(text).toContain("phase: executing");
+    expect(text).toContain("state: In Progress");
+    expect(text).not.toContain(hiddenToken);
+    expect(Buffer.byteLength(text, "utf8")).toBeLessThanOrEqual(50 * 1024);
+  });
+
+  it("updates stale mutation tool metadata for compact summaries", () => {
+    const { tools } = registerLinearToolsForTest();
+
+    expect(tools.get("linear_add_comment").description).toMatch(/compact mutation summary/i);
+    expect(tools.get("linear_add_comment").description).toMatch(/body is omitted/i);
+    expect(tools.get("linear_ensure_label").description).toMatch(/compact mutation summary/i);
+    expect(tools.get("kata_ensure_labels").description).toMatch(/compact summary/i);
+    expect(tools.get("kata_write_document").description).toMatch(/content is not echoed/i);
+    expect(tools.get("kata_write_document").description).toMatch(/use kata_read_document/i);
+    expect(tools.get("kata_update_issue_state").description).toMatch(/compact mutation summary/i);
+  });
+});
+
 it("keeps every linear_/kata_ tool assigned to a hardening strategy", () => {
   const { tools } = registerLinearToolsForTest();
   const registered = Array.from(tools.keys())
@@ -559,4 +667,9 @@ it("keeps every linear_/kata_ tool assigned to a hardening strategy", () => {
     .sort();
 
   expect(registered).toEqual(Object.keys(LINEAR_TOOL_STRATEGIES).sort());
+  expect(LINEAR_TOOL_STRATEGIES.linear_list_issues).toBe("inventory");
+  expect(LINEAR_TOOL_STRATEGIES.linear_update_issue).toBe("mutation");
+  expect(LINEAR_TOOL_STRATEGIES.linear_get_issue).toBe("paged-read");
+  expect(LINEAR_TOOL_STRATEGIES.kata_write_document).toBe("mutation");
+  expect(LINEAR_TOOL_STRATEGIES.kata_derive_state).toBe("state");
 });

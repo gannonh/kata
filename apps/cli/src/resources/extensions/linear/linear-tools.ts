@@ -887,8 +887,10 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
   pi.registerTool({
     name: "linear_add_comment",
     label: "Linear: Add Comment",
-    description: "Post a comment on a Linear issue. Returns the created comment with id, body, createdAt, and url.",
-    promptSnippet: "Post a comment on a Linear issue.",
+    description:
+      "Post a comment on a Linear issue. Returns a compact mutation summary (id, issueId, createdAt, url); " +
+      "comment body is omitted from mutation output.",
+    promptSnippet: "Post a comment on a Linear issue and return a compact summary (body omitted).",
     parameters: Type.Object({
       issueId: Type.String({ description: "Issue UUID to comment on" }),
       body: Type.String({ description: "Comment body (markdown supported)" }),
@@ -914,8 +916,10 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
   pi.registerTool({
     name: "linear_ensure_label",
     label: "Linear: Ensure Label",
-    description: "Get or create a label by name. Idempotent — returns existing label if name matches, creates new one otherwise.",
-    promptSnippet: "Get or create a label by name.",
+    description:
+      "Get or create a label by name. Idempotent — returns a compact mutation summary with key label metadata " +
+      "(id, name, color, group flag, description).",
+    promptSnippet: "Ensure a label by name and return compact label metadata.",
     parameters: Type.Object({
       name: Type.String({ description: "Label name" }),
       color: Type.Optional(Type.String({ description: "Label color hex (used only when creating)" })),
@@ -1138,9 +1142,9 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     label: "Kata: Ensure Labels",
     description:
       "Idempotently provision the three Kata labels (kata:milestone, kata:slice, kata:task) " +
-      "in the given team. Returns the full KataLabelSet with label IDs. " +
+      "in the given team. Returns a compact summary with the three label IDs and names. " +
       "Call this once per session; pass the returned label IDs to the kata_create_* tools.",
-    promptSnippet: "Idempotently provision the three Kata labels (kata:milestone, kata:slice, kata:task) in the given team.",
+    promptSnippet: "Ensure kata:* labels for a team and return a compact summary of milestone/slice/task label IDs.",
     parameters: Type.Object({
       teamId: Type.String({ description: "Team UUID in which to provision the Kata labels" }),
     }),
@@ -1444,8 +1448,9 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       "If a document with the given title already exists in the attachment target, its content is updated. " +
       "If no matching document exists, a new one is created. " +
       "Exactly one of projectId or issueId must be provided. " +
-      "Returns the full LinearDocument including id, title, content, createdAt, updatedAt.",
-    promptSnippet: "Write a Kata artifact as a Linear Document (upsert by title).",
+      "Returns a compact mutation summary (id/title/scope/updatedAt); content is not echoed. " +
+      "Use kata_read_document to inspect content.",
+    promptSnippet: "Write a Kata artifact document and return a compact summary; use kata_read_document for content reads.",
     parameters: Type.Object({
       title: Type.String({ description: "Document title, e.g. 'M001-ROADMAP' or 'DECISIONS'" }),
       content: Type.String({ description: "Markdown content to write" }),
@@ -1701,8 +1706,8 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     description:
       "Advance a Linear issue to the workflow state corresponding to a given Kata phase. " +
       "Resolves the correct Linear stateId from the team's workflow states, then updates the issue. " +
-      "Returns the updated issue with its new state.",
-    promptSnippet: "Advance a Linear issue to the workflow state corresponding to a given Kata phase.",
+      "Returns a compact mutation summary with issue identity and resolved state metadata.",
+    promptSnippet: "Advance a Linear issue to a Kata phase and return compact state-update metadata.",
     parameters: Type.Object({
       issueId: Type.String({ description: "Linear issue UUID to update" }),
       phase: Type.Union(
