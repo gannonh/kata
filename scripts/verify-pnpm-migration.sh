@@ -67,9 +67,14 @@ done
 
 phase "hook"
 require_file ".githooks/pre-push"
-if ! grep -Fq 'pnpm exec turbo run lint typecheck test --affected' .githooks/pre-push; then
+if ! grep -Fq 'pnpm exec turbo run lint typecheck test' .githooks/pre-push; then
   fail "pre-push must invoke turbo via pnpm exec"
 fi
+for required_filter in '@kata/desktop' '@kata-sh/cli' '@kata/context' '@kata-sh/orc'; do
+  if ! grep -Fq -- "--filter=${required_filter}" .githooks/pre-push; then
+    fail "pre-push missing required active-package filter: ${required_filter}"
+  fi
+done
 if contains_bun_wrapper ".githooks/pre-push"; then
   fail "pre-push still references bun run/bunx"
 fi
