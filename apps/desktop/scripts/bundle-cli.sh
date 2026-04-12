@@ -18,18 +18,13 @@ log "preparing vendor directory"
 rm -rf "$KATA_RUNTIME_DIR" "$BUN_DIR" "$KATA_LAUNCHER"
 mkdir -p "$KATA_RUNTIME_DIR/src" "$BUN_DIR"
 
-if ! command -v bun >/dev/null 2>&1; then
-  echo "ERROR: bun is required to bundle the kata CLI." >&2
-  exit 1
-fi
-
 if [ ! -d "$ROOT_DIR/node_modules" ]; then
   log "installing monorepo dependencies"
-  (cd "$ROOT_DIR" && bun install)
+  (cd "$ROOT_DIR" && pnpm install --frozen-lockfile)
 fi
 
 log "building local @kata-sh/cli runtime"
-(cd "$ROOT_DIR/apps/cli" && bun run build)
+pnpm --dir "$ROOT_DIR/apps/cli" run build
 
 if [ ! -f "$ROOT_DIR/apps/cli/dist/loader.js" ]; then
   echo "ERROR: expected apps/cli/dist/loader.js after build" >&2
