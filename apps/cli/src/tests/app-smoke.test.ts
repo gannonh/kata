@@ -543,8 +543,8 @@ test("cli.ts seeds pi-mcp-adapter into settings.json packages", () => {
 test("cli.ts injects mcp-config flag into extension runtime", () => {
   const cliSrc = readFileSync(join(projectRoot, "src", "cli.ts"), "utf-8");
   assert.ok(
-    cliSrc.includes("flagValues.set('mcp-config'"),
-    "cli.ts sets mcp-config flag value on runtime",
+    cliSrc.includes("extensionFlagValues.set('mcp-config'"),
+    "cli.ts sets mcp-config flag value for extension runtime",
   );
   assert.ok(
     cliSrc.includes("KATA_MCP_CONFIG_PATH"),
@@ -583,8 +583,8 @@ test("cli.ts routes --mode rpc through runRpcMode", () => {
     "cli.ts lazily imports runRpcMode",
   );
   assert.ok(
-    cliSrc.includes("await runRpcMode(session)"),
-    "cli.ts invokes runRpcMode(session)",
+    cliSrc.includes("await runRpcMode(runtime)"),
+    "cli.ts invokes runRpcMode(runtime)",
   );
 });
 
