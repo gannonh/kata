@@ -113,7 +113,10 @@ phase "blockers"
 printf '[verify-pnpm] Deferred blockers owned by S03/S04:\n'
 
 printf '[verify-pnpm] S03 (bun:test migration) package-script blockers:\n'
-S03_SCRIPT_BLOCKERS="$(rg -n '"test[^"\\n]*"\s*:\s*"[^"]*bun test|bun:test' package.json apps/*/package.json packages/*/package.json || true)"
+S03_SCRIPT_BLOCKERS="$(
+  rg -n '"test[^"\n]*"\s*:\s*"[^"\n]*(bun test|bun:test)[^"\n]*"' \
+    package.json apps/*/package.json packages/*/package.json || true
+)"
 if [[ -n "$S03_SCRIPT_BLOCKERS" ]]; then
   printf '%s\n' "$S03_SCRIPT_BLOCKERS"
 else
