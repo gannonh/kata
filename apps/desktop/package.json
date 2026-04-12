@@ -1,6 +1,6 @@
 {
   "name": "@kata/desktop",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Kata Desktop — native desktop app for the Kata coding agent",
   "private": true,
   "type": "module",
