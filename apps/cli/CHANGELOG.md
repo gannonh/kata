@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.15.5
+
+### Bug Fixes
+
+- **Bound Linear/Kata tool outputs to prevent context overruns** — all bespoke `linear_*` and `kata_*` tools now render compact, bounded responses instead of dumping full raw payloads. List/inventory tools return summaries, issue/document reads page long descriptions with explicit continuation guidance, and mutation tools emit compact result summaries.
+- **Regression coverage for real overflow paths** — added focused tests for large Linear document/issue payloads and updated the CLI smoke coverage to match the current RPC/MCP runtime wiring, reducing the chance that a future tool contract change silently reintroduces context-flood failures.
+
 ## 0.15.4
 
 ### Bug Fixes

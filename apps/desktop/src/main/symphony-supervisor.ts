@@ -12,6 +12,8 @@ const DEFAULT_READINESS_TIMEOUT_MS = 20_000
 const DEFAULT_READINESS_INTERVAL_MS = 750
 const DEFAULT_STOP_TIMEOUT_MS = 5_000
 const MAX_DIAGNOSTIC_LINES = 100
+const MAX_ERROR_DETAIL_LINES = 12
+const MAX_ERROR_DETAIL_CHARS = 4_000
 
 interface SupervisorEvents {
   status: (status: SymphonyRuntimeStatus) => void
@@ -206,11 +208,11 @@ export class SymphonySupervisor extends EventEmitter {
           phase: wasStopping ? 'stopped' : 'failed',
           lastError: wasStopping
             ? this.status.lastError
-            : {
-                code: 'PROCESS_EXITED',
-                phase: 'process',
-                message: `Symphony exited unexpectedly (${exitCode ?? 'null'}${signal ? `/${signal}` : ''}).`,
-              },
+            : buildProcessExitError({
+                exitCode,
+                signal,
+                diagnostics: this.status.diagnostics,
+              }),
         })
       })
 
@@ -455,11 +457,13 @@ export class SymphonySupervisor extends EventEmitter {
         return {
           ok: false,
           error:
-            this.status.lastError ?? {
-              code: 'PROCESS_EXITED',
-              phase: 'process',
-              message: 'Symphony exited before becoming ready.',
-            },
+            this.status.lastError ??
+            buildProcessExitError({
+              exitCode: this.child?.exitCode ?? null,
+              signal: null,
+              diagnostics: this.status.diagnostics,
+              beforeReadiness: true,
+            }),
         }
       }
 
@@ -593,6 +597,41 @@ export class SymphonySupervisor extends EventEmitter {
       env: this.options.env,
     }
   }
+}
+
+function buildProcessExitError(options: {
+  exitCode: number | null
+  signal: NodeJS.Signals | null
+  diagnostics: SymphonyRuntimeStatus['diagnostics']
+  beforeReadiness?: boolean
+}): SymphonyRuntimeError {
+  const code = `${options.exitCode ?? 'null'}${options.signal ? `/${options.signal}` : ''}`
+  const lines = summarizeDiagnosticLines(options.diagnostics)
+  const primaryLine = lines.at(-1)
+
+  return {
+    code: 'PROCESS_EXITED',
+    phase: 'process',
+    message: primaryLine
+      ? `Symphony exited unexpectedly (${code}). ${primaryLine}`
+      : options.beforeReadiness
+        ? 'Symphony exited before becoming ready.'
+        : `Symphony exited unexpectedly (${code}).`,
+    details: lines.length > 0 ? truncateDiagnosticDetails(lines.join('\n')) : undefined,
+  }
+}
+
+function summarizeDiagnosticLines(diagnostics: SymphonyRuntimeStatus['diagnostics']): string[] {
+  const preferred = diagnostics.stderr.length > 0 ? diagnostics.stderr : diagnostics.stdout
+  return preferred.slice(-MAX_ERROR_DETAIL_LINES)
+}
+
+function truncateDiagnosticDetails(details: string): string {
+  if (details.length <= MAX_ERROR_DETAIL_CHARS) {
+    return details
+  }
+
+  return `${details.slice(0, MAX_ERROR_DETAIL_CHARS - '\n…[truncated]'.length)}\n…[truncated]`
 }
 
 function createInitialStatus(): SymphonyRuntimeStatus {

@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
+import type { SymphonyRuntimeStatus } from '@shared/types'
 
 const PHASE_LABELS: Record<string, string> = {
   idle: 'Idle',
@@ -49,10 +50,31 @@ export function deriveSymphonyControlState(options: {
   }
 }
 
+export function deriveSymphonyRuntimeErrorDetails(
+  status: Pick<SymphonyRuntimeStatus, 'lastError' | 'diagnostics'>,
+): string | null {
+  const explicitDetails = status.lastError?.details?.trim()
+  if (explicitDetails) {
+    return explicitDetails
+  }
+
+  if (status.lastError?.code !== 'PROCESS_EXITED') {
+    return null
+  }
+
+  const lines = status.diagnostics.stderr.length > 0 ? status.diagnostics.stderr : status.diagnostics.stdout
+  if (lines.length === 0) {
+    return null
+  }
+
+  return lines.slice(-6).join('\n')
+}
+
 export function SymphonyRuntimePanel() {
   const status = useAtomValue(symphonyStatusAtom)
   const pending = useAtomValue(symphonyCommandPendingAtom)
   const runCommand = useSetAtom(runSymphonyCommandAtom)
+  const errorDetails = deriveSymphonyRuntimeErrorDetails(status)
 
   const controls = deriveSymphonyControlState({
     phase: status.phase,
@@ -90,7 +112,14 @@ export function SymphonyRuntimePanel() {
           <Alert variant="destructive" data-testid="symphony-runtime-error">
             <AlertCircle />
             <AlertTitle>{status.lastError.code}</AlertTitle>
-            <AlertDescription>{status.lastError.message}</AlertDescription>
+            <AlertDescription className="flex flex-col gap-1">
+              <span>{status.lastError.message}</span>
+              {errorDetails ? (
+                <code className="block whitespace-pre-wrap break-words" data-testid="symphony-runtime-error-details">
+                  {errorDetails}
+                </code>
+              ) : null}
+            </AlertDescription>
           </Alert>
         ) : null}
 
