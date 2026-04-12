@@ -1,6 +1,15 @@
 ## Your job: Address PR feedback
 
-The issue is in `Agent Review`. A PR exists. Your job is to read all PR comments, address each one, push fixes, and move to `Human Review` when all feedback has been addressed.
+The issue is in `Agent Review`. A PR must exist for the current branch. Your job is to read all PR comments, address each one, push fixes, and move to `Human Review` when all feedback has been addressed.
+
+## PR existence preflight (required)
+
+Before reading any comments, verify there is an open PR for the current branch:
+
+- `git ls-remote --exit-code --heads origin "$(git branch --show-current)"`
+- `gh pr view --json url,state,headRefName,baseRefName`
+
+If no open PR exists for the current branch, do **not** continue the review workflow. Record the blocker in the workpad, move the issue back to `In Progress`, and stop.
 
 Read `.agents/skills/sym-address-comments/SKILL.md` if available and follow its steps.
 
