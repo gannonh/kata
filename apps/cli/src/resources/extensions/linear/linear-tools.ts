@@ -34,6 +34,7 @@ import {
   resolveConfiguredLinearProjectId,
   resolveConfiguredLinearTeamId,
 } from "../kata/linear-config.js";
+import { renderErrorSummary } from "./tool-output.js";
 
 // Re-export entity functions under kata_* names so module consumers and
 // smoke-checks can confirm they are importable without loading the pi runtime.
@@ -55,24 +56,29 @@ export {
 // Helpers
 // =============================================================================
 
-function ok(data: unknown) {
+function okText(text: string) {
   return {
-    content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
+    content: [{ type: "text" as const, text }],
   };
+}
+
+function ok(data: unknown) {
+  return okText(JSON.stringify(data, null, 2));
 }
 
 function fail(err: unknown) {
   const classified = classifyLinearError(err);
   return {
-    content: [{ type: "text" as const, text: `Error (${classified.kind}): ${classified.message}` }],
+    content: [{ type: "text" as const, text: renderErrorSummary(classified.kind, classified.message) }],
     isError: true,
     details: { errorKind: classified.kind, message: classified.message },
   };
 }
 
-async function run<T>(fn: () => Promise<T>) {
+async function run<T>(fn: () => Promise<T | string>) {
   try {
-    return ok(await fn());
+    const value = await fn();
+    return typeof value === "string" ? okText(value) : ok(value);
   } catch (err) {
     return fail(err);
   }
