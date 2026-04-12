@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { registerLinearTools } from "../linear-tools.js";
+import { LINEAR_TOOL_STRATEGIES, registerLinearTools } from "../linear-tools.js";
 import type { LinearLabel } from "../linear-types.js";
 
 function makeLabel(name: string): LinearLabel {
@@ -519,4 +519,44 @@ describe("registerLinearTools document outputs", () => {
     expect(result.isError).toBeUndefined();
     expect(result.content[0].text).toBe("null");
   });
+});
+
+it("kata_write_document returns a compact summary instead of echoing full content", async () => {
+  const tools = new Map<string, any>();
+  const pi = { registerTool(tool: any) { tools.set(tool.name, tool); } };
+  const client = {
+    async listDocuments() { return []; },
+    async createDocument(input: any) {
+      return {
+        id: "doc-1",
+        title: input.title,
+        content: "x".repeat(80_000),
+        project: { id: input.projectId, name: "Desktop" },
+        issue: null,
+        createdAt: "2026-04-12T00:00:00.000Z",
+        updatedAt: "2026-04-12T00:00:00.000Z",
+      };
+    },
+  };
+
+  registerLinearTools(pi as any, client as any);
+  const result = await tools.get("kata_write_document").execute("tool-1", {
+    title: "M001-ROADMAP",
+    content: "x".repeat(80_000),
+    projectId: "proj-1",
+  });
+
+  const text = result.content[0].text;
+  expect(text).toContain("Document written.");
+  expect(text).toContain("Use kata_read_document to inspect content.");
+  expect(Buffer.byteLength(text, "utf8")).toBeLessThanOrEqual(50 * 1024);
+});
+
+it("keeps every linear_/kata_ tool assigned to a hardening strategy", () => {
+  const { tools } = registerLinearToolsForTest();
+  const registered = Array.from(tools.keys())
+    .filter((name) => name.startsWith("linear_") || name.startsWith("kata_"))
+    .sort();
+
+  expect(registered).toEqual(Object.keys(LINEAR_TOOL_STRATEGIES).sort());
 });
