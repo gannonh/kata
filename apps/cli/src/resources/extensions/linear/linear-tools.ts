@@ -34,7 +34,11 @@ import {
   resolveConfiguredLinearProjectId,
   resolveConfiguredLinearTeamId,
 } from "../kata/linear-config.js";
-import { renderErrorSummary } from "./tool-output.js";
+import {
+  renderCompactRead,
+  renderErrorSummary,
+  renderInventoryResult,
+} from "./tool-output.js";
 
 // Re-export entity functions under kata_* names so module consumers and
 // smoke-checks can confirm they are importable without loading the pi runtime.
@@ -521,8 +525,30 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     promptSnippet: "Get a document by UUID.",
     parameters: Type.Object({
       id: Type.String({ description: "Document UUID" }),
+      offset: Type.Optional(Type.Number({ description: "Line number to start reading from (1-indexed)" })),
+      limit: Type.Optional(Type.Number({ description: "Maximum number of content lines to read" })),
     }),
-    async execute(_id, params) { return run(() => client.getDocument(params.id)); },
+    async execute(_id, params) {
+      return run(async () => {
+        const doc = await client.getDocument(params.id);
+        if (!doc) throw new Error(`Document not found: ${params.id}`);
+
+        return renderCompactRead({
+          heading: `Document ${doc.title}`,
+          metadata: [
+            `id: ${doc.id}`,
+            `project: ${doc.project?.name ?? "—"}`,
+            `issue: ${doc.issue?.identifier ?? "—"}`,
+            `updatedAt: ${doc.updatedAt}`,
+          ],
+          bodyLabel: "content",
+          body: doc.content,
+          offset: params.offset,
+          limit: params.limit,
+          emptyBodyMessage: "No content.",
+        });
+      });
+    },
   });
 
   pi.registerTool({
@@ -532,11 +558,27 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     promptSnippet: "List documents, optionally filtered by project.",
     parameters: Type.Object({
       projectId: Type.Optional(Type.String({ description: "Filter by project UUID" })),
-      first: Type.Optional(Type.Number({ description: "Max results per page (default: 50)" })),
+      offset: Type.Optional(Type.Number({ description: "Item number to start from (1-indexed)" })),
+      limit: Type.Optional(Type.Number({ description: "Maximum number of items to return" })),
     }),
     async execute(_id, params) {
-      const hasParams = params.projectId !== undefined || params.first !== undefined;
-      return run(() => client.listDocuments(hasParams ? params : undefined));
+      return run(async () => {
+        const docs = await client.listDocumentSummaries({ projectId: params.projectId });
+        return renderInventoryResult({
+          noun: "documents",
+          items: docs,
+          offset: params.offset,
+          limit: params.limit,
+          omittedFieldsNote: "Document contents omitted from list output. Use linear_get_document to read one document.",
+          renderItem: (doc, index) => [
+            `${index}. ${doc.title}`,
+            `   id: ${doc.id}`,
+            `   project: ${doc.project?.name ?? "—"}`,
+            `   issue: ${doc.issue?.identifier ?? "—"}`,
+            `   updatedAt: ${doc.updatedAt}`,
+          ].join("\n"),
+        });
+      });
     },
   });
 
@@ -835,6 +877,8 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       title: Type.String({ description: "Document title to look up, e.g. 'M001-ROADMAP'" }),
       projectId: Type.Optional(Type.String({ description: "Project UUID — scope the lookup to this project" })),
       issueId: Type.Optional(Type.String({ description: "Issue UUID — scope the lookup to this issue" })),
+      offset: Type.Optional(Type.Number({ description: "Line number to start reading from (1-indexed)" })),
+      limit: Type.Optional(Type.Number({ description: "Maximum number of content lines to read" })),
     }),
     async execute(_id, params) {
       const hasProject = params.projectId !== undefined;
@@ -845,7 +889,25 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       const attachment: DocumentAttachment = hasProject
         ? { projectId: params.projectId! }
         : { issueId: params.issueId! };
-      return run(() => readKataDocument(client, params.title, attachment));
+      return run(async () => {
+        const doc = await readKataDocument(client, params.title, attachment);
+        if (!doc) return null;
+
+        return renderCompactRead({
+          heading: `Document ${doc.title}`,
+          metadata: [
+            `id: ${doc.id}`,
+            `project: ${doc.project?.name ?? "—"}`,
+            `issue: ${doc.issue?.identifier ?? "—"}`,
+            `updatedAt: ${doc.updatedAt}`,
+          ],
+          bodyLabel: "content",
+          body: doc.content,
+          offset: params.offset,
+          limit: params.limit,
+          emptyBodyMessage: "No content.",
+        });
+      });
     },
   });
 
@@ -861,6 +923,8 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     parameters: Type.Object({
       projectId: Type.Optional(Type.String({ description: "Project UUID — list documents attached to this project" })),
       issueId: Type.Optional(Type.String({ description: "Issue UUID — list documents attached to this issue" })),
+      offset: Type.Optional(Type.Number({ description: "Item number to start from (1-indexed)" })),
+      limit: Type.Optional(Type.Number({ description: "Maximum number of items to return" })),
     }),
     async execute(_id, params) {
       const hasProject = params.projectId !== undefined;
@@ -868,10 +932,25 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       if (hasProject === hasIssue) {
         return fail(new Error("Exactly one of projectId or issueId is required"));
       }
-      const attachment: DocumentAttachment = hasProject
-        ? { projectId: params.projectId! }
-        : { issueId: params.issueId! };
-      return run(() => listKataDocuments(client, attachment));
+      return run(async () => {
+        const docs = await client.listDocumentSummaries(hasProject
+          ? { projectId: params.projectId! }
+          : { issueId: params.issueId! });
+        return renderInventoryResult({
+          noun: "documents",
+          items: docs,
+          offset: params.offset,
+          limit: params.limit,
+          omittedFieldsNote: "Document contents omitted from list output. Use kata_read_document to read one document.",
+          renderItem: (doc, index) => [
+            `${index}. ${doc.title}`,
+            `   id: ${doc.id}`,
+            `   project: ${doc.project?.name ?? "—"}`,
+            `   issue: ${doc.issue?.identifier ?? "—"}`,
+            `   updatedAt: ${doc.updatedAt}`,
+          ].join("\n"),
+        });
+      });
     },
   });
 

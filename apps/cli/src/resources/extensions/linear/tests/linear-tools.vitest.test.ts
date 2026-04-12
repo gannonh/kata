@@ -122,3 +122,71 @@ describe("registerLinearTools run helper", () => {
     });
   });
 });
+
+describe("registerLinearTools document outputs", () => {
+  it("linear_list_documents omits document content and exposes item paging", async () => {
+    const tools = new Map<string, any>();
+    const pi = {
+      registerTool(tool: any) {
+        tools.set(tool.name, tool);
+      },
+    };
+    const client = {
+      async listDocumentSummaries() {
+        return [
+          {
+            id: "doc-1",
+            title: "M001-ROADMAP",
+            project: { id: "proj-1", name: "Desktop" },
+            issue: null,
+            createdAt: "2026-04-12T00:00:00.000Z",
+            updatedAt: "2026-04-12T00:00:00.000Z",
+          },
+        ];
+      },
+    };
+
+    registerLinearTools(pi as any, client as any);
+    const result = await tools.get("linear_list_documents").execute("tool-1", { projectId: "proj-1" });
+    const text = result.content[0].text;
+
+    expect(text).toContain("M001-ROADMAP");
+    expect(text).toContain("Document contents omitted from list output. Use linear_get_document to read one document.");
+    expect(text).not.toContain('"content"');
+  });
+
+  it("kata_read_document accepts offset/limit and pages content lines", async () => {
+    const tools = new Map<string, any>();
+    const pi = {
+      registerTool(tool: any) {
+        tools.set(tool.name, tool);
+      },
+    };
+    const client = {
+      async listDocuments() {
+        return [{
+          id: "doc-1",
+          title: "M001-ROADMAP",
+          content: ["a", "b", "c", "d"].join("\n"),
+          project: { id: "proj-1", name: "Desktop" },
+          issue: null,
+          createdAt: "2026-04-12T00:00:00.000Z",
+          updatedAt: "2026-04-12T00:00:00.000Z",
+        }];
+      },
+    };
+
+    registerLinearTools(pi as any, client as any);
+    const result = await tools.get("kata_read_document").execute("tool-1", {
+      title: "M001-ROADMAP",
+      projectId: "proj-1",
+      offset: 2,
+      limit: 2,
+    });
+    const text = result.content[0].text;
+
+    expect(text).toContain("b");
+    expect(text).toContain("c");
+    expect(text).toContain("Showing content lines 2-3 of 4. Use offset=4 to continue.");
+  });
+});
