@@ -11,7 +11,7 @@ function makeLabel(name: string): LinearLabel {
   };
 }
 
-function registerLinearToolsForTest() {
+function registerLinearToolsForTest(clientOverrides: Record<string, unknown> = {}) {
   const tools = new Map<string, any>();
   const listIssueCalls: Array<Record<string, unknown>> = [];
 
@@ -29,6 +29,10 @@ function registerLinearToolsForTest() {
       listIssueCalls.push(filter);
       return [];
     },
+    async listTeams() {
+      return [];
+    },
+    ...clientOverrides,
   };
 
   registerLinearTools(pi as any, client as any);
@@ -99,5 +103,22 @@ describe("registerLinearTools linear_list_issues", () => {
 
     expect(tool.description).toMatch(/prefer kata_list_slices/i);
     expect(tool.promptSnippet).toMatch(/prefer kata_list_slices/i);
+  });
+});
+
+describe("registerLinearTools run helper", () => {
+  it("emits string results as raw text instead of JSON-stringifying them", async () => {
+    const { tools } = registerLinearToolsForTest({
+      async listTeams() {
+        return "already formatted";
+      },
+    });
+
+    const tool = tools.get("linear_list_teams");
+    const result = await tool.execute("tool-1", {});
+
+    expect(result).toEqual({
+      content: [{ type: "text", text: "already formatted" }],
+    });
   });
 });

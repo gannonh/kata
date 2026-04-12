@@ -34,6 +34,7 @@ export function renderPagedTextField(opts: {
 
   const offset = opts.offset ?? 1;
   const limit = opts.limit ?? DEFAULT_TEXT_PAGE_LIMIT;
+  const maxBytes = opts.maxBytes ?? HARDENED_MAX_BYTES;
   assertOneIndexedOffset(offset);
   assertPositiveLimit(limit);
 
@@ -46,7 +47,7 @@ export function renderPagedTextField(opts: {
   const selected = lines.slice(startIndex, startIndex + limit).join("\n");
   const truncation = truncateHead(selected, {
     maxLines: limit,
-    maxBytes: opts.maxBytes ?? HARDENED_MAX_BYTES,
+    maxBytes,
   });
 
   const shownStart = offset;
@@ -58,10 +59,13 @@ export function renderPagedTextField(opts: {
   }
 
   if (truncation.truncated && truncation.truncatedBy === "bytes") {
-    text += `\n[Truncated to ${formatSize(opts.maxBytes ?? HARDENED_MAX_BYTES)} while preserving full lines.]`;
+    text += `\n[Truncated to ${formatSize(maxBytes)} while preserving full lines.]`;
   }
 
-  return text;
+  return truncateHead(text, {
+    maxLines: limit + 4,
+    maxBytes,
+  }).content;
 }
 
 export function renderPagedInventory<T>(opts: {
