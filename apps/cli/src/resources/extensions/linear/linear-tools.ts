@@ -101,8 +101,8 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
   pi.registerTool({
     name: "linear_list_teams",
     label: "Linear: List Teams",
-    description: "List all teams in the Linear workspace.",
-    promptSnippet: "List all teams in the Linear workspace.",
+    description: "List compact team inventory for the Linear workspace.",
+    promptSnippet: "List compact team inventory for the Linear workspace.",
     parameters: Type.Object({
       offset: Type.Optional(Type.Integer({ minimum: 1, description: "Item number to start from (1-indexed)" })),
       limit: Type.Optional(Type.Integer({ minimum: 1, description: "Maximum number of items to return" })),
@@ -171,8 +171,8 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
   pi.registerTool({
     name: "linear_list_projects",
     label: "Linear: List Projects",
-    description: "List projects in the workspace, optionally filtered by team.",
-    promptSnippet: "List projects in the workspace, optionally filtered by team.",
+    description: "List compact project inventory in the workspace, optionally filtered by team.",
+    promptSnippet: "List compact project inventory in the workspace, optionally filtered by team.",
     parameters: Type.Object({
       teamId: Type.Optional(Type.String({ description: "Filter by team UUID" })),
       first: Type.Optional(Type.Number({ description: "Max results per page (default: 50)" })),
@@ -266,8 +266,8 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
   pi.registerTool({
     name: "linear_list_milestones",
     label: "Linear: List Milestones",
-    description: "List milestones under a project.",
-    promptSnippet: "List milestones under a project.",
+    description: "List compact milestone inventory under a project.",
+    promptSnippet: "List compact milestone inventory under a project.",
     parameters: Type.Object({
       projectId: Type.String({ description: "Project UUID" }),
       offset: Type.Optional(Type.Integer({ minimum: 1, description: "Item number to start from (1-indexed)" })),
@@ -357,12 +357,12 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
   pi.registerTool({
     name: "linear_get_issue",
     label: "Linear: Get Issue",
-    description: "Get an issue by UUID or identifier (e.g. 'KAT-42'). Returns full details including parent, children, labels, and state.",
-    promptSnippet: "Get an issue by UUID or identifier.",
+    description: "Get an issue by UUID or identifier (e.g. 'KAT-42'). Returns compact issue metadata with paged description content via offset/limit.",
+    promptSnippet: "Read one issue by UUID or identifier with optional offset/limit paging.",
     parameters: Type.Object({
       id: Type.String({ description: "Issue UUID or identifier (e.g. 'KAT-42')" }),
-      offset: Type.Optional(Type.Number({ description: "Line number to start reading description from (1-indexed)" })),
-      limit: Type.Optional(Type.Number({ description: "Maximum number of description lines to read" })),
+      offset: Type.Optional(Type.Integer({ minimum: 1, description: "Line number to start reading description from (1-indexed)" })),
+      limit: Type.Optional(Type.Integer({ minimum: 1, description: "Maximum number of description lines to read" })),
     }),
     async execute(_id, params) {
       return run(async () => {
@@ -394,10 +394,10 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     name: "linear_list_issues",
     label: "Linear: List Issues",
     description:
-      "Generic Linear issue listing with optional filters: team, project, milestone, parent, state, labels, assignee. " +
-      "For Kata milestone planning or slice lookup, prefer kata_list_slices with milestoneId — this tool returns full issue payloads and is heavier.",
+      "Generic Linear issue inventory with optional filters: team, project, milestone, parent, state, labels, assignee. " +
+      "For Kata milestone planning or slice lookup, prefer kata_list_slices with milestoneId. Use linear_get_issue for a paged compact read of one issue.",
     promptSnippet:
-      "List generic Linear issues with optional filters. For Kata slice enumeration, prefer kata_list_slices with milestoneId.",
+      "List generic Linear issue inventory with optional filters. For Kata slice enumeration, prefer kata_list_slices with milestoneId.",
     parameters: Type.Object({
       teamId: Type.Optional(Type.String({ description: "Filter by team UUID" })),
       projectId: Type.Optional(Type.String({ description: "Filter by project UUID" })),
@@ -459,8 +459,8 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
   pi.registerTool({
     name: "linear_list_relations",
     label: "Linear: List Relations",
-    description: "List all relations for an issue (outbound and inbound) with normalized direction.",
-    promptSnippet: "List all relations for an issue.",
+    description: "List compact relation inventory for an issue (outbound and inbound) with normalized direction.",
+    promptSnippet: "List compact relation inventory for an issue.",
     parameters: Type.Object({
       issueId: Type.String({ description: "Issue UUID" }),
       offset: Type.Optional(Type.Integer({ minimum: 1, description: "Item number to start from (1-indexed)" })),
@@ -533,8 +533,8 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
   pi.registerTool({
     name: "linear_list_workflow_states",
     label: "Linear: List Workflow States",
-    description: "List all workflow states for a team. States have types: backlog, unstarted, started, completed, canceled.",
-    promptSnippet: "List all workflow states for a team.",
+    description: "List compact workflow-state inventory for a team. States have types: backlog, unstarted, started, completed, canceled.",
+    promptSnippet: "List compact workflow-state inventory for a team.",
     parameters: Type.Object({
       teamId: Type.String({ description: "Team UUID" }),
       offset: Type.Optional(Type.Integer({ minimum: 1, description: "Item number to start from (1-indexed)" })),
@@ -582,8 +582,8 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
   pi.registerTool({
     name: "linear_list_labels",
     label: "Linear: List Labels",
-    description: "List labels, optionally filtered by team.",
-    promptSnippet: "List labels, optionally filtered by team.",
+    description: "List compact label inventory, optionally filtered by team.",
+    promptSnippet: "List compact label inventory, optionally filtered by team.",
     parameters: Type.Object({
       teamId: Type.Optional(Type.String({ description: "Filter by team UUID" })),
       offset: Type.Optional(Type.Integer({ minimum: 1, description: "Item number to start from (1-indexed)" })),
@@ -1011,9 +1011,9 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     name: "kata_list_tasks",
     label: "Kata: List Tasks",
     description:
-      "List all Linear sub-issues representing Kata tasks for a given slice issue. " +
+      "List compact inventory of Linear sub-issues representing Kata tasks for a given slice issue. " +
       "Queries by parentId — returns all direct children of the slice issue.",
-    promptSnippet: "List all Linear sub-issues representing Kata tasks for a given slice issue.",
+    promptSnippet: "List compact inventory of Linear sub-issues representing Kata tasks for a given slice issue.",
     parameters: Type.Object({
       sliceIssueId: Type.String({ description: "Linear issue UUID of the parent slice issue" }),
       offset: Type.Optional(Type.Integer({ minimum: 1, description: "Item number to start from (1-indexed)" })),
@@ -1172,9 +1172,9 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     name: "kata_list_milestones",
     label: "Kata: List Milestones",
     description:
-      "List all Linear project milestones for a Kata project, sorted by sortOrder. " +
+      "List compact inventory of Linear project milestones for a Kata project, sorted by sortOrder. " +
       "Zero-side-effect inspection surface — does not modify any state.",
-    promptSnippet: "List all Linear project milestones for a Kata project, sorted by sortOrder.",
+    promptSnippet: "List compact inventory of Linear project milestones for a Kata project, sorted by sortOrder.",
     parameters: Type.Object({
       projectId: Type.String({ description: "Linear project UUID" }),
       offset: Type.Optional(Type.Integer({ minimum: 1, description: "Item number to start from (1-indexed)" })),

@@ -101,11 +101,15 @@ describe("registerLinearTools linear_list_issues", () => {
     });
   });
 
-  it("warns prompt consumers to prefer kata_list_slices for Kata slice enumeration", () => {
+  it("documents compact inventory guidance and avoids legacy full-payload wording", () => {
     const { tools } = registerLinearToolsForTest();
     const tool = tools.get("linear_list_issues");
 
+    expect(tool.description).toMatch(/issue inventory/i);
     expect(tool.description).toMatch(/prefer kata_list_slices/i);
+    expect(tool.description).toMatch(/linear_get_issue/i);
+    expect(tool.description).not.toMatch(/full issue payloads/i);
+    expect(tool.promptSnippet).toMatch(/issue inventory/i);
     expect(tool.promptSnippet).toMatch(/prefer kata_list_slices/i);
   });
 });
@@ -139,7 +143,8 @@ it("linear_get_issue pages description lines instead of dumping raw JSON", async
   };
 
   registerLinearTools(pi as any, client as any);
-  const result = await tools.get("linear_get_issue").execute("tool-1", {
+  const tool = tools.get("linear_get_issue");
+  const result = await tool.execute("tool-1", {
     id: "KAT-1",
     offset: 2,
     limit: 2,
@@ -148,6 +153,10 @@ it("linear_get_issue pages description lines instead of dumping raw JSON", async
   expect(result.content[0].text).toContain("two");
   expect(result.content[0].text).toContain("three");
   expect(result.content[0].text).toContain("Showing description lines 2-3 of 4. Use offset=4 to continue.");
+  expect(tool.description).toMatch(/compact issue metadata/i);
+  expect(tool.promptSnippet).toMatch(/offset\/limit/i);
+  expect(tool.parameters.properties.offset.type).toBe("integer");
+  expect(tool.parameters.properties.limit.type).toBe("integer");
 });
 
 it("kata_list_slices uses compact inventory output when milestoneId is omitted", async () => {
@@ -186,6 +195,152 @@ it("kata_list_slices uses compact inventory output when milestoneId is omitted",
   expect(text).toContain("[S01] Hardening");
   expect(text).toContain("Large fields omitted from list output. Use linear_get_issue to inspect one issue.");
   expect(text).toContain("milestoneId omitted; broad project inventory may be large.");
+});
+
+describe("registerLinearTools compact list tools", () => {
+  function registerCompactListToolsForTest() {
+    const tools = new Map<string, any>();
+    const pi = { registerTool(tool: any) { tools.set(tool.name, tool); } };
+    const taskSummary = {
+      id: "task-1",
+      identifier: "KAT-500",
+      title: "[T01] Prepare schema",
+      priority: 2,
+      estimate: 3,
+      url: "https://linear.app/kata/issue/KAT-500",
+      state: { id: "state-1", name: "In Progress", type: "started", color: "#000", position: 1 },
+      labels: [{ id: "label-kata:task", name: "kata:task", color: "#16A34A", isGroup: false }],
+      parent: { id: "slice-1", identifier: "KAT-400", title: "[S01] Slice" },
+      project: { id: "proj-1", name: "Kata CLI" },
+      projectMilestone: { id: "mile-1", name: "[M001] Foundation" },
+      createdAt: "2026-04-12T00:00:00.000Z",
+      updatedAt: "2026-04-12T00:00:00.000Z",
+    };
+
+    const client = {
+      async listTeams() {
+        return [{ id: "team-1", key: "KAT", name: "Kata-sh", description: "Core team" }];
+      },
+      async listProjects() {
+        return [{ id: "proj-1", name: "Kata CLI", slugId: "kata-cli", state: "started", targetDate: null, updatedAt: "2026-04-12T00:00:00.000Z" }];
+      },
+      async listMilestones() {
+        return [{ id: "mile-1", name: "[M001] Foundation", sortOrder: 10, targetDate: null, updatedAt: "2026-04-12T00:00:00.000Z" }];
+      },
+      async listLabels() {
+        return [{ id: "label-1", name: "kata:slice", color: "#2563EB", isGroup: false, description: "Slice label" }];
+      },
+      async listWorkflowStates() {
+        return [{ id: "state-1", name: "Backlog", type: "backlog", position: 1, color: "#94A3B8" }];
+      },
+      async listRelations() {
+        return [{
+          id: "rel-1",
+          type: "blocks",
+          direction: "outbound",
+          issue: { id: "issue-1", identifier: "KAT-1", title: "Origin", state: { id: "state-1", name: "Todo", type: "backlog", color: "#000", position: 1 } },
+          otherIssue: { id: "issue-2", identifier: "KAT-2", title: "Blocked", state: { id: "state-2", name: "In Progress", type: "started", color: "#000", position: 2 } },
+        }];
+      },
+      async listIssueSummaries(filter: Record<string, unknown>) {
+        if (filter.parentId) return [taskSummary];
+        return [];
+      },
+    };
+
+    registerLinearTools(pi as any, client as any);
+    return { tools };
+  }
+
+  const listCases = [
+    {
+      toolName: "linear_list_projects",
+      params: {},
+      expectedText: "Kata CLI",
+      omittedText: "Use linear_get_project to inspect one project.",
+      descriptionPattern: /compact project inventory/i,
+      promptPattern: /compact project inventory/i,
+    },
+    {
+      toolName: "linear_list_milestones",
+      params: { projectId: "proj-1" },
+      expectedText: "[M001] Foundation",
+      omittedText: "Use linear_get_milestone to inspect one milestone.",
+      descriptionPattern: /compact milestone inventory/i,
+      promptPattern: /compact milestone inventory/i,
+    },
+    {
+      toolName: "linear_list_labels",
+      params: {},
+      expectedText: "kata:slice",
+      omittedText: "Use linear_ensure_label or linear_create_label for updates.",
+      descriptionPattern: /compact label inventory/i,
+      promptPattern: /compact label inventory/i,
+    },
+    {
+      toolName: "linear_list_teams",
+      params: {},
+      expectedText: "KAT: Kata-sh",
+      omittedText: "Use linear_get_team to inspect one team.",
+      descriptionPattern: /compact team inventory/i,
+      promptPattern: /compact team inventory/i,
+    },
+    {
+      toolName: "linear_list_workflow_states",
+      params: { teamId: "team-1" },
+      expectedText: "Backlog",
+      omittedText: "Use linear_get_team and workflow state IDs for precise updates.",
+      descriptionPattern: /compact workflow-state inventory/i,
+      promptPattern: /compact workflow-state inventory/i,
+    },
+    {
+      toolName: "linear_list_relations",
+      params: { issueId: "issue-1" },
+      expectedText: "blocks (outbound)",
+      omittedText: "Use linear_get_issue to inspect related issues in context.",
+      descriptionPattern: /compact relation inventory/i,
+      promptPattern: /compact relation inventory/i,
+    },
+    {
+      toolName: "kata_list_tasks",
+      params: { sliceIssueId: "slice-1" },
+      expectedText: "KAT-500: [T01] Prepare schema",
+      omittedText: "Use linear_get_issue to inspect one issue.",
+      descriptionPattern: /compact inventory of Linear sub-issues/i,
+      promptPattern: /compact inventory of Linear sub-issues/i,
+    },
+    {
+      toolName: "kata_list_milestones",
+      params: { projectId: "proj-1" },
+      expectedText: "[M001] Foundation",
+      omittedText: "Use linear_get_milestone to inspect one milestone.",
+      descriptionPattern: /compact inventory of Linear project milestones/i,
+      promptPattern: /compact inventory of Linear project milestones/i,
+    },
+  ] as const;
+
+  it.each(listCases)("$toolName returns compact inventory output", async ({ toolName, params, expectedText, omittedText, descriptionPattern, promptPattern }) => {
+    const { tools } = registerCompactListToolsForTest();
+    const tool = tools.get(toolName);
+
+    const result = await tool.execute("tool-1", params);
+    const text = result.content[0].text;
+
+    expect(text).toContain(expectedText);
+    expect(text).toContain(omittedText);
+    expect(tool.description).toMatch(descriptionPattern);
+    expect(tool.promptSnippet).toMatch(promptPattern);
+  });
+
+  it.each(listCases)("$toolName enforces one-indexed paging offsets", async ({ toolName, params }) => {
+    const { tools } = registerCompactListToolsForTest();
+    const tool = tools.get(toolName);
+
+    const result = await tool.execute("tool-1", { ...params, offset: 0 });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("offset must be >= 1");
+  });
 });
 
 describe("registerLinearTools run helper", () => {
