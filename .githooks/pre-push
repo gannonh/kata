@@ -5,6 +5,9 @@ set -euo pipefail
 # Load full PATH for GUI apps (Fork, Tower, etc.) that don't inherit shell config.
 eval "$(/opt/homebrew/bin/brew shellenv 2>/dev/null)" || true
 . "$HOME/.cargo/env" 2>/dev/null || true
+if [ -d "$HOME/.bun/bin" ]; then
+  export PATH="$HOME/.bun/bin:$PATH"
+fi
 
 # Pin Node 22 (matches CI and .node-version). Native addons (better-sqlite3,
 # tree-sitter) don't compile on Node 23, and Vitest runs under Node.
@@ -25,7 +28,11 @@ if ! pnpm exec turbo run lint typecheck test \
   --filter=@kata/desktop \
   --filter=@kata-sh/cli \
   --filter=@kata/context \
-  --filter=@kata-sh/orc; then
+  --filter=@kata-sh/orc \
+  --filter=@craft-agent/core \
+  --filter=@craft-agent/shared \
+  --filter=@craft-agent/ui \
+  --filter=@craft-agent/mermaid; then
   echo ""
   echo "Pre-push validation failed. Fix the issues above before pushing."
   exit 1

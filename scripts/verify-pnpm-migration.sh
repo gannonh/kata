@@ -37,6 +37,7 @@ phase "metadata"
 require_file "package.json"
 require_file "pnpm-workspace.yaml"
 require_file "pnpm-lock.yaml"
+command -v rg >/dev/null 2>&1 || fail "ripgrep (rg) is required to run this verifier"
 
 PACKAGE_MANAGER="$(node -e "const pkg=require('./package.json'); process.stdout.write(pkg.packageManager || '')")"
 [[ "$PACKAGE_MANAGER" == pnpm@* ]] || fail "packageManager must be pinned to pnpm@... (got '$PACKAGE_MANAGER')"
@@ -116,7 +117,7 @@ else
   printf '  (none detected)\n'
 fi
 
-S03_IMPORT_COUNT="$(rg -n "from ['\" ]?bun:test['\"]" apps packages --glob '**/*.ts' | wc -l | tr -d ' ')"
+S03_IMPORT_COUNT="$({ rg -n "from ['\"]bun:test['\"]" apps packages --glob '**/*.ts' || true; } | wc -l | tr -d ' ')"
 printf '[verify-pnpm] S03 (bun:test imports in TS files): %s\n' "$S03_IMPORT_COUNT"
 
 printf '[verify-pnpm] S04 (legacy root script blockers):\n'

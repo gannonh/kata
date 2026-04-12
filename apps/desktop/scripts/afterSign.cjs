@@ -13,7 +13,7 @@
  * ship-a-broken-build trap.
  *
  * Escape hatch for dev iteration:
- *   KATA_SKIP_NOTARIZE=1 bun run desktop:dist:mac
+ *   KATA_SKIP_NOTARIZE=1 pnpm run desktop:dist:mac
  * Exporting the flag prints a loud warning but lets the build continue. Never
  * set this in CI or release workflows.
  */
