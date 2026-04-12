@@ -96,7 +96,6 @@ interface RegisterIpcOptions {
   authBridge: AuthBridge
   sessionManager: DesktopSessionManager
   window: BrowserWindow
-  onModelSelected?: (model: string) => Promise<void> | void
   onWorkspaceSelected?: (workspacePath: string) => Promise<void> | void
   symphonySupervisor?: SymphonySupervisor
   symphonyOperatorService?: SymphonyOperatorService
@@ -109,7 +108,6 @@ export function registerSessionIpc({
   authBridge,
   sessionManager,
   window,
-  onModelSelected,
   onWorkspaceSelected,
   symphonySupervisor,
   symphonyOperatorService,
@@ -1002,18 +1000,6 @@ export function registerSessionIpc({
       const provider = model.slice(0, slashIndex)
       const modelId = model.slice(slashIndex + 1)
       await bridge.setModel(provider, modelId)
-
-      if (onModelSelected) {
-        try {
-          await onModelSelected(model)
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error)
-          log.warn('[desktop-ipc] model persistence failed after runtime switch', {
-            model,
-            error: message,
-          })
-        }
-      }
 
       reliabilityAggregator.ingestFirstRunModelState({
         selectedModel: model,

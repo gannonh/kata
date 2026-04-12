@@ -353,6 +353,8 @@ For safe discovery in Kata workflows:
 - enumerate tasks with `kata_list_tasks({ sliceIssueId })`
 - once you know the exact issue, inspect the full body with `linear_get_issue(id)`
 
+Linear/Kata tool outputs are bounded by default to protect long-running agent sessions: list tools return compact inventories, issue/document reads page large bodies with explicit continuation guidance, and mutation tools emit concise summaries instead of echoing full objects.
+
 This keeps planning flows milestone-scoped and avoids broad project issue listings that can unexpectedly flood agent context.
 
 `/kata auto` works the same way — research, plan, execute, verify — but all state is read from and written to Linear. Progress is visible in the Linear UI alongside your team's other work.

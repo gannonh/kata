@@ -401,44 +401,64 @@ describe('PiAgentBridge additional coverage', () => {
     }
   })
 
-  test('getAvailableModels returns only valid model entries', async () => {
+  test('getAvailableModels returns only valid model entries and syncs selected model from runtime state', async () => {
     const bridge = new PiAgentBridge(process.cwd())
 
-    vi.spyOn(bridge, 'send').mockResolvedValue({
-      command: 'get_available_models',
-      success: true,
-      data: [
-        { provider: 'anthropic', id: 'claude-sonnet', contextWindow: 200000, reasoning: true },
-        { provider: 'openai', id: 'gpt-4.1' },
-        { provider: 'missing-id' },
-        { id: 'missing-provider' },
-        'not-an-object',
-      ],
-    })
+    const sendSpy = vi.spyOn(bridge, 'send')
+    sendSpy
+      .mockResolvedValueOnce({
+        command: 'get_available_models',
+        success: true,
+        data: [
+          { provider: 'anthropic', id: 'claude-sonnet', contextWindow: 200000, reasoning: true },
+          { provider: 'openai', id: 'gpt-4.1' },
+          { provider: 'missing-id' },
+          { id: 'missing-provider' },
+          'not-an-object',
+        ],
+      } as CommandResult)
+      .mockResolvedValueOnce({
+        command: 'get_state',
+        success: true,
+        data: {
+          model: { provider: 'anthropic', id: 'claude-sonnet' },
+        },
+      } as CommandResult)
 
     await expect(bridge.getAvailableModels()).resolves.toEqual([
       { provider: 'anthropic', id: 'claude-sonnet', contextWindow: 200000, reasoning: true, supportsXhigh: false },
       { provider: 'openai', id: 'gpt-4.1', contextWindow: undefined, reasoning: undefined, supportsXhigh: false },
     ])
+    expect(bridge.getSelectedModel()).toBe('anthropic/claude-sonnet')
   })
 
   test('getAvailableModels returns [] for non-array and empty-array payloads', async () => {
     const bridge = new PiAgentBridge(process.cwd())
     const sendSpy = vi.spyOn(bridge, 'send')
 
-    sendSpy.mockResolvedValueOnce({
-      command: 'get_available_models',
-      success: true,
-      data: { models: [] },
-    })
+    sendSpy
+      .mockResolvedValueOnce({
+        command: 'get_available_models',
+        success: true,
+        data: { models: [] },
+      } as CommandResult)
+      .mockResolvedValueOnce({
+        command: 'get_state',
+        success: true,
+        data: {
+          model: { provider: 'openai', id: 'gpt-4.1' },
+        },
+      } as CommandResult)
 
     await expect(bridge.getAvailableModels()).resolves.toEqual([])
+    expect(bridge.getSelectedModel()).toBe('openai/gpt-4.1')
 
-    sendSpy.mockResolvedValueOnce({
-      command: 'get_available_models',
-      success: true,
-      data: [],
-    })
+    sendSpy
+      .mockResolvedValueOnce({
+        command: 'get_available_models',
+        success: true,
+        data: [],
+      } as CommandResult)
 
     await expect(bridge.getAvailableModels()).resolves.toEqual([])
   })

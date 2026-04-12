@@ -95,9 +95,9 @@ export const OAUTH_PROVIDERS: ReadonlySet<AuthProvider> = new Set<AuthProvider>(
 ])
 
 /**
- * Default model used when no persisted selection exists. The CLI resolves this
- * to the OpenAI Codex subscription model, which is the cheapest/fastest default
- * for users authenticated via `kata login openai-codex` (ChatGPT Plus/Pro).
+ * Preferred model when Desktop proactively selects one during onboarding.
+ * Startup no longer persists or replays a separate Desktop-only model key;
+ * the CLI owns defaultProvider/defaultModel selection in settings.json.
  */
 export const DEFAULT_MODEL = 'openai-codex/gpt-5.3-codex'
 

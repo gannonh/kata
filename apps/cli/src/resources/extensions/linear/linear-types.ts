@@ -132,6 +132,33 @@ export interface LinearDocument {
   updatedAt: string;
 }
 
+export interface LinearIssueSummary {
+  id: string;
+  identifier: string;
+  title: string;
+  priority: LinearPriority;
+  estimate?: number;
+  url: string;
+  state: LinearWorkflowState;
+  labels: LinearLabel[];
+  parent?: { id: string; identifier: string; title: string } | null;
+  project?: { id: string; name: string } | null;
+  projectMilestone?: { id: string; name: string } | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LinearDocumentSummary {
+  id: string;
+  title: string;
+  icon?: string;
+  color?: string;
+  project?: { id: string; name: string } | null;
+  issue?: { id: string; identifier: string } | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface LinearComment {
   id: string;
   body: string;
@@ -257,6 +284,13 @@ export interface IssueFilter {
   stateId?: string;
   labelIds?: string[];
   assigneeId?: string;
+  first?: number;
+}
+
+export interface DocumentListFilter {
+  projectId?: string;
+  issueId?: string;
+  title?: string;
   first?: number;
 }
 

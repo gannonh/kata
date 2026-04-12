@@ -34,6 +34,12 @@ import {
   resolveConfiguredLinearProjectId,
   resolveConfiguredLinearTeamId,
 } from "../kata/linear-config.js";
+import {
+  renderCompactRead,
+  renderErrorSummary,
+  renderInventoryResult,
+  renderMutationSummary,
+} from "./tool-output.js";
 
 // Re-export entity functions under kata_* names so module consumers and
 // smoke-checks can confirm they are importable without loading the pi runtime.
@@ -51,28 +57,79 @@ export {
   deriveLinearState as kata_derive_linear_state,
 };
 
+export const LINEAR_TOOL_STRATEGIES = {
+  linear_list_teams: "inventory",
+  linear_get_team: "compact-read",
+  linear_create_project: "mutation",
+  linear_get_project: "compact-read",
+  linear_list_projects: "inventory",
+  linear_update_project: "mutation",
+  linear_delete_project: "mutation",
+  linear_create_milestone: "mutation",
+  linear_get_milestone: "compact-read",
+  linear_list_milestones: "inventory",
+  linear_update_milestone: "mutation",
+  linear_delete_milestone: "mutation",
+  linear_create_issue: "mutation",
+  linear_get_issue: "paged-read",
+  linear_list_issues: "inventory",
+  linear_create_relation: "mutation",
+  linear_list_relations: "inventory",
+  linear_update_issue: "mutation",
+  linear_delete_issue: "mutation",
+  linear_list_workflow_states: "inventory",
+  linear_create_label: "mutation",
+  linear_list_labels: "inventory",
+  linear_delete_label: "mutation",
+  linear_add_comment: "mutation",
+  linear_ensure_label: "mutation",
+  linear_create_document: "mutation",
+  linear_get_document: "paged-read",
+  linear_list_documents: "inventory",
+  linear_delete_document: "mutation",
+  linear_update_document: "mutation",
+  linear_get_viewer: "compact-read",
+  kata_ensure_labels: "mutation",
+  kata_create_milestone: "mutation",
+  kata_create_slice: "mutation",
+  kata_create_task: "mutation",
+  kata_list_slices: "inventory",
+  kata_list_tasks: "inventory",
+  kata_write_document: "mutation",
+  kata_read_document: "paged-read",
+  kata_list_documents: "inventory",
+  kata_list_milestones: "inventory",
+  kata_derive_state: "state",
+  kata_update_issue_state: "mutation",
+} as const;
+
 // =============================================================================
 // Helpers
 // =============================================================================
 
-function ok(data: unknown) {
+function okText(text: string) {
   return {
-    content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
+    content: [{ type: "text" as const, text }],
   };
+}
+
+function ok(data: unknown) {
+  return okText(JSON.stringify(data, null, 2));
 }
 
 function fail(err: unknown) {
   const classified = classifyLinearError(err);
   return {
-    content: [{ type: "text" as const, text: `Error (${classified.kind}): ${classified.message}` }],
+    content: [{ type: "text" as const, text: renderErrorSummary(classified.kind, classified.message) }],
     isError: true,
     details: { errorKind: classified.kind, message: classified.message },
   };
 }
 
-async function run<T>(fn: () => Promise<T>) {
+async function run<T>(fn: () => Promise<T | string>) {
   try {
-    return ok(await fn());
+    const value = await fn();
+    return typeof value === "string" ? okText(value) : ok(value);
   } catch (err) {
     return fail(err);
   }
@@ -91,10 +148,28 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
   pi.registerTool({
     name: "linear_list_teams",
     label: "Linear: List Teams",
-    description: "List all teams in the Linear workspace.",
-    promptSnippet: "List all teams in the Linear workspace.",
-    parameters: Type.Object({}),
-    async execute() { return run(() => client.listTeams()); },
+    description: "List compact team inventory for the Linear workspace.",
+    promptSnippet: "List compact team inventory for the Linear workspace.",
+    parameters: Type.Object({
+      offset: Type.Optional(Type.Integer({ minimum: 1, description: "Item number to start from (1-indexed)" })),
+      limit: Type.Optional(Type.Integer({ minimum: 1, description: "Maximum number of items to return" })),
+    }),
+    async execute(_id, params) {
+      return run(async () => {
+        const teams = await client.listTeams();
+        return renderInventoryResult({
+          noun: "teams",
+          items: teams,
+          offset: params.offset,
+          limit: params.limit,
+          omittedFieldsNote: "Large fields omitted from list output. Use linear_get_team to inspect one team.",
+          renderItem: (team, index) => [
+            `${index}. ${team.key}: ${team.name}`,
+            `   id: ${team.id}`,
+          ].join("\n"),
+        });
+      });
+    },
   });
 
   pi.registerTool({
@@ -105,7 +180,23 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     parameters: Type.Object({
       idOrKey: Type.String({ description: "Team key (e.g. 'KAT') or UUID" }),
     }),
-    async execute(_id, params) { return run(() => client.getTeam(params.idOrKey)); },
+    async execute(_id, params) {
+      return run(async () => {
+        const team = await client.getTeam(params.idOrKey);
+        if (typeof team === "string") return team;
+        if (!team) throw new Error(`Team not found: ${params.idOrKey}`);
+
+        return renderCompactRead({
+          heading: `Team ${team.key}: ${team.name}`,
+          metadata: [
+            `id: ${team.id}`,
+            `key: ${team.key}`,
+            `name: ${team.name}`,
+            `description: ${team.description ?? "—"}`,
+          ],
+        });
+      });
+    },
   });
 
   // =========================================================================
@@ -125,7 +216,23 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       startDate: Type.Optional(Type.String({ description: "Start date (ISO format)" })),
       targetDate: Type.Optional(Type.String({ description: "Target date (ISO format)" })),
     }),
-    async execute(_id, params) { return run(() => client.createProject(params)); },
+    async execute(_id, params) {
+      return run(async () => {
+        const project = await client.createProject(params);
+        return renderMutationSummary({
+          noun: "Project",
+          action: "created",
+          lines: [
+            `id: ${project.id}`,
+            `name: ${project.name}`,
+            `slugId: ${project.slugId}`,
+            `state: ${project.state}`,
+            `targetDate: ${project.targetDate ?? "—"}`,
+            "Full description not echoed. Use linear_get_project to inspect content.",
+          ],
+        });
+      });
+    },
   });
 
   pi.registerTool({
@@ -136,21 +243,58 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     parameters: Type.Object({
       id: Type.String({ description: "Project UUID or slug ID" }),
     }),
-    async execute(_id, params) { return run(() => client.getProject(params.id)); },
+    async execute(_id, params) {
+      return run(async () => {
+        const project = await client.getProject(params.id);
+        if (!project) throw new Error(`Project not found: ${params.id}`);
+
+        return renderCompactRead({
+          heading: `Project ${project.name}`,
+          metadata: [
+            `id: ${project.id}`,
+            `slugId: ${project.slugId}`,
+            `state: ${project.state}`,
+            `startDate: ${project.startDate ?? "—"}`,
+            `targetDate: ${project.targetDate ?? "—"}`,
+            `updatedAt: ${project.updatedAt}`,
+          ],
+        });
+      });
+    },
   });
 
   pi.registerTool({
     name: "linear_list_projects",
     label: "Linear: List Projects",
-    description: "List projects in the workspace, optionally filtered by team.",
-    promptSnippet: "List projects in the workspace, optionally filtered by team.",
+    description: "List compact project inventory in the workspace, optionally filtered by team.",
+    promptSnippet: "List compact project inventory in the workspace, optionally filtered by team.",
     parameters: Type.Object({
       teamId: Type.Optional(Type.String({ description: "Filter by team UUID" })),
       first: Type.Optional(Type.Number({ description: "Max results per page (default: 50)" })),
+      offset: Type.Optional(Type.Integer({ minimum: 1, description: "Item number to start from (1-indexed)" })),
+      limit: Type.Optional(Type.Integer({ minimum: 1, description: "Maximum number of items to return" })),
     }),
     async execute(_id, params) {
-      const hasParams = params.teamId !== undefined || params.first !== undefined;
-      return run(() => client.listProjects(hasParams ? params : undefined));
+      return run(async () => {
+        const { offset, limit, ...filters } = params;
+        const hasFilters = filters.teamId !== undefined || filters.first !== undefined;
+        const projects = await client.listProjects(hasFilters ? filters : undefined);
+        return renderInventoryResult({
+          noun: "projects",
+          items: projects,
+          offset,
+          limit,
+          omittedFieldsNote: "Large fields omitted from list output. Use linear_get_project to inspect one project.",
+          renderItem: (project, index) => [
+            `${index}. ${project.name}`,
+            `   id: ${project.id}`,
+            `   slugId: ${project.slugId}`,
+            `   state: ${project.state}`,
+            `   targetDate: ${project.targetDate ?? "—"}`,
+            `   updatedAt: ${project.updatedAt}`,
+          ].join("\n"),
+        });
+      });
     },
   });
 
@@ -169,7 +313,21 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     }),
     async execute(_id, params) {
       const { id, ...input } = params;
-      return run(() => client.updateProject(id, input));
+      return run(async () => {
+        const project = await client.updateProject(id, input);
+        return renderMutationSummary({
+          noun: "Project",
+          action: "updated",
+          lines: [
+            `id: ${project.id}`,
+            `name: ${project.name}`,
+            `slugId: ${project.slugId}`,
+            `state: ${project.state}`,
+            `targetDate: ${project.targetDate ?? "—"}`,
+            "Full description not echoed. Use linear_get_project to inspect content.",
+          ],
+        });
+      });
     },
   });
 
@@ -181,7 +339,19 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     parameters: Type.Object({
       id: Type.String({ description: "Project UUID" }),
     }),
-    async execute(_id, params) { return run(() => client.deleteProject(params.id)); },
+    async execute(_id, params) {
+      return run(async () => {
+        const deleted = await client.deleteProject(params.id);
+        return renderMutationSummary({
+          noun: "Project",
+          action: "deleted",
+          lines: [
+            `id: ${params.id}`,
+            `deleted: ${deleted ? "yes" : "no"}`,
+          ],
+        });
+      });
+    },
   });
 
   // =========================================================================
@@ -200,7 +370,22 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       targetDate: Type.Optional(Type.String({ description: "Target date (ISO)" })),
       sortOrder: Type.Optional(Type.Number({ description: "Sort order" })),
     }),
-    async execute(_id, params) { return run(() => client.createMilestone(params)); },
+    async execute(_id, params) {
+      return run(async () => {
+        const milestone = await client.createMilestone(params);
+        return renderMutationSummary({
+          noun: "Milestone",
+          action: "created",
+          lines: [
+            `id: ${milestone.id}`,
+            `name: ${milestone.name}`,
+            `sortOrder: ${milestone.sortOrder}`,
+            `targetDate: ${milestone.targetDate ?? "—"}`,
+            "Full description not echoed. Use linear_get_milestone to inspect content.",
+          ],
+        });
+      });
+    },
   });
 
   pi.registerTool({
@@ -211,18 +396,55 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     parameters: Type.Object({
       id: Type.String({ description: "Milestone UUID" }),
     }),
-    async execute(_id, params) { return run(() => client.getMilestone(params.id)); },
+    async execute(_id, params) {
+      return run(async () => {
+        const milestone = await client.getMilestone(params.id);
+        if (!milestone) throw new Error(`Milestone not found: ${params.id}`);
+
+        return renderCompactRead({
+          heading: `Milestone ${milestone.name}`,
+          metadata: [
+            `id: ${milestone.id}`,
+            `projectId: ${milestone.projectId ?? "—"}`,
+            `sortOrder: ${milestone.sortOrder}`,
+            `targetDate: ${milestone.targetDate ?? "—"}`,
+            `updatedAt: ${milestone.updatedAt}`,
+            `description: ${milestone.description ?? "—"}`,
+          ],
+        });
+      });
+    },
   });
 
   pi.registerTool({
     name: "linear_list_milestones",
     label: "Linear: List Milestones",
-    description: "List milestones under a project.",
-    promptSnippet: "List milestones under a project.",
+    description: "List compact milestone inventory under a project.",
+    promptSnippet: "List compact milestone inventory under a project.",
     parameters: Type.Object({
       projectId: Type.String({ description: "Project UUID" }),
+      offset: Type.Optional(Type.Integer({ minimum: 1, description: "Item number to start from (1-indexed)" })),
+      limit: Type.Optional(Type.Integer({ minimum: 1, description: "Maximum number of items to return" })),
     }),
-    async execute(_id, params) { return run(() => client.listMilestones(params.projectId)); },
+    async execute(_id, params) {
+      return run(async () => {
+        const milestones = await client.listMilestones(params.projectId);
+        return renderInventoryResult({
+          noun: "milestones",
+          items: milestones,
+          offset: params.offset,
+          limit: params.limit,
+          omittedFieldsNote: "Large fields omitted from list output. Use linear_get_milestone to inspect one milestone.",
+          renderItem: (milestone, index) => [
+            `${index}. ${milestone.name}`,
+            `   id: ${milestone.id}`,
+            `   sortOrder: ${milestone.sortOrder}`,
+            `   targetDate: ${milestone.targetDate ?? "—"}`,
+            `   updatedAt: ${milestone.updatedAt}`,
+          ].join("\n"),
+        });
+      });
+    },
   });
 
   pi.registerTool({
@@ -239,7 +461,20 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     }),
     async execute(_id, params) {
       const { id, ...input } = params;
-      return run(() => client.updateMilestone(id, input));
+      return run(async () => {
+        const milestone = await client.updateMilestone(id, input);
+        return renderMutationSummary({
+          noun: "Milestone",
+          action: "updated",
+          lines: [
+            `id: ${milestone.id}`,
+            `name: ${milestone.name}`,
+            `sortOrder: ${milestone.sortOrder}`,
+            `targetDate: ${milestone.targetDate ?? "—"}`,
+            "Full description not echoed. Use linear_get_milestone to inspect content.",
+          ],
+        });
+      });
     },
   });
 
@@ -251,7 +486,19 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     parameters: Type.Object({
       id: Type.String({ description: "Milestone UUID" }),
     }),
-    async execute(_id, params) { return run(() => client.deleteMilestone(params.id)); },
+    async execute(_id, params) {
+      return run(async () => {
+        const deleted = await client.deleteMilestone(params.id);
+        return renderMutationSummary({
+          noun: "Milestone",
+          action: "deleted",
+          lines: [
+            `id: ${params.id}`,
+            `deleted: ${deleted ? "yes" : "no"}`,
+          ],
+        });
+      });
+    },
   });
 
   // =========================================================================
@@ -281,29 +528,69 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       if (input.description !== undefined) {
         input.description = normalizeMarkdownContent(input.description);
       }
-      return run(() => client.createIssue(input));
+      return run(async () => {
+        const issue = await client.createIssue(input);
+        return renderMutationSummary({
+          noun: "Issue",
+          action: "created",
+          lines: [
+            `id: ${issue.id}`,
+            `identifier: ${issue.identifier}`,
+            `title: ${issue.title}`,
+            `state: ${issue.state.name}`,
+            `project: ${issue.project?.name ?? "—"}`,
+            `milestone: ${issue.projectMilestone?.name ?? "—"}`,
+            "Full description not echoed. Use linear_get_issue to inspect content.",
+          ],
+        });
+      });
     },
   });
 
   pi.registerTool({
     name: "linear_get_issue",
     label: "Linear: Get Issue",
-    description: "Get an issue by UUID or identifier (e.g. 'KAT-42'). Returns full details including parent, children, labels, and state.",
-    promptSnippet: "Get an issue by UUID or identifier.",
+    description: "Get an issue by UUID or identifier (e.g. 'KAT-42'). Returns compact issue metadata with paged description content via offset/limit.",
+    promptSnippet: "Read one issue by UUID or identifier with optional offset/limit paging.",
     parameters: Type.Object({
       id: Type.String({ description: "Issue UUID or identifier (e.g. 'KAT-42')" }),
+      offset: Type.Optional(Type.Integer({ minimum: 1, description: "Line number to start reading description from (1-indexed)" })),
+      limit: Type.Optional(Type.Integer({ minimum: 1, description: "Maximum number of description lines to read" })),
     }),
-    async execute(_id, params) { return run(() => client.getIssue(params.id)); },
+    async execute(_id, params) {
+      return run(async () => {
+        const issue = await client.getIssue(params.id);
+        if (!issue) throw new Error(`Issue not found: ${params.id}`);
+
+        return renderCompactRead({
+          heading: `${issue.identifier}: ${issue.title}`,
+          metadata: [
+            `id: ${issue.id}`,
+            `state: ${issue.state.name}`,
+            `priority: ${issue.priority}`,
+            `project: ${issue.project?.name ?? "—"}`,
+            `milestone: ${issue.projectMilestone?.name ?? "—"}`,
+            `labels: ${issue.labels.map((label) => label.name).join(", ") || "—"}`,
+            `children: ${issue.children.nodes.length}`,
+          ],
+          bodyLabel: "description",
+          body: issue.description,
+          offset: params.offset,
+          limit: params.limit,
+          emptyBodyMessage: "No description.",
+        });
+      });
+    },
   });
 
   pi.registerTool({
     name: "linear_list_issues",
     label: "Linear: List Issues",
     description:
-      "Generic Linear issue listing with optional filters: team, project, milestone, parent, state, labels, assignee. " +
-      "For Kata milestone planning or slice lookup, prefer kata_list_slices with milestoneId — this tool returns full issue payloads and is heavier.",
+      "Generic Linear issue inventory with optional filters: team, project, milestone, parent, state, labels, assignee. " +
+      "For Kata milestone planning or slice lookup, prefer kata_list_slices with milestoneId. Use linear_get_issue for a paged compact read of one issue.",
     promptSnippet:
-      "List generic Linear issues with optional filters. For Kata slice enumeration, prefer kata_list_slices with milestoneId.",
+      "List generic Linear issue inventory with optional filters. For Kata slice enumeration, prefer kata_list_slices with milestoneId.",
     parameters: Type.Object({
       teamId: Type.Optional(Type.String({ description: "Filter by team UUID" })),
       projectId: Type.Optional(Type.String({ description: "Filter by project UUID" })),
@@ -313,8 +600,30 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       labelIds: Type.Optional(Type.Array(Type.String(), { description: "Filter by label UUIDs (issues with any of these labels)" })),
       assigneeId: Type.Optional(Type.String({ description: "Filter by assignee UUID" })),
       first: Type.Optional(Type.Number({ description: "Max results per page (default: 50)" })),
+      offset: Type.Optional(Type.Integer({ minimum: 1, description: "Item number to start from (1-indexed)" })),
+      limit: Type.Optional(Type.Integer({ minimum: 1, description: "Maximum number of items to return" })),
     }),
-    async execute(_id, params) { return run(() => client.listIssues(params)); },
+    async execute(_id, params) {
+      return run(async () => {
+        const { offset, limit, ...filters } = params;
+        const issues = await client.listIssueSummaries(filters);
+        return renderInventoryResult({
+          noun: "issues",
+          items: issues,
+          offset,
+          limit,
+          omittedFieldsNote: "Large fields omitted from list output. Use linear_get_issue to inspect one issue.",
+          renderItem: (issue, index) => [
+            `${index}. ${issue.identifier}: ${issue.title}`,
+            `   state: ${issue.state.name}`,
+            `   project: ${issue.project?.name ?? "—"}`,
+            `   milestone: ${issue.projectMilestone?.name ?? "—"}`,
+            `   labels: ${issue.labels.map((label) => label.name).join(", ") || "—"}`,
+            `   updatedAt: ${issue.updatedAt}`,
+          ].join("\n"),
+        });
+      });
+    },
   });
 
   pi.registerTool({
@@ -336,20 +645,51 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       ),
     }),
     async execute(_id, params) {
-      return run(() => client.createRelation(params));
+      return run(async () => {
+        const relation = await client.createRelation(params);
+        return renderMutationSummary({
+          noun: "Relation",
+          action: "created",
+          lines: [
+            `id: ${relation.id}`,
+            `type: ${relation.type}`,
+            `direction: ${relation.direction}`,
+            `issue: ${relation.issue.identifier}: ${relation.issue.title}`,
+            `otherIssue: ${relation.otherIssue.identifier}: ${relation.otherIssue.title}`,
+          ],
+        });
+      });
     },
   });
 
   pi.registerTool({
     name: "linear_list_relations",
     label: "Linear: List Relations",
-    description: "List all relations for an issue (outbound and inbound) with normalized direction.",
-    promptSnippet: "List all relations for an issue.",
+    description: "List compact relation inventory for an issue (outbound and inbound) with normalized direction.",
+    promptSnippet: "List compact relation inventory for an issue.",
     parameters: Type.Object({
       issueId: Type.String({ description: "Issue UUID" }),
+      offset: Type.Optional(Type.Integer({ minimum: 1, description: "Item number to start from (1-indexed)" })),
+      limit: Type.Optional(Type.Integer({ minimum: 1, description: "Maximum number of items to return" })),
     }),
     async execute(_id, params) {
-      return run(() => client.listRelations(params.issueId));
+      return run(async () => {
+        const relations = await client.listRelations(params.issueId);
+        return renderInventoryResult({
+          noun: "relations",
+          items: relations,
+          offset: params.offset,
+          limit: params.limit,
+          omittedFieldsNote: "Large fields omitted from list output. Use linear_get_issue to inspect related issues in context.",
+          renderItem: (relation, index) => [
+            `${index}. ${relation.type} (${relation.direction})`,
+            `   id: ${relation.id}`,
+            `   issue: ${relation.issue.identifier}: ${relation.issue.title}`,
+            `   otherIssue: ${relation.otherIssue.identifier}: ${relation.otherIssue.title}`,
+            `   otherState: ${relation.otherIssue.state?.name ?? "—"}`,
+          ].join("\n"),
+        });
+      });
     },
   });
 
@@ -377,7 +717,22 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       if (input.description !== undefined) {
         input.description = normalizeMarkdownContent(input.description);
       }
-      return run(() => client.updateIssue(id, input));
+      return run(async () => {
+        const issue = await client.updateIssue(id, input);
+        return renderMutationSummary({
+          noun: "Issue",
+          action: "updated",
+          lines: [
+            `id: ${issue.id}`,
+            `identifier: ${issue.identifier}`,
+            `title: ${issue.title}`,
+            `state: ${issue.state.name}`,
+            `project: ${issue.project?.name ?? "—"}`,
+            `milestone: ${issue.projectMilestone?.name ?? "—"}`,
+            "Full description not echoed. Use linear_get_issue to inspect content.",
+          ],
+        });
+      });
     },
   });
 
@@ -389,7 +744,19 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     parameters: Type.Object({
       id: Type.String({ description: "Issue UUID" }),
     }),
-    async execute(_id, params) { return run(() => client.deleteIssue(params.id)); },
+    async execute(_id, params) {
+      return run(async () => {
+        const deleted = await client.deleteIssue(params.id);
+        return renderMutationSummary({
+          noun: "Issue",
+          action: "deleted",
+          lines: [
+            `id: ${params.id}`,
+            `deleted: ${deleted ? "yes" : "no"}`,
+          ],
+        });
+      });
+    },
   });
 
   // =========================================================================
@@ -399,12 +766,32 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
   pi.registerTool({
     name: "linear_list_workflow_states",
     label: "Linear: List Workflow States",
-    description: "List all workflow states for a team. States have types: backlog, unstarted, started, completed, canceled.",
-    promptSnippet: "List all workflow states for a team.",
+    description: "List compact workflow-state inventory for a team. States have types: backlog, unstarted, started, completed, canceled.",
+    promptSnippet: "List compact workflow-state inventory for a team.",
     parameters: Type.Object({
       teamId: Type.String({ description: "Team UUID" }),
+      offset: Type.Optional(Type.Integer({ minimum: 1, description: "Item number to start from (1-indexed)" })),
+      limit: Type.Optional(Type.Integer({ minimum: 1, description: "Maximum number of items to return" })),
     }),
-    async execute(_id, params) { return run(() => client.listWorkflowStates(params.teamId)); },
+    async execute(_id, params) {
+      return run(async () => {
+        const states = await client.listWorkflowStates(params.teamId);
+        return renderInventoryResult({
+          noun: "workflow states",
+          items: states,
+          offset: params.offset,
+          limit: params.limit,
+          omittedFieldsNote: "Large fields omitted from list output. Use linear_get_team and workflow state IDs for precise updates.",
+          renderItem: (state, index) => [
+            `${index}. ${state.name}`,
+            `   id: ${state.id}`,
+            `   type: ${state.type}`,
+            `   position: ${state.position}`,
+            `   color: ${state.color}`,
+          ].join("\n"),
+        });
+      });
+    },
   });
 
   // =========================================================================
@@ -422,19 +809,51 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       description: Type.Optional(Type.String({ description: "Label description" })),
       teamId: Type.Optional(Type.String({ description: "Team UUID — omit for workspace-level label" })),
     }),
-    async execute(_id, params) { return run(() => client.createLabel(params)); },
+    async execute(_id, params) {
+      return run(async () => {
+        const label = await client.createLabel(params);
+        return renderMutationSummary({
+          noun: "Label",
+          action: "created",
+          lines: [
+            `id: ${label.id}`,
+            `name: ${label.name}`,
+            `color: ${label.color}`,
+            `isGroup: ${label.isGroup ? "yes" : "no"}`,
+            `description: ${label.description ?? "—"}`,
+          ],
+        });
+      });
+    },
   });
 
   pi.registerTool({
     name: "linear_list_labels",
     label: "Linear: List Labels",
-    description: "List labels, optionally filtered by team.",
-    promptSnippet: "List labels, optionally filtered by team.",
+    description: "List compact label inventory, optionally filtered by team.",
+    promptSnippet: "List compact label inventory, optionally filtered by team.",
     parameters: Type.Object({
       teamId: Type.Optional(Type.String({ description: "Filter by team UUID" })),
+      offset: Type.Optional(Type.Integer({ minimum: 1, description: "Item number to start from (1-indexed)" })),
+      limit: Type.Optional(Type.Integer({ minimum: 1, description: "Maximum number of items to return" })),
     }),
     async execute(_id, params) {
-      return run(() => client.listLabels(params.teamId ? { teamId: params.teamId } : undefined));
+      return run(async () => {
+        const labels = await client.listLabels(params.teamId ? { teamId: params.teamId } : undefined);
+        return renderInventoryResult({
+          noun: "labels",
+          items: labels,
+          offset: params.offset,
+          limit: params.limit,
+          omittedFieldsNote: "Large fields omitted from list output. Use linear_ensure_label or linear_create_label for updates.",
+          renderItem: (label, index) => [
+            `${index}. ${label.name}`,
+            `   id: ${label.id}`,
+            `   color: ${label.color}`,
+            `   isGroup: ${label.isGroup ? "yes" : "no"}`,
+          ].join("\n"),
+        });
+      });
     },
   });
 
@@ -446,7 +865,19 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     parameters: Type.Object({
       id: Type.String({ description: "Label UUID" }),
     }),
-    async execute(_id, params) { return run(() => client.deleteLabel(params.id)); },
+    async execute(_id, params) {
+      return run(async () => {
+        const deleted = await client.deleteLabel(params.id);
+        return renderMutationSummary({
+          noun: "Label",
+          action: "deleted",
+          lines: [
+            `id: ${params.id}`,
+            `deleted: ${deleted ? "yes" : "no"}`,
+          ],
+        });
+      });
+    },
   });
 
   // ── Comments ──────────────────────────────────────────────────────────
@@ -454,22 +885,39 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
   pi.registerTool({
     name: "linear_add_comment",
     label: "Linear: Add Comment",
-    description: "Post a comment on a Linear issue. Returns the created comment with id, body, createdAt, and url.",
-    promptSnippet: "Post a comment on a Linear issue.",
+    description:
+      "Post a comment on a Linear issue. Returns a compact mutation summary (id, issueId, createdAt, url); " +
+      "comment body is omitted from mutation output.",
+    promptSnippet: "Post a comment on a Linear issue and return a compact summary (body omitted).",
     parameters: Type.Object({
       issueId: Type.String({ description: "Issue UUID to comment on" }),
       body: Type.String({ description: "Comment body (markdown supported)" }),
     }),
     async execute(_id, params) {
-      return run(() => client.createComment(params.issueId, normalizeMarkdownContent(params.body)));
+      return run(async () => {
+        const comment = await client.createComment(params.issueId, normalizeMarkdownContent(params.body));
+        return renderMutationSummary({
+          noun: "Comment",
+          action: "created",
+          lines: [
+            `id: ${comment.id}`,
+            `issueId: ${params.issueId}`,
+            `createdAt: ${comment.createdAt}`,
+            `url: ${comment.url}`,
+            "Body omitted from mutation output. Use Linear UI to inspect full comment content.",
+          ],
+        });
+      });
     },
   });
 
   pi.registerTool({
     name: "linear_ensure_label",
     label: "Linear: Ensure Label",
-    description: "Get or create a label by name. Idempotent — returns existing label if name matches, creates new one otherwise.",
-    promptSnippet: "Get or create a label by name.",
+    description:
+      "Get or create a label by name. Idempotent — returns a compact mutation summary with key label metadata " +
+      "(id, name, color, group flag, description).",
+    promptSnippet: "Ensure a label by name and return compact label metadata.",
     parameters: Type.Object({
       name: Type.String({ description: "Label name" }),
       color: Type.Optional(Type.String({ description: "Label color hex (used only when creating)" })),
@@ -478,7 +926,20 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     }),
     async execute(_id, params) {
       const { name, ...opts } = params;
-      return run(() => client.ensureLabel(name, Object.keys(opts).length > 0 ? opts : undefined));
+      return run(async () => {
+        const label = await client.ensureLabel(name, Object.keys(opts).length > 0 ? opts : undefined);
+        return renderMutationSummary({
+          noun: "Label",
+          action: "ensured",
+          lines: [
+            `id: ${label.id}`,
+            `name: ${label.name}`,
+            `color: ${label.color}`,
+            `isGroup: ${label.isGroup ? "yes" : "no"}`,
+            `description: ${label.description ?? "—"}`,
+          ],
+        });
+      });
     },
   });
 
@@ -504,33 +965,90 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       if (input.content !== undefined) {
         input.content = normalizeMarkdownContent(input.content);
       }
-      return run(() => client.createDocument(input));
+      return run(async () => {
+        const doc = await client.createDocument(input);
+        return renderMutationSummary({
+          noun: "Document",
+          action: "created",
+          lines: [
+            `id: ${doc.id}`,
+            `title: ${doc.title}`,
+            `project: ${doc.project?.name ?? "—"}`,
+            `issue: ${doc.issue?.identifier ?? "—"}`,
+            `updatedAt: ${doc.updatedAt}`,
+            "Full content not echoed. Use linear_get_document to inspect content.",
+          ],
+        });
+      });
     },
   });
 
   pi.registerTool({
     name: "linear_get_document",
     label: "Linear: Get Document",
-    description: "Get a document by UUID. Returns full markdown content.",
-    promptSnippet: "Get a document by UUID.",
+    description: "Get a document by UUID. Returns compact metadata with paged markdown content via offset/limit.",
+    promptSnippet: "Read one document by UUID with optional offset/limit paging.",
     parameters: Type.Object({
       id: Type.String({ description: "Document UUID" }),
+      offset: Type.Optional(Type.Integer({ minimum: 1, description: "Line number to start reading from (1-indexed)" })),
+      limit: Type.Optional(Type.Integer({ minimum: 1, description: "Maximum number of content lines to read" })),
     }),
-    async execute(_id, params) { return run(() => client.getDocument(params.id)); },
+    async execute(_id, params) {
+      return run(async () => {
+        const doc = await client.getDocument(params.id);
+        if (!doc) throw new Error(`Document not found: ${params.id}`);
+
+        return renderCompactRead({
+          heading: `Document ${doc.title}`,
+          metadata: [
+            `id: ${doc.id}`,
+            `project: ${doc.project?.name ?? "—"}`,
+            `issue: ${doc.issue?.identifier ?? "—"}`,
+            `updatedAt: ${doc.updatedAt}`,
+          ],
+          bodyLabel: "content",
+          body: doc.content,
+          offset: params.offset,
+          limit: params.limit,
+          emptyBodyMessage: "No content.",
+        });
+      });
+    },
   });
 
   pi.registerTool({
     name: "linear_list_documents",
     label: "Linear: List Documents",
-    description: "List documents, optionally filtered by project.",
-    promptSnippet: "List documents, optionally filtered by project.",
+    description: "List document inventory metadata, optionally filtered by project. Document content is omitted from list output.",
+    promptSnippet: "List document inventory metadata (content omitted), optionally filtered by project.",
     parameters: Type.Object({
       projectId: Type.Optional(Type.String({ description: "Filter by project UUID" })),
-      first: Type.Optional(Type.Number({ description: "Max results per page (default: 50)" })),
+      first: Type.Optional(Type.Number({ description: "Max results per page (backward-compatible pass-through to the client query)" })),
+      offset: Type.Optional(Type.Integer({ minimum: 1, description: "Item number to start from (1-indexed)" })),
+      limit: Type.Optional(Type.Integer({ minimum: 1, description: "Maximum number of items to return" })),
     }),
     async execute(_id, params) {
-      const hasParams = params.projectId !== undefined || params.first !== undefined;
-      return run(() => client.listDocuments(hasParams ? params : undefined));
+      return run(async () => {
+        const docsQuery = {
+          ...(params.projectId !== undefined ? { projectId: params.projectId } : {}),
+          ...(params.first !== undefined ? { first: params.first } : {}),
+        };
+        const docs = await client.listDocumentSummaries(docsQuery);
+        return renderInventoryResult({
+          noun: "documents",
+          items: docs,
+          offset: params.offset,
+          limit: params.limit,
+          omittedFieldsNote: "Document contents omitted from list output. Use linear_get_document to read one document.",
+          renderItem: (doc, index) => [
+            `${index}. ${doc.title}`,
+            `   id: ${doc.id}`,
+            `   project: ${doc.project?.name ?? "—"}`,
+            `   issue: ${doc.issue?.identifier ?? "—"}`,
+            `   updatedAt: ${doc.updatedAt}`,
+          ].join("\n"),
+        });
+      });
     },
   });
 
@@ -542,7 +1060,19 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     parameters: Type.Object({
       id: Type.String({ description: "Document UUID" }),
     }),
-    async execute(_id, params) { return run(() => client.deleteDocument(params.id)); },
+    async execute(_id, params) {
+      return run(async () => {
+        const deleted = await client.deleteDocument(params.id);
+        return renderMutationSummary({
+          noun: "Document",
+          action: "deleted",
+          lines: [
+            `id: ${params.id}`,
+            `deleted: ${deleted ? "yes" : "no"}`,
+          ],
+        });
+      });
+    },
   });
 
   pi.registerTool({
@@ -563,7 +1093,21 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       if (input.content !== undefined) {
         input.content = normalizeMarkdownContent(input.content);
       }
-      return run(() => client.updateDocument(id, input));
+      return run(async () => {
+        const doc = await client.updateDocument(id, input);
+        return renderMutationSummary({
+          noun: "Document",
+          action: "updated",
+          lines: [
+            `id: ${doc.id}`,
+            `title: ${doc.title}`,
+            `project: ${doc.project?.name ?? "—"}`,
+            `issue: ${doc.issue?.identifier ?? "—"}`,
+            `updatedAt: ${doc.updatedAt}`,
+            "Full content not echoed. Use linear_get_document to inspect content.",
+          ],
+        });
+      });
     },
   });
 
@@ -577,7 +1121,19 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     description: "Get the authenticated user's profile. Useful for verifying API key and getting user ID.",
     promptSnippet: "Get the authenticated users profile.",
     parameters: Type.Object({}),
-    async execute() { return run(() => client.getViewer()); },
+    async execute() {
+      return run(async () => {
+        const viewer = await client.getViewer();
+        return renderCompactRead({
+          heading: `Viewer ${viewer.displayName || viewer.name}`,
+          metadata: [
+            `id: ${viewer.id}`,
+            `email: ${viewer.email}`,
+            `active: ${viewer.active}`,
+          ],
+        });
+      });
+    },
   });
 
   // =========================================================================
@@ -589,14 +1145,26 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     label: "Kata: Ensure Labels",
     description:
       "Idempotently provision the three Kata labels (kata:milestone, kata:slice, kata:task) " +
-      "in the given team. Returns the full KataLabelSet with label IDs. " +
+      "in the given team. Returns a compact summary with the three label IDs and names. " +
       "Call this once per session; pass the returned label IDs to the kata_create_* tools.",
-    promptSnippet: "Idempotently provision the three Kata labels (kata:milestone, kata:slice, kata:task) in the given team.",
+    promptSnippet: "Ensure kata:* labels for a team and return a compact summary of milestone/slice/task label IDs.",
     parameters: Type.Object({
       teamId: Type.String({ description: "Team UUID in which to provision the Kata labels" }),
     }),
     async execute(_id, params) {
-      return run(() => ensureKataLabels(client, params.teamId));
+      return run(async () => {
+        const labels = await ensureKataLabels(client, params.teamId);
+        return renderMutationSummary({
+          noun: "Kata labels",
+          action: "ensured",
+          lines: [
+            `teamId: ${params.teamId}`,
+            `milestone: ${labels.milestone.id} (${labels.milestone.name})`,
+            `slice: ${labels.slice.id} (${labels.slice.name})`,
+            `task: ${labels.task.id} (${labels.task.name})`,
+          ],
+        });
+      });
     },
   });
 
@@ -615,8 +1183,8 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       targetDate: Type.Optional(Type.String({ description: "Target date (ISO string, e.g. '2025-06-30')" })),
     }),
     async execute(_id, params) {
-      return run(() =>
-        createKataMilestone(
+      return run(async () => {
+        const milestone = await createKataMilestone(
           client,
           { projectId: params.projectId },
           {
@@ -625,8 +1193,20 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
             description: params.description,
             targetDate: params.targetDate,
           }
-        )
-      );
+        );
+
+        return renderMutationSummary({
+          noun: "Milestone",
+          action: "created",
+          lines: [
+            `id: ${milestone.id}`,
+            `name: ${milestone.name}`,
+            `projectId: ${params.projectId}`,
+            `targetDate: ${milestone.targetDate ?? "—"}`,
+            "Full description not echoed. Use linear_get_milestone to inspect content.",
+          ],
+        });
+      });
     },
   });
 
@@ -671,7 +1251,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
           params.initialPhase !== undefined
             ? await client.listWorkflowStates(params.teamId)
             : undefined;
-        return createKataSlice(
+        const issue = await createKataSlice(
           client,
           { teamId: params.teamId, projectId: params.projectId, labelSet },
           {
@@ -683,6 +1263,20 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
             states,
           }
         );
+
+        return renderMutationSummary({
+          noun: "Slice",
+          action: "created",
+          lines: [
+            `id: ${issue.id}`,
+            `identifier: ${issue.identifier}`,
+            `title: ${issue.title}`,
+            `state: ${issue.state.name}`,
+            `project: ${issue.project?.name ?? "—"}`,
+            `milestone: ${issue.projectMilestone?.name ?? "—"}`,
+            "Full description not echoed. Use linear_get_issue to inspect content.",
+          ],
+        });
       });
     },
   });
@@ -729,7 +1323,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
           params.initialPhase !== undefined
             ? await client.listWorkflowStates(params.teamId)
             : undefined;
-        return createKataTask(
+        const issue = await createKataTask(
           client,
           { teamId: params.teamId, projectId: params.projectId, labelSet },
           {
@@ -741,6 +1335,20 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
             states,
           }
         );
+
+        return renderMutationSummary({
+          noun: "Task",
+          action: "created",
+          lines: [
+            `id: ${issue.id}`,
+            `identifier: ${issue.identifier}`,
+            `title: ${issue.title}`,
+            `state: ${issue.state.name}`,
+            `project: ${issue.project?.name ?? "—"}`,
+            `parent: ${issue.parent?.identifier ?? "—"}`,
+            "Full description not echoed. Use linear_get_issue to inspect content.",
+          ],
+        });
       });
     },
   });
@@ -759,11 +1367,40 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       milestoneId: Type.Optional(Type.String({
         description: "Project milestone UUID — strongly recommended when planning, reviewing, or enumerating slices for a specific milestone. Omit only when you need every slice in the project (rare).",
       })),
+      offset: Type.Optional(Type.Integer({ minimum: 1, description: "Item number to start from (1-indexed)" })),
+      limit: Type.Optional(Type.Integer({ minimum: 1, description: "Maximum number of items to return" })),
     }),
     async execute(_id, params) {
       return run(async () => {
         const labelSet = await ensureKataLabels(client, params.teamId);
-        return listKataSlices(client, params.projectId, labelSet.slice.id, params.milestoneId);
+        const slices = await client.listIssueSummaries({
+          projectId: params.projectId,
+          labelIds: [labelSet.slice.id],
+          ...(params.milestoneId ? { projectMilestoneId: params.milestoneId } : {}),
+        });
+
+        const broadScopeNote = params.milestoneId
+          ? undefined
+          : "milestoneId omitted; broad project inventory may be large.";
+        const omittedFieldsNote = broadScopeNote
+          ? `Large fields omitted from list output. Use linear_get_issue to inspect one issue.\n${broadScopeNote}`
+          : "Large fields omitted from list output. Use linear_get_issue to inspect one issue.";
+
+        return renderInventoryResult({
+          noun: "slices",
+          items: slices,
+          offset: params.offset,
+          limit: params.limit,
+          omittedFieldsNote,
+          renderItem: (issue, index) => [
+            `${index}. ${issue.identifier}: ${issue.title}`,
+            `   state: ${issue.state.name}`,
+            `   project: ${issue.project?.name ?? "—"}`,
+            `   milestone: ${issue.projectMilestone?.name ?? "—"}`,
+            `   labels: ${issue.labels.map((label) => label.name).join(", ") || "—"}`,
+            `   updatedAt: ${issue.updatedAt}`,
+          ].join("\n"),
+        });
       });
     },
   });
@@ -772,14 +1409,33 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     name: "kata_list_tasks",
     label: "Kata: List Tasks",
     description:
-      "List all Linear sub-issues representing Kata tasks for a given slice issue. " +
+      "List compact inventory of Linear sub-issues representing Kata tasks for a given slice issue. " +
       "Queries by parentId — returns all direct children of the slice issue.",
-    promptSnippet: "List all Linear sub-issues representing Kata tasks for a given slice issue.",
+    promptSnippet: "List compact inventory of Linear sub-issues representing Kata tasks for a given slice issue.",
     parameters: Type.Object({
       sliceIssueId: Type.String({ description: "Linear issue UUID of the parent slice issue" }),
+      offset: Type.Optional(Type.Integer({ minimum: 1, description: "Item number to start from (1-indexed)" })),
+      limit: Type.Optional(Type.Integer({ minimum: 1, description: "Maximum number of items to return" })),
     }),
     async execute(_id, params) {
-      return run(() => listKataTasks(client, params.sliceIssueId));
+      return run(async () => {
+        const tasks = await client.listIssueSummaries({ parentId: params.sliceIssueId });
+        return renderInventoryResult({
+          noun: "tasks",
+          items: tasks,
+          offset: params.offset,
+          limit: params.limit,
+          omittedFieldsNote: "Large fields omitted from list output. Use linear_get_issue to inspect one issue.",
+          renderItem: (issue, index) => [
+            `${index}. ${issue.identifier}: ${issue.title}`,
+            `   state: ${issue.state.name}`,
+            `   project: ${issue.project?.name ?? "—"}`,
+            `   milestone: ${issue.projectMilestone?.name ?? "—"}`,
+            `   labels: ${issue.labels.map((label) => label.name).join(", ") || "—"}`,
+            `   updatedAt: ${issue.updatedAt}`,
+          ].join("\n"),
+        });
+      });
     },
   });
 
@@ -795,8 +1451,9 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       "If a document with the given title already exists in the attachment target, its content is updated. " +
       "If no matching document exists, a new one is created. " +
       "Exactly one of projectId or issueId must be provided. " +
-      "Returns the full LinearDocument including id, title, content, createdAt, updatedAt.",
-    promptSnippet: "Write a Kata artifact as a Linear Document (upsert by title).",
+      "Returns a compact mutation summary (id/title/scope/updatedAt); content is not echoed. " +
+      "Use kata_read_document to inspect content.",
+    promptSnippet: "Write a Kata artifact document and return a compact summary; use kata_read_document for content reads.",
     parameters: Type.Object({
       title: Type.String({ description: "Document title, e.g. 'M001-ROADMAP' or 'DECISIONS'" }),
       content: Type.String({ description: "Markdown content to write" }),
@@ -812,7 +1469,21 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       const attachment: DocumentAttachment = hasProject
         ? { projectId: params.projectId! }
         : { issueId: params.issueId! };
-      return run(() => writeKataDocument(client, params.title, normalizeMarkdownContent(params.content), attachment));
+      return run(async () => {
+        const doc = await writeKataDocument(client, params.title, normalizeMarkdownContent(params.content), attachment);
+        return renderMutationSummary({
+          noun: "Document",
+          action: "written",
+          lines: [
+            `id: ${doc.id}`,
+            `title: ${doc.title}`,
+            `project: ${doc.project?.name ?? "—"}`,
+            `issue: ${doc.issue?.identifier ?? "—"}`,
+            `updatedAt: ${doc.updatedAt}`,
+            "Use kata_read_document to inspect content.",
+          ],
+        });
+      });
     },
   });
 
@@ -821,14 +1492,16 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     label: "Kata: Read Document",
     description:
       "Read a Kata artifact document by title from the attachment target. " +
-      "Returns the document (with full markdown content) if found, or null if not yet written. " +
+      "Returns compact metadata with paged markdown content when found, or null if not yet written. " +
       "null is the canonical signal for 'document does not exist yet'. " +
       "Exactly one of projectId or issueId must be provided.",
-    promptSnippet: "Read a Kata artifact document by title from the attachment target.",
+    promptSnippet: "Read one Kata artifact by title with optional offset/limit paging.",
     parameters: Type.Object({
       title: Type.String({ description: "Document title to look up, e.g. 'M001-ROADMAP'" }),
       projectId: Type.Optional(Type.String({ description: "Project UUID — scope the lookup to this project" })),
       issueId: Type.Optional(Type.String({ description: "Issue UUID — scope the lookup to this issue" })),
+      offset: Type.Optional(Type.Integer({ minimum: 1, description: "Line number to start reading from (1-indexed)" })),
+      limit: Type.Optional(Type.Integer({ minimum: 1, description: "Maximum number of content lines to read" })),
     }),
     async execute(_id, params) {
       const hasProject = params.projectId !== undefined;
@@ -839,7 +1512,25 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       const attachment: DocumentAttachment = hasProject
         ? { projectId: params.projectId! }
         : { issueId: params.issueId! };
-      return run(() => readKataDocument(client, params.title, attachment));
+      return run(async () => {
+        const doc = await readKataDocument(client, params.title, attachment);
+        if (!doc) return null;
+
+        return renderCompactRead({
+          heading: `Document ${doc.title}`,
+          metadata: [
+            `id: ${doc.id}`,
+            `project: ${doc.project?.name ?? "—"}`,
+            `issue: ${doc.issue?.identifier ?? "—"}`,
+            `updatedAt: ${doc.updatedAt}`,
+          ],
+          bodyLabel: "content",
+          body: doc.content,
+          offset: params.offset,
+          limit: params.limit,
+          emptyBodyMessage: "No content.",
+        });
+      });
     },
   });
 
@@ -847,14 +1538,17 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     name: "kata_list_documents",
     label: "Kata: List Documents",
     description:
-      "List all Kata documents attached to a given project or issue. " +
+      "List Kata document inventory metadata attached to a given project or issue. " +
       "Zero-side-effect inspection surface — does not modify any state. " +
-      "Returns an array of LinearDocument objects; empty array means no documents exist. " +
+      "Document content is omitted from list output; use kata_read_document for paged content reads. " +
       "Exactly one of projectId or issueId must be provided.",
-    promptSnippet: "List all Kata documents attached to a given project or issue.",
+    promptSnippet: "List Kata document inventory metadata for a project or issue (content omitted).",
     parameters: Type.Object({
       projectId: Type.Optional(Type.String({ description: "Project UUID — list documents attached to this project" })),
       issueId: Type.Optional(Type.String({ description: "Issue UUID — list documents attached to this issue" })),
+      first: Type.Optional(Type.Number({ description: "Max results per page (backward-compatible pass-through to the client query)" })),
+      offset: Type.Optional(Type.Integer({ minimum: 1, description: "Item number to start from (1-indexed)" })),
+      limit: Type.Optional(Type.Integer({ minimum: 1, description: "Maximum number of items to return" })),
     }),
     async execute(_id, params) {
       const hasProject = params.projectId !== undefined;
@@ -862,10 +1556,25 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       if (hasProject === hasIssue) {
         return fail(new Error("Exactly one of projectId or issueId is required"));
       }
-      const attachment: DocumentAttachment = hasProject
-        ? { projectId: params.projectId! }
-        : { issueId: params.issueId! };
-      return run(() => listKataDocuments(client, attachment));
+      return run(async () => {
+        const docs = await client.listDocumentSummaries(hasProject
+          ? { projectId: params.projectId!, first: params.first }
+          : { issueId: params.issueId!, first: params.first });
+        return renderInventoryResult({
+          noun: "documents",
+          items: docs,
+          offset: params.offset,
+          limit: params.limit,
+          omittedFieldsNote: "Document contents omitted from list output. Use kata_read_document to read one document.",
+          renderItem: (doc, index) => [
+            `${index}. ${doc.title}`,
+            `   id: ${doc.id}`,
+            `   project: ${doc.project?.name ?? "—"}`,
+            `   issue: ${doc.issue?.identifier ?? "—"}`,
+            `   updatedAt: ${doc.updatedAt}`,
+          ].join("\n"),
+        });
+      });
     },
   });
 
@@ -877,14 +1586,32 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     name: "kata_list_milestones",
     label: "Kata: List Milestones",
     description:
-      "List all Linear project milestones for a Kata project, sorted by sortOrder. " +
+      "List compact inventory of Linear project milestones for a Kata project, sorted by sortOrder. " +
       "Zero-side-effect inspection surface — does not modify any state.",
-    promptSnippet: "List all Linear project milestones for a Kata project, sorted by sortOrder.",
+    promptSnippet: "List compact inventory of Linear project milestones for a Kata project, sorted by sortOrder.",
     parameters: Type.Object({
       projectId: Type.String({ description: "Linear project UUID" }),
+      offset: Type.Optional(Type.Integer({ minimum: 1, description: "Item number to start from (1-indexed)" })),
+      limit: Type.Optional(Type.Integer({ minimum: 1, description: "Maximum number of items to return" })),
     }),
     async execute(_id, params) {
-      return run(() => listKataMilestones(client, params.projectId));
+      return run(async () => {
+        const milestones = await listKataMilestones(client, params.projectId);
+        return renderInventoryResult({
+          noun: "milestones",
+          items: milestones,
+          offset: params.offset,
+          limit: params.limit,
+          omittedFieldsNote: "Large fields omitted from list output. Use linear_get_milestone to inspect one milestone.",
+          renderItem: (milestone, index) => [
+            `${index}. ${milestone.name}`,
+            `   id: ${milestone.id}`,
+            `   sortOrder: ${milestone.sortOrder}`,
+            `   targetDate: ${milestone.targetDate ?? "—"}`,
+            `   updatedAt: ${milestone.updatedAt}`,
+          ].join("\n"),
+        });
+      });
     },
   });
 
@@ -983,8 +1710,8 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     description:
       "Advance a Linear issue to the workflow state corresponding to a given Kata phase. " +
       "Resolves the correct Linear stateId from the team's workflow states, then updates the issue. " +
-      "Returns the updated issue with its new state.",
-    promptSnippet: "Advance a Linear issue to the workflow state corresponding to a given Kata phase.",
+      "Returns a compact mutation summary with issue identity and resolved state metadata.",
+    promptSnippet: "Advance a Linear issue to a Kata phase and return compact state-update metadata.",
     parameters: Type.Object({
       issueId: Type.String({ description: "Linear issue UUID to update" }),
       phase: Type.Union(
@@ -1037,7 +1764,18 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
         if (!targetState) {
           throw new Error(`No workflow state found for phase: ${params.phase}`);
         }
-        return client.updateIssue(params.issueId, { stateId: targetState.id });
+        const issue = await client.updateIssue(params.issueId, { stateId: targetState.id });
+        return renderMutationSummary({
+          noun: "Issue state",
+          action: "updated",
+          lines: [
+            `issueId: ${issue.id}`,
+            `identifier: ${issue.identifier}`,
+            `phase: ${params.phase}`,
+            `stateId: ${targetState.id}`,
+            `state: ${issue.state.name}`,
+          ],
+        });
       });
     },
   });

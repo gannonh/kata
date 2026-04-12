@@ -5,11 +5,9 @@ import type { AvailableModel, ThinkingLevel } from '@shared/types'
 export const SELECTED_MODEL_STORAGE_KEY = 'kata-desktop:selected-model'
 export const THINKING_LEVEL_STORAGE_KEY = 'kata-desktop:thinking-level'
 
-// The app-wide DEFAULT_MODEL is applied at the main-process layer
-// (`loadPersistedModel()`) so the bridge launches with it on fresh installs.
-// The atom itself must stay `null` on startup so `ModelSelector.refreshModels`
-// picks up the bridge-reported model instead of overriding it with the
-// compile-time default. See PR #313 review (chatgpt-codex-connector).
+// Keep this `null` on startup so `ModelSelector.refreshModels` can adopt the
+// model selected by the CLI runtime itself (via pi's defaultProvider/defaultModel
+// settings) instead of injecting a separate Desktop-only default.
 export const selectedModelAtom = atomWithStorage<string | null>(
   SELECTED_MODEL_STORAGE_KEY,
   null,

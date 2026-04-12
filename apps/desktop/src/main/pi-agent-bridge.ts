@@ -460,6 +460,11 @@ export class PiAgentBridge extends EventEmitter {
 
   public async getAvailableModels(): Promise<AvailableModel[]> {
     const result = await this.send({ type: 'get_available_models' })
+
+    if (this.selectedModel === null) {
+      await this.refreshSelectedModelFromRuntime()
+    }
+
     // The CLI returns { models: [...] } as the data payload
     const rawPayload = result.data
     const payload = Array.isArray(rawPayload)
@@ -495,6 +500,31 @@ export class PiAgentBridge extends EventEmitter {
     }
 
     return models
+  }
+
+  private async refreshSelectedModelFromRuntime(): Promise<void> {
+    try {
+      const state = await this.send({ type: 'get_state' })
+      const payload = state.data
+      if (!payload || typeof payload !== 'object') {
+        return
+      }
+
+      const model = (payload as { model?: unknown }).model
+      if (!model || typeof model !== 'object') {
+        return
+      }
+
+      const provider = (model as { provider?: unknown }).provider
+      const id = (model as { id?: unknown }).id
+      if (typeof provider !== 'string' || typeof id !== 'string') {
+        return
+      }
+
+      this.selectedModel = `${provider}/${id}`
+    } catch {
+      // Best-effort sync for UI state. Runtime model selection already works without this.
+    }
   }
 
   public async setModel(provider: string, modelId: string): Promise<void> {
