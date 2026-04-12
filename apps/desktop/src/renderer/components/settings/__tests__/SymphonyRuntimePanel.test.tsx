@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import {
   deriveSymphonyControlState,
+  deriveSymphonyRuntimeErrorDetails,
   formatSymphonyPhaseLabel,
   phaseBadgeVariant,
 } from '../SymphonyRuntimePanel'
@@ -54,5 +55,35 @@ describe('SymphonyRuntimePanel helpers', () => {
       canStop: false,
       canRestart: false,
     })
+  })
+
+  test('prefers explicit runtime error details when available', () => {
+    expect(
+      deriveSymphonyRuntimeErrorDetails({
+        lastError: {
+          code: 'PROCESS_EXITED',
+          phase: 'process',
+          message: 'Symphony exited unexpectedly (1).',
+          details: 'startup validation failed: YAML parse error',
+        },
+        diagnostics: { stdout: ['ignored stdout'], stderr: ['ignored stderr'] },
+      }),
+    ).toBe('startup validation failed: YAML parse error')
+  })
+
+  test('falls back to recent process diagnostics for process exits', () => {
+    expect(
+      deriveSymphonyRuntimeErrorDetails({
+        lastError: {
+          code: 'PROCESS_EXITED',
+          phase: 'process',
+          message: 'Symphony exited unexpectedly (1).',
+        },
+        diagnostics: {
+          stdout: ['line 1', 'line 2'],
+          stderr: ['yaml parse error', 'line 39 column 17'],
+        },
+      }),
+    ).toBe('yaml parse error\nline 39 column 17')
   })
 })

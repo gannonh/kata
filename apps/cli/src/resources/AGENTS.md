@@ -586,6 +586,8 @@ Provide a Linear personal API key via Kata onboarding (stored in `~/.kata-cli/ag
 
 When a project's preferences set `workflow.mode: linear`, Kata uses Linear as the backing store for its planning methodology instead of `.kata/` files on disk. Milestones, slices, tasks, plans, and summaries all live in Linear.
 
+Linear/Kata tool outputs are intentionally bounded: inventory/list tools return compact summaries, issue/document reads expose paged body content with continuation guidance, and mutation tools avoid echoing full updated objects. Prefer the scoped discovery tools first, then page into a specific issue or document only when needed.
+
 To configure Linear workflow mode, update these fields in `.kata/preferences.md`:
 
 ```yaml
