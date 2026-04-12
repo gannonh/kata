@@ -103,8 +103,27 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     label: "Linear: List Teams",
     description: "List all teams in the Linear workspace.",
     promptSnippet: "List all teams in the Linear workspace.",
-    parameters: Type.Object({}),
-    async execute() { return run(() => client.listTeams()); },
+    parameters: Type.Object({
+      offset: Type.Optional(Type.Integer({ minimum: 1, description: "Item number to start from (1-indexed)" })),
+      limit: Type.Optional(Type.Integer({ minimum: 1, description: "Maximum number of items to return" })),
+    }),
+    async execute(_id, params) {
+      return run(async () => {
+        const teams = await client.listTeams();
+        return renderInventoryResult({
+          noun: "teams",
+          items: teams,
+          offset: params.offset,
+          limit: params.limit,
+          omittedFieldsNote: "Large fields omitted from list output. Use linear_get_team to inspect one team.",
+          renderItem: (team, index) => [
+            `${index}. ${team.key}: ${team.name}`,
+            `   id: ${team.id}`,
+            `   description: ${team.description || "—"}`,
+          ].join("\n"),
+        });
+      });
+    },
   });
 
   pi.registerTool({
@@ -157,10 +176,30 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     parameters: Type.Object({
       teamId: Type.Optional(Type.String({ description: "Filter by team UUID" })),
       first: Type.Optional(Type.Number({ description: "Max results per page (default: 50)" })),
+      offset: Type.Optional(Type.Integer({ minimum: 1, description: "Item number to start from (1-indexed)" })),
+      limit: Type.Optional(Type.Integer({ minimum: 1, description: "Maximum number of items to return" })),
     }),
     async execute(_id, params) {
-      const hasParams = params.teamId !== undefined || params.first !== undefined;
-      return run(() => client.listProjects(hasParams ? params : undefined));
+      return run(async () => {
+        const { offset, limit, ...filters } = params;
+        const hasFilters = filters.teamId !== undefined || filters.first !== undefined;
+        const projects = await client.listProjects(hasFilters ? filters : undefined);
+        return renderInventoryResult({
+          noun: "projects",
+          items: projects,
+          offset,
+          limit,
+          omittedFieldsNote: "Large fields omitted from list output. Use linear_get_project to inspect one project.",
+          renderItem: (project, index) => [
+            `${index}. ${project.name}`,
+            `   id: ${project.id}`,
+            `   slugId: ${project.slugId}`,
+            `   state: ${project.state}`,
+            `   targetDate: ${project.targetDate ?? "—"}`,
+            `   updatedAt: ${project.updatedAt}`,
+          ].join("\n"),
+        });
+      });
     },
   });
 
@@ -231,8 +270,28 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     promptSnippet: "List milestones under a project.",
     parameters: Type.Object({
       projectId: Type.String({ description: "Project UUID" }),
+      offset: Type.Optional(Type.Integer({ minimum: 1, description: "Item number to start from (1-indexed)" })),
+      limit: Type.Optional(Type.Integer({ minimum: 1, description: "Maximum number of items to return" })),
     }),
-    async execute(_id, params) { return run(() => client.listMilestones(params.projectId)); },
+    async execute(_id, params) {
+      return run(async () => {
+        const milestones = await client.listMilestones(params.projectId);
+        return renderInventoryResult({
+          noun: "milestones",
+          items: milestones,
+          offset: params.offset,
+          limit: params.limit,
+          omittedFieldsNote: "Large fields omitted from list output. Use linear_get_milestone to inspect one milestone.",
+          renderItem: (milestone, index) => [
+            `${index}. ${milestone.name}`,
+            `   id: ${milestone.id}`,
+            `   sortOrder: ${milestone.sortOrder}`,
+            `   targetDate: ${milestone.targetDate ?? "—"}`,
+            `   updatedAt: ${milestone.updatedAt}`,
+          ].join("\n"),
+        });
+      });
+    },
   });
 
   pi.registerTool({
@@ -302,8 +361,33 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     promptSnippet: "Get an issue by UUID or identifier.",
     parameters: Type.Object({
       id: Type.String({ description: "Issue UUID or identifier (e.g. 'KAT-42')" }),
+      offset: Type.Optional(Type.Number({ description: "Line number to start reading description from (1-indexed)" })),
+      limit: Type.Optional(Type.Number({ description: "Maximum number of description lines to read" })),
     }),
-    async execute(_id, params) { return run(() => client.getIssue(params.id)); },
+    async execute(_id, params) {
+      return run(async () => {
+        const issue = await client.getIssue(params.id);
+        if (!issue) throw new Error(`Issue not found: ${params.id}`);
+
+        return renderCompactRead({
+          heading: `${issue.identifier}: ${issue.title}`,
+          metadata: [
+            `id: ${issue.id}`,
+            `state: ${issue.state.name}`,
+            `priority: ${issue.priority}`,
+            `project: ${issue.project?.name ?? "—"}`,
+            `milestone: ${issue.projectMilestone?.name ?? "—"}`,
+            `labels: ${issue.labels.map((label) => label.name).join(", ") || "—"}`,
+            `children: ${issue.children.nodes.length}`,
+          ],
+          bodyLabel: "description",
+          body: issue.description,
+          offset: params.offset,
+          limit: params.limit,
+          emptyBodyMessage: "No description.",
+        });
+      });
+    },
   });
 
   pi.registerTool({
@@ -323,8 +407,30 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       labelIds: Type.Optional(Type.Array(Type.String(), { description: "Filter by label UUIDs (issues with any of these labels)" })),
       assigneeId: Type.Optional(Type.String({ description: "Filter by assignee UUID" })),
       first: Type.Optional(Type.Number({ description: "Max results per page (default: 50)" })),
+      offset: Type.Optional(Type.Integer({ minimum: 1, description: "Item number to start from (1-indexed)" })),
+      limit: Type.Optional(Type.Integer({ minimum: 1, description: "Maximum number of items to return" })),
     }),
-    async execute(_id, params) { return run(() => client.listIssues(params)); },
+    async execute(_id, params) {
+      return run(async () => {
+        const { offset, limit, ...filters } = params;
+        const issues = await client.listIssueSummaries(filters);
+        return renderInventoryResult({
+          noun: "issues",
+          items: issues,
+          offset,
+          limit,
+          omittedFieldsNote: "Large fields omitted from list output. Use linear_get_issue to inspect one issue.",
+          renderItem: (issue, index) => [
+            `${index}. ${issue.identifier}: ${issue.title}`,
+            `   state: ${issue.state.name}`,
+            `   project: ${issue.project?.name ?? "—"}`,
+            `   milestone: ${issue.projectMilestone?.name ?? "—"}`,
+            `   labels: ${issue.labels.map((label) => label.name).join(", ") || "—"}`,
+            `   updatedAt: ${issue.updatedAt}`,
+          ].join("\n"),
+        });
+      });
+    },
   });
 
   pi.registerTool({
@@ -357,9 +463,27 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     promptSnippet: "List all relations for an issue.",
     parameters: Type.Object({
       issueId: Type.String({ description: "Issue UUID" }),
+      offset: Type.Optional(Type.Integer({ minimum: 1, description: "Item number to start from (1-indexed)" })),
+      limit: Type.Optional(Type.Integer({ minimum: 1, description: "Maximum number of items to return" })),
     }),
     async execute(_id, params) {
-      return run(() => client.listRelations(params.issueId));
+      return run(async () => {
+        const relations = await client.listRelations(params.issueId);
+        return renderInventoryResult({
+          noun: "relations",
+          items: relations,
+          offset: params.offset,
+          limit: params.limit,
+          omittedFieldsNote: "Large fields omitted from list output. Use linear_get_issue to inspect related issues in context.",
+          renderItem: (relation, index) => [
+            `${index}. ${relation.type} (${relation.direction})`,
+            `   id: ${relation.id}`,
+            `   issue: ${relation.issue.identifier}: ${relation.issue.title}`,
+            `   otherIssue: ${relation.otherIssue.identifier}: ${relation.otherIssue.title}`,
+            `   otherState: ${relation.otherIssue.state?.name ?? "—"}`,
+          ].join("\n"),
+        });
+      });
     },
   });
 
@@ -413,8 +537,28 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     promptSnippet: "List all workflow states for a team.",
     parameters: Type.Object({
       teamId: Type.String({ description: "Team UUID" }),
+      offset: Type.Optional(Type.Integer({ minimum: 1, description: "Item number to start from (1-indexed)" })),
+      limit: Type.Optional(Type.Integer({ minimum: 1, description: "Maximum number of items to return" })),
     }),
-    async execute(_id, params) { return run(() => client.listWorkflowStates(params.teamId)); },
+    async execute(_id, params) {
+      return run(async () => {
+        const states = await client.listWorkflowStates(params.teamId);
+        return renderInventoryResult({
+          noun: "workflow states",
+          items: states,
+          offset: params.offset,
+          limit: params.limit,
+          omittedFieldsNote: "Large fields omitted from list output. Use linear_get_team and workflow state IDs for precise updates.",
+          renderItem: (state, index) => [
+            `${index}. ${state.name}`,
+            `   id: ${state.id}`,
+            `   type: ${state.type}`,
+            `   position: ${state.position}`,
+            `   color: ${state.color}`,
+          ].join("\n"),
+        });
+      });
+    },
   });
 
   // =========================================================================
@@ -442,9 +586,27 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     promptSnippet: "List labels, optionally filtered by team.",
     parameters: Type.Object({
       teamId: Type.Optional(Type.String({ description: "Filter by team UUID" })),
+      offset: Type.Optional(Type.Integer({ minimum: 1, description: "Item number to start from (1-indexed)" })),
+      limit: Type.Optional(Type.Integer({ minimum: 1, description: "Maximum number of items to return" })),
     }),
     async execute(_id, params) {
-      return run(() => client.listLabels(params.teamId ? { teamId: params.teamId } : undefined));
+      return run(async () => {
+        const labels = await client.listLabels(params.teamId ? { teamId: params.teamId } : undefined);
+        return renderInventoryResult({
+          noun: "labels",
+          items: labels,
+          offset: params.offset,
+          limit: params.limit,
+          omittedFieldsNote: "Large fields omitted from list output. Use linear_ensure_label or linear_create_label for updates.",
+          renderItem: (label, index) => [
+            `${index}. ${label.name}`,
+            `   id: ${label.id}`,
+            `   color: ${label.color}`,
+            `   isGroup: ${label.isGroup ? "yes" : "no"}`,
+            `   description: ${label.description ?? "—"}`,
+          ].join("\n"),
+        });
+      });
     },
   });
 
@@ -807,11 +969,40 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       milestoneId: Type.Optional(Type.String({
         description: "Project milestone UUID — strongly recommended when planning, reviewing, or enumerating slices for a specific milestone. Omit only when you need every slice in the project (rare).",
       })),
+      offset: Type.Optional(Type.Integer({ minimum: 1, description: "Item number to start from (1-indexed)" })),
+      limit: Type.Optional(Type.Integer({ minimum: 1, description: "Maximum number of items to return" })),
     }),
     async execute(_id, params) {
       return run(async () => {
         const labelSet = await ensureKataLabels(client, params.teamId);
-        return listKataSlices(client, params.projectId, labelSet.slice.id, params.milestoneId);
+        const slices = await client.listIssueSummaries({
+          projectId: params.projectId,
+          labelIds: [labelSet.slice.id],
+          ...(params.milestoneId ? { projectMilestoneId: params.milestoneId } : {}),
+        });
+
+        const broadScopeNote = params.milestoneId
+          ? undefined
+          : "milestoneId omitted; broad project inventory may be large.";
+        const omittedFieldsNote = broadScopeNote
+          ? `Large fields omitted from list output. Use linear_get_issue to inspect one issue.\n${broadScopeNote}`
+          : "Large fields omitted from list output. Use linear_get_issue to inspect one issue.";
+
+        return renderInventoryResult({
+          noun: "slices",
+          items: slices,
+          offset: params.offset,
+          limit: params.limit,
+          omittedFieldsNote,
+          renderItem: (issue, index) => [
+            `${index}. ${issue.identifier}: ${issue.title}`,
+            `   state: ${issue.state.name}`,
+            `   project: ${issue.project?.name ?? "—"}`,
+            `   milestone: ${issue.projectMilestone?.name ?? "—"}`,
+            `   labels: ${issue.labels.map((label) => label.name).join(", ") || "—"}`,
+            `   updatedAt: ${issue.updatedAt}`,
+          ].join("\n"),
+        });
       });
     },
   });
@@ -825,9 +1016,28 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     promptSnippet: "List all Linear sub-issues representing Kata tasks for a given slice issue.",
     parameters: Type.Object({
       sliceIssueId: Type.String({ description: "Linear issue UUID of the parent slice issue" }),
+      offset: Type.Optional(Type.Integer({ minimum: 1, description: "Item number to start from (1-indexed)" })),
+      limit: Type.Optional(Type.Integer({ minimum: 1, description: "Maximum number of items to return" })),
     }),
     async execute(_id, params) {
-      return run(() => listKataTasks(client, params.sliceIssueId));
+      return run(async () => {
+        const tasks = await client.listIssueSummaries({ parentId: params.sliceIssueId });
+        return renderInventoryResult({
+          noun: "tasks",
+          items: tasks,
+          offset: params.offset,
+          limit: params.limit,
+          omittedFieldsNote: "Large fields omitted from list output. Use linear_get_issue to inspect one issue.",
+          renderItem: (issue, index) => [
+            `${index}. ${issue.identifier}: ${issue.title}`,
+            `   state: ${issue.state.name}`,
+            `   project: ${issue.project?.name ?? "—"}`,
+            `   milestone: ${issue.projectMilestone?.name ?? "—"}`,
+            `   labels: ${issue.labels.map((label) => label.name).join(", ") || "—"}`,
+            `   updatedAt: ${issue.updatedAt}`,
+          ].join("\n"),
+        });
+      });
     },
   });
 
@@ -967,9 +1177,27 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     promptSnippet: "List all Linear project milestones for a Kata project, sorted by sortOrder.",
     parameters: Type.Object({
       projectId: Type.String({ description: "Linear project UUID" }),
+      offset: Type.Optional(Type.Integer({ minimum: 1, description: "Item number to start from (1-indexed)" })),
+      limit: Type.Optional(Type.Integer({ minimum: 1, description: "Maximum number of items to return" })),
     }),
     async execute(_id, params) {
-      return run(() => listKataMilestones(client, params.projectId));
+      return run(async () => {
+        const milestones = await listKataMilestones(client, params.projectId);
+        return renderInventoryResult({
+          noun: "milestones",
+          items: milestones,
+          offset: params.offset,
+          limit: params.limit,
+          omittedFieldsNote: "Large fields omitted from list output. Use linear_get_milestone to inspect one milestone.",
+          renderItem: (milestone, index) => [
+            `${index}. ${milestone.name}`,
+            `   id: ${milestone.id}`,
+            `   sortOrder: ${milestone.sortOrder}`,
+            `   targetDate: ${milestone.targetDate ?? "—"}`,
+            `   updatedAt: ${milestone.updatedAt}`,
+          ].join("\n"),
+        });
+      });
     },
   });
 

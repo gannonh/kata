@@ -29,6 +29,10 @@ function registerLinearToolsForTest(clientOverrides: Record<string, unknown> = {
       listIssueCalls.push(filter);
       return [];
     },
+    async listIssueSummaries(filter: Record<string, unknown>) {
+      listIssueCalls.push(filter);
+      return [];
+    },
     async listTeams() {
       return [];
     },
@@ -106,16 +110,94 @@ describe("registerLinearTools linear_list_issues", () => {
   });
 });
 
+it("linear_get_issue pages description lines instead of dumping raw JSON", async () => {
+  const tools = new Map<string, any>();
+  const pi = { registerTool(tool: any) { tools.set(tool.name, tool); } };
+  const client = {
+    async getIssue() {
+      return {
+        id: "issue-1",
+        identifier: "KAT-1",
+        title: "Investigate context flood",
+        description: ["one", "two", "three", "four"].join("\n"),
+        priority: 2,
+        estimate: 3,
+        url: "https://linear.app/kata/issue/KAT-1",
+        state: { id: "state-1", name: "In Progress", type: "started", color: "#000", position: 1 },
+        assignee: null,
+        labels: [],
+        parent: null,
+        children: { nodes: [] },
+        project: { id: "proj-1", name: "Desktop" },
+        projectMilestone: null,
+        relations: [],
+        blockedBy: [],
+        createdAt: "2026-04-12T00:00:00.000Z",
+        updatedAt: "2026-04-12T00:00:00.000Z",
+      };
+    },
+  };
+
+  registerLinearTools(pi as any, client as any);
+  const result = await tools.get("linear_get_issue").execute("tool-1", {
+    id: "KAT-1",
+    offset: 2,
+    limit: 2,
+  });
+
+  expect(result.content[0].text).toContain("two");
+  expect(result.content[0].text).toContain("three");
+  expect(result.content[0].text).toContain("Showing description lines 2-3 of 4. Use offset=4 to continue.");
+});
+
+it("kata_list_slices uses compact inventory output when milestoneId is omitted", async () => {
+  const tools = new Map<string, any>();
+  const pi = { registerTool(tool: any) { tools.set(tool.name, tool); } };
+  const client = {
+    async ensureLabel(name: string) {
+      return { id: `label-${name}`, name, color: "#000000", isGroup: false };
+    },
+    async listIssueSummaries() {
+      return [{
+        id: "slice-1",
+        identifier: "KAT-101",
+        title: "[S01] Hardening",
+        priority: 2,
+        estimate: 5,
+        url: "https://linear.app/kata/issue/KAT-101",
+        state: { id: "state-1", name: "Planning", type: "unstarted", color: "#000", position: 1 },
+        labels: [{ id: "label-kata:slice", name: "kata:slice", color: "#000000", isGroup: false }],
+        parent: null,
+        project: { id: "proj-1", name: "Desktop" },
+        projectMilestone: null,
+        createdAt: "2026-04-12T00:00:00.000Z",
+        updatedAt: "2026-04-12T00:00:00.000Z",
+      }];
+    },
+  };
+
+  registerLinearTools(pi as any, client as any);
+  const result = await tools.get("kata_list_slices").execute("tool-1", {
+    projectId: "proj-1",
+    teamId: "team-1",
+  });
+
+  const text = result.content[0].text;
+  expect(text).toContain("[S01] Hardening");
+  expect(text).toContain("Large fields omitted from list output. Use linear_get_issue to inspect one issue.");
+  expect(text).toContain("milestoneId omitted; broad project inventory may be large.");
+});
+
 describe("registerLinearTools run helper", () => {
   it("emits string results as raw text instead of JSON-stringifying them", async () => {
     const { tools } = registerLinearToolsForTest({
-      async listTeams() {
+      async getTeam() {
         return "already formatted";
       },
     });
 
-    const tool = tools.get("linear_list_teams");
-    const result = await tool.execute("tool-1", {});
+    const tool = tools.get("linear_get_team");
+    const result = await tool.execute("tool-1", { idOrKey: "KAT" });
 
     expect(result).toEqual({
       content: [{ type: "text", text: "already formatted" }],
