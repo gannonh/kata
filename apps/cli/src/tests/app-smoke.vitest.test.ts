@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { execSync, spawn } from "node:child_process";
+import { execFileSync, execSync, spawn } from "node:child_process";
 import {
   existsSync,
   mkdirSync,
@@ -229,7 +229,7 @@ describe("npm pack", () => {
     expect(existsSync(tarballPath)).toBe(true);
 
     try {
-      const contents = execSync(`tar tzf ${tarballPath}`, { encoding: "utf-8" });
+      const contents = execFileSync("tar", ["tzf", tarballPath], { encoding: "utf-8" });
       const files = contents.split("\n").filter(Boolean);
 
       expect(files.some((f) => f.includes("dist/loader.js"))).toBe(true);
@@ -273,9 +273,10 @@ describe("npm install", () => {
     const tmp = mkdtempSync(join(tmpdir(), "kata-install-test-"));
 
     try {
-      execSync(`npm install --prefix ${tmp} ${tarballPath} --no-save 2>&1`, {
+      execFileSync("npm", ["install", "--prefix", tmp, tarballPath, "--no-save"], {
         encoding: "utf-8",
         env: { ...process.env, PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1" },
+        stdio: "pipe",
       });
 
       const installedBin = join(tmp, "node_modules", ".bin", "kata-cli");

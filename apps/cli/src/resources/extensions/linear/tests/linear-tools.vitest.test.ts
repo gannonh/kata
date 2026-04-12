@@ -341,6 +341,16 @@ describe("registerLinearTools compact list tools", () => {
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("offset must be >= 1");
   });
+
+  it("keeps team and label inventories description-free", async () => {
+    const { tools } = registerCompactListToolsForTest();
+
+    const teamsText = (await tools.get("linear_list_teams").execute("tool-1", {})).content[0].text;
+    const labelsText = (await tools.get("linear_list_labels").execute("tool-1", {})).content[0].text;
+
+    expect(teamsText).not.toContain("description:");
+    expect(labelsText).not.toContain("description:");
+  });
 });
 
 describe("registerLinearTools run helper", () => {

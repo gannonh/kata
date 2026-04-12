@@ -211,7 +211,15 @@ async function persistWorkspacePath(workspacePath: string): Promise<void> {
 }
 
 app.whenReady().then(async () => {
-  await removeLegacyModelSetting()
+  try {
+    await removeLegacyModelSetting()
+  } catch (error) {
+    log.warn('[desktop-main] failed to remove legacy model setting', {
+      path: SETTINGS_PATH,
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
+
   const workspacePath = await resolveInitialWorkspacePath()
 
   bridge = new PiAgentBridge(workspacePath, 'kata', 30_000)

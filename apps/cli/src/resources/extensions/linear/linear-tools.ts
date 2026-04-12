@@ -166,7 +166,6 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
           renderItem: (team, index) => [
             `${index}. ${team.key}: ${team.name}`,
             `   id: ${team.id}`,
-            `   description: ${team.description || "—"}`,
           ].join("\n"),
         });
       });
@@ -852,7 +851,6 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
             `   id: ${label.id}`,
             `   color: ${label.color}`,
             `   isGroup: ${label.isGroup ? "yes" : "no"}`,
-            `   description: ${label.description ?? "—"}`,
           ].join("\n"),
         });
       });

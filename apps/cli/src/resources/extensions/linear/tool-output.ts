@@ -49,28 +49,68 @@ export function renderPagedTextField(opts: {
     maxLines: limit,
     maxBytes,
   });
+  type TruncationResult = ReturnType<typeof truncateHead>;
 
-  const shownStart = offset;
-  const shownEnd = shownStart + Math.max(truncation.outputLines - 1, 0);
+  const buildFooter = (fitted: TruncationResult): string => {
+    const shownStart = offset;
+    const shownEnd = shownStart + Math.max(fitted.outputLines - 1, 0);
+    const footerParts: string[] = [];
 
-  // Build footer first, then fit body within remaining budget so the footer
-  // is never dropped by a final truncation pass.
-  const footerParts: string[] = [];
-  if (shownEnd < lines.length) {
-    footerParts.push(`[Showing ${opts.label} lines ${shownStart}-${shownEnd} of ${lines.length}. Use offset=${shownEnd + 1} to continue.]`);
+    if (fitted.outputLines === 0) {
+      footerParts.push(`[Output limit reached before ${opts.label} line ${shownStart} could be shown. Use offset=${shownStart} to continue.]`);
+    } else if (shownEnd < lines.length) {
+      footerParts.push(`[Showing ${opts.label} lines ${shownStart}-${shownEnd} of ${lines.length}. Use offset=${shownEnd + 1} to continue.]`);
+    }
+    if (fitted.truncated && fitted.truncatedBy === "bytes") {
+      footerParts.push(`[Truncated to ${formatSize(maxBytes)} while preserving full lines.]`);
+    }
+
+    let trimmedParts = [...footerParts];
+    while (trimmedParts.length > 0) {
+      const candidate = trimmedParts.length > 0 ? "\n\n" + trimmedParts.join("\n") : "";
+      if (Buffer.byteLength(candidate, "utf8") <= maxBytes) {
+        return candidate;
+      }
+      trimmedParts = trimmedParts.slice(0, -1);
+    }
+
+    return "";
+  };
+
+  let fitted: TruncationResult = truncation;
+  let footer = buildFooter(fitted);
+
+  for (let pass = 0; pass < 3; pass += 1) {
+    const footerBytes = Buffer.byteLength(footer, "utf8");
+    const bodyBudget = maxBytes - footerBytes;
+    const nextFitted: TruncationResult = bodyBudget > 0
+      ? truncateHead(selected, { maxLines: limit, maxBytes: bodyBudget })
+      : {
+        ...truncation,
+        content: "",
+        outputLines: 0,
+        truncated: true,
+        truncatedBy: "bytes",
+      };
+    const nextFooter = buildFooter(nextFitted);
+
+    if (
+      nextFitted.content === fitted.content
+      && nextFitted.outputLines === fitted.outputLines
+      && nextFitted.truncated === fitted.truncated
+      && nextFitted.truncatedBy === fitted.truncatedBy
+      && nextFooter === footer
+    ) {
+      fitted = nextFitted;
+      footer = nextFooter;
+      break;
+    }
+
+    fitted = nextFitted;
+    footer = nextFooter;
   }
-  if (truncation.truncated && truncation.truncatedBy === "bytes") {
-    footerParts.push(`[Truncated to ${formatSize(maxBytes)} while preserving full lines.]`);
-  }
 
-  const footer = footerParts.length > 0 ? "\n\n" + footerParts.join("\n") : "";
-  const footerBytes = Buffer.byteLength(footer, "utf8");
-  const bodyBudget = maxBytes - footerBytes;
-
-  const fittedBody = bodyBudget > 0
-    ? truncateHead(truncation.content, { maxLines: limit, maxBytes: bodyBudget }).content
-    : "";
-  return fittedBody + footer;
+  return fitted.content + footer;
 }
 
 export function renderPagedInventory<T>(opts: {

@@ -40,6 +40,22 @@ describe("renderPagedTextField", () => {
     expect(Buffer.byteLength(text, "utf8")).toBeLessThanOrEqual(maxBytes);
   });
 
+  it("recomputes continuation guidance after footer budget reduces the visible body", () => {
+    const body = Array.from({ length: 5 }, (_, i) => `line-${i + 1}-${"x".repeat(40)}`).join("\n");
+    const text = renderPagedTextField({
+      label: "description",
+      body,
+      offset: 1,
+      limit: 3,
+      emptyMessage: "No description.",
+      maxBytes: 120,
+    });
+
+    expect(text).toContain("Output limit reached before description line 1 could be shown. Use offset=1 to continue.");
+    expect(text).not.toContain("Use offset=2 to continue.");
+    expect(text).not.toContain("Use offset=3 to continue.");
+  });
+
   it("rejects offset values below 1", () => {
     expect(() => renderPagedTextField({
       label: "content",
