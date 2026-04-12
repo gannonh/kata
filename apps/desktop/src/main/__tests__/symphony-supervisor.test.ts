@@ -245,7 +245,7 @@ describe('SymphonySupervisor', () => {
     expect(readinessErrorSupervisor.getStatus().phase).toBe('failed')
   })
 
-  test('captures unexpected process exits as failures', async () => {
+  test('captures unexpected process exits as failures with diagnostic details', async () => {
     const workspace = createWorkspace()
     cleanups.push(workspace.cleanup)
 
@@ -262,10 +262,13 @@ describe('SymphonySupervisor', () => {
     })
 
     await supervisor.start()
+    child.stderr.emit('data', 'startup validation failed: YAML parse error at line 39\n')
     child.emit('exit', 9, null)
 
     expect(supervisor.getStatus().phase).toBe('failed')
     expect(supervisor.getStatus().lastError?.code).toBe('PROCESS_EXITED')
+    expect(supervisor.getStatus().lastError?.message).toContain('YAML parse error at line 39')
+    expect(supervisor.getStatus().lastError?.details).toContain('startup validation failed: YAML parse error at line 39')
   })
 
   test('returns process exit error when child exits before readiness succeeds', async () => {
@@ -274,6 +277,7 @@ describe('SymphonySupervisor', () => {
 
     const child = createMockChild()
     const fetchImpl = vi.fn(async () => {
+      child.stdout.emit('data', 'startup validation failed for WORKFLOW-desktop.md\n')
       child.emit('exit', 2, null)
       child.exitCode = 2
       return { ok: false } as Response
@@ -296,6 +300,7 @@ describe('SymphonySupervisor', () => {
 
     expect(result.success).toBe(false)
     expect(result.error?.code).toBe('PROCESS_EXITED')
+    expect(result.error?.message).toContain('startup validation failed for WORKFLOW-desktop.md')
     expect(fetchImpl).toHaveBeenCalledTimes(1)
   })
 
