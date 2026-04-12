@@ -15,6 +15,8 @@
  * Sample definitions live in samples-data.ts (shared with bench.ts).
  */
 
+import { writeFileSync } from 'node:fs'
+import { build } from 'esbuild'
 import { samples } from './samples-data.ts'
 import { THEMES } from './src/theme.ts'
 import { createHighlighter } from 'shiki'
@@ -23,7 +25,7 @@ import { createHighlighter } from 'shiki'
 // HTML generation — dynamic version
 //
 // Instead of pre-rendering SVGs at build time, we:
-//   1. Bundle the mermaid renderer for the browser via Bun.build()
+//   1. Bundle the mermaid renderer for the browser via esbuild
 //   2. Embed sample definitions as inline JSON
 //   3. Emit client-side JS that renders each diagram on page load
 // ============================================================================
@@ -69,17 +71,31 @@ async function generateHtml(): Promise<string> {
   })
 
   // Step 1: Bundle the mermaid renderer for the browser
-  const buildResult = await Bun.build({
-    entrypoints: [new URL('./src/browser.ts', import.meta.url).pathname],
-    target: 'browser',
-    format: 'esm',
-    minify: true,
-  })
-  if (!buildResult.success) {
-    console.error('Bundle build failed:', buildResult.logs)
+  let bundleJs = ''
+
+  try {
+    const buildResult = await build({
+      entryPoints: [new URL('./src/browser.ts', import.meta.url).pathname],
+      target: ['chrome120', 'safari17', 'firefox120'],
+      format: 'esm',
+      minify: true,
+      bundle: true,
+      write: false,
+      platform: 'browser',
+      logLevel: 'silent',
+    })
+
+    bundleJs = buildResult.outputFiles?.[0]?.text ?? ''
+  } catch (error) {
+    console.error('Bundle build failed:', error)
     process.exit(1)
   }
-  const bundleJs = await buildResult.outputs[0]!.text()
+
+  if (!bundleJs) {
+    console.error('Bundle build failed: esbuild returned no output')
+    process.exit(1)
+  }
+
   console.log(`Browser bundle: ${(bundleJs.length / 1024).toFixed(1)} KB`)
 
   // Step 2: Build sample JSON (only serializable fields needed by client)
@@ -1578,5 +1594,5 @@ ${bundleJs}
 
 const html = await generateHtml()
 const outPath = new URL('./index.html', import.meta.url).pathname
-await Bun.write(outPath, html)
+writeFileSync(outPath, html)
 console.log(`Written to ${outPath} (${(html.length / 1024).toFixed(1)} KB)`)
