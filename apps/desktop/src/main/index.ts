@@ -33,7 +33,6 @@ import { registerSessionIpc } from './ipc'
 import { DesktopSessionManager } from './session-manager'
 import { SymphonySupervisor } from './symphony-supervisor'
 import { SymphonyOperatorService } from './symphony-operator-service'
-import { DEFAULT_MODEL } from '../shared/types'
 
 const SETTINGS_PATH = path.join(homedir(), '.kata-cli', 'agent', 'settings.json')
 
@@ -154,25 +153,15 @@ async function writeSettings(updates: Record<string, unknown>): Promise<void> {
   await fs.rename(tempPath, SETTINGS_PATH)
 }
 
-async function loadPersistedModel(): Promise<string | null> {
+async function removeLegacyModelSetting(): Promise<void> {
   const settings = await readSettings()
-  const model = settings.model
-  if (typeof model === 'string' && model.trim()) {
-    return model.trim()
-  }
-  return DEFAULT_MODEL
-}
-
-async function persistSelectedModel(model: string): Promise<void> {
-  const trimmedModel = model.trim()
-  if (!trimmedModel) {
+  if (!Object.prototype.hasOwnProperty.call(settings, 'model')) {
     return
   }
 
-  await writeSettings({ model: trimmedModel })
+  await writeSettings({ model: undefined })
 
-  log.info('[desktop-main] persisted model preference', {
-    model: trimmedModel,
+  log.info('[desktop-main] removed legacy desktop model setting', {
     path: SETTINGS_PATH,
   })
 }
@@ -222,10 +211,10 @@ async function persistWorkspacePath(workspacePath: string): Promise<void> {
 }
 
 app.whenReady().then(async () => {
+  await removeLegacyModelSetting()
   const workspacePath = await resolveInitialWorkspacePath()
-  const persistedModel = await loadPersistedModel()
 
-  bridge = new PiAgentBridge(workspacePath, 'kata', 30_000, persistedModel)
+  bridge = new PiAgentBridge(workspacePath, 'kata', 30_000)
   symphonySupervisor = new SymphonySupervisor({
     workspacePath,
     appIsPackaged: app.isPackaged,
@@ -250,7 +239,6 @@ app.whenReady().then(async () => {
     authBridge,
     sessionManager,
     window: mainWindow,
-    onModelSelected: persistSelectedModel,
     onWorkspaceSelected: persistWorkspacePath,
     symphonySupervisor,
     symphonyOperatorService,
@@ -264,7 +252,6 @@ app.whenReady().then(async () => {
 
   log.info('[desktop-main] ready', {
     workspacePath,
-    model: persistedModel,
     appVersion: app.getVersion(),
     isPackaged: app.isPackaged,
     startedAt: new Date().toISOString(),
