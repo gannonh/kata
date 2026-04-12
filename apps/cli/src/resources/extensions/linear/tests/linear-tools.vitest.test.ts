@@ -1,6 +1,6 @@
-import assert from "node:assert/strict";
-import { registerLinearTools } from "../linear-tools.ts";
-import type { LinearLabel } from "../linear-types.ts";
+import { describe, it, expect } from "vitest";
+import { registerLinearTools } from "../linear-tools.js";
+import type { LinearLabel } from "../linear-types.js";
 
 function makeLabel(name: string): LinearLabel {
   return {
@@ -50,8 +50,8 @@ describe("registerLinearTools kata_list_slices", () => {
       milestoneId: "milestone-uuid",
     });
 
-    assert.equal(listIssueCalls.length, 1);
-    assert.deepEqual(listIssueCalls[0], {
+    expect(listIssueCalls.length).toBe(1);
+    expect(listIssueCalls[0]).toEqual({
       projectId: "proj-1",
       labelIds: ["label-kata:slice"],
       projectMilestoneId: "milestone-uuid",
@@ -67,8 +67,8 @@ describe("registerLinearTools kata_list_slices", () => {
       teamId: "team-1",
     });
 
-    assert.equal(listIssueCalls.length, 1);
-    assert.deepEqual(listIssueCalls[0], {
+    expect(listIssueCalls.length).toBe(1);
+    expect(listIssueCalls[0]).toEqual({
       projectId: "proj-1",
       labelIds: ["label-kata:slice"],
     });
@@ -86,7 +86,7 @@ describe("registerLinearTools linear_list_issues", () => {
       first: 5,
     });
 
-    assert.deepEqual(listIssueCalls[0], {
+    expect(listIssueCalls[0]).toEqual({
       projectId: "proj-1",
       projectMilestoneId: "milestone-uuid",
       first: 5,
@@ -97,7 +97,7 @@ describe("registerLinearTools linear_list_issues", () => {
     const { tools } = registerLinearToolsForTest();
     const tool = tools.get("linear_list_issues");
 
-    assert.match(tool.description, /prefer kata_list_slices/i);
-    assert.match(tool.promptSnippet, /prefer kata_list_slices/i);
+    expect(tool.description).toMatch(/prefer kata_list_slices/i);
+    expect(tool.promptSnippet).toMatch(/prefer kata_list_slices/i);
   });
 });

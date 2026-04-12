@@ -121,6 +121,11 @@ export interface Continue {
 export interface ActiveRef {
   id: string;
   title: string;
+  /**
+   * Linear UUID for this entity. For slices and tasks this is the Issue UUID.
+   * For milestones this is the ProjectMilestone UUID (not an Issue UUID).
+   * Pass this value as `milestoneId` to `kata_list_slices` when scoping to an active milestone.
+   */
   linearIssueId?: string;
 }
 

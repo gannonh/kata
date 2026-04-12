@@ -10,11 +10,11 @@
  *     src/resources/extensions/linear/tests/linear-state.test.ts
  */
 
-import assert from "node:assert/strict";
-import { listKataMilestones } from "../linear-entities.ts";
-import { deriveLinearState } from "../linear-state.ts";
-import type { LinearMilestone, LinearIssue, LinearWorkflowState } from "../linear-types.ts";
-import type { LinearStateClient } from "../linear-state.ts";
+import { describe, it, expect } from "vitest";
+import { listKataMilestones } from "../linear-entities.js";
+import { deriveLinearState } from "../linear-state.js";
+import type { LinearMilestone, LinearIssue, LinearWorkflowState } from "../linear-types.js";
+import type { LinearStateClient } from "../linear-state.js";
 
 // =============================================================================
 // Mock builder helpers
@@ -123,11 +123,11 @@ describe("listKataMilestones", () => {
     };
 
     const result = await listKataMilestones(client, "proj-test");
-    assert.equal(captured.length, 1);
-    assert.equal(captured[0], "proj-test");
-    assert.equal(result.length, 2);
-    assert.equal(result[0].id, m1.id);
-    assert.equal(result[1].id, m2.id);
+    expect(captured.length).toBe(1);
+    expect(captured[0]).toBe("proj-test");
+    expect(result.length).toBe(2);
+    expect(result[0].id).toBe(m1.id);
+    expect(result[1].id).toBe(m2.id);
   });
 
   it("sorts milestones by sortOrder regardless of API return order", async () => {
@@ -142,10 +142,10 @@ describe("listKataMilestones", () => {
     };
 
     const result = await listKataMilestones(client, "proj-test");
-    assert.equal(result.length, 3);
-    assert.equal(result[0].sortOrder, -8);
-    assert.equal(result[1].sortOrder, 1041);
-    assert.equal(result[2].sortOrder, 2111);
+    expect(result.length).toBe(3);
+    expect(result[0].sortOrder).toBe(-8);
+    expect(result[1].sortOrder).toBe(1041);
+    expect(result[2].sortOrder).toBe(2111);
   });
 
   it("returns empty array when no milestones exist", async () => {
@@ -155,7 +155,7 @@ describe("listKataMilestones", () => {
       },
     };
     const result = await listKataMilestones(client, "proj-empty");
-    assert.deepEqual(result, []);
+    expect(result).toEqual([]);
   });
 });
 
@@ -168,18 +168,18 @@ describe("deriveLinearState: no milestones", () => {
     const client = makeMockStateClient([], []);
     const state = await deriveLinearState(client, BASE_CONFIG);
 
-    assert.equal(state.phase, "pre-planning");
-    assert.equal(state.activeMilestone, null);
-    assert.equal(state.activeSlice, null);
-    assert.equal(state.activeTask, null);
-    assert.deepEqual(state.registry, []);
-    assert.equal(state.requirements, undefined);
+    expect(state.phase).toBe("pre-planning");
+    expect(state.activeMilestone).toBe(null);
+    expect(state.activeSlice).toBe(null);
+    expect(state.activeTask).toBe(null);
+    expect(state.registry).toEqual([]);
+    expect(state.requirements).toBe(undefined);
   });
 
   it("returns milestones progress 0/0", async () => {
     const client = makeMockStateClient([], []);
     const state = await deriveLinearState(client, BASE_CONFIG);
-    assert.deepEqual(state.progress?.milestones, { done: 0, total: 0 });
+    expect(state.progress?.milestones).toEqual({ done: 0, total: 0 });
   });
 });
 
@@ -193,13 +193,13 @@ describe("deriveLinearState: milestones with no slices", () => {
     const client = makeMockStateClient([m1], []);
     const state = await deriveLinearState(client, BASE_CONFIG);
 
-    assert.equal(state.phase, "pre-planning");
-    assert.ok(state.activeMilestone, "activeMilestone should be set");
-    assert.equal(state.activeMilestone.id, "M001");
-    assert.equal(state.activeMilestone.title, "Bootstrap");
-    assert.equal(state.activeMilestone.linearIssueId, "mid-1");
-    assert.equal(state.activeSlice, null);
-    assert.equal(state.activeTask, null);
+    expect(state.phase).toBe("pre-planning");
+    expect(state.activeMilestone).toBeTruthy();
+    expect(state.activeMilestone.id).toBe("M001");
+    expect(state.activeMilestone.title).toBe("Bootstrap");
+    expect(state.activeMilestone.linearIssueId).toBe("mid-1");
+    expect(state.activeSlice).toBe(null);
+    expect(state.activeTask).toBe(null);
   });
 
   it("registry has one active entry", async () => {
@@ -207,9 +207,9 @@ describe("deriveLinearState: milestones with no slices", () => {
     const client = makeMockStateClient([m1], []);
     const state = await deriveLinearState(client, BASE_CONFIG);
 
-    assert.equal(state.registry.length, 1);
-    assert.equal(state.registry[0].id, "M001");
-    assert.equal(state.registry[0].status, "active");
+    expect(state.registry.length).toBe(1);
+    expect(state.registry[0].id).toBe("M001");
+    expect(state.registry[0].status).toBe("active");
   });
 
   it("multiple milestones: first is active, rest are pending", async () => {
@@ -218,8 +218,8 @@ describe("deriveLinearState: milestones with no slices", () => {
     const client = makeMockStateClient([m1, m2], []);
     const state = await deriveLinearState(client, BASE_CONFIG);
 
-    assert.equal(state.registry[0].status, "active");
-    assert.equal(state.registry[1].status, "pending");
+    expect(state.registry[0].status).toBe("active");
+    expect(state.registry[1].status).toBe("pending");
   });
 
   it("selects M001 as active when milestones arrive out of sortOrder", async () => {
@@ -230,14 +230,14 @@ describe("deriveLinearState: milestones with no slices", () => {
     const client = makeMockStateClient([m3, m1, m2], []);
     const state = await deriveLinearState(client, BASE_CONFIG);
 
-    assert.ok(state.activeMilestone);
-    assert.equal(state.activeMilestone.id, "M001");
-    assert.equal(state.registry[0].id, "M001");
-    assert.equal(state.registry[0].status, "active");
-    assert.equal(state.registry[1].id, "M002");
-    assert.equal(state.registry[1].status, "pending");
-    assert.equal(state.registry[2].id, "M003");
-    assert.equal(state.registry[2].status, "pending");
+    expect(state.activeMilestone).toBeTruthy();
+    expect(state.activeMilestone.id).toBe("M001");
+    expect(state.registry[0].id).toBe("M001");
+    expect(state.registry[0].status).toBe("active");
+    expect(state.registry[1].id).toBe("M002");
+    expect(state.registry[1].status).toBe("pending");
+    expect(state.registry[2].id).toBe("M003");
+    expect(state.registry[2].status).toBe("pending");
   });
 });
 
@@ -252,10 +252,10 @@ describe("deriveLinearState: all milestones complete", () => {
     const client = makeMockStateClient([m1], [s1]);
     const state = await deriveLinearState(client, BASE_CONFIG);
 
-    assert.equal(state.phase, "complete");
-    assert.equal(state.activeMilestone, null);
-    assert.equal(state.activeSlice, null);
-    assert.equal(state.activeTask, null);
+    expect(state.phase).toBe("complete");
+    expect(state.activeMilestone).toBe(null);
+    expect(state.activeSlice).toBe(null);
+    expect(state.activeTask).toBe(null);
   });
 
   it("registry has all complete entries", async () => {
@@ -266,9 +266,9 @@ describe("deriveLinearState: all milestones complete", () => {
     const client = makeMockStateClient([m1, m2], [s1, s2]);
     const state = await deriveLinearState(client, BASE_CONFIG);
 
-    assert.equal(state.registry.length, 2);
-    assert.equal(state.registry[0].status, "complete");
-    assert.equal(state.registry[1].status, "complete");
+    expect(state.registry.length).toBe(2);
+    expect(state.registry[0].status).toBe("complete");
+    expect(state.registry[1].status).toBe("complete");
   });
 
   it("canceled slices count as terminal (milestone complete)", async () => {
@@ -277,8 +277,8 @@ describe("deriveLinearState: all milestones complete", () => {
     const client = makeMockStateClient([m1], [s1]);
     const state = await deriveLinearState(client, BASE_CONFIG);
 
-    assert.equal(state.phase, "complete");
-    assert.equal(state.registry[0].status, "complete");
+    expect(state.phase).toBe("complete");
+    expect(state.registry[0].status).toBe("complete");
   });
 
   it("progress milestones done/total is correct", async () => {
@@ -289,7 +289,7 @@ describe("deriveLinearState: all milestones complete", () => {
     const client = makeMockStateClient([m1, m2], [s1, s2]);
     const state = await deriveLinearState(client, BASE_CONFIG);
 
-    assert.deepEqual(state.progress?.milestones, { done: 2, total: 2 });
+    expect(state.progress?.milestones).toEqual({ done: 2, total: 2 });
   });
 });
 
@@ -304,12 +304,12 @@ describe("deriveLinearState: active slice with state backlog → planning", () =
     const client = makeMockStateClient([m1], [s1]);
     const state = await deriveLinearState(client, BASE_CONFIG);
 
-    assert.equal(state.phase, "planning");
-    assert.ok(state.activeMilestone);
-    assert.ok(state.activeSlice);
-    assert.equal(state.activeSlice.id, "S01");
-    assert.equal(state.activeSlice.title, "Planning slice");
-    assert.equal(state.activeSlice.linearIssueId, s1.id);
+    expect(state.phase).toBe("planning");
+    expect(state.activeMilestone).toBeTruthy();
+    expect(state.activeSlice).toBeTruthy();
+    expect(state.activeSlice.id).toBe("S01");
+    expect(state.activeSlice.title).toBe("Planning slice");
+    expect(state.activeSlice.linearIssueId).toBe(s1.id);
   });
 
   it("selects the lowest non-terminal slice ID when API returns unsorted slices", async () => {
@@ -321,9 +321,9 @@ describe("deriveLinearState: active slice with state backlog → planning", () =
     const client = makeMockStateClient([m1], [s3, s1, s2]);
     const state = await deriveLinearState(client, BASE_CONFIG);
 
-    assert.ok(state.activeSlice);
-    assert.equal(state.activeSlice.id, "S01");
-    assert.equal(state.activeSlice.title, "First slice");
+    expect(state.activeSlice).toBeTruthy();
+    expect(state.activeSlice.id).toBe("S01");
+    expect(state.activeSlice.title).toBe("First slice");
   });
 
   it("activeTask is null in planning phase (no children inspected)", async () => {
@@ -335,8 +335,8 @@ describe("deriveLinearState: active slice with state backlog → planning", () =
     const client = makeMockStateClient([m1], [s1]);
     const state = await deriveLinearState(client, BASE_CONFIG);
 
-    assert.equal(state.phase, "planning");
-    assert.equal(state.activeTask, null);
+    expect(state.phase).toBe("planning");
+    expect(state.activeTask).toBe(null);
   });
 });
 
@@ -351,8 +351,8 @@ describe("deriveLinearState: active slice with state unstarted → planning", ()
     const client = makeMockStateClient([m1], [s1]);
     const state = await deriveLinearState(client, BASE_CONFIG);
 
-    assert.equal(state.phase, "planning");
-    assert.equal(state.activeTask, null);
+    expect(state.phase).toBe("planning");
+    expect(state.activeTask).toBe(null);
   });
 });
 
@@ -370,8 +370,8 @@ describe("deriveLinearState: active slice started, 0 children → executing", ()
     const client = makeMockStateClient([m1], [s1]);
     const state = await deriveLinearState(client, BASE_CONFIG);
 
-    assert.equal(state.phase, "executing");
-    assert.equal(state.activeTask, null);
+    expect(state.phase).toBe("executing");
+    expect(state.activeTask).toBe(null);
   });
 
   it("tasks progress is undefined when no children", async () => {
@@ -380,7 +380,7 @@ describe("deriveLinearState: active slice started, 0 children → executing", ()
     const client = makeMockStateClient([m1], [s1]);
     const state = await deriveLinearState(client, BASE_CONFIG);
 
-    assert.equal(state.progress?.tasks, undefined);
+    expect(state.progress?.tasks).toBe(undefined);
   });
 });
 
@@ -401,11 +401,11 @@ describe("deriveLinearState: active slice started, children exist but none termi
     const client = makeMockStateClient([m1], [s1]);
     const state = await deriveLinearState(client, BASE_CONFIG);
 
-    assert.equal(state.phase, "executing");
-    assert.ok(state.activeTask, "activeTask should be set");
-    assert.equal(state.activeTask.id, "T01");
-    assert.equal(state.activeTask.title, "First task");
-    assert.equal(state.activeTask.linearIssueId, "child-[T01] First task");
+    expect(state.phase).toBe("executing");
+    expect(state.activeTask).toBeTruthy();
+    expect(state.activeTask.id).toBe("T01");
+    expect(state.activeTask.title).toBe("First task");
+    expect(state.activeTask.linearIssueId).toBe("child-[T01] First task");
   });
 
   it("selects the lowest non-terminal task ID when children are unsorted", async () => {
@@ -421,10 +421,10 @@ describe("deriveLinearState: active slice started, children exist but none termi
     const client = makeMockStateClient([m1], [s1]);
     const state = await deriveLinearState(client, BASE_CONFIG);
 
-    assert.equal(state.phase, "executing");
-    assert.ok(state.activeTask, "activeTask should be set");
-    assert.equal(state.activeTask.id, "T01");
-    assert.equal(state.activeTask.title, "First task");
+    expect(state.phase).toBe("executing");
+    expect(state.activeTask).toBeTruthy();
+    expect(state.activeTask.id).toBe("T01");
+    expect(state.activeTask.title).toBe("First task");
   });
 });
 
@@ -446,7 +446,7 @@ describe("deriveLinearState: active slice started, some children terminal → ve
     const client = makeMockStateClient([m1], [s1]);
     const state = await deriveLinearState(client, BASE_CONFIG);
 
-    assert.equal(state.phase, "verifying");
+    expect(state.phase).toBe("verifying");
   });
 
   it("activeTask is the first non-terminal child", async () => {
@@ -462,9 +462,9 @@ describe("deriveLinearState: active slice started, some children terminal → ve
     const client = makeMockStateClient([m1], [s1]);
     const state = await deriveLinearState(client, BASE_CONFIG);
 
-    assert.ok(state.activeTask);
-    assert.equal(state.activeTask.id, "T02");
-    assert.equal(state.activeTask.title, "Active task");
+    expect(state.activeTask).toBeTruthy();
+    expect(state.activeTask.id).toBe("T02");
+    expect(state.activeTask.title).toBe("Active task");
   });
 
   it("tasks progress shows done/total correctly", async () => {
@@ -480,7 +480,7 @@ describe("deriveLinearState: active slice started, some children terminal → ve
     const client = makeMockStateClient([m1], [s1]);
     const state = await deriveLinearState(client, BASE_CONFIG);
 
-    assert.deepEqual(state.progress?.tasks, { done: 1, total: 3 });
+    expect(state.progress?.tasks).toEqual({ done: 1, total: 3 });
   });
 });
 
@@ -501,7 +501,7 @@ describe("deriveLinearState: active slice started, all children terminal → sum
     const client = makeMockStateClient([m1], [s1]);
     const state = await deriveLinearState(client, BASE_CONFIG);
 
-    assert.equal(state.phase, "summarizing");
+    expect(state.phase).toBe("summarizing");
   });
 
   it("activeTask is null in summarizing phase", async () => {
@@ -516,8 +516,8 @@ describe("deriveLinearState: active slice started, all children terminal → sum
     const client = makeMockStateClient([m1], [s1]);
     const state = await deriveLinearState(client, BASE_CONFIG);
 
-    assert.equal(state.phase, "summarizing");
-    assert.equal(state.activeTask, null);
+    expect(state.phase).toBe("summarizing");
+    expect(state.activeTask).toBe(null);
   });
 
   it("tasks progress shows all done", async () => {
@@ -533,7 +533,7 @@ describe("deriveLinearState: active slice started, all children terminal → sum
     const client = makeMockStateClient([m1], [s1]);
     const state = await deriveLinearState(client, BASE_CONFIG);
 
-    assert.deepEqual(state.progress?.tasks, { done: 3, total: 3 });
+    expect(state.progress?.tasks).toEqual({ done: 3, total: 3 });
   });
 });
 
@@ -548,8 +548,8 @@ describe("deriveLinearState: parseKataEntityTitle applied to milestone/slice/tas
     const client = makeMockStateClient([m1], [s1]);
     const state = await deriveLinearState(client, BASE_CONFIG);
 
-    assert.equal(state.registry[0].id, "M001");
-    assert.equal(state.registry[0].title, "My milestone");
+    expect(state.registry[0].id).toBe("M001");
+    expect(state.registry[0].title).toBe("My milestone");
   });
 
   it("extracts kataId from slice issue title for activeSlice", async () => {
@@ -558,9 +558,9 @@ describe("deriveLinearState: parseKataEntityTitle applied to milestone/slice/tas
     const client = makeMockStateClient([m1], [s1]);
     const state = await deriveLinearState(client, BASE_CONFIG);
 
-    assert.ok(state.activeSlice);
-    assert.equal(state.activeSlice.id, "S03");
-    assert.equal(state.activeSlice.title, "Entity mapping");
+    expect(state.activeSlice).toBeTruthy();
+    expect(state.activeSlice.id).toBe("S03");
+    expect(state.activeSlice.title).toBe("Entity mapping");
   });
 
   it("extracts kataId from child issue title for activeTask", async () => {
@@ -572,9 +572,9 @@ describe("deriveLinearState: parseKataEntityTitle applied to milestone/slice/tas
     const client = makeMockStateClient([m1], [s1]);
     const state = await deriveLinearState(client, BASE_CONFIG);
 
-    assert.ok(state.activeTask);
-    assert.equal(state.activeTask.id, "T02");
-    assert.equal(state.activeTask.title, "Register tools");
+    expect(state.activeTask).toBeTruthy();
+    expect(state.activeTask.id).toBe("T02");
+    expect(state.activeTask.title).toBe("Register tools");
   });
 
   it("falls back to raw id/title when title has no bracket prefix", async () => {
@@ -582,8 +582,8 @@ describe("deriveLinearState: parseKataEntityTitle applied to milestone/slice/tas
     const client = makeMockStateClient([m1], []);
     const state = await deriveLinearState(client, BASE_CONFIG);
 
-    assert.equal(state.registry[0].id, "mid-plain");
-    assert.equal(state.registry[0].title, "Plain milestone name");
+    expect(state.registry[0].id).toBe("mid-plain");
+    expect(state.registry[0].title).toBe("Plain milestone name");
   });
 });
 
@@ -602,7 +602,7 @@ describe("deriveLinearState: progress counts", () => {
     const client = makeMockStateClient([m1, m2, m3], [s1, s2]);
     const state = await deriveLinearState(client, BASE_CONFIG);
 
-    assert.deepEqual(state.progress?.milestones, { done: 1, total: 3 });
+    expect(state.progress?.milestones).toEqual({ done: 1, total: 3 });
   });
 
   it("slices done/total counts all terminal slices across project", async () => {
@@ -614,7 +614,7 @@ describe("deriveLinearState: progress counts", () => {
     const client = makeMockStateClient([m1, m2], [s1, s2, s3]);
     const state = await deriveLinearState(client, BASE_CONFIG);
 
-    assert.deepEqual(state.progress?.slices, { done: 1, total: 3 });
+    expect(state.progress?.slices).toEqual({ done: 1, total: 3 });
   });
 
   it("registry: first milestone complete, second active, third pending", async () => {
@@ -626,9 +626,9 @@ describe("deriveLinearState: progress counts", () => {
     const client = makeMockStateClient([m1, m2, m3], [s1, s2]);
     const state = await deriveLinearState(client, BASE_CONFIG);
 
-    assert.equal(state.registry[0].status, "complete");
-    assert.equal(state.registry[1].status, "active");
-    assert.equal(state.registry[2].status, "pending");
+    expect(state.registry[0].status).toBe("complete");
+    expect(state.registry[1].status).toBe("active");
+    expect(state.registry[2].status).toBe("pending");
   });
 });
 
@@ -640,7 +640,7 @@ describe("deriveLinearState: requirements field", () => {
   it("is always undefined (no REQUIREMENTS.md in Linear mode)", async () => {
     const client = makeMockStateClient([], []);
     const state = await deriveLinearState(client, BASE_CONFIG);
-    assert.equal(state.requirements, undefined);
+    expect(state.requirements).toBe(undefined);
   });
 
   it("is undefined even with a full active milestone/slice", async () => {
@@ -648,6 +648,6 @@ describe("deriveLinearState: requirements field", () => {
     const s1 = makeIssue("[S01] Slice", "started", { milestoneId: "mid-1" });
     const client = makeMockStateClient([m1], [s1]);
     const state = await deriveLinearState(client, BASE_CONFIG);
-    assert.equal(state.requirements, undefined);
+    expect(state.requirements).toBe(undefined);
   });
 });

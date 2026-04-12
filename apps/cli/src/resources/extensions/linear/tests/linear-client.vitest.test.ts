@@ -1,5 +1,5 @@
-import assert from "node:assert/strict";
-import { LinearClient } from "../linear-client.ts";
+import { describe, it, expect } from "vitest";
+import { LinearClient } from "../linear-client.js";
 
 describe("LinearClient.listIssues", () => {
   it("includes projectMilestone filter when projectMilestoneId is provided", async () => {
@@ -22,8 +22,8 @@ describe("LinearClient.listIssues", () => {
       labelIds: ["label-slice"],
     });
 
-    assert.equal(graphqlCalls.length, 1);
-    assert.deepEqual(graphqlCalls[0]?.filter, {
+    expect(graphqlCalls.length).toBe(1);
+    expect(graphqlCalls[0]?.filter).toEqual({
       project: { id: { eq: "proj-1" } },
       projectMilestone: { id: { eq: "milestone-uuid" } },
       labels: { some: { id: { in: ["label-slice"] } } },
@@ -46,8 +46,8 @@ describe("LinearClient.listIssues", () => {
 
     await client.listIssues({ projectId: "proj-1" });
 
-    assert.equal(graphqlCalls.length, 1);
-    assert.deepEqual(graphqlCalls[0]?.filter, {
+    expect(graphqlCalls.length).toBe(1);
+    expect(graphqlCalls[0]?.filter).toEqual({
       project: { id: { eq: "proj-1" } },
     });
   });
