@@ -73,4 +73,4 @@ ls -la icon.*
 echo ""
 echo "Next steps:"
 echo "1. Copy AppIcon.icns to apps/desktop/resources/ if not already there"
-echo "2. Rebuild: cd apps/desktop && bun run desktop:dist:mac"
+echo "2. Rebuild: cd apps/desktop && pnpm run desktop:dist:mac"

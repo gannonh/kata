@@ -5,6 +5,19 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DESKTOP_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 ROOT_DIR="$(cd "$DESKTOP_DIR/../.." && pwd)"
 
+require_command() {
+  local command_name="$1"
+  local message="$2"
+
+  if ! command -v "$command_name" >/dev/null 2>&1; then
+    echo "ERROR: $message" >&2
+    exit 1
+  fi
+}
+
+require_command pnpm "pnpm is required to bundle the CLI runtime"
+require_command bun "bun is required to package the bundled runtime launcher"
+
 VENDOR_DIR="$DESKTOP_DIR/vendor"
 KATA_RUNTIME_DIR="$VENDOR_DIR/kata-runtime"
 BUN_DIR="$VENDOR_DIR/bun"
@@ -18,18 +31,13 @@ log "preparing vendor directory"
 rm -rf "$KATA_RUNTIME_DIR" "$BUN_DIR" "$KATA_LAUNCHER"
 mkdir -p "$KATA_RUNTIME_DIR/src" "$BUN_DIR"
 
-if ! command -v bun >/dev/null 2>&1; then
-  echo "ERROR: bun is required to bundle the kata CLI." >&2
-  exit 1
-fi
-
 if [ ! -d "$ROOT_DIR/node_modules" ]; then
   log "installing monorepo dependencies"
-  (cd "$ROOT_DIR" && bun install)
+  (cd "$ROOT_DIR" && pnpm install --frozen-lockfile)
 fi
 
 log "building local @kata-sh/cli runtime"
-(cd "$ROOT_DIR/apps/cli" && bun run build)
+pnpm --dir "$ROOT_DIR/apps/cli" run build
 
 if [ ! -f "$ROOT_DIR/apps/cli/dist/loader.js" ]; then
   echo "ERROR: expected apps/cli/dist/loader.js after build" >&2

@@ -1,11 +1,13 @@
 #!/bin/bash
-# Pre-push hook: run the same validation as CI
-# Uses Turborepo --affected to only check what changed
+# Pre-push hook: run the same validation surface as CI for changed packages.
+set -euo pipefail
 
-# Load full PATH for GUI apps (Fork, Tower, etc.) that don't inherit shell config
+# Load full PATH for GUI apps (Fork, Tower, etc.) that don't inherit shell config.
 eval "$(/opt/homebrew/bin/brew shellenv 2>/dev/null)" || true
 . "$HOME/.cargo/env" 2>/dev/null || true
-export PATH="$HOME/.bun/bin:$PATH"
+if [ -d "$HOME/.bun/bin" ]; then
+  export PATH="$HOME/.bun/bin:$PATH"
+fi
 
 # Pin Node 22 (matches CI and .node-version). Native addons (better-sqlite3,
 # tree-sitter) don't compile on Node 23, and Vitest runs under Node.
@@ -16,16 +18,21 @@ if [ -d "$HOME/.nvm/versions/node" ]; then
   fi
 fi
 
-echo "Running pre-push validation... (node $(node --version))"
+echo "[pre-push] node: $(node --version)"
 
-# Rebuild native addons if needed (matches CI's "Rebuild native addons" step).
-# Vitest runs under Node (not Bun), so better-sqlite3 must be compiled for
-# the active Node version. This is fast when already up-to-date.
-(cd apps/context && npm rebuild better-sqlite3 tree-sitter 2>/dev/null) || true
+echo "[pre-push] phase: rebuild-native-addons"
+(pnpm --dir apps/context rebuild better-sqlite3 tree-sitter 2>/dev/null) || true
 
-bunx turbo run lint typecheck test --affected
-
-if [ $? -ne 0 ]; then
+echo "[pre-push] phase: turbo-active-packages"
+if ! pnpm exec turbo run lint typecheck test \
+  --filter=@kata/desktop \
+  --filter=@kata-sh/cli \
+  --filter=@kata/context \
+  --filter=@kata-sh/orc \
+  --filter=@craft-agent/core \
+  --filter=@craft-agent/shared \
+  --filter=@craft-agent/ui \
+  --filter=@craft-agent/mermaid; then
   echo ""
   echo "Pre-push validation failed. Fix the issues above before pushing."
   exit 1

@@ -6,8 +6,8 @@ DESKTOP_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 cd "$DESKTOP_DIR"
 
-bun run bundle:cli
-bun run desktop:build
+pnpm run bundle:cli
+pnpm run desktop:build
 
 APP_VERSION="$(node -p "require('./package.json').version")"
 
@@ -21,6 +21,6 @@ echo "[package-mac] Building Kata Desktop v$APP_VERSION"
 # electron-builder handles everything: .app creation, code signing, DMG.
 # afterPack.cjs copies vendor resources (kata, bun, symphony, Assets.car)
 # into Contents/Resources after the app is built.
-bunx electron-builder --config electron-builder.yml --mac dmg --arm64
+pnpm exec electron-builder --config electron-builder.yml --mac dmg --arm64
 
 echo "[package-mac] DMG ready in $DESKTOP_DIR/release"
