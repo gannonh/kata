@@ -19,7 +19,9 @@ import type {
   LinearProject,
   LinearMilestone,
   LinearIssue,
+  LinearIssueSummary,
   LinearDocument,
+  LinearDocumentSummary,
   LinearLabel,
   LinearWorkflowState,
   LinearUser,
@@ -575,6 +577,44 @@ export class LinearClient {
     ${LinearClient.ISSUE_RELATION_FIELDS}
   `;
 
+  private static readonly ISSUE_SUMMARY_FIELDS = `
+    id
+    identifier
+    title
+    priority
+    estimate
+    url
+    createdAt
+    updatedAt
+    state {
+      id
+      name
+      type
+      color
+      position
+    }
+    labels {
+      nodes {
+        id
+        name
+        color
+      }
+    }
+    parent {
+      id
+      identifier
+      title
+    }
+    project {
+      id
+      name
+    }
+    projectMilestone {
+      id
+      name
+    }
+  `;
+
   async createIssue(input: IssueCreateInput): Promise<LinearIssue> {
     const data = await this.graphql<{
       issueCreate: { success: boolean; issue: LinearIssue };
@@ -645,6 +685,49 @@ export class LinearClient {
       return {
         ...data.issues,
         nodes: data.issues.nodes.map((issue) => this.normalizeIssue(issue)),
+      };
+    });
+  }
+
+  async listIssueSummaries(filter: IssueFilter): Promise<LinearIssueSummary[]> {
+    const gqlFilter: Record<string, unknown> = {};
+    if (filter.teamId) gqlFilter.team = { id: { eq: filter.teamId } };
+    if (filter.projectId) gqlFilter.project = { id: { eq: filter.projectId } };
+    if (filter.parentId) gqlFilter.parent = { id: { eq: filter.parentId } };
+    if (filter.projectMilestoneId) {
+      gqlFilter.projectMilestone = { id: { eq: filter.projectMilestoneId } };
+    }
+    if (filter.stateId) gqlFilter.state = { id: { eq: filter.stateId } };
+    if (filter.assigneeId) gqlFilter.assignee = { id: { eq: filter.assigneeId } };
+    if (filter.labelIds?.length) gqlFilter.labels = { some: { id: { in: filter.labelIds } } };
+
+    return this.paginate(async (cursor) => {
+      const data = await this.graphql<{
+        issues: { nodes: LinearIssueSummary[]; pageInfo: LinearPageInfo };
+      }>(`
+        query ListIssueSummaries($first: Int, $after: String, $filter: IssueFilter) {
+          issues(first: $first, after: $after, filter: $filter) {
+            nodes {
+              ${LinearClient.ISSUE_SUMMARY_FIELDS}
+            }
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
+          }
+        }
+      `, {
+        first: filter.first ?? 50,
+        after: cursor,
+        filter: Object.keys(gqlFilter).length > 0 ? gqlFilter : undefined,
+      });
+
+      return {
+        ...data.issues,
+        nodes: data.issues.nodes.map((issue) => ({
+          ...issue,
+          labels: Array.isArray(issue.labels) ? issue.labels : (issue.labels as { nodes?: LinearLabel[] })?.nodes ?? [],
+        })),
       };
     });
   }
@@ -1002,6 +1085,17 @@ export class LinearClient {
     updatedAt
   `;
 
+  private static readonly DOCUMENT_SUMMARY_FIELDS = `
+    id
+    title
+    icon
+    color
+    project { id name }
+    issue { id identifier }
+    createdAt
+    updatedAt
+  `;
+
   async createDocument(input: DocumentCreateInput): Promise<LinearDocument> {
     const data = await this.graphql<{
       documentCreate: { success: boolean; document: LinearDocument };
@@ -1067,6 +1161,42 @@ export class LinearClient {
         after: cursor,
         filter: Object.keys(filter).length > 0 ? filter : undefined,
       });
+      return data.documents;
+    });
+  }
+
+  async listDocumentSummaries(opts?: {
+    projectId?: string;
+    issueId?: string;
+    title?: string;
+    first?: number;
+  }): Promise<LinearDocumentSummary[]> {
+    return this.paginate(async (cursor) => {
+      const filter: Record<string, unknown> = {};
+      if (opts?.projectId) filter.project = { id: { eq: opts.projectId } };
+      if (opts?.issueId) filter.issue = { id: { eq: opts.issueId } };
+      if (opts?.title) filter.title = { eq: opts.title };
+
+      const data = await this.graphql<{
+        documents: { nodes: LinearDocumentSummary[]; pageInfo: LinearPageInfo };
+      }>(`
+        query ListDocumentSummaries($first: Int, $after: String, $filter: DocumentFilter) {
+          documents(first: $first, after: $after, filter: $filter) {
+            nodes {
+              ${LinearClient.DOCUMENT_SUMMARY_FIELDS}
+            }
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
+          }
+        }
+      `, {
+        first: opts?.first ?? 50,
+        after: cursor,
+        filter: Object.keys(filter).length > 0 ? filter : undefined,
+      });
+
       return data.documents;
     });
   }

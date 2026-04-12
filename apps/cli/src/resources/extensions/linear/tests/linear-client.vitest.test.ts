@@ -52,3 +52,47 @@ describe("LinearClient.listIssues", () => {
     });
   });
 });
+
+describe("LinearClient summary queries", () => {
+  it("listDocumentSummaries omits content from the GraphQL field set", async () => {
+    const client = new LinearClient("test-key", "https://linear.test/graphql");
+    const queries: string[] = [];
+
+    (client as any).graphql = async (query: string) => {
+      queries.push(query);
+      return {
+        documents: {
+          nodes: [],
+          pageInfo: { hasNextPage: false, endCursor: null },
+        },
+      };
+    };
+
+    await (client as any).listDocumentSummaries({ projectId: "proj-1" });
+
+    expect(queries[0]).not.toContain("content");
+    expect(queries[0]).toContain("title");
+    expect(queries[0]).toContain("updatedAt");
+  });
+
+  it("listIssueSummaries omits description from the GraphQL field set", async () => {
+    const client = new LinearClient("test-key", "https://linear.test/graphql");
+    const queries: string[] = [];
+
+    (client as any).graphql = async (query: string) => {
+      queries.push(query);
+      return {
+        issues: {
+          nodes: [],
+          pageInfo: { hasNextPage: false, endCursor: null },
+        },
+      };
+    };
+
+    await (client as any).listIssueSummaries({ projectId: "proj-1" });
+
+    expect(queries[0]).not.toContain("description");
+    expect(queries[0]).toContain("identifier");
+    expect(queries[0]).toContain("labels");
+  });
+});
