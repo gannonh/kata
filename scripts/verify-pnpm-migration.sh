@@ -4,6 +4,9 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
+DRIFT_TMP_FILE="$(mktemp "${TMPDIR:-/tmp}/verify-pnpm-drift.XXXXXX")"
+trap 'rm -f "$DRIFT_TMP_FILE"' EXIT
+
 phase() {
   printf '\n[verify-pnpm] phase: %s\n' "$1"
 }
@@ -68,7 +71,7 @@ done
 
 phase "hook"
 require_file ".githooks/pre-push"
-if ! grep -Fq 'pnpm exec turbo run lint typecheck test' .githooks/pre-push; then
+if ! tr '\n' ' ' < .githooks/pre-push | grep -Eq 'pnpm[[:space:]]+exec[[:space:]]+turbo[[:space:]]+run[[:space:]]+lint[[:space:]]+typecheck[[:space:]]+test'; then
   fail "pre-push must invoke turbo via pnpm exec"
 fi
 for required_filter in '@kata/desktop' '@kata-sh/cli' '@kata/context' '@kata-sh/orc'; do
@@ -101,8 +104,8 @@ UTILITY_FILES=(
 )
 for file in "${UTILITY_FILES[@]}"; do
   require_file "$file"
-  if rg -n '\bnpx\b|\bnpm run\b' "$file" >/tmp/verify-pnpm-drift.txt 2>/dev/null; then
-    fail "$file still references npx/npm run: $(head -n 1 /tmp/verify-pnpm-drift.txt)"
+  if rg -n '\bnpx\b|\bnpm run\b' "$file" >"$DRIFT_TMP_FILE" 2>/dev/null; then
+    fail "$file still references npx/npm run: $(head -n 1 "$DRIFT_TMP_FILE")"
   fi
 done
 
