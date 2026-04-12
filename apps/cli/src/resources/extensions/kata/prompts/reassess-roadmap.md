@@ -8,6 +8,12 @@ All relevant context has been preloaded below — the current roadmap, completed
 
 {{backendRules}}
 
+### Linear Discovery Rule
+
+- Enumerate slices with `kata_list_slices({ projectId, teamId, milestoneId })`.
+- After selecting a specific slice, use `linear_get_issue(id)` for the full issue body/comments.
+- Do **not** use `linear_list_issues` to enumerate Kata slices during roadmap reassessment.
+
 If a `Kata Skill Preferences` block is present in system context, use it to decide which skills to load and follow during reassessment, without relaxing required verification or artifact rules.
 
 Then assess whether the remaining roadmap still makes sense given what was just built.

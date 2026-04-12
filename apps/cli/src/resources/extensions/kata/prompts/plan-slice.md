@@ -14,6 +14,12 @@ Pay particular attention to **Forward Intelligence** sections — they contain h
 
 {{backendRules}}
 
+### Linear Discovery Rule
+
+- Enumerate slices with `kata_list_slices({ projectId, teamId, milestoneId })` and tasks with `kata_list_tasks({ sliceIssueId })`.
+- After selecting a specific dependency slice or task, use `linear_get_issue(id)` for the full issue body/comments.
+- Do **not** use `linear_list_issues` to enumerate Kata slices for planning.
+
 Then:
 0. If `REQUIREMENTS.md` was preloaded above, identify which Active requirements the roadmap says this slice owns or supports. These are the requirements this plan must deliver — every owned requirement needs at least one task that directly advances it, and verification must prove the requirement is met.
 1. Read the templates:

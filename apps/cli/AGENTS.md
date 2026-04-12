@@ -3,6 +3,7 @@
 ## Hard Rules
 
 - **Never use `git push --no-verify` or `git commit --no-verify`.** Pre-push and pre-commit hooks are quality gates. If a gate fails, fix the underlying problem. Bypassing hooks is never acceptable — not to unblock a push, not to save time, not for any reason short of an explicit instruction from the user.
+- **For Linear-backed Kata workflow discovery, enumerate with `kata_list_slices({ projectId, teamId, milestoneId })` / `kata_list_tasks({ sliceIssueId })`, then inspect a specific issue with `linear_get_issue(id)`.** Do not enumerate Kata slices with `linear_list_issues({ projectId })` — it can pull full issue bodies from every milestone and unexpectedly flood agent context.
 
 ## Git Workflow: Worktrees and Standby Branches
 

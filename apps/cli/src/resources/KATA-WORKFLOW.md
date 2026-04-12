@@ -525,8 +525,15 @@ All Kata-specific tools use the `kata_` prefix.
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `kata_derive_state`    | Derive full KataState from Linear API. Returns `phase`, `activeMilestone`, `activeSlice`, `activeTask`, `progress`, `blockers`. Call first at every session start. |
 | `kata_list_milestones` | List all milestones (ProjectMilestones) on the configured project.                                                                                                 |
-| `kata_list_slices`     | List slice issues (parent issues with `kata:slice` label) for a given milestone.                                                                                   |
+| `kata_list_slices`     | List slice issues (parent issues with `kata:slice` label) for a given milestone. Pass `milestoneId` (the **Linear ProjectMilestone UUID**, available on `kata_derive_state().activeMilestone.linearIssueId` — not the Kata ID like `M001`) whenever you are working within one milestone. |
 | `kata_list_tasks`      | List task sub-issues for a given slice issue.                                                                                                                      |
+
+### Discovery Rule (Linear mode)
+
+- Use `kata_list_slices({ projectId, teamId, milestoneId })` to enumerate slices for one milestone. `milestoneId` is the Linear ProjectMilestone UUID — pass `activeMilestone.linearIssueId` from `kata_derive_state`, not the Kata ID (e.g. `M001`), or the call will return no matches.
+- Use `kata_list_tasks({ sliceIssueId })` to enumerate tasks under one slice.
+- After you know the exact issue you need, use `linear_get_issue(id)` to read the full issue body and comments.
+- Do **not** use `linear_list_issues({ projectId })` to enumerate Kata slices during planning, reassessment, completion, or UAT flows. Project-scoped issue listings can pull every issue description into context and crash the agent.
 
 ### Issue State Advancement
 

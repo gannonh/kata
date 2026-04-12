@@ -26,7 +26,7 @@ import {
   writeKataDocument,
   listKataDocuments,
 } from "../linear/linear-documents.js";
-import { listKataSlices, parseKataEntityTitle } from "../linear/linear-entities.js";
+import { listKataMilestones, listKataSlices, parseKataEntityTitle } from "../linear/linear-entities.js";
 import type { DocumentAttachment, LinearComment } from "../linear/linear-types.js";
 import { ensureGitignore } from "./gitignore.js";
 import { loadPrompt } from "./prompt-loader.js";
@@ -35,7 +35,7 @@ import { resolveGitRoot, ensureGitRepo } from "./git-utils.js";
 
 // ─── Prompt Constants ─────────────────────────────────────────────────────────
 
-const HARD_RULE = `Hard rule: In Linear mode, never use bash/read/find/rg/git to locate workflow artifacts. Milestone-level artifacts (M001-ROADMAP, M001-CONTEXT, M001-RESEARCH, M001-SUMMARY, PROJECT, REQUIREMENTS, DECISIONS) are LinearDocuments via kata_read_document/kata_write_document with { projectId }. Slice/task plans live in issue descriptions (slice issue + task sub-issue), read/write them via linear_get_issue / linear_update_issue or kata_create_slice / kata_create_task description fields. Backward compatibility: if a slice/task plan description is empty, fall back to legacy S01-PLAN/T01-PLAN docs via kata_read_document. Slice/task summaries are issue comments via linear_add_comment.`;
+const HARD_RULE = `Hard rule: In Linear mode, never use bash/read/find/rg/git to locate workflow artifacts. Milestone-level artifacts (M001-ROADMAP, M001-CONTEXT, M001-RESEARCH, M001-SUMMARY, PROJECT, REQUIREMENTS, DECISIONS) are LinearDocuments via kata_read_document/kata_write_document with { projectId }. Slice/task plans live in issue descriptions (slice issue + task sub-issue), read/write them via linear_get_issue / linear_update_issue or kata_create_slice / kata_create_task description fields. Backward compatibility: if a slice/task plan description is empty, fall back to legacy S01-PLAN/T01-PLAN docs via kata_read_document. Slice/task summaries are issue comments via linear_add_comment. List tools are for discovery; get tools are for full issue bodies. For Kata planning and milestone-scoped slice lookup, do NOT use linear_list_issues; it returns full issue payloads and can blow context. Use kata_list_slices({ projectId, teamId, milestoneId }) / kata_list_tasks({ sliceIssueId }) to enumerate, then linear_get_issue(id) for the specific issue you need.`;
 
 const REFERENCE = `**Reference:** Consult \`KATA-WORKFLOW.md\` (injected into your system prompt) for full operation steps, entity conventions, artifact storage format, and phase transition rules.`;
 
@@ -195,22 +195,50 @@ export class LinearBackend implements KataBackend {
 
   // ── Slice Resolution ───────────────────────────────────────────────────
 
+  private formatScopedSliceListCall(milestoneLinearId?: string): string {
+    if (milestoneLinearId) {
+      return `kata_list_slices({ projectId, teamId, milestoneId: "${milestoneLinearId}" })`;
+    }
+    return "kata_list_slices({ projectId, teamId })";
+  }
+
+  private async resolveMilestoneLinearId(
+    milestoneId: string,
+    state?: KataState,
+  ): Promise<string | undefined> {
+    const activeMilestone = state?.activeMilestone ?? (await this.deriveState()).activeMilestone;
+    if (activeMilestone?.id === milestoneId && activeMilestone.linearIssueId) {
+      return activeMilestone.linearIssueId;
+    }
+
+    try {
+      const milestones = await listKataMilestones(this.client, this.config.projectId);
+      return milestones.find((milestone) => {
+        const parsed = parseKataEntityTitle(milestone.name);
+        return parsed?.kataId === milestoneId;
+      })?.id;
+    } catch {
+      return undefined;
+    }
+  }
+
   /**
    * Resolve a slice's document scope by matching both sliceId and milestoneId.
    * Returns `{ issueId }` if found, `undefined` if not resolvable.
-   * Matches milestone via `projectMilestone.name` bracket-prefix parsing.
    * Overridable in tests.
    */
   async resolveSliceScope(milestoneId: string, sliceId: string): Promise<DocumentScope | undefined> {
     try {
-      const allSlices = await listKataSlices(this.client, this.config.projectId, this.config.sliceLabelId);
-      const sliceIssue = allSlices.find((s) => {
-        const parsed = parseKataEntityTitle(s.title);
-        const mParsed = s.projectMilestone
-          ? parseKataEntityTitle(s.projectMilestone.name)
-          : null;
-        return parsed?.kataId === sliceId && mParsed?.kataId === milestoneId;
-      });
+      const milestoneLinearId = await this.resolveMilestoneLinearId(milestoneId);
+      if (!milestoneLinearId) return undefined;
+
+      const slices = await listKataSlices(
+        this.client,
+        this.config.projectId,
+        this.config.sliceLabelId,
+        milestoneLinearId,
+      );
+      const sliceIssue = slices.find((slice) => parseKataEntityTitle(slice.title)?.kataId === sliceId);
       if (sliceIssue) {
         return { issueId: sliceIssue.id };
       }
@@ -222,14 +250,16 @@ export class LinearBackend implements KataBackend {
 
   async isSlicePlanned(milestoneId: string, sliceId: string): Promise<boolean> {
     try {
-      const allSlices = await listKataSlices(this.client, this.config.projectId, this.config.sliceLabelId);
-      const sliceIssue = allSlices.find((s) => {
-        const parsed = parseKataEntityTitle(s.title);
-        const mParsed = s.projectMilestone
-          ? parseKataEntityTitle(s.projectMilestone.name)
-          : null;
-        return parsed?.kataId === sliceId && mParsed?.kataId === milestoneId;
-      });
+      const milestoneLinearId = await this.resolveMilestoneLinearId(milestoneId);
+      if (!milestoneLinearId) return false;
+
+      const slices = await listKataSlices(
+        this.client,
+        this.config.projectId,
+        this.config.sliceLabelId,
+        milestoneLinearId,
+      );
+      const sliceIssue = slices.find((slice) => parseKataEntityTitle(slice.title)?.kataId === sliceId);
       return (sliceIssue?.children?.nodes?.length ?? 0) > 0;
     } catch {
       return false;
@@ -480,10 +510,11 @@ export class LinearBackend implements KataBackend {
     });
   }
 
-  private _buildPlanMilestoneOps(mid: string): OpsBlock {
+  private _buildPlanMilestoneOps(mid: string, activeMilestoneLinearId?: string): OpsBlock {
+    const sliceListCall = this.formatScopedSliceListCall(activeMilestoneLinearId);
     const backendOps = [
       `6. Idempotency check:`,
-      `   - Call \`kata_list_slices\` for the project. If slices already exist for this milestone, do NOT create duplicates.`,
+      `   - Call \`${sliceListCall}\`. If slices already exist for this milestone, do NOT create duplicates.`,
       `   - Call \`kata_read_document("${mid}-ROADMAP")\`. If it already exists, review and advance rather than rewriting.`,
       `7. Write the milestone roadmap: \`kata_write_document("${mid}-ROADMAP", content)\``,
       `   - Define slices (S01, S02, ...) ordered by risk — riskiest first.`,
@@ -526,7 +557,7 @@ export class LinearBackend implements KataBackend {
       `   - \`kata_read_document("PROJECT")\``,
     ].join("\n");
 
-    const ops = this._buildPlanMilestoneOps(mid);
+    const ops = this._buildPlanMilestoneOps(mid, state.activeMilestone?.linearIssueId);
 
     return loadPrompt("plan-milestone", {
       milestoneId: mid,
@@ -538,11 +569,12 @@ export class LinearBackend implements KataBackend {
     });
   }
 
-  private _buildResearchSliceOps(sid: string): OpsBlock {
+  private _buildResearchSliceOps(sid: string, activeMilestoneLinearId?: string): OpsBlock {
+    const sliceListCall = this.formatScopedSliceListCall(activeMilestoneLinearId);
     const backendOps = [
       `6. Write slice research (scoped to slice issue): \`kata_write_document("${sid}-RESEARCH", content, { issueId: "<slice-issue-uuid>" })\``,
       `   - Include: Summary, Don't Hand-Roll, Common Pitfalls, Relevant Code, Sources.`,
-      `   - Get the slice issue UUID from \`kata_derive_state\` → \`activeSlice.linearIssueId\` or from \`kata_list_slices\`.`,
+      `   - Get the slice issue UUID from \`kata_derive_state\` → \`activeSlice.linearIssueId\` or from \`${sliceListCall}\`.`,
     ].join("\n");
 
     return {
@@ -560,7 +592,7 @@ export class LinearBackend implements KataBackend {
     const dependencySummaries = [
       `- Check the roadmap for \`depends:[]\` on this slice.`,
       `- For each dependency, call \`linear_get_issue("<dependency-slice-issue-uuid>")\` and inspect issue.comments for summary evidence (primary path).`,
-      `- Backward-compatible fallback: if no summary comment is present, call \`kata_read_document("Sxx-SUMMARY", { issueId: "<dependency-slice-issue-uuid>" })\`. Get slice issue UUIDs from \`kata_list_slices\`.`,
+      `- Backward-compatible fallback: if no summary comment is present, call \`kata_read_document("Sxx-SUMMARY", { issueId: "<dependency-slice-issue-uuid>" })\`. Get slice issue UUIDs from \`${this.formatScopedSliceListCall(state.activeMilestone?.linearIssueId)}\`.`,
     ].join("\n");
 
     const inlinedContext = [
@@ -582,7 +614,7 @@ export class LinearBackend implements KataBackend {
       `   - \`kata_read_document("REQUIREMENTS")\``,
     ].join("\n");
 
-    const ops = this._buildResearchSliceOps(sid);
+    const ops = this._buildResearchSliceOps(sid, state.activeMilestone?.linearIssueId);
 
     return loadPrompt("research-slice", {
       milestoneId: mid,
@@ -634,7 +666,7 @@ export class LinearBackend implements KataBackend {
     const dependencySummaries = [
       `- Check the roadmap for \`depends:[]\` on this slice.`,
       `- For each dependency, call \`linear_get_issue("<dependency-slice-issue-uuid>")\` and inspect issue.comments for summary evidence (primary path).`,
-      `- Backward-compatible fallback: if no summary comment is present, call \`kata_read_document("Sxx-SUMMARY", { issueId: "<dependency-slice-issue-uuid>" })\`. Get slice issue UUIDs from \`kata_list_slices\`.`,
+      `- Backward-compatible fallback: if no summary comment is present, call \`kata_read_document("Sxx-SUMMARY", { issueId: "<dependency-slice-issue-uuid>" })\`. Get slice issue UUIDs from \`${this.formatScopedSliceListCall(state.activeMilestone?.linearIssueId)}\`.`,
     ].join("\n");
 
     const inlinedContext = [
@@ -876,7 +908,7 @@ export class LinearBackend implements KataBackend {
       `   - Call \`kata_read_document("${mid}-ROADMAP")\` — **required**.`,
       ``,
       `4. Read all slice outcomes from slice issues:`,
-      `   - Call \`kata_list_slices\` to enumerate all slices in this milestone.`,
+      `   - Call \`${this.formatScopedSliceListCall(state.activeMilestone?.linearIssueId)}\` to enumerate all slices in this milestone.`,
       `   - For each slice, call \`linear_get_issue("<slice-issue-uuid>")\` and inspect description/comments for summary evidence (legacy fallback: \`Sxx-SUMMARY\` doc).`,
       `   - If a legacy summary doc exists, call \`kata_read_document("Sxx-SUMMARY", { issueId: "<slice-issue-uuid>" })\` as supplemental context.`,
 
@@ -957,11 +989,16 @@ export class LinearBackend implements KataBackend {
     });
   }
 
-  private _buildReassessRoadmapOps(completedSliceId: string, mid: string): OpsBlock {
+  private _buildReassessRoadmapOps(
+    completedSliceId: string,
+    mid: string,
+    activeMilestoneLinearId?: string,
+  ): OpsBlock {
+    const sliceListCall = this.formatScopedSliceListCall(activeMilestoneLinearId);
     const backendOps = [
       `**If the roadmap is still good:**`,
       ``,
-      `Write the assessment (scoped to completed slice issue): \`kata_write_document("${completedSliceId}-ASSESSMENT", content, { issueId: "<completed-slice-issue-uuid>" })\` with a brief confirmation that roadmap coverage still holds after ${completedSliceId}. Get the slice issue UUID from \`kata_list_slices\`. If requirements exist, explicitly note whether requirement coverage remains sound.`,
+      `Write the assessment (scoped to completed slice issue): \`kata_write_document("${completedSliceId}-ASSESSMENT", content, { issueId: "<completed-slice-issue-uuid>" })\` with a brief confirmation that roadmap coverage still holds after ${completedSliceId}. Get the slice issue UUID from \`${sliceListCall}\`. If requirements exist, explicitly note whether requirement coverage remains sound.`,
       ``,
       `**If changes are needed:**`,
       ``,
@@ -991,7 +1028,7 @@ export class LinearBackend implements KataBackend {
       ``,
       `2. Read required context:`,
       `   - Call \`kata_read_document("${mid}-ROADMAP")\` — **required**.`,
-      `   - Call \`linear_get_issue("<completed-slice-issue-uuid>")\` — **required**. Read description/comments for completed slice summary evidence. Get the slice issue UUID from \`kata_list_slices\`.`,
+      `   - Call \`linear_get_issue("<completed-slice-issue-uuid>")\` — **required**. Read description/comments for completed slice summary evidence. Get the slice issue UUID from \`${this.formatScopedSliceListCall(state.activeMilestone?.linearIssueId)}\`.`,
       `   - Backward-compatible fallback: if comments/description are insufficient, call \`kata_read_document("${completedSliceId}-SUMMARY", { issueId: "<completed-slice-issue-uuid>" })\`.`,
 
       ``,
@@ -1001,7 +1038,7 @@ export class LinearBackend implements KataBackend {
       `   - \`kata_read_document("DECISIONS")\``,
     ].join("\n");
 
-    const ops = this._buildReassessRoadmapOps(completedSliceId, mid);
+    const ops = this._buildReassessRoadmapOps(completedSliceId, mid, state.activeMilestone?.linearIssueId);
 
     return loadPrompt("reassess-roadmap", {
       milestoneId: mid,
@@ -1036,7 +1073,7 @@ export class LinearBackend implements KataBackend {
       `1. Call \`kata_derive_state\` to confirm context.`,
       ``,
       `2. Read required context:`,
-      `   - Call \`kata_read_document("${sliceId}-UAT", { issueId: "<slice-issue-uuid>" })\` — **required**. Contains the test script. Get the slice issue UUID from \`kata_list_slices\`.`,
+      `   - Call \`kata_read_document("${sliceId}-UAT", { issueId: "<slice-issue-uuid>" })\` — **required**. Contains the test script. Get the slice issue UUID from \`${this.formatScopedSliceListCall(state.activeMilestone?.linearIssueId)}\`.`,
       ``,
       `3. Read optional context:`,
       `   - Read slice issue comments/description for summary evidence (legacy fallback: \`kata_read_document("${sliceId}-SUMMARY", { issueId: "<slice-issue-uuid>" })\`)`,

@@ -1,6 +1,6 @@
 {
   "name": "@kata-sh/cli",
-  "version": "0.15.3",
+  "version": "0.15.4",
   "description": "Kata CLI coding agent",
   "license": "MIT",
   "private": false,

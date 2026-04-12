@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.15.4
+
+### Bug Fixes
+
+- **Scope Kata slice discovery by milestone during planning** — `kata_list_slices` now accepts a milestone filter all the way down to the Linear GraphQL issue filter, and Kata planning helpers/prompts use the active milestone's Linear UUID when enumerating slices. This prevents `/kata plan` from pulling historical slice bodies from prior milestones into context.
+- **Harden Linear discovery guidance for Kata workflows** — Prompt templates, guided flows, and `KATA-WORKFLOW.md` now explicitly encode the safe discovery rule: enumerate with `kata_list_slices({ projectId, teamId, milestoneId })` / `kata_list_tasks({ sliceIssueId })`, then inspect a specific issue with `linear_get_issue(id)`. This reduces the chance an agent reaches for `linear_list_issues({ projectId })` and floods context.
+
 ## 0.15.3
 
 ### Changes

@@ -613,6 +613,9 @@ export class LinearClient {
     if (filter.teamId) gqlFilter.team = { id: { eq: filter.teamId } };
     if (filter.projectId) gqlFilter.project = { id: { eq: filter.projectId } };
     if (filter.parentId) gqlFilter.parent = { id: { eq: filter.parentId } };
+    if (filter.projectMilestoneId) {
+      gqlFilter.projectMilestone = { id: { eq: filter.projectMilestoneId } };
+    }
     if (filter.stateId) gqlFilter.state = { id: { eq: filter.stateId } };
     if (filter.assigneeId) gqlFilter.assignee = { id: { eq: filter.assigneeId } };
     if (filter.labelIds && filter.labelIds.length > 0) {

@@ -285,7 +285,7 @@ async function buildDiscussSlicePrompt(
     "",
     "Once the user is ready to wrap up:",
     "1. Read the slice context template at `~/.kata-cli/agent/extensions/kata/templates/slice-context.md`",
-    `2. Resolve the slice issue UUID via \`kata_list_slices\` for ${mid}/${sid}`,
+    `2. Resolve the slice issue UUID via \`kata_list_slices\` scoped to ${mid} (pass \`activeMilestone.linearIssueId\` from \`kata_derive_state\` as \`milestoneId\` — this is the Linear milestone UUID, not the Kata ID); do not use \`linear_list_issues\``,
     `3. Write the context doc: \`kata_write_document("${sid}-CONTEXT", content, { issueId: "<slice-issue-uuid>" })\``,
     `4. Say exactly: "${sid} context written." — nothing else.`,
   ].join("\n");

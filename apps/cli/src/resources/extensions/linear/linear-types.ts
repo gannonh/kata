@@ -253,6 +253,7 @@ export interface IssueFilter {
   teamId?: string;
   projectId?: string;
   parentId?: string;
+  projectMilestoneId?: string;
   stateId?: string;
   labelIds?: string[];
   assigneeId?: string;

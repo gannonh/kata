@@ -83,6 +83,17 @@ test("LinearClient.listIssues normalizes label connections", async () => {
   ]);
 });
 
+test("KATA-WORKFLOW documents the Linear list-vs-get discovery rule", () => {
+  const workflow = readFileSync(
+    join(projectRoot, "src", "resources", "KATA-WORKFLOW.md"),
+    "utf8",
+  );
+
+  assert.match(workflow, /kata_list_slices\(\{ projectId, teamId, milestoneId \}\)/);
+  assert.match(workflow, /linear_get_issue\(id\)/);
+  assert.match(workflow, /Do \*\*not\*\* use `linear_list_issues\(\{ projectId \}\)`/);
+});
+
 test("Linear list tools preserve explicit first=0 filters", async () => {
   const calls: Array<{ name: string; params: unknown }> = [];
   const tools = registerTools({

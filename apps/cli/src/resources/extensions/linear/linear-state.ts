@@ -49,6 +49,7 @@ export interface LinearStateClient {
   listIssues(filter: {
     projectId?: string;
     parentId?: string;
+    projectMilestoneId?: string;
     labelIds?: string[];
     teamId?: string;
     stateId?: string;
@@ -86,12 +87,17 @@ function isTerminal(stateType: string): boolean {
   return stateType === "completed" || stateType === "canceled";
 }
 
-/** Build an ActiveRef from a Linear milestone, using parseKataEntityTitle for the id/title. */
+/**
+ * Build an ActiveRef from a Linear milestone, using parseKataEntityTitle for the id/title.
+ * Note: for milestones, `linearIssueId` stores the Linear ProjectMilestone UUID (not an Issue UUID);
+ * it is the value to pass as `milestoneId` to `kata_list_slices`.
+ */
 function milestoneRef(m: LinearMilestone): ActiveRef {
   const parsed = parseKataEntityTitle(m.name);
   return {
     id: parsed?.kataId ?? m.id,
     title: parsed?.title ?? m.name,
+    linearIssueId: m.id,
   };
 }
 
@@ -101,6 +107,7 @@ function issueRef(issue: { id: string; title: string }): ActiveRef {
   return {
     id: parsed?.kataId ?? issue.id,
     title: parsed?.title ?? issue.title,
+    linearIssueId: issue.id,
   };
 }
 

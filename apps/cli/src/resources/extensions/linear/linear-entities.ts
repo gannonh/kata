@@ -249,6 +249,7 @@ export interface LinearEntityClient {
   listIssues(filter: {
     projectId?: string;
     parentId?: string;
+    projectMilestoneId?: string;
     labelIds?: string[];
     teamId?: string;
     stateId?: string;
@@ -521,17 +522,26 @@ export async function createKataTask(
  * @param client - LinearEntityClient (or compatible LinearClient)
  * @param projectId - Linear project UUID to scope the query
  * @param sliceLabelId - Label UUID for `kata:slice` (from KataLabelSet.slice.id)
+ * @param milestoneId - Optional Linear project milestone UUID. Omit only when
+ *   you explicitly need every slice in the project (for example, top-level
+ *   state derivation). Planning and milestone-scoped lookup flows should pass
+ *   this to avoid pulling historical slices from other milestones.
  *
  * @example
  *   const labelSet = await ensureKataLabels(client, teamId);
- *   const slices = await listKataSlices(client, projectId, labelSet.slice.id);
+ *   const slices = await listKataSlices(client, projectId, labelSet.slice.id, milestoneId);
  */
 export async function listKataSlices(
   client: Pick<LinearEntityClient, "listIssues">,
   projectId: string,
-  sliceLabelId: string
+  sliceLabelId: string,
+  milestoneId?: string
 ): Promise<LinearIssue[]> {
-  return client.listIssues({ projectId, labelIds: [sliceLabelId] });
+  return client.listIssues({
+    projectId,
+    labelIds: [sliceLabelId],
+    ...(milestoneId ? { projectMilestoneId: milestoneId } : {}),
+  });
 }
 
 // =============================================================================

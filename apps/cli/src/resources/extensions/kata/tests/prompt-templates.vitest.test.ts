@@ -115,6 +115,29 @@ describe("Linear-mode compliance", () => {
       expect(prompt).toMatch(/Do NOT.*\.kata/);
     });
   }
+
+  it("system prompt encodes the Linear list-vs-get discovery rule", () => {
+    const prompt = loadPrompt("system");
+    expect(prompt).toContain("Use `kata_list_slices({ projectId, teamId, milestoneId })` and `kata_list_tasks({ sliceIssueId })` for discovery and enumeration.");
+    expect(prompt).toContain("use `linear_get_issue(id)` for the full issue body and comments");
+    expect(prompt).toContain("Do **not** use `linear_list_issues`");
+  });
+
+  it("guided planning templates reinforce list-vs-get guidance", () => {
+    const milestonePrompt = loadPrompt("guided-plan-milestone", {
+      milestoneId: "M001",
+      milestoneTitle: "Milestone 1",
+    });
+    const slicePrompt = loadPrompt("guided-plan-slice", {
+      milestoneId: "M001",
+      sliceId: "S01",
+      sliceTitle: "First Slice",
+    });
+
+    expect(milestonePrompt).toContain("Use `kata_list_slices({ projectId, teamId, milestoneId })` to enumerate milestone slices");
+    expect(slicePrompt).toContain("Use `kata_list_slices({ projectId, teamId, milestoneId })` and `kata_list_tasks({ sliceIssueId })` for discovery");
+    expect(slicePrompt).toContain("do **not** use `linear_list_issues`");
+  });
 });
 
 describe("error case", () => {
