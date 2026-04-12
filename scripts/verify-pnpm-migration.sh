@@ -18,13 +18,17 @@ require_file() {
   [[ -f "$path" ]] || fail "required file missing: $path"
 }
 
-require_script() {
+contains_bun_wrapper() {
+  grep -Eq '\bbun[[:space:]]+run\b|\bbunx\b' "$1"
+}
+
+require_root_script() {
   local key="$1"
   node -e "const pkg=require('./package.json'); if(!pkg.scripts || !pkg.scripts['$key']) process.exit(1);" \
     || fail "missing root script: $key"
 }
 
-script_command() {
+root_script_command() {
   local key="$1"
   node -e "const pkg=require('./package.json'); process.stdout.write(pkg.scripts['$key'] || '');"
 }
@@ -36,7 +40,6 @@ require_file "pnpm-lock.yaml"
 
 PACKAGE_MANAGER="$(node -e "const pkg=require('./package.json'); process.stdout.write(pkg.packageManager || '')")"
 [[ "$PACKAGE_MANAGER" == pnpm@* ]] || fail "packageManager must be pinned to pnpm@... (got '$PACKAGE_MANAGER')"
-
 [[ ! -f bun.lock ]] || fail "bun.lock must be removed"
 
 phase "root-scripts"
@@ -55,9 +58,9 @@ ACTIVE_ROOT_SCRIPTS=(
 )
 
 for key in "${ACTIVE_ROOT_SCRIPTS[@]}"; do
-  require_script "$key"
-  cmd="$(script_command "$key")"
-  if grep -Eq '\bbun(run|x)\b' <<<"$cmd"; then
+  require_root_script "$key"
+  cmd="$(root_script_command "$key")"
+  if grep -Eq '\bbun[[:space:]]+run\b|\bbunx\b' <<<"$cmd"; then
     fail "root script '$key' still uses bun wrapper: $cmd"
   fi
 done
@@ -67,25 +70,63 @@ require_file ".githooks/pre-push"
 if ! grep -Fq 'pnpm exec turbo run lint typecheck test --affected' .githooks/pre-push; then
   fail "pre-push must invoke turbo via pnpm exec"
 fi
-if grep -Eq '\bbun(run|x)\b' .githooks/pre-push; then
+if contains_bun_wrapper ".githooks/pre-push"; then
   fail "pre-push still references bun run/bunx"
 fi
+
+phase "app-scripts"
+DESKTOP_FILES=(
+  "apps/desktop/package.json"
+  "apps/desktop/scripts/bundle-cli.sh"
+  "apps/desktop/scripts/package-mac.sh"
+)
+for file in "${DESKTOP_FILES[@]}"; do
+  require_file "$file"
+  if contains_bun_wrapper "$file"; then
+    fail "$file still references bun run/bunx"
+  fi
+done
+
+UTILITY_FILES=(
+  "apps/cli/package.json"
+  "apps/context/package.json"
+  "apps/orchestrator/package.json"
+  "apps/online-docs/package.json"
+)
+for file in "${UTILITY_FILES[@]}"; do
+  require_file "$file"
+  if rg -n '\bnpx\b|\bnpm run\b' "$file" >/tmp/verify-pnpm-drift.txt 2>/dev/null; then
+    fail "$file still references npx/npm run: $(head -n 1 /tmp/verify-pnpm-drift.txt)"
+  fi
+done
 
 phase "blockers"
 printf '[verify-pnpm] Deferred blockers owned by S03/S04:\n'
 
-S03_BLOCKERS="$(rg -n '\bbun test\b|bun:test' apps packages package.json || true)"
-if [[ -n "$S03_BLOCKERS" ]]; then
-  printf '%s\n' "$S03_BLOCKERS"
+printf '[verify-pnpm] S03 (bun:test migration) package-script blockers:\n'
+S03_SCRIPT_BLOCKERS="$(rg -n '"test[^"\\n]*"\s*:\s*"[^"]*bun test|bun:test' package.json apps/*/package.json packages/*/package.json || true)"
+if [[ -n "$S03_SCRIPT_BLOCKERS" ]]; then
+  printf '%s\n' "$S03_SCRIPT_BLOCKERS"
 else
   printf '  (none detected)\n'
 fi
 
-S04_BLOCKERS="$(rg -n '"(electron:|viewer:|test:e2e(:|"))' package.json || true)"
-if [[ -n "$S04_BLOCKERS" ]]; then
-  printf '%s\n' "$S04_BLOCKERS"
+S03_IMPORT_COUNT="$(rg -n "from ['\" ]?bun:test['\"]" apps packages --glob '**/*.ts' | wc -l | tr -d ' ')"
+printf '[verify-pnpm] S03 (bun:test imports in TS files): %s\n' "$S03_IMPORT_COUNT"
+
+printf '[verify-pnpm] S04 (legacy root script blockers):\n'
+S04_ROOT_BLOCKERS="$(rg -n '"(electron:|viewer:|test:e2e(:|"))' package.json || true)"
+if [[ -n "$S04_ROOT_BLOCKERS" ]]; then
+  printf '%s\n' "$S04_ROOT_BLOCKERS"
 else
   printf '  (none detected)\n'
 fi
 
-printf '\n[verify-pnpm] OK: S02 root migration checks passed.\n'
+if [[ -d apps/electron || -d apps/viewer ]]; then
+  printf '[verify-pnpm] S04 (legacy app directories still present):'
+  [[ -d apps/electron ]] && printf ' apps/electron'
+  [[ -d apps/viewer ]] && printf ' apps/viewer'
+  printf '\n'
+fi
+
+printf '\n[verify-pnpm] OK: S02 migration checks passed (deferred blockers reported above).\n'

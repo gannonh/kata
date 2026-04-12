@@ -228,6 +228,9 @@ importers:
       tar:
         specifier: ^7.5.2
         version: 7.5.13
+      tsx:
+        specifier: ^4.20.6
+        version: 4.21.0
       turbo:
         specifier: ^2.8.17
         version: 2.9.6

@@ -30,17 +30,17 @@
     "node": ">=20.6.0"
   },
   "scripts": {
-    "build": "tsc && npm run copy-themes && npm run copy-export-html && npm run copy-changelog",
+    "build": "tsc && pnpm run copy-themes && pnpm run copy-export-html && pnpm run copy-changelog",
     "copy-changelog": "node -e \"require('fs').cpSync('CHANGELOG.md','pkg/CHANGELOG.md')\"",
     "copy-themes": "node -e \"const{mkdirSync,cpSync}=require('fs');const{resolve}=require('path');const candidates=[resolve(__dirname,'node_modules/@mariozechner/pi-coding-agent/dist/modes/interactive/theme'),resolve(__dirname,'..','..','node_modules/@mariozechner/pi-coding-agent/dist/modes/interactive/theme')];const src=candidates.find(p=>{try{require('fs').statSync(p);return true}catch{return false}});if(!src)throw new Error('theme dir not found');mkdirSync('pkg/dist/modes/interactive/theme',{recursive:true});cpSync(src,'pkg/dist/modes/interactive/theme',{recursive:true})\"",
     "copy-export-html": "node -e \"const{mkdirSync,cpSync}=require('fs');const{resolve}=require('path');const candidates=[resolve(__dirname,'node_modules/@mariozechner/pi-coding-agent/dist/core/export-html'),resolve(__dirname,'..','..','node_modules/@mariozechner/pi-coding-agent/dist/core/export-html')];const src=candidates.find(p=>{try{require('fs').statSync(p);return true}catch{return false}});if(!src)throw new Error('export-html dir not found');mkdirSync('pkg/dist/core/export-html',{recursive:true});cpSync(src,'pkg/dist/core/export-html',{recursive:true})\"",
-    "test": "bun test --path-ignore-patterns '**/*.vitest.test.ts' src/ && npx vitest run --coverage",
-    "test:vitest": "npx vitest run",
-    "test:coverage": "npx vitest run --coverage",
+    "test": "bun test --path-ignore-patterns '**/*.vitest.test.ts' src/ && pnpm exec vitest run --coverage",
+    "test:vitest": "pnpm exec vitest run",
+    "test:coverage": "pnpm exec vitest run --coverage",
     "dev": "tsc --watch",
     "postinstall": "node scripts/postinstall.js",
     "sync-pkg-version": "node scripts/sync-pkg-version.cjs",
-    "prepublishOnly": "npm run sync-pkg-version && npm run build",
+    "prepublishOnly": "pnpm run sync-pkg-version && pnpm run build",
     "lint": "eslint src/ --max-warnings=500",
     "typecheck": "tsc --noEmit"
   },
