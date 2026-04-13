@@ -10,7 +10,7 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "test": "bun test src/__tests__/",
+    "test": "vitest run",
     "samples": "node --import tsx index.ts",
     "dev": "node --import tsx dev.ts",
     "bench": "bun run bench.ts",
@@ -26,6 +26,7 @@
     "chokidar": "^5.0.0",
     "esbuild": "^0.28.0",
     "shiki": "^4.0.2",
-    "tsx": "^4.20.6"
+    "tsx": "^4.20.6",
+    "vitest": "^4.1.2"
   }
 }

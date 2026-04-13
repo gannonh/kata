@@ -7,8 +7,8 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "scripts": {
-    "test": "bun test",
-    "test:watch": "bun test --watch",
+    "test": "vitest run",
+    "test:watch": "vitest --watch",
     "lint": "eslint src/ --max-warnings=150",
     "typecheck": "tsc --noEmit"
   },
@@ -74,6 +74,7 @@
     "zod": ">=3.0.0"
   },
   "devDependencies": {
-    "@types/shell-quote": "^1.7.5"
+    "@types/shell-quote": "^1.7.5",
+    "vitest": "^4.1.2"
   }
 }
