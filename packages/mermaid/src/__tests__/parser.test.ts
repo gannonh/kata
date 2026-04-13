@@ -9,7 +9,7 @@
  *   state aliases, direction override
  * - Comments and error cases
  */
-import { describe, it, expect } from 'bun:test'
+import { describe, it, expect } from 'vitest'
 import { parseMermaid } from '../parser.ts'
 
 // ============================================================================

@@ -5,7 +5,7 @@
  * These tests call parseSequenceDiagram + layoutSequenceDiagram directly
  * to inspect Y coordinates, rather than checking SVG output.
  */
-import { describe, it, expect } from 'bun:test'
+import { describe, it, expect } from 'vitest'
 import { parseSequenceDiagram } from '../sequence/parser.ts'
 import { layoutSequenceDiagram } from '../sequence/layout.ts'
 

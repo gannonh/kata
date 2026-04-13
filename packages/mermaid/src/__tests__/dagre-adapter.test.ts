@@ -4,7 +4,7 @@
  * Verifies that edge endpoints are correctly clipped to node boundaries
  * after orthogonal snapping changes the approach direction.
  */
-import { describe, it, expect } from 'bun:test'
+import { describe, it, expect } from 'vitest'
 import { clipEndpointsToNodes, snapToOrthogonal, type NodeRect } from '../dagre-adapter.ts'
 
 /** A node centered at (200, 250) with width=120, height=68 (like a class box) */

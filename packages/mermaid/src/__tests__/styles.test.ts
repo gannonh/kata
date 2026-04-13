@@ -2,7 +2,7 @@
  * Tests for styles module — text measurement and constants.
  * Theme resolution tests are in theme.test.ts (CSS custom property system).
  */
-import { describe, it, expect } from 'bun:test'
+import { describe, it, expect } from 'vitest'
 import { estimateTextWidth, FONT_SIZES, FONT_WEIGHTS, NODE_PADDING, STROKE_WIDTHS, ARROW_HEAD } from '../styles.ts'
 import { THEMES, DEFAULTS, fromShikiTheme, buildStyleBlock, svgOpenTag } from '../theme.ts'
 import type { DiagramColors } from '../theme.ts'
