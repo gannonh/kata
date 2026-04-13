@@ -6062,7 +6062,8 @@ mod tests {
         let status = check_agent_review_pr_status_with(
             workspace,
             Some("main"),
-            |program, args, _cwd| match (program, args) {
+            |program, args, _cwd| {
+                match (program, args) {
                 ("git", ["branch", "--show-current"]) => Ok(CommandOutcome {
                     success: true,
                     stdout: "sym/KAT-2499".to_string(),
@@ -6083,6 +6084,7 @@ mod tests {
                     })
                 }
                 _ => panic!("unexpected command: {} {:?}", program, args),
+            }
             },
         );
 
@@ -6090,7 +6092,9 @@ mod tests {
             status,
             AgentReviewPrStatus::Missing {
                 branch: Some("sym/KAT-2499".to_string()),
-                reason: "PR head branch `sym/KAT-9999` does not match current branch `sym/KAT-2499`".to_string(),
+                reason:
+                    "PR head branch `sym/KAT-9999` does not match current branch `sym/KAT-2499`"
+                        .to_string(),
             }
         );
     }
@@ -6101,7 +6105,8 @@ mod tests {
         let status = check_agent_review_pr_status_with(
             workspace,
             Some("main"),
-            |program, args, _cwd| match (program, args) {
+            |program, args, _cwd| {
+                match (program, args) {
                 ("git", ["branch", "--show-current"]) => Ok(CommandOutcome {
                     success: true,
                     stdout: "sym/KAT-2499".to_string(),
@@ -6122,6 +6127,7 @@ mod tests {
                     })
                 }
                 _ => panic!("unexpected command: {} {:?}", program, args),
+            }
             },
         );
 
