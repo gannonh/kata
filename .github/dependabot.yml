@@ -1,6 +1,6 @@
 version: 2
 updates:
-  # Root Bun workspace (packages/*, apps/electron, apps/viewer, etc.)
+  # Root workspace (packages/* plus the active app directories that depend on the shared graph)
   - package-ecosystem: "npm"
     directory: "/"
     schedule:

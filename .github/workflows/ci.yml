@@ -120,7 +120,7 @@ jobs:
           path: apps/symphony/coverage/
           retention-days: 30
 
-  # Legacy e2e-mocked job removed — apps/electron is superseded by apps/desktop.
+  # Legacy desktop e2e-mocked job removed — apps/desktop is the only active desktop target.
   # Desktop unit tests run via Turborepo in the validate job (npx vitest run --coverage).
   # Desktop e2e tests will be added in a future milestone.
 

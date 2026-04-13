@@ -166,7 +166,6 @@ npx @kata/context
 | `apps/desktop`      | Kata Desktop                                               |
 | `apps/orchestrator` | Kata Orchestrator                                          |
 | `apps/online-docs`  | Documentation site                                         |
-| `apps/viewer`       | Session viewer                                             |
 | `packages/core`     | Shared types                                               |
 | `packages/shared`   | Shared agent, auth, config, git, session, and source logic |
 | `packages/ui`       | Shared UI components                                       |
