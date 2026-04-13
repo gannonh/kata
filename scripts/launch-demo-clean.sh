@@ -1,10 +1,8 @@
-#!/bin/bash
-# Launch Kata Agents demo with a fresh, isolated profile
+#!/usr/bin/env bash
+set -euo pipefail
 
-DEMO_PROFILE="/Users/gannonhall/.kata-agents-demo-fresh"
+DEMO_CONFIG_DIR="${KATA_CONFIG_DIR:-$HOME/.kata-demo}"
 
-echo "Launching Kata Agents with fresh profile: $DEMO_PROFILE"
-
-open "/Users/gannonhall/dev/kata/kata-agents/apps/electron/release/extracted-demo/Kata Agents.app" \
-  --new \
-  --args --user-data-dir="$DEMO_PROFILE"
+echo "Resetting Kata Desktop demo environment at $DEMO_CONFIG_DIR"
+bun run scripts/setup-demo.ts --reset
+KATA_CONFIG_DIR="$DEMO_CONFIG_DIR" pnpm --dir apps/desktop run desktop:dev

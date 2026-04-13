@@ -24,12 +24,12 @@ interface AreaSummary {
 }
 
 // Current thresholds (prevent regression)
-// Aspirational targets from UAT: mermaid 95%, shared 60%, ui 80%, electron 70%, overall 70%
+// Aspirational targets from UAT: core 80%, mermaid 95%, shared 60%, ui 80%, overall 70%
 const THRESHOLDS: Record<string, number> = {
+  "packages/core": 0,      // Reporting only for now; tighten in a future slice.
   "packages/mermaid": 90,  // Currently ~95%, threshold prevents major regression
   "packages/shared": 20,   // Currently ~26%, low threshold allows incremental improvement
   "packages/ui": 50,       // Currently ~56%, threshold prevents major regression
-  "apps/electron": 0,      // Currently ~0%, renderer lib only - E2E coverage primary
 };
 
 const OVERALL_THRESHOLD = 40;  // Currently ~45%, threshold prevents major regression
@@ -38,7 +38,7 @@ async function main() {
   console.log("Running coverage analysis...\n");
 
   // Run coverage and capture output
-  const result = await $`bun test --coverage ./packages/ ./apps/electron/src/renderer/lib/ 2>&1`.text();
+  const result = await $`bun test --coverage ./packages/ 2>&1`.text();
 
   // Parse the coverage table (lines starting with file paths and containing |)
   const lines = result.split("\n");
@@ -83,10 +83,10 @@ async function main() {
 
   for (const entry of entries) {
     let area = "other";
-    if (entry.file.startsWith("packages/mermaid")) area = "packages/mermaid";
+    if (entry.file.startsWith("packages/core")) area = "packages/core";
+    else if (entry.file.startsWith("packages/mermaid")) area = "packages/mermaid";
     else if (entry.file.startsWith("packages/shared")) area = "packages/shared";
     else if (entry.file.startsWith("packages/ui")) area = "packages/ui";
-    else if (entry.file.startsWith("apps/electron")) area = "apps/electron";
 
     if (!areas.has(area)) areas.set(area, []);
     areas.get(area)!.push(entry);
