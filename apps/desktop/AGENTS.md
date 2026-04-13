@@ -1,6 +1,6 @@
 # AGENTS.md — Kata Desktop
 
-This is a **fresh Electron application** being built from scratch. It is NOT the legacy `apps/electron/` (Craft Agents) app. Do not reference, import from, or depend on `@craft-agent/*` packages.
+This is the shipping Kata Desktop Electron app. Keep it isolated from archived desktop code and legacy package scopes.
 
 ## What This Is
 
@@ -15,8 +15,8 @@ Desktop wraps the Kata CLI as a subprocess in JSON-RPC mode (`kata --mode rpc`).
 ## Hard Rules
 
 - **Never use `git push --no-verify` or `git commit --no-verify`.** If the gate fails, fix the problem.
-- **Never import from `@craft-agent/*` packages.** This is a clean break. Use `packages/ui/` for shared React components. Use pi-coding-agent via the CLI subprocess, not as an embedded library.
-- **No "Craft Agents" naming anywhere.** The product name is "Kata Desktop". The package scope should use `@kata/desktop` or similar.
+- **Never import from archived legacy packages.** Use the live `@kata/*` workspace packages for shared code and pi-coding-agent via the CLI subprocess, not as an embedded library.
+- **Use current Kata Desktop naming everywhere.** The product name is "Kata Desktop" and the active package scope should stay on `@kata/*` / `@kata-sh/*` as appropriate.
 - **Electron main process runs Node.js, not Bun.** Don't use `import.meta.dir` or Bun-only APIs in main process code. The CLI subprocess runs Bun, but the Electron process itself is Node.js.
 - **Desktop UI must stick to shadcn default components and patterns on Tailwind v4.** Do not introduce custom design systems, custom-styled primitives, or ad hoc component patterns when a shadcn default component/composition exists. For any substantial UI change — new screens, large layout changes, major visual refactors, or component-library decisions — read and follow `.agents/skills/shadcn/SKILL.md` first.
 
@@ -150,7 +150,7 @@ Reference: `apps/cli/src/resources/extensions/linear/` (Linear client), `apps/sy
 
 ## Reusable Assets from Legacy Desktop
 
-Borrow patterns and components selectively. **Import from shared packages**, not from `apps/electron/`:
+Borrow patterns and components selectively. **Import from shared packages**, not from the archived legacy desktop source tree:
 
 | Asset | Location | What to borrow |
 |-------|----------|---------------|
@@ -160,7 +160,7 @@ Borrow patterns and components selectively. **Import from shared packages**, not
 | Terminal output | `packages/ui/src/components/terminal/` | ANSI color rendering |
 | Mermaid diagrams | `packages/mermaid/` | Diagram → SVG |
 | Symphony client | `apps/cli/src/resources/extensions/symphony/client.ts` | HTTP/WS client (copy, not import) |
-| Subprocess lifecycle | `apps/electron/src/main/daemon-manager.ts` | Pattern reference for spawn/crash/restart |
+| Subprocess lifecycle | Legacy desktop archive repo | Pattern reference for spawn/crash/restart |
 
 ## Project Management
 
@@ -321,6 +321,6 @@ agent-browser --cdp 9333 screenshot /tmp/evidence.png
 
 The `validate` CI job runs `turbo run lint typecheck test --affected`, which executes the Vitest suite with coverage thresholds for `@kata/desktop`. Coverage failures block merge.
 
-E2E tests are not yet in CI (they require Electron + display or xvfb). The legacy `apps/electron` e2e-mocked CI job has been removed — `apps/desktop` supersedes it.
+E2E tests are not yet in CI (they require Electron + display or xvfb). The legacy desktop e2e-mocked CI job has been removed and `apps/desktop` is the only active desktop target.
 
 The pre-push git hook runs the same `turbo run lint typecheck test --affected` pipeline locally.

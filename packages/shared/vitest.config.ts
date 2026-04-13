@@ -8,11 +8,11 @@ const sharedSrcDir = fileURLToPath(new URL('./src/', import.meta.url))
 export default defineConfig({
   resolve: {
     alias: [
-      { find: '@craft-agent/core', replacement: `${coreSrcDir}index.ts` },
+      { find: '@kata/core', replacement: `${coreSrcDir}index.ts` },
       { find: /^@craft-agent\/core\/(.*)$/, replacement: `${coreSrcDir}$1` },
-      { find: '@craft-agent/mermaid', replacement: `${mermaidSrcDir}index.ts` },
+      { find: '@kata/mermaid', replacement: `${mermaidSrcDir}index.ts` },
       { find: /^@craft-agent\/mermaid\/(.*)$/, replacement: `${mermaidSrcDir}$1` },
-      { find: '@craft-agent/shared', replacement: `${sharedSrcDir}index.ts` },
+      { find: '@kata/shared', replacement: `${sharedSrcDir}index.ts` },
       { find: /^@craft-agent\/shared\/(.*)$/, replacement: `${sharedSrcDir}$1` },
     ],
   },

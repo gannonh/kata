@@ -1,5 +1,5 @@
 /**
- * @craft-agent/ui - Shared React UI components for Kata Agents
+ * @kata/ui - Shared React UI components for Kata
  *
  * This package provides platform-agnostic UI components that work in both:
  * - Electron desktop app (full interactive mode)

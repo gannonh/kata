@@ -6,9 +6,6 @@ out
 dist
 *.tgz
 .build
-apps/electron/release
-apps/electron/packages
-apps/electron/vendor
 
 # code coverage
 coverage
@@ -134,10 +131,6 @@ apps/symphony/superpowers/
 apps/cli/docs/plans/
 apps/cli/docs/specs/
 apps/cli/docs/superpowers/
-
-apps/electron/docs/plans/
-apps/electron/docs/specs/
-apps/electron/docs/superpowers/
 
 apps/context/docs/plans/
 apps/context/docs/specs/

@@ -11,11 +11,18 @@ export default defineConfig({
   base: './',
   plugins: [react(), tailwindcss()],
   resolve: {
-    alias: {
-      '@': path.join(rootDir, 'src/renderer'),
-      '@shared': path.join(rootDir, 'src/shared'),
-      '@kata-ui': path.join(rootDir, '../../packages/ui/src'),
-    },
+    alias: [
+      { find: '@', replacement: path.join(rootDir, 'src/renderer') },
+      { find: '@shared', replacement: path.join(rootDir, 'src/shared') },
+      { find: /^@kata\/core$/, replacement: path.join(rootDir, '../../packages/core/src/index.ts') },
+      { find: '@kata/core/', replacement: path.join(rootDir, '../../packages/core/src/') },
+      { find: /^@kata\/shared$/, replacement: path.join(rootDir, '../../packages/shared/src/index.ts') },
+      { find: '@kata/shared/', replacement: path.join(rootDir, '../../packages/shared/src/') },
+      { find: /^@kata\/ui$/, replacement: path.join(rootDir, '../../packages/ui/src/index.ts') },
+      { find: '@kata/ui/', replacement: path.join(rootDir, '../../packages/ui/src/') },
+      { find: /^@kata\/mermaid$/, replacement: path.join(rootDir, '../../packages/mermaid/src/index.ts') },
+      { find: '@kata/mermaid/', replacement: path.join(rootDir, '../../packages/mermaid/src/') },
+    ],
   },
   server: {
     host: '127.0.0.1',

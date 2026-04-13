@@ -1,2 +1,0 @@
-# Placeholder to preserve empty directory for live E2E tests
-# Live tests use real Claude API credentials and require ~/.kata-agents/credentials.enc

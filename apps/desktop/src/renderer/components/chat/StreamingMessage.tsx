@@ -1,4 +1,4 @@
-import { Markdown } from '@kata-ui/components/markdown/Markdown'
+import { Markdown } from '@kata/ui'
 import { Spinner } from '@/components/ui/spinner'
 
 interface StreamingMessageProps {

@@ -21,7 +21,7 @@ import type {
   StoredMessage,
   SessionKind,
   SubagentStatus,
-} from '@craft-agent/core/types';
+} from '@kata/core/types';
 
 /**
  * Todo state for sessions (user-controlled, never automatic)
@@ -55,10 +55,10 @@ export interface SessionTokenUsage {
 
 /**
  * Stored message format (simplified for persistence)
- * Re-exported from @craft-agent/core for convenience
+ * Re-exported from @kata/core for convenience
  */
-export type { StoredMessage } from '@craft-agent/core/types';
-export type { SessionKind, SubagentStatus } from '@craft-agent/core/types';
+export type { StoredMessage } from '@kata/core/types';
+export type { SessionKind, SubagentStatus } from '@kata/core/types';
 
 /**
  * Session configuration (persisted metadata)

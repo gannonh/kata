@@ -1,6 +1,6 @@
 # macOS Code Signing & Notarization
 
-This document explains how to build signed and notarized releases of Kata Agents for macOS distribution.
+This document explains how to build signed and notarized releases of Kata Desktop for macOS distribution.
 
 ## Prerequisites
 
@@ -25,7 +25,7 @@ security find-identity -v -p codesigning | grep "Developer ID"
 ### 3. App-Specific Password (for Notarization)
 1. Go to [account.apple.com](https://account.apple.com/account/manage)
 2. Sign-In and Security → App-Specific Passwords
-3. Generate a password named "Kata Agents Notarization"
+3. Generate a password named "Kata Desktop Notarization"
 4. Save the password (format: `xxxx-xxxx-xxxx-xxxx`)
 
 ## Environment Variables
@@ -52,9 +52,7 @@ export APPLE_APP_SPECIFIC_PASSWORD="xxxx-xxxx-xxxx-xxxx"
 
 ```bash
 source .secrets/signing.env
-cd apps/electron
-bun run build
-npx electron-builder --mac --arm64 --publish never
+pnpm --dir apps/desktop run desktop:dist:mac
 ```
 
 The build will:
@@ -67,22 +65,23 @@ The build will:
 For testing signatures without waiting for Apple:
 
 ```bash
+cd apps/desktop
 CSC_NAME="Your Name (TEAM_ID)" \
 CSC_IDENTITY_AUTO_DISCOVERY=false \
-npx electron-builder --mac --arm64 --publish never
+pnpm exec electron-builder --config electron-builder.yml --mac dmg --arm64 --publish never
 ```
 
 ## Verifying Signatures
 
 ```bash
 # Check code signature
-codesign --verify --deep --strict --verbose=2 "release/mac-arm64/Kata Agents.app"
+codesign --verify --deep --strict --verbose=2 "apps/desktop/release/mac-arm64/Kata Desktop.app"
 
 # Check notarization status
-spctl --assess --verbose=4 --type execute "release/mac-arm64/Kata Agents.app"
+spctl --assess --verbose=4 --type execute "apps/desktop/release/mac-arm64/Kata Desktop.app"
 
 # Check notarization ticket
-stapler validate "release/Kata-Agents-arm64.dmg"
+stapler validate "apps/desktop/release/Kata-Desktop-arm64.dmg"
 ```
 
 ## Manual Notarization
@@ -91,18 +90,18 @@ If automated notarization fails, you can notarize manually:
 
 ```bash
 # Zip the app
-cd release/mac-arm64
-ditto -c -k --keepParent "Kata Agents.app" "Kata-Agents-notarize.zip"
+cd apps/desktop/release/mac-arm64
+ditto -c -k --keepParent "Kata Desktop.app" "Kata-Desktop-notarize.zip"
 
 # Submit for notarization
-xcrun notarytool submit "Kata-Agents-notarize.zip" \
+xcrun notarytool submit "Kata-Desktop-notarize.zip" \
   --apple-id "$APPLE_ID" \
   --password "$APPLE_APP_SPECIFIC_PASSWORD" \
   --team-id "$APPLE_TEAM_ID" \
   --wait
 
 # Staple the ticket to the DMG
-xcrun stapler staple "../Kata-Agents-arm64.dmg"
+xcrun stapler staple "../Kata-Desktop-arm64.dmg"
 ```
 
 ## GitHub Actions (CI)
@@ -123,7 +122,7 @@ For CI builds, you need to:
 ### "App is damaged and can't be opened"
 The app isn't signed or notarized. Users can bypass with:
 ```bash
-xattr -cr "/Applications/Kata Agents.app"
+xattr -cr "/Applications/Kata Desktop.app"
 ```
 
 ### "Developer ID Application certificate not found"

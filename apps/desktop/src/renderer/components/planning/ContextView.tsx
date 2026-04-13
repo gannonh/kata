@@ -1,6 +1,6 @@
 import { ChevronDown } from 'lucide-react'
 import type { ParsedContext } from '@shared/types'
-import { Markdown } from '@kata-ui/components/markdown/Markdown'
+import { Markdown } from '@kata/ui'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { cn } from '@/lib/utils'
 

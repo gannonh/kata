@@ -7,10 +7,10 @@ const mermaidSrcDir = fileURLToPath(new URL('../mermaid/src/', import.meta.url))
 export default defineConfig({
   resolve: {
     alias: [
-      { find: '@craft-agent/core', replacement: `${coreSrcDir}index.ts` },
-      { find: /^@craft-agent\/core\/(.*)$/, replacement: `${coreSrcDir}$1` },
-      { find: '@craft-agent/mermaid', replacement: `${mermaidSrcDir}index.ts` },
-      { find: /^@craft-agent\/mermaid\/(.*)$/, replacement: `${mermaidSrcDir}$1` },
+      { find: '@kata/core', replacement: `${coreSrcDir}index.ts` },
+      { find: /^@kata\/core\/(.*)$/, replacement: `${coreSrcDir}$1` },
+      { find: '@kata/mermaid', replacement: `${mermaidSrcDir}index.ts` },
+      { find: /^@kata\/mermaid\/(.*)$/, replacement: `${mermaidSrcDir}$1` },
     ],
   },
   test: {

@@ -8,7 +8,7 @@ import type {
   ParsedRequirements,
   ParsedRoadmap,
 } from '@shared/types'
-import { Markdown } from '@kata-ui/components/markdown/Markdown'
+import { Markdown } from '@kata/ui'
 import {
   activePlanningArtifactAtom,
   applyPlanningArtifactAtom,

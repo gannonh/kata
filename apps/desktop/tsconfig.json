@@ -7,7 +7,14 @@
     "paths": {
       "@/*": ["src/renderer/*"],
       "@shared/*": ["src/shared/*"],
-      "@kata-ui/*": ["../../packages/ui/src/*"]
+      "@kata/core": ["../../packages/core/src/index.ts"],
+      "@kata/core/*": ["../../packages/core/src/*"],
+      "@kata/shared": ["../../packages/shared/src/index.ts"],
+      "@kata/shared/*": ["../../packages/shared/src/*"],
+      "@kata/ui": ["../../packages/ui/src/index.ts"],
+      "@kata/ui/*": ["../../packages/ui/src/*"],
+      "@kata/mermaid": ["../../packages/mermaid/src/index.ts"],
+      "@kata/mermaid/*": ["../../packages/mermaid/src/*"]
     }
   },
   "include": ["src/**/*", "vite.config.ts"],

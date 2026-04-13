@@ -2,9 +2,9 @@
 /**
  * Demo Environment Setup
  *
- * Creates a seeded demo config directory at ~/.kata-agents-demo/
+ * Creates a seeded demo config directory at ~/.kata-demo/
  * for demos and live E2E tests. Uses existing Claude OAuth credentials
- * from ~/.kata-agents/credentials.enc (hardcoded path, unaffected by KATA_CONFIG_DIR).
+ * from ~/.kata-cli/agent/auth.json (hardcoded path, unaffected by KATA_CONFIG_DIR).
  *
  * Usage:
  *   bun run scripts/setup-demo.ts          # Create if missing (no-op if exists)
@@ -14,21 +14,21 @@
 import { existsSync, mkdirSync, writeFileSync, rmSync, cpSync } from 'fs';
 import { join, resolve } from 'path';
 import { homedir } from 'os';
-import { createWorkspaceAtPath } from '../packages/shared/src/workspaces/storage.ts';
-import { toPortablePath } from '../packages/shared/src/utils/paths.ts';
-import type { StoredMessage } from '@craft-agent/core/types';
-import type { SessionHeader } from '../packages/shared/src/sessions/types.ts';
-import type { FolderSourceConfig } from '../packages/shared/src/sources/types.ts';
+import { createWorkspaceAtPath } from '@kata/shared/workspaces';
+import { toPortablePath } from '@kata/shared/utils';
+import type { StoredMessage } from '@kata/core/types';
+import type { SessionHeader } from '@kata/shared/sessions';
+import type { FolderSourceConfig } from '@kata/shared/sources/types';
 
 // ============================================================
 // Constants
 // ============================================================
 
 const HOME = homedir();
-const DEMO_DIR = join(HOME, '.kata-agents-demo');
-const CREDENTIALS_PATH = join(HOME, '.kata-agents', 'credentials.enc');
+const DEMO_DIR = join(HOME, '.kata-demo');
+const CREDENTIALS_PATH = join(HOME, '.kata-cli/agent', 'auth.json');
 const WORKSPACE_DIR = join(DEMO_DIR, 'workspaces', 'demo-workspace');
-const DEMO_REPO = join(HOME, 'kata-agents-demo-repo');
+const DEMO_REPO = join(HOME, 'kata-demo-repo');
 
 // ============================================================
 // CLI
@@ -58,7 +58,7 @@ if (reset && existsSync(DEMO_REPO)) {
 // ============================================================
 
 if (!existsSync(CREDENTIALS_PATH)) {
-  console.warn('WARNING: ~/.kata-agents/credentials.enc not found.');
+  console.warn('WARNING: ~/.kata-cli/agent/auth.json not found.');
   console.warn('Demo will launch without auth (onboarding screen will appear).');
 }
 
@@ -92,7 +92,7 @@ writeFileSync(join(DEMO_DIR, 'config.json'), JSON.stringify(globalConfig, null, 
 // ============================================================
 
 const workspaceConfig = createWorkspaceAtPath(WORKSPACE_DIR, 'Demo Workspace', {
-  workingDirectory: join(HOME, 'kata-agents-demo-repo'),
+  workingDirectory: join(HOME, 'kata-demo-repo'),
   enabledSourceSlugs: ['filesystem'],
   permissionMode: 'ask',
 });
@@ -230,7 +230,7 @@ const session1Messages: StoredMessage[] = [
     timestamp: ts1 + 2000,
     toolName: 'Read',
     toolUseId: toolId1,
-    toolInput: { file_path: '~/kata-agents-demo-repo/src/index.ts' },
+    toolInput: { file_path: '~/kata-demo-repo/src/index.ts' },
     toolResult: 'export function authenticate(token: string) {\n  // TODO: add rate limiting\n  return verifyJWT(token);\n}\n',
     toolStatus: 'completed',
     toolDuration: 120,
@@ -265,7 +265,7 @@ const session1Messages: StoredMessage[] = [
     toolName: 'Edit',
     toolUseId: toolUseId(),
     toolInput: {
-      file_path: '~/kata-agents-demo-repo/src/index.ts',
+      file_path: '~/kata-demo-repo/src/index.ts',
       old_string: 'export function authenticate',
       new_string: 'const rateLimiter = new Map();\n\nexport function authenticate',
     },
@@ -389,7 +389,7 @@ const session3Messages: StoredMessage[] = [
     timestamp: ts3 + 4000,
     toolName: 'Read',
     toolUseId: toolId3b,
-    toolInput: { file_path: '~/kata-agents-demo-repo/src/utils.ts' },
+    toolInput: { file_path: '~/kata-demo-repo/src/utils.ts' },
     toolResult: 'const connections = new Map<string, WebSocket>();\nconst subscriptions = new Map<string, Set<string>>();\n\nexport function addConnection(id: string, ws: WebSocket) {\n  connections.set(id, ws);\n}\n',
     toolStatus: 'completed',
     toolDuration: 95,
@@ -424,7 +424,7 @@ const session3Messages: StoredMessage[] = [
     toolName: 'Edit',
     toolUseId: toolId3c,
     toolInput: {
-      file_path: '~/kata-agents-demo-repo/src/utils.ts',
+      file_path: '~/kata-demo-repo/src/utils.ts',
       old_string: 'console.log("closed")',
       new_string: 'removeConnection(id)',
     },
@@ -501,7 +501,7 @@ writeFileSync(
   join(sourcesDir, 'guide.md'),
   `# Filesystem Source
 
-Provides read/write access to the demo project repository at \`~/kata-agents-demo-repo\`.
+Provides read/write access to the demo project repository at \`~/kata-demo-repo\`.
 
 ## Available Operations
 

@@ -1,22 +1,15 @@
-#!/bin/bash
-# Launch Kata Agents with an isolated demo configuration.
-# Sets up the demo environment and repo if they don't exist,
-# then launches the app with KATA_CONFIG_DIR pointing to the demo directory.
-#
-# Your normal ~/.kata-agents/ is completely untouched.
-
-set -e
+#!/usr/bin/env bash
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-DEMO_CONFIG_DIR="$HOME/.kata-agents-demo"
+DEMO_CONFIG_DIR="${KATA_CONFIG_DIR:-$HOME/.kata-demo}"
 
-echo "Kata Agents Demo"
+echo "Kata Desktop Demo"
 echo "  Demo config: $DEMO_CONFIG_DIR"
-echo "  Your config: ~/.kata-agents (untouched)"
+echo "  Source repo:  $PROJECT_ROOT"
 echo ""
 
-# Seed demo environment (no-op if already exists)
 cd "$PROJECT_ROOT"
 bun run scripts/setup-demo.ts
 bash scripts/create-demo-repo.sh
@@ -24,17 +17,16 @@ bash scripts/create-demo-repo.sh
 echo ""
 echo "Launching..."
 
-# Check for --built flag to use packaged app
-if [ "$1" = "--built" ]; then
-  DEMO_APP_PATH="$PROJECT_ROOT/apps/electron/release/extracted-demo/Kata Agents.app"
-  if [ ! -d "$DEMO_APP_PATH" ]; then
-    echo "ERROR: Built app not found at $DEMO_APP_PATH"
-    echo "Build first with: cd apps/electron && bun run dist:mac"
+if [[ "${1:-}" == "--built" ]]; then
+  DEMO_APP_PATH="$(find "$PROJECT_ROOT/apps/desktop/release" -maxdepth 2 -name 'Kata Desktop.app' -print -quit 2>/dev/null || true)"
+  if [[ -z "$DEMO_APP_PATH" || ! -d "$DEMO_APP_PATH" ]]; then
+    echo "ERROR: Built app not found under apps/desktop/release"
+    echo "Build first with: pnpm --dir apps/desktop run desktop:dist:mac"
     exit 1
   fi
+
   KATA_CONFIG_DIR="$DEMO_CONFIG_DIR" \
-    "$DEMO_APP_PATH/Contents/MacOS/Kata Agents" &
+    open "$DEMO_APP_PATH" --new --args --user-data-dir="$HOME/.kata-demo-profile"
 else
-  # Dev mode (default)
-  KATA_CONFIG_DIR="$DEMO_CONFIG_DIR" bun run electron:dev
+  KATA_CONFIG_DIR="$DEMO_CONFIG_DIR" pnpm --dir apps/desktop run desktop:dev
 fi

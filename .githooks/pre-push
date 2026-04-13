@@ -29,10 +29,10 @@ if ! pnpm exec turbo run lint typecheck test \
   --filter=@kata-sh/cli \
   --filter=@kata/context \
   --filter=@kata-sh/orc \
-  --filter=@craft-agent/core \
-  --filter=@craft-agent/shared \
-  --filter=@craft-agent/ui \
-  --filter=@craft-agent/mermaid; then
+  --filter=@kata/core \
+  --filter=@kata/shared \
+  --filter=@kata/ui \
+  --filter=@kata/mermaid; then
   echo ""
   echo "Pre-push validation failed. Fix the issues above before pushing."
   exit 1

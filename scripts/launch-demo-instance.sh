@@ -1,11 +1,22 @@
-#!/bin/bash
-# Launch a demo instance of Kata Agents with a separate workspace for screenshots/videos
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Use a dedicated demo workspace directory
-DEMO_WORKSPACE="$HOME/.kata-agents-demo"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+DEMO_PROFILE="${DEMO_PROFILE:-$HOME/.kata-demo-instance}"
+DEV_SERVER_URL="${VITE_DEV_SERVER_URL:-http://127.0.0.1:5174}"
 
-# Launch Electron with custom user data directory
-/Users/gannonhall/dev/kata/kata-agents/node_modules/.bin/electron \
-  /Users/gannonhall/dev/kata/kata-agents/apps/electron \
-  --user-data-dir="$DEMO_WORKSPACE" \
+cat <<EOF
+Launching a dedicated Kata Desktop demo instance.
+- user-data-dir: $DEMO_PROFILE
+- renderer URL:   $DEV_SERVER_URL
+
+Expected prep:
+  1. pnpm --dir apps/desktop run dev:renderer
+  2. pnpm --dir apps/desktop run build:main
+  3. pnpm --dir apps/desktop run build:preload
+EOF
+
+VITE_DEV_SERVER_URL="$DEV_SERVER_URL" pnpm exec electron "$PROJECT_ROOT/apps/desktop" \
+  --user-data-dir="$DEMO_PROFILE" \
   --enable-logging

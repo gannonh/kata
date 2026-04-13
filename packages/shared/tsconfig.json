@@ -23,11 +23,11 @@
     "noPropertyAccessFromIndexSignature": false,
     "baseUrl": ".",
     "paths": {
-      "@craft-agent/core": ["../core/src/index.ts"],
-      "@craft-agent/core/*": ["../core/src/*"],
-      "@craft-agent/mermaid": ["../mermaid/src/index.ts"],
-      "@craft-agent/shared": ["./src/index.ts"],
-      "@craft-agent/shared/*": ["./src/*"]
+      "@kata/core": ["../core/src/index.ts"],
+      "@kata/core/*": ["../core/src/*"],
+      "@kata/mermaid": ["../mermaid/src/index.ts"],
+      "@kata/shared": ["./src/index.ts"],
+      "@kata/shared/*": ["./src/*"]
     }
   },
   "include": ["src/**/*"],
