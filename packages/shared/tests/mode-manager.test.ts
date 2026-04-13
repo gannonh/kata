@@ -4,7 +4,7 @@
  * These tests verify that dangerous shell commands are blocked in Safe (Explore) mode
  * while legitimate read-only commands are allowed.
  */
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect } from 'vitest';
 import {
   hasDangerousShellOperators,
   hasDangerousSubstitution,

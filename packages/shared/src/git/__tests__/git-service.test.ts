@@ -7,7 +7,7 @@
  * - Error handling and graceful degradation
  * - Detached HEAD state detection
  */
-import { describe, it, expect, mock, beforeEach, afterEach } from 'bun:test'
+import { describe, it, expect, afterEach } from 'vitest'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { mkdirSync, rmSync, writeFileSync } from 'fs'

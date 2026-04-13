@@ -2,7 +2,7 @@
  * Tests for content-based config validators used by PreToolUse hook.
  * These validators check file content in memory before it reaches disk.
  */
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect } from 'vitest';
 import {
   validateSourceConfigContent,
   validateSkillContent,
