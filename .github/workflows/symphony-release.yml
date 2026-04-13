@@ -149,7 +149,7 @@ jobs:
           fi
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: symphony-v${{ needs.check-version.outputs.version }}
           name: Symphony v${{ needs.check-version.outputs.version }}
