@@ -1,6 +1,6 @@
 {
   "name": "Legacy desktop archive placeholder",
-  "description": "The active monorepo no longer tracks executable PRD tasks for the archived desktop and viewer workspaces. Historical requirements now live in the external legacy archive repo referenced by docs/archive/M008-S04-ARCHIVE-HANDOFF.md.",
+  "description": "The active monorepo no longer tracks executable PRD tasks for the archived desktop and viewer workspaces. Historical requirements now live in the private legacy archive documented in docs/archive/M008-S04-ARCHIVE-HANDOFF.md.",
   "status": "archived",
   "userStories": []
 }
