@@ -5,6 +5,18 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DESKTOP_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 ROOT_DIR="$(cd "$DESKTOP_DIR/../.." && pwd)"
 
+require_command() {
+  local command_name="$1"
+  local message="$2"
+
+  if ! command -v "$command_name" >/dev/null 2>&1; then
+    echo "ERROR: $message" >&2
+    exit 1
+  fi
+}
+
+require_command pnpm "pnpm is required to bundle the CLI runtime"
+
 VENDOR_DIR="$DESKTOP_DIR/vendor"
 KATA_RUNTIME_DIR="$VENDOR_DIR/kata-runtime"
 KATA_LAUNCHER="$VENDOR_DIR/kata"
@@ -20,19 +32,11 @@ mkdir -p "$KATA_RUNTIME_DIR/src"
 
 if [ ! -d "$ROOT_DIR/node_modules" ]; then
   log "installing monorepo dependencies"
-  if command -v bun >/dev/null 2>&1; then
-    (cd "$ROOT_DIR" && bun install)
-  else
-    (cd "$ROOT_DIR" && npm install --legacy-peer-deps --no-audit --no-fund)
-  fi
+  (cd "$ROOT_DIR" && pnpm install --frozen-lockfile)
 fi
 
 log "building local @kata-sh/cli runtime"
-if command -v bun >/dev/null 2>&1; then
-  (cd "$ROOT_DIR/apps/cli" && bun run build)
-else
-  (cd "$ROOT_DIR/apps/cli" && npm run build)
-fi
+pnpm --dir "$ROOT_DIR/apps/cli" run build
 
 if [ ! -f "$ROOT_DIR/apps/cli/dist/loader.js" ]; then
   echo "ERROR: expected apps/cli/dist/loader.js after build" >&2
@@ -52,7 +56,7 @@ log "installing production dependencies for bundled runtime"
 )
 
 log "writing launcher"
-cat > "$KATA_LAUNCHER" <<'EOF'
+cat > "$KATA_LAUNCHER" <<'LAUNCHER'
 #!/usr/bin/env sh
 set -eu
 
@@ -61,16 +65,16 @@ ELECTRON_BIN="$SCRIPT_DIR/../MacOS/Kata Desktop"
 
 export ELECTRON_RUN_AS_NODE=1
 exec "$ELECTRON_BIN" "$SCRIPT_DIR/kata-runtime/dist/loader.js" "$@"
-EOF
+LAUNCHER
 
-cat > "$KATA_CMD_LAUNCHER" <<'EOF'
+cat > "$KATA_CMD_LAUNCHER" <<'WINDOWS_LAUNCHER'
 @echo off
 setlocal
 set "SCRIPT_DIR=%~dp0"
 set "ELECTRON_RUN_AS_NODE=1"
 "%SCRIPT_DIR%..\Kata Desktop.exe" "%SCRIPT_DIR%kata-runtime\dist\loader.js" %*
 endlocal
-EOF
+WINDOWS_LAUNCHER
 
 chmod +x "$KATA_LAUNCHER"
 

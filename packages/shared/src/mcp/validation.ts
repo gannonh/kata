@@ -24,7 +24,7 @@ export interface InvalidProperty {
 export interface McpValidationResult {
   success: boolean;
   error?: string;
-  errorType?: 'failed' | 'needs-auth' | 'pending' | 'invalid-schema' | 'unknown';
+  errorType?: 'failed' | 'needs-auth' | 'pending' | 'disabled' | 'invalid-schema' | 'unknown';
   /** Typed error for API/billing failures - display as ErrorBanner */
   typedError?: AgentError;
   serverInfo?: {
@@ -560,6 +560,8 @@ export function getValidationErrorMessage(
       return 'Authentication expired or was revoked.';
     case 'pending':
       return 'Connection is still pending - try again.';
+    case 'disabled':
+      return 'Server is disabled in MCP settings.';
     case 'invalid-schema':
       return 'Server has tools with invalid property names.';
     case 'unknown':

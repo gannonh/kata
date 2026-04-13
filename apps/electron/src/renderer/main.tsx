@@ -29,20 +29,33 @@ const IGNORED_CONSOLE_PATTERNS = [
 // giving Sentry the same rich context visible in DevTools without needing sourcemaps.
 //
 // NOTE: Source map upload is intentionally disabled — see main/index.ts for details.
-sentryInit(
+// @sentry/electron and @sentry/react can temporarily resolve different @sentry/core patch versions.
+// Use a narrow bridge signature so runtime behavior remains unchanged while avoiding cross-package type drift.
+const sentryInitBridge = sentryInit as unknown as (
+  options: Record<string, unknown>,
+  reactInit?: (...args: unknown[]) => unknown,
+) => void
+
+sentryInitBridge(
   {
     integrations: [captureConsoleIntegration({ levels: ['warn', 'error'] })],
 
-    beforeSend(event) {
+    beforeSend(event: unknown) {
+      const sentryEvent = event as {
+        message?: string
+        exception?: { values?: Array<{ value?: string }> }
+        breadcrumbs?: Array<{ data?: Record<string, unknown> }>
+      }
+
       // Drop events matching known-harmless console patterns to avoid Sentry quota waste
-      const message = event.message || event.exception?.values?.[0]?.value || ''
+      const message = sentryEvent.message || sentryEvent.exception?.values?.[0]?.value || ''
       if (IGNORED_CONSOLE_PATTERNS.some((pattern) => message.includes(pattern))) {
         return null
       }
 
       // Scrub sensitive data from breadcrumbs (mirrors main process scrubbing in main/index.ts)
-      if (event.breadcrumbs) {
-        for (const breadcrumb of event.breadcrumbs) {
+      if (sentryEvent.breadcrumbs) {
+        for (const breadcrumb of sentryEvent.breadcrumbs) {
           if (breadcrumb.data) {
             for (const key of Object.keys(breadcrumb.data)) {
               const lowerKey = key.toLowerCase()
@@ -61,10 +74,10 @@ sentryInit(
         }
       }
 
-      return event
+      return sentryEvent
     },
   },
-  Sentry.init,
+  Sentry.init as unknown as (...args: unknown[]) => unknown,
 )
 
 /**

@@ -1,0 +1,7 @@
+packages:
+  - packages/*
+  - apps/*
+  - '!apps/online-docs'
+onlyBuiltDependencies:
+  - better-sqlite3
+  - tree-sitter

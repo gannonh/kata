@@ -1,9 +1,9 @@
-#!/usr/bin/env bun
+#!/usr/bin/env -S node --import tsx
 /**
  * Debug script to print the full Kata Agents system prompt with annotations.
  * Shows both the static system prompt and dynamic user message context components.
  *
- * Run with: bun run print:system-prompt
+ * Run with: pnpm run print:system-prompt
  */
 
 import { getSystemPrompt, getDateTimeContext, getWorkingDirectoryContext, formatGitContext } from './system.ts';

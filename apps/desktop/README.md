@@ -7,7 +7,7 @@ Kata Desktop is a fresh Electron shell for the Kata CLI runtime (`kata --mode rp
 1. Build a distributable:
 
 ```bash
-bun run desktop:dist:mac
+pnpm run desktop:dist:mac
 ```
 
 2. Open `apps/desktop/release/Kata Desktop-*.dmg`.
@@ -20,20 +20,20 @@ bun run desktop:dist:mac
 From repo root:
 
 ```bash
-bun run desktop:dev
+pnpm run desktop:dev
 ```
 
 From `apps/desktop` directly:
 
 ```bash
-bun run desktop:dev
+pnpm run desktop:dev
 ```
 
 ### Useful commands
 
 ```bash
-bun run desktop:build      # build main/preload/renderer
-bun run desktop:dist:mac   # build + bundle kata runtime + package dmg
+pnpm run desktop:build      # build main/preload/renderer
+pnpm run desktop:dist:mac   # build + bundle kata runtime + package dmg
 ```
 
 ## Build and distribution
@@ -93,7 +93,7 @@ Build the full distributable (bundles CLI + Symphony + Bun into a self-contained
 
 ```bash
 cd apps/desktop
-bun run desktop:dist:mac
+pnpm run desktop:dist:mac
 ```
 
 This runs the full pipeline: `bundle-cli.sh` (builds CLI runtime + Symphony binary into `vendor/`) → `build` (esbuild + Vite) → `prepare-builder-app.sh` (stages `.bundle-app/`) → `package-mac.sh` (electron-packager + DMG).
