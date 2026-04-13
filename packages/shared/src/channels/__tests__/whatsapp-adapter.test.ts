@@ -265,22 +265,33 @@ describe('WhatsAppChannelAdapter', () => {
   })
 
   test('connection.update close with non-logout triggers reconnect attempt', async () => {
-    adapter.configure('/tmp/test-auth')
-    await adapter.start(makeConfig(), () => {})
+    vi.useFakeTimers()
 
-    fireEvent('connection.update', { connection: 'open' })
-    expect(adapter.isHealthy()).toBe(true)
+    try {
+      adapter.configure('/tmp/test-auth')
+      await adapter.start(makeConfig(), () => {})
 
-    const error = new Error('connection lost') as Error & { output?: { statusCode: number } }
-    error.output = { statusCode: 500 }
-    fireEvent('connection.update', {
-      connection: 'close',
-      lastDisconnect: { error },
-    })
+      fireEvent('connection.update', { connection: 'open' })
+      expect(adapter.isHealthy()).toBe(true)
 
-    expect(adapter.isHealthy()).toBe(false)
-    expect(adapter.getLastError()).toBe('connection lost')
-    expect(whatsappMocks.end).toHaveBeenCalled()
+      const socketEnd = whatsappMocks.end
+      const error = new Error('connection lost') as Error & { output?: { statusCode: number } }
+      error.output = { statusCode: 500 }
+      fireEvent('connection.update', {
+        connection: 'close',
+        lastDisconnect: { error },
+      })
+
+      expect(socketEnd).toHaveBeenCalledTimes(1)
+
+      await vi.runOnlyPendingTimersAsync()
+
+      expect(adapter.isHealthy()).toBe(false)
+      expect(adapter.getLastError()).toBe('connection lost')
+      expect(whatsappMocks.eventHandlers.has('connection.update')).toBe(true)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   test('connection.update handler invokes QR callback', async () => {
