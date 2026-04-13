@@ -6,7 +6,7 @@
  * - Setup needs derivation from auth state
  * - Migration detection for legacy CLI tokens
  */
-import { describe, it, expect, beforeEach, mock } from 'bun:test';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   getSetupNeeds,
   performTokenRefresh,
@@ -194,7 +194,7 @@ describe('performTokenRefresh', () => {
   describe('successful refresh', () => {
     it('should return accessToken on successful refresh', async () => {
       // Mock the refreshClaudeToken import
-      const mockRefresh = mock(async () => ({
+      const mockRefresh = vi.fn(async () => ({
         accessToken: 'new-access-token',
         refreshToken: 'new-refresh-token',
         expiresAt: Date.now() + 3600000,
