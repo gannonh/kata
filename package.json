@@ -72,7 +72,7 @@
     "tar": "^7.5.2",
     "turbo": "^2.8.17",
     "tsx": "^4.20.6",
-    "typescript": "^5.0.0",
+    "typescript": "^6.0.2",
     "typescript-eslint": "^8.57.1",
     "vite": "^8.0.2"
   },
