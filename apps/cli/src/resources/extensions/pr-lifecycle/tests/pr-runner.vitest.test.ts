@@ -519,7 +519,7 @@ describe("runCreatePr — pre-flight failures", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.phase).toBe("artifact-error");
-      expect(result.error).toContain("Missing required slice issue description");
+      expect(result.error).toContain("No Linear configuration provided and no issue body passed");
     }
   });
 });
