@@ -7,9 +7,52 @@
  */
 
 import { spawn, type ChildProcess } from 'child_process';
+import { existsSync, readFileSync, rmSync } from 'fs';
+import { join } from 'path';
 import type { DaemonCommand, DaemonEvent } from '@craft-agent/core/types';
-import { createLineParser } from '@craft-agent/shared/daemon/ipc';
-import { cleanupStaleDaemon } from '@craft-agent/shared/daemon/pid';
+
+function createLineParser(onLine: (line: string) => void): (chunk: string) => void {
+  let buffer = '';
+  return (chunk: string) => {
+    buffer += chunk;
+    let newlineIndex = buffer.indexOf('\n');
+    while (newlineIndex !== -1) {
+      const line = buffer.slice(0, newlineIndex).trim();
+      buffer = buffer.slice(newlineIndex + 1);
+      if (line.length > 0) {
+        onLine(line);
+      }
+      newlineIndex = buffer.indexOf('\n');
+    }
+  };
+}
+
+function cleanupStaleDaemon(configDir: string): void {
+  const pidFile = join(configDir, 'daemon.pid');
+  if (!existsSync(pidFile)) {
+    return;
+  }
+
+  try {
+    const rawPid = readFileSync(pidFile, 'utf8').trim();
+    const pid = Number.parseInt(rawPid, 10);
+    if (!Number.isInteger(pid) || pid <= 0) {
+      rmSync(pidFile, { force: true });
+      return;
+    }
+
+    try {
+      process.kill(pid, 0);
+      // Process is still alive; keep pid file.
+      return;
+    } catch {
+      // Process no longer exists; remove stale pid file.
+      rmSync(pidFile, { force: true });
+    }
+  } catch {
+    rmSync(pidFile, { force: true });
+  }
+}
 
 /** Manager-level state (superset of daemon status) */
 export type DaemonManagerState = 'stopped' | 'starting' | 'running' | 'stopping' | 'error' | 'paused';
