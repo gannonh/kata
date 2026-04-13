@@ -20,7 +20,7 @@
     "lint": "eslint src/ --max-warnings=30"
   },
   "dependencies": {
-    "better-sqlite3": "^12.8.0",
+    "better-sqlite3": "^12.9.0",
     "chokidar": "^5.0.0",
     "commander": "^14.0.3",
     "sqlite-vec": "^0.1.7",
