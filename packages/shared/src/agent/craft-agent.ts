@@ -2439,17 +2439,6 @@ Please continue the conversation naturally from where we left off.
         canRetry: true,
         retryDelayMs: 2000,
       },
-      'max_output_tokens': {
-        code: 'unknown_error',
-        title: 'Output Limit Reached',
-        message: 'The model hit its maximum output token limit before finishing.',
-        details: ['Retry with a shorter prompt or ask for a more concise response'],
-        actions: [
-          { key: 'r', label: 'Retry', action: 'retry' },
-        ],
-        canRetry: true,
-        retryDelayMs: 1000,
-      },
       'unknown': {
         code: 'unknown_error',
         title: 'Unknown Error',
