@@ -172,6 +172,11 @@ impl OrchestratorPort for LinearOrchestratorPort {
         Ok(issues.into_iter().next())
     }
 
+    fn create_issue_comment(&mut self, issue_id: &str, body: &str) -> error::Result<()> {
+        let adapter = self.tracker_adapter();
+        self.block_on(adapter.create_comment(issue_id, body))
+    }
+
     fn update_issue_state(&mut self, issue_id: &str, state_name: &str) -> error::Result<()> {
         let adapter = self.tracker_adapter();
         self.block_on(adapter.update_issue_state(issue_id, state_name))
@@ -370,6 +375,11 @@ impl OrchestratorPort for GithubOrchestratorPort {
         let issue_ids = vec![issue_id.to_string()];
         let issues = Self::block_on(adapter.fetch_issue_states_by_ids(&issue_ids))?;
         Ok(issues.into_iter().next())
+    }
+
+    fn create_issue_comment(&mut self, issue_id: &str, body: &str) -> error::Result<()> {
+        let adapter = self.tracker_adapter()?;
+        Self::block_on(adapter.create_comment(issue_id, body))
     }
 
     fn update_issue_state(&mut self, issue_id: &str, state_name: &str) -> error::Result<()> {

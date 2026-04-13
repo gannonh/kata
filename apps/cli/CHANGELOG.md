@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.15.6
+
+### Bug Fixes
+
+- **Use slice issue descriptions for PR composition in Linear mode** — `kata_create_pr` now reads the slice plan from the slice issue description, matching the current Kata/Linear contract instead of requiring a legacy `S01-PLAN` document.
+- **Remove stale PR creation guidance that referenced plan documents** — the PR lifecycle tool metadata and prompt copy now describe the real source of truth: slice issue descriptions plus optional summary artifacts.
+
 ## 0.15.5
 
 ### Bug Fixes

@@ -9,11 +9,8 @@ export default defineConfig({
   resolve: {
     alias: [
       { find: '@kata/core', replacement: `${coreSrcDir}index.ts` },
-      { find: /^@craft-agent\/core\/(.*)$/, replacement: `${coreSrcDir}$1` },
       { find: '@kata/mermaid', replacement: `${mermaidSrcDir}index.ts` },
-      { find: /^@craft-agent\/mermaid\/(.*)$/, replacement: `${mermaidSrcDir}$1` },
       { find: '@kata/shared', replacement: `${sharedSrcDir}index.ts` },
-      { find: /^@craft-agent\/shared\/(.*)$/, replacement: `${sharedSrcDir}$1` },
     ],
   },
   test: {

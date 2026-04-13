@@ -31,6 +31,14 @@ vi.mock("../../linear/linear-client.js", () => ({
           },
         };
       }
+      // slice plan source of truth: issue description
+      if (query.includes("issue(id:") && query.includes("description")) {
+        return {
+          issue: {
+            description: PLAN_CONTENT,
+          },
+        };
+      }
       // postPrLinkComment: mutation for creating comment
       if (query.includes("commentCreate")) {
         return { commentCreate: { success: true } };
@@ -38,17 +46,12 @@ vi.mock("../../linear/linear-client.js", () => ({
       return {};
     }
     async listDocuments(opts?: { projectId?: string; issueId?: string; title?: string; first?: number }) {
-      // loadLinearPrDocuments queries for PLAN and SUMMARY docs
-      if (opts?.title?.endsWith("-PLAN")) {
-        return [{ title: opts.title, content: PLAN_CONTENT, updatedAt: "2026-01-01T00:00:00Z" }];
-      }
       if (opts?.title?.endsWith("-SUMMARY")) {
         return [{ title: opts.title, content: "# Summary\n\n**Done.**", updatedAt: "2026-01-01T00:00:00Z" }];
       }
       if (opts?.issueId) {
-        // Issue-scoped query returns both docs
+        // Issue-scoped query returns optional summary only; plan comes from issue description.
         return [
-          { title: "S01-PLAN", content: PLAN_CONTENT, updatedAt: "2026-01-01T00:00:00Z" },
           { title: "S01-SUMMARY", content: "# Summary\n\n**Done.**", updatedAt: "2026-01-01T00:00:00Z" },
         ];
       }
@@ -501,7 +504,7 @@ describe("runCreatePr — pre-flight failures", () => {
     }
   });
 
-  it("returns artifact-error when PLAN document is missing", async () => {
+  it("returns artifact-error when slice issue description is unavailable", async () => {
     const rt = createMockRuntime({
       branch: "kata/apps-cli/M001/S01",
     });
@@ -516,7 +519,7 @@ describe("runCreatePr — pre-flight failures", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.phase).toBe("artifact-error");
-      expect(result.error).toContain("Missing required Linear artifact");
+      expect(result.error).toContain("No Linear configuration provided and no issue body passed");
     }
   });
 });

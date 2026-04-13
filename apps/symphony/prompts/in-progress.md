@@ -105,10 +105,11 @@ This is a standalone ticket. Read the description, plan your approach, implement
    - `git ls-remote --exit-code --heads origin "$(git branch --show-current)"`
    - `gh pr view --json url,state,headRefName,baseRefName`
    - Confirm PR is `OPEN` and `headRefName` equals current branch.
+   - If any of these checks fail, **do not** move the issue to `Agent Review` yet.
 
 ## State transition
 
-Move issue to `Agent Review`. The orchestrator will dispatch a new session to run the PR feedback sweep.
+Move issue to `Agent Review` **only after** the publish proofs above succeed and confirm an open PR exists for the current branch. The orchestrator will dispatch a new session to run the PR feedback sweep.
 
 Do **not** move to `Human Review` — that skips the feedback loop.
 
@@ -116,4 +117,4 @@ Do **not** move to `Human Review` — that skips the feedback loop.
 
 - Do not edit the issue body for planning/progress; use only the workpad comment.
 - Temporary proof edits for local verification must be reverted before commit.
-- If blocked by missing required auth/tools, capture blocker in workpad and move to `Agent Review` with a blocker note.
+- If required auth/tools are missing or PR creation/proof fails, capture the blocker in the workpad and stay in `In Progress` (or move to a true blocked state if configured). Do **not** use `Agent Review` as a holding state when no open PR exists.

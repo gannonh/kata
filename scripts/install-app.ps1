@@ -1,8 +1,8 @@
 # Kata Agents Windows Installer
 # Downloads and installs from GitHub Releases
 #
-# NOTE: This script was adapted from the original Craft Agents installer.
-# It now downloads from GitHub Releases instead of agents.craft.do.
+# NOTE: This script was adapted from the legacy installer flow.
+# It now downloads from GitHub Releases.
 
 $ErrorActionPreference = "Stop"
 

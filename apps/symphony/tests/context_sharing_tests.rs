@@ -36,6 +36,10 @@ impl OrchestratorPort for NoopPort {
     fn update_issue_state(&mut self, _issue_id: &str, _state_name: &str) -> Result<()> {
         Ok(())
     }
+
+    fn create_issue_comment(&mut self, _issue_id: &str, _body: &str) -> Result<()> {
+        Ok(())
+    }
 }
 
 fn orchestrator_config() -> ServiceConfig {
