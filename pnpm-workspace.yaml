@@ -3,5 +3,17 @@ packages:
   - apps/*
   - '!apps/online-docs'
 onlyBuiltDependencies:
+  - '@sentry/cli'
+  - '@whiskeysockets/baileys'
   - better-sqlite3
+  - electron
+  - electron-winstaller
+  - esbuild
+  - koffi
+  - msw
+  - protobufjs
+  - sharp
   - tree-sitter
+  - tree-sitter-javascript
+  - tree-sitter-python
+  - tree-sitter-typescript

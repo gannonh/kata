@@ -1,6 +1,6 @@
 # kata-mono
 
-Bun monorepo (bun 1.3.8) with Turborepo orchestration. Rust app (Symphony) included.
+pnpm monorepo (`pnpm@10.6.2`) with Turborepo orchestration. Rust app (Symphony) included.
 
 ## App Context
 
@@ -15,19 +15,18 @@ This mono-repo is comprised of the following primary applications:
 ## Commands
 
 ```bash
-bun install                      # Install all workspace dependencies
-bun run validate                 # Lint + typecheck + test (all packages, via Turborepo)
-bun run validate:affected        # Same but only changed packages
-bun run lint                     # ESLint across all packages
-bun run typecheck                # TypeScript across all packages
-bun run test                     # Test runner across all packages
-bun run test:affected            # Only changed packages
-bun run test:watch               # Watch mode
-bun run test:coverage            # Coverage report
-cd apps/desktop && bun run dev:renderer  # Desktop renderer dev mode
-cd apps/desktop && bun run build         # Build Desktop main + preload + renderer
-cd apps/desktop && bun run test:e2e      # Desktop Playwright E2E
-bun run print:system-prompt      # Debug: print the agent system prompt
+pnpm install                     # Install all workspace dependencies
+pnpm run validate                # Lint + typecheck + test (all packages, via Turborepo)
+pnpm run validate:affected       # Same but only changed packages
+pnpm run lint                    # ESLint across all packages
+pnpm run typecheck               # TypeScript across all packages
+pnpm run test                    # Test runner across all packages
+pnpm run test:watch              # Watch mode
+pnpm run test:coverage           # Coverage summary
+pnpm run desktop:dev             # Desktop full dev mode from repo root
+pnpm run desktop:build           # Build Desktop main + preload + renderer
+pnpm run test:e2e                # Desktop Playwright E2E
+pnpm run print:system-prompt     # Debug: print the agent system prompt
 ```
 
 ## Structure
@@ -64,15 +63,17 @@ Inputs include `.ts`, `.tsx`, `.js`, `.cjs`, `.mjs`, `.rs`, and `Cargo.toml` so 
 
 ## Testing
 
-Turborepo orchestrates all test runners via `turbo run test`. Each package owns its runner:
+Turborepo orchestrates package-local test scripts via `turbo run test`.
 
-| Package    | Runner     | Why                                                            |
-| ---------- | ---------- | -------------------------------------------------------------- |
-| context    | Vitest     | Uses better-sqlite3 (native Node addon, incompatible with Bun) |
-| symphony   | cargo test | Rust binary, runs through package.json shim                    |
-| all others | Bun test   | Default for JS/TS packages                                     |
+| Package  | Runner / command | Notes |
+| -------- | ---------------- | ----- |
+| cli      | `pnpm test`      | Transitional: package test script currently runs `bun test` plus Vitest coverage |
+| desktop  | `pnpm run test`  | Vitest with coverage; Playwright lives under `pnpm run test:e2e` |
+| context  | Vitest           | Uses better-sqlite3 (native Node addon; Node runtime required) |
+| symphony | `cargo test`     | Rust binary |
+| shared   | Vitest           | Package-local `vitest run` |
 
-Pre-push hook runs `turbo run lint typecheck test --affected` — same command as CI.
+Pre-push hook runs `pnpm exec turbo run lint typecheck test --affected` — same command as CI.
 
 ## CI
 
@@ -107,7 +108,7 @@ This repo uses git worktrees. Each worktree has a standby branch (e.g. `wt-cli-s
 ## Gotchas
 
 - `CLAUDE.md` files in this repo are symlinks to `AGENTS.md`. Always edit `AGENTS.md`.
-- `apps/online-docs` uses Fumadocs/Next.js. Run `bun run docs:dev` from the repo root to start it on port 3001.
+- `apps/online-docs` uses Fumadocs/Next.js. Run `pnpm run docs:dev` from the repo root to start it on port 3001.
 - `apps/context` uses Vitest (not Bun test) because better-sqlite3 is a native Node addon that Bun doesn't support.
 - Electron main process runs in Node.js, not Bun. Don't use `import.meta.dir` or Bun-only APIs in code that runs there.
 - Asset paths: use `getBundledAssetsDir(subfolder)` for bundled assets, never `import.meta.dir`.

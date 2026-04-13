@@ -656,6 +656,15 @@ function startThemeWatcher() {
             }
             scheduleReload();
         });
+        themeWatcher.on("error", () => {
+            try {
+                themeWatcher?.close();
+            }
+            catch {
+                /* ignore */
+            }
+            themeWatcher = undefined;
+        });
     }
     catch (_error) {
         // Ignore errors starting watcher

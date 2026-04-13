@@ -130,7 +130,7 @@ Both use **per-state prompt injection** — the orchestrator selects a focused p
 |------|-----------|-----|
 | `prompts/shared-*.md` | Every dispatch | Repo context, Linear tools, workpad protocol |
 | `prompts/in-progress.md` | `Todo`, `In Progress` | Implement, test, push, open PR → Agent Review |
-| `prompts/agent-review.md` | `Agent Review` | Address PR comments → Human Review |
+| `prompts/agent-review.md` | `Agent Review` | Address PR comments → Human Review (only after an open PR exists for the current branch) |
 | `prompts/merging.md` | `Merging` | Land the PR → Done |
 | `prompts/rework.md` | `Rework` | Close PR, fresh start |
 
@@ -423,7 +423,7 @@ Todo → In Progress → Agent Review → Human Review → Merging → Done
 | ---------------- | -------------- | ----------------------------------------------------------- |
 | **Todo**         | Human          | Issue is queued — Symphony picks it up on the next poll     |
 | **In Progress**  | Orchestrator   | Agent is working — writing code, running tests              |
-| **Agent Review** | Agent or Human | Agent addresses PR review comments                          |
+| **Agent Review** | Agent or Human | Agent addresses PR review comments; Symphony dispatches this only when an open PR exists for the current branch |
 | **Human Review** | Agent          | PR is ready for human approval                              |
 | **Merging**      | Human          | Agent merges the approved PR                                |
 | **Rework**       | Human          | Agent scraps current approach, starts fresh on a new branch |

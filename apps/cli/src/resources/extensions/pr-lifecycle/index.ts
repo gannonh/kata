@@ -107,7 +107,7 @@ export default function (pi: ExtensionAPI): void {
     name: "kata_create_pr",
     description: [
       "Create a GitHub PR for the current Kata slice branch.",
-      "Composes the PR body from .kata/ slice artifacts (S01-PLAN.md, S01-SUMMARY.md, task plans).",
+      "Composes the PR body from the slice issue description and optional summary artifacts.",
       "Pre-flight checks: gh CLI installed, gh authenticated.",
       "Uses `milestoneId`/`sliceId` from params when provided; auto-detects from branch name otherwise.",
       "Returns { ok: true, url } on success; { ok: false, phase, error, hint } on any failure.",

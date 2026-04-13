@@ -126,7 +126,7 @@ test("Linear list tools preserve explicit first=0 filters", async () => {
     ensureLabel: async () => ({}),
     createDocument: async () => ({}),
     getDocument: async () => null,
-    listDocuments: async (params?: unknown) => {
+    listDocumentSummaries: async (params?: unknown) => {
       calls.push({ name: "documents", params });
       return [];
     },

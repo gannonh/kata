@@ -227,7 +227,7 @@ Tool responses include connection metadata (`details.connection`) and capability
 
 ## PR Mode
 
-Kata can manage GitHub pull requests as part of the slice lifecycle. When enabled, auto-mode stops at slice boundaries so you can review changes before merging.
+Kata can manage GitHub pull requests as part of the slice lifecycle. When enabled, auto-mode stops at slice boundaries so you can review changes before merging. In Linear mode, PR bodies are composed from the slice issue description plus optional summary artifacts — not legacy `S01-PLAN` documents.
 
 ### Setup
 

@@ -21,7 +21,6 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false,
-    "baseUrl": ".",
     "paths": {
       "@kata/core": ["../core/src/index.ts"],
       "@kata/core/*": ["../core/src/*"],
