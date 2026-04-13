@@ -3,10 +3,9 @@
   "compilerOptions": {
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "types": ["node", "vite/client", "electron", "react", "react-dom"],
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["src/renderer/*"],
-      "@shared/*": ["src/shared/*"],
+      "@/*": ["./src/renderer/*"],
+      "@shared/*": ["./src/shared/*"],
       "@kata/core": ["../../packages/core/src/index.ts"],
       "@kata/core/*": ["../../packages/core/src/*"],
       "@kata/shared": ["../../packages/shared/src/index.ts"],

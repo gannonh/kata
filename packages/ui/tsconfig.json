@@ -4,7 +4,6 @@
     "jsx": "react-jsx",
     "moduleResolution": "bundler",
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
-    "baseUrl": ".",
     "paths": {
       "@kata/core": ["../core/src/index.ts"],
       "@kata/core/*": ["../core/src/*"],

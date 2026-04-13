@@ -71,7 +71,7 @@
     "react-dom": "^19.1.0",
     "react-resizable-panels": "^4.6.3",
     "tailwindcss": "^4.1.18",
-    "typescript": "^5.9.0",
+    "typescript": "^6.0.2",
     "vite": "^8.0.2",
     "vitest": "^4.1.2",
     "wait-on": "^9.0.4",
