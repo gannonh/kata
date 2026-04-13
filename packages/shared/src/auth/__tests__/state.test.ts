@@ -6,41 +6,14 @@
  * - Setup needs derivation from auth state
  * - Migration detection for legacy CLI tokens
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
   getSetupNeeds,
-  performTokenRefresh,
   _resetRefreshMutex,
   type AuthState,
   type TokenResult,
   type MigrationInfo,
 } from '../state.ts';
-
-// ============================================
-// Mock credential manager
-// ============================================
-
-function createMockCredentialManager(initialCreds?: {
-  accessToken: string;
-  refreshToken?: string;
-  expiresAt?: number;
-  source?: 'native' | 'cli';
-}) {
-  let storedCreds = initialCreds;
-
-  return {
-    getClaudeOAuthCredentials: async () => storedCreds ?? null,
-    setClaudeOAuthCredentials: async (creds: {
-      accessToken: string;
-      refreshToken?: string;
-      expiresAt?: number;
-      source?: 'native' | 'cli';
-    }) => {
-      storedCreds = creds;
-    },
-    getApiKey: async () => null,
-  };
-}
 
 // ============================================
 // getSetupNeeds tests (pure function)
