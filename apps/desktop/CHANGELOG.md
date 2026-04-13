@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.3
+
+### Fixes
+
+- **M008 Node runtime launcher landing** — packaged Desktop now ships the Kata runtime through `ELECTRON_RUN_AS_NODE` launchers instead of bundling Bun for the active CLI subprocess path, and the packaged runtime proofs/checks are reflected in the release branch.
+- **Packaged bridge diagnostics** — packaged bridge discovery/spawn logs continue to expose `runtimeMode: electron-node`, making the Node-backed runtime path explicit during debugging and UAT.
+
 ## 0.2.2
 
 ### Fixes

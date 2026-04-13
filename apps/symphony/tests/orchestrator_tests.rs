@@ -92,6 +92,12 @@ impl OrchestratorPort for FakePort {
             .push(format!("update_issue_state:{issue_id}:{state_name}"));
         Ok(())
     }
+
+    fn create_issue_comment(&mut self, issue_id: &str, body: &str) -> Result<()> {
+        self.calls
+            .push(format!("create_issue_comment:{issue_id}:{body}"));
+        Ok(())
+    }
 }
 
 fn test_config(max_concurrent_agents: u32) -> ServiceConfig {

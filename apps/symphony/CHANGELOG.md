@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.2.1
+
+### Bug Fixes
+
+- **Gate Agent Review on an actual open PR** — before dispatching or retrying an `Agent Review` run, Symphony now verifies that the current branch exists on `origin` and that `gh pr view` returns an open PR for that branch.
+- **Self-heal invalid Agent Review states** — if an issue enters `Agent Review` without an open PR, Symphony moves it back to `In Progress` and posts a note instead of launching a broken review session.
+- **Harden Agent Review prompt assumptions** — the worker prompt now requires PR proof instead of assuming a PR already exists.
+
 ## 2.2.0 — GitHub Issues Backend
 
 Full drop-in alternative to Linear as a tracker backend. Both label-based and Projects v2 state management modes supported.
