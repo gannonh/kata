@@ -127,7 +127,7 @@ S03_IMPORT_COUNT="$({ rg -n "from ['\"]bun:test['\"]" apps packages --glob '**/*
 printf '[verify-pnpm] S03 (bun:test imports in TS files): %s\n' "$S03_IMPORT_COUNT"
 
 printf '[verify-pnpm] S04 (legacy root script blockers):\n'
-S04_ROOT_BLOCKERS="$(rg -n '"(electron:|viewer:|test:e2e(:|"))' package.json || true)"
+S04_ROOT_BLOCKERS="$(rg -n '"(electron:|viewer:)' package.json || true)"
 if [[ -n "$S04_ROOT_BLOCKERS" ]]; then
   printf '%s\n' "$S04_ROOT_BLOCKERS"
 else
@@ -139,6 +139,8 @@ if [[ -d apps/electron || -d apps/viewer ]]; then
   [[ -d apps/electron ]] && printf ' apps/electron'
   [[ -d apps/viewer ]] && printf ' apps/viewer'
   printf '\n'
+else
+  printf '[verify-pnpm] S04 (legacy app directories still present): none\n'
 fi
 
 printf '\n[verify-pnpm] OK: S02 migration checks passed (deferred blockers reported above).\n'
