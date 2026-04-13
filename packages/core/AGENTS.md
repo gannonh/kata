@@ -1,19 +1,19 @@
-# @craft-agent/core
+# @kata/core
 
-Shared TypeScript types and utilities for the Kata monorepo. Currently exports types and a debug utility stub. Actual implementation lives in `@craft-agent/shared`.
+Shared TypeScript types and utilities for the Kata monorepo. Currently exports types and a debug utility stub. Actual implementation lives in `@kata/shared`.
 
 ## Commands
 
 ```bash
-cd packages/core && bun run tsc --noEmit   # Typecheck
-bun test packages/core                      # Tests
+pnpm --dir packages/core run typecheck
+pnpm --dir packages/core exec vitest run
 ```
 
 ## Usage
 
 ```typescript
-import type { Workspace, Session, Message, AgentEvent } from '@craft-agent/core';
-import { generateMessageId, debug } from '@craft-agent/core';
+import type { Workspace, Session, Message, AgentEvent } from '@kata/core';
+import { generateMessageId, debug } from '@kata/core';
 ```
 
 ## Key Design Decisions

@@ -1,7 +1,7 @@
 /**
- * @craft-agent/core
+ * @kata/core
  *
- * Core types and utilities for Kata Agents.
+ * Core types and utilities for Kata.
  *
  * NOTE: This package currently only exports types and utilities.
  * Storage, credentials, agent, auth, mcp, and prompts are still

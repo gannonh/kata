@@ -1,19 +1,14 @@
-# @craft-agent/core
+# @kata/core
 
-Shared TypeScript types and utilities for Kata Agents applications.
+Shared TypeScript types and utilities for Kata applications.
 
 ## Installation
 
-```bash
-# In a workspace package
-bun add @craft-agent/core
-```
-
-Or add to `package.json`:
+Add the workspace package to `package.json`:
 ```json
 {
   "dependencies": {
-    "@craft-agent/core": "workspace:*"
+    "@kata/core": "workspace:*"
   }
 }
 ```
@@ -28,10 +23,10 @@ import type {
   Message,
   TokenUsage,
   AgentEvent,
-} from '@craft-agent/core';
+} from '@kata/core';
 
 // Import utilities
-import { generateMessageId, debug } from '@craft-agent/core';
+import { generateMessageId, debug } from '@kata/core';
 ```
 
 ## Exported Types
@@ -54,7 +49,7 @@ import { generateMessageId, debug } from '@craft-agent/core';
 - `MessageRole` - Message type enum
 - `ToolStatus` - Tool execution state
 - `TokenUsage` - Token counts and cost
-- `AgentEvent` - Events from CraftAgent
+- `AgentEvent` - Events from the shared agent runtime
 - `TypedError` - Structured error info
 - `Question` - AskUserQuestion format
 
@@ -97,4 +92,4 @@ This package requires the following peer dependencies:
 
 ## License
 
-MIT
+Apache-2.0
