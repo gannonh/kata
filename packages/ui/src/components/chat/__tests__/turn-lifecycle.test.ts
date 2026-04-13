@@ -6,7 +6,7 @@
  * handles all common use cases.
  */
 
-import { describe, it, expect } from 'bun:test'
+import { describe, it, expect } from 'vitest'
 import { deriveTurnPhase, finalizeTurnsForIdleSession, groupMessagesByTurn, type AssistantTurn } from '../turn-utils'
 import type { Message } from '@craft-agent/core'
 

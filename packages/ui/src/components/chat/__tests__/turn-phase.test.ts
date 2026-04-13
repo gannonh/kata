@@ -12,7 +12,7 @@
  * - complete: Turn is finished
  */
 
-import { describe, it, expect } from 'bun:test'
+import { describe, it, expect } from 'vitest'
 import { deriveTurnPhase, shouldShowThinkingIndicator, type TurnPhase, type AssistantTurn } from '../turn-utils'
 import type { ActivityItem, ResponseContent } from '../TurnCard'
 
