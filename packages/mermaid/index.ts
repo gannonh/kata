@@ -16,6 +16,7 @@
  */
 
 import { writeFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { build } from 'esbuild'
 import { samples } from './samples-data.ts'
 import { THEMES } from './src/theme.ts'
@@ -75,7 +76,7 @@ async function generateHtml(): Promise<string> {
 
   try {
     const buildResult = await build({
-      entryPoints: [new URL('./src/browser.ts', import.meta.url).pathname],
+      entryPoints: [fileURLToPath(new URL('./src/browser.ts', import.meta.url))],
       target: ['chrome120', 'safari17', 'firefox120'],
       format: 'esm',
       minify: true,
@@ -1593,6 +1594,6 @@ ${bundleJs}
 // ============================================================================
 
 const html = await generateHtml()
-const outPath = new URL('./index.html', import.meta.url).pathname
+const outPath = fileURLToPath(new URL('./index.html', import.meta.url))
 writeFileSync(outPath, html)
 console.log(`Written to ${outPath} (${(html.length / 1024).toFixed(1)} KB)`)

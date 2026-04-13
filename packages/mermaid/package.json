@@ -23,6 +23,7 @@
     "@dagrejs/dagre": "^3.0.0"
   },
   "devDependencies": {
+    "chokidar": "^5.0.0",
     "esbuild": "^0.28.0",
     "shiki": "^4.0.2",
     "tsx": "^4.20.6"

@@ -624,6 +624,9 @@ importers:
         specifier: ^3.0.0
         version: 3.0.0
     devDependencies:
+      chokidar:
+        specifier: ^5.0.0
+        version: 5.0.0
       esbuild:
         specifier: ^0.28.0
         version: 0.28.0

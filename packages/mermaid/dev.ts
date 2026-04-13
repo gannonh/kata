@@ -11,9 +11,10 @@
 
 import { spawn } from 'node:child_process'
 import { createServer, type ServerResponse } from 'node:http'
-import { existsSync, readFileSync, watch } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { existsSync, readFileSync } from 'node:fs'
+import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import chokidar from 'chokidar'
 
 const PORT = 3456
 const ROOT = dirname(fileURLToPath(import.meta.url))
@@ -55,7 +56,7 @@ async function rebuild(): Promise<void> {
 
     for (const client of sseClients) {
       try {
-        client.write('data: reload\\n\\n')
+        client.write('data: reload\n\n')
       } catch {
         sseClients.delete(client)
       }
@@ -73,7 +74,7 @@ async function rebuild(): Promise<void> {
 
 let debounce: NodeJS.Timeout | null = null
 
-function onFileChange(_event: string, filename: string | null): void {
+function onFileChange(filename: string | null): void {
   if (filename === 'index.html') return
 
   if (debounce) clearTimeout(debounce)
@@ -84,7 +85,17 @@ function onFileChange(_event: string, filename: string | null): void {
   }, 150)
 }
 
-watch(ROOT, { recursive: true }, onFileChange)
+const watcher = chokidar.watch(
+  [join(ROOT, 'src'), join(ROOT, 'public'), join(ROOT, 'index.ts'), join(ROOT, 'samples-data.ts')],
+  {
+    ignoreInitial: true,
+  },
+)
+
+watcher.on('all', (_event, path) => {
+  const relPath = path ? relative(ROOT, path) : null
+  onFileChange(relPath)
+})
 
 // ============================================================================
 // HTTP server
@@ -104,7 +115,7 @@ const server = createServer((req, res) => {
       'Cache-Control': 'no-cache',
       Connection: 'keep-alive',
     })
-    res.write('\\n')
+    res.write('\n')
 
     sseClients.add(res)
 

@@ -61,7 +61,27 @@ cat > "$KATA_LAUNCHER" <<'LAUNCHER'
 set -eu
 
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
-ELECTRON_BIN="$SCRIPT_DIR/../MacOS/Kata Desktop"
+ELECTRON_BIN=""
+
+if [ -x "$SCRIPT_DIR/../MacOS/Kata Desktop" ]; then
+  ELECTRON_BIN="$SCRIPT_DIR/../MacOS/Kata Desktop"
+else
+  for candidate in \
+    "$SCRIPT_DIR/../Kata Desktop" \
+    "$SCRIPT_DIR/../kata-desktop" \
+    "$SCRIPT_DIR/../kata"
+  do
+    if [ -x "$candidate" ]; then
+      ELECTRON_BIN="$candidate"
+      break
+    fi
+  done
+fi
+
+if [ -z "$ELECTRON_BIN" ]; then
+  echo "ERROR: Unable to locate packaged Electron binary" >&2
+  exit 1
+fi
 
 export ELECTRON_RUN_AS_NODE=1
 exec "$ELECTRON_BIN" "$SCRIPT_DIR/kata-runtime/dist/loader.js" "$@"
