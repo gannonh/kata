@@ -1,6 +1,6 @@
 # Desktop Release
 
-Package: `@kata/desktop`
+Package: Desktop app (not published to npm)
 Version source: `apps/desktop/package.json`
 Changelog: `apps/desktop/CHANGELOG.md`
 Tag format: `desktop-vX.Y.Z`

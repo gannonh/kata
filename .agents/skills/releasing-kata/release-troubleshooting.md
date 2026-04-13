@@ -1,178 +1,141 @@
 # Release Troubleshooting
 
-Common issues and solutions for the Kata Agents release process.
+Common issues and solutions for Kata release flows.
 
-## Build Issues
+## Target and namespace sanity check
 
-### Path Resolution Errors
+Before debugging CI, confirm the target identity is correct:
 
-**Symptom:** `Cannot find module 'apps/electron/scripts/afterPack.cjs'` or doubled paths like `apps/electron/apps/electron/...`
+- CLI: `@kata-sh/cli`
+- Orchestrator: `@kata-sh/orc`
+- Context: `@kata/context`
+- Desktop: app release only (not an npm publish target)
+- Symphony: Rust binary release
 
-**Cause:** Running build from the wrong directory. The root-level `bun run electron:dist:mac` has path issues with electron-builder.
+If the wrong target/version file is edited, release workflows may skip.
 
-**Fix:** Always run from `apps/electron`:
+## Desktop build issues
+
+### Wrong working directory
+
+**Symptom:** Desktop packaging fails with missing file/script paths.
+
+**Fix:** Run desktop release commands from `apps/desktop`.
 
 ```bash
-cd apps/electron && bun run dist:mac
+cd apps/desktop
+pnpm run desktop:dist:mac
 ```
 
-### DMG Name Mismatch
+### Expected artifact name mismatch
 
-**Symptom:** Build completes but script says "Expected DMG not found"
+**Symptom:** Build succeeded but your manual check says artifact is missing.
 
-**Cause:** The build script checks for `Craft-Agent-*.dmg` but electron-builder produces `Kata-Agents-*.dmg`
+**Check:** Current artifacts use `Kata-Desktop-*` naming.
 
-**Status:** This is a cosmetic issue - the DMG was actually built successfully. Check `apps/electron/release/` for `Kata-Agents-arm64.dmg`.
+```bash
+ls -la apps/desktop/release | rg 'Kata-Desktop|\.dmg|\.zip|\.exe|\.AppImage|\.deb'
+```
 
-### Entitlements Not Found
-
-**Symptom:** `build/entitlements.mac.plist: cannot read entitlement data`
-
-**Cause:** Running from wrong directory (paths in electron-builder.yml are relative to apps/electron)
-
-**Fix:** Run from `apps/electron` directory
-
-## Code Signing Issues
-
-### Certificate Not Found
-
-**Symptom:** `No identity found for signing`
+### Desktop release workflow did not trigger
 
 **Check:**
 
-1. Certificate is in Keychain Access
-2. Certificate name matches `APPLE_SIGNING_IDENTITY` exactly
-3. Certificate is not expired
+1. `apps/desktop/package.json` version changed.
+2. Tag `desktop-vX.Y.Z` does not already exist.
 
 ```bash
-# List available signing identities
+git tag -l 'desktop-v*'
+rg -n '"version"' apps/desktop/package.json
+```
+
+## CLI / Orchestrator / Context publish issues
+
+### npm publish failed
+
+**Check:**
+
+1. `NPM_TOKEN` repository secret is set.
+2. Correct package file was bumped.
+3. Target version is new (no existing release tag).
+
+```bash
+git tag -l 'cli-v*'
+git tag -l 'orc-v*'
+git tag -l 'context-v*'
+```
+
+### Workflow did not trigger
+
+Confirm the right path changed:
+
+- CLI: `apps/cli/**`
+- Orchestrator: `apps/orchestrator/**`
+- Context: `apps/context/**`
+
+## Symphony release issues
+
+### CI did not trigger
+
+**Check:**
+
+1. Changes are under `apps/symphony/**`
+2. `Cargo.toml` version changed
+3. `symphony-vX.Y.Z` tag does not already exist
+
+```bash
+git tag -l 'symphony-v*'
+rg -n '^version\s*=\s*"' apps/symphony/Cargo.toml
+```
+
+### Local build/test failures
+
+```bash
+cd apps/symphony
+cargo test
+cargo clippy -- -D warnings
+cargo fmt --check
+cargo build --release
+```
+
+## Code signing and notarization (desktop)
+
+### Signing identity missing
+
+```bash
 security find-identity -v -p codesigning
 ```
 
-### Notarization Fails
+### Notarization failing
 
-**Symptom:** `xcrun notarytool submit` fails or hangs
+Verify repository secrets:
 
-**Check:**
+- `APPLE_ID`
+- `APPLE_APP_SPECIFIC_PASSWORD`
+- `APPLE_TEAM_ID`
 
-1. Apple ID credentials are correct
-2. App-specific password is valid (generate at appleid.apple.com)
-3. Team ID matches your developer account
+And locally:
 
 ```bash
-# Verify credentials work
 xcrun notarytool history --apple-id "$APPLE_ID" --password "$APPLE_APP_SPECIFIC_PASSWORD" --team-id "$APPLE_TEAM_ID"
 ```
 
-## CI Workflow Issues
-
-### Release Not Triggered
-
-**Symptom:** Pushed to main but no release workflow ran
-
-**Check:**
-
-1. Version in `apps/electron/package.json` actually changed
-2. Tag `vX.Y.Z` doesn't already exist
+## CI visibility commands
 
 ```bash
-# Check existing tags
-git tag -l "v*"
+# Recent release workflow runs
+gh run list --workflow=desktop-release.yml --limit 5
+gh run list --workflow=cli-release.yml --limit 5
+gh run list --workflow=orc-release.yml --limit 5
+gh run list --workflow=context-release.yml --limit 5
+gh run list --workflow=symphony-release.yml --limit 5
 
-# Check what CI sees
-cat apps/electron/package.json | grep version
-```
-
-### Artifacts Missing from Release
-
-**Symptom:** GitHub Release created but missing some platform builds
-
-**Check:**
-
-1. All build jobs completed (macOS arm64, macOS x64, Windows, Linux)
-2. No failures in individual build jobs
-
-```bash
-# Check workflow runs
-gh run list --workflow=release.yml --limit 5
-
-# View specific run details
+# Inspect a run
 gh run view <run-id>
-```
 
-## Session/UI Issues
-
-### Sessions Not Displaying
-
-**Symptom:** Production build shows "No conversations yet" but dev build shows sessions
-
-**Cause:** Stale `workspaceId` in window-state.json doesn't match session workspace IDs
-
-**Fix:**
-
-```bash
-rm ~/.kata-agents/window-state.json
-```
-
-Then relaunch the app.
-
-### Window State Issues
-
-**Symptom:** App opens to wrong workspace or wrong session
-
-**Fix:** Clear window state and let app recreate it:
-
-```bash
-rm ~/.kata-agents/window-state.json
-```
-
-## Environment Setup
-
-### Required Secrets for CI
-
-For full CI release functionality, set these GitHub repository secrets:
-
-| Secret                        | Purpose                         |
-| ----------------------------- | ------------------------------- |
-| `CSC_LINK`                    | Base64-encoded .p12 certificate |
-| `CSC_KEY_PASSWORD`            | Certificate password            |
-| `APPLE_ID`                    | Apple ID email                  |
-| `APPLE_APP_SPECIFIC_PASSWORD` | App-specific password           |
-| `APPLE_TEAM_ID`               | Apple Developer Team ID         |
-
-### Required Environment for Local Builds
-
-For local signed builds, set in `.env`:
-
-```bash
-APPLE_SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)"
-APPLE_ID="your@email.com"
-APPLE_TEAM_ID="TEAMID"
-APPLE_APP_SPECIFIC_PASSWORD="xxxx-xxxx-xxxx-xxxx"
-```
-
-## Useful Commands
-
-```bash
-# Check current version
-cat apps/electron/package.json | grep version
-
-# List existing releases
-gh release list
-
-# View specific release
-gh release view vX.Y.Z
-
-# Monitor CI
-gh run list --limit 5
+# Watch current run
 gh run watch
 
-# Check signing identities
-security find-identity -v -p codesigning
-
-# Verify app is signed
-codesign -dv --verbose=4 "apps/electron/release/mac-arm64/Kata Agents.app"
-
-# Verify app is notarized
-spctl -a -v "apps/electron/release/mac-arm64/Kata Agents.app"
+# List releases
+gh release list
 ```

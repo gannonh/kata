@@ -9,7 +9,7 @@ Kata has five independently versioned release targets. Ask which target if not c
 
 | Target           | Package                  | Tag Format        | Reference                        |
 | ---------------- | ------------------------ | ----------------- | -------------------------------- |
-| **Desktop**      | `@kata-sh/desktop`       | `desktop-vX.Y.Z`  | `references/desktop-release.md`  |
+| **Desktop**      | Desktop app (not npm package) | `desktop-vX.Y.Z`  | `references/desktop-release.md`  |
 | **CLI**          | `@kata-sh/cli`           | `cli-vX.Y.Z`      | `references/cli-release.md`      |
 | **Orchestrator** | `@kata-sh/orc`           | `orc-vX.Y.Z`      | `references/orc-release.md`      |
 | **Context**      | `@kata/context`          | `context-vX.Y.Z`  | `references/context-release.md`  |
