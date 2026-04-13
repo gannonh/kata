@@ -244,12 +244,17 @@ export async function runCreatePr(options: PrCreateOptions): Promise<PrCreateRes
 
   // Ensure we have the required slice plan from the slice issue description.
   if (!linearDocuments?.PLAN) {
-    return {
-      ok: false,
-      phase: "artifact-error",
-      error: `Missing required slice issue description for ${sliceId}`,
-      hint: `Populate the ${sliceId} slice issue description before creating a PR.`,
-    };
+    const error = !lc
+      ? `No Linear configuration provided and no PLAN document passed for ${sliceId}`
+      : !linearIssueId
+        ? `Could not resolve Linear issue for slice ${sliceId}`
+        : `Missing required slice issue description (PLAN) for ${sliceId}`;
+    const hint = !lc
+      ? `Pass linearDocuments.PLAN directly or configure Linear integration.`
+      : !linearIssueId
+        ? `Ensure a Linear issue with the slice label exists for ${sliceId}.`
+        : `Populate the ${sliceId} slice issue description before creating a PR.`;
+    return { ok: false, phase: "artifact-error", error, hint };
   }
 
   // ── Compose PR body ──────────────────────────────────────────────────────────

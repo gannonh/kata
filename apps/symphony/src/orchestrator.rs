@@ -58,6 +58,11 @@ enum AgentReviewPrStatus {
         branch: Option<String>,
         reason: String,
     },
+    /// Check could not complete (timeout, binary missing, etc.).
+    /// Callers should NOT demote the issue on transient failures.
+    CheckFailed {
+        reason: String,
+    },
 }
 
 #[derive(Debug, Deserialize)]
@@ -70,22 +75,67 @@ struct PullRequestViewSummary {
     base_ref_name: String,
 }
 
+const SUBPROCESS_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+
 fn run_command_outcome(
     program: &str,
     args: &[&str],
     cwd: &Path,
 ) -> std::result::Result<CommandOutcome, String> {
-    let output = Command::new(program)
+    let mut child = Command::new(program)
         .args(args)
         .current_dir(cwd)
-        .output()
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .env("GH_PROMPT_DISABLED", "1")
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
         .map_err(|err| format!("{} {} failed to start: {}", program, args.join(" "), err))?;
 
-    Ok(CommandOutcome {
-        success: output.status.success(),
-        stdout: String::from_utf8_lossy(&output.stdout).trim().to_string(),
-        stderr: String::from_utf8_lossy(&output.stderr).trim().to_string(),
-    })
+    let timeout = SUBPROCESS_TIMEOUT;
+    let start = std::time::Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                let stdout = child.stdout.take().map_or_else(String::new, |mut r| {
+                    let mut s = String::new();
+                    let _ = std::io::Read::read_to_string(&mut r, &mut s);
+                    s
+                });
+                let stderr = child.stderr.take().map_or_else(String::new, |mut r| {
+                    let mut s = String::new();
+                    let _ = std::io::Read::read_to_string(&mut r, &mut s);
+                    s
+                });
+                return Ok(CommandOutcome {
+                    success: status.success(),
+                    stdout: stdout.trim().to_string(),
+                    stderr: stderr.trim().to_string(),
+                });
+            }
+            Ok(None) => {
+                if start.elapsed() >= timeout {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return Err(format!(
+                        "{} {} timed out after {}s",
+                        program,
+                        args.join(" "),
+                        timeout.as_secs()
+                    ));
+                }
+                std::thread::sleep(std::time::Duration::from_millis(50));
+            }
+            Err(err) => {
+                return Err(format!(
+                    "{} {} failed while waiting: {}",
+                    program,
+                    args.join(" "),
+                    err
+                ));
+            }
+        }
+    }
 }
 
 fn check_agent_review_pr_status_with<F>(
@@ -99,8 +149,7 @@ where
     let branch_result = match run("git", &["branch", "--show-current"], workspace_path) {
         Ok(result) => result,
         Err(err) => {
-            return AgentReviewPrStatus::Missing {
-                branch: None,
+            return AgentReviewPrStatus::CheckFailed {
                 reason: format!("could not determine current branch: {err}"),
             };
         }
@@ -139,18 +188,19 @@ where
     ) {
         Ok(result) => result,
         Err(err) => {
-            return AgentReviewPrStatus::Missing {
-                branch: Some(branch),
+            return AgentReviewPrStatus::CheckFailed {
                 reason: format!("could not verify remote branch: {err}"),
             };
         }
     };
 
     if !remote_result.success {
-        let detail = if remote_result.stderr.is_empty() {
+        let detail = if !remote_result.stderr.is_empty() {
+            remote_result.stderr
+        } else if !remote_result.stdout.is_empty() {
             remote_result.stdout
         } else {
-            remote_result.stderr
+            "ref not found".to_string()
         };
         return AgentReviewPrStatus::Missing {
             branch: Some(branch),
@@ -165,8 +215,7 @@ where
     ) {
         Ok(result) => result,
         Err(err) => {
-            return AgentReviewPrStatus::Missing {
-                branch: Some(branch),
+            return AgentReviewPrStatus::CheckFailed {
                 reason: format!("could not verify open PR: {err}"),
             };
         }
@@ -4443,8 +4492,19 @@ impl Orchestrator {
             self.config.workspace.base_branch.as_deref(),
         );
 
-        let AgentReviewPrStatus::Missing { branch, reason } = pr_status else {
-            return Ok(Some(issue.clone()));
+        let (branch, reason) = match pr_status {
+            AgentReviewPrStatus::Valid { .. } => return Ok(Some(issue.clone())),
+            AgentReviewPrStatus::CheckFailed { reason } => {
+                tracing::warn!(
+                    event = "agent_review_check_failed",
+                    issue_id = %issue.id,
+                    issue_identifier = %issue.identifier,
+                    reason = %reason,
+                    "PR gate check failed transiently; skipping issue without demotion"
+                );
+                return Ok(None);
+            }
+            AgentReviewPrStatus::Missing { branch, reason } => (branch, reason),
         };
 
         tracing::warn!(
@@ -4470,13 +4530,7 @@ impl Orchestrator {
             );
         }
 
-        let refreshed = port.refresh_issue(&issue.id)?.unwrap_or_else(|| {
-            let mut demoted = issue.clone();
-            demoted.state = "In Progress".to_string();
-            demoted
-        });
-
-        Ok(Some(refreshed))
+        Ok(None)
     }
 
     /// Returns `true` if the issue carries at least one label that matches an
@@ -5966,6 +6020,138 @@ mod tests {
             AgentReviewPrStatus::Missing {
                 branch: Some("sym/KAT-2499".to_string()),
                 reason: "PR exists but is not open (state: CLOSED)".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn agent_review_pr_status_reports_missing_remote_branch() {
+        let workspace = Path::new("/tmp/workspace");
+        let status = check_agent_review_pr_status_with(
+            workspace,
+            Some("main"),
+            |program, args, _cwd| match (program, args) {
+                ("git", ["branch", "--show-current"]) => Ok(CommandOutcome {
+                    success: true,
+                    stdout: "sym/KAT-2499".to_string(),
+                    stderr: String::new(),
+                }),
+                ("git", ["ls-remote", "--exit-code", "--heads", "origin", "sym/KAT-2499"]) => {
+                    Ok(CommandOutcome {
+                        success: false,
+                        stdout: String::new(),
+                        stderr: String::new(),
+                    })
+                }
+                _ => panic!("unexpected command: {} {:?}", program, args),
+            },
+        );
+
+        assert_eq!(
+            status,
+            AgentReviewPrStatus::Missing {
+                branch: Some("sym/KAT-2499".to_string()),
+                reason: "remote branch is missing on origin (ref not found)".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn agent_review_pr_status_rejects_head_ref_mismatch() {
+        let workspace = Path::new("/tmp/workspace");
+        let status = check_agent_review_pr_status_with(
+            workspace,
+            Some("main"),
+            |program, args, _cwd| match (program, args) {
+                ("git", ["branch", "--show-current"]) => Ok(CommandOutcome {
+                    success: true,
+                    stdout: "sym/KAT-2499".to_string(),
+                    stderr: String::new(),
+                }),
+                ("git", ["ls-remote", "--exit-code", "--heads", "origin", "sym/KAT-2499"]) => {
+                    Ok(CommandOutcome {
+                        success: true,
+                        stdout: "abc123\trefs/heads/sym/KAT-2499".to_string(),
+                        stderr: String::new(),
+                    })
+                }
+                ("gh", ["pr", "view", "--json", "url,state,headRefName,baseRefName"]) => {
+                    Ok(CommandOutcome {
+                        success: true,
+                        stdout: r#"{"url":"https://github.com/gannonh/kata/pull/999","state":"OPEN","headRefName":"sym/KAT-9999","baseRefName":"main"}"#.to_string(),
+                        stderr: String::new(),
+                    })
+                }
+                _ => panic!("unexpected command: {} {:?}", program, args),
+            },
+        );
+
+        assert_eq!(
+            status,
+            AgentReviewPrStatus::Missing {
+                branch: Some("sym/KAT-2499".to_string()),
+                reason: "PR head branch `sym/KAT-9999` does not match current branch `sym/KAT-2499`".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn agent_review_pr_status_rejects_base_ref_mismatch() {
+        let workspace = Path::new("/tmp/workspace");
+        let status = check_agent_review_pr_status_with(
+            workspace,
+            Some("main"),
+            |program, args, _cwd| match (program, args) {
+                ("git", ["branch", "--show-current"]) => Ok(CommandOutcome {
+                    success: true,
+                    stdout: "sym/KAT-2499".to_string(),
+                    stderr: String::new(),
+                }),
+                ("git", ["ls-remote", "--exit-code", "--heads", "origin", "sym/KAT-2499"]) => {
+                    Ok(CommandOutcome {
+                        success: true,
+                        stdout: "abc123\trefs/heads/sym/KAT-2499".to_string(),
+                        stderr: String::new(),
+                    })
+                }
+                ("gh", ["pr", "view", "--json", "url,state,headRefName,baseRefName"]) => {
+                    Ok(CommandOutcome {
+                        success: true,
+                        stdout: r#"{"url":"https://github.com/gannonh/kata/pull/999","state":"OPEN","headRefName":"sym/KAT-2499","baseRefName":"develop"}"#.to_string(),
+                        stderr: String::new(),
+                    })
+                }
+                _ => panic!("unexpected command: {} {:?}", program, args),
+            },
+        );
+
+        assert_eq!(
+            status,
+            AgentReviewPrStatus::Missing {
+                branch: Some("sym/KAT-2499".to_string()),
+                reason: "PR base branch `develop` does not match expected `main`".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn agent_review_pr_status_check_failed_on_command_error() {
+        let workspace = Path::new("/tmp/workspace");
+        let status = check_agent_review_pr_status_with(
+            workspace,
+            Some("main"),
+            |program, args, _cwd| match (program, args) {
+                ("git", ["branch", "--show-current"]) => {
+                    Err("git branch --show-current timed out after 30s".to_string())
+                }
+                _ => panic!("unexpected command: {} {:?}", program, args),
+            },
+        );
+
+        assert_eq!(
+            status,
+            AgentReviewPrStatus::CheckFailed {
+                reason: "could not determine current branch: git branch --show-current timed out after 30s".to_string(),
             }
         );
     }
