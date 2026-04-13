@@ -1,17 +1,17 @@
 /**
- * @craft-agent/shared
+ * @kata/shared
  *
  * Shared business logic for Kata Agents.
  * Used by the Electron app.
  *
  * Import specific modules via subpath exports:
- *   import { CraftAgent } from '@craft-agent/shared/agent';
- *   import { loadStoredConfig } from '@craft-agent/shared/config';
- *   import { getCredentialManager } from '@craft-agent/shared/credentials';
- *   import { CraftMcpClient } from '@craft-agent/shared/mcp';
- *   import { debug } from '@craft-agent/shared/utils';
- *   import { loadSource, createSource, getSourceCredentialManager } from '@craft-agent/shared/sources';
- *   import { createWorkspace, loadWorkspace } from '@craft-agent/shared/workspaces';
+ *   import { CraftAgent } from '@kata/shared/agent';
+ *   import { loadStoredConfig } from '@kata/shared/config';
+ *   import { getCredentialManager } from '@kata/shared/credentials';
+ *   import { CraftMcpClient } from '@kata/shared/mcp';
+ *   import { debug } from '@kata/shared/utils';
+ *   import { loadSource, createSource, getSourceCredentialManager } from '@kata/shared/sources';
+ *   import { createWorkspace, loadWorkspace } from '@kata/shared/workspaces';
  *
  * Available modules:
  *   - agent: CraftAgent SDK wrapper, plan tools

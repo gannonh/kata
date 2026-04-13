@@ -59,7 +59,7 @@ import { getSourceCredentialManager } from '../sources/index.ts';
 import { inferGoogleServiceFromUrl, inferSlackServiceFromUrl, inferMicrosoftServiceFromUrl, isApiOAuthProvider, type GoogleService, type SlackService, type MicrosoftService } from '../sources/types.ts';
 import { buildAuthorizationHeader } from '../sources/api-tools.ts';
 import { DOC_REFS } from '../docs/index.ts';
-import { renderMermaid } from '@craft-agent/mermaid';
+import { renderMermaid } from '@kata/mermaid';
 
 // ============================================================
 // Session-Scoped Tool Callbacks

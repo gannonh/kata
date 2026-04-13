@@ -1,4 +1,4 @@
-# @craft-agent/shared
+# @kata/shared
 
 Core business logic package for Kata. Contains agent implementation, authentication, configuration, MCP client, channels, and more.
 
@@ -13,15 +13,15 @@ bun run lint                                  # Lint (via Turborepo)
 ## Package Exports
 
 ```typescript
-import { CraftAgent, getPermissionMode, setPermissionMode } from '@craft-agent/shared/agent';
-import { loadStoredConfig, type Workspace } from '@craft-agent/shared/config';
-import { getCredentialManager } from '@craft-agent/shared/credentials';
-import { CraftMcpClient } from '@craft-agent/shared/mcp';
-import { loadWorkspaceSources, type LoadedSource } from '@craft-agent/shared/sources';
-import { loadStatusConfig, createStatus } from '@craft-agent/shared/statuses';
-import { resolveTheme } from '@craft-agent/shared/config/theme';
-import { debug } from '@craft-agent/shared/utils';
-import { SlackChannelAdapter, WhatsAppChannelAdapter, resolveSessionKey } from '@craft-agent/shared/channels';
+import { CraftAgent, getPermissionMode, setPermissionMode } from '@kata/shared/agent';
+import { loadStoredConfig, type Workspace } from '@kata/shared/config';
+import { getCredentialManager } from '@kata/shared/credentials';
+import { CraftMcpClient } from '@kata/shared/mcp';
+import { loadWorkspaceSources, type LoadedSource } from '@kata/shared/sources';
+import { loadStatusConfig, createStatus } from '@kata/shared/statuses';
+import { resolveTheme } from '@kata/shared/config/theme';
+import { debug } from '@kata/shared/utils';
+import { SlackChannelAdapter, WhatsAppChannelAdapter, resolveSessionKey } from '@kata/shared/channels';
 ```
 
 ## Directory Structure
@@ -89,7 +89,7 @@ Cascading: app (`~/.craft-agent/theme.json`) → workspace (last wins). 6-color 
 
 ## Dependencies
 
-- `@craft-agent/core` - Shared types
+- `@kata/core` - Shared types
 - `@anthropic-ai/claude-agent-sdk` - Claude Agent SDK
 
 ## Testing Gotchas

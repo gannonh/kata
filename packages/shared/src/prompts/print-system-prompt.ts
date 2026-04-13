@@ -78,7 +78,7 @@ console.log(`\n${colors.bold}Static System Prompt Length: ${systemPrompt.length.
 // Show with debug mode enabled
 const systemPromptWithDebug = getSystemPrompt(
   undefined,
-  { enabled: true, logFilePath: '~/Library/Logs/@craft-agent/electron/main.log' },
+  { enabled: true, logFilePath: '~/Library/Logs/@kata/electron/main.log' },
   '/Users/example/.kata-agents/workspaces/abc123'
 );
 console.log(`${colors.dim}With debug mode: ${systemPromptWithDebug.length.toLocaleString()} characters (+${(systemPromptWithDebug.length - systemPrompt.length).toLocaleString()})${colors.reset}`);
