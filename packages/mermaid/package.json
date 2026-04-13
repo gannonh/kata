@@ -1,5 +1,5 @@
 {
-  "name": "@craft-agent/mermaid",
+  "name": "@kata/mermaid",
   "version": "0.6.0",
   "license": "Apache-2.0",
   "description": "Mermaid flowchart to styled SVG renderer with zinc monochrome palette",
