@@ -36,6 +36,9 @@
     "qa:m006:release-gate": "pnpm exec tsx scripts/qa/m006-release-gate.ts"
   },
   "dependencies": {
+    "@kata/core": "workspace:*",
+    "@kata/shared": "workspace:*",
+    "@kata/ui": "workspace:*",
     "@fontsource-variable/geist": "^5.2.8",
     "@hugeicons/core-free-icons": "^4.1.1",
     "@hugeicons/react": "^1.1.6",

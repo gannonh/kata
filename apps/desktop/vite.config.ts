@@ -14,7 +14,10 @@ export default defineConfig({
     alias: {
       '@': path.join(rootDir, 'src/renderer'),
       '@shared': path.join(rootDir, 'src/shared'),
-      '@kata-ui': path.join(rootDir, '../../packages/ui/src'),
+      '@kata/core': path.join(rootDir, '../../packages/core/src'),
+      '@kata/shared': path.join(rootDir, '../../packages/shared/src'),
+      '@kata/ui': path.join(rootDir, '../../packages/ui/src'),
+      '@kata/mermaid': path.join(rootDir, '../../packages/mermaid/src'),
     },
   },
   server: {

@@ -21,7 +21,7 @@
 | 8 | Settings panel: provider auth with masked keys | ✅ PASS | [08-settings-providers.png](08-settings-providers.png) |
 | 9 | Permission mode switching (Explore/Ask/Auto) | ✅ PASS | [09-permission-auto.png](09-permission-auto.png) |
 | 10 | New session creation, session list updates | ✅ PASS | [10-new-session.png](10-new-session.png) |
-| 11 | No "Craft Agents" references in codebase | ✅ PASS | `grep -ri` returns 0 matches |
+| 11 | No legacy namespace references in codebase | ✅ PASS | `grep -ri` returns 0 matches |
 | 12 | Unit tests pass (17/17) | ✅ PASS | `bun test` — 17 pass, 0 fail |
 | 13 | Error handling: CLI not found shows clear message | ✅ PASS | [05-main-chat-view.png](05-main-chat-view.png) (initial state before fix) |
 
@@ -72,7 +72,7 @@
 - "Restart" button available on crash
 
 **Code Quality:**
-- Zero "Craft Agents" / `@craft-agent/*` references (`grep -ri` across `src/` and `package.json`)
+- Zero legacy namespace references in active app source (`grep -ri` across `src/` and `package.json`)
 - 17/17 unit tests passing (PiAgentBridge, RpcEventAdapter, AuthBridge)
 - electron-builder config exists, packaging scripts present
 

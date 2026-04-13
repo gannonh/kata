@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ShikiDiffViewer } from '@kata-ui/components/code-viewer/ShikiDiffViewer'
-import { getLanguageFromPath, truncateFilePath } from '@kata-ui/components/code-viewer/language-map'
+import { ShikiDiffViewer, getLanguageFromPath, truncateFilePath } from '@kata/ui'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
