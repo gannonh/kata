@@ -1,6 +1,6 @@
 # @craft-agent/shared
 
-Core business logic package for Kata. Contains agent implementation, authentication, configuration, MCP client, channels, daemon, and more.
+Core business logic package for Kata. Contains agent implementation, authentication, configuration, MCP client, channels, and more.
 
 ## Commands
 
@@ -21,7 +21,6 @@ import { loadWorkspaceSources, type LoadedSource } from '@craft-agent/shared/sou
 import { loadStatusConfig, createStatus } from '@craft-agent/shared/statuses';
 import { resolveTheme } from '@craft-agent/shared/config/theme';
 import { debug } from '@craft-agent/shared/utils';
-import { MessageQueue, createLineParser } from '@craft-agent/shared/daemon';
 import { SlackChannelAdapter, WhatsAppChannelAdapter, resolveSessionKey } from '@craft-agent/shared/channels';
 ```
 
@@ -35,7 +34,6 @@ src/
 ├── colors/             # Color utilities
 ├── config/             # Storage, preferences, models, theme, watcher
 ├── credentials/        # Secure credential storage (AES-256-GCM)
-├── daemon/             # Daemon subprocess (SQLite queue, JSON-lines IPC, PID management)
 ├── docs/               # Documentation utilities
 ├── git/                # Git integration
 ├── headless/           # Non-interactive execution mode

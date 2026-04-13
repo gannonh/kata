@@ -11,10 +11,10 @@
   },
   "scripts": {
     "test": "bun test src/__tests__/",
-    "samples": "bun run index.ts",
-    "dev": "bun run dev.ts",
+    "samples": "node --import tsx index.ts",
+    "dev": "node --import tsx dev.ts",
     "bench": "bun run bench.ts",
-    "build": "bun run index.ts && mkdir -p dist && mv index.html dist/ && cp -r public/* dist/",
+    "build": "node --import tsx index.ts && mkdir -p dist && mv index.html dist/ && cp -r public/* dist/",
     "deploy": "bun run build && wrangler pages deploy dist --project-name craft-agents-mermaid",
     "lint": "eslint src/ --max-warnings=50",
     "typecheck": "tsc --noEmit"
@@ -23,6 +23,9 @@
     "@dagrejs/dagre": "^3.0.0"
   },
   "devDependencies": {
-    "shiki": "^4.0.2"
+    "chokidar": "^5.0.0",
+    "esbuild": "^0.28.0",
+    "shiki": "^4.0.2",
+    "tsx": "^4.20.6"
   }
 }

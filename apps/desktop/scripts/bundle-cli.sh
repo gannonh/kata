@@ -16,20 +16,19 @@ require_command() {
 }
 
 require_command pnpm "pnpm is required to bundle the CLI runtime"
-require_command bun "bun is required to package the bundled runtime launcher"
 
 VENDOR_DIR="$DESKTOP_DIR/vendor"
 KATA_RUNTIME_DIR="$VENDOR_DIR/kata-runtime"
-BUN_DIR="$VENDOR_DIR/bun"
 KATA_LAUNCHER="$VENDOR_DIR/kata"
+KATA_CMD_LAUNCHER="$VENDOR_DIR/kata.cmd"
 
 log() {
   printf '[bundle-cli] %s\n' "$1"
 }
 
 log "preparing vendor directory"
-rm -rf "$KATA_RUNTIME_DIR" "$BUN_DIR" "$KATA_LAUNCHER"
-mkdir -p "$KATA_RUNTIME_DIR/src" "$BUN_DIR"
+rm -rf "$KATA_RUNTIME_DIR" "$KATA_LAUNCHER" "$KATA_CMD_LAUNCHER"
+mkdir -p "$KATA_RUNTIME_DIR/src"
 
 if [ ! -d "$ROOT_DIR/node_modules" ]; then
   log "installing monorepo dependencies"
@@ -56,19 +55,46 @@ log "installing production dependencies for bundled runtime"
   npm install --omit=dev --ignore-scripts --no-audit --no-fund >/dev/null
 )
 
-BUN_BIN="$(command -v bun)"
-log "copying bun runtime from $BUN_BIN"
-cp "$BUN_BIN" "$BUN_DIR/bun"
-chmod +x "$BUN_DIR/bun"
-
 log "writing launcher"
-cat > "$KATA_LAUNCHER" <<'EOF'
+cat > "$KATA_LAUNCHER" <<'LAUNCHER'
 #!/usr/bin/env sh
 set -eu
 
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
-exec "$SCRIPT_DIR/bun/bun" "$SCRIPT_DIR/kata-runtime/dist/loader.js" "$@"
-EOF
+ELECTRON_BIN=""
+
+if [ -x "$SCRIPT_DIR/../MacOS/Kata Desktop" ]; then
+  ELECTRON_BIN="$SCRIPT_DIR/../MacOS/Kata Desktop"
+else
+  for candidate in \
+    "$SCRIPT_DIR/../Kata Desktop" \
+    "$SCRIPT_DIR/../kata-desktop" \
+    "$SCRIPT_DIR/../kata"
+  do
+    if [ -x "$candidate" ]; then
+      ELECTRON_BIN="$candidate"
+      break
+    fi
+  done
+fi
+
+if [ -z "$ELECTRON_BIN" ]; then
+  echo "ERROR: Unable to locate packaged Electron binary" >&2
+  exit 1
+fi
+
+export ELECTRON_RUN_AS_NODE=1
+exec "$ELECTRON_BIN" "$SCRIPT_DIR/kata-runtime/dist/loader.js" "$@"
+LAUNCHER
+
+cat > "$KATA_CMD_LAUNCHER" <<'WINDOWS_LAUNCHER'
+@echo off
+setlocal
+set "SCRIPT_DIR=%~dp0"
+set "ELECTRON_RUN_AS_NODE=1"
+"%SCRIPT_DIR%..\Kata Desktop.exe" "%SCRIPT_DIR%kata-runtime\dist\loader.js" %*
+endlocal
+WINDOWS_LAUNCHER
 
 chmod +x "$KATA_LAUNCHER"
 
@@ -98,3 +124,4 @@ fi
 
 log "bundle complete"
 log "launcher: $KATA_LAUNCHER"
+log "windows launcher: $KATA_CMD_LAUNCHER"

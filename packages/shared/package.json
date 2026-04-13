@@ -54,10 +54,7 @@
     "./channels": "./src/channels/index.ts",
     "./channels/types": "./src/channels/types.ts",
     "./plugins": "./src/plugins/index.ts",
-    "./plugins/types": "./src/plugins/types.ts",
-    "./daemon": "./src/daemon/index.ts",
-    "./daemon/ipc": "./src/daemon/ipc.ts",
-    "./daemon/pid": "./src/daemon/pid.ts"
+    "./plugins/types": "./src/plugins/types.ts"
   },
   "dependencies": {
     "@craft-agent/core": "workspace:*",
