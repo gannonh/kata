@@ -2379,7 +2379,7 @@ Please continue the conversation naturally from where we left off.
    * Map SDK assistant message error codes to typed error events with user-friendly messages.
    */
   private mapSDKErrorToTypedError(errorCode: SDKAssistantMessageError): { type: 'typed_error'; error: AgentError } {
-    const errorMap: Record<SDKAssistantMessageError, AgentError> = {
+    const errorMap: Record<SDKAssistantMessageError | 'max_output_tokens', AgentError> = {
       'authentication_failed': {
         code: 'invalid_api_key',
         title: 'Authentication Failed',
