@@ -56,6 +56,7 @@ function shellEscape(arg: string): string {
 }
 
 type PrLinearDocument = { title: string; content: string; updatedAt?: string };
+type PrLinearIssueRecord = { description?: string | null };
 type PrLinearClient = {
   graphql: (query: string, variables?: Record<string, unknown>) => Promise<unknown>;
   listDocuments: (opts?: {
@@ -85,26 +86,23 @@ async function loadLinearPrDocuments(
   const out: Record<string, string> = { ...(seed ?? {}) };
 
   try {
-    if (issueId && (!out.PLAN || !out.SUMMARY)) {
-      const docs = await client.listDocuments({ issueId, first: 100 });
-      if (!out.PLAN) {
-        const planDoc = pickNewestDocument(docs.filter((d) => d.title === `${sliceId}-PLAN`));
-        if (planDoc?.content) out.PLAN = planDoc.content;
-      }
-      if (!out.SUMMARY) {
-        const summaryDoc = pickNewestDocument(docs.filter((d) => d.title === `${sliceId}-SUMMARY`));
-        if (summaryDoc?.content) out.SUMMARY = summaryDoc.content;
-      }
+    if (issueId && !out.PLAN) {
+      const result = await client.graphql(
+        `query PrSliceIssueDescription($id: String!) {
+          issue(id: $id) {
+            description
+          }
+        }`,
+        { id: issueId },
+      ) as { issue?: PrLinearIssueRecord | null };
+      const description = result?.issue?.description?.trim();
+      if (description) out.PLAN = description;
     }
 
-    if (!out.PLAN) {
-      const docs = await client.listDocuments({
-        projectId,
-        title: `${sliceId}-PLAN`,
-        first: 20,
-      });
-      const planDoc = pickNewestDocument(docs);
-      if (planDoc?.content) out.PLAN = planDoc.content;
+    if (issueId && !out.SUMMARY) {
+      const docs = await client.listDocuments({ issueId, first: 100 });
+      const summaryDoc = pickNewestDocument(docs.filter((d) => d.title === `${sliceId}-SUMMARY`));
+      if (summaryDoc?.content) out.SUMMARY = summaryDoc.content;
     }
 
     if (!out.SUMMARY) {
@@ -117,7 +115,7 @@ async function loadLinearPrDocuments(
       if (summaryDoc?.content) out.SUMMARY = summaryDoc.content;
     }
   } catch {
-    // Best-effort loader — caller will fall back to placeholder PR body.
+    // Best-effort loader — caller will report missing required slice description if needed.
   }
 
   return Object.keys(out).length > 0 ? out : undefined;
@@ -244,13 +242,13 @@ export async function runCreatePr(options: PrCreateOptions): Promise<PrCreateRes
     }
   }
 
-  // Ensure we have at least a PLAN artifact before composing.
+  // Ensure we have the required slice plan from the slice issue description.
   if (!linearDocuments?.PLAN) {
     return {
       ok: false,
       phase: "artifact-error",
-      error: `Missing required Linear artifact: ${sliceId}-PLAN`,
-      hint: `Create or fetch ${sliceId}-PLAN before creating a PR.`,
+      error: `Missing required slice issue description for ${sliceId}`,
+      hint: `Populate the ${sliceId} slice issue description before creating a PR.`,
     };
   }
 
@@ -267,7 +265,7 @@ export async function runCreatePr(options: PrCreateOptions): Promise<PrCreateRes
       ok: false,
       phase: "artifact-error",
       error: `Failed to compose PR body: ${err instanceof Error ? err.message : String(err)}`,
-      hint: `Ensure slice artifacts exist for ${sliceId} (expected: ${sliceId}-PLAN and optional ${sliceId}-SUMMARY).`,
+      hint: `Ensure the ${sliceId} slice issue description exists and optional summary artifacts are available.`,
     };
   }
 
