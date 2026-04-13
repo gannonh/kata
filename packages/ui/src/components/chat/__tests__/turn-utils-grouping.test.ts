@@ -8,7 +8,7 @@
  * - extractTaskOutputData() - TaskOutput JSON parsing (internal, tested indirectly)
  */
 
-import { describe, it, expect } from 'bun:test'
+import { describe, it, expect } from 'vitest'
 import {
   groupActivitiesByParent,
   computeLastChildSet,

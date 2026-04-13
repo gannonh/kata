@@ -1,10 +1,11 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
+import { describe, test, expect, beforeEach, afterEach } from 'vitest'
 import { mkdirSync, writeFileSync, rmSync } from 'fs'
-import { join, resolve } from 'path'
+import { join, resolve, dirname } from 'path'
+import { fileURLToPath } from 'url'
 import { loadPromptTemplates, interpolateVariables, clearTemplateCache } from '../template-loader'
 import { DOC_REFS } from '../../docs/index.ts'
 
-const TEST_DIR = join(import.meta.dir, '__fixtures__', 'templates')
+const TEST_DIR = join(dirname(fileURLToPath(import.meta.url)), '__fixtures__', 'templates')
 
 beforeEach(() => {
   clearTemplateCache()
@@ -105,7 +106,7 @@ describe('loadPromptTemplates', () => {
 })
 
 describe('production templates', () => {
-  const templatesDir = resolve(import.meta.dir, '..', '..', '..', 'assets', 'prompt-templates')
+  const templatesDir = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'assets', 'prompt-templates')
 
   test('loads all production template sections', () => {
     clearTemplateCache()

@@ -4,7 +4,7 @@
  * Covers: class blocks, attributes, methods, visibility, annotations,
  * relationships (all 6 types), cardinality, labels, inline attributes.
  */
-import { describe, it, expect } from 'bun:test'
+import { describe, it, expect } from 'vitest'
 import { parseClassDiagram } from '../class/parser.ts'
 
 /** Helper to parse — preprocesses text the same way index.ts does */

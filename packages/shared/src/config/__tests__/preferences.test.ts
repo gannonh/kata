@@ -9,7 +9,7 @@
  * Note: These are pure unit tests that test the merging logic directly,
  * without file I/O, to ensure test isolation.
  */
-import { describe, it, expect } from 'bun:test'
+import { describe, it, expect } from 'vitest'
 import type { UserPreferences, MessageDisplayPreferences, DiffViewerPreferences } from '../preferences'
 
 // ============================================================================

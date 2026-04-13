@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import { PluginManager } from '../plugin-manager.ts';
 import { SlackChannelAdapter } from '../../channels/adapters/slack-adapter.ts';
 import { WhatsAppChannelAdapter } from '../../channels/adapters/whatsapp-adapter.ts';

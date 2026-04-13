@@ -4,7 +4,7 @@
  * Uses hand-crafted PositionedGraph data to test SVG output without
  * depending on the layout engine.
  */
-import { describe, it, expect } from 'bun:test'
+import { describe, it, expect } from 'vitest'
 import { renderSvg } from '../renderer.ts'
 import type { DiagramColors } from '../theme.ts'
 import type { PositionedGraph, PositionedNode, PositionedEdge, PositionedGroup } from '../types.ts'

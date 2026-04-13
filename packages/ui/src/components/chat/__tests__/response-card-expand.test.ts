@@ -8,7 +8,7 @@
  * - Default value handling
  */
 
-import { describe, it, expect } from 'bun:test'
+import { describe, it, expect } from 'vitest'
 
 // ============================================================================
 // Constants (mirrored from TurnCard.tsx)

@@ -7,7 +7,7 @@
  * Bug fix: Sources with authType: "none" were incorrectly showing "needs auth" because
  * the code checked `!isAuthenticated` without first checking if auth is required.
  */
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect } from 'vitest';
 import { sourceNeedsAuthentication } from '../../sources/credential-manager.ts';
 import type { LoadedSource } from '../../sources/types.ts';
 

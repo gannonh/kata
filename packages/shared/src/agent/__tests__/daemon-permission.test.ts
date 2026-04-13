@@ -6,7 +6,7 @@
  * via SHIFT+TAB and is intended for background daemon sessions.
  */
 
-import { describe, it, expect } from 'bun:test'
+import { describe, it, expect } from 'vitest'
 import { shouldAllowToolInMode } from '../mode-manager.ts'
 import {
   DAEMON_DEFAULT_ALLOWLIST,

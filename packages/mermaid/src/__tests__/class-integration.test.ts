@@ -1,7 +1,7 @@
 /**
  * Integration tests for class diagrams — end-to-end parse → layout → render.
  */
-import { describe, it, expect } from 'bun:test'
+import { describe, it, expect } from 'vitest'
 import { renderMermaid } from '../index.ts'
 
 describe('renderMermaid – class diagrams', () => {

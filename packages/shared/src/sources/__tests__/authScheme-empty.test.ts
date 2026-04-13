@@ -5,7 +5,7 @@
  * the production code behaves correctly.
  */
 
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect } from 'vitest';
 import { buildAuthorizationHeader } from '../api-tools.ts';
 
 describe('buildAuthorizationHeader', () => {

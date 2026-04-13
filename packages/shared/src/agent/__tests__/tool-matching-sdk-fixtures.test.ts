@@ -7,7 +7,7 @@
  * the output matches expected AgentEvents.
  */
 
-import { describe, it, expect, beforeEach } from 'bun:test'
+import { describe, it, expect, beforeEach } from 'vitest'
 import {
   ToolIndex,
   extractToolStarts,

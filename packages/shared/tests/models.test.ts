@@ -1,7 +1,7 @@
 /**
  * Tests for model detection utilities in config/models.ts
  */
-import { describe, it, expect } from "bun:test";
+import { describe, it, expect } from "vitest";
 import {
   isClaudeModel,
   isOpusModel,

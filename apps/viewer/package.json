@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/ --max-warnings=20",
-    "test": "bun test src/"
+    "test": "vitest run"
   },
   "dependencies": {
     "@craft-agent/core": "workspace:*",
@@ -33,6 +33,7 @@
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.7.3",
-    "vite": "^8.0.2"
+    "vite": "^8.0.2",
+    "vitest": "^4.1.2"
   }
 }

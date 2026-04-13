@@ -19,7 +19,7 @@
   "scripts": {
     "lint": "eslint src/ --max-warnings=50",
     "typecheck": "tsc --noEmit",
-    "test": "bun test src/"
+    "test": "vitest run"
   },
   "dependencies": {
     "@craft-agent/core": "workspace:*",
@@ -51,7 +51,8 @@
     "tailwindcss": ">=4.0.0"
   },
   "devDependencies": {
-    "react-pdf": "^10.4.1"
+    "react-pdf": "^10.4.1",
+    "vitest": "^4.1.2"
   },
   "peerDependenciesMeta": {
     "@radix-ui/react-context-menu": {

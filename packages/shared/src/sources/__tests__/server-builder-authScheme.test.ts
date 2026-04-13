@@ -5,7 +5,7 @@
  * which transforms source configs before they reach buildAuthorizationHeader.
  */
 
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect } from 'vitest';
 import { SourceServerBuilder } from '../server-builder.ts';
 import type { LoadedSource } from '../types.ts';
 

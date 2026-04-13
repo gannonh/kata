@@ -6,41 +6,14 @@
  * - Setup needs derivation from auth state
  * - Migration detection for legacy CLI tokens
  */
-import { describe, it, expect, beforeEach, mock } from 'bun:test';
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
   getSetupNeeds,
-  performTokenRefresh,
   _resetRefreshMutex,
   type AuthState,
   type TokenResult,
   type MigrationInfo,
 } from '../state.ts';
-
-// ============================================
-// Mock credential manager
-// ============================================
-
-function createMockCredentialManager(initialCreds?: {
-  accessToken: string;
-  refreshToken?: string;
-  expiresAt?: number;
-  source?: 'native' | 'cli';
-}) {
-  let storedCreds = initialCreds;
-
-  return {
-    getClaudeOAuthCredentials: async () => storedCreds ?? null,
-    setClaudeOAuthCredentials: async (creds: {
-      accessToken: string;
-      refreshToken?: string;
-      expiresAt?: number;
-      source?: 'native' | 'cli';
-    }) => {
-      storedCreds = creds;
-    },
-    getApiKey: async () => null,
-  };
-}
 
 // ============================================
 // getSetupNeeds tests (pure function)
@@ -193,18 +166,7 @@ describe('performTokenRefresh', () => {
 
   describe('successful refresh', () => {
     it('should return accessToken on successful refresh', async () => {
-      // Mock the refreshClaudeToken import
-      const mockRefresh = mock(async () => ({
-        accessToken: 'new-access-token',
-        refreshToken: 'new-refresh-token',
-        expiresAt: Date.now() + 3600000,
-      }));
-
-      // We need to test with a real-ish scenario
-      // Since we can't easily mock the import, test the interface
-      const manager = createMockCredentialManager();
-
-      // For this test, we'll verify the TokenResult structure
+      // For this test, verify the TokenResult structure returned on success.
       const successResult: TokenResult = {
         accessToken: 'new-access-token',
       };
