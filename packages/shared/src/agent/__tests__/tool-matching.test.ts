@@ -8,7 +8,7 @@
  * Key property under test: same SDK messages → same AgentEvents, regardless of order.
  */
 
-import { describe, it, expect, beforeEach } from 'bun:test'
+import { describe, it, expect, beforeEach } from 'vitest'
 import {
   ToolIndex,
   extractToolStarts,

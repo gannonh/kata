@@ -1,10 +1,11 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
+import { describe, test, expect, beforeEach, afterEach } from 'vitest'
 import { mkdirSync, rmSync, existsSync, readFileSync, writeFileSync } from 'fs'
-import { join } from 'path'
+import { join, dirname } from 'path'
+import { fileURLToPath } from 'url'
 import { seedSystemSkills } from '../storage'
 import { getBundledAssetsDir } from '../../utils/paths'
 
-const TEST_WORKSPACE = join(import.meta.dir, '__fixtures__', 'test-ws')
+const TEST_WORKSPACE = join(dirname(fileURLToPath(import.meta.url)), '__fixtures__', 'test-ws')
 
 // Bundled system-skills assets are only available inside a built Electron app
 // or when process.cwd() matches the monorepo root. Skip when unavailable.

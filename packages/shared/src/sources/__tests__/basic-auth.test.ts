@@ -10,7 +10,7 @@
  * 3. api-tools.ts encodes at request time: Buffer.from(`${username}:${password}`).toString('base64')
  */
 
-import { describe, test, expect } from 'bun:test';
+import { describe, test, expect } from 'vitest';
 
 // Type definitions matching the actual code
 interface BasicAuthCredential {
