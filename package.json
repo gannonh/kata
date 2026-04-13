@@ -10,7 +10,7 @@
     "typecheck": "pnpm exec turbo run typecheck",
     "test": "pnpm exec turbo run test",
     "test:affected": "turbo run test --affected",
-    "test:watch": "pnpm exec turbo run test -- --watch",
+    "test:watch": "pnpm exec turbo watch test",
     "test:coverage": "bun run scripts/coverage-summary.ts",
     "test:coverage:summary": "bun run scripts/coverage-summary.ts",
     "test:e2e": "pnpm --dir apps/desktop run test:e2e",
