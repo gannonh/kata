@@ -9,7 +9,7 @@
 
 import type { ReactNode } from 'react'
 import { useMemo, useState, useCallback } from 'react'
-import type { StoredSession } from '@craft-agent/core'
+import type { StoredSession } from '@kata/core'
 import { cn } from '../../lib/utils'
 import { CHAT_LAYOUT, CHAT_CLASSES } from '../../lib/layout'
 import { PlatformProvider, type PlatformActions } from '../../context'
@@ -49,9 +49,9 @@ export interface SessionViewerProps {
 }
 
 /**
- * CraftAgentLogo - The Kata Agents "C" logo for branding
+ * KataLogo - The Kata brand mark used in the session viewer.
  */
-function CraftAgentLogo({ className }: { className?: string }) {
+function KataLogo({ className }: { className?: string }) {
   return (
     <svg
       className={className}
@@ -218,7 +218,7 @@ export function SessionViewer({
 
             {/* Bottom branding */}
             <div className={CHAT_CLASSES.brandingContainer}>
-              <CraftAgentLogo className="w-8 h-8 text-[#9570BE]/40" />
+              <KataLogo className="w-8 h-8 text-[#9570BE]/40" />
             </div>
             </div>
           </div>
