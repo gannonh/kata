@@ -41,7 +41,7 @@
     "demo:repo": "bash scripts/create-demo-repo.sh"
   },
   "devDependencies": {
-    "@aws-sdk/client-s3": "^3.947.0",
+    "@aws-sdk/client-s3": "^3.1030.0",
     "@electron/packager": "^19.0.1",
     "@rollup/rollup-win32-arm64-msvc": "^4.55.1",
     "@sentry/vite-plugin": "^5.1.1",
@@ -58,7 +58,7 @@
     "@typescript-eslint/parser": "^8.58.2",
     "@vitejs/plugin-react": "^6.0.1",
     "agentation": "^3.0.2",
-    "autoprefixer": "^10.4.23",
+    "autoprefixer": "^10.5.0",
     "concurrently": "^9.2.1",
     "electron": "^41.0.3",
     "electron-builder": "^26.0.12",
