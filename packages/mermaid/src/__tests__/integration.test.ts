@@ -7,7 +7,7 @@
  * Covers: original features, Batch 1 (new shapes), Batch 2 (edges, styles),
  * and Batch 3 (state diagrams).
  */
-import { describe, it, expect } from 'bun:test'
+import { describe, it, expect } from 'vitest'
 import { renderMermaid } from '../index.ts'
 
 // ============================================================================
