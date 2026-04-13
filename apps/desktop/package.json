@@ -37,6 +37,7 @@
   },
   "dependencies": {
     "@kata/core": "workspace:*",
+    "@kata/mermaid": "workspace:*",
     "@kata/shared": "workspace:*",
     "@kata/ui": "workspace:*",
     "@fontsource-variable/geist": "^5.2.8",

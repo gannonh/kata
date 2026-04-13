@@ -332,6 +332,9 @@ importers:
       '@kata/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@kata/mermaid':
+        specifier: workspace:*
+        version: link:../../packages/mermaid
       '@kata/shared':
         specifier: workspace:*
         version: link:../../packages/shared
