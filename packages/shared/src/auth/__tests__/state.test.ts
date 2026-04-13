@@ -193,18 +193,7 @@ describe('performTokenRefresh', () => {
 
   describe('successful refresh', () => {
     it('should return accessToken on successful refresh', async () => {
-      // Mock the refreshClaudeToken import
-      const mockRefresh = vi.fn(async () => ({
-        accessToken: 'new-access-token',
-        refreshToken: 'new-refresh-token',
-        expiresAt: Date.now() + 3600000,
-      }));
-
-      // We need to test with a real-ish scenario
-      // Since we can't easily mock the import, test the interface
-      const manager = createMockCredentialManager();
-
-      // For this test, we'll verify the TokenResult structure
+      // For this test, verify the TokenResult structure returned on success.
       const successResult: TokenResult = {
         accessToken: 'new-access-token',
       };
