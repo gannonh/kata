@@ -624,9 +624,15 @@ importers:
         specifier: ^3.0.0
         version: 3.0.0
     devDependencies:
+      esbuild:
+        specifier: ^0.28.0
+        version: 0.28.0
       shiki:
         specifier: ^4.0.2
         version: 4.0.2
+      tsx:
+        specifier: ^4.20.6
+        version: 4.21.0
 
   packages/shared:
     dependencies:
@@ -3351,6 +3357,7 @@ packages:
 
   '@rollup/rollup-win32-arm64-msvc@4.60.1':
     resolution: {integrity: sha512-i1okWYkA4FJICtr7KpYzFpRTHgy5jdDbZiWfvny21iIKky5YExiDXP+zbXzm3dUcFpkEeYNHgQ5fuG236JPq0g==}
+    cpu: [arm64]
     os: [win32]
 
   '@sec-ant/readable-stream@0.4.1':
