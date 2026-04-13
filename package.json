@@ -78,7 +78,7 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.19",
-    "@anthropic-ai/sdk": "^0.82.0",
+    "@anthropic-ai/sdk": "^0.88.0",
     "@hapi/boom": "^10.0.1",
     "@modelcontextprotocol/sdk": "^1.24.3",
     "@radix-ui/react-avatar": "^1.1.11",
@@ -106,7 +106,7 @@
     "js-yaml": "^4.1.1",
     "linkify-it": "^5.0.0",
     "lucide-react": "^1.7.0",
-    "marked": "^17.0.1",
+    "marked": "^18.0.0",
     "markitdown-js": "^0.0.14",
     "md-to-slack": "^1.1.7",
     "open": "^11.0.0",
