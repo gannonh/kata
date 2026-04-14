@@ -1,4 +1,4 @@
-import { type ReactNode, useRef, useState } from 'react'
+import { type ReactNode, useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 
@@ -20,6 +20,22 @@ export function MessageInput({
   const [value, setValue] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const sendingRef = useRef(false)
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+
+  const adjustTextareaHeight = useCallback((): void => {
+    const textarea = textareaRef.current
+    if (!textarea) {
+      return
+    }
+
+    textarea.style.height = '0px'
+    const nextHeight = Math.max(textarea.scrollHeight, 80)
+    textarea.style.height = `${nextHeight}px`
+  }, [])
+
+  useLayoutEffect(() => {
+    adjustTextareaHeight()
+  }, [adjustTextareaHeight, value])
 
   const send = async (): Promise<void> => {
     const trimmed = value.trim()
@@ -54,6 +70,7 @@ export function MessageInput({
     <div className="border-t border-border p-4">
       <div className="flex flex-col gap-2 rounded-lg border border-border bg-input/30 p-3">
         <Textarea
+          ref={textareaRef}
           data-testid="chat-input"
           value={value}
           onChange={(event) => setValue(event.target.value)}
@@ -67,7 +84,7 @@ export function MessageInput({
               handleSend()
             }
           }}
-          className="min-h-[5rem] resize-none overflow-hidden rounded-none border-0 bg-transparent px-0 py-0 text-sm text-foreground shadow-none focus-visible:border-transparent focus-visible:ring-0 dark:bg-transparent"
+          className="min-h-[5rem] resize-none overflow-hidden rounded-none border-0 bg-transparent px-0 py-0 text-sm text-foreground shadow-none [field-sizing:fixed] focus-visible:border-transparent focus-visible:ring-0 dark:bg-transparent"
           placeholder="Ask Kata to help with your code..."
           disabled={disabled || submitting}
         />

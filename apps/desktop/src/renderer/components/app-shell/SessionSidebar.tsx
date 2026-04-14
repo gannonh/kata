@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import { Plus, RefreshCw, Settings } from 'lucide-react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import {
@@ -35,6 +36,10 @@ export function SessionSidebar({ open, onOpenSettings }: SessionSidebarProps) {
   const createSession = useSetAtom(createSessionAtom)
   const switchSession = useSetAtom(switchSessionAtom)
   const refreshSessions = useSetAtom(refreshSessionListAtom)
+
+  const handleSelectSession = useCallback((sessionId: string) => {
+    void switchSession(sessionId)
+  }, [switchSession])
 
   if (!open) {
     return null
@@ -106,9 +111,7 @@ export function SessionSidebar({ open, onOpenSettings }: SessionSidebarProps) {
               session={session}
               isCurrent={session.id === currentSessionId}
               disabled={switchingSession || creatingSession}
-              onSelect={(sessionId) => {
-                void switchSession(sessionId)
-              }}
+              onSelect={handleSelectSession}
             />
           ))}
         </div>

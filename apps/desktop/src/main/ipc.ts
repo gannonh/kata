@@ -2131,11 +2131,12 @@ async function runOptionalCommand(
   command: string,
   args: string[],
   cwd: string,
+  timeoutMs = 300,
 ): Promise<string | null> {
   try {
     const { stdout } = await execFile(command, args, {
       cwd,
-      timeout: 1500,
+      timeout: timeoutMs,
       maxBuffer: 64 * 1024,
     })
 
@@ -2147,7 +2148,7 @@ async function runOptionalCommand(
 }
 
 async function readWorkspaceGitInfo(workspacePath: string): Promise<WorkspaceGitInfo> {
-  const branch = await runOptionalCommand('git', ['rev-parse', '--abbrev-ref', 'HEAD'], workspacePath)
+  const branch = await runOptionalCommand('git', ['rev-parse', '--abbrev-ref', 'HEAD'], workspacePath, 250)
 
   if (!branch) {
     return {
@@ -2157,7 +2158,7 @@ async function readWorkspaceGitInfo(workspacePath: string): Promise<WorkspaceGit
   }
 
   const normalizedBranch = branch === 'HEAD'
-    ? await runOptionalCommand('git', ['rev-parse', '--short', 'HEAD'], workspacePath)
+    ? await runOptionalCommand('git', ['rev-parse', '--short', 'HEAD'], workspacePath, 250)
     : branch
 
   const displayBranch = normalizedBranch
@@ -2174,7 +2175,7 @@ async function readWorkspaceGitInfo(workspacePath: string): Promise<WorkspaceGit
   const pullRequestUrl =
     branch === 'HEAD'
       ? null
-      : await runOptionalCommand('gh', ['pr', 'view', '--head', branch, '--json', 'url', '--jq', '.url'], workspacePath)
+      : await runOptionalCommand('gh', ['pr', 'view', '--head', branch, '--json', 'url', '--jq', '.url'], workspacePath, 250)
 
   return {
     branch: displayBranch,

@@ -72,27 +72,48 @@ export function ChatPanel() {
   useEffect(() => {
     let active = true
 
-    void window.api.workspace.getGitInfo()
-      .then((info) => {
-        if (!active) {
-          return
-        }
+    const loadWorkspaceGitInfo = () => {
+      void window.api.workspace.getGitInfo()
+        .then((info) => {
+          if (!active) {
+            return
+          }
 
-        setWorkspaceGitInfo(info)
-      })
-      .catch(() => {
-        if (!active) {
-          return
-        }
-
-        setWorkspaceGitInfo({
-          branch: null,
-          pullRequestUrl: null,
+          setWorkspaceGitInfo(info)
         })
-      })
+        .catch(() => {
+          if (!active) {
+            return
+          }
+
+          setWorkspaceGitInfo({
+            branch: null,
+            pullRequestUrl: null,
+          })
+        })
+    }
+
+    let idleHandle: number | null = null
+    let timeoutHandle: ReturnType<typeof setTimeout> | null = null
+
+    if ('requestIdleCallback' in window) {
+      idleHandle = window.requestIdleCallback(() => {
+        loadWorkspaceGitInfo()
+      }, { timeout: 1500 })
+    } else {
+      timeoutHandle = setTimeout(loadWorkspaceGitInfo, 200)
+    }
 
     return () => {
       active = false
+
+      if (idleHandle !== null && 'cancelIdleCallback' in window) {
+        window.cancelIdleCallback(idleHandle)
+      }
+
+      if (timeoutHandle !== null) {
+        clearTimeout(timeoutHandle)
+      }
     }
   }, [workingDirectory])
 

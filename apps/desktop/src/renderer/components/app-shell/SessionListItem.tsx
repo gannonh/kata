@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import type { SessionListItem as SessionListItemType } from '@shared/types'
 import { cn } from '@/lib/utils'
 
@@ -7,6 +8,12 @@ interface SessionListItemProps {
   disabled?: boolean
   onSelect: (sessionId: string) => void
 }
+
+const RELATIVE_TIME_FORMATTER = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' })
+const SHORT_DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
+  month: 'short',
+  day: 'numeric',
+})
 
 function formatRelativeTime(value: string): string {
   const date = new Date(value)
@@ -22,24 +29,19 @@ function formatRelativeTime(value: string): string {
   const hour = 60 * minute
   const day = 24 * hour
 
-  const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' })
-
   if (absDeltaMs < hour) {
-    return rtf.format(Math.round(deltaMs / minute), 'minute')
+    return RELATIVE_TIME_FORMATTER.format(Math.round(deltaMs / minute), 'minute')
   }
 
   if (absDeltaMs < day) {
-    return rtf.format(Math.round(deltaMs / hour), 'hour')
+    return RELATIVE_TIME_FORMATTER.format(Math.round(deltaMs / hour), 'hour')
   }
 
   if (absDeltaMs < 7 * day) {
-    return rtf.format(Math.round(deltaMs / day), 'day')
+    return RELATIVE_TIME_FORMATTER.format(Math.round(deltaMs / day), 'day')
   }
 
-  return new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric',
-  }).format(date)
+  return SHORT_DATE_FORMATTER.format(date)
 }
 
 /**
@@ -57,7 +59,7 @@ function shortModelName(session: SessionListItemType): string {
   return slashIndex >= 0 ? model.slice(slashIndex + 1) : model
 }
 
-export function SessionListItem({
+export const SessionListItem = memo(function SessionListItem({
   session,
   isCurrent,
   disabled = false,
@@ -98,4 +100,4 @@ export function SessionListItem({
       </p>
     </button>
   )
-}
+})
