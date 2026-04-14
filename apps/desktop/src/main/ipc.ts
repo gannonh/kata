@@ -1,5 +1,7 @@
+import { execFile as execFileCallback } from 'node:child_process'
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
+import { promisify } from 'node:util'
 import { dialog, ipcMain, shell, type BrowserWindow } from 'electron'
 import log from './logger'
 import { AuthBridge } from './auth-bridge'
@@ -50,6 +52,7 @@ import {
   type SetThinkingLevelResponse,
   type ThinkingLevel,
   type WorkspaceInfo,
+  type WorkspaceGitInfo,
   type ArtifactType,
   type WorkflowBoardSnapshotResponse,
   type WorkflowBoardLifecycleResponse,
@@ -90,6 +93,8 @@ import {
   type StabilitySnapshot,
   type StabilitySnapshotResponse,
 } from '../shared/types'
+
+const execFile = promisify(execFileCallback)
 
 interface RegisterIpcOptions {
   bridge: PiAgentBridge
@@ -886,6 +891,7 @@ export function registerSessionIpc({
   ipcMain.removeHandler(IPC_CHANNELS.workspaceGet)
   ipcMain.removeHandler(IPC_CHANNELS.workspaceSet)
   ipcMain.removeHandler(IPC_CHANNELS.workspacePick)
+  ipcMain.removeHandler(IPC_CHANNELS.workspaceGetGitInfo)
   ipcMain.removeHandler(IPC_CHANNELS.authGetProviders)
   ipcMain.removeHandler(IPC_CHANNELS.authSetKey)
   ipcMain.removeHandler(IPC_CHANNELS.authRemoveKey)
@@ -1326,6 +1332,10 @@ export function registerSessionIpc({
     return {
       path: selectedPath,
     }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.workspaceGetGitInfo, async (): Promise<WorkspaceGitInfo> => {
+    return readWorkspaceGitInfo(bridge.getWorkspacePath())
   })
 
   ipcMain.handle(IPC_CHANNELS.authGetProviders, async (): Promise<AuthProvidersResponse> => {
@@ -1987,6 +1997,7 @@ export function registerSessionIpc({
     ipcMain.removeHandler(IPC_CHANNELS.workspaceGet)
     ipcMain.removeHandler(IPC_CHANNELS.workspaceSet)
     ipcMain.removeHandler(IPC_CHANNELS.workspacePick)
+    ipcMain.removeHandler(IPC_CHANNELS.workspaceGetGitInfo)
     ipcMain.removeHandler(IPC_CHANNELS.authGetProviders)
     ipcMain.removeHandler(IPC_CHANNELS.authSetKey)
     ipcMain.removeHandler(IPC_CHANNELS.authRemoveKey)
@@ -2114,6 +2125,61 @@ async function readLinearProjectReference(workspacePath: string): Promise<string
   }
 
   return null
+}
+
+async function runOptionalCommand(
+  command: string,
+  args: string[],
+  cwd: string,
+): Promise<string | null> {
+  try {
+    const { stdout } = await execFile(command, args, {
+      cwd,
+      timeout: 1500,
+      maxBuffer: 64 * 1024,
+    })
+
+    const trimmed = stdout.trim()
+    return trimmed.length > 0 ? trimmed : null
+  } catch {
+    return null
+  }
+}
+
+async function readWorkspaceGitInfo(workspacePath: string): Promise<WorkspaceGitInfo> {
+  const branch = await runOptionalCommand('git', ['rev-parse', '--abbrev-ref', 'HEAD'], workspacePath)
+
+  if (!branch) {
+    return {
+      branch: null,
+      pullRequestUrl: null,
+    }
+  }
+
+  const normalizedBranch = branch === 'HEAD'
+    ? await runOptionalCommand('git', ['rev-parse', '--short', 'HEAD'], workspacePath)
+    : branch
+
+  const displayBranch = normalizedBranch
+    ? branch === 'HEAD' ? `detached@${normalizedBranch}` : normalizedBranch
+    : null
+
+  if (!displayBranch) {
+    return {
+      branch: null,
+      pullRequestUrl: null,
+    }
+  }
+
+  const pullRequestUrl =
+    branch === 'HEAD'
+      ? null
+      : await runOptionalCommand('gh', ['pr', 'view', '--head', branch, '--json', 'url', '--jq', '.url'], workspacePath)
+
+  return {
+    branch: displayBranch,
+    pullRequestUrl,
+  }
 }
 
 function stripYamlWrapping(value: string): string {

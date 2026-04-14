@@ -106,6 +106,9 @@ const api: DesktopApi = {
     pick: async () => {
       return ipcRenderer.invoke(IPC_CHANNELS.workspacePick)
     },
+    getGitInfo: async () => {
+      return ipcRenderer.invoke(IPC_CHANNELS.workspaceGetGitInfo)
+    },
   },
   auth: {
     getProviders: async () => {

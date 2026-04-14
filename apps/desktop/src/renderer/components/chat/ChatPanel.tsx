@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import {
   appendUserMessageAtom,
@@ -10,7 +10,9 @@ import {
   messagesAtom,
   toolCallsAtom,
 } from '@/atoms/chat'
-import { refreshSessionListAtom, sessionHistoryErrorAtom } from '@/atoms/session'
+import { refreshSessionListAtom, sessionHistoryErrorAtom, workingDirectoryAtom } from '@/atoms/session'
+import { type WorkspaceGitInfo } from '@shared/types'
+import { ModelSelector } from '@/components/app-shell/ModelSelector'
 import { ErrorBanner } from './ErrorBanner'
 import { ExtensionUIHandler } from './ExtensionUIHandler'
 import { MessageInput } from './MessageInput'
@@ -25,6 +27,12 @@ export function ChatPanel() {
   const isStreaming = useAtomValue(isStreamingAtom)
   const bridgeStatus = useAtomValue(bridgeStatusAtom)
   const sessionHistoryError = useAtomValue(sessionHistoryErrorAtom)
+  const workingDirectory = useAtomValue(workingDirectoryAtom)
+
+  const [workspaceGitInfo, setWorkspaceGitInfo] = useState<WorkspaceGitInfo>({
+    branch: null,
+    pullRequestUrl: null,
+  })
 
   const appendUserMessage = useSetAtom(appendUserMessageAtom)
   const applyChatEvent = useSetAtom(applyChatEventAtom)
@@ -59,6 +67,33 @@ export function ChatPanel() {
       unsubscribeBridgeStatus()
     }
   }, [applyBridgeStatus, applyChatEvent, refreshSessions])
+
+  useEffect(() => {
+    let active = true
+
+    void window.api.workspace.getGitInfo()
+      .then((info) => {
+        if (!active) {
+          return
+        }
+
+        setWorkspaceGitInfo(info)
+      })
+      .catch(() => {
+        if (!active) {
+          return
+        }
+
+        setWorkspaceGitInfo({
+          branch: null,
+          pullRequestUrl: null,
+        })
+      })
+
+    return () => {
+      active = false
+    }
+  }, [workingDirectory])
 
   // Auto-scroll: pinned to bottom by default. Detaches when the user scrolls
   // up manually, re-attaches when they scroll back near the bottom or when a
@@ -137,11 +172,15 @@ export function ChatPanel() {
         <MessageList messages={messages} tools={tools} />
       </div>
 
-      <ThinkingLevelToggle />
-
       <MessageInput
         disabled={inputDisabled}
         stopDisabled={stopDisabled}
+        footerControls={(
+          <div className="flex items-center gap-2">
+            <ModelSelector compact />
+            <ThinkingLevelToggle compact />
+          </div>
+        )}
         onSubmit={async (value) => {
           appendUserMessage(value)
 
@@ -160,12 +199,32 @@ export function ChatPanel() {
         }}
       />
 
-      <div className="border-t border-border px-4 py-2 text-[11px] text-muted-foreground">
-        {isStreaming
-          ? 'Streaming response…'
-          : bridgeStatus.state === 'running'
-            ? 'Ready'
-            : `Bridge ${bridgeStatus.state}`}
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-border px-4 py-2 text-[11px] text-muted-foreground">
+        <span>
+          {isStreaming
+            ? 'Streaming response…'
+            : bridgeStatus.state === 'running'
+              ? 'Ready'
+              : `Bridge ${bridgeStatus.state}`}
+        </span>
+
+        <div className="flex max-w-full items-center gap-3">
+          {workspaceGitInfo.branch ? (
+            <span className="max-w-56 truncate">Branch: {workspaceGitInfo.branch}</span>
+          ) : null}
+
+          {workspaceGitInfo.pullRequestUrl ? (
+            <button
+              type="button"
+              className="text-primary hover:underline"
+              onClick={() => {
+                window.open(workspaceGitInfo.pullRequestUrl ?? '', '_blank', 'noopener,noreferrer')
+              }}
+            >
+              Open PR
+            </button>
+          ) : null}
+        </div>
       </div>
     </div>
   )

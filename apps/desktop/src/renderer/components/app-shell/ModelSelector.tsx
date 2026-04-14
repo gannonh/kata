@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { MODELS_REFRESH_EVENT, PROVIDER_METADATA } from '@/constants/providers'
+import { cn } from '@/lib/utils'
 
 function toModelIdentifier(provider: string, id: string): string {
   return `${provider}/${id}`
@@ -27,7 +28,12 @@ function formatProviderLabel(provider: string): string {
   return metadata?.name ?? provider
 }
 
-export function ModelSelector() {
+interface ModelSelectorProps {
+  compact?: boolean
+  className?: string
+}
+
+export function ModelSelector({ compact = false, className }: ModelSelectorProps) {
   const [selectedModel, setSelectedModel] = useAtom(selectedModelAtom)
   const [availableModels, setAvailableModels] = useAtom(availableModelsAtom)
   const [loading, setLoading] = useAtom(modelLoadingAtom)
@@ -137,7 +143,7 @@ export function ModelSelector() {
       : 'Select a model'
 
   return (
-    <div className="flex min-w-[16rem] flex-col gap-1">
+    <div className={cn(compact ? 'min-w-[11rem]' : 'flex min-w-[16rem] flex-col gap-1', className)}>
       <Select
         value={selectedModel ?? ''}
         disabled={loading || availableModels.length === 0}
@@ -166,7 +172,7 @@ export function ModelSelector() {
         </SelectContent>
       </Select>
 
-      {error && <p className="text-[11px] text-destructive">{error}</p>}
+      {!compact && error && <p className="text-[11px] text-destructive">{error}</p>}
     </div>
   )
 }

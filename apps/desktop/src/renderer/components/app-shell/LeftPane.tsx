@@ -4,7 +4,6 @@ import { sessionSidebarOpenAtom } from '@/atoms/session'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { ChatPanel } from '../chat/ChatPanel'
-import { ModelSelector } from './ModelSelector'
 import { SessionSidebar } from './SessionSidebar'
 import { WorkspaceIndicator } from './WorkspaceIndicator'
 import { SymphonyStatusBadge } from './SymphonyStatusBadge'
@@ -37,7 +36,6 @@ export function LeftPane({ onOpenSettings }: LeftPaneProps) {
         </div>
 
         <div className="flex flex-1 items-center justify-end gap-2">
-          <ModelSelector />
           {!sessionSidebarOpen ? (
             <Button type="button" variant="outline" size="sm" onClick={onOpenSettings}>
               <Settings data-icon="inline-start" />
