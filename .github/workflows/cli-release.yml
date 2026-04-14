@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'apps/cli/**'
+  workflow_dispatch:
 
 concurrency:
   group: cli-release-${{ github.sha }}
