@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { GitBranch } from 'lucide-react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import {
   appendUserMessageAtom,
@@ -210,7 +211,10 @@ export function ChatPanel() {
 
         <div className="flex max-w-full items-center gap-3">
           {workspaceGitInfo.branch ? (
-            <span className="max-w-56 truncate">Branch: {workspaceGitInfo.branch}</span>
+            <span className="inline-flex max-w-56 items-center gap-1">
+              <GitBranch size={12} aria-hidden="true" />
+              <span className="truncate">{workspaceGitInfo.branch}</span>
+            </span>
           ) : null}
 
           {workspaceGitInfo.pullRequestUrl ? (
