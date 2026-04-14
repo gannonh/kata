@@ -67,7 +67,7 @@ export function MessageInput({
               handleSend()
             }
           }}
-          className="h-20 resize-none rounded-none border-0 bg-transparent px-0 py-0 text-sm text-foreground shadow-none focus-visible:border-transparent focus-visible:ring-0 dark:bg-transparent"
+          className="min-h-[5rem] resize-none overflow-hidden rounded-none border-0 bg-transparent px-0 py-0 text-sm text-foreground shadow-none focus-visible:border-transparent focus-visible:ring-0 dark:bg-transparent"
           placeholder="Ask Kata to help with your code..."
           disabled={disabled || submitting}
         />
