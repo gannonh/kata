@@ -7,6 +7,31 @@ import { requestPlanningReloadAtom, resetPlanningSessionStateAtom } from './plan
 const CURRENT_SESSION_STORAGE_KEY = 'kata-desktop:current-session-id'
 const WORKING_DIRECTORY_STORAGE_KEY = 'kata-desktop:working-directory'
 const SESSION_SIDEBAR_OPEN_STORAGE_KEY = 'kata-desktop:session-sidebar-open'
+const ARCHIVED_SESSIONS_STORAGE_KEY = 'kata-desktop:archived-sessions:v1'
+
+export interface ArchivedSessionRecord {
+  sessionId: string
+  title: string
+  archivedAt: string
+  modified: string
+  projectDir: string
+}
+
+function normalizeWorkspacePath(value: string): string {
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return ''
+  }
+
+  return trimmed.replace(/[\\/]+$/, '') || trimmed
+}
+
+function isArchivedForWorkspace(
+  archived: ArchivedSessionRecord,
+  normalizedWorkspacePath: string,
+): boolean {
+  return normalizeWorkspacePath(archived.projectDir) === normalizedWorkspacePath
+}
 
 export const sessionListAtom = atom<SessionListItem[]>([])
 export const sessionWarningsAtom = atom<string[]>([])
@@ -39,6 +64,31 @@ export const sessionSidebarOpenAtom = atomWithStorage<boolean>(
   true,
 )
 
+export const archivedSessionsAtom = atomWithStorage<ArchivedSessionRecord[]>(
+  ARCHIVED_SESSIONS_STORAGE_KEY,
+  [],
+)
+
+export const workspaceArchivedSessionIdsAtom = atom((get) => {
+  const normalizedWorkspacePath = normalizeWorkspacePath(get(workingDirectoryAtom))
+  const archived = get(archivedSessionsAtom)
+
+  return new Set(
+    archived
+      .filter((entry) => isArchivedForWorkspace(entry, normalizedWorkspacePath))
+      .map((entry) => entry.sessionId),
+  )
+})
+
+export const visibleSessionListAtom = atom((get) => {
+  const archivedIds = get(workspaceArchivedSessionIdsAtom)
+  return get(sessionListAtom).filter((session) => !archivedIds.has(session.id))
+})
+
+export const archivedSessionsForSettingsAtom = atom((get) =>
+  [...get(archivedSessionsAtom)].sort((a, b) => b.archivedAt.localeCompare(a.archivedAt)),
+)
+
 const applySessionListResponseAtom = atom(
   null,
   (get, set, response: SessionListResponse) => {
@@ -59,21 +109,24 @@ const applySessionListResponseAtom = atom(
       ? response.sessions.some((session) => session.id === existingSessionId)
       : false
 
-    if (placeholder && !inDiskResponse) {
-      set(sessionListAtom, [placeholder, ...response.sessions])
-    } else {
-      set(sessionListAtom, response.sessions)
-    }
+    const nextSessions = placeholder && !inDiskResponse
+      ? [placeholder, ...response.sessions]
+      : response.sessions
 
+    set(sessionListAtom, nextSessions)
     set(sessionWarningsAtom, response.warnings)
     set(sessionDirectoryAtom, response.directory)
 
+    const archivedSessionIds = get(workspaceArchivedSessionIdsAtom)
+
     // Current session is accounted for — either in disk response or preserved as placeholder.
-    if (existingSessionId && (inDiskResponse || Boolean(placeholder))) {
+    // If the current session is archived, fall through and pick the first visible session.
+    if (existingSessionId && (inDiskResponse || Boolean(placeholder)) && !archivedSessionIds.has(existingSessionId)) {
       return
     }
 
-    set(currentSessionIdAtom, response.sessions[0]?.id ?? null)
+    const nextVisibleSession = nextSessions.find((session) => !archivedSessionIds.has(session.id))
+    set(currentSessionIdAtom, nextVisibleSession?.id ?? null)
   },
 )
 
@@ -318,6 +371,68 @@ export const switchSessionAtom = atom(null, async (get, set, sessionId: string) 
     set(sessionSwitchingAtom, false)
   }
 })
+
+export const archiveSessionAtom = atom(
+  null,
+  async (get, set, session: SessionListItem) => {
+    const sessionId = session.id.trim()
+    if (!sessionId) {
+      return
+    }
+
+    const normalizedWorkspacePath = normalizeWorkspacePath(get(workingDirectoryAtom))
+    const archivedAt = new Date().toISOString()
+    const projectDir = normalizedWorkspacePath || 'Unknown workspace'
+    const projectWorkspaceKey = normalizeWorkspacePath(projectDir)
+
+    set(archivedSessionsAtom, (current) => {
+      const withoutExisting = current.filter(
+        (entry) => !(entry.sessionId === sessionId && isArchivedForWorkspace(entry, projectWorkspaceKey)),
+      )
+
+      return [
+        {
+          sessionId,
+          title: session.title,
+          archivedAt,
+          modified: session.modified,
+          projectDir,
+        },
+        ...withoutExisting,
+      ]
+    })
+
+    if (get(currentSessionIdAtom) !== sessionId) {
+      return
+    }
+
+    const archivedSessionIds = get(workspaceArchivedSessionIdsAtom)
+    const nextSession = get(sessionListAtom).find((entry) => !archivedSessionIds.has(entry.id))
+
+    if (nextSession) {
+      await set(switchSessionAtom, nextSession.id)
+      return
+    }
+
+    set(currentSessionIdAtom, null)
+    set(resetChatStateAtom)
+    set(resetPlanningSessionStateAtom)
+  },
+)
+
+export const unarchiveSessionAtom = atom(
+  null,
+  (_get, set, { sessionId, projectDir }: { sessionId: string; projectDir: string }) => {
+    const trimmedSessionId = sessionId.trim()
+    const normalizedProjectDir = normalizeWorkspacePath(projectDir)
+
+    set(archivedSessionsAtom, (current) =>
+      current.filter(
+        (entry) => !(entry.sessionId === trimmedSessionId && isArchivedForWorkspace(entry, normalizedProjectDir)),
+      ),
+    )
+  },
+)
 
 export const pickWorkspaceAtom = atom(null, async () => {
   return window.api.workspace.pick()

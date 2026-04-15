@@ -2,16 +2,18 @@ import { useCallback } from 'react'
 import { Plus, RefreshCw, Settings } from 'lucide-react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import {
+  archiveSessionAtom,
   createSessionAtom,
   currentSessionIdAtom,
   refreshSessionListAtom,
   sessionCreatingAtom,
-  sessionListAtom,
   sessionListErrorAtom,
   sessionListLoadingAtom,
   sessionSwitchingAtom,
   sessionWarningsAtom,
   switchSessionAtom,
+  visibleSessionListAtom,
+  workspaceArchivedSessionIdsAtom,
 } from '@/atoms/session'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -25,7 +27,8 @@ interface SessionSidebarProps {
 }
 
 export function SessionSidebar({ open, onOpenSettings }: SessionSidebarProps) {
-  const sessions = useAtomValue(sessionListAtom)
+  const sessions = useAtomValue(visibleSessionListAtom)
+  const archivedSessionIds = useAtomValue(workspaceArchivedSessionIdsAtom)
   const currentSessionId = useAtomValue(currentSessionIdAtom)
   const loading = useAtomValue(sessionListLoadingAtom)
   const creatingSession = useAtomValue(sessionCreatingAtom)
@@ -36,6 +39,7 @@ export function SessionSidebar({ open, onOpenSettings }: SessionSidebarProps) {
   const createSession = useSetAtom(createSessionAtom)
   const switchSession = useSetAtom(switchSessionAtom)
   const refreshSessions = useSetAtom(refreshSessionListAtom)
+  const archiveSession = useSetAtom(archiveSessionAtom)
 
   const handleSelectSession = useCallback((sessionId: string) => {
     void switchSession(sessionId)
@@ -102,7 +106,11 @@ export function SessionSidebar({ open, onOpenSettings }: SessionSidebarProps) {
           )}
 
           {!loading && !error && sessions.length === 0 && (
-            <p className="p-2 text-xs text-muted-foreground">No sessions for this workspace yet.</p>
+            <p className="p-2 text-xs text-muted-foreground">
+              {archivedSessionIds.size > 0
+                ? 'All sessions are archived for this workspace.'
+                : 'No sessions for this workspace yet.'}
+            </p>
           )}
 
           {sessions.map((session) => (
@@ -112,6 +120,9 @@ export function SessionSidebar({ open, onOpenSettings }: SessionSidebarProps) {
               isCurrent={session.id === currentSessionId}
               disabled={switchingSession || creatingSession}
               onSelect={handleSelectSession}
+              onArchive={(session) => {
+                void archiveSession(session)
+              }}
             />
           ))}
         </div>
