@@ -13,10 +13,11 @@ test.describe('App shell', () => {
     await expect(mainWindow.getByPlaceholder('Ask Kata to help with your code...')).toBeVisible()
   })
 
-  test('shows permission mode selector with Explore / Ask / Auto', async ({ mainWindow }) => {
-    await expect(mainWindow.getByLabel(/Explore/i)).toBeVisible()
-    await expect(mainWindow.getByLabel(/Ask/i)).toBeVisible()
-    await expect(mainWindow.getByLabel(/Auto/i)).toBeVisible()
+  test('does not render the legacy permission mode selector', async ({ mainWindow }) => {
+    await expect(mainWindow.getByText(/Permission mode/i)).toHaveCount(0)
+    await expect(mainWindow.getByLabel(/Explore/i)).toHaveCount(0)
+    await expect(mainWindow.getByLabel(/Ask/i)).toHaveCount(0)
+    await expect(mainWindow.getByLabel(/Auto/i)).toHaveCount(0)
   })
 
   test('shows workflow board pane in right pane', async ({ mainWindow }) => {

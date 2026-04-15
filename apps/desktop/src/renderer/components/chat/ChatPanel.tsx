@@ -18,7 +18,6 @@ import { ErrorBanner } from './ErrorBanner'
 import { ExtensionUIHandler } from './ExtensionUIHandler'
 import { MessageInput } from './MessageInput'
 import { MessageList } from './MessageList'
-import { PermissionModeSelector } from './PermissionModeSelector'
 import { ThinkingLevelToggle } from './ThinkingLevelToggle'
 
 export function ChatPanel() {
@@ -179,11 +178,6 @@ export function ChatPanel() {
           onRestart={bridgeStatus.state !== 'spawning' ? () => window.api.restartAgent() : undefined}
         />
       )}
-
-      <div className="flex items-center justify-between border-b border-border px-4 py-2">
-        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Permission mode</p>
-        <PermissionModeSelector />
-      </div>
 
       <div ref={scrollRef} className="flex-1 overflow-auto">
         {sessionHistoryError && (
