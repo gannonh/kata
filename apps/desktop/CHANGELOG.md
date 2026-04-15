@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.4
+
+### Features
+
+- **Session archiving workflow** — Desktop now supports archiving chats from the session list, excluding archived sessions from the default sidebar view, and restoring them from a dedicated Settings panel.
+- **Archived Chats settings panel** — Added an "Archived Chats" tab that lists archived sessions with timestamp and project directory metadata plus one-click unarchive actions.
+- **Workspace Git context in chat shell** — Chat footer now surfaces workspace Git branch and pull request context via new main/preload IPC plumbing.
+
+### Fixes
+
+- **Session sidebar archive affordance** — Archive actions are now exposed with hover controls on each session row, reducing accidental clutter while keeping archive operations discoverable.
+- **Chat pane interaction polish** — Refined composer/list UI behavior and associated desktop shell layout wiring to improve day-to-day chat usability.
+
 ## 0.2.3
 
 ### Fixes
