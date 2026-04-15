@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { GitBranch } from 'lucide-react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import {
@@ -19,6 +19,15 @@ import { ExtensionUIHandler } from './ExtensionUIHandler'
 import { MessageInput } from './MessageInput'
 import { MessageList } from './MessageList'
 import { ThinkingLevelToggle } from './ThinkingLevelToggle'
+
+function getPullRequestLabel(url: string): string {
+  const match = url.match(/\/pull\/(\d+)(?:\/|$)/)
+  if (match?.[1]) {
+    return `PR #${match[1]}`
+  }
+
+  return 'Open PR'
+}
 
 export function ChatPanel() {
   const messages = useAtomValue(messagesAtom)
@@ -41,12 +50,26 @@ export function ChatPanel() {
 
   const scrollRef = useRef<HTMLDivElement | null>(null)
 
+  const refreshWorkspaceGitInfo = useCallback(() => {
+    void window.api.workspace.getGitInfo()
+      .then((info) => {
+        setWorkspaceGitInfo(info)
+      })
+      .catch(() => {
+        setWorkspaceGitInfo({
+          branch: null,
+          pullRequestUrl: null,
+        })
+      })
+  }, [])
+
   useEffect(() => {
     const unsubscribeChatEvents = window.api.onChatEvent((event) => {
       applyChatEvent(event)
 
       if (event.type === 'agent_end') {
         void refreshSessions()
+        refreshWorkspaceGitInfo()
       }
     })
 
@@ -66,46 +89,21 @@ export function ChatPanel() {
       unsubscribeChatEvents()
       unsubscribeBridgeStatus()
     }
-  }, [applyBridgeStatus, applyChatEvent, refreshSessions])
+  }, [applyBridgeStatus, applyChatEvent, refreshSessions, refreshWorkspaceGitInfo])
 
   useEffect(() => {
-    let active = true
-
-    const loadWorkspaceGitInfo = () => {
-      void window.api.workspace.getGitInfo()
-        .then((info) => {
-          if (!active) {
-            return
-          }
-
-          setWorkspaceGitInfo(info)
-        })
-        .catch(() => {
-          if (!active) {
-            return
-          }
-
-          setWorkspaceGitInfo({
-            branch: null,
-            pullRequestUrl: null,
-          })
-        })
-    }
-
     let idleHandle: number | null = null
     let timeoutHandle: ReturnType<typeof setTimeout> | null = null
 
     if ('requestIdleCallback' in window) {
       idleHandle = window.requestIdleCallback(() => {
-        loadWorkspaceGitInfo()
+        refreshWorkspaceGitInfo()
       }, { timeout: 1500 })
     } else {
-      timeoutHandle = setTimeout(loadWorkspaceGitInfo, 200)
+      timeoutHandle = setTimeout(refreshWorkspaceGitInfo, 200)
     }
 
     return () => {
-      active = false
-
       if (idleHandle !== null && 'cancelIdleCallback' in window) {
         window.cancelIdleCallback(idleHandle)
       }
@@ -114,7 +112,15 @@ export function ChatPanel() {
         clearTimeout(timeoutHandle)
       }
     }
-  }, [workingDirectory])
+  }, [workingDirectory, refreshWorkspaceGitInfo])
+
+  useEffect(() => {
+    window.addEventListener('focus', refreshWorkspaceGitInfo)
+
+    return () => {
+      window.removeEventListener('focus', refreshWorkspaceGitInfo)
+    }
+  }, [refreshWorkspaceGitInfo])
 
   // Auto-scroll: pinned to bottom by default. Detaches when the user scrolls
   // up manually, re-attaches when they scroll back near the bottom or when a
@@ -226,13 +232,25 @@ export function ChatPanel() {
 
         <div className="flex max-w-full items-center gap-3">
           {workspaceGitInfo.branch ? (
-            <span className="inline-flex max-w-56 items-center gap-1">
+            <span className="inline-flex max-w-72 items-center gap-1">
               <GitBranch size={12} aria-hidden="true" />
               <span className="truncate">{workspaceGitInfo.branch}</span>
+              {workspaceGitInfo.pullRequestUrl ? (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <button
+                    type="button"
+                    className="shrink-0 text-primary hover:underline"
+                    onClick={() => {
+                      window.open(workspaceGitInfo.pullRequestUrl ?? '', '_blank', 'noopener,noreferrer')
+                    }}
+                  >
+                    {getPullRequestLabel(workspaceGitInfo.pullRequestUrl)}
+                  </button>
+                </>
+              ) : null}
             </span>
-          ) : null}
-
-          {workspaceGitInfo.pullRequestUrl ? (
+          ) : workspaceGitInfo.pullRequestUrl ? (
             <button
               type="button"
               className="text-primary hover:underline"
@@ -240,7 +258,7 @@ export function ChatPanel() {
                 window.open(workspaceGitInfo.pullRequestUrl ?? '', '_blank', 'noopener,noreferrer')
               }}
             >
-              Open PR
+              {getPullRequestLabel(workspaceGitInfo.pullRequestUrl)}
             </button>
           ) : null}
         </div>

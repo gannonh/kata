@@ -2172,10 +2172,25 @@ async function readWorkspaceGitInfo(workspacePath: string): Promise<WorkspaceGit
     }
   }
 
-  const pullRequestUrl =
-    branch === 'HEAD'
-      ? null
-      : await runOptionalCommand('gh', ['pr', 'view', '--head', branch, '--json', 'url', '--jq', '.url'], workspacePath, 250)
+  let pullRequestUrl: string | null = null
+
+  if (branch !== 'HEAD') {
+    const prQueryAttempts: string[][] = [
+      // Modern gh syntax: branch argument is positional.
+      ['pr', 'view', branch, '--json', 'url', '--jq', '.url'],
+      // Compatibility fallback for gh versions that support --head.
+      ['pr', 'view', '--head', branch, '--json', 'url', '--jq', '.url'],
+      // Last resort: resolve PR from current branch context.
+      ['pr', 'view', '--json', 'url', '--jq', '.url'],
+    ]
+
+    for (const args of prQueryAttempts) {
+      pullRequestUrl = await runOptionalCommand('gh', args, workspacePath, 1000)
+      if (pullRequestUrl) {
+        break
+      }
+    }
+  }
 
   return {
     branch: displayBranch,
