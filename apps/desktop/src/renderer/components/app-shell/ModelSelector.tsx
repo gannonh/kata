@@ -172,7 +172,15 @@ export function ModelSelector({ compact = false, className }: ModelSelectorProps
         </SelectContent>
       </Select>
 
-      {!compact && error && <p className="text-[11px] text-destructive">{error}</p>}
+      {error && (
+        <p
+          className={cn('text-[11px] text-destructive', compact && 'truncate')}
+          title={compact ? error : undefined}
+          aria-live="polite"
+        >
+          {error}
+        </p>
+      )}
     </div>
   )
 }

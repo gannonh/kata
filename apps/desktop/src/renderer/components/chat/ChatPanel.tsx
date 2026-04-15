@@ -14,6 +14,7 @@ import {
 import { refreshSessionListAtom, sessionHistoryErrorAtom, workingDirectoryAtom } from '@/atoms/session'
 import { type WorkspaceGitInfo } from '@shared/types'
 import { ModelSelector } from '@/components/app-shell/ModelSelector'
+import { Button } from '@/components/ui/button'
 import { ErrorBanner } from './ErrorBanner'
 import { ExtensionUIHandler } from './ExtensionUIHandler'
 import { MessageInput } from './MessageInput'
@@ -27,6 +28,23 @@ function getPullRequestLabel(url: string): string {
   }
 
   return 'Open PR'
+}
+
+function toSafeHttpUrl(rawUrl: string | null | undefined): string | null {
+  if (!rawUrl) {
+    return null
+  }
+
+  try {
+    const parsed = new URL(rawUrl)
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return null
+    }
+
+    return parsed.toString()
+  } catch {
+    return null
+  }
 }
 
 export function ChatPanel() {
@@ -49,6 +67,15 @@ export function ChatPanel() {
   const refreshSessions = useSetAtom(refreshSessionListAtom)
 
   const scrollRef = useRef<HTMLDivElement | null>(null)
+
+  const openPullRequest = useCallback(() => {
+    const safeUrl = toSafeHttpUrl(workspaceGitInfo.pullRequestUrl)
+    if (!safeUrl) {
+      return
+    }
+
+    window.open(safeUrl, '_blank', 'noopener,noreferrer')
+  }, [workspaceGitInfo.pullRequestUrl])
 
   const refreshWorkspaceGitInfo = useCallback(() => {
     void window.api.workspace.getGitInfo()
@@ -238,28 +265,28 @@ export function ChatPanel() {
               {workspaceGitInfo.pullRequestUrl ? (
                 <>
                   <span aria-hidden="true">·</span>
-                  <button
+                  <Button
                     type="button"
-                    className="shrink-0 text-primary hover:underline"
-                    onClick={() => {
-                      window.open(workspaceGitInfo.pullRequestUrl ?? '', '_blank', 'noopener,noreferrer')
-                    }}
+                    variant="link"
+                    size="sm"
+                    className="h-auto shrink-0 p-0 text-[11px]"
+                    onClick={openPullRequest}
                   >
                     {getPullRequestLabel(workspaceGitInfo.pullRequestUrl)}
-                  </button>
+                  </Button>
                 </>
               ) : null}
             </span>
           ) : workspaceGitInfo.pullRequestUrl ? (
-            <button
+            <Button
               type="button"
-              className="text-primary hover:underline"
-              onClick={() => {
-                window.open(workspaceGitInfo.pullRequestUrl ?? '', '_blank', 'noopener,noreferrer')
-              }}
+              variant="link"
+              size="sm"
+              className="h-auto p-0 text-[11px]"
+              onClick={openPullRequest}
             >
               {getPullRequestLabel(workspaceGitInfo.pullRequestUrl)}
-            </button>
+            </Button>
           ) : null}
         </div>
       </div>

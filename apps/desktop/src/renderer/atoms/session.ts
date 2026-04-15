@@ -8,6 +8,7 @@ const CURRENT_SESSION_STORAGE_KEY = 'kata-desktop:current-session-id'
 const WORKING_DIRECTORY_STORAGE_KEY = 'kata-desktop:working-directory'
 const SESSION_SIDEBAR_OPEN_STORAGE_KEY = 'kata-desktop:session-sidebar-open'
 const ARCHIVED_SESSIONS_STORAGE_KEY = 'kata-desktop:archived-sessions:v1'
+const UNKNOWN_WORKSPACE_LABEL = 'Unknown workspace'
 
 export interface ArchivedSessionRecord {
   sessionId: string
@@ -70,7 +71,8 @@ export const archivedSessionsAtom = atomWithStorage<ArchivedSessionRecord[]>(
 )
 
 export const workspaceArchivedSessionIdsAtom = atom((get) => {
-  const normalizedWorkspacePath = normalizeWorkspacePath(get(workingDirectoryAtom))
+  const normalizedWorkspacePath =
+    normalizeWorkspacePath(get(workingDirectoryAtom)) || UNKNOWN_WORKSPACE_LABEL
   const archived = get(archivedSessionsAtom)
 
   return new Set(
@@ -380,10 +382,18 @@ export const archiveSessionAtom = atom(
       return
     }
 
+    const isCurrentSession = get(currentSessionIdAtom) === sessionId
+    if (isCurrentSession && get(isStreamingAtom)) {
+      set(sessionListErrorAtom, 'Stop the active run before archiving this chat.')
+      return
+    }
+
+    set(sessionListErrorAtom, null)
+
     const normalizedWorkspacePath = normalizeWorkspacePath(get(workingDirectoryAtom))
     const archivedAt = new Date().toISOString()
-    const projectDir = normalizedWorkspacePath || 'Unknown workspace'
-    const projectWorkspaceKey = normalizeWorkspacePath(projectDir)
+    const projectWorkspaceKey = normalizedWorkspacePath || UNKNOWN_WORKSPACE_LABEL
+    const projectDir = projectWorkspaceKey
 
     set(archivedSessionsAtom, (current) => {
       const withoutExisting = current.filter(
@@ -402,7 +412,7 @@ export const archiveSessionAtom = atom(
       ]
     })
 
-    if (get(currentSessionIdAtom) !== sessionId) {
+    if (!isCurrentSession) {
       return
     }
 

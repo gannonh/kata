@@ -17,6 +17,7 @@ interface BashViewModel {
   stdout: string
   stderr: string
   output: string
+  lineCount: number
   exitCode?: number
 }
 
@@ -44,6 +45,7 @@ function buildBashViewModel(tool: ToolCallView): BashViewModel {
   const stderr = asString(result?.stderr) ?? ''
 
   const output = [stdout, stderr].filter(Boolean).join(stdout && stderr ? '\n' : '')
+  const lineCount = output.split('\n').filter(Boolean).length
 
   const exitCode = asNumber(result?.exitCode)
 
@@ -52,6 +54,7 @@ function buildBashViewModel(tool: ToolCallView): BashViewModel {
     stdout,
     stderr,
     output,
+    lineCount,
     exitCode,
   }
 }
@@ -98,9 +101,7 @@ export function BashOutputCard({ tool }: BashOutputCardProps) {
                         exit {view.exitCode}
                       </Badge>
                     )}
-                    <span className="text-[11px] text-muted-foreground">
-                      {(view.output || '').split('\n').filter(Boolean).length} lines
-                    </span>
+                    <span className="text-[11px] text-muted-foreground">{view.lineCount} lines</span>
                   </div>
                 </div>
 

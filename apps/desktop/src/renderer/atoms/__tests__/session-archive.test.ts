@@ -1,11 +1,13 @@
 import { createStore } from 'jotai'
 import { describe, expect, test } from 'vitest'
 import type { SessionListItem } from '@shared/types'
+import { isStreamingAtom } from '../chat'
 import {
   archiveSessionAtom,
   archivedSessionsAtom,
   currentSessionIdAtom,
   sessionListAtom,
+  sessionListErrorAtom,
   unarchiveSessionAtom,
   visibleSessionListAtom,
   workingDirectoryAtom,
@@ -87,5 +89,36 @@ describe('session archive atoms', () => {
 
     expect(store.get(currentSessionIdAtom)).toBeNull()
     expect(store.get(visibleSessionListAtom)).toHaveLength(0)
+  })
+
+  test('archives and hides sessions when workspace path is missing', async () => {
+    const store = createStore()
+    store.set(archivedSessionsAtom, [])
+    const session = createSession({ id: 'unknown', title: 'No workspace session' })
+
+    store.set(workingDirectoryAtom, '')
+    store.set(sessionListAtom, [session])
+
+    await store.set(archiveSessionAtom, session)
+
+    expect(store.get(visibleSessionListAtom)).toHaveLength(0)
+    expect(store.get(archivedSessionsAtom)[0]?.projectDir).toBe('Unknown workspace')
+  })
+
+  test('rejects archiving the active session while streaming', async () => {
+    const store = createStore()
+    store.set(archivedSessionsAtom, [])
+    const activeSession = createSession({ id: 'streaming', title: 'Streaming session' })
+
+    store.set(workingDirectoryAtom, '/workspace/streaming')
+    store.set(sessionListAtom, [activeSession])
+    store.set(currentSessionIdAtom, activeSession.id)
+    store.set(isStreamingAtom, true)
+
+    await store.set(archiveSessionAtom, activeSession)
+
+    expect(store.get(archivedSessionsAtom)).toHaveLength(0)
+    expect(store.get(currentSessionIdAtom)).toBe(activeSession.id)
+    expect(store.get(sessionListErrorAtom)).toBe('Stop the active run before archiving this chat.')
   })
 })

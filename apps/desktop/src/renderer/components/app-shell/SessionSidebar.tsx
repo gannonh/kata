@@ -1,5 +1,6 @@
 import { useCallback } from 'react'
 import { Plus, RefreshCw, Settings } from 'lucide-react'
+import type { SessionListItem as SessionListItemType } from '@shared/types'
 import { useAtomValue, useSetAtom } from 'jotai'
 import {
   archiveSessionAtom,
@@ -44,6 +45,10 @@ export function SessionSidebar({ open, onOpenSettings }: SessionSidebarProps) {
   const handleSelectSession = useCallback((sessionId: string) => {
     void switchSession(sessionId)
   }, [switchSession])
+
+  const handleArchiveSession = useCallback((session: SessionListItemType) => {
+    void archiveSession(session)
+  }, [archiveSession])
 
   if (!open) {
     return null
@@ -120,9 +125,7 @@ export function SessionSidebar({ open, onOpenSettings }: SessionSidebarProps) {
               isCurrent={session.id === currentSessionId}
               disabled={switchingSession || creatingSession}
               onSelect={handleSelectSession}
-              onArchive={(session) => {
-                void archiveSession(session)
-              }}
+              onArchive={handleArchiveSession}
             />
           ))}
         </div>
