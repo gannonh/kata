@@ -17,7 +17,16 @@ interface BashViewModel {
   stdout: string
   stderr: string
   output: string
+  lineCount: number
   exitCode?: number
+}
+
+function truncateCommand(command: string, maxLength = 120): string {
+  if (command.length <= maxLength) {
+    return command
+  }
+
+  return `${command.slice(0, maxLength - 1)}…`
 }
 
 function buildBashViewModel(tool: ToolCallView): BashViewModel {
@@ -36,6 +45,7 @@ function buildBashViewModel(tool: ToolCallView): BashViewModel {
   const stderr = asString(result?.stderr) ?? ''
 
   const output = [stdout, stderr].filter(Boolean).join(stdout && stderr ? '\n' : '')
+  const lineCount = output.split('\n').filter(Boolean).length
 
   const exitCode = asNumber(result?.exitCode)
 
@@ -44,6 +54,7 @@ function buildBashViewModel(tool: ToolCallView): BashViewModel {
     stdout,
     stderr,
     output,
+    lineCount,
     exitCode,
   }
 }
@@ -60,6 +71,7 @@ function getStatusBadgeClass(status: ToolCallView['status']): string {
 export function BashOutputCard({ tool }: BashOutputCardProps) {
   const [isOpen, setIsOpen] = useState(tool.status !== 'done')
   const view = useMemo(() => buildBashViewModel(tool), [tool])
+  const commandLabel = useMemo(() => truncateCommand(view.command), [view.command])
 
   const exitClass = cn(
     'border text-[10px]',
@@ -76,25 +88,27 @@ export function BashOutputCard({ tool }: BashOutputCardProps) {
             <Button
               type="button"
               variant="ghost"
-              className="h-auto w-full justify-between rounded-none px-3 py-2 hover:bg-accent"
+              className="h-auto w-full min-w-0 shrink justify-start whitespace-normal rounded-none px-3 py-2 hover:bg-accent"
             >
-              <div className="min-w-0 text-left">
-                <p className="truncate text-xs font-semibold text-foreground">bash · {view.command}</p>
-                <div className="mt-1 flex items-center gap-2">
-                  {view.exitCode !== undefined && (
-                    <Badge variant="outline" className={exitClass}>
-                      exit {view.exitCode}
-                    </Badge>
-                  )}
-                  <span className="text-[11px] text-muted-foreground">
-                    {(view.output || '').split('\n').filter(Boolean).length} lines
-                  </span>
+              <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
+                <div className="min-w-0 overflow-hidden text-left">
+                  <p className="truncate text-xs font-semibold text-foreground" title={view.command}>
+                    bash · {commandLabel}
+                  </p>
+                  <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2">
+                    {view.exitCode !== undefined && (
+                      <Badge variant="outline" className={exitClass}>
+                        exit {view.exitCode}
+                      </Badge>
+                    )}
+                    <span className="text-[11px] text-muted-foreground">{view.lineCount} lines</span>
+                  </div>
                 </div>
-              </div>
 
-              <Badge variant="outline" className={getStatusBadgeClass(tool.status)}>
-                {tool.status}
-              </Badge>
+                <Badge variant="outline" className={cn(getStatusBadgeClass(tool.status), 'shrink-0')}>
+                  {tool.status}
+                </Badge>
+              </div>
             </Button>
           </CollapsibleTrigger>
         </CardHeader>

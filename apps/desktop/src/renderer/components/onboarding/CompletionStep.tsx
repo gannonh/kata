@@ -46,7 +46,7 @@ export function CompletionStep({ selectedModel, readiness, onBack, onFinish }: C
             </p>
             {!selectedModel && (
               <p className="pt-1 text-xs text-muted-foreground">
-                You can choose a model anytime from the toolbar model picker.
+                You can choose a model anytime from the chat composer controls.
               </p>
             )}
           </CardContent>

@@ -18,6 +18,7 @@ import { ProviderAuthPanel } from './ProviderAuthPanel'
 import { SymphonyRuntimePanel } from './SymphonyRuntimePanel'
 import { SymphonyDashboard } from '../symphony/SymphonyDashboard'
 import { McpServerPanel } from './McpServerPanel'
+import { ArchivedChatsPanel } from './ArchivedChatsPanel'
 
 interface SettingsPanelProps {
   open: boolean
@@ -29,6 +30,7 @@ interface SettingsPanelProps {
 const SETTINGS_TABS: Array<{ id: SettingsTabId; label: string }> = [
   { id: 'providers', label: 'Providers' },
   { id: 'mcp', label: 'MCP' },
+  { id: 'archives', label: 'Archived Chats' },
   { id: 'symphony', label: 'Symphony' },
   { id: 'general', label: 'General' },
   { id: 'appearance', label: 'Appearance' },
@@ -108,8 +110,12 @@ export function SettingsPanel({
               <McpServerPanel />
             </TabsContent>
 
+            <TabsContent value="archives" className="mt-0 h-full overflow-auto p-4">
+              <ArchivedChatsPanel />
+            </TabsContent>
+
             <TabsContent value="symphony" className="mt-0 h-full overflow-auto p-4">
-              <div className="space-y-4">
+              <div className="flex flex-col gap-4">
                 <SymphonyRuntimePanel />
                 <SymphonyDashboard />
               </div>

@@ -1,4 +1,7 @@
+import { memo } from 'react'
+import { Archive } from 'lucide-react'
 import type { SessionListItem as SessionListItemType } from '@shared/types'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 interface SessionListItemProps {
@@ -6,7 +9,14 @@ interface SessionListItemProps {
   isCurrent: boolean
   disabled?: boolean
   onSelect: (sessionId: string) => void
+  onArchive: (session: SessionListItemType) => void
 }
+
+const RELATIVE_TIME_FORMATTER = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' })
+const SHORT_DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
+  month: 'short',
+  day: 'numeric',
+})
 
 function formatRelativeTime(value: string): string {
   const date = new Date(value)
@@ -22,24 +32,19 @@ function formatRelativeTime(value: string): string {
   const hour = 60 * minute
   const day = 24 * hour
 
-  const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' })
-
   if (absDeltaMs < hour) {
-    return rtf.format(Math.round(deltaMs / minute), 'minute')
+    return RELATIVE_TIME_FORMATTER.format(Math.round(deltaMs / minute), 'minute')
   }
 
   if (absDeltaMs < day) {
-    return rtf.format(Math.round(deltaMs / hour), 'hour')
+    return RELATIVE_TIME_FORMATTER.format(Math.round(deltaMs / hour), 'hour')
   }
 
   if (absDeltaMs < 7 * day) {
-    return rtf.format(Math.round(deltaMs / day), 'day')
+    return RELATIVE_TIME_FORMATTER.format(Math.round(deltaMs / day), 'day')
   }
 
-  return new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric',
-  }).format(date)
+  return SHORT_DATE_FORMATTER.format(date)
 }
 
 /**
@@ -57,45 +62,65 @@ function shortModelName(session: SessionListItemType): string {
   return slashIndex >= 0 ? model.slice(slashIndex + 1) : model
 }
 
-export function SessionListItem({
+export const SessionListItem = memo(function SessionListItem({
   session,
   isCurrent,
   disabled = false,
   onSelect,
+  onArchive,
 }: SessionListItemProps) {
   const model = shortModelName(session)
 
   return (
-    <button
-      type="button"
-      title={session.title}
-      disabled={disabled}
-      onClick={() => onSelect(session.id)}
-      className={cn(
-        'w-full min-w-0 overflow-hidden rounded-lg px-2.5 py-2 text-left transition-colors',
-        isCurrent
-          ? 'bg-accent/50'
-          : 'hover:bg-accent/20',
-        disabled && 'cursor-not-allowed opacity-50',
-      )}
-    >
-      <p
-        className="min-w-0 text-xs font-medium leading-snug text-card-foreground [overflow-wrap:anywhere]"
-        style={{
-          display: '-webkit-box',
-          overflow: 'hidden',
-          WebkitLineClamp: 2,
-          WebkitBoxOrient: 'vertical',
-        }}
+    <div className="group relative">
+      <button
+        type="button"
+        title={session.title}
+        disabled={disabled}
+        onClick={() => onSelect(session.id)}
+        className={cn(
+          'w-full min-w-0 overflow-hidden rounded-lg px-2.5 py-2 pr-9 text-left transition-colors',
+          isCurrent ? 'bg-accent/50' : 'hover:bg-accent/20',
+          disabled && 'cursor-not-allowed opacity-50',
+        )}
       >
-        {session.title}
-      </p>
+        <p
+          className="min-w-0 text-xs font-medium leading-snug text-card-foreground [overflow-wrap:anywhere]"
+          style={{
+            display: '-webkit-box',
+            overflow: 'hidden',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+          }}
+        >
+          {session.title}
+        </p>
 
-      <p className="mt-1 truncate text-[10px] text-muted-foreground">
-        {[model, formatRelativeTime(session.modified), `${session.messageCount} msgs`]
-          .filter(Boolean)
-          .join(' · ')}
-      </p>
-    </button>
+        <p className="mt-1 truncate text-[10px] text-muted-foreground">
+          {[model, formatRelativeTime(session.modified), `${session.messageCount} msgs`]
+            .filter(Boolean)
+            .join(' · ')}
+        </p>
+      </button>
+
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-xs"
+        title="Archive chat"
+        aria-label={`Archive ${session.title}`}
+        disabled={disabled}
+        onClick={(event) => {
+          event.stopPropagation()
+          onArchive(session)
+        }}
+        className={cn(
+          'absolute right-1 bottom-1 opacity-0 transition-opacity',
+          'group-hover:opacity-100 group-focus-within:opacity-100',
+        )}
+      >
+        <Archive />
+      </Button>
+    </div>
   )
-}
+})

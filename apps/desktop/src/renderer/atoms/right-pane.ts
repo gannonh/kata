@@ -7,7 +7,7 @@ import type {
   WorkflowContextSnapshot,
 } from '@shared/types'
 
-export type SettingsTabId = 'providers' | 'mcp' | 'general' | 'appearance' | 'symphony'
+export type SettingsTabId = 'providers' | 'mcp' | 'archives' | 'general' | 'appearance' | 'symphony'
 
 export const RIGHT_PANE_OVERRIDE_STORAGE_KEY = 'kata-desktop:right-pane-override'
 

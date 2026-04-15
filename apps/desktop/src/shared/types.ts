@@ -19,6 +19,7 @@ export const IPC_CHANNELS = {
   workspaceGet: 'workspace:get',
   workspaceSet: 'workspace:set',
   workspacePick: 'workspace:pick',
+  workspaceGetGitInfo: 'workspace:get-git-info',
   authGetProviders: 'auth:get-providers',
   authSetKey: 'auth:set-key',
   authRemoveKey: 'auth:remove-key',
@@ -223,6 +224,11 @@ export interface SessionSwitchResponse {
   sessionId: string | null
   sessionPath?: string | null
   error?: string
+}
+
+export interface WorkspaceGitInfo {
+  branch: string | null
+  pullRequestUrl: string | null
 }
 
 export interface WorkspaceInfo {
@@ -1682,6 +1688,7 @@ export interface DesktopApi {
     get: () => Promise<WorkspaceInfo>
     set: (workspacePath: string) => Promise<WorkspaceInfo>
     pick: () => Promise<WorkspaceInfo | null>
+    getGitInfo: () => Promise<WorkspaceGitInfo>
   }
   auth: {
     getProviders: () => Promise<AuthProvidersResponse>

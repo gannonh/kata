@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { GitBranch } from 'lucide-react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import {
   appendUserMessageAtom,
@@ -10,13 +11,41 @@ import {
   messagesAtom,
   toolCallsAtom,
 } from '@/atoms/chat'
-import { refreshSessionListAtom, sessionHistoryErrorAtom } from '@/atoms/session'
+import { refreshSessionListAtom, sessionHistoryErrorAtom, workingDirectoryAtom } from '@/atoms/session'
+import { type WorkspaceGitInfo } from '@shared/types'
+import { ModelSelector } from '@/components/app-shell/ModelSelector'
+import { Button } from '@/components/ui/button'
 import { ErrorBanner } from './ErrorBanner'
 import { ExtensionUIHandler } from './ExtensionUIHandler'
 import { MessageInput } from './MessageInput'
 import { MessageList } from './MessageList'
-import { PermissionModeSelector } from './PermissionModeSelector'
 import { ThinkingLevelToggle } from './ThinkingLevelToggle'
+
+function getPullRequestLabel(url: string): string {
+  const match = url.match(/\/pull\/(\d+)(?:\/|$)/)
+  if (match?.[1]) {
+    return `PR #${match[1]}`
+  }
+
+  return 'Open PR'
+}
+
+function toSafeHttpUrl(rawUrl: string | null | undefined): string | null {
+  if (!rawUrl) {
+    return null
+  }
+
+  try {
+    const parsed = new URL(rawUrl)
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return null
+    }
+
+    return parsed.toString()
+  } catch {
+    return null
+  }
+}
 
 export function ChatPanel() {
   const messages = useAtomValue(messagesAtom)
@@ -25,6 +54,12 @@ export function ChatPanel() {
   const isStreaming = useAtomValue(isStreamingAtom)
   const bridgeStatus = useAtomValue(bridgeStatusAtom)
   const sessionHistoryError = useAtomValue(sessionHistoryErrorAtom)
+  const workingDirectory = useAtomValue(workingDirectoryAtom)
+
+  const [workspaceGitInfo, setWorkspaceGitInfo] = useState<WorkspaceGitInfo>({
+    branch: null,
+    pullRequestUrl: null,
+  })
 
   const appendUserMessage = useSetAtom(appendUserMessageAtom)
   const applyChatEvent = useSetAtom(applyChatEventAtom)
@@ -33,12 +68,35 @@ export function ChatPanel() {
 
   const scrollRef = useRef<HTMLDivElement | null>(null)
 
+  const openPullRequest = useCallback(() => {
+    const safeUrl = toSafeHttpUrl(workspaceGitInfo.pullRequestUrl)
+    if (!safeUrl) {
+      return
+    }
+
+    window.open(safeUrl, '_blank', 'noopener,noreferrer')
+  }, [workspaceGitInfo.pullRequestUrl])
+
+  const refreshWorkspaceGitInfo = useCallback(() => {
+    void window.api.workspace.getGitInfo()
+      .then((info) => {
+        setWorkspaceGitInfo(info)
+      })
+      .catch(() => {
+        setWorkspaceGitInfo({
+          branch: null,
+          pullRequestUrl: null,
+        })
+      })
+  }, [])
+
   useEffect(() => {
     const unsubscribeChatEvents = window.api.onChatEvent((event) => {
       applyChatEvent(event)
 
       if (event.type === 'agent_end') {
         void refreshSessions()
+        refreshWorkspaceGitInfo()
       }
     })
 
@@ -58,7 +116,38 @@ export function ChatPanel() {
       unsubscribeChatEvents()
       unsubscribeBridgeStatus()
     }
-  }, [applyBridgeStatus, applyChatEvent, refreshSessions])
+  }, [applyBridgeStatus, applyChatEvent, refreshSessions, refreshWorkspaceGitInfo])
+
+  useEffect(() => {
+    let idleHandle: number | null = null
+    let timeoutHandle: ReturnType<typeof setTimeout> | null = null
+
+    if ('requestIdleCallback' in window) {
+      idleHandle = window.requestIdleCallback(() => {
+        refreshWorkspaceGitInfo()
+      }, { timeout: 1500 })
+    } else {
+      timeoutHandle = setTimeout(refreshWorkspaceGitInfo, 200)
+    }
+
+    return () => {
+      if (idleHandle !== null && 'cancelIdleCallback' in window) {
+        window.cancelIdleCallback(idleHandle)
+      }
+
+      if (timeoutHandle !== null) {
+        clearTimeout(timeoutHandle)
+      }
+    }
+  }, [workingDirectory, refreshWorkspaceGitInfo])
+
+  useEffect(() => {
+    window.addEventListener('focus', refreshWorkspaceGitInfo)
+
+    return () => {
+      window.removeEventListener('focus', refreshWorkspaceGitInfo)
+    }
+  }, [refreshWorkspaceGitInfo])
 
   // Auto-scroll: pinned to bottom by default. Detaches when the user scrolls
   // up manually, re-attaches when they scroll back near the bottom or when a
@@ -123,11 +212,6 @@ export function ChatPanel() {
         />
       )}
 
-      <div className="flex items-center justify-between border-b border-border px-4 py-2">
-        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Permission mode</p>
-        <PermissionModeSelector />
-      </div>
-
       <div ref={scrollRef} className="flex-1 overflow-auto">
         {sessionHistoryError && (
           <div className="border-b border-rose-500/30 bg-rose-500/10 px-4 py-2 text-xs text-rose-200">
@@ -137,11 +221,15 @@ export function ChatPanel() {
         <MessageList messages={messages} tools={tools} />
       </div>
 
-      <ThinkingLevelToggle />
-
       <MessageInput
         disabled={inputDisabled}
         stopDisabled={stopDisabled}
+        footerControls={(
+          <div className="flex items-center gap-2">
+            <ModelSelector compact />
+            <ThinkingLevelToggle compact />
+          </div>
+        )}
         onSubmit={async (value) => {
           appendUserMessage(value)
 
@@ -160,12 +248,47 @@ export function ChatPanel() {
         }}
       />
 
-      <div className="border-t border-border px-4 py-2 text-[11px] text-muted-foreground">
-        {isStreaming
-          ? 'Streaming response…'
-          : bridgeStatus.state === 'running'
-            ? 'Ready'
-            : `Bridge ${bridgeStatus.state}`}
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-border px-4 py-2 text-[11px] text-muted-foreground">
+        <span>
+          {isStreaming
+            ? 'Streaming response…'
+            : bridgeStatus.state === 'running'
+              ? 'Ready'
+              : `Bridge ${bridgeStatus.state}`}
+        </span>
+
+        <div className="flex max-w-full items-center gap-3">
+          {workspaceGitInfo.branch ? (
+            <span className="inline-flex max-w-72 items-center gap-1">
+              <GitBranch size={12} aria-hidden="true" />
+              <span className="truncate">{workspaceGitInfo.branch}</span>
+              {workspaceGitInfo.pullRequestUrl ? (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <Button
+                    type="button"
+                    variant="link"
+                    size="sm"
+                    className="h-auto shrink-0 p-0 text-[11px]"
+                    onClick={openPullRequest}
+                  >
+                    {getPullRequestLabel(workspaceGitInfo.pullRequestUrl)}
+                  </Button>
+                </>
+              ) : null}
+            </span>
+          ) : workspaceGitInfo.pullRequestUrl ? (
+            <Button
+              type="button"
+              variant="link"
+              size="sm"
+              className="h-auto p-0 text-[11px]"
+              onClick={openPullRequest}
+            >
+              {getPullRequestLabel(workspaceGitInfo.pullRequestUrl)}
+            </Button>
+          ) : null}
+        </div>
       </div>
     </div>
   )

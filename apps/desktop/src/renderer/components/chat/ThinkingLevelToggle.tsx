@@ -2,22 +2,35 @@ import { useMemo } from 'react'
 import { useAtom, useAtomValue } from 'jotai'
 import type { ThinkingLevel } from '@shared/types'
 import { availableModelsAtom, selectedModelAtom, thinkingLevelAtom } from '@/atoms/model'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { cn } from '@/lib/utils'
 
 const STANDARD_LEVELS: { value: ThinkingLevel; label: string }[] = [
-  { value: 'off', label: 'off' },
-  { value: 'minimal', label: 'minimal' },
-  { value: 'low', label: 'low' },
-  { value: 'medium', label: 'med' },
-  { value: 'high', label: 'high' },
+  { value: 'off', label: 'Off' },
+  { value: 'minimal', label: 'Minimal' },
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
 ]
 
 const XHIGH_LEVELS: { value: ThinkingLevel; label: string }[] = [
   ...STANDARD_LEVELS,
-  { value: 'xhigh', label: 'xhigh' },
+  { value: 'xhigh', label: 'XHigh' },
 ]
 
-export function ThinkingLevelToggle() {
+interface ThinkingLevelToggleProps {
+  compact?: boolean
+  className?: string
+}
+
+export function ThinkingLevelToggle({ compact = false, className }: ThinkingLevelToggleProps) {
   const selectedModel = useAtomValue(selectedModelAtom)
   const availableModels = useAtomValue(availableModelsAtom)
   const [thinkingLevel, setThinkingLevel] = useAtom(thinkingLevelAtom)
@@ -41,17 +54,24 @@ export function ThinkingLevelToggle() {
   }
 
   return (
-    <div className="flex items-center gap-3 border-t border-border px-4 py-1.5">
-      <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Thinking</span>
-      <Tabs value={thinkingLevel} onValueChange={(value) => { void handleChange(value) }}>
-        <TabsList className="h-7">
-          {levels.map(({ value, label }) => (
-            <TabsTrigger key={value} value={value} className="h-5 px-2 text-[10px]">
-              {label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
+    <div className={cn(compact ? 'min-w-[8.5rem]' : 'flex items-center gap-2', className)}>
+      {!compact ? (
+        <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Thinking</span>
+      ) : null}
+      <Select value={thinkingLevel} onValueChange={(value) => { void handleChange(value) }}>
+        <SelectTrigger size="sm" className="w-full">
+          <SelectValue placeholder="Thinking" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            {levels.map(({ value, label }) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
     </div>
   )
 }
