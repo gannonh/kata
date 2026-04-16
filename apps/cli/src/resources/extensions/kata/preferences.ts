@@ -971,7 +971,6 @@ function normalizeWorkflowPreferences(value: unknown): {
 
   if (mode === "file") {
     return {
-      value: { mode: mode as WorkflowMode },
       errors: [
         'workflow.mode "file" has been removed. Set workflow.mode to "linear" or "github".',
       ],

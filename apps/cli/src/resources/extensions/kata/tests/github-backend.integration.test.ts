@@ -99,6 +99,79 @@ function startMockGithubServer(): Promise<{ server: Server; baseUrl: string }> {
   });
 }
 
+function startDeepPaginationMockGithubServer(): Promise<{ server: Server; baseUrl: string }> {
+  const server = createServer((req, res) => {
+    const url = new URL(req.url ?? "/", "http://127.0.0.1");
+    if (!url.pathname.endsWith("/issues")) {
+      res.writeHead(404, { "content-type": "application/json" });
+      res.end(JSON.stringify({ message: "not found" }));
+      return;
+    }
+
+    const page = Number(url.searchParams.get("page") ?? "1");
+    let payload: Array<Record<string, unknown>> = [];
+
+    if (page >= 1 && page <= 11) {
+      payload = Array.from({ length: 100 }, (_, idx) => ({
+        number: page * 1000 + idx,
+        title: `Noise issue ${page}-${idx}`,
+        state: "open",
+        labels: [{ name: "kata:task" }],
+      }));
+    } else if (page === 12) {
+      payload = [
+        {
+          number: 999999,
+          title: "[M123] Deep pagination milestone",
+          state: "open",
+          labels: [{ name: "kata:milestone" }],
+        },
+      ];
+    }
+
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify(payload));
+  });
+
+  return new Promise((resolve, reject) => {
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        reject(new Error("Mock GitHub server failed to bind"));
+        return;
+      }
+      resolve({ server, baseUrl: `http://127.0.0.1:${address.port}` });
+    });
+  });
+}
+
+function startSlowGithubServer(delayMs: number): Promise<{ server: Server; baseUrl: string }> {
+  const server = createServer((req, res) => {
+    const url = new URL(req.url ?? "/", "http://127.0.0.1");
+    if (!url.pathname.endsWith("/issues")) {
+      res.writeHead(404, { "content-type": "application/json" });
+      res.end(JSON.stringify({ message: "not found" }));
+      return;
+    }
+
+    setTimeout(() => {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify([]));
+    }, delayMs);
+  });
+
+  return new Promise((resolve, reject) => {
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        reject(new Error("Mock GitHub server failed to bind"));
+        return;
+      }
+      resolve({ server, baseUrl: `http://127.0.0.1:${address.port}` });
+    });
+  });
+}
+
 const WORKFLOW = `---
 tracker:
   kind: github
@@ -174,13 +247,72 @@ test("createBackend returns actionable diagnostics when GitHub token is missing"
   }
 });
 
+test("createBackend fetches beyond 10 pages when GitHub issues exceed 1000", async () => {
+  const workspace = makeWorkspace({ workflow: WORKFLOW });
+  const { server, baseUrl } = await startDeepPaginationMockGithubServer();
+
+  try {
+    await withEnv(
+      {
+        KATA_GITHUB_TOKEN: "ghp_test_token",
+        GH_TOKEN: undefined,
+        GITHUB_TOKEN: undefined,
+        KATA_GITHUB_API_BASE_URL: baseUrl,
+        KATA_GITHUB_WORKFLOW_PATH: undefined,
+      },
+      async () => {
+        const backend = await createBackend(workspace);
+        const state = await backend.deriveState();
+
+        assert.equal(state.activeMilestone?.id, "M123");
+      },
+    );
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
+test("createBackend surfaces timeout diagnostics when GitHub API calls hang", async () => {
+  const workspace = makeWorkspace({ workflow: WORKFLOW });
+  const { server, baseUrl } = await startSlowGithubServer(150);
+
+  try {
+    await withEnv(
+      {
+        KATA_GITHUB_TOKEN: "ghp_test_token",
+        GH_TOKEN: undefined,
+        GITHUB_TOKEN: undefined,
+        KATA_GITHUB_API_BASE_URL: baseUrl,
+        KATA_GITHUB_API_TIMEOUT_MS: "10",
+        KATA_GITHUB_WORKFLOW_PATH: undefined,
+      },
+      async () => {
+        const backend = await createBackend(workspace);
+        await assert.rejects(
+          async () => backend.deriveState(),
+          (err: unknown) => {
+            assert.ok(err instanceof Error);
+            assert.match(err.message, /timed out after 10ms/);
+            return true;
+          },
+        );
+      },
+    );
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
 test("runtime smoke: GitHub backend derives state against real GitHub API when token is available", async () => {
+  const optedIn = process.env.KATA_GITHUB_SMOKE === "1";
   const tokenPresent =
     Boolean(process.env.KATA_GITHUB_TOKEN) ||
     Boolean(process.env.GH_TOKEN) ||
     Boolean(process.env.GITHUB_TOKEN);
 
-  if (!tokenPresent) {
+  if (!optedIn || !tokenPresent) {
     return;
   }
 

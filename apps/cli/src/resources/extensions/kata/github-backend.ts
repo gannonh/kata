@@ -38,8 +38,11 @@ class GithubApiClient implements GithubStateClient {
 
   async listIssues(): Promise<GithubIssueSummary[]> {
     const issues: GithubIssueSummary[] = [];
+    const configuredTimeoutMs = Number(process.env.KATA_GITHUB_API_TIMEOUT_MS ?? "15000");
+    const timeoutMs =
+      Number.isFinite(configuredTimeoutMs) && configuredTimeoutMs > 0 ? configuredTimeoutMs : 15000;
 
-    for (let page = 1; page <= 10; page++) {
+    for (let page = 1; ; page++) {
       const url = new URL(
         `/repos/${this.config.repoOwner}/${this.config.repoName}/issues`,
         this.config.apiBaseUrl ?? "https://api.github.com",
@@ -48,15 +51,30 @@ class GithubApiClient implements GithubStateClient {
       url.searchParams.set("per_page", "100");
       url.searchParams.set("page", String(page));
 
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${this.config.token}`,
-          Accept: "application/vnd.github+json",
-          "X-GitHub-Api-Version": "2022-11-28",
-          "User-Agent": "kata-cli-github-backend",
-        },
-      });
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      let response: Response;
+      try {
+        response = await fetch(url, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${this.config.token}`,
+            Accept: "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+            "User-Agent": "kata-cli-github-backend",
+          },
+          signal: controller.signal,
+        });
+      } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") {
+          throw new Error(
+            `GitHub API request timed out after ${timeoutMs}ms for ${this.config.repoOwner}/${this.config.repoName} (page ${page})`,
+          );
+        }
+        throw err;
+      } finally {
+        clearTimeout(timer);
+      }
 
       if (!response.ok) {
         const body = await response.text();

@@ -22,8 +22,11 @@
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { debuglog } from "node:util";
 
 import type { WorkflowMode } from "./preferences.js";
+
+const debug = debuglog("kata:github-config");
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -258,8 +261,9 @@ export function resolveGithubToken(authFilePath?: string): ResolvedGithubToken {
 
   // 4. auth.json "github" provider — Kata auth store
   const authPath = authFilePath ?? join(homedir(), ".kata-cli", "agent", "auth.json");
+  const authExists = existsSync(authPath);
   try {
-    if (existsSync(authPath)) {
+    if (authExists) {
       const raw = readFileSync(authPath, "utf-8");
       const parsed: unknown = JSON.parse(raw);
       if (parsed && typeof parsed === "object") {
@@ -276,8 +280,15 @@ export function resolveGithubToken(authFilePath?: string): ResolvedGithubToken {
         }
       }
     }
-  } catch {
-    // auth.json read failure is non-fatal — fall through to not-found
+  } catch (err) {
+    if (authExists) {
+      debug(
+        "Failed to parse auth.json (github provider) at %s: %s",
+        authPath,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+    // auth.json read/parse failure is non-fatal — fall through to not-found
   }
 
   return { token: null, source: null };

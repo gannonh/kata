@@ -328,6 +328,21 @@ test("resolveGithubToken returns null when no sources available", () => {
   );
 });
 
+test("resolveGithubToken returns null when auth.json exists but is malformed", () => {
+  const dir = makeTmpDir();
+  const authPath = join(dir, "auth.json");
+  writeFileSync(authPath, "{not-valid-json", "utf-8");
+
+  withEnv(
+    { KATA_GITHUB_TOKEN: undefined, GH_TOKEN: undefined, GITHUB_TOKEN: undefined },
+    () => {
+      const { token, source } = resolveGithubToken(authPath);
+      assert.equal(token, null);
+      assert.equal(source, null);
+    },
+  );
+});
+
 // ─── validateGithubConfig ─────────────────────────────────────────────────────
 
 test("validateGithubConfig returns ok:true when token and tracker config are valid", () => {
