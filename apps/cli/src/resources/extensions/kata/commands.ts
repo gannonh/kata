@@ -42,6 +42,12 @@ import {
   type LinearConfigValidationResult,
   type ValidateLinearProjectConfigOptions,
 } from "./linear-config.js";
+import {
+  validateGithubConfig,
+  formatGithubConfigStatus,
+  type GithubConfigValidationResult,
+  type ValidateGithubConfigOptions,
+} from "./github-config.js";
 import { getCurrentBranch } from "../pr-lifecycle/gh-utils.js";
 import { getPRNumber } from "../pr-lifecycle/pr-merge-utils.js";
 import { loadPrompt } from "./prompt-loader.js";
@@ -122,6 +128,9 @@ export interface PrefsStatusDependencies {
   validateLinearProjectConfig: (
     options?: ValidateLinearProjectConfigOptions,
   ) => Promise<LinearConfigValidationResult>;
+  validateGithubConfig: (
+    options?: ValidateGithubConfigOptions,
+  ) => GithubConfigValidationResult;
 }
 
 const defaultPrefsStatusDependencies: PrefsStatusDependencies = {
@@ -133,6 +142,7 @@ const defaultPrefsStatusDependencies: PrefsStatusDependencies = {
   loadEffectiveKataPreferences,
   resolveAllSkillReferences,
   validateLinearProjectConfig,
+  validateGithubConfig,
 };
 
 export async function buildPrefsStatusReport(
@@ -141,9 +151,29 @@ export async function buildPrefsStatusReport(
   const globalPrefs = deps.loadGlobalKataPreferences();
   const projectPrefs = deps.loadProjectKataPreferences();
   const effective = deps.loadEffectiveKataPreferences();
-  const validation = await deps.validateLinearProjectConfig({
-    loadedPreferences: effective,
-  });
+
+  // Detect workflow mode to decide which backend validation to show.
+  const workflowMode = effective?.preferences.workflow?.mode ?? "linear";
+  const isGithubMode = workflowMode === "github";
+
+  // Run backend-appropriate config validation.
+  let backendStatusLines: string[];
+  let backendValidationOk: boolean;
+  let resolvedMode: string = workflowMode;
+
+  if (isGithubMode) {
+    const githubValidation = deps.validateGithubConfig();
+    backendStatusLines = formatGithubConfigStatus(githubValidation).lines;
+    backendValidationOk = githubValidation.ok;
+    resolvedMode = githubValidation.mode;
+  } else {
+    const validation = await deps.validateLinearProjectConfig({
+      loadedPreferences: effective,
+    });
+    backendStatusLines = formatLinearConfigStatus(validation).lines;
+    backendValidationOk = validation.ok;
+    resolvedMode = validation.mode;
+  }
 
   const globalStatus = describeGlobalPreferences(globalPrefs, deps);
   const projectStatus = projectPrefs
@@ -155,11 +185,11 @@ export async function buildPrefsStatusReport(
 
   const lines = [
     "Kata prefs status",
-    `mode: ${validation.mode}`,
+    `mode: ${resolvedMode}`,
     `effective preferences: ${effectiveStatus}`,
     `global preferences: ${globalStatus}`,
     `project preferences: ${projectStatus}`,
-    ...formatLinearConfigStatus(validation).lines,
+    ...backendStatusLines,
   ];
 
   let hasUnresolvedSkills = false;
@@ -183,7 +213,7 @@ export async function buildPrefsStatusReport(
 
   return {
     level:
-      validation.status === "invalid" || hasUnresolvedSkills ? "warning" : "info",
+      !backendValidationOk || hasUnresolvedSkills ? "warning" : "info",
     message: lines.join("\n"),
   };
 }

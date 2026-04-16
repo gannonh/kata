@@ -27,10 +27,12 @@ Full documentation for `~/.kata-cli/preferences.md` (global) and `.kata/preferen
   - When current tracked cost reaches/exceeds this value, auto-mode pauses and asks you to resume explicitly.
 
 - `workflow`: workflow-mode configuration.
-  - `workflow.mode`: `linear`.
-    - File mode has been removed; all Kata workflow state is Linear-backed.
+  - `workflow.mode`: `linear` (default) or `github`.
+    - `linear` — Kata workflow state is Linear-backed (milestones, slices, tasks as Linear issues/milestones).
+    - `github` — Kata workflow state is GitHub-backed (milestones, slices, tasks as GitHub issues). Requires a `WORKFLOW.md` tracker block (see below).
+    - File mode has been removed; file-backed `.kata/` workflow artifacts are no longer used.
 
-- `linear`: Linear binding configuration. Required for Linear mode.
+- `linear`: Linear binding configuration. Required when `workflow.mode: linear`.
   - `linear.teamKey`: Linear team key such as `KAT`. Required.
   - `linear.projectSlug`: Linear project slug from the project URL (e.g. `459f9835e809`). Required.
   - `linear.teamId`: optional Linear team UUID (alternative to `teamKey`).
@@ -69,6 +71,58 @@ Full documentation for `~/.kata-cli/preferences.md` (global) and `.kata/preferen
   - `soft_timeout_minutes`: minutes before the supervisor issues a soft warning (default: 20).
   - `idle_timeout_minutes`: minutes of inactivity before the supervisor intervenes (default: 10).
   - `hard_timeout_minutes`: minutes before the supervisor forces termination (default: 30).
+
+---
+
+## GitHub Mode Configuration
+
+To use GitHub as the Kata workflow backend, set `workflow.mode: github` in `.kata/preferences.md` and add a `tracker:` block to `WORKFLOW.md` in the project root.
+
+### `.kata/preferences.md` (project preferences)
+
+```yaml
+---
+workflow:
+  mode: github
+---
+```
+
+### `WORKFLOW.md` (project root — tracker block)
+
+```yaml
+---
+tracker:
+  kind: github
+  repo_owner: my-org             # GitHub org or user name (required)
+  repo_name: my-repo             # GitHub repository name (required)
+  github_project_number: 7       # GitHub Projects v2 number (optional; enables projects_v2 state mode)
+  label_prefix: kata:            # Issue label prefix for state derivation (optional; default: kata:)
+---
+```
+
+When `github_project_number` is present, Kata derives workflow phase from GitHub Projects v2 status fields. When absent, Kata uses issue labels with the configured `label_prefix`.
+
+### GitHub Token
+
+Kata resolves the GitHub token in this order:
+
+1. `KATA_GITHUB_TOKEN` (env) — Kata-specific override
+2. `GH_TOKEN` (env) — `gh` CLI standard
+3. `GITHUB_TOKEN` (env) — broad GitHub convention
+4. `auth.json` `github` provider — stored via Kata onboarding
+
+To check GitHub mode readiness:
+
+```text
+Kata prefs status
+mode: github
+GITHUB_TOKEN: present (via KATA_GITHUB_TOKEN)
+tracker.repo: my-org/my-repo
+tracker.state_mode: labels
+validation: valid
+```
+
+If GitHub mode is configured but not ready, the status output is actionable — for example `GITHUB_TOKEN: missing`, `diagnostic: missing_repo_owner`, or `diagnostic: unsupported_tracker_kind`.
 
 ---
 

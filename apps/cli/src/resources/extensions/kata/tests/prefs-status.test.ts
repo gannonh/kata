@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 
 import type { LoadedKataPreferences } from "../preferences.ts";
 import type { LinearConfigValidationResult } from "../linear-config.ts";
+import type { GithubConfigValidationResult } from "../github-config.ts";
 import {
   buildPrefsStatusReport,
   type PrefsStatusDependencies,
@@ -45,6 +46,7 @@ function makeDeps(
         scope: null,
         workflowMode: "linear",
         isLinearMode: true,
+        isGithubMode: false,
         linear: {
           teamId: null,
           teamKey: null,
@@ -57,6 +59,19 @@ function makeDeps(
         project: null,
       },
     }),
+    validateGithubConfig: () => ({
+      ok: true,
+      status: "valid",
+      mode: "github",
+      tokenPresent: true,
+      tokenSource: "KATA_GITHUB_TOKEN",
+      trackerConfig: {
+        repoOwner: "kata-sh",
+        repoName: "kata-mono",
+        stateMode: "labels",
+      },
+      diagnostics: [],
+    } as GithubConfigValidationResult),
     ...overrides,
   };
 }
@@ -288,4 +303,74 @@ test("buildPrefsStatusReport includes pr: disabled when pr.enabled is explicitly
     /^pr: disabled$/m,
     "report must show 'pr: disabled' when pr.enabled is false",
   );
+});
+
+test("buildPrefsStatusReport shows GitHub mode status when workflow.mode is github", async () => {
+  const projectPrefs = makeLoadedPreferences({
+    preferences: { workflow: { mode: "github" } },
+  });
+
+  const githubValidation: GithubConfigValidationResult = {
+    ok: true,
+    status: "valid",
+    mode: "github",
+    tokenPresent: true,
+    tokenSource: "KATA_GITHUB_TOKEN",
+    trackerConfig: {
+      repoOwner: "my-org",
+      repoName: "my-repo",
+      stateMode: "labels",
+    },
+    diagnostics: [],
+  };
+
+  const report = await buildPrefsStatusReport(
+    makeDeps({
+      loadProjectKataPreferences: () => projectPrefs,
+      loadEffectiveKataPreferences: () => projectPrefs,
+      validateGithubConfig: () => githubValidation,
+    }),
+  );
+
+  assert.equal(report.level, "info");
+  assert.match(report.message, /^mode: github$/m, "mode must be github");
+  assert.match(report.message, /GITHUB_TOKEN: present/m, "token presence expected");
+  assert.match(report.message, /my-org\/my-repo/m, "repo expected");
+  assert.match(report.message, /validation: valid/m, "validation status expected");
+});
+
+test("buildPrefsStatusReport shows warning level for github mode with invalid config", async () => {
+  const projectPrefs = makeLoadedPreferences({
+    preferences: { workflow: { mode: "github" } },
+  });
+
+  const githubValidation: GithubConfigValidationResult = {
+    ok: false,
+    status: "invalid",
+    mode: "github",
+    tokenPresent: false,
+    tokenSource: null,
+    trackerConfig: null,
+    diagnostics: [
+      {
+        code: "missing_github_token",
+        message: "No GitHub token found.",
+        field: "KATA_GITHUB_TOKEN",
+        retryable: false,
+      },
+    ],
+  };
+
+  const report = await buildPrefsStatusReport(
+    makeDeps({
+      loadProjectKataPreferences: () => projectPrefs,
+      loadEffectiveKataPreferences: () => projectPrefs,
+      validateGithubConfig: () => githubValidation,
+    }),
+  );
+
+  assert.equal(report.level, "warning");
+  assert.match(report.message, /^mode: github$/m, "mode must be github");
+  assert.match(report.message, /GITHUB_TOKEN: missing/m, "missing token expected");
+  assert.match(report.message, /diagnostic: missing_github_token/m, "diagnostic expected");
 });
