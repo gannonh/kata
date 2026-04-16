@@ -116,6 +116,7 @@ test("github mode entrypoint guards allow supported entrypoints", () => {
   const supported = [
     "smart-entry",
     "discuss",
+    "plan",
     "status",
     "dashboard",
     "system-prompt",
@@ -134,11 +135,11 @@ test("github mode entrypoint guards allow supported entrypoints", () => {
 
   const plan = getWorkflowEntrypointGuard("plan", loaded);
   assert.equal(plan.mode, "github", "plan: mode");
-  assert.equal(plan.allow, false, "plan blocked in github mode S01");
+  assert.equal(plan.allow, true, "plan enabled in github mode S02");
 
   const auto = getWorkflowEntrypointGuard("auto", loaded);
   assert.equal(auto.mode, "github", "auto: mode");
-  assert.equal(auto.allow, false, "auto blocked in github mode S01");
+  assert.equal(auto.allow, false, "auto remains blocked in github mode S02");
 });
 
 test("github mode workflow protocol resolves correctly", () => {

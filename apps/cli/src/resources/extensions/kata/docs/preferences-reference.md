@@ -102,6 +102,8 @@ tracker:
 
 Kata currently derives workflow phase from issue labels with the configured `label_prefix`. `github_project_number` is parsed and validated for forward compatibility, but it does not yet switch phase derivation to Projects v2 fields.
 
+In GitHub mode planning, `/kata plan` persists milestone/slice/task artifacts into GitHub issues with stable Kata metadata markers (`KATA:GITHUB_ARTIFACT`) and idempotent upsert semantics. Roadmap `depends:[]` entries are materialized as durable dependency metadata on slice artifacts.
+
 ### GitHub Token
 
 Kata resolves the GitHub token in this order:
@@ -125,6 +127,13 @@ validation: valid
 If GitHub mode is configured but not ready, the status output is actionable — for example `GITHUB_TOKEN: missing`, `diagnostic: missing_repo_owner`, or `diagnostic: unsupported_tracker_kind`.
 
 `/kata status` and `/kata` smart-entry now surface the same backend bootstrap diagnostics. If runtime initialization fails, the message includes diagnostic codes plus remediation actions and points back to `/kata prefs status` for full detail.
+
+GitHub planning diagnostics emit structured signals for troubleshooting:
+- `github_planning_artifact_upsert`
+- `github_planning_dependency_materialized`
+- `github_planning_roundtrip_mismatch`
+
+These diagnostics never print token values; they only reference safe field names such as `KATA_GITHUB_TOKEN`, `GH_TOKEN`, and `GITHUB_TOKEN`.
 
 ---
 
