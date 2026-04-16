@@ -48,6 +48,7 @@ test("deriveGithubState derives active milestone/slice/task and executing phase"
       title: "[T04] Wire status diagnostics",
       state: "open",
       labels: ["kata:task"],
+      body: "Implements active slice S01",
     },
   ];
 
@@ -85,12 +86,14 @@ test("deriveGithubState falls back to verifying when some tasks are closed", asy
       title: "[T01] First task",
       state: "closed",
       labels: ["kata:task"],
+      body: "Completed work for S02",
     },
     {
       number: 23,
       title: "[T02] Second task",
       state: "open",
       labels: ["kata:task"],
+      body: "Remaining work for S02",
     },
   ];
 

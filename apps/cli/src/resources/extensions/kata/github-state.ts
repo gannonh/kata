@@ -132,6 +132,31 @@ function nextActionForPhase(phase: Phase): string {
   }
 }
 
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function taskBelongsToSlice(
+  issue: GithubIssueSummary,
+  sliceId: string,
+): boolean {
+  const normalizedSliceId = sliceId.trim().toLowerCase();
+  if (!normalizedSliceId) return false;
+
+  const labels = labelSet(issue);
+  if (
+    labels.has(`kata:slice:${normalizedSliceId}`) ||
+    labels.has(`slice:${normalizedSliceId}`) ||
+    labels.has(`kata:parent:${normalizedSliceId}`)
+  ) {
+    return true;
+  }
+
+  const contextText = `${issue.title}\n${issue.body ?? ""}`;
+  const sliceIdMatcher = new RegExp(`\\b${escapeRegex(sliceId)}\\b`, "i");
+  return sliceIdMatcher.test(contextText);
+}
+
 export async function deriveGithubState(
   client: GithubStateClient,
   config: DeriveGithubStateConfig,
@@ -253,7 +278,15 @@ export async function deriveGithubState(
   const openTasks = tasks.filter((task) => task.issue.state !== "closed");
   const closedTasks = tasks.filter((task) => task.issue.state === "closed");
 
-  const activeTaskEntry = openTasks[0] ?? null;
+  const activeSliceId = activeSliceEntry?.parsed.id ?? null;
+  const scopedOpenTasks = activeSliceId
+    ? openTasks.filter((task) => taskBelongsToSlice(task.issue, activeSliceId))
+    : [];
+  const scopedClosedTasks = activeSliceId
+    ? closedTasks.filter((task) => taskBelongsToSlice(task.issue, activeSliceId))
+    : [];
+
+  const activeTaskEntry = scopedOpenTasks[0] ?? null;
 
   let phase: Phase;
 
@@ -263,7 +296,11 @@ export async function deriveGithubState(
         ? resolvePhaseFromSliceLabels(activeSliceEntry.issue, labelPrefix)
         : null;
 
-    phase = labelPhase ?? computePhaseFallback(activeSliceEntry.issue, openTasks.map((t) => t.issue), closedTasks.map((t) => t.issue));
+    phase = labelPhase ?? computePhaseFallback(
+      activeSliceEntry.issue,
+      scopedOpenTasks.map((t) => t.issue),
+      scopedClosedTasks.map((t) => t.issue),
+    );
   } else {
     phase = "pre-planning";
   }
@@ -282,7 +319,7 @@ export async function deriveGithubState(
 
   // If the active slice has no open task but there are closed tasks, this slice
   // is likely complete and ready for summary.
-  if (activeSlice && !activeTask && closedTasks.length > 0) {
+  if (activeSlice && !activeTask && scopedClosedTasks.length > 0) {
     phase = "summarizing";
   }
 

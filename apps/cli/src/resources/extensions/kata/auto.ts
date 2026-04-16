@@ -94,6 +94,10 @@ function getLatestPi(): ExtensionAPI | null {
   return ((globalThis as any)[_KP] as ExtensionAPI) ?? null;
 }
 
+function clearSyncedState(): void {
+  delete (globalThis as any)[_KS];
+}
+
 /** Persist all mutable auto-mode state to globalThis before newSession(). */
 function syncToGlobal(): void {
   (globalThis as any)[_KS] = {
@@ -110,6 +114,10 @@ function syncToGlobal(): void {
 function syncFromGlobal(): void {
   const s = (globalThis as any)[_KS];
   if (!s) return;
+  if (!s.active && !s.paused) {
+    clearSyncedState();
+    return;
+  }
   active = s.active ?? false;
   paused = s.paused ?? false;
   stepActive = s.stepActive ?? false;
@@ -126,6 +134,7 @@ function syncFromGlobal(): void {
   completedUnits = s.completedUnits ?? [];
   cmdCtx = s.cmdCtx ?? null;
   backend = s.backend ?? null;
+  clearSyncedState();
 }
 
 // ─── State ────────────────────────────────────────────────────────────────────
@@ -289,6 +298,7 @@ export async function stopAuto(
   }
 
   cmdCtx = null;
+  clearSyncedState();
 }
 
 /**
@@ -324,6 +334,9 @@ export async function startAuto(
   base: string,
   verboseMode: boolean,
 ): Promise<void> {
+  // Starting a fresh run should never inherit stale cached session state.
+  clearSyncedState();
+
   const modeGate = getWorkflowEntrypointGuard("auto");
   if (!modeGate.allow) {
     ctx.ui.notify(

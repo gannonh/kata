@@ -513,16 +513,12 @@ function buildGithubEntrypointGuard(
   entrypoint: WorkflowEntrypoint,
   protocol: WorkflowProtocolResolution,
 ): WorkflowEntrypointGuard {
-  // GitHub mode supports the same entrypoints as Linear mode.
-  // S01 scope: deriveState, status, smart-entry are functional.
-  // Other entrypoints are allowed so downstream slices can wire them.
+  // GitHub mode in S01 supports read-only/status-oriented flows.
   const supportedEntrypoints: WorkflowEntrypoint[] = [
     "smart-entry",
     "status",
     "dashboard",
-    "plan",
     "discuss",
-    "auto",
     "system-prompt",
   ];
 
@@ -531,9 +527,7 @@ function buildGithubEntrypointGuard(
       "smart-entry": "Running in GitHub mode. Milestone artifacts stored in GitHub.",
       status: "Showing live progress derived from GitHub API.",
       dashboard: "Showing live progress derived from GitHub API.",
-      plan: "Running in GitHub mode. Planning artifacts stored in GitHub.",
       discuss: "Running in GitHub mode. Discussion artifacts stored in GitHub.",
-      auto: "Running in GitHub mode. State derived from GitHub API.",
       "system-prompt": protocol.ready
         ? "Workflow mode is GitHub. Follow the GitHub mode instructions in KATA-WORKFLOW.md. Do not fall back to file-backed .kata artifacts."
         : "Workflow mode is GitHub. Do not fall back to file-backed .kata artifacts. Workflow document not found — use `/kata prefs status` to inspect config.",
@@ -544,6 +538,18 @@ function buildGithubEntrypointGuard(
       allow: true,
       noticeLevel: entrypoint === "system-prompt" ? "warning" : "info",
       notice: noticeMap[entrypoint] ?? `Running in GitHub mode.`,
+      protocol,
+    };
+  }
+
+  if (entrypoint === "plan" || entrypoint === "auto") {
+    return {
+      mode: "github",
+      isLinearMode: false,
+      allow: false,
+      noticeLevel: "warning",
+      notice:
+        "GitHub mode planning and auto execution are not available yet. Use `/kata status` or `/kata discuss` for S01 read-only workflows.",
       protocol,
     };
   }

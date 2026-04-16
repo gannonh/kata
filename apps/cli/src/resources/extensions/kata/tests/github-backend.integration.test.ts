@@ -66,6 +66,7 @@ function startMockGithubServer(): Promise<{ server: Server; baseUrl: string }> {
         title: "[T04] Wire /kata surfaces",
         state: "open",
         labels: [{ name: "kata:task" }],
+        body: "Tracking implementation for slice S01",
       },
     ],
     "2": [],
