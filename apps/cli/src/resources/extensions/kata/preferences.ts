@@ -63,7 +63,7 @@ export interface ResolvedAutoSupervisorConfig {
   hard_timeout_minutes: number;
 }
 
-export type WorkflowMode = "linear";
+export type WorkflowMode = "linear" | "github";
 
 export interface KataWorkflowPreferences {
   mode?: WorkflowMode;
@@ -965,21 +965,20 @@ function normalizeWorkflowPreferences(value: unknown): {
   }
 
   const mode = rawMode.trim().toLowerCase();
-  if (mode === "linear") {
-    return { value: { mode }, errors: [] };
+  if (mode === "linear" || mode === "github") {
+    return { value: { mode: mode as WorkflowMode }, errors: [] };
   }
 
   if (mode === "file") {
     return {
-      value: { mode: mode as WorkflowMode },
       errors: [
-        'workflow.mode "file" has been removed. Set workflow.mode to "linear".',
+        'workflow.mode "file" has been removed. Set workflow.mode to "linear" or "github".',
       ],
     };
   }
 
   return {
-    errors: ['workflow.mode must be "linear"'],
+    errors: ['workflow.mode must be "linear" or "github"'],
   };
 }
 

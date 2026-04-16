@@ -61,6 +61,7 @@ test("workflow helpers read normalized Linear config from effective preferences"
     scope: "project",
     workflowMode: "linear",
     isLinearMode: true,
+    isGithubMode: false,
     linear: {
       teamId: "team-123",
       teamKey: "KAT",

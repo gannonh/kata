@@ -120,10 +120,10 @@ describe("field types", () => {
     expect(findField("models.research")?.type).toBe("string");
   });
 
-  it("workflow.mode is enum with 'linear'", () => {
+  it("workflow.mode is enum with 'linear' and 'github'", () => {
     const f = findField("workflow.mode");
     expect(f?.type).toBe("enum");
-    expect(f?.enumValues).toEqual(["linear"]);
+    expect(f?.enumValues).toEqual(["linear", "github"]);
   });
 
   it("skill_discovery is enum with auto/suggest/off", () => {

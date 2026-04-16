@@ -77,6 +77,66 @@ import { deriveUnitType, deriveUnitId, peekNext } from "./auto-dispatch.js";
 export { deriveUnitType, deriveUnitId, peekNext } from "./auto-dispatch.js";
 const providerBackoffMs = [5000, 10000, 30000];
 
+// ─── globalThis persistence ───────────────────────────────────────────────────
+// jiti's moduleCache:false re-evaluates this module on every newSession(),
+// resetting all module-level variables. We use globalThis to persist state
+// that must survive across session rebuilds.
+
+const _KS = Symbol.for('kata:autoState');
+const _KP = Symbol.for('kata:latestPi');
+
+/** Called from index.ts every time the extension factory runs. */
+export function setLatestPi(pi: ExtensionAPI): void {
+  (globalThis as any)[_KP] = pi;
+}
+
+function getLatestPi(): ExtensionAPI | null {
+  return ((globalThis as any)[_KP] as ExtensionAPI) ?? null;
+}
+
+function clearSyncedState(): void {
+  delete (globalThis as any)[_KS];
+}
+
+/** Persist all mutable auto-mode state to globalThis before newSession(). */
+function syncToGlobal(): void {
+  (globalThis as any)[_KS] = {
+    active, paused, stepActive, verbose,
+    basePath, lastUnit, retryCount, providerErrorStreak,
+    currentMilestoneId, originalModelId, autoStartTime,
+    pendingCrashRecovery, currentUnit, completedUnits,
+    // Object references — survive because globalThis keeps them alive
+    cmdCtx, backend,
+  };
+}
+
+/** Restore auto-mode state from globalThis after module reload. */
+function syncFromGlobal(): void {
+  const s = (globalThis as any)[_KS];
+  if (!s) return;
+  if (!s.active && !s.paused) {
+    clearSyncedState();
+    return;
+  }
+  active = s.active ?? false;
+  paused = s.paused ?? false;
+  stepActive = s.stepActive ?? false;
+  verbose = s.verbose ?? false;
+  basePath = s.basePath ?? '';
+  lastUnit = s.lastUnit ?? null;
+  retryCount = s.retryCount ?? 0;
+  providerErrorStreak = s.providerErrorStreak ?? 0;
+  currentMilestoneId = s.currentMilestoneId ?? null;
+  originalModelId = s.originalModelId ?? null;
+  autoStartTime = s.autoStartTime ?? 0;
+  pendingCrashRecovery = s.pendingCrashRecovery ?? null;
+  currentUnit = s.currentUnit ?? null;
+  completedUnits = s.completedUnits ?? [];
+  cmdCtx = s.cmdCtx ?? null;
+  backend = s.backend ?? null;
+  clearSyncedState();
+}
+
 // ─── State ────────────────────────────────────────────────────────────────────
 
 let active = false;
@@ -114,6 +174,9 @@ let currentMilestoneId: string | null = null;
 
 /** Model the user had selected before auto-mode started */
 let originalModelId: string | null = null;
+
+// Restore state from globalThis on module reload (after newSession)
+syncFromGlobal();
 
 /** Progress-aware timeout supervision */
 let unitTimeoutHandle: ReturnType<typeof setTimeout> | null = null;
@@ -235,6 +298,7 @@ export async function stopAuto(
   }
 
   cmdCtx = null;
+  clearSyncedState();
 }
 
 /**
@@ -270,6 +334,9 @@ export async function startAuto(
   base: string,
   verboseMode: boolean,
 ): Promise<void> {
+  // Starting a fresh run should never inherit stale cached session state.
+  clearSyncedState();
+
   const modeGate = getWorkflowEntrypointGuard("auto");
   if (!modeGate.allow) {
     ctx.ui.notify(
@@ -1278,12 +1345,20 @@ async function dispatchNextUnit(
   updateProgressWidget(ctx, unitType, unitId, state);
 
   // 14. Fresh session
+  // Sync all auto-mode state to globalThis BEFORE newSession() — jiti's
+  // moduleCache:false will re-evaluate this module, and syncFromGlobal()
+  // at the top restores the state in the new instance.
+  syncToGlobal();
   const result = await cmdCtx!.newSession();
   if (result.cancelled) {
     await stopAuto(ctx, pi);
     ctx.ui.notify("New session cancelled — auto-mode stopped.", "warning");
     return;
   }
+
+  // After newSession(), `pi` is stale (old session torn down). Resolve the
+  // live pi that the new session's extension factory stored in globalThis.
+  const livePi = getLatestPi() ?? pi;
 
   // 16. Lock file
   const sessionFile = ctx.sessionManager.getSessionFile();
@@ -1317,7 +1392,7 @@ async function dispatchNextUnit(
   if (switchResult.action === "switch") {
     const model = ctx.modelRegistry.getAll().find((m) => m.id === switchResult.preferredModelId);
     if (model) {
-      const ok = await pi.setModel(model);
+      const ok = await livePi.setModel(model);
       if (ok) ctx.ui.notify(`Model: ${switchResult.preferredModelId}`, "info");
     }
   } else if (switchResult.action === "not-found") {
@@ -1343,7 +1418,7 @@ async function dispatchNextUnit(
       phase: "wrapup-warning-sent",
       wrapupWarningSent: true,
     });
-    pi.sendMessage(
+    livePi.sendMessage(
       {
         customType: "kata-auto-wrapup",
         display: verbose,
@@ -1440,7 +1515,7 @@ async function dispatchNextUnit(
   }, hardTimeoutMs);
 
   // 20. Dispatch
-  pi.sendMessage(
+  livePi.sendMessage(
     { customType: "kata-auto", content: finalPrompt, display: verbose },
     { triggerTurn: true },
   );
@@ -1506,7 +1581,7 @@ async function recoverTimedOutUnit(
           "If blocked, record the blocker explicitly instead of going silent.",
         ];
 
-    pi.sendMessage(
+    (getLatestPi() ?? pi).sendMessage(
       {
         customType: "kata-auto-timeout-recovery",
         display: verbose,

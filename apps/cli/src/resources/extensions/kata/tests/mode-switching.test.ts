@@ -75,6 +75,19 @@ test("default mode (unset) resolves to linear", () => {
   assert.equal(normalizeWorkflowMode(null), "linear");
 });
 
+test("github mode resolves correctly", () => {
+  assert.equal(normalizeWorkflowMode("github"), "github");
+  assert.equal(normalizeWorkflowMode("GitHub"), "github");
+  assert.equal(normalizeWorkflowMode("  GITHUB  "), "github");
+});
+
+test("unknown mode throws with allowed values", () => {
+  assert.throws(
+    () => normalizeWorkflowMode("jira"),
+    /Unsupported workflow\.mode "jira"/,
+  );
+});
+
 test("linear mode entrypoint guards allow supported entrypoints", () => {
   const loaded = makeLoadedPreferences({ workflow: { mode: "linear" } });
   const supported = [
@@ -96,4 +109,52 @@ test("linear mode entrypoint guards allow supported entrypoints", () => {
 
   const queue = getWorkflowEntrypointGuard("queue", loaded);
   assert.equal(queue.allow, false, "queue remains blocked until Linear support lands");
+});
+
+test("github mode entrypoint guards allow supported entrypoints", () => {
+  const loaded = makeLoadedPreferences({ workflow: { mode: "github" } });
+  const supported = [
+    "smart-entry",
+    "discuss",
+    "status",
+    "dashboard",
+    "system-prompt",
+  ] as const;
+
+  for (const entrypoint of supported) {
+    const guard = getWorkflowEntrypointGuard(entrypoint, loaded);
+    assert.equal(guard.mode, "github", `${entrypoint}: mode`);
+    assert.equal(guard.isLinearMode, false, `${entrypoint}: isLinearMode`);
+    assert.equal(guard.allow, true, `${entrypoint}: allow`);
+  }
+
+  const queue = getWorkflowEntrypointGuard("queue", loaded);
+  assert.equal(queue.mode, "github", "queue: mode");
+  assert.equal(queue.allow, false, "queue blocked in github mode");
+
+  const plan = getWorkflowEntrypointGuard("plan", loaded);
+  assert.equal(plan.mode, "github", "plan: mode");
+  assert.equal(plan.allow, false, "plan blocked in github mode S01");
+
+  const auto = getWorkflowEntrypointGuard("auto", loaded);
+  assert.equal(auto.mode, "github", "auto: mode");
+  assert.equal(auto.allow, false, "auto blocked in github mode S01");
+});
+
+test("github mode workflow protocol resolves correctly", () => {
+  const tmp = mkdtempSync(join(tmpdir(), "kata-mode-github-"));
+  const workflowPath = join(tmp, "KATA-WORKFLOW.md");
+  writeFileSync(workflowPath, "# github workflow\n", "utf-8");
+
+  const loaded = makeLoadedPreferences({ workflow: { mode: "github" } });
+
+  withWorkflowEnv({ KATA_WORKFLOW_PATH: workflowPath }, () => {
+    const protocol = resolveWorkflowProtocol(loaded);
+    assert.deepEqual(protocol, {
+      mode: "github",
+      documentName: "KATA-WORKFLOW.md",
+      path: workflowPath,
+      ready: true,
+    });
+  });
 });

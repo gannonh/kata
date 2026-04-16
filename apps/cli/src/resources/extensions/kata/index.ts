@@ -30,6 +30,7 @@ import {
   isAutoPaused,
   isStepActive,
   setStepActive,
+  setLatestPi,
   handleAgentEnd,
   handleProviderError,
   pauseAuto,
@@ -60,6 +61,10 @@ import { readFile } from "node:fs/promises";
 // Provider error retry is handled in auto.ts — see handleProviderError()
 
 export default function (pi: ExtensionAPI) {
+  // Keep latestPi in globalThis so auto-mode can reach the live session
+  // after newSession() rebuilds extensions (jiti moduleCache:false).
+  setLatestPi(pi);
+
   registerKataCommand(pi);
 
   // ── session_start: render branded Kata header ───────────────────────────

@@ -2,7 +2,7 @@
  * Kata Guided Flow — Smart Entry Wizard
  *
  * Contextual command entry points for /kata.
- * Linear mode only — no filesystem artifact fallbacks.
+ * Backend-aware for Linear and GitHub workflow modes.
  */
 
 import type {
@@ -878,7 +878,10 @@ export async function showSmartEntry(
   // Onboarding guard: if unconfigured, show a brief message and return.
   // commands.ts is the authoritative entry point for triggering the wizard.
   if (!isProjectConfigured(basePath)) {
-    ctx.ui.notify("Run /kata to set up Linear integration.", "info");
+    const workflowMode =
+      loadEffectiveKataPreferences(basePath)?.preferences.workflow?.mode ?? "linear";
+    const backendLabel = workflowMode === "github" ? "GitHub" : "Linear";
+    ctx.ui.notify(`Run /kata to set up ${backendLabel} integration.`, "info");
     return;
   }
 
