@@ -24,7 +24,7 @@ function hasGhCli(): boolean {
 }
 
 function getToken(): string | undefined {
-	return process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN;
+	return process.env.KATA_GITHUB_TOKEN ?? process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN;
 }
 
 export function isAuthenticated(): boolean {
