@@ -63,6 +63,10 @@ describe("validatePreferencesModel — accepts valid configs", () => {
     const m1 = buildModelFromConfig({ workflow: { mode: "linear" } });
     expect(validatePreferencesModel(m1)).toEqual([]);
 
+    // workflow.mode = "github"
+    const m1b = buildModelFromConfig({ workflow: { mode: "github" } });
+    expect(validatePreferencesModel(m1b)).toEqual([]);
+
     // skill_discovery = "suggest"
     const m2 = buildModelFromConfig({ skill_discovery: "suggest" });
     expect(validatePreferencesModel(m2)).toEqual([]);
@@ -110,7 +114,7 @@ describe("validatePreferencesModel — accepts valid configs", () => {
 // ---------------------------------------------------------------------------
 
 describe("validatePreferencesModel — rejects invalid enums", () => {
-  it('rejects workflow.mode = "file" (only "linear" is valid)', () => {
+  it('rejects workflow.mode = "file" (only "linear" and "github" are valid)', () => {
     const model = buildModelFromConfig({ workflow: { mode: "file" } });
     const issues = validatePreferencesModel(model);
     expect(issues).toHaveLength(1);

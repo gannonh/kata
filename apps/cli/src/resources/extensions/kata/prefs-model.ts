@@ -131,8 +131,8 @@ export const PREFS_FIELD_DEFINITIONS: readonly PrefsFieldDefinition[] = [
     label: "Mode",
     path: ["workflow", "mode"],
     type: "enum",
-    enumValues: ["linear"],
-    description: "Workflow mode. Currently only 'linear' is supported.",
+    enumValues: ["linear", "github"],
+    description: "Workflow mode. Supported: 'linear' (default), 'github'.",
   },
 
   // ── Linear ────────────────────────────────────────────────────────────────

@@ -56,7 +56,7 @@ import { clearHeaderHint } from "./header.js";
 // ─── Onboarding gate ──────────────────────────────────────────────────────────
 
 /**
- * Ensure the project is configured (has .kata/ with linear config).
+ * Ensure the project is configured (has .kata/ with workflow backend config).
  * If not configured and not skipped, shows a setup-or-skip prompt.
  *
  * Returns true if the project is configured (or was just configured).
@@ -75,13 +75,13 @@ async function ensureOnboarding(
     title: "Kata Setup",
     summary: [
       "This project hasn't been set up with Kata yet.",
-      "You'll need a Linear API key to get started.",
+      "You can configure a Linear or GitHub backend to get started.",
     ],
     actions: [
       {
         id: "setup",
         label: "Set up Kata (Recommended)",
-        description: "Configure Linear integration and create .kata/ directory.",
+        description: "Configure workflow backend integration and create .kata/ directory.",
         recommended: true,
       },
     ],

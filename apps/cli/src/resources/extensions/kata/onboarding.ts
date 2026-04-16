@@ -2,17 +2,18 @@
  * Kata Onboarding — Project Setup Wizard
  *
  * Provides:
- * - `isProjectConfigured(basePath)` — check if .kata/preferences.md exists with linear config
- * - `runOnboarding(ctx)` — interactive wizard to collect LINEAR_API_KEY and create .kata/
+ * - `isProjectConfigured(basePath)` — check if .kata/preferences.md exists with workflow config
+ * - `runOnboarding(ctx)` — interactive wizard to collect credentials and create .kata/
  * - `shouldSkipOnboarding()` / `setSkipOnboarding()` — session-scoped skip flag
  *
  * The wizard:
  * 1. Guards non-TTY environments (returns "skipped" with warning)
- * 2. Prompts for LINEAR_API_KEY via ctx.ui.input (masked)
- * 3. Validates via LinearClient.getViewer() (one retry on failure)
+ * 2. In Linear mode: prompts for LINEAR_API_KEY via ctx.ui.input (masked)
+ *    In GitHub mode: checks for existing GH_TOKEN/GITHUB_TOKEN
+ * 3. Validates credentials
  * 4. Stores key in auth.json via AuthStorage
  * 5. Creates .kata/preferences.md from template + ensures .gitignore
- * 6. Hydrates process.env.LINEAR_API_KEY for same-session use
+ * 6. Hydrates env vars for same-session use
  */
 
 import type { ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
@@ -46,7 +47,9 @@ export function _resetSkipFlag(): void {
 
 /**
  * Returns true if the project at `basePath` has a `.kata/preferences.md`
- * file AND has either `linear.teamKey` or `linear.projectSlug` set.
+ * file AND has valid workflow backend configuration:
+ * - In Linear mode (default): requires `linear.teamKey` or `linear.projectSlug`.
+ * - In GitHub mode: requires `workflow.mode: github` (tracker config validated separately).
  */
 export function isProjectConfigured(basePath: string): boolean {
   const preferencesPath = join(basePath, ".kata", "preferences.md");
@@ -59,6 +62,13 @@ export function isProjectConfigured(basePath: string): boolean {
   const loaded = loadEffectiveKataPreferences(basePath);
   if (!loaded) return false;
 
+  // GitHub mode: preferences file exists with workflow.mode: github is sufficient.
+  // Detailed tracker config (repo owner, token, etc.) is validated separately by
+  // the GitHub config resolver — not gated at the onboarding level.
+  const workflowMode = loaded.preferences.workflow?.mode;
+  if (workflowMode === "github") return true;
+
+  // Linear mode (default): require Linear-specific fields.
   const linear = loaded.preferences.linear;
   if (!linear) return false;
 

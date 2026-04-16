@@ -15,6 +15,7 @@ export interface EffectiveLinearProjectConfig {
   scope: LoadedKataPreferences["scope"] | null;
   workflowMode: WorkflowMode;
   isLinearMode: boolean;
+  isGithubMode: boolean;
   linear: {
     teamId: string | null;
     teamKey: string | null;
@@ -101,24 +102,24 @@ export interface WorkflowEntrypointGuard {
 export function normalizeWorkflowMode(mode: unknown): WorkflowMode {
   if (mode === "file") {
     throw new Error(
-      'File mode has been removed. Set workflow.mode to "linear" in your Kata preferences.',
+      'File mode has been removed. Set workflow.mode to "linear" or "github" in your Kata preferences.',
     );
   }
 
   if (mode === undefined || mode === null) return "linear";
 
   if (typeof mode !== "string") {
-    throw new Error('Invalid workflow.mode value. Set workflow.mode to "linear".');
+    throw new Error('Invalid workflow.mode value. Set workflow.mode to "linear" or "github".');
   }
 
   const normalized = mode.trim().toLowerCase();
-  if (normalized !== "linear") {
-    throw new Error(
-      `Unsupported workflow.mode "${normalized}". Set workflow.mode to "linear".`,
-    );
+  if (normalized === "linear" || normalized === "github") {
+    return normalized as WorkflowMode;
   }
 
-  return "linear";
+  throw new Error(
+    `Unsupported workflow.mode "${normalized}". Set workflow.mode to "linear" or "github".`,
+  );
 }
 
 export function loadEffectiveLinearProjectConfig(
@@ -139,6 +140,7 @@ export function loadEffectiveLinearProjectConfig(
     scope: loadedPreferences?.scope ?? null,
     workflowMode,
     isLinearMode: workflowMode === "linear",
+    isGithubMode: workflowMode === "github",
     linear: {
       teamId: preferences?.linear?.teamId ?? null,
       teamKey: preferences?.linear?.teamKey ?? null,
@@ -157,6 +159,12 @@ export function isLinearMode(
   loadedPreferences: LoadedKataPreferences | null = loadEffectiveKataPreferences(),
 ): boolean {
   return loadEffectiveLinearProjectConfig(loadedPreferences).isLinearMode;
+}
+
+export function isGithubMode(
+  loadedPreferences: LoadedKataPreferences | null = loadEffectiveKataPreferences(),
+): boolean {
+  return loadEffectiveLinearProjectConfig(loadedPreferences).isGithubMode;
 }
 
 export function getLinearTeamId(
@@ -295,7 +303,7 @@ export function resolveWorkflowProtocol(
 ): WorkflowProtocolResolution {
   const mode = getWorkflowMode(loadedPreferences);
 
-  // Linear mode uses the unified workflow document.
+  // Both Linear and GitHub modes use the unified workflow document.
   const kataPath =
     process.env.KATA_WORKFLOW_PATH ??
     join(process.env.HOME ?? homedir(), ".kata-cli", "agent", "KATA-WORKFLOW.md");
@@ -313,6 +321,9 @@ export function getWorkflowEntrypointGuard(
   loadedPreferences: LoadedKataPreferences | null = loadEffectiveKataPreferences(),
 ): WorkflowEntrypointGuard {
   const protocol = resolveWorkflowProtocol(loadedPreferences);
+  if (protocol.mode === "github") {
+    return buildGithubEntrypointGuard(entrypoint, protocol);
+  }
   return buildLinearEntrypointGuard(entrypoint, protocol);
 }
 
@@ -496,6 +507,56 @@ function buildLinearEntrypointGuard(
         "This project is configured for Linear mode. This file-backed Kata entrypoint is blocked until the Linear workflow runtime is wired.",
       );
   }
+}
+
+function buildGithubEntrypointGuard(
+  entrypoint: WorkflowEntrypoint,
+  protocol: WorkflowProtocolResolution,
+): WorkflowEntrypointGuard {
+  // GitHub mode supports the same entrypoints as Linear mode.
+  // S01 scope: deriveState, status, smart-entry are functional.
+  // Other entrypoints are allowed so downstream slices can wire them.
+  const supportedEntrypoints: WorkflowEntrypoint[] = [
+    "smart-entry",
+    "status",
+    "dashboard",
+    "plan",
+    "discuss",
+    "auto",
+    "system-prompt",
+  ];
+
+  if (supportedEntrypoints.includes(entrypoint)) {
+    const noticeMap: Partial<Record<WorkflowEntrypoint, string>> = {
+      "smart-entry": "Running in GitHub mode. Milestone artifacts stored in GitHub.",
+      status: "Showing live progress derived from GitHub API.",
+      dashboard: "Showing live progress derived from GitHub API.",
+      plan: "Running in GitHub mode. Planning artifacts stored in GitHub.",
+      discuss: "Running in GitHub mode. Discussion artifacts stored in GitHub.",
+      auto: "Running in GitHub mode. State derived from GitHub API.",
+      "system-prompt": protocol.ready
+        ? "Workflow mode is GitHub. Follow the GitHub mode instructions in KATA-WORKFLOW.md. Do not fall back to file-backed .kata artifacts."
+        : "Workflow mode is GitHub. Do not fall back to file-backed .kata artifacts. Workflow document not found — use `/kata prefs status` to inspect config.",
+    };
+    return {
+      mode: "github",
+      isLinearMode: false,
+      allow: true,
+      noticeLevel: entrypoint === "system-prompt" ? "warning" : "info",
+      notice: noticeMap[entrypoint] ?? `Running in GitHub mode.`,
+      protocol,
+    };
+  }
+
+  // Block unsupported file-backed entrypoints
+  return {
+    mode: "github",
+    isLinearMode: false,
+    allow: false,
+    noticeLevel: "warning",
+    notice: "This project is configured for GitHub mode. This file-backed Kata entrypoint is not supported in GitHub mode.",
+    protocol,
+  };
 }
 
 function blockedLinearEntrypoint(
