@@ -81,7 +81,7 @@ async function ensureOnboarding(
     title: "Kata Setup",
     summary: [
       "This project hasn't been set up with Kata yet.",
-      "You can configure a Linear or GitHub backend to get started.",
+      "You can run onboarding now to set up credentials and initialize .kata/.",
     ],
     actions: [
       {

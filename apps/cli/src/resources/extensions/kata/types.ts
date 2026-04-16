@@ -127,6 +127,11 @@ export interface ActiveRef {
    * Pass this value as `milestoneId` to `kata_list_slices` when scoping to an active milestone.
    */
   linearIssueId?: string;
+  /**
+   * Backend-specific issue identifier for non-Linear backends.
+   * In GitHub mode this is the issue number string.
+   */
+  trackerIssueId?: string;
 }
 
 export interface MilestoneRegistryEntry {

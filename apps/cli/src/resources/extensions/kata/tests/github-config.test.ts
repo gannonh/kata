@@ -118,7 +118,7 @@ test("loadGithubTrackerConfig returns config for valid minimal WORKFLOW.md", () 
   });
 });
 
-test("loadGithubTrackerConfig includes githubProjectNumber and sets stateMode projects_v2", () => {
+test("loadGithubTrackerConfig includes githubProjectNumber and keeps label-based stateMode", () => {
   const dir = makeTmpDir();
   const path = writeWorkflowMd(
     dir,
@@ -130,7 +130,7 @@ test("loadGithubTrackerConfig includes githubProjectNumber and sets stateMode pr
   assert.deepEqual(config, {
     repoOwner: "kata-sh",
     repoName: "kata-mono",
-    stateMode: "projects_v2",
+    stateMode: "labels",
     githubProjectNumber: 42,
   });
 });
@@ -455,7 +455,7 @@ test("formatGithubConfigStatus shows valid status for complete config", () => {
     assert.equal(level, "info");
     assert.ok(lines.some((l) => l.includes("present")), "token presence expected");
     assert.ok(lines.some((l) => l.includes("kata-sh/kata-mono")), "repo expected");
-    assert.ok(lines.some((l) => l.includes("projects_v2")), "state mode expected");
+    assert.ok(lines.some((l) => l.includes("labels")), "state mode expected");
     assert.ok(lines.some((l) => l.includes("7")), "project number expected");
     assert.ok(lines.some((l) => l.includes("valid")), "validation status expected");
   });

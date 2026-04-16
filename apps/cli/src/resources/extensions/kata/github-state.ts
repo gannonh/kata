@@ -57,7 +57,7 @@ function toActiveRef(issue: GithubIssueSummary, parsed: ParsedKataTitle): Active
   return {
     id: parsed.id,
     title: parsed.title,
-    linearIssueId: String(issue.number),
+    trackerIssueId: String(issue.number),
   };
 }
 
@@ -291,10 +291,7 @@ export async function deriveGithubState(
   let phase: Phase;
 
   if (activeSliceEntry) {
-    const labelPhase =
-      config.stateMode === "labels"
-        ? resolvePhaseFromSliceLabels(activeSliceEntry.issue, labelPrefix)
-        : null;
+    const labelPhase = resolvePhaseFromSliceLabels(activeSliceEntry.issue, labelPrefix);
 
     phase = labelPhase ?? computePhaseFallback(
       activeSliceEntry.issue,

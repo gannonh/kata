@@ -1581,7 +1581,7 @@ async function recoverTimedOutUnit(
           "If blocked, record the blocker explicitly instead of going silent.",
         ];
 
-    livePi.sendMessage(
+    (getLatestPi() ?? pi).sendMessage(
       {
         customType: "kata-auto-timeout-recovery",
         display: verbose,

@@ -63,6 +63,8 @@ test("deriveGithubState derives active milestone/slice/task and executing phase"
   assert.equal(state.activeMilestone?.id, "M009");
   assert.equal(state.activeSlice?.id, "S01");
   assert.equal(state.activeTask?.id, "T04");
+  assert.equal(state.activeTask?.trackerIssueId, "12");
+  assert.equal(state.activeTask?.linearIssueId, undefined);
   assert.equal(state.registry[0]?.status, "active");
   assert.deepEqual(state.progress?.tasks, { done: 0, total: 1 });
 });

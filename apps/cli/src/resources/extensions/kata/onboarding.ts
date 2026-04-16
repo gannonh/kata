@@ -6,10 +6,9 @@
  * - `runOnboarding(ctx)` — interactive wizard to collect credentials and create .kata/
  * - `shouldSkipOnboarding()` / `setSkipOnboarding()` — session-scoped skip flag
  *
- * The wizard:
+ * The wizard currently:
  * 1. Guards non-TTY environments (returns "skipped" with warning)
- * 2. In Linear mode: prompts for LINEAR_API_KEY via ctx.ui.input (masked)
- *    In GitHub mode: checks for existing GH_TOKEN/GITHUB_TOKEN
+ * 2. Prompts for LINEAR_API_KEY via ctx.ui.input (masked)
  * 3. Validates credentials
  * 4. Stores key in auth.json via AuthStorage
  * 5. Creates .kata/preferences.md from template + ensures .gitignore

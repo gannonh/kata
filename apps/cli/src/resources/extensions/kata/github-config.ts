@@ -222,7 +222,9 @@ export function loadGithubTrackerConfig(
     config: {
       repoOwner,
       repoName,
-      stateMode: githubProjectNumber ? "projects_v2" : "labels",
+      // Projects v2 phase derivation is not implemented yet. Keep label-based
+      // state derivation active even when a project number is configured.
+      stateMode: "labels",
       ...(githubProjectNumber !== undefined && { githubProjectNumber }),
       ...(labelPrefix !== undefined && { labelPrefix }),
     },
@@ -332,7 +334,7 @@ export function validateGithubConfig(
     diagnostics.push({
       code: "missing_github_token",
       message:
-        "No GitHub token found. Set KATA_GITHUB_TOKEN, GH_TOKEN, GITHUB_TOKEN, or store a credential via Kata onboarding.",
+        "No GitHub token found. Set KATA_GITHUB_TOKEN, GH_TOKEN, GITHUB_TOKEN, or add a github credential entry to ~/.kata-cli/agent/auth.json.",
       field: "KATA_GITHUB_TOKEN",
       retryable: false,
     });

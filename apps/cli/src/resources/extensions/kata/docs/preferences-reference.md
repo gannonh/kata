@@ -10,7 +10,7 @@ Full documentation for `~/.kata-cli/preferences.md` (global) and `.kata/preferen
 - Project preferences live at `.kata/preferences.md`.
 - Kata still reads the legacy `.kata/PREFERENCES.md` filename for backward compatibility, but new projects should use the lowercase canonical path.
 - Do not store secrets in preferences files.
-- Kata stores provider credentials in `~/.kata-cli/agent/auth.json` (for example via onboarding prompts) and hydrates runtime env vars like `LINEAR_API_KEY` automatically.
+- Kata stores provider credentials in `~/.kata-cli/agent/auth.json` and hydrates runtime env vars like `LINEAR_API_KEY` automatically.
 - Manually setting env vars is still supported, but `.env` is optional.
 
 ---
@@ -95,12 +95,12 @@ tracker:
   kind: github
   repo_owner: my-org             # GitHub org or user name (required)
   repo_name: my-repo             # GitHub repository name (required)
-  github_project_number: 7       # GitHub Projects v2 number (optional; enables projects_v2 state mode)
+  github_project_number: 7       # GitHub Projects v2 number (optional; reserved for future project-board integration)
   label_prefix: kata:            # Issue label prefix for state derivation (optional; default: kata:)
 ---
 ```
 
-When `github_project_number` is present, Kata derives workflow phase from GitHub Projects v2 status fields. When absent, Kata uses issue labels with the configured `label_prefix`.
+Kata currently derives workflow phase from issue labels with the configured `label_prefix`. `github_project_number` is parsed and validated for forward compatibility, but it does not yet switch phase derivation to Projects v2 fields.
 
 ### GitHub Token
 
@@ -109,7 +109,7 @@ Kata resolves the GitHub token in this order:
 1. `KATA_GITHUB_TOKEN` (env) — Kata-specific override
 2. `GH_TOKEN` (env) — `gh` CLI standard
 3. `GITHUB_TOKEN` (env) — broad GitHub convention
-4. `auth.json` `github` provider — stored via Kata onboarding
+4. `auth.json` `github` provider — add manually under `~/.kata-cli/agent/auth.json`
 
 To check GitHub mode readiness:
 
