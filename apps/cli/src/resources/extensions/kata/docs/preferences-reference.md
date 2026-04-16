@@ -124,6 +124,8 @@ validation: valid
 
 If GitHub mode is configured but not ready, the status output is actionable — for example `GITHUB_TOKEN: missing`, `diagnostic: missing_repo_owner`, or `diagnostic: unsupported_tracker_kind`.
 
+`/kata status` and `/kata` smart-entry now surface the same backend bootstrap diagnostics. If runtime initialization fails, the message includes diagnostic codes plus remediation actions and points back to `/kata prefs status` for full detail.
+
 ---
 
 ## Inspecting Active Mode
