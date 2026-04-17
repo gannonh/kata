@@ -565,6 +565,40 @@ fn test_workspace_clone_bootstrap_and_branch_creation() {
 }
 
 #[test]
+fn test_workspace_clone_bootstrap_sanitizes_issue_identifier_for_branch_name() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path().join("workspaces");
+    let source_repo = tmp.path().join("source-repo");
+    fs::create_dir_all(&root).unwrap();
+    init_git_repo(&source_repo);
+
+    let config = WorkspaceConfig {
+        root: root.to_string_lossy().to_string(),
+        repo: Some(source_repo.to_string_lossy().to_string()),
+        strategy: WorkspaceRepoStrategy::CloneLocal,
+        isolation: WorkspaceIsolation::Local,
+        docker: None,
+        branch_prefix: "symphony".to_string(),
+        clone_branch: None,
+        base_branch: Some("main".to_string()),
+        cleanup_on_done: false,
+    };
+    let hooks = hooks_config_none();
+    let issue = make_test_issue("[S01]#7");
+
+    let ws = symphony::workspace::ensure_workspace_for_issue(&issue, &config, &hooks).unwrap();
+
+    let mut branch_cmd = Command::new("git");
+    branch_cmd.args(["-C", &ws.path, "rev-parse", "--abbrev-ref", "HEAD"]);
+    let branch = command_success(branch_cmd, "read sanitized branch name");
+
+    assert_eq!(
+        branch, "symphony/_S01__7",
+        "bootstrap should sanitize issue identifiers before creating git branches"
+    );
+}
+
+#[test]
 fn test_workspace_clone_remote_uses_single_branch_behavior() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path().join("workspaces");

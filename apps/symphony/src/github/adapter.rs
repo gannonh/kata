@@ -66,25 +66,32 @@ impl GithubAdapter {
     }
 
     fn emit_state_vocabulary_diagnostics(config: &TrackerConfig) {
-        for (field, states) in [
-            ("active_states", &config.active_states),
-            ("terminal_states", &config.terminal_states),
-        ] {
-            for configured_state in states {
-                if canonical_kata_phase_name(configured_state).is_none() {
-                    tracing::warn!(
-                        event = "symphony_state_vocabulary_check",
-                        field,
-                        configured_state = %configured_state,
-                        canonical_phases = ?KATA_PHASE_NAMES,
-                        "configured GitHub state is outside canonical Kata phase vocabulary"
-                    );
-                    tracing::info!(
-                        event = "symphony_state_normalization_fallback",
-                        configured_state = %configured_state,
-                        "falling back to generic state normalization for non-canonical state"
-                    );
-                }
+        for configured_state in &config.active_states {
+            if canonical_kata_phase_name(configured_state).is_none() {
+                tracing::warn!(
+                    event = "symphony_state_vocabulary_check",
+                    field = "active_states",
+                    configured_state = %configured_state,
+                    canonical_phases = ?KATA_PHASE_NAMES,
+                    "configured GitHub active state is outside canonical Kata phase vocabulary"
+                );
+                tracing::info!(
+                    event = "symphony_state_normalization_fallback",
+                    configured_state = %configured_state,
+                    "falling back to generic state normalization for non-canonical state"
+                );
+            }
+        }
+
+        for configured_state in &config.terminal_states {
+            if canonical_kata_phase_name(configured_state).is_none() {
+                tracing::info!(
+                    event = "symphony_state_vocabulary_check",
+                    field = "terminal_states",
+                    configured_state = %configured_state,
+                    canonical_phases = ?KATA_PHASE_NAMES,
+                    "configured GitHub terminal state is non-canonical but allowed"
+                );
             }
         }
     }
@@ -120,7 +127,7 @@ impl GithubAdapter {
             .or_else(|| gh.assignee.as_ref().map(|assignee| assignee.login.clone()));
 
         let identifier = if let Some(kata_identifier) = parse_kata_identifier(&gh.title) {
-            tracing::info!(
+            tracing::debug!(
                 event = "kata_identifier_parsed",
                 issue_number = gh.number,
                 kata_identifier = %kata_identifier,
@@ -774,8 +781,16 @@ fn normalize_state_for_display(state_name: &str) -> String {
 }
 
 fn denormalize_label_state(normalized: &str) -> String {
+    if let Some(canonical) = canonical_kata_phase_name(normalized) {
+        return canonical.to_string();
+    }
+
     let compare = normalize_state_for_compare(normalized);
-    if let Some(canonical) = canonical_kata_phase_name(&compare) {
+    if let Some(canonical) = KATA_PHASE_NAMES
+        .iter()
+        .copied()
+        .find(|phase| normalize_state_for_compare(phase) == compare)
+    {
         return canonical.to_string();
     }
 
