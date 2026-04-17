@@ -101,6 +101,7 @@ class GithubApiClient implements GithubBackendClient {
           Accept: "application/vnd.github+json",
           "X-GitHub-Api-Version": "2022-11-28",
           "User-Agent": "kata-cli-github-backend",
+          ...(options.body ? { "Content-Type": "application/json" } : {}),
         },
         body: options.body ? JSON.stringify(options.body) : undefined,
         signal: controller.signal,
@@ -352,6 +353,7 @@ export class GithubBackend implements KataBackend {
   private readonly config: GithubBackendConfig;
   private readonly client: GithubBackendClient;
   private stateCache: { state: KataState; timestamp: number } | null = null;
+  private issueListCache: GithubIssueSummary[] | null = null;
   private static readonly STATE_CACHE_TTL_MS = 10_000;
 
   constructor(
@@ -389,12 +391,52 @@ export class GithubBackend implements KataBackend {
     this.stateCache = null;
   }
 
+  private upsertIssueCache(issue: GithubIssueSummary): void {
+    if (!this.issueListCache) return;
+    const index = this.issueListCache.findIndex((candidate) => candidate.number === issue.number);
+    if (index >= 0) {
+      this.issueListCache[index] = issue;
+      return;
+    }
+    this.issueListCache.push(issue);
+    this.issueListCache.sort((a, b) => a.number - b.number);
+  }
+
+  private async createIssue(payload: {
+    title: string;
+    body?: string;
+    labels?: string[];
+  }): Promise<GithubIssueSummary> {
+    const created = await this.client.createIssue(payload);
+    this.upsertIssueCache(created);
+    return created;
+  }
+
+  private async updateIssue(
+    number: number,
+    payload: GithubIssueMutation,
+  ): Promise<GithubIssueSummary> {
+    const updated = await this.client.updateIssue(number, payload);
+    this.upsertIssueCache(updated);
+    return updated;
+  }
+
   private async listIssues(): Promise<GithubIssueSummary[]> {
-    return this.client.listIssues();
+    if (this.issueListCache) return this.issueListCache;
+    const issues = await this.client.listIssues();
+    this.issueListCache = issues.slice().sort((a, b) => a.number - b.number);
+    return this.issueListCache;
   }
 
   private async findIssueByNumber(number: number): Promise<GithubIssueSummary | null> {
-    return this.client.getIssue(number);
+    if (this.issueListCache) {
+      const cached = this.issueListCache.find((candidate) => candidate.number === number);
+      if (cached) return cached;
+    }
+
+    const issue = await this.client.getIssue(number);
+    if (issue) this.upsertIssueCache(issue);
+    return issue;
   }
 
   private async findIssueByDocumentTitle(documentTitle: string): Promise<GithubIssueSummary | null> {
@@ -417,13 +459,18 @@ export class GithubBackend implements KataBackend {
       const metadata = inferMetadataFromIssue(issue);
       if (metadata?.kataId !== normalizedKataId) return false;
       if (metadata.kind !== kind) return false;
-      if (normalizedMilestoneId && metadata.milestoneId && metadata.milestoneId !== normalizedMilestoneId) return false;
-      if (normalizedSliceId && metadata.sliceId && metadata.sliceId !== normalizedSliceId) return false;
+      if (normalizedMilestoneId && metadata.milestoneId !== normalizedMilestoneId) return false;
+      if (normalizedSliceId && metadata.sliceId !== normalizedSliceId) return false;
       return true;
     });
 
     if (candidates.length > 0) {
       return candidates.sort((a, b) => a.number - b.number)[0] ?? null;
+    }
+
+    const hasExplicitScope = Boolean(normalizedMilestoneId || normalizedSliceId);
+    if (hasExplicitScope) {
+      return null;
     }
 
     const fallback = issues
@@ -463,7 +510,7 @@ export class GithubBackend implements KataBackend {
 
     if (issue) return issue;
 
-    const created = await this.client.createIssue({
+    const created = await this.createIssue({
       title: options.title ?? defaultIssueTitle(metadata.kind, metadata.kataId),
       body: options.body ?? serializeGithubArtifactMetadata(metadata),
       labels: options.labels,
@@ -587,7 +634,7 @@ export class GithubBackend implements KataBackend {
       );
 
       const updatedBody = upsertGithubArtifactMetadata(issue.body ?? "", merged);
-      await this.client.updateIssue(issue.number, { body: updatedBody, title: `[${slice.id}] ${slice.title}` });
+      await this.updateIssue(issue.number, { body: updatedBody, title: `[${slice.id}] ${slice.title}` });
 
       for (const dependency of slice.depends) {
         emitPlanningSignal("github_planning_dependency_materialized", {
@@ -658,7 +705,7 @@ export class GithubBackend implements KataBackend {
       ].join("\n");
 
       nextBody = upsertEmbeddedDocument(nextBody, `${task.id}-PLAN`, generatedTaskPlan);
-      await this.client.updateIssue(issue.number, {
+      await this.updateIssue(issue.number, {
         body: nextBody,
         title: `[${task.id}] ${task.title}`,
       });
@@ -733,7 +780,7 @@ export class GithubBackend implements KataBackend {
       });
     }
 
-    await this.client.updateIssue(issue.number, { body: nextBody });
+    await this.updateIssue(issue.number, { body: nextBody });
 
     emitPlanningSignal("github_planning_artifact_upsert", {
       stage: "update",

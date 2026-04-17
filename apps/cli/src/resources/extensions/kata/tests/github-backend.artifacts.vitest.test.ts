@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { GithubBackend, type GithubBackendClient, type GithubBackendConfig } from "../github-backend.js";
-import { maybeParseGithubArtifactMetadata } from "../github-artifacts.js";
+import {
+  maybeParseGithubArtifactMetadata,
+  serializeGithubArtifactMetadata,
+} from "../github-artifacts.js";
 
 interface MutableIssue {
   number: number;
@@ -14,6 +17,7 @@ interface MutableIssue {
 class FakeGithubClient implements GithubBackendClient {
   private issues: MutableIssue[] = [];
   private nextNumber = 1;
+  private listIssuesCalls = 0;
 
   constructor(seed: MutableIssue[] = []) {
     this.issues = seed.map((issue) => ({ ...issue, labels: [...issue.labels] }));
@@ -22,6 +26,7 @@ class FakeGithubClient implements GithubBackendClient {
   }
 
   async listIssues() {
+    this.listIssuesCalls += 1;
     return this.issues
       .slice()
       .sort((a, b) => a.number - b.number)
@@ -68,6 +73,10 @@ class FakeGithubClient implements GithubBackendClient {
 
   allIssues(): MutableIssue[] {
     return this.issues.map((issue) => ({ ...issue, labels: [...issue.labels] }));
+  }
+
+  getListIssuesCallCount(): number {
+    return this.listIssuesCalls;
   }
 }
 
@@ -152,5 +161,47 @@ describe("GithubBackend artifact persistence", () => {
 
     const docs = await backend.listDocuments(scope);
     expect(docs).toContain("S02-PLAN");
+  });
+
+  it("requires explicit milestone/slice scope matches when resolving issues by Kata ID", async () => {
+    const client = new FakeGithubClient([
+      {
+        number: 10,
+        title: "[S01] Legacy slice without milestone metadata",
+        state: "open",
+        labels: ["kata:slice"],
+        body: "Legacy issue body",
+      },
+      {
+        number: 11,
+        title: "[S01] Scoped slice for M010",
+        state: "open",
+        labels: ["kata:slice"],
+        body: serializeGithubArtifactMetadata({
+          schema: "kata/github-artifact/v1",
+          kind: "slice",
+          kataId: "S01",
+          milestoneId: "M010",
+        }),
+      },
+    ]);
+    const backend = makeBackend(client);
+
+    const scope = await backend.resolveSliceScope("M010", "S01");
+    expect(scope).toEqual({ issueId: "11" });
+  });
+
+  it("reuses cached issue listings during planning upserts", async () => {
+    const client = new FakeGithubClient();
+    const backend = makeBackend(client);
+
+    await backend.writeDocument("M009-ROADMAP", ROADMAP);
+    const scope = await backend.resolveSliceScope("M009", "S02");
+    expect(scope).toBeTruthy();
+    if (!scope) throw new Error("Expected scope for S02");
+
+    await backend.writeDocument("S02-PLAN", SLICE_PLAN, scope);
+
+    expect(client.getListIssuesCallCount()).toBeLessThanOrEqual(1);
   });
 });
