@@ -1878,7 +1878,7 @@ impl EscalationRegistry {
             })
             .collect();
 
-        pending.sort_by(|a, b| a.created_at.cmp(&b.created_at));
+        pending.sort_by_key(|entry| entry.created_at);
         pending
     }
 }
@@ -4380,7 +4380,7 @@ impl Orchestrator {
 
         let claimed: BTreeSet<String> = self.state.claimed.iter().cloned().collect();
         let mut completed: Vec<CompletedEntry> = self.state.completed.values().cloned().collect();
-        completed.sort_by(|a, b| b.completed_at.cmp(&a.completed_at));
+        completed.sort_by_key(|entry| std::cmp::Reverse(entry.completed_at));
 
         let mut retry_queue: Vec<RetrySnapshotEntry> = self
             .state
