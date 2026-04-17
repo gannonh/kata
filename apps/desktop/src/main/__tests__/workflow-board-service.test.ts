@@ -983,7 +983,7 @@ describe('WorkflowBoardService', () => {
           title: 'In Progress',
           cards: [
             {
-              id: '1001',
+              id: '1001', // intentionally != issue number to exercise identifier/URL fallback paths
               identifier: '#2249',
               title: '[S02] GitHub Workflow Board Parity',
               columnId: 'in_progress',

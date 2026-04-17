@@ -1979,6 +1979,8 @@ function parseGithubIssueNumber(value: string | undefined): string | null {
     return issueUrlMatch[1]
   }
 
+  // Deliberately limited to Kata milestone/slice/task prefixes.
+  // Other prefixes still correlate through URL, gh-<n>, or raw numeric forms.
   const kataIdentifierMatch = trimmed.match(/^(?:\[[MST]\d+\])?#(\d+)$/i)
   if (kataIdentifierMatch?.[1]) {
     return kataIdentifierMatch[1]
