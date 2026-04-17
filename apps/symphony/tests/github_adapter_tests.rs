@@ -1,6 +1,6 @@
 use mockito::{Matcher, Server, ServerGuard};
 use serde_json::json;
-use symphony::domain::{ApiKey, TrackerConfig};
+use symphony::domain::{ApiKey, TrackerConfig, KATA_PHASE_NAMES};
 use symphony::error::SymphonyError;
 use symphony::github::adapter::{GithubAdapter, StateMode};
 use symphony::github::client::GithubClient;
@@ -149,12 +149,32 @@ fn issue_json(
     assignees: &[&str],
     html_url: Option<&str>,
 ) -> serde_json::Value {
+    issue_json_with_metadata(
+        number,
+        &format!("Issue {number}"),
+        Some(&format!("Body {number}")),
+        labels,
+        user_login,
+        assignees,
+        html_url,
+    )
+}
+
+fn issue_json_with_metadata(
+    number: u64,
+    title: &str,
+    body: Option<&str>,
+    labels: &[&str],
+    user_login: &str,
+    assignees: &[&str],
+    html_url: Option<&str>,
+) -> serde_json::Value {
     let first_assignee = assignees.first().copied().unwrap_or(user_login);
 
     json!({
         "number": number,
-        "title": format!("Issue {number}"),
-        "body": format!("Body {number}"),
+        "title": title,
+        "body": body,
         "state": "open",
         "user": { "login": user_login },
         "assignee": { "login": first_assignee },
@@ -169,6 +189,25 @@ fn issue_json(
 fn issue_state_json(mut issue: serde_json::Value, state: &str) -> serde_json::Value {
     issue["state"] = json!(state);
     issue
+}
+
+fn phase_to_label(phase: &str) -> String {
+    phase
+        .to_ascii_lowercase()
+        .replace('_', "-")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join("-")
+}
+
+fn projects_v2_option_name_for_phase(phase: &str) -> String {
+    match phase {
+        "Todo" => "to_do".to_string(),
+        "In Progress" => "in-progress".to_string(),
+        "Agent Review" => "agent_review".to_string(),
+        "Human Review" => "human review".to_string(),
+        _ => phase_to_label(phase),
+    }
 }
 
 fn pull_request_json(mut issue: serde_json::Value) -> serde_json::Value {
@@ -461,6 +500,30 @@ async fn test_create_comment_delegates_to_client() {
 }
 
 #[tokio::test]
+async fn test_create_comment_preserves_structured_markdown_body() {
+    let mut server = Server::new_async().await;
+    let adapter = test_adapter(&server, None);
+
+    let structured_body = "## Symphony Execution Summary\n\n**Issue:** [S01]#7\n**Status:** Done\n**Turns:** 3\n**Tokens:** 1200\n**Duration:** 2m 1s\n**Worker:** local";
+
+    let mock = server
+        .mock("POST", "/repos/kata-sh/kata-mono/issues/7/comments")
+        .match_body(Matcher::PartialJson(json!({ "body": structured_body })))
+        .with_status(201)
+        .with_header("content-type", "application/json")
+        .with_body("{}")
+        .create_async()
+        .await;
+
+    adapter
+        .create_comment("7", structured_body)
+        .await
+        .expect("create_comment should preserve structured markdown");
+
+    mock.assert_async().await;
+}
+
+#[tokio::test]
 async fn test_update_issue_state_swaps_labels() {
     let mut server = Server::new_async().await;
     let adapter = test_adapter(&server, None);
@@ -598,6 +661,348 @@ async fn test_update_issue_state_handles_missing_old_label() {
 
     get_mock.assert_async().await;
     add_mock.assert_async().await;
+}
+
+#[tokio::test]
+async fn test_kata_phase_vocabulary_round_trip_in_label_mode() {
+    for phase in KATA_PHASE_NAMES {
+        let mut server = Server::new_async().await;
+        let adapter = test_adapter(&server, None);
+
+        let initial_issue = issue_json(77, &["symphony:todo"], "alice", &["alice"], None);
+        let round_trip_label = format!("symphony:{}", phase_to_label(phase));
+        let round_trip_issue =
+            issue_json(77, &[round_trip_label.as_str()], "alice", &["alice"], None);
+
+        let get_for_update = server
+            .mock("GET", "/repos/kata-sh/kata-mono/issues/77")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(initial_issue.to_string())
+            .expect(1)
+            .create_async()
+            .await;
+
+        let remove_old = if phase != "Todo" {
+            Some(
+                server
+                    .mock(
+                        "DELETE",
+                        "/repos/kata-sh/kata-mono/issues/77/labels/symphony:todo",
+                    )
+                    .with_status(200)
+                    .with_header("content-type", "application/json")
+                    .with_body("{}")
+                    .expect(1)
+                    .create_async()
+                    .await,
+            )
+        } else {
+            None
+        };
+
+        let add_new = if phase != "Todo" {
+            Some(
+                server
+                    .mock("POST", "/repos/kata-sh/kata-mono/issues/77/labels")
+                    .match_body(Matcher::PartialJson(json!({
+                        "labels": [round_trip_label]
+                    })))
+                    .with_status(200)
+                    .with_header("content-type", "application/json")
+                    .with_body("[]")
+                    .expect(1)
+                    .create_async()
+                    .await,
+            )
+        } else {
+            None
+        };
+
+        let get_for_fetch = server
+            .mock("GET", "/repos/kata-sh/kata-mono/issues/77")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(round_trip_issue.to_string())
+            .expect(1)
+            .create_async()
+            .await;
+
+        adapter
+            .update_issue_state("77", phase)
+            .await
+            .expect("update_issue_state should support canonical kata phases");
+
+        let issues = adapter
+            .fetch_issue_states_by_ids(&["77".to_string()])
+            .await
+            .expect("fetch_issue_states_by_ids should succeed");
+
+        get_for_update.assert_async().await;
+        if let Some(mock) = remove_old {
+            mock.assert_async().await;
+        }
+        if let Some(mock) = add_new {
+            mock.assert_async().await;
+        }
+        get_for_fetch.assert_async().await;
+
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].state, phase);
+    }
+}
+
+#[tokio::test]
+async fn test_kata_phase_vocabulary_round_trip_in_projects_v2_mode() {
+    for phase in KATA_PHASE_NAMES {
+        let option_name = projects_v2_option_name_for_phase(phase);
+        let mut server = Server::new_async().await;
+        let adapter = test_projects_adapter(&server, None, 42);
+
+        let fields_mock = server
+            .mock("POST", "/graphql")
+            .match_body(Matcher::Regex("projectV2\\(number".to_string()))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                json!({
+                    "data": {
+                        "user": {
+                            "projectV2": {
+                                "id": "project_42",
+                                "field": {
+                                    "id": "status_field",
+                                    "options": [
+                                        { "id": "opt_target", "name": option_name }
+                                    ]
+                                }
+                            }
+                        },
+                        "organization": null
+                    }
+                })
+                .to_string(),
+            )
+            .expect(1)
+            .create_async()
+            .await;
+
+        let items_mock = server
+            .mock("POST", "/graphql")
+            .match_body(Matcher::Regex("fieldValueByName".to_string()))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                projects_v2_items_payload(&[project_item_node(
+                    "item_7",
+                    7,
+                    "opt_target",
+                    &option_name,
+                )])
+                .to_string(),
+            )
+            .expect(2)
+            .create_async()
+            .await;
+
+        let mutation_mock = server
+            .mock("POST", "/graphql")
+            .match_body(Matcher::AllOf(vec![
+                Matcher::Regex("updateProjectV2ItemFieldValue".to_string()),
+                Matcher::PartialJson(json!({
+                    "variables": {
+                        "projectId": "project_42",
+                        "itemId": "item_7",
+                        "fieldId": "status_field",
+                        "singleSelectOptionId": "opt_target"
+                    }
+                })),
+            ]))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                json!({
+                    "data": {
+                        "updateProjectV2ItemFieldValue": {
+                            "projectV2Item": { "id": "item_7" }
+                        }
+                    }
+                })
+                .to_string(),
+            )
+            .expect(1)
+            .create_async()
+            .await;
+
+        let issue_mock = server
+            .mock("GET", "/repos/kata-sh/kata-mono/issues/7")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(issue_json(7, &["symphony:todo"], "alice", &["alice"], None).to_string())
+            .expect(1)
+            .create_async()
+            .await;
+
+        adapter
+            .update_issue_state("7", phase)
+            .await
+            .expect("Projects v2 update should accept canonical kata phase names");
+
+        let states = adapter
+            .fetch_issue_states_by_ids(&["7".to_string()])
+            .await
+            .expect("Projects v2 state fetch should succeed");
+
+        fields_mock.assert_async().await;
+        items_mock.assert_async().await;
+        mutation_mock.assert_async().await;
+        issue_mock.assert_async().await;
+
+        assert_eq!(states.len(), 1);
+        assert_eq!(states[0].state, phase);
+    }
+}
+
+#[tokio::test]
+async fn test_issue_to_domain_enriches_kata_identifier_and_parent_reference() {
+    let mut server = Server::new_async().await;
+    let adapter = test_adapter(&server, None);
+
+    let kata_issue = issue_json_with_metadata(
+        42,
+        "[S01] Build feature",
+        Some("Context\n\n**Parent:** #10\n\nMore context"),
+        &["symphony:todo", "kata:task"],
+        "alice",
+        &["alice"],
+        Some("https://github.com/kata-sh/kata-mono/issues/42"),
+    );
+
+    let mock = server
+        .mock("GET", "/repos/kata-sh/kata-mono/issues")
+        .match_query(Matcher::AllOf(vec![
+            Matcher::UrlEncoded("state".into(), "open".into()),
+            Matcher::UrlEncoded("per_page".into(), "100".into()),
+        ]))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(json!([kata_issue]).to_string())
+        .create_async()
+        .await;
+
+    let issues = adapter
+        .fetch_candidate_issues()
+        .await
+        .expect("fetch_candidate_issues should succeed");
+
+    mock.assert_async().await;
+    assert_eq!(issues.len(), 1);
+    assert_eq!(issues[0].identifier, "[S01]#42");
+    assert_eq!(issues[0].parent_identifier.as_deref(), Some("#10"));
+    assert_eq!(issues[0].state, "Todo");
+    assert_eq!(
+        issues[0].url.as_deref(),
+        Some("https://github.com/kata-sh/kata-mono/issues/42")
+    );
+    assert!(issues[0].assigned_to_worker);
+    assert!(issues[0].labels.contains(&"kata:task".to_string()));
+}
+
+#[tokio::test]
+async fn test_issue_to_domain_parses_slice_task_and_milestone_kata_prefixes() {
+    let mut server = Server::new_async().await;
+    let adapter = test_adapter(&server, None);
+
+    let issues_payload = json!([
+        issue_json_with_metadata(
+            50,
+            "[S01] Slice",
+            Some("Body"),
+            &["symphony:todo"],
+            "alice",
+            &["alice"],
+            None
+        ),
+        issue_json_with_metadata(
+            51,
+            "[T1] Task",
+            Some("Body"),
+            &["symphony:todo"],
+            "alice",
+            &["alice"],
+            None
+        ),
+        issue_json_with_metadata(
+            52,
+            "[M001] Milestone",
+            Some("Body"),
+            &["symphony:todo"],
+            "alice",
+            &["alice"],
+            None
+        )
+    ]);
+
+    let mock = server
+        .mock("GET", "/repos/kata-sh/kata-mono/issues")
+        .match_query(Matcher::AllOf(vec![
+            Matcher::UrlEncoded("state".into(), "open".into()),
+            Matcher::UrlEncoded("per_page".into(), "100".into()),
+        ]))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(issues_payload.to_string())
+        .create_async()
+        .await;
+
+    let issues = adapter
+        .fetch_candidate_issues()
+        .await
+        .expect("fetch_candidate_issues should succeed");
+
+    mock.assert_async().await;
+    assert_eq!(issues.len(), 3);
+    assert_eq!(issues[0].identifier, "[S01]#50");
+    assert_eq!(issues[1].identifier, "[T1]#51");
+    assert_eq!(issues[2].identifier, "[M001]#52");
+}
+
+#[tokio::test]
+async fn test_issue_to_domain_preserves_hash_identifier_for_non_kata_title() {
+    let mut server = Server::new_async().await;
+    let adapter = test_adapter(&server, None);
+
+    let regular_issue = issue_json_with_metadata(
+        43,
+        "Regular ticket title",
+        Some("Part of: #10"),
+        &["symphony:todo"],
+        "alice",
+        &["alice"],
+        None,
+    );
+
+    let mock = server
+        .mock("GET", "/repos/kata-sh/kata-mono/issues")
+        .match_query(Matcher::AllOf(vec![
+            Matcher::UrlEncoded("state".into(), "open".into()),
+            Matcher::UrlEncoded("per_page".into(), "100".into()),
+        ]))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(json!([regular_issue]).to_string())
+        .create_async()
+        .await;
+
+    let issues = adapter
+        .fetch_candidate_issues()
+        .await
+        .expect("fetch_candidate_issues should succeed");
+
+    mock.assert_async().await;
+    assert_eq!(issues.len(), 1);
+    assert_eq!(issues[0].identifier, "#43");
+    assert_eq!(issues[0].parent_identifier.as_deref(), Some("#10"));
 }
 
 #[tokio::test]

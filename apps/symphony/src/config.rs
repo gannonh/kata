@@ -11,10 +11,10 @@ use serde::Deserialize;
 use serde_yaml::{Mapping, Value};
 
 use crate::domain::{
-    AgentBackend, AgentConfig, ApiKey, CodexConfig, DockerCodexAuth, DockerConfig, HooksConfig,
-    NotificationsConfig, PiAgentConfig, PollingConfig, PromptsConfig, ServerConfig, ServiceConfig,
-    SharedContextConfig, SlackConfig, SupervisorConfig, TrackerConfig, WorkerConfig,
-    WorkspaceConfig, WorkspaceIsolation, WorkspaceRepoStrategy,
+    canonical_kata_phase_name, AgentBackend, AgentConfig, ApiKey, CodexConfig, DockerCodexAuth,
+    DockerConfig, HooksConfig, NotificationsConfig, PiAgentConfig, PollingConfig, PromptsConfig,
+    ServerConfig, ServiceConfig, SharedContextConfig, SlackConfig, SupervisorConfig, TrackerConfig,
+    WorkerConfig, WorkspaceConfig, WorkspaceIsolation, WorkspaceRepoStrategy, KATA_PHASE_NAMES,
 };
 use crate::error::{Result, SymphonyError};
 use crate::notifications;
@@ -1145,6 +1145,23 @@ pub fn validate(config: &ServiceConfig) -> Result<ValidatedServiceConfig> {
             return Err(SymphonyError::MissingTrackerKind);
         }
     };
+
+    for (field, states) in [
+        ("tracker.active_states", &config.tracker.active_states),
+        ("tracker.terminal_states", &config.tracker.terminal_states),
+    ] {
+        for configured_state in states {
+            if canonical_kata_phase_name(configured_state).is_none() {
+                tracing::info!(
+                    event = "symphony_state_vocabulary_check",
+                    field,
+                    configured_state = %configured_state,
+                    canonical_phases = ?KATA_PHASE_NAMES,
+                    "state name is non-canonical but allowed by config validation"
+                );
+            }
+        }
+    }
 
     if tracker_kind == "linear" {
         // tracker.api_key must be present and non-empty

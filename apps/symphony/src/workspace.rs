@@ -276,7 +276,7 @@ fn bootstrap_repository(
         return Ok(());
     };
 
-    let branch_name = format!("{}/{}", config.branch_prefix, issue_identifier);
+    let branch_name = branch_name_for_issue(config, issue_identifier);
     let workspace_str = workspace.to_string_lossy().to_string();
     let effective_strategy = match config.strategy {
         WorkspaceRepoStrategy::Auto => {
@@ -362,6 +362,11 @@ fn bootstrap_repository(
         }
         WorkspaceRepoStrategy::Auto => unreachable!("auto strategy must resolve before bootstrap"),
     }
+}
+
+fn branch_name_for_issue(config: &WorkspaceConfig, issue_identifier: &str) -> String {
+    let sanitized_identifier = path_safety::sanitize_identifier(issue_identifier);
+    format!("{}/{}", config.branch_prefix, sanitized_identifier)
 }
 
 /// Inject skills from a `skills/` directory (sibling to the WORKFLOW.md file)
@@ -508,7 +513,7 @@ pub async fn docker_bootstrap_repository(
         WorkspaceRepoStrategy::Auto => unreachable!("auto strategy is resolved above"),
     }
 
-    let branch_name = format!("{}/{}", config.branch_prefix, issue_identifier);
+    let branch_name = branch_name_for_issue(config, issue_identifier);
 
     let clone_cmd = if let Some(clone_branch) = config.clone_branch.as_deref() {
         format!(

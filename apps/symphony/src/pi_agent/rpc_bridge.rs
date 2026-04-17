@@ -764,21 +764,21 @@ pub async fn run_turn_with_followups(
 
         match parsed {
             RpcOutputLine::AgentEnd { .. } => break,
-            RpcOutputLine::Response(response) if response.command == "prompt" => {
-                if !response.success {
-                    let err = response
-                        .error
-                        .unwrap_or_else(|| "prompt command failed".to_string());
-                    let failed = AgentEvent::TurnFailed {
-                        timestamp: Utc::now(),
-                        codex_app_server_pid: handle.pid.clone(),
-                        turn_id: turn_id.clone(),
-                        error: err.clone(),
-                    };
-                    event_callback(failed.clone());
-                    events.push(failed);
-                    return Err(SymphonyError::TurnFailed(err));
-                }
+            RpcOutputLine::Response(response)
+                if response.command == "prompt" && !response.success =>
+            {
+                let err = response
+                    .error
+                    .unwrap_or_else(|| "prompt command failed".to_string());
+                let failed = AgentEvent::TurnFailed {
+                    timestamp: Utc::now(),
+                    codex_app_server_pid: handle.pid.clone(),
+                    turn_id: turn_id.clone(),
+                    error: err.clone(),
+                };
+                event_callback(failed.clone());
+                events.push(failed);
+                return Err(SymphonyError::TurnFailed(err));
             }
             RpcOutputLine::ToolExecutionStart {
                 tool_name, args, ..

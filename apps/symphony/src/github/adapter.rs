@@ -3,7 +3,10 @@ use std::collections::{HashMap, HashSet};
 use async_trait::async_trait;
 use tokio::sync::OnceCell;
 
-use crate::domain::{Issue, TrackerConfig};
+use crate::domain::{
+    canonical_kata_phase_name, parse_kata_identifier, parse_parent_issue_reference, Issue,
+    TrackerConfig, KATA_PHASE_NAMES,
+};
 use crate::error::{Result, SymphonyError};
 use crate::github::client::{GithubClient, GithubIssue};
 use crate::github::projects_v2::{ProjectsV2Client, StatusFieldInfo, StatusOption};
@@ -46,6 +49,8 @@ impl GithubAdapter {
             None => StateMode::Labels,
         };
 
+        Self::emit_state_vocabulary_diagnostics(&config);
+
         tracing::info!(state_mode = %state_mode, "GithubAdapter initialized");
 
         Self {
@@ -60,6 +65,37 @@ impl GithubAdapter {
         &self.state_mode
     }
 
+    fn emit_state_vocabulary_diagnostics(config: &TrackerConfig) {
+        for configured_state in &config.active_states {
+            if canonical_kata_phase_name(configured_state).is_none() {
+                tracing::warn!(
+                    event = "symphony_state_vocabulary_check",
+                    field = "active_states",
+                    configured_state = %configured_state,
+                    canonical_phases = ?KATA_PHASE_NAMES,
+                    "configured GitHub active state is outside canonical Kata phase vocabulary"
+                );
+                tracing::info!(
+                    event = "symphony_state_normalization_fallback",
+                    configured_state = %configured_state,
+                    "falling back to generic state normalization for non-canonical state"
+                );
+            }
+        }
+
+        for configured_state in &config.terminal_states {
+            if canonical_kata_phase_name(configured_state).is_none() {
+                tracing::info!(
+                    event = "symphony_state_vocabulary_check",
+                    field = "terminal_states",
+                    configured_state = %configured_state,
+                    canonical_phases = ?KATA_PHASE_NAMES,
+                    "configured GitHub terminal state is non-canonical but allowed"
+                );
+            }
+        }
+    }
+
     fn state_prefix(&self) -> &str {
         self.config
             .label_prefix
@@ -68,11 +104,13 @@ impl GithubAdapter {
     }
 
     fn issue_to_domain_with_state(&self, gh: &GithubIssue, state_override: Option<&str>) -> Issue {
-        let state = state_override.map(ToString::to_string).unwrap_or_else(|| {
-            extract_state_from_labels(&gh.labels, self.state_prefix())
-                .map(|(_, display)| display)
-                .unwrap_or_default()
-        });
+        let state = state_override
+            .map(normalize_state_for_display)
+            .unwrap_or_else(|| {
+                extract_state_from_labels(&gh.labels, self.state_prefix())
+                    .map(|(_, display)| display)
+                    .unwrap_or_default()
+            });
 
         let labels = gh.labels.iter().map(|label| label.name.clone()).collect();
         let url = gh.html_url.clone().or_else(|| {
@@ -88,9 +126,23 @@ impl GithubAdapter {
             .map(|assignee| assignee.login.clone())
             .or_else(|| gh.assignee.as_ref().map(|assignee| assignee.login.clone()));
 
+        let identifier = if let Some(kata_identifier) = parse_kata_identifier(&gh.title) {
+            tracing::debug!(
+                event = "kata_identifier_parsed",
+                issue_number = gh.number,
+                kata_identifier = %kata_identifier,
+                "parsed kata identifier from GitHub issue title"
+            );
+            format!("{kata_identifier}#{}", gh.number)
+        } else {
+            format!("#{}", gh.number)
+        };
+
+        let parent_identifier = gh.body.as_deref().and_then(parse_parent_issue_reference);
+
         Issue {
             id: gh.number.to_string(),
-            identifier: format!("#{}", gh.number),
+            identifier,
             title: gh.title.clone(),
             description: gh.body.clone(),
             priority: None,
@@ -104,7 +156,7 @@ impl GithubAdapter {
             created_at: gh.created_at,
             updated_at: gh.updated_at,
             children_count: 0,
-            parent_identifier: None,
+            parent_identifier,
         }
     }
 
@@ -506,7 +558,19 @@ impl GithubAdapter {
             })?;
 
         let status_field = self.ensure_status_field().await?;
-        let target_option = self.status_option_for_name(status_field, state_name)?;
+        let target_option = match self.status_option_for_name(status_field, state_name) {
+            Ok(option) => option,
+            Err(err) => {
+                tracing::warn!(
+                    event = "github_projects_v2_status_option_missing",
+                    issue_number,
+                    attempted_state = %state_name,
+                    error = %err,
+                    "Projects v2 status option not found for requested state transition"
+                );
+                return Err(err);
+            }
+        };
 
         let no_filter: Vec<String> = Vec::new();
         let project_items = v2_client
@@ -686,6 +750,10 @@ fn issue_matches_assignee(issue: &GithubIssue, expected: &str) -> bool {
 }
 
 fn normalize_state_for_label(state_name: &str) -> String {
+    if let Some(canonical) = canonical_kata_phase_name(state_name) {
+        return canonical.to_ascii_lowercase().replace(' ', "-");
+    }
+
     state_name
         .trim()
         .to_ascii_lowercase()
@@ -696,16 +764,42 @@ fn normalize_state_for_label(state_name: &str) -> String {
 }
 
 fn normalize_state_for_compare(state_name: &str) -> String {
-    state_name
+    let normalized = canonical_kata_phase_name(state_name).unwrap_or(state_name);
+
+    normalized
         .trim()
         .to_ascii_lowercase()
-        .replace(['_', '-'], " ")
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
+        .chars()
+        .filter(|ch| ch.is_ascii_alphanumeric())
+        .collect()
+}
+
+fn normalize_state_for_display(state_name: &str) -> String {
+    canonical_kata_phase_name(state_name)
+        .map(ToString::to_string)
+        .unwrap_or_else(|| denormalize_label_state(&normalize_state_for_label(state_name)))
 }
 
 fn denormalize_label_state(normalized: &str) -> String {
+    if let Some(canonical) = canonical_kata_phase_name(normalized) {
+        return canonical.to_string();
+    }
+
+    let compare = normalize_state_for_compare(normalized);
+    if let Some(canonical) = KATA_PHASE_NAMES
+        .iter()
+        .copied()
+        .find(|phase| normalize_state_for_compare(phase) == compare)
+    {
+        return canonical.to_string();
+    }
+
+    tracing::info!(
+        event = "symphony_state_normalization_fallback",
+        normalized_state = %normalized,
+        "using generic label state denormalization for non-canonical state"
+    );
+
     normalized
         .split('-')
         .filter(|part| !part.is_empty())

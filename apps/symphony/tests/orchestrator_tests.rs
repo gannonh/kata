@@ -18,9 +18,9 @@ use symphony::domain::{
 };
 use symphony::error::{Result, SymphonyError};
 use symphony::orchestrator::{
-    refresh_channel, EscalationRegistry, EscalationResolveResult, Orchestrator, OrchestratorPort,
-    RetryContext, RetryKind, RuntimeEvent, TurnMetrics, WorkerCompletion,
-    CONTINUATION_RETRY_DELAY_MS,
+    enrich_escalation_payload, refresh_channel, CompletionCommentBuilder, EscalationRegistry,
+    EscalationResolveResult, Orchestrator, OrchestratorPort, RetryContext, RetryKind, RuntimeEvent,
+    TurnMetrics, WorkerCompletion, CONTINUATION_RETRY_DELAY_MS,
 };
 use symphony::shared_context::ContextEntryDraft;
 use symphony::workflow_store::WorkflowStore;
@@ -4649,6 +4649,106 @@ fn test_e2e_github_snapshot_state_json_complete() {
     );
 }
 
+#[test]
+fn test_completion_comment_builder_outputs_structured_format() {
+    let body = CompletionCommentBuilder::new(
+        "[S01]#7",
+        "Done",
+        3,
+        1200,
+        Duration::seconds(121),
+        Some("worker-1"),
+    )
+    .build();
+
+    assert!(body.contains("## Symphony Execution Summary"));
+    assert!(body.contains("**Issue:** [S01]#7"));
+    assert!(body.contains("**Status:** Done"));
+    assert!(body.contains("**Turns:** 3"));
+    assert!(body.contains("**Tokens:** 1200"));
+    assert!(body.contains("**Duration:** 2m 1s"));
+    assert!(body.contains("**Worker:** worker-1"));
+}
+
+#[test]
+fn test_completion_comment_builder_handles_missing_optional_fields() {
+    let body =
+        CompletionCommentBuilder::new("#9", "Done", 0, 0, Duration::seconds(0), None).build();
+
+    assert!(body.contains("**Turns:** 0"));
+    assert!(body.contains("**Tokens:** 0"));
+    assert!(body.contains("**Duration:** 0s"));
+    assert!(body.contains("**Worker:** local"));
+}
+
+#[test]
+fn test_enrich_escalation_payload_adds_issue_context_fields() {
+    let mut payload = json!({
+        "questions": [
+            {
+                "id": "q1",
+                "question": "Pick one"
+            }
+        ]
+    });
+
+    enrich_escalation_payload(&mut payload, "[T01]#11", Some("In Progress"), Some("#7"));
+
+    assert_eq!(payload["issue_identifier"], json!("[T01]#11"));
+    assert_eq!(payload["issue_state"], json!("In Progress"));
+    assert_eq!(payload["parent_identifier"], json!("#7"));
+    assert!(payload["questions"].is_array());
+}
+
+#[test]
+fn test_reconcile_terminal_github_writes_structured_completion_comment() {
+    let mut orchestrator = Orchestrator::new(github_test_config(1), String::new());
+
+    let mut dispatch_port = FakePort {
+        candidate_issues: vec![github_issue("gh-7", 7, "Todo", -30)],
+        ..FakePort::default()
+    };
+    orchestrator
+        .tick(&mut dispatch_port)
+        .expect("dispatch tick should succeed");
+
+    orchestrator.ingest_agent_event(
+        "gh-7",
+        &AgentEvent::TurnCompleted {
+            timestamp: Utc::now(),
+            codex_app_server_pid: None,
+            turn_id: "turn-1".to_string(),
+            message: Some("completed".to_string()),
+            input_tokens: 50,
+            output_tokens: 70,
+            total_tokens: 120,
+            rate_limits: None,
+        },
+    );
+
+    let mut reconcile_port = FakePort {
+        reconciled_issues: vec![github_issue("gh-7", 7, "Done", -30)],
+        ..FakePort::default()
+    };
+    orchestrator
+        .tick(&mut reconcile_port)
+        .expect("reconcile tick should succeed");
+
+    let comment_call = reconcile_port
+        .call_history()
+        .iter()
+        .find(|call| call.starts_with("create_issue_comment:gh-7:"))
+        .expect("terminal github reconcile should write completion comment");
+
+    assert!(comment_call.contains("## Symphony Execution Summary"));
+    assert!(comment_call.contains("**Issue:** #7"));
+    assert!(comment_call.contains("**Status:** Done"));
+    assert!(comment_call.contains("**Turns:** 1"));
+    assert!(comment_call.contains("**Tokens:** 120"));
+    assert!(comment_call.contains("**Duration:**"));
+    assert!(comment_call.contains("**Worker:** local"));
+}
+
 // Covered by test_execute_worker_attempt_runs_multiple_turns_in_one_session:
 // same-state (In Progress → In Progress) continues normally for 2+ turns.
 // The Todo→In Progress auto-transition sets issue.state = effective_state in
@@ -5052,7 +5152,7 @@ fn test_exclude_labels_does_not_affect_slice() {
 
 #[test]
 fn test_exclude_labels_empty_skips_no_issues() {
-    let mut config = test_config(1);
+    let config = test_config(1);
     // No exclude_labels configured (default empty vec)
     assert!(config.tracker.exclude_labels.is_empty());
 

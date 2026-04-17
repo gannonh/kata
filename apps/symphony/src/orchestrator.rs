@@ -304,6 +304,105 @@ fn invalid_agent_review_note(issue: &Issue, branch: Option<&str>, reason: &str) 
     )
 }
 
+#[derive(Debug, Clone)]
+pub struct CompletionCommentBuilder<'a> {
+    issue_identifier: &'a str,
+    terminal_state: &'a str,
+    turn_count: u32,
+    total_tokens: u64,
+    duration: chrono::Duration,
+    worker_host: Option<&'a str>,
+}
+
+impl<'a> CompletionCommentBuilder<'a> {
+    pub fn new(
+        issue_identifier: &'a str,
+        terminal_state: &'a str,
+        turn_count: u32,
+        total_tokens: u64,
+        duration: chrono::Duration,
+        worker_host: Option<&'a str>,
+    ) -> Self {
+        Self {
+            issue_identifier,
+            terminal_state,
+            turn_count,
+            total_tokens,
+            duration,
+            worker_host,
+        }
+    }
+
+    pub fn build(&self) -> String {
+        format!(
+            "## Symphony Execution Summary\n\n**Issue:** {}\n**Status:** {}\n**Turns:** {}\n**Tokens:** {}\n**Duration:** {}\n**Worker:** {}",
+            self.issue_identifier,
+            self.terminal_state,
+            self.turn_count,
+            self.total_tokens,
+            format_elapsed_duration(self.duration),
+            self.worker_host.unwrap_or("local")
+        )
+    }
+}
+
+fn format_elapsed_duration(duration: chrono::Duration) -> String {
+    let total_seconds = duration.num_seconds().max(0);
+    let hours = total_seconds / 3600;
+    let minutes = (total_seconds % 3600) / 60;
+    let seconds = total_seconds % 60;
+
+    if hours > 0 {
+        format!("{hours}h {minutes}m {seconds}s")
+    } else if minutes > 0 {
+        format!("{minutes}m {seconds}s")
+    } else {
+        format!("{seconds}s")
+    }
+}
+
+pub fn enrich_escalation_payload(
+    payload: &mut serde_json::Value,
+    issue_identifier: &str,
+    issue_state: Option<&str>,
+    parent_identifier: Option<&str>,
+) {
+    let mut payload_object = match std::mem::take(payload) {
+        serde_json::Value::Object(map) => map,
+        other => {
+            let mut map = serde_json::Map::new();
+            map.insert("raw_payload".to_string(), other);
+            map
+        }
+    };
+
+    payload_object.insert(
+        "issue_identifier".to_string(),
+        serde_json::Value::String(issue_identifier.to_string()),
+    );
+    payload_object.insert(
+        "issue_state".to_string(),
+        issue_state
+            .map(|state| serde_json::Value::String(state.to_string()))
+            .unwrap_or(serde_json::Value::Null),
+    );
+    payload_object.insert(
+        "parent_identifier".to_string(),
+        parent_identifier
+            .map(|identifier| serde_json::Value::String(identifier.to_string()))
+            .unwrap_or(serde_json::Value::Null),
+    );
+
+    *payload = serde_json::Value::Object(payload_object);
+}
+
+fn completion_comments_enabled(tracker: &TrackerConfig) -> bool {
+    tracker
+        .kind
+        .as_deref()
+        .is_some_and(|kind| kind.eq_ignore_ascii_case("github"))
+}
+
 // ── Standalone Worker Task ──────────────────────────────────────────────
 
 /// All configuration needed by a spawned worker task.
@@ -1604,6 +1703,14 @@ struct RunningSessionStats {
 }
 
 #[derive(Debug, Clone)]
+struct CompletionCommentSummary {
+    turn_count: u32,
+    total_tokens: u64,
+    duration: chrono::Duration,
+    worker_host: Option<String>,
+}
+
+#[derive(Debug, Clone)]
 pub enum WorkerCompletion {
     Completed { schedule_continuation: bool },
     Failed { error: String },
@@ -1779,7 +1886,7 @@ impl EscalationRegistry {
             })
             .collect();
 
-        pending.sort_by(|a, b| a.created_at.cmp(&b.created_at));
+        pending.sort_by_key(|entry| entry.created_at);
         pending
     }
 }
@@ -1853,11 +1960,14 @@ pub struct Orchestrator {
     worker_steer_tx:
         HashMap<String, tokio::sync::mpsc::UnboundedSender<rpc_bridge::FollowUpRequest>>,
     running_session_stats: HashMap<String, RunningSessionStats>,
+    completion_comment_summaries: HashMap<String, CompletionCommentSummary>,
     /// Blocked issues from the latest dispatch phase.
     blocked_issues: Vec<crate::domain::BlockedIssueEntry>,
     pending_terminal_cleanup: HashMap<String, PendingTerminalCleanup>,
     /// Normalized running issue state cache used for per-state slot accounting.
     running_issue_states: HashMap<String, String>,
+    /// Parent identifier cache for currently running issues (if provided by tracker).
+    running_parent_identifiers: HashMap<String, Option<String>>,
     next_retry_token: u64,
     poll_count: u64,
     last_poll_at: Option<DateTime<Utc>>,
@@ -1948,9 +2058,11 @@ impl Orchestrator {
             worker_session_ids: HashMap::new(),
             worker_steer_tx: HashMap::new(),
             running_session_stats: HashMap::new(),
+            completion_comment_summaries: HashMap::new(),
             blocked_issues: Vec::new(),
             pending_terminal_cleanup: HashMap::new(),
             running_issue_states: HashMap::new(),
+            running_parent_identifiers: HashMap::new(),
             next_retry_token: 0,
             poll_count: 0,
             last_poll_at: None,
@@ -2202,9 +2314,11 @@ impl Orchestrator {
             if normalize_issue_state(&d.issue.state) == "todo" {
                 if let Err(err) = port.update_issue_state(&d.issue.id, "In Progress") {
                     tracing::warn!(
-                        event = "writeback_failed",
+                        event = "state_transition_failed",
+                        tracker_kind = %self.config.tracker.kind.as_deref().unwrap_or("linear"),
                         issue_id = %d.issue.id,
                         issue_identifier = %d.issue.identifier,
+                        target_state = "In Progress",
                         error = %err,
                         "failed to move issue to In Progress; continuing with dispatch"
                     );
@@ -2334,7 +2448,30 @@ impl Orchestrator {
         drained
     }
 
-    fn handle_escalation_dispatch(&mut self, dispatch: rpc_bridge::EscalationDispatch) {
+    fn handle_escalation_dispatch(&mut self, mut dispatch: rpc_bridge::EscalationDispatch) {
+        let issue_state = self
+            .running_issue_states
+            .get(&dispatch.request.issue_id)
+            .cloned()
+            .or_else(|| {
+                self.state
+                    .running
+                    .get(&dispatch.request.issue_id)
+                    .and_then(|attempt| attempt.linear_state.clone())
+            });
+        let parent_identifier = self
+            .running_parent_identifiers
+            .get(&dispatch.request.issue_id)
+            .cloned()
+            .flatten();
+
+        enrich_escalation_payload(
+            &mut dispatch.request.payload,
+            &dispatch.request.issue_identifier,
+            issue_state.as_deref(),
+            parent_identifier.as_deref(),
+        );
+
         let request_id = dispatch.request.id.clone();
         self.escalation_registry
             .register(dispatch.request.clone(), dispatch.response_tx);
@@ -2343,6 +2480,7 @@ impl Orchestrator {
             event = "escalation_registered",
             issue_id = %dispatch.request.issue_id,
             issue_identifier = %dispatch.request.issue_identifier,
+            issue_state = %issue_state.unwrap_or_default(),
             request_id = %request_id,
             method = %dispatch.request.method,
             "registered pending escalation"
@@ -3139,8 +3277,41 @@ impl Orchestrator {
         // Keep running_issue_states until reconciliation — needed for
         // state-change notification detection on the next poll cycle.
         self.worker_last_activity_ms.remove(issue_id);
+
+        let completed_turn_count = self
+            .running_session_stats
+            .get(issue_id)
+            .map(|stats| stats.turn_count)
+            .or_else(|| {
+                self.worker_session_info
+                    .get(issue_id)
+                    .map(|info| info.turn_count.saturating_sub(1))
+            })
+            .unwrap_or_default();
+        let completed_total_tokens = self
+            .running_session_stats
+            .get(issue_id)
+            .map(|stats| stats.total_tokens)
+            .or_else(|| {
+                self.worker_session_info
+                    .get(issue_id)
+                    .map(|info| info.session_tokens.total_tokens)
+            })
+            .unwrap_or_default();
+
+        self.completion_comment_summaries.insert(
+            issue_id.to_string(),
+            CompletionCommentSummary {
+                turn_count: completed_turn_count,
+                total_tokens: completed_total_tokens,
+                duration: Utc::now().signed_duration_since(run_attempt.started_at),
+                worker_host: run_attempt.worker_host.clone(),
+            },
+        );
+
         self.running_session_stats.remove(issue_id);
         self.worker_session_info.remove(issue_id);
+        self.running_parent_identifiers.remove(issue_id);
 
         let issue_identifier = run_attempt.issue_identifier.clone();
         let session_id = self.worker_session_ids.remove(issue_id);
@@ -3277,6 +3448,7 @@ impl Orchestrator {
             None
         };
 
+        self.completion_comment_summaries.remove(&issue.id);
         self.state.running.insert(
             issue.id.clone(),
             RunAttempt {
@@ -3298,6 +3470,8 @@ impl Orchestrator {
         self.state.claimed.insert(issue.id.clone());
         self.running_issue_states
             .insert(issue.id.clone(), issue.state.clone());
+        self.running_parent_identifiers
+            .insert(issue.id.clone(), issue.parent_identifier.clone());
         self.running_session_stats
             .entry(issue.id.clone())
             .or_insert_with(|| RunningSessionStats {
@@ -4249,7 +4423,7 @@ impl Orchestrator {
 
         let claimed: BTreeSet<String> = self.state.claimed.iter().cloned().collect();
         let mut completed: Vec<CompletedEntry> = self.state.completed.values().cloned().collect();
-        completed.sort_by(|a, b| b.completed_at.cmp(&a.completed_at));
+        completed.sort_by_key(|entry| std::cmp::Reverse(entry.completed_at));
 
         let mut retry_queue: Vec<RetrySnapshotEntry> = self
             .state
@@ -4339,6 +4513,7 @@ impl Orchestrator {
             }
 
             if terminal_states.contains(&normalized_state) {
+                self.maybe_write_completion_comment(port, &issue);
                 self.mark_issue_terminal(&issue, None, true);
                 continue;
             }
@@ -4351,6 +4526,8 @@ impl Orchestrator {
             // Store display-cased state for human-readable notification messages.
             self.running_issue_states
                 .insert(issue.id.clone(), issue.state.clone());
+            self.running_parent_identifiers
+                .insert(issue.id.clone(), issue.parent_identifier.clone());
 
             // Keep dashboard linear_state current with actual Linear state.
             if let Some(attempt) = self.state.running.get_mut(&issue.id) {
@@ -4368,6 +4545,8 @@ impl Orchestrator {
         // in state.running (completed workers whose state was kept for
         // notification detection on this poll cycle).
         self.running_issue_states
+            .retain(|id, _| self.state.running.contains_key(id));
+        self.running_parent_identifiers
             .retain(|id, _| self.state.running.contains_key(id));
 
         Ok(())
@@ -4701,6 +4880,7 @@ impl Orchestrator {
             issue_url: issue.url.clone(),
         };
 
+        self.completion_comment_summaries.remove(&issue.id);
         self.state.running.insert(issue.id.clone(), attempt);
         let _ = self.ensure_worker_session_info(&issue.id);
         self.state.claimed.insert(issue.id.clone());
@@ -4720,6 +4900,8 @@ impl Orchestrator {
         self.state.retry_attempts.remove(&issue.id);
         self.running_issue_states
             .insert(issue.id.clone(), issue.state.clone());
+        self.running_parent_identifiers
+            .insert(issue.id.clone(), issue.parent_identifier.clone());
     }
 
     fn process_due_retries(
@@ -4812,6 +4994,7 @@ impl Orchestrator {
                             state = %hidden_state,
                             "retry issue became terminal before active-candidate visibility; marking terminal"
                         );
+                        self.maybe_write_completion_comment(port, &hidden_issue);
                         self.mark_issue_terminal(
                             &hidden_issue,
                             retry.workspace_path.as_deref(),
@@ -4853,6 +5036,7 @@ impl Orchestrator {
 
             let normalized_state = normalize_issue_state(&issue.state);
             if self.terminal_state_set().contains(&normalized_state) {
+                self.maybe_write_completion_comment(port, &issue);
                 self.mark_issue_terminal(&issue, retry.workspace_path.as_deref(), true);
                 continue;
             }
@@ -4941,6 +5125,70 @@ impl Orchestrator {
             .to_string()
     }
 
+    fn completion_comment_for_issue(&self, issue: &Issue, now: DateTime<Utc>) -> String {
+        let run_attempt = self.state.running.get(&issue.id);
+        let running_stats = self.running_session_stats.get(&issue.id);
+        let session_info = self.worker_session_info.get(&issue.id);
+        let summary = self.completion_comment_summaries.get(&issue.id);
+
+        let turn_count = running_stats
+            .map(|stats| stats.turn_count)
+            .or_else(|| session_info.map(|info| info.turn_count.saturating_sub(1)))
+            .or_else(|| summary.map(|cached| cached.turn_count))
+            .unwrap_or_default();
+        let total_tokens = running_stats
+            .map(|stats| stats.total_tokens)
+            .or_else(|| session_info.map(|info| info.session_tokens.total_tokens))
+            .or_else(|| summary.map(|cached| cached.total_tokens))
+            .unwrap_or_default();
+        let duration = run_attempt
+            .map(|attempt| now.signed_duration_since(attempt.started_at))
+            .or_else(|| summary.map(|cached| cached.duration))
+            .unwrap_or_else(chrono::Duration::zero);
+        let worker_host = run_attempt
+            .and_then(|attempt| attempt.worker_host.as_deref())
+            .or_else(|| summary.and_then(|cached| cached.worker_host.as_deref()));
+
+        CompletionCommentBuilder::new(
+            &issue.identifier,
+            &issue.state,
+            turn_count,
+            total_tokens,
+            duration,
+            worker_host,
+        )
+        .build()
+    }
+
+    fn maybe_write_completion_comment(&self, port: &mut dyn OrchestratorPort, issue: &Issue) {
+        if !completion_comments_enabled(&self.config.tracker) {
+            return;
+        }
+
+        let body = self.completion_comment_for_issue(issue, Utc::now());
+        match port.create_issue_comment(&issue.id, &body) {
+            Ok(()) => {
+                tracing::info!(
+                    event = "completion_comment_written",
+                    issue_id = %issue.id,
+                    issue_identifier = %issue.identifier,
+                    tracker_kind = %self.config.tracker.kind.as_deref().unwrap_or("linear"),
+                    "wrote structured completion comment"
+                );
+            }
+            Err(err) => {
+                tracing::warn!(
+                    event = "completion_comment_failed",
+                    issue_id = %issue.id,
+                    issue_identifier = %issue.identifier,
+                    tracker_kind = %self.config.tracker.kind.as_deref().unwrap_or("linear"),
+                    error = %err,
+                    "failed to write structured completion comment"
+                );
+            }
+        }
+    }
+
     fn mark_issue_terminal(
         &mut self,
         issue: &Issue,
@@ -5004,12 +5252,14 @@ impl Orchestrator {
         self.state.claimed.remove(issue_id);
         self.state.retry_attempts.remove(issue_id);
         self.running_issue_states.remove(issue_id);
+        self.running_parent_identifiers.remove(issue_id);
         self.retry_tokens.remove(issue_id);
         self.worker_last_activity_ms.remove(issue_id);
         self.worker_session_info.remove(issue_id);
         self.worker_session_ids.remove(issue_id);
         self.worker_steer_tx.remove(issue_id);
         self.running_session_stats.remove(issue_id);
+        self.completion_comment_summaries.remove(issue_id);
     }
 
     fn cleanup_workspace(&self, issue: &Issue, workspace_path: &str) {
@@ -5060,11 +5310,13 @@ impl Orchestrator {
         self.state.claimed.remove(issue_id);
         self.state.retry_attempts.remove(issue_id);
         self.running_issue_states.remove(issue_id);
+        self.running_parent_identifiers.remove(issue_id);
         self.retry_tokens.remove(issue_id);
         self.worker_last_activity_ms.remove(issue_id);
         self.worker_session_ids.remove(issue_id);
         self.worker_steer_tx.remove(issue_id);
         self.running_session_stats.remove(issue_id);
+        self.completion_comment_summaries.remove(issue_id);
     }
 
     fn active_state_set(&self) -> HashSet<String> {

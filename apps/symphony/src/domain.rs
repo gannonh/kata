@@ -46,6 +46,108 @@ fn default_true() -> bool {
     true
 }
 
+/// Canonical Kata workflow phase vocabulary shared across CLI/Desktop/Symphony.
+pub const KATA_PHASE_NAMES: [&str; 7] = [
+    "Backlog",
+    "Todo",
+    "In Progress",
+    "Agent Review",
+    "Human Review",
+    "Merging",
+    "Done",
+];
+
+/// Return the canonical Kata phase name when the provided value matches one.
+///
+/// Matching is case-insensitive and whitespace/underscore/hyphen agnostic.
+pub fn canonical_kata_phase_name(state_name: &str) -> Option<&'static str> {
+    let normalized = normalize_kata_phase_key(state_name);
+    KATA_PHASE_NAMES
+        .iter()
+        .copied()
+        .find(|phase| normalize_kata_phase_key(phase) == normalized)
+}
+
+fn normalize_kata_phase_key(value: &str) -> String {
+    value
+        .trim()
+        .to_ascii_lowercase()
+        .replace(['_', '-'], " ")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// Parse a Kata identifier prefix from a GitHub title, e.g. `[S01] Build`.
+///
+/// Accepted prefixes are `M`, `S`, and `T` with one or more trailing digits.
+pub fn parse_kata_identifier(title: &str) -> Option<String> {
+    let trimmed = title.trim_start();
+    let bracketed = trimmed.strip_prefix('[')?;
+    let end = bracketed.find(']')?;
+    let token = &bracketed[..end];
+
+    let mut chars = token.chars();
+    let prefix = chars.next()?.to_ascii_uppercase();
+    if !matches!(prefix, 'M' | 'S' | 'T') {
+        return None;
+    }
+
+    let digits = chars.as_str();
+    if digits.is_empty() || !digits.chars().all(|ch| ch.is_ascii_digit()) {
+        return None;
+    }
+
+    Some(format!("[{prefix}{digits}]"))
+}
+
+/// Parse parent issue metadata from body lines such as:
+/// - `Parent: #10`
+/// - `Part of: #10`
+/// - `**Parent:** #10`
+pub fn parse_parent_issue_reference(body: &str) -> Option<String> {
+    for line in body.lines() {
+        let normalized = line.trim().replace('*', "");
+        let lower = normalized.to_ascii_lowercase();
+
+        if !(lower.starts_with("parent:") || lower.starts_with("part of:")) {
+            continue;
+        }
+
+        if let Some(identifier) = extract_first_issue_reference(&normalized) {
+            return Some(identifier);
+        }
+    }
+
+    None
+}
+
+fn extract_first_issue_reference(line: &str) -> Option<String> {
+    let chars: Vec<char> = line.chars().collect();
+    let mut index = 0usize;
+
+    while index < chars.len() {
+        if chars[index] != '#' {
+            index += 1;
+            continue;
+        }
+
+        let mut end = index + 1;
+        while end < chars.len() && chars[end].is_ascii_digit() {
+            end += 1;
+        }
+
+        if end > index + 1 {
+            let digits: String = chars[index + 1..end].iter().collect();
+            return Some(format!("#{digits}"));
+        }
+
+        index += 1;
+    }
+
+    None
+}
+
 /// A blocker reference from an inverse relation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlockerRef {
