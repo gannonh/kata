@@ -24,6 +24,7 @@ interface TaskListProps {
   tasks: WorkflowBoardTask[]
   issueActions?: Record<string, { status: 'idle' | 'opening' | 'success' | 'error' | 'disabled'; message?: string }>
   onOpenIssue?: (task: WorkflowBoardTask) => void
+  allowMutations?: boolean
 }
 
 const DEFAULT_TASK_TONE = 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200'
@@ -73,7 +74,7 @@ interface TaskEditDialogState {
   stateId?: string
 }
 
-export function TaskList({ tasks, issueActions = {}, onOpenIssue }: TaskListProps) {
+export function TaskList({ tasks, issueActions = {}, onOpenIssue, allowMutations = true }: TaskListProps) {
   const moveEntity = useSetAtom(moveWorkflowEntityAtom)
   const loadTaskDetail = useSetAtom(loadWorkflowTaskDetailAtom)
   const updateTask = useSetAtom(updateWorkflowTaskAtom)
@@ -235,57 +236,61 @@ export function TaskList({ tasks, issueActions = {}, onOpenIssue }: TaskListProp
               ) : null}
 
               <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                <Select
-                  value={task.columnId}
-                  onValueChange={(value) => {
-                    if (value === task.columnId) {
-                      return
-                    }
+                {allowMutations ? (
+                  <>
+                    <Select
+                      value={task.columnId}
+                      onValueChange={(value) => {
+                        if (value === task.columnId) {
+                          return
+                        }
 
-                    void moveEntity({
-                      entityKind: 'task',
-                      entityId: task.id,
-                      targetColumnId: value as WorkflowBoardTask['columnId'],
-                      currentColumnId: task.columnId,
-                      currentStateId: task.stateId,
-                      currentStateName: task.stateName,
-                      currentStateType: task.stateType,
-                      teamId: task.teamId,
-                      projectId: task.projectId,
-                    })
-                  }}
-                  disabled={mutationState?.phase === 'pending'}
-                >
-                  <SelectTrigger
-                    size="sm"
-                    className="h-6 min-w-[7.5rem] rounded-md border border-border/70 bg-background px-2 text-[10px]"
-                    data-testid={`task-move-select-${task.identifier ?? task.id}`}
-                  >
-                    <SelectValue placeholder="Move task" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={task.columnId}>Current: {task.stateName}</SelectItem>
-                    {moveTargetOptions.map((option) => (
-                      <SelectItem key={option.id} value={option.id}>
-                        Move to {option.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                        void moveEntity({
+                          entityKind: 'task',
+                          entityId: task.id,
+                          targetColumnId: value as WorkflowBoardTask['columnId'],
+                          currentColumnId: task.columnId,
+                          currentStateId: task.stateId,
+                          currentStateName: task.stateName,
+                          currentStateType: task.stateType,
+                          teamId: task.teamId,
+                          projectId: task.projectId,
+                        })
+                      }}
+                      disabled={mutationState?.phase === 'pending'}
+                    >
+                      <SelectTrigger
+                        size="sm"
+                        className="h-6 min-w-[7.5rem] rounded-md border border-border/70 bg-background px-2 text-[10px]"
+                        data-testid={`task-move-select-${task.identifier ?? task.id}`}
+                      >
+                        <SelectValue placeholder="Move task" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={task.columnId}>Current: {task.stateName}</SelectItem>
+                        {moveTargetOptions.map((option) => (
+                          <SelectItem key={option.id} value={option.id}>
+                            Move to {option.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
 
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="h-6 px-2 text-[10px]"
-                  data-testid={`task-edit-${task.identifier ?? task.id}`}
-                  onClick={() => {
-                    void openEditDialog(task)
-                  }}
-                  disabled={editDialogSubmitting && editDialogState?.taskId === task.id}
-                >
-                  Edit task
-                </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-6 px-2 text-[10px]"
+                      data-testid={`task-edit-${task.identifier ?? task.id}`}
+                      onClick={() => {
+                        void openEditDialog(task)
+                      }}
+                      disabled={editDialogSubmitting && editDialogState?.taskId === task.id}
+                    >
+                      Edit task
+                    </Button>
+                  </>
+                ) : null}
 
                 {task.url && onOpenIssue ? (
                   <Button
@@ -302,7 +307,7 @@ export function TaskList({ tasks, issueActions = {}, onOpenIssue }: TaskListProp
                 ) : null}
               </div>
 
-              {mutationState ? (
+              {allowMutations && mutationState ? (
                 <p className="mt-1 text-[10px] text-muted-foreground" data-testid={`task-move-state-${task.identifier ?? task.id}`}>
                   {mutationState.message}
                 </p>
@@ -316,36 +321,38 @@ export function TaskList({ tasks, issueActions = {}, onOpenIssue }: TaskListProp
         })}
       </ul>
 
-      <TaskMutationDialog
-        open={editDialogOpen}
-        mode="edit"
-        heading={editDialogState?.identifier ? `Edit ${editDialogState.identifier}` : 'Edit task'}
-        subheading="Load current task details, then save updates back to Linear."
-        confirmLabel="Save task"
-        initialValues={{
-          title: editDialogState?.title ?? '',
-          description: editDialogState?.description ?? '',
-          columnId: editDialogState?.columnId ?? 'todo',
-        }}
-        includeStateField
-        stateOptions={editStateOptions}
-        loading={editDialogLoading}
-        submitting={editDialogSubmitting}
-        errorMessage={editDialogError}
-        onOpenChange={(open) => {
-          setEditDialogOpen(open)
-          if (!open) {
-            editDialogRequestIdRef.current += 1
-            setEditDialogError(null)
-            setEditDialogLoading(false)
-            setEditDialogSubmitting(false)
-            setEditDialogState(null)
-          }
-        }}
-        onSubmit={async (values) => {
-          await submitTaskEdit(values)
-        }}
-      />
+      {allowMutations ? (
+        <TaskMutationDialog
+          open={editDialogOpen}
+          mode="edit"
+          heading={editDialogState?.identifier ? `Edit ${editDialogState.identifier}` : 'Edit task'}
+          subheading="Load current task details, then save updates back to Linear."
+          confirmLabel="Save task"
+          initialValues={{
+            title: editDialogState?.title ?? '',
+            description: editDialogState?.description ?? '',
+            columnId: editDialogState?.columnId ?? 'todo',
+          }}
+          includeStateField
+          stateOptions={editStateOptions}
+          loading={editDialogLoading}
+          submitting={editDialogSubmitting}
+          errorMessage={editDialogError}
+          onOpenChange={(open) => {
+            setEditDialogOpen(open)
+            if (!open) {
+              editDialogRequestIdRef.current += 1
+              setEditDialogError(null)
+              setEditDialogLoading(false)
+              setEditDialogSubmitting(false)
+              setEditDialogState(null)
+            }
+          }}
+          onSubmit={async (values) => {
+            await submitTaskEdit(values)
+          }}
+        />
+      ) : null}
     </>
   )
 }

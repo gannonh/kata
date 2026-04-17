@@ -163,7 +163,7 @@ export class GithubWorkflowClient {
       )
 
       cards.push({
-        id: String(issue.id ?? issueNumber),
+        id: String(issueNumber),
         identifier: `#${issueNumber}`,
         title: issueTitle,
         url: issue.html_url,
@@ -249,17 +249,25 @@ export class GithubWorkflowClient {
     for (const item of items) {
       const issueNumber = item.content?.number
       const issueTitle = item.content?.title?.trim()
-      if (!issueNumber || !issueTitle) {
+      const issueUrl = item.content?.url
+      if (!issueNumber || !issueTitle || !issueUrl) {
+        continue
+      }
+
+      // Projects v2 can include issues from multiple repositories.
+      // Keep the board scoped to the configured repo to avoid key collisions
+      // for same-number issues from other repositories.
+      if (!isIssueInRepository(issueUrl, config.repoOwner, config.repoName)) {
         continue
       }
 
       const stateName = item.fieldValueByName?.name?.trim() || 'Unknown'
 
       cards.push({
-        id: item.content?.id || String(issueNumber),
+        id: String(issueNumber),
         identifier: `#${issueNumber}`,
         title: issueTitle,
-        url: item.content?.url,
+        url: issueUrl,
         columnId: mapLinearStateToColumnId(stateName, undefined),
         stateName,
         stateType: 'projects_v2',
@@ -270,9 +278,10 @@ export class GithubWorkflowClient {
       })
     }
 
-    log.debug('[github-workflow-client] PR metadata extraction', {
-      cardsWithPr: cards.filter((c) => c.prMetadata).length,
-      cardsWithoutPr: cards.filter((c) => !c.prMetadata).length,
+    log.debug('[github-workflow-client] projects_v2 cards normalized', {
+      projectNumber,
+      itemCount: items.length,
+      cardCount: cards.length,
     })
 
     const hasCards = cards.length > 0
@@ -647,6 +656,24 @@ function denormalizeLabelState(value: string): string {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ')
+}
+
+function isIssueInRepository(issueUrl: string, repoOwner: string, repoName: string): boolean {
+  try {
+    const parsed = new URL(issueUrl)
+    const segments = parsed.pathname.split('/').filter(Boolean)
+
+    if (segments.length < 4 || segments[2]?.toLowerCase() !== 'issues') {
+      return false
+    }
+
+    return (
+      segments[0]?.toLowerCase() === repoOwner.toLowerCase() &&
+      segments[1]?.toLowerCase() === repoName.toLowerCase()
+    )
+  } catch {
+    return false
+  }
 }
 
 function toGithubWorkflowClientError(error: unknown): GithubWorkflowClientError {

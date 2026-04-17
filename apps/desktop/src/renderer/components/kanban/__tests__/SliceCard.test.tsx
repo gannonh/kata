@@ -1,6 +1,13 @@
 import { describe, expect, test } from 'vitest'
 import type { WorkflowBoardPrMetadata, WorkflowBoardSliceCard } from '@shared/types'
-import { formatSliceSymphonyHint, getMoveTargetOptions, isInlineEscalationEnabled, PrBadge } from '../SliceCard'
+import {
+  formatIssueActionLabel,
+  formatSliceSymphonyHint,
+  getMoveTargetOptions,
+  isInlineEscalationEnabled,
+  PrBadge,
+  supportsLinearWorkflowMutations,
+} from '../SliceCard'
 
 describe('SliceCard symphony hint formatting', () => {
   test('shows unavailable hint when context is missing', () => {
@@ -108,6 +115,26 @@ describe('SliceCard move options', () => {
     expect(options.some((option) => option.id === 'todo')).toBe(false)
     expect(options.some((option) => option.id === 'in_progress')).toBe(true)
     expect(options.some((option) => option.id === 'done')).toBe(true)
+  })
+})
+
+describe('SliceCard backend-aware affordances', () => {
+  test('formats issue labels truthfully per backend and URL', () => {
+    expect(formatIssueActionLabel({ backend: 'linear', issueUrl: 'https://linear.app/kata-sh/issue/KAT-1' })).toBe(
+      'Open Linear issue',
+    )
+    expect(formatIssueActionLabel({ backend: 'github', issueUrl: 'https://github.com/kata-sh/kata/issues/1' })).toBe(
+      'Open GitHub issue',
+    )
+    expect(formatIssueActionLabel({ backend: 'linear', issueUrl: 'https://github.com/kata-sh/kata/issues/1' })).toBe(
+      'Open GitHub issue',
+    )
+  })
+
+  test('enables workflow mutations only for linear boards', () => {
+    expect(supportsLinearWorkflowMutations('linear')).toBe(true)
+    expect(supportsLinearWorkflowMutations('github')).toBe(false)
+    expect(supportsLinearWorkflowMutations(undefined)).toBe(false)
   })
 })
 

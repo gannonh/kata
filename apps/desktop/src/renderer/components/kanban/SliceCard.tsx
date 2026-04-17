@@ -3,6 +3,7 @@ import { AlertCircle, ChevronDown, GitPullRequest, MessageSquareText } from 'luc
 import { useMemo, useState } from 'react'
 import {
   WORKFLOW_COLUMNS,
+  type WorkflowBoardBackend,
   type WorkflowBoardEscalationRequest,
   type WorkflowBoardPrMetadata,
   type WorkflowBoardSliceCard,
@@ -13,6 +14,7 @@ import {
   moveWorkflowEntityAtom,
   openWorkflowIssueAtom,
   respondToWorkflowEscalationAtom,
+  workflowBoardAtom,
   workflowEntityMutationKey,
   workflowEntityMutationStateAtom,
   workflowEscalationActionStateAtom,
@@ -74,6 +76,25 @@ export function isInlineEscalationEnabled(symphony: WorkflowBoardSliceCard['symp
 
 export function getMoveTargetOptions(currentColumnId: WorkflowBoardSliceCard['columnId']) {
   return WORKFLOW_COLUMNS.filter((column) => column.id !== currentColumnId)
+}
+
+export function supportsLinearWorkflowMutations(backend: WorkflowBoardBackend | undefined): boolean {
+  return backend === 'linear'
+}
+
+export function formatIssueActionLabel(input: {
+  backend: WorkflowBoardBackend | undefined
+  issueUrl?: string
+}): string {
+  if (input.backend === 'github') {
+    return 'Open GitHub issue'
+  }
+
+  if (input.issueUrl?.includes('github.com/')) {
+    return 'Open GitHub issue'
+  }
+
+  return 'Open Linear issue'
 }
 
 function prStatusColor(status: string | undefined): string {
@@ -141,6 +162,7 @@ export function SliceCard({ card, collapsed = false, onToggleCollapse }: SliceCa
   const [responseDraftByRequestId, setResponseDraftByRequestId] = useState<Record<string, string>>({})
 
   const symphony = card.symphony
+  const board = useAtomValue(workflowBoardAtom)
   const issueActions = useAtomValue(workflowIssueActionStateAtom)
   const escalationActions = useAtomValue(workflowEscalationActionStateAtom)
   const mutationStates = useAtomValue(workflowEntityMutationStateAtom)
@@ -153,7 +175,15 @@ export function SliceCard({ card, collapsed = false, onToggleCollapse }: SliceCa
     () => symphony?.pendingEscalationRequests ?? [],
     [symphony?.pendingEscalationRequests],
   )
-  const moveOptions = useMemo(() => getMoveTargetOptions(card.columnId), [card.columnId])
+  const supportsMutations = supportsLinearWorkflowMutations(board?.backend)
+  const moveOptions = useMemo(
+    () => (supportsMutations ? getMoveTargetOptions(card.columnId) : []),
+    [card.columnId, supportsMutations],
+  )
+  const issueActionLabel = formatIssueActionLabel({
+    backend: board?.backend,
+    issueUrl: card.url,
+  })
   const sliceMoveState = mutationStates[workflowEntityMutationKey('slice', card.id)]
 
   const canRespondInline = isInlineEscalationEnabled(symphony) && pendingEscalations.length > 0
@@ -336,23 +366,25 @@ export function SliceCard({ card, collapsed = false, onToggleCollapse }: SliceCa
               data-testid={`slice-open-issue-${card.identifier}`}
               disabled={issueAction?.status === 'opening'}
             >
-              Open Linear issue
+              {issueActionLabel}
             </Button>
           ) : null}
 
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="h-7 px-2 text-[11px]"
-            data-testid={`slice-add-task-${card.identifier}`}
-            onClick={() => {
-              setCreateTaskError(null)
-              setShowCreateTaskDialog(true)
-            }}
-          >
-            Add task
-          </Button>
+          {supportsMutations ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-7 px-2 text-[11px]"
+              data-testid={`slice-add-task-${card.identifier}`}
+              onClick={() => {
+                setCreateTaskError(null)
+                setShowCreateTaskDialog(true)
+              }}
+            >
+              Add task
+            </Button>
+          ) : null}
 
           {pendingEscalations.length > 0 ? (
             <Button
@@ -475,33 +507,40 @@ export function SliceCard({ card, collapsed = false, onToggleCollapse }: SliceCa
             {isOpen ? 'Hide tasks' : 'Show tasks'}
           </CollapsibleTrigger>
           <CollapsibleContent className="pt-2">
-            <TaskList tasks={card.tasks} issueActions={issueActions} onOpenIssue={openTaskIssue} />
+            <TaskList
+              tasks={card.tasks}
+              issueActions={issueActions}
+              onOpenIssue={openTaskIssue}
+              allowMutations={supportsMutations}
+            />
           </CollapsibleContent>
         </Collapsible>
 
-        <TaskMutationDialog
-          open={showCreateTaskDialog}
-          mode="create"
-          heading={`Add task to ${card.identifier}`}
-          subheading="Create a child task in Linear without leaving the board."
-          confirmLabel="Create task"
-          initialValues={{
-            title: '',
-            description: '',
-            columnId: 'todo',
-          }}
-          submitting={createTaskSubmitting}
-          errorMessage={createTaskError}
-          onOpenChange={(open) => {
-            setShowCreateTaskDialog(open)
-            if (!open) {
-              setCreateTaskError(null)
-            }
-          }}
-          onSubmit={async (values) => {
-            await submitCreateTask(values)
-          }}
-        />
+        {supportsMutations ? (
+          <TaskMutationDialog
+            open={showCreateTaskDialog}
+            mode="create"
+            heading={`Add task to ${card.identifier}`}
+            subheading="Create a child task in Linear without leaving the board."
+            confirmLabel="Create task"
+            initialValues={{
+              title: '',
+              description: '',
+              columnId: 'todo',
+            }}
+            submitting={createTaskSubmitting}
+            errorMessage={createTaskError}
+            onOpenChange={(open) => {
+              setShowCreateTaskDialog(open)
+              if (!open) {
+                setCreateTaskError(null)
+              }
+            }}
+            onSubmit={async (values) => {
+              await submitCreateTask(values)
+            }}
+          />
+        ) : null}
       </CardContent>}
     </Card>
   )
