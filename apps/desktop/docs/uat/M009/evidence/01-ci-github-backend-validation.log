@@ -1,5 +1,5 @@
 == 01: Deterministic CI GitHub backend validation lane ==
-UTC 2026-04-17T14:52:10Z
+UTC 2026-04-17T14:53:57Z
 
 Running deterministic GitHub backend validation lane
 Negative-path signal checks included in this lane:
@@ -10,41 +10,27 @@ Negative-path signal checks included in this lane:
 
 [1m[30m[46m RUN [49m[39m[22m [36mv4.1.4 [39m[90m/Volumes/EVO/symphony-workspaces/KAT-2708/apps/cli[39m
 
- [32m✓[39m src/resources/extensions/kata/tests/github-artifacts.vitest.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/resources/extensions/kata/tests/github-artifacts.vitest.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+[kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"create","entity":"milestone","kataId":"M009","issueNumber":1}
 [kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"create","entity":"milestone","kataId":"M009","issueNumber":1}
 [kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"update","entity":"milestone","kataId":"M009","document":"M009-ROADMAP","issueNumber":1}
+[kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"update","entity":"milestone","kataId":"M009","document":"M009-ROADMAP","issueNumber":1}
+ [32m✓[39m src/resources/extensions/kata/tests/github-backend-plan-prompt.vitest.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+[kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"create","entity":"slice","kataId":"S01","issueNumber":2}
+[kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"create","entity":"slice","kataId":"S02","issueNumber":3}
+[kata][github-planning] {"event":"github_planning_dependency_materialized","milestoneId":"M009","fromSliceId":"S02","dependsOn":"S01","issueNumber":3}
 [kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"create","entity":"slice","kataId":"S01","issueNumber":2}
 [kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"create","entity":"slice","kataId":"S02","issueNumber":3}
 [kata][github-planning] {"event":"github_planning_dependency_materialized","milestoneId":"M009","fromSliceId":"S02","dependsOn":"S01","issueNumber":3}
 [kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"create","entity":"slice","kataId":"S03","issueNumber":4}
 [kata][github-planning] {"event":"github_planning_dependency_materialized","milestoneId":"M009","fromSliceId":"S03","dependsOn":"S01","issueNumber":4}
 [kata][github-planning] {"event":"github_planning_dependency_materialized","milestoneId":"M009","fromSliceId":"S03","dependsOn":"S02","issueNumber":4}
-[kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"create","entity":"milestone","kataId":"M009","issueNumber":1}
 [kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"update","entity":"milestone","kataId":"M009","document":"M009-ROADMAP","issueNumber":1}
-[kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"create","entity":"slice","kataId":"S01","issueNumber":2}
-[kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"create","entity":"slice","kataId":"S02","issueNumber":3}
+[kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"update","entity":"milestone","kataId":"M009","document":"M009-ROADMAP","issueNumber":1}
 [kata][github-planning] {"event":"github_planning_dependency_materialized","milestoneId":"M009","fromSliceId":"S02","dependsOn":"S01","issueNumber":3}
-[kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"update","entity":"milestone","kataId":"M009","document":"M009-ROADMAP","issueNumber":1}
-[kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"update","entity":"milestone","kataId":"M009","document":"M009-ROADMAP","issueNumber":1}
- [32m✓[39m src/resources/extensions/kata/tests/github-backend-plan-prompt.vitest.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 4[2mms[22m[39m
 [kata][github-planning] {"event":"github_planning_dependency_materialized","milestoneId":"M009","fromSliceId":"S02","dependsOn":"S01","issueNumber":3}
 [kata][github-planning] {"event":"github_planning_dependency_materialized","milestoneId":"M009","fromSliceId":"S03","dependsOn":"S01","issueNumber":4}
 [kata][github-planning] {"event":"github_planning_dependency_materialized","milestoneId":"M009","fromSliceId":"S03","dependsOn":"S02","issueNumber":4}
-[kata][github-planning] {"event":"github_planning_dependency_materialized","milestoneId":"M009","fromSliceId":"S02","dependsOn":"S01","issueNumber":3}
-[kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"create","entity":"milestone","kataId":"M009","issueNumber":1}
-[kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"update","entity":"milestone","kataId":"M009","document":"M009-ROADMAP","issueNumber":1}
- [32m✓[39m src/resources/extensions/kata/tests/github-dependency-materialization.vitest.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 6[2mms[22m[39m
-[kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"create","entity":"slice","kataId":"S01","issueNumber":2}
-[kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"create","entity":"slice","kataId":"S02","issueNumber":3}
-[kata][github-planning] {"event":"github_planning_dependency_materialized","milestoneId":"M009","fromSliceId":"S02","dependsOn":"S01","issueNumber":3}
-[kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"update","entity":"slice","kataId":"S02","document":"S02-PLAN","issueNumber":3}
-[kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"create","entity":"task","kataId":"T01","issueNumber":4}
-[kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"update","entity":"task","kataId":"T01","issueNumber":4}
-[kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"create","entity":"task","kataId":"T02","issueNumber":5}
-[kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"update","entity":"task","kataId":"T02","issueNumber":5}
-[kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"update","entity":"slice","kataId":"S02","document":"S02-PLAN","issueNumber":3}
-[kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"update","entity":"task","kataId":"T01","issueNumber":4}
-[kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"update","entity":"task","kataId":"T02","issueNumber":5}
 [kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"create","entity":"milestone","kataId":"M009","issueNumber":1}
 [kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"update","entity":"milestone","kataId":"M009","document":"M009-ROADMAP","issueNumber":1}
 [kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"create","entity":"slice","kataId":"S01","issueNumber":2}
@@ -55,6 +41,10 @@ Negative-path signal checks included in this lane:
 [kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"update","entity":"task","kataId":"T01","issueNumber":4}
 [kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"create","entity":"task","kataId":"T02","issueNumber":5}
 [kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"update","entity":"task","kataId":"T02","issueNumber":5}
+[kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"update","entity":"slice","kataId":"S02","document":"S02-PLAN","issueNumber":3}
+[kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"update","entity":"task","kataId":"T01","issueNumber":4}
+[kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"update","entity":"task","kataId":"T02","issueNumber":5}
+ [32m✓[39m src/resources/extensions/kata/tests/github-dependency-materialization.vitest.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 7[2mms[22m[39m
 [kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"create","entity":"milestone","kataId":"M009","issueNumber":1}
 [kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"update","entity":"milestone","kataId":"M009","document":"M009-ROADMAP","issueNumber":1}
 [kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"create","entity":"slice","kataId":"S01","issueNumber":2}
@@ -65,7 +55,17 @@ Negative-path signal checks included in this lane:
 [kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"update","entity":"task","kataId":"T01","issueNumber":4}
 [kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"create","entity":"task","kataId":"T02","issueNumber":5}
 [kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"update","entity":"task","kataId":"T02","issueNumber":5}
- [32m✓[39m src/resources/extensions/kata/tests/github-backend.artifacts.vitest.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+[kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"create","entity":"milestone","kataId":"M009","issueNumber":1}
+[kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"update","entity":"milestone","kataId":"M009","document":"M009-ROADMAP","issueNumber":1}
+[kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"create","entity":"slice","kataId":"S01","issueNumber":2}
+[kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"create","entity":"slice","kataId":"S02","issueNumber":3}
+[kata][github-planning] {"event":"github_planning_dependency_materialized","milestoneId":"M009","fromSliceId":"S02","dependsOn":"S01","issueNumber":3}
+[kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"update","entity":"slice","kataId":"S02","document":"S02-PLAN","issueNumber":3}
+[kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"create","entity":"task","kataId":"T01","issueNumber":4}
+[kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"update","entity":"task","kataId":"T01","issueNumber":4}
+[kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"create","entity":"task","kataId":"T02","issueNumber":5}
+[kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"update","entity":"task","kataId":"T02","issueNumber":5}
+ [32m✓[39m src/resources/extensions/kata/tests/github-backend.artifacts.vitest.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 14[2mms[22m[39m
 [kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"create","entity":"milestone","kataId":"M009","issueNumber":1}
 [kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"update","entity":"milestone","kataId":"M009","document":"M009-ROADMAP","issueNumber":1}
 [kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"create","entity":"slice","kataId":"S02","issueNumber":2}
@@ -75,20 +75,20 @@ Negative-path signal checks included in this lane:
 [kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"create","entity":"task","kataId":"T02","issueNumber":4}
 [kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"update","entity":"task","kataId":"T02","issueNumber":4}
 [kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"update","entity":"slice","kataId":"S02","document":"S02-PLAN","issueNumber":2}
+ [32m✓[39m src/resources/extensions/kata/tests/github-planning-contract.vitest.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 124[2mms[22m[39m
 [kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"update","entity":"task","kataId":"T01","issueNumber":3}
 [kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"update","entity":"task","kataId":"T02","issueNumber":4}
 [kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"create","entity":"task","kataId":"T03","issueNumber":5}
 [kata][github-planning] {"event":"github_planning_artifact_upsert","stage":"update","entity":"task","kataId":"T03","issueNumber":5}
- [32m✓[39m src/resources/extensions/kata/tests/github-planning-contract.vitest.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 125[2mms[22m[39m
  [32m✓[39m src/resources/extensions/kata/tests/github-planning.integration.vitest.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 138[2mms[22m[39m
 [kata][backend-bootstrap] {"backend":"github","status":"invalid_config","diagnostics":["missing_github_token"]}
 [kata][backend-bootstrap] {"backend":"github","status":"invalid_config","diagnostics":["missing_repo_name"]}
- [32m✓[39m src/resources/extensions/kata/tests/github-config.integration.vitest.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/resources/extensions/kata/tests/github-config.integration.vitest.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 5[2mms[22m[39m
 
 [2m Test Files [22m [1m[32m7 passed[39m[22m[90m (7)[39m
 [2m      Tests [22m [1m[32m19 passed[39m[22m[90m (19)[39m
-[2m   Start at [22m 07:52:10
-[2m   Duration [22m 604ms[2m (transform 388ms, setup 0ms, import 926ms, tests 293ms, environment 0ms)[22m
+[2m   Start at [22m 07:53:57
+[2m   Duration [22m 667ms[2m (transform 426ms, setup 0ms, import 1.01s, tests 296ms, environment 0ms)[22m
 
 ✅ CLI GitHub backend contract suites (Vitest) passed
 ::endgroup::
@@ -96,56 +96,56 @@ Negative-path signal checks included in this lane:
 bun test v1.3.11 (af24e281)
 
 src/resources/extensions/kata/tests/github-config.test.ts:
-(pass) resolveGithubWorkflowPath uses KATA_GITHUB_WORKFLOW_PATH when set [0.10ms]
-(pass) resolveGithubWorkflowPath falls back to basePath/WORKFLOW.md [0.02ms]
-(pass) loadGithubTrackerConfig returns config for valid minimal WORKFLOW.md [0.71ms]
-(pass) loadGithubTrackerConfig includes githubProjectNumber and keeps label-based stateMode [0.24ms]
-(pass) loadGithubTrackerConfig includes optional labelPrefix [0.17ms]
+(pass) resolveGithubWorkflowPath uses KATA_GITHUB_WORKFLOW_PATH when set [0.21ms]
+(pass) resolveGithubWorkflowPath falls back to basePath/WORKFLOW.md [0.18ms]
+(pass) loadGithubTrackerConfig returns config for valid minimal WORKFLOW.md [2.98ms]
+(pass) loadGithubTrackerConfig includes githubProjectNumber and keeps label-based stateMode [0.23ms]
+(pass) loadGithubTrackerConfig includes optional labelPrefix [0.18ms]
 (pass) loadGithubTrackerConfig returns missing_workflow_file when WORKFLOW.md absent [0.01ms]
-(pass) loadGithubTrackerConfig returns invalid_workflow_file for missing frontmatter [0.14ms]
-(pass) loadGithubTrackerConfig returns unsupported_tracker_kind when tracker block is absent [0.14ms]
-(pass) loadGithubTrackerConfig returns unsupported_tracker_kind when kind is not github [0.13ms]
-(pass) loadGithubTrackerConfig returns missing_repo_owner when repo_owner absent [0.15ms]
-(pass) loadGithubTrackerConfig returns missing_repo_name when repo_name absent [0.13ms]
+(pass) loadGithubTrackerConfig returns invalid_workflow_file for missing frontmatter [0.13ms]
+(pass) loadGithubTrackerConfig returns unsupported_tracker_kind when tracker block is absent [0.13ms]
+(pass) loadGithubTrackerConfig returns unsupported_tracker_kind when kind is not github [0.14ms]
+(pass) loadGithubTrackerConfig returns missing_repo_owner when repo_owner absent [0.14ms]
+(pass) loadGithubTrackerConfig returns missing_repo_name when repo_name absent [0.14ms]
 (pass) loadGithubTrackerConfig returns invalid_github_project_number for non-integer value [0.13ms]
 (pass) loadGithubTrackerConfig returns invalid_github_project_number for zero [0.13ms]
-(pass) loadGithubTrackerConfig returns invalid_github_project_number for negative value [0.16ms]
-(pass) loadGithubTrackerConfig handles KATA_GITHUB_WORKFLOW_PATH env override [0.15ms]
+(pass) loadGithubTrackerConfig returns invalid_github_project_number for negative value [0.11ms]
+(pass) loadGithubTrackerConfig handles KATA_GITHUB_WORKFLOW_PATH env override [0.16ms]
 (pass) loadGithubTrackerConfig strips YAML inline comments and quotes [0.15ms]
 (pass) resolveGithubToken returns KATA_GITHUB_TOKEN with correct source [0.05ms]
-(pass) resolveGithubToken falls through to GH_TOKEN when KATA_GITHUB_TOKEN absent [0.02ms]
-(pass) resolveGithubToken falls through to GITHUB_TOKEN when both KATA and GH absent [0.02ms]
+(pass) resolveGithubToken falls through to GH_TOKEN when KATA_GITHUB_TOKEN absent
+(pass) resolveGithubToken falls through to GITHUB_TOKEN when both KATA and GH absent [0.01ms]
 (pass) resolveGithubToken reads auth.json github provider when all env vars absent [0.16ms]
-(pass) resolveGithubToken returns null when no sources available [0.01ms]
-(pass) resolveGithubToken returns null when auth.json exists but is malformed [0.16ms]
-(pass) validateGithubConfig returns ok:true when token and tracker config are valid [0.25ms]
-(pass) validateGithubConfig collects both tracker and token diagnostics [0.04ms]
-(pass) validateGithubConfig reports only token diagnostic when tracker config is valid [0.18ms]
-(pass) token values never appear in diagnostic messages (redaction) [0.18ms]
-(pass) formatGithubConfigStatus output never contains token values [0.18ms]
-(pass) formatGithubConfigStatus shows valid status for complete config [0.15ms]
+(pass) resolveGithubToken returns null when no sources available [0.06ms]
+(pass) resolveGithubToken returns null when auth.json exists but is malformed [0.40ms]
+(pass) validateGithubConfig returns ok:true when token and tracker config are valid [0.11ms]
+(pass) validateGithubConfig collects both tracker and token diagnostics [0.12ms]
+(pass) validateGithubConfig reports only token diagnostic when tracker config is valid [0.42ms]
+(pass) token values never appear in diagnostic messages (redaction) [0.17ms]
+(pass) formatGithubConfigStatus output never contains token values [0.11ms]
+(pass) formatGithubConfigStatus shows valid status for complete config [0.19ms]
 (pass) formatGithubConfigStatus shows warning level and diagnostics on failure [0.09ms]
 
 src/resources/extensions/kata/tests/github-state.test.ts:
-(pass) deriveGithubState returns pre-planning when no milestone issues exist [5.90ms]
-(pass) deriveGithubState derives active milestone/slice/task and executing phase [4.42ms]
-(pass) deriveGithubState falls back to verifying when some tasks are closed [4.45ms]
-(pass) deriveGithubState marks workflow complete when all milestones are closed [5.21ms]
+(pass) deriveGithubState returns pre-planning when no milestone issues exist [7.92ms]
+(pass) deriveGithubState derives active milestone/slice/task and executing phase [4.66ms]
+(pass) deriveGithubState falls back to verifying when some tasks are closed [4.02ms]
+(pass) deriveGithubState marks workflow complete when all milestones are closed [4.13ms]
 
 src/resources/extensions/kata/tests/github-backend.integration.test.ts:
 [kata][backend-bootstrap] {"backend":"github","status":"ready","detail":"acme/demo (labels)"}
-(pass) createBackend boots GitHub mode and derives active refs [40.78ms]
+(pass) createBackend boots GitHub mode and derives active refs [53.40ms]
 [kata][backend-bootstrap] {"backend":"github","status":"invalid_config","diagnostics":["missing_github_token"]}
-(pass) createBackend returns actionable diagnostics when GitHub token is missing [1.10ms]
+(pass) createBackend returns actionable diagnostics when GitHub token is missing [1.06ms]
 [kata][backend-bootstrap] {"backend":"github","status":"ready","detail":"acme/demo (labels)"}
-(pass) createBackend fetches beyond 10 pages when GitHub issues exceed 1000 [19.56ms]
+(pass) createBackend fetches beyond 10 pages when GitHub issues exceed 1000 [18.79ms]
 [kata][backend-bootstrap] {"backend":"github","status":"ready","detail":"acme/demo (labels)"}
-(pass) createBackend surfaces timeout diagnostics when GitHub API calls hang [27.75ms]
-(pass) runtime smoke: GitHub backend derives state against real GitHub API when token is available [0.03ms]
+(pass) createBackend surfaces timeout diagnostics when GitHub API calls hang [26.42ms]
+(pass) runtime smoke: GitHub backend derives state against real GitHub API when token is available [0.11ms]
 
  38 pass
  0 fail
-Ran 38 tests across 3 files. [367.00ms]
+Ran 38 tests across 3 files. [440.00ms]
 ✅ CLI GitHub backend integration harness (bun test) passed
 ::endgroup::
 ::group::Desktop GitHub workflow backend contracts (Vitest)
@@ -153,46 +153,46 @@ Ran 38 tests across 3 files. [367.00ms]
 [1m[30m[46m RUN [49m[39m[22m [36mv4.1.4 [39m[90m/Volumes/EVO/symphony-workspaces/KAT-2708/apps/desktop[39m
 
 [90mstdout[2m | src/main/__tests__/github-workflow-client.test.ts[2m > [22m[2mGithubWorkflowClient[2m > [22m[2mnormalizes label mode issues into canonical board columns
-[22m[39m07:52:12.413 › [github-workflow-client] PR metadata extraction { cardsWithPr: [33m0[39m, cardsWithoutPr: [33m1[39m }
+[22m[39m07:53:59.256 › [github-workflow-client] PR metadata extraction { cardsWithPr: [33m0[39m, cardsWithoutPr: [33m1[39m }
 
 [90mstdout[2m | src/main/__tests__/github-workflow-client.test.ts[2m > [22m[2mGithubWorkflowClient[2m > [22m[2mnormalizes label mode issues into canonical board columns
-[22m[39m07:52:12.416 › [github-workflow-client] workflow:fetch {
+[22m[39m07:53:59.258 › [github-workflow-client] workflow:fetch {
   repo: [32m'kata-sh/kata'[39m,
   mode: [32m'labels'[39m,
   status: [32m'fresh'[39m,
   cardCount: [33m1[39m,
-  latencyMs: [33m4[39m
+  latencyMs: [33m3[39m
 }
 
 [90mstdout[2m | src/main/__tests__/github-workflow-client.test.ts[2m > [22m[2mGithubWorkflowClient[2m > [22m[2mnormalizes projects v2 status into canonical board columns
-[22m[39m07:52:12.418 › [github-workflow-client] projects_v2 cards normalized { projectNumber: [33m7[39m, itemCount: [33m2[39m, cardCount: [33m1[39m }
+[22m[39m07:53:59.260 › [github-workflow-client] projects_v2 cards normalized { projectNumber: [33m7[39m, itemCount: [33m2[39m, cardCount: [33m1[39m }
 
 [90mstdout[2m | src/main/__tests__/github-workflow-client.test.ts[2m > [22m[2mGithubWorkflowClient[2m > [22m[2mnormalizes projects v2 status into canonical board columns
-[22m[39m07:52:12.419 › [github-workflow-client] workflow:fetch {
+[22m[39m07:53:59.260 › [github-workflow-client] workflow:fetch {
   repo: [32m'kata-sh/kata'[39m,
   mode: [32m'projects_v2'[39m,
   status: [32m'fresh'[39m,
   cardCount: [33m1[39m,
-  latencyMs: [33m1[39m
+  latencyMs: [33m0[39m
 }
 
 [90mstdout[2m | src/main/__tests__/github-workflow-client.test.ts[2m > [22m[2mGithubWorkflowClient[2m > [22m[2mpaginates label mode issue requests and returns empty state when no mapped labels are present
-[22m[39m07:52:12.420 › [github-workflow-client] PR metadata extraction { cardsWithPr: [33m0[39m, cardsWithoutPr: [33m0[39m }
+[22m[39m07:53:59.261 › [github-workflow-client] PR metadata extraction { cardsWithPr: [33m0[39m, cardsWithoutPr: [33m0[39m }
 
 [90mstdout[2m | src/main/__tests__/github-workflow-client.test.ts[2m > [22m[2mGithubWorkflowClient[2m > [22m[2mpaginates label mode issue requests and returns empty state when no mapped labels are present
-[22m[39m07:52:12.420 › [github-workflow-client] workflow:fetch {
+[22m[39m07:53:59.262 › [github-workflow-client] workflow:fetch {
   repo: [32m'kata-sh/kata'[39m,
   mode: [32m'labels'[39m,
   status: [32m'empty'[39m,
   cardCount: [33m0[39m,
-  latencyMs: [33m0[39m
+  latencyMs: [33m1[39m
 }
 
 [90mstdout[2m | src/main/__tests__/github-workflow-client.test.ts[2m > [22m[2mGithubWorkflowClient[2m > [22m[2mtreats empty REST response body as empty issue list
-[22m[39m07:52:12.421 › [github-workflow-client] PR metadata extraction { cardsWithPr: [33m0[39m, cardsWithoutPr: [33m0[39m }
+[22m[39m07:53:59.262 › [github-workflow-client] PR metadata extraction { cardsWithPr: [33m0[39m, cardsWithoutPr: [33m0[39m }
 
 [90mstdout[2m | src/main/__tests__/github-workflow-client.test.ts[2m > [22m[2mGithubWorkflowClient[2m > [22m[2mtreats empty REST response body as empty issue list
-[22m[39m07:52:12.421 › [github-workflow-client] workflow:fetch {
+[22m[39m07:53:59.262 › [github-workflow-client] workflow:fetch {
   repo: [32m'kata-sh/kata'[39m,
   mode: [32m'labels'[39m,
   status: [32m'empty'[39m,
@@ -201,22 +201,22 @@ Ran 38 tests across 3 files. [367.00ms]
 }
 
 [90mstdout[2m | src/main/__tests__/github-workflow-client.test.ts[2m > [22m[2mGithubWorkflowClient[2m > [22m[2muses authBridge token fallback when GH_TOKEN is absent
-[22m[39m07:52:12.422 › [github-workflow-client] PR metadata extraction { cardsWithPr: [33m0[39m, cardsWithoutPr: [33m0[39m }
+[22m[39m07:53:59.263 › [github-workflow-client] PR metadata extraction { cardsWithPr: [33m0[39m, cardsWithoutPr: [33m0[39m }
 
 [90mstdout[2m | src/main/__tests__/github-workflow-client.test.ts[2m > [22m[2mGithubWorkflowClient[2m > [22m[2muses authBridge token fallback when GH_TOKEN is absent
-[22m[39m07:52:12.422 › [github-workflow-client] workflow:fetch {
+[22m[39m07:53:59.263 › [github-workflow-client] workflow:fetch {
   repo: [32m'kata-sh/kata'[39m,
   mode: [32m'labels'[39m,
   status: [32m'empty'[39m,
   cardCount: [33m0[39m,
-  latencyMs: [33m1[39m
+  latencyMs: [33m0[39m
 }
 
 [90mstdout[2m | src/main/__tests__/github-workflow-client.test.ts[2m > [22m[2mGithubWorkflowClient[2m > [22m[2mpopulates prMetadata on label-mode cards from issue body PR references
-[22m[39m07:52:12.428 › [github-workflow-client] PR metadata extraction { cardsWithPr: [33m1[39m, cardsWithoutPr: [33m1[39m }
+[22m[39m07:53:59.267 › [github-workflow-client] PR metadata extraction { cardsWithPr: [33m1[39m, cardsWithoutPr: [33m1[39m }
 
 [90mstdout[2m | src/main/__tests__/github-workflow-client.test.ts[2m > [22m[2mGithubWorkflowClient[2m > [22m[2mpopulates prMetadata on label-mode cards from issue body PR references
-[22m[39m07:52:12.428 › [github-workflow-client] workflow:fetch {
+[22m[39m07:53:59.268 › [github-workflow-client] workflow:fetch {
   repo: [32m'kata-sh/kata'[39m,
   mode: [32m'labels'[39m,
   status: [32m'fresh'[39m,
@@ -225,106 +225,106 @@ Ran 38 tests across 3 files. [367.00ms]
 }
 
 [90mstdout[2m | src/main/__tests__/github-workflow-client.test.ts[2m > [22m[2mGithubWorkflowClient[2m > [22m[2mfilters out PR-type issues while still extracting PR references from regular issues
-[22m[39m07:52:12.428 › [github-workflow-client] PR metadata extraction { cardsWithPr: [33m1[39m, cardsWithoutPr: [33m0[39m }
+[22m[39m07:53:59.268 › [github-workflow-client] PR metadata extraction { cardsWithPr: [33m1[39m, cardsWithoutPr: [33m0[39m }
 
 [90mstdout[2m | src/main/__tests__/github-workflow-client.test.ts[2m > [22m[2mGithubWorkflowClient[2m > [22m[2mfilters out PR-type issues while still extracting PR references from regular issues
-[22m[39m07:52:12.429 › [github-workflow-client] workflow:fetch {
+[22m[39m07:53:59.268 › [github-workflow-client] workflow:fetch {
   repo: [32m'kata-sh/kata'[39m,
   mode: [32m'labels'[39m,
   status: [32m'fresh'[39m,
   cardCount: [33m1[39m,
-  latencyMs: [33m1[39m
+  latencyMs: [33m0[39m
 }
 
- [32m✓[39m src/main/__tests__/github-workflow-client.test.ts [2m([22m[2m18 tests[22m[2m)[22m[32m 25[2mms[22m[39m
+ [32m✓[39m src/main/__tests__/github-workflow-client.test.ts [2m([22m[2m18 tests[22m[2m)[22m[32m 22[2mms[22m[39m
 [90mstderr[2m | src/main/__tests__/workflow-board-service.test.ts[2m > [22m[2mWorkflowBoardService[2m > [22m[2mreturns stale snapshot with error metadata when refresh fails after a successful fetch
-[22m[39m07:52:12.445 › [workflow-board-service] workflow refresh failed {
-  workspacePath: [32m'/var/folders/d7/p8j2hgrd7b7c89fxsxlbwptm0000gn/T/workflow-board-stale-SNmQ8S'[39m,
+[22m[39m07:53:59.285 › [workflow-board-service] workflow refresh failed {
+  workspacePath: [32m'/var/folders/d7/p8j2hgrd7b7c89fxsxlbwptm0000gn/T/workflow-board-stale-aWf0o2'[39m,
   tracker: { kind: [32m'linear'[39m, projectRef: [32m'project-ref'[39m },
   scopeKey: [32m'workspace:test::session:test'[39m,
   error: { code: [32m'UNKNOWN'[39m, message: [32m'network down'[39m }
 }
 
 [90mstderr[2m | src/main/__tests__/workflow-board-service.test.ts[2m > [22m[2mWorkflowBoardService[2m > [22m[2msurfaces malformed preferences path errors without misreporting NOT_CONFIGURED
-[22m[39m07:52:12.447 › [workflow-board-service] unable to read preferences {
-  workspacePath: [32m'/var/folders/d7/p8j2hgrd7b7c89fxsxlbwptm0000gn/T/workflow-board-invalid-587b3424-0237-40da-949d-a71b5d86506c'[39m,
-  preferencesPath: [32m'/var/folders/d7/p8j2hgrd7b7c89fxsxlbwptm0000gn/T/workflow-board-invalid-587b3424-0237-40da-949d-a71b5d86506c/.kata/preferences.md'[39m,
-  error: [32m"ENOTDIR: not a directory, open '/var/folders/d7/p8j2hgrd7b7c89fxsxlbwptm0000gn/T/workflow-board-invalid-587b3424-0237-40da-949d-a71b5d86506c/.kata/preferences.md'"[39m
+[22m[39m07:53:59.287 › [workflow-board-service] unable to read preferences {
+  workspacePath: [32m'/var/folders/d7/p8j2hgrd7b7c89fxsxlbwptm0000gn/T/workflow-board-invalid-104f7fc5-abdf-45a8-9844-328efab63526'[39m,
+  preferencesPath: [32m'/var/folders/d7/p8j2hgrd7b7c89fxsxlbwptm0000gn/T/workflow-board-invalid-104f7fc5-abdf-45a8-9844-328efab63526/.kata/preferences.md'[39m,
+  error: [32m"ENOTDIR: not a directory, open '/var/folders/d7/p8j2hgrd7b7c89fxsxlbwptm0000gn/T/workflow-board-invalid-104f7fc5-abdf-45a8-9844-328efab63526/.kata/preferences.md'"[39m
 }
 
 [90mstderr[2m | src/main/__tests__/workflow-board-service.test.ts[2m > [22m[2mWorkflowBoardService[2m > [22m[2mrefreshContext reports unknown mode when preferences lookup throws in non-test mode
-[22m[39m07:52:12.567 › [workflow-board-service] unable to read preferences {
-  workspacePath: [32m'/var/folders/d7/p8j2hgrd7b7c89fxsxlbwptm0000gn/T/workflow-board-refresh-context-error-6bd9af1a-b453-484a-828a-c8504aa610bb'[39m,
-  preferencesPath: [32m'/var/folders/d7/p8j2hgrd7b7c89fxsxlbwptm0000gn/T/workflow-board-refresh-context-error-6bd9af1a-b453-484a-828a-c8504aa610bb/.kata/preferences.md'[39m,
-  error: [32m"ENOTDIR: not a directory, open '/var/folders/d7/p8j2hgrd7b7c89fxsxlbwptm0000gn/T/workflow-board-refresh-context-error-6bd9af1a-b453-484a-828a-c8504aa610bb/.kata/preferences.md'"[39m
+[22m[39m07:53:59.407 › [workflow-board-service] unable to read preferences {
+  workspacePath: [32m'/var/folders/d7/p8j2hgrd7b7c89fxsxlbwptm0000gn/T/workflow-board-refresh-context-error-73e40a70-28c3-4b85-9e9a-5c265b678043'[39m,
+  preferencesPath: [32m'/var/folders/d7/p8j2hgrd7b7c89fxsxlbwptm0000gn/T/workflow-board-refresh-context-error-73e40a70-28c3-4b85-9e9a-5c265b678043/.kata/preferences.md'[39m,
+  error: [32m"ENOTDIR: not a directory, open '/var/folders/d7/p8j2hgrd7b7c89fxsxlbwptm0000gn/T/workflow-board-refresh-context-error-73e40a70-28c3-4b85-9e9a-5c265b678043/.kata/preferences.md'"[39m
 }
 
 [90mstderr[2m | src/main/__tests__/workflow-board-service.test.ts[2m > [22m[2mWorkflowBoardService[2m > [22m[2mreturns UNKNOWN when WORKFLOW exists but preferences path is unreadable
-[22m[39m07:52:12.571 › [workflow-board-service] unable to read preferences {
-  workspacePath: [32m'/var/folders/d7/p8j2hgrd7b7c89fxsxlbwptm0000gn/T/workflow-board-preferences-unreadable-ga4UZC'[39m,
-  preferencesPath: [32m'/var/folders/d7/p8j2hgrd7b7c89fxsxlbwptm0000gn/T/workflow-board-preferences-unreadable-ga4UZC/.kata/preferences.md'[39m,
-  error: [32m"ENOTDIR: not a directory, open '/var/folders/d7/p8j2hgrd7b7c89fxsxlbwptm0000gn/T/workflow-board-preferences-unreadable-ga4UZC/.kata/preferences.md'"[39m
+[22m[39m07:53:59.410 › [workflow-board-service] unable to read preferences {
+  workspacePath: [32m'/var/folders/d7/p8j2hgrd7b7c89fxsxlbwptm0000gn/T/workflow-board-preferences-unreadable-QKl89o'[39m,
+  preferencesPath: [32m'/var/folders/d7/p8j2hgrd7b7c89fxsxlbwptm0000gn/T/workflow-board-preferences-unreadable-QKl89o/.kata/preferences.md'[39m,
+  error: [32m"ENOTDIR: not a directory, open '/var/folders/d7/p8j2hgrd7b7c89fxsxlbwptm0000gn/T/workflow-board-preferences-unreadable-QKl89o/.kata/preferences.md'"[39m
 }
 
- [32m✓[39m src/main/__tests__/workflow-board-service.test.ts [2m([22m[2m61 tests[22m[2m)[22m[32m 141[2mms[22m[39m
+ [32m✓[39m src/main/__tests__/workflow-board-service.test.ts [2m([22m[2m61 tests[22m[2m)[22m[32m 140[2mms[22m[39m
 
 [2m Test Files [22m [1m[32m2 passed[39m[22m[90m (2)[39m
 [2m      Tests [22m [1m[32m79 passed[39m[22m[90m (79)[39m
-[2m   Start at [22m 07:52:12
-[2m   Duration [22m 325ms[2m (transform 149ms, setup 19ms, import 184ms, tests 166ms, environment 0ms)[22m
+[2m   Start at [22m 07:53:59
+[2m   Duration [22m 330ms[2m (transform 142ms, setup 24ms, import 176ms, tests 162ms, environment 0ms)[22m
 
 ✅ Desktop GitHub workflow backend contracts (Vitest) passed
 ::endgroup::
 ::group::Symphony GitHub backend execution contracts (cargo test)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.09s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.26s
      Running tests/github_adapter_tests.rs (target/debug/deps/github_adapter_tests-4e8f37ecf1eb6429)
 
 running 32 tests
-test test_fetch_issue_states_by_ids_marks_assignment_with_assignee_filter ... ok
-test test_fetch_candidate_issues_skips_pull_requests ... ok
-test test_fetch_issue_states_by_ids_skips_pull_requests ... ok
-test test_create_comment_preserves_structured_markdown_body ... ok
 test test_create_comment_delegates_to_client ... ok
-test test_fetch_candidate_issues_applies_assignee_filter ... ok
+test test_create_comment_preserves_structured_markdown_body ... ok
+test test_fetch_issue_states_by_ids_skips_pull_requests ... ok
+test test_fetch_candidate_issues_skips_pull_requests ... ok
+test test_fetch_issue_states_by_ids_marks_assignment_with_assignee_filter ... ok
 test test_fetch_candidate_issues_returns_matching_issues ... ok
+test test_fetch_candidate_issues_applies_assignee_filter ... ok
 test test_fetch_issue_states_by_ids_returns_individual_issues ... ok
 test test_fetch_issues_by_states_marks_assignment_with_assignee_filter ... ok
-test test_issue_to_domain_enriches_kata_identifier_and_parent_reference ... ok
 test test_fetch_issues_by_states_filters_by_state_labels ... ok
-test test_issue_to_domain_extracts_state_from_label ... ok
+test test_issue_to_domain_enriches_kata_identifier_and_parent_reference ... ok
 test test_issue_to_domain_maps_github_url ... ok
+test test_issue_to_domain_extracts_state_from_label ... ok
 test test_issue_to_domain_maps_identifier_format ... ok
-test test_issue_to_domain_preserves_hash_identifier_for_non_kata_title ... ok
-test test_issue_to_domain_parses_slice_task_and_milestone_kata_prefixes ... ok
 test test_mode_detection_selects_labels_when_project_number_absent ... ok
+test test_issue_to_domain_parses_slice_task_and_milestone_kata_prefixes ... ok
 test test_mode_detection_selects_projects_v2_when_project_number_set ... ok
+test test_issue_to_domain_preserves_hash_identifier_for_non_kata_title ... ok
 test test_contract_matrix_label_mode_all_methods ... ok
-test test_projects_v2_update_issue_state_unknown_status_errors ... ok
 test test_projects_v2_update_issue_state_issue_not_on_board_errors ... ok
-test test_projects_v2_fetch_issue_states_by_ids_reads_board_status ... ok
 test test_projects_v2_fetch_issues_by_states ... ok
-test test_projects_v2_fetch_candidate_issues_queries_by_status ... ok
+test test_projects_v2_fetch_issue_states_by_ids_reads_board_status ... ok
 test test_projects_v2_fetch_candidate_issues_skips_closed_issues ... ok
-test test_contract_matrix_projects_v2_mode_all_methods ... ok
-test test_projects_v2_update_issue_state_mutates_status_field ... ok
+test test_projects_v2_fetch_candidate_issues_queries_by_status ... ok
+test test_projects_v2_update_issue_state_unknown_status_errors ... ok
 test test_update_issue_state_handles_missing_old_label ... ok
+test test_projects_v2_update_issue_state_mutates_status_field ... ok
 test test_update_issue_state_swaps_labels ... ok
 test test_update_issue_state_removes_all_existing_state_labels ... ok
+test test_contract_matrix_projects_v2_mode_all_methods ... ok
 test test_kata_phase_vocabulary_round_trip_in_label_mode ... ok
 test test_kata_phase_vocabulary_round_trip_in_projects_v2_mode ... ok
 
-test result: ok. 32 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+test result: ok. 32 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
 
      Running tests/github_execution_contract_tests.rs (target/debug/deps/github_execution_contract_tests-b72e60429f3f0e3f)
 
 running 5 tests
-test test_projects_v2_unknown_status_reports_actionable_error ... ok
 test test_refresh_deleted_issue_and_comment_on_closed_issue_do_not_panic ... ok
+test test_projects_v2_unknown_status_reports_actionable_error ... ok
 test test_label_and_projects_modes_emit_identical_issue_contract_shape ... ok
 test test_label_mode_execution_lifecycle_contract ... ok
 test test_projects_v2_execution_lifecycle_contract ... ok
 
-test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
 
 ✅ Symphony GitHub backend execution contracts (cargo test) passed
 ::endgroup::

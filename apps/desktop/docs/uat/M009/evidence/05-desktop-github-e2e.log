@@ -1,5 +1,5 @@
 == 05: Desktop GitHub board parity e2e screenshot proof ==
-UTC 2026-04-17T14:52:17Z
+UTC 2026-04-17T14:54:04Z
 
 
 > @kata/desktop@0.2.4 build:main /Volumes/EVO/symphony-workspaces/KAT-2708/apps/desktop
@@ -8,7 +8,7 @@ UTC 2026-04-17T14:52:17Z
 
   dist/main.cjs  408.4kb
 
-⚡ Done in 6ms
+⚡ Done in 10ms
 
 > @kata/desktop@0.2.4 build:preload /Volumes/EVO/symphony-workspaces/KAT-2708/apps/desktop
 > esbuild src/preload/index.ts --bundle --platform=node --format=cjs --outfile=dist/preload.cjs --external:electron
@@ -335,7 +335,7 @@ dist/renderer/assets/cpp-Bk30m8h0.js                               626.12 kB │
 dist/renderer/assets/emacs-lisp-Dhht7he2.js                        779.84 kB │ gzip: 197.53 kB
 dist/renderer/assets/index-DWQktpk2.js                           2,058.81 kB │ gzip: 602.74 kB
 
-✓ built in 676ms
+✓ built in 714ms
 [plugin builtin:vite-reporter] 
 (!) Some chunks are larger than 500 kB after minification. Consider:
 - Using dynamic import() to code-split the application
@@ -344,6 +344,6 @@ dist/renderer/assets/index-DWQktpk2.js                           2,058.81 kB │
 
 Running 1 test using 1 worker
 
-  ✓  1 e2e/tests/m009-github-cross-suite-proof.e2e.ts:7:3 › M009 desktop workflow evidence capture › captures workflow board screenshot after live refresh (3.9s)
+  ✓  1 e2e/tests/m009-github-cross-suite-proof.e2e.ts:7:3 › M009 desktop workflow evidence capture › captures workflow board screenshot after live refresh (4.0s)
 
   1 passed (4.2s)
