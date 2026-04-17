@@ -1,0 +1,13 @@
+== 04: CLI real-environment runtime smoke against GitHub API ==
+UTC 2026-04-17T14:54:00Z
+
+bun test v1.3.11 (af24e281)
+
+src/resources/extensions/kata/tests/github-backend.integration.test.ts:
+[kata][backend-bootstrap] {"backend":"github","status":"ready","detail":"gannonh/kata (labels)"}
+(pass) runtime smoke: GitHub backend derives state against real GitHub API when token is available [3473.63ms]
+
+ 1 pass
+ 4 filtered out
+ 0 fail
+Ran 1 test across 1 file. [3.70s]
