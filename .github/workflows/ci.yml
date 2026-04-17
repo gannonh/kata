@@ -120,12 +120,53 @@ jobs:
           path: apps/symphony/coverage/
           retention-days: 30
 
+  github-backend-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.8'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.6.2
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            apps/symphony/target
+          key: ${{ runner.os }}-cargo-github-backend-${{ hashFiles('apps/symphony/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-github-backend-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run GitHub backend validation lane
+        run: bash scripts/ci/github-backend-validation.sh
+
   # Legacy desktop e2e-mocked job removed — apps/desktop is the only active desktop target.
   # Desktop unit tests run via Turborepo in the validate job (npx vitest run --coverage).
   # Desktop e2e tests will be added in a future milestone.
 
   gate:
-    needs: [validate, symphony-coverage]
+    needs: [validate, symphony-coverage, github-backend-validation]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -133,9 +174,11 @@ jobs:
         run: |
           echo "validate: ${{ needs.validate.result }}"
           echo "symphony-coverage: ${{ needs.symphony-coverage.result }}"
+          echo "github-backend-validation: ${{ needs.github-backend-validation.result }}"
 
           if [[ "${{ needs.validate.result }}" == "failure" || \
-                "${{ needs.symphony-coverage.result }}" == "failure" ]]; then
+                "${{ needs.symphony-coverage.result }}" == "failure" || \
+                "${{ needs.github-backend-validation.result }}" == "failure" ]]; then
             echo "One or more jobs failed"
             exit 1
           fi
