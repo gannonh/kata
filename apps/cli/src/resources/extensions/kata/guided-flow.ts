@@ -212,25 +212,6 @@ async function buildPlanningContext(
   return parts.join("\n");
 }
 
-// ─── Queue ──────────────────────────────────────────────────────────────────
-
-export async function showQueue(
-  ctx: ExtensionCommandContext,
-  _pi: ExtensionAPI,
-  _basePath: string,
-): Promise<void> {
-  const modeGate = getWorkflowEntrypointGuard("queue");
-  if (!modeGate.allow) {
-    ctx.ui.notify(
-      modeGate.notice ?? "Workflow mode is not supported here.",
-      modeGate.noticeLevel,
-    );
-    return;
-  }
-
-  ctx.ui.notify("/kata queue is not yet available in Linear mode.", "warning");
-}
-
 // ─── Discuss ────────────────────────────────────────────────────────────────
 
 async function buildDiscussSlicePrompt(

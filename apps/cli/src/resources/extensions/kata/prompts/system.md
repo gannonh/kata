@@ -58,7 +58,6 @@ These are raw JSONL debug artifacts — used automatically for retry diagnostics
 - `/kata auto` — auto-execute (fresh context per task)
 - `/kata stop` — stop auto-mode
 - `/kata status` — progress dashboard overlay
-- `/kata queue` — queue future milestones (safe while auto-mode is running)
 - `Ctrl+Alt+G` — toggle dashboard overlay
 - `Ctrl+Alt+B` — show shell processes
 

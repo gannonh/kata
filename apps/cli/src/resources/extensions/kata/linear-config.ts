@@ -75,7 +75,6 @@ export interface ValidateLinearProjectConfigOptions {
 
 export type WorkflowEntrypoint =
   | "smart-entry"
-  | "queue"
   | "discuss"
   | "plan"
   | "status"
@@ -448,11 +447,6 @@ function buildLinearEntrypointGuard(
         notice: "Running in Linear mode. Milestone artifacts stored in Linear.",
         protocol,
       };
-    case "queue":
-      return blockedLinearEntrypoint(
-        protocol,
-        "This project is configured for Linear mode. /kata queue still appends file-backed Kata artifacts and is blocked until Linear document storage is wired.",
-      );
     case "discuss":
       return {
         mode: "linear",
@@ -555,13 +549,13 @@ function buildGithubEntrypointGuard(
     };
   }
 
-  // Block unsupported file-backed entrypoints
+  // Block unsupported entrypoints
   return {
     mode: "github",
     isLinearMode: false,
     allow: false,
     noticeLevel: "warning",
-    notice: "This project is configured for GitHub mode. This file-backed Kata entrypoint is not supported in GitHub mode.",
+    notice: "This project is configured for GitHub mode. This /kata entrypoint is not supported.",
     protocol,
   };
 }
