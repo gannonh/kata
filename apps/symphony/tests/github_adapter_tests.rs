@@ -200,6 +200,16 @@ fn phase_to_label(phase: &str) -> String {
         .join("-")
 }
 
+fn projects_v2_option_name_for_phase(phase: &str) -> String {
+    match phase {
+        "Todo" => "to_do".to_string(),
+        "In Progress" => "in-progress".to_string(),
+        "Agent Review" => "agent_review".to_string(),
+        "Human Review" => "human review".to_string(),
+        _ => phase_to_label(phase),
+    }
+}
+
 fn pull_request_json(mut issue: serde_json::Value) -> serde_json::Value {
     issue["pull_request"] = json!({
         "url": "https://api.github.com/repos/kata-sh/kata-mono/pulls/123"
@@ -744,17 +754,8 @@ async fn test_kata_phase_vocabulary_round_trip_in_label_mode() {
 
 #[tokio::test]
 async fn test_kata_phase_vocabulary_round_trip_in_projects_v2_mode() {
-    let mapping = [
-        ("Backlog", "backlog"),
-        ("Todo", "to_do"),
-        ("In Progress", "in-progress"),
-        ("Agent Review", "agent_review"),
-        ("Human Review", "human review"),
-        ("Merging", "merging"),
-        ("Done", "done"),
-    ];
-
-    for (phase, option_name) in mapping {
+    for phase in KATA_PHASE_NAMES {
+        let option_name = projects_v2_option_name_for_phase(phase);
         let mut server = Server::new_async().await;
         let adapter = test_projects_adapter(&server, None, 42);
 
@@ -796,7 +797,7 @@ async fn test_kata_phase_vocabulary_round_trip_in_projects_v2_mode() {
                     "item_7",
                     7,
                     "opt_target",
-                    option_name,
+                    &option_name,
                 )])
                 .to_string(),
             )
