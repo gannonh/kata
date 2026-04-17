@@ -149,12 +149,32 @@ fn issue_json(
     assignees: &[&str],
     html_url: Option<&str>,
 ) -> serde_json::Value {
+    issue_json_with_metadata(
+        number,
+        &format!("Issue {number}"),
+        Some(&format!("Body {number}")),
+        labels,
+        user_login,
+        assignees,
+        html_url,
+    )
+}
+
+fn issue_json_with_metadata(
+    number: u64,
+    title: &str,
+    body: Option<&str>,
+    labels: &[&str],
+    user_login: &str,
+    assignees: &[&str],
+    html_url: Option<&str>,
+) -> serde_json::Value {
     let first_assignee = assignees.first().copied().unwrap_or(user_login);
 
     json!({
         "number": number,
-        "title": format!("Issue {number}"),
-        "body": format!("Body {number}"),
+        "title": title,
+        "body": body,
         "state": "open",
         "user": { "login": user_login },
         "assignee": { "login": first_assignee },
@@ -816,6 +836,148 @@ async fn test_kata_phase_vocabulary_round_trip_in_projects_v2_mode() {
         assert_eq!(states.len(), 1);
         assert_eq!(states[0].state, phase);
     }
+}
+
+#[tokio::test]
+async fn test_issue_to_domain_enriches_kata_identifier_and_parent_reference() {
+    let mut server = Server::new_async().await;
+    let adapter = test_adapter(&server, None);
+
+    let kata_issue = issue_json_with_metadata(
+        42,
+        "[S01] Build feature",
+        Some("Context\n\n**Parent:** #10\n\nMore context"),
+        &["symphony:todo", "kata:task"],
+        "alice",
+        &["alice"],
+        Some("https://github.com/kata-sh/kata-mono/issues/42"),
+    );
+
+    let mock = server
+        .mock("GET", "/repos/kata-sh/kata-mono/issues")
+        .match_query(Matcher::AllOf(vec![
+            Matcher::UrlEncoded("state".into(), "open".into()),
+            Matcher::UrlEncoded("per_page".into(), "100".into()),
+        ]))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(json!([kata_issue]).to_string())
+        .create_async()
+        .await;
+
+    let issues = adapter
+        .fetch_candidate_issues()
+        .await
+        .expect("fetch_candidate_issues should succeed");
+
+    mock.assert_async().await;
+    assert_eq!(issues.len(), 1);
+    assert_eq!(issues[0].identifier, "[S01]#42");
+    assert_eq!(issues[0].parent_identifier.as_deref(), Some("#10"));
+    assert_eq!(issues[0].state, "Todo");
+    assert_eq!(
+        issues[0].url.as_deref(),
+        Some("https://github.com/kata-sh/kata-mono/issues/42")
+    );
+    assert!(issues[0].assigned_to_worker);
+    assert!(issues[0].labels.contains(&"kata:task".to_string()));
+}
+
+#[tokio::test]
+async fn test_issue_to_domain_parses_slice_task_and_milestone_kata_prefixes() {
+    let mut server = Server::new_async().await;
+    let adapter = test_adapter(&server, None);
+
+    let issues_payload = json!([
+        issue_json_with_metadata(
+            50,
+            "[S01] Slice",
+            Some("Body"),
+            &["symphony:todo"],
+            "alice",
+            &["alice"],
+            None
+        ),
+        issue_json_with_metadata(
+            51,
+            "[T1] Task",
+            Some("Body"),
+            &["symphony:todo"],
+            "alice",
+            &["alice"],
+            None
+        ),
+        issue_json_with_metadata(
+            52,
+            "[M001] Milestone",
+            Some("Body"),
+            &["symphony:todo"],
+            "alice",
+            &["alice"],
+            None
+        )
+    ]);
+
+    let mock = server
+        .mock("GET", "/repos/kata-sh/kata-mono/issues")
+        .match_query(Matcher::AllOf(vec![
+            Matcher::UrlEncoded("state".into(), "open".into()),
+            Matcher::UrlEncoded("per_page".into(), "100".into()),
+        ]))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(issues_payload.to_string())
+        .create_async()
+        .await;
+
+    let issues = adapter
+        .fetch_candidate_issues()
+        .await
+        .expect("fetch_candidate_issues should succeed");
+
+    mock.assert_async().await;
+    assert_eq!(issues.len(), 3);
+    assert_eq!(issues[0].identifier, "[S01]#50");
+    assert_eq!(issues[1].identifier, "[T1]#51");
+    assert_eq!(issues[2].identifier, "[M001]#52");
+}
+
+#[tokio::test]
+async fn test_issue_to_domain_preserves_hash_identifier_for_non_kata_title() {
+    let mut server = Server::new_async().await;
+    let adapter = test_adapter(&server, None);
+
+    let regular_issue = issue_json_with_metadata(
+        43,
+        "Regular ticket title",
+        Some("Part of: #10"),
+        &["symphony:todo"],
+        "alice",
+        &["alice"],
+        None,
+    );
+
+    let mock = server
+        .mock("GET", "/repos/kata-sh/kata-mono/issues")
+        .match_query(Matcher::AllOf(vec![
+            Matcher::UrlEncoded("state".into(), "open".into()),
+            Matcher::UrlEncoded("per_page".into(), "100".into()),
+        ]))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(json!([regular_issue]).to_string())
+        .create_async()
+        .await;
+
+    let issues = adapter
+        .fetch_candidate_issues()
+        .await
+        .expect("fetch_candidate_issues should succeed");
+
+    mock.assert_async().await;
+    assert_eq!(issues.len(), 1);
+    assert_eq!(issues[0].identifier, "#43");
+    assert_eq!(issues[0].parent_identifier.as_deref(), Some("#10"));
 }
 
 #[tokio::test]

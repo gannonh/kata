@@ -3,7 +3,10 @@ use std::collections::{HashMap, HashSet};
 use async_trait::async_trait;
 use tokio::sync::OnceCell;
 
-use crate::domain::{canonical_kata_phase_name, Issue, TrackerConfig, KATA_PHASE_NAMES};
+use crate::domain::{
+    canonical_kata_phase_name, parse_kata_identifier, parse_parent_issue_reference, Issue,
+    TrackerConfig, KATA_PHASE_NAMES,
+};
 use crate::error::{Result, SymphonyError};
 use crate::github::client::{GithubClient, GithubIssue};
 use crate::github::projects_v2::{ProjectsV2Client, StatusFieldInfo, StatusOption};
@@ -116,9 +119,23 @@ impl GithubAdapter {
             .map(|assignee| assignee.login.clone())
             .or_else(|| gh.assignee.as_ref().map(|assignee| assignee.login.clone()));
 
+        let identifier = if let Some(kata_identifier) = parse_kata_identifier(&gh.title) {
+            tracing::info!(
+                event = "kata_identifier_parsed",
+                issue_number = gh.number,
+                kata_identifier = %kata_identifier,
+                "parsed kata identifier from GitHub issue title"
+            );
+            format!("{kata_identifier}#{}", gh.number)
+        } else {
+            format!("#{}", gh.number)
+        };
+
+        let parent_identifier = gh.body.as_deref().and_then(parse_parent_issue_reference);
+
         Issue {
             id: gh.number.to_string(),
-            identifier: format!("#{}", gh.number),
+            identifier,
             title: gh.title.clone(),
             description: gh.body.clone(),
             priority: None,
@@ -132,7 +149,7 @@ impl GithubAdapter {
             created_at: gh.created_at,
             updated_at: gh.updated_at,
             children_count: 0,
-            parent_identifier: None,
+            parent_identifier,
         }
     }
 
