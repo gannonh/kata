@@ -8,11 +8,11 @@ All relevant context has been preloaded below — start working immediately with
 
 {{backendRules}}
 
-### Linear Discovery Rule
+### Backend Discovery Rule
 
-- Enumerate slices with `kata_list_slices({ projectId, teamId, milestoneId })`.
-- After selecting a specific slice, use `linear_get_issue(id)` for the full issue body/comments.
-- Do **not** use `linear_list_issues` to enumerate Kata slices for planning.
+- Follow backend-specific discovery guidance from `{{backendRules}}` + `{{backendOps}}`.
+- Enumerate milestone slices with backend list/search operations before creating or updating artifacts.
+- Use explicit readback checks instead of speculative writes so reruns stay idempotent.
 
 Then:
 1. Read the template at `~/.kata-cli/agent/extensions/kata/templates/roadmap.md`

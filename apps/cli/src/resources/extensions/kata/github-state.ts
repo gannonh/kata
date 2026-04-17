@@ -1,6 +1,11 @@
 import type { GithubStateMode } from "./github-config.js";
 import type { ActiveRef, KataState, MilestoneRegistryEntry, Phase } from "./types.js";
 import { getActiveSliceBranch, parseSliceBranchName } from "./worktree.js";
+import {
+  maybeParseGithubArtifactMetadata,
+  parseGithubKataTitle,
+  type GithubArtifactMetadataV1,
+} from "./github-artifacts.js";
 
 export interface GithubIssueSummary {
   number: number;
@@ -27,16 +32,22 @@ interface ParsedKataTitle {
   title: string;
 }
 
+interface ParsedIssue {
+  issue: GithubIssueSummary;
+  parsed: ParsedKataTitle;
+  metadata: GithubArtifactMetadataV1 | null;
+}
+
 const MILESTONE_RE = /^M\d{3}$/;
 const SLICE_RE = /^S\d{2}$/;
 const TASK_RE = /^T\d{2}$/;
 
 function parseKataTitle(title: string): ParsedKataTitle | null {
-  const match = title.match(/^\[([A-Z]\d+)\]\s*(.+)$/);
-  if (!match) return null;
+  const parsed = parseGithubKataTitle(title);
+  if (!parsed) return null;
   return {
-    id: match[1] ?? "",
-    title: (match[2] ?? "").trim(),
+    id: parsed.kataId,
+    title: parsed.title,
   };
 }
 
@@ -139,9 +150,15 @@ function escapeRegex(value: string): string {
 function taskBelongsToSlice(
   issue: GithubIssueSummary,
   sliceId: string,
+  metadata: GithubArtifactMetadataV1 | null,
 ): boolean {
   const normalizedSliceId = sliceId.trim().toLowerCase();
   if (!normalizedSliceId) return false;
+
+  const metadataSlice = metadata?.sliceId?.trim().toLowerCase();
+  if (metadataSlice && metadataSlice === normalizedSliceId) {
+    return true;
+  }
 
   const labels = labelSet(issue);
   if (
@@ -171,20 +188,30 @@ export async function deriveGithubState(
     .map((issue) => {
       const parsed = parseKataTitle(issue.title);
       if (!parsed) return null;
-      return { issue, parsed };
+      const metadata = maybeParseGithubArtifactMetadata(issue.body ?? "");
+      return { issue, parsed, metadata } satisfies ParsedIssue;
     })
-    .filter((entry): entry is { issue: GithubIssueSummary; parsed: ParsedKataTitle } => entry !== null);
+    .filter((entry): entry is ParsedIssue => entry !== null);
 
   const milestones = parsedIssues
-    .filter((entry) => MILESTONE_RE.test(entry.parsed.id))
+    .filter((entry) => {
+      if (entry.metadata?.kind === "milestone") return true;
+      return MILESTONE_RE.test(entry.parsed.id);
+    })
     .sort((a, b) => compareKataIds(a.parsed.id, b.parsed.id));
 
   const slices = parsedIssues
-    .filter((entry) => SLICE_RE.test(entry.parsed.id))
+    .filter((entry) => {
+      if (entry.metadata?.kind === "slice") return true;
+      return SLICE_RE.test(entry.parsed.id);
+    })
     .sort((a, b) => compareKataIds(a.parsed.id, b.parsed.id));
 
   const tasks = parsedIssues
-    .filter((entry) => TASK_RE.test(entry.parsed.id))
+    .filter((entry) => {
+      if (entry.metadata?.kind === "task") return true;
+      return TASK_RE.test(entry.parsed.id);
+    })
     .sort((a, b) => compareKataIds(a.parsed.id, b.parsed.id));
 
   const registry: MilestoneRegistryEntry[] = [];
@@ -280,10 +307,10 @@ export async function deriveGithubState(
 
   const activeSliceId = activeSliceEntry?.parsed.id ?? null;
   const scopedOpenTasks = activeSliceId
-    ? openTasks.filter((task) => taskBelongsToSlice(task.issue, activeSliceId))
+    ? openTasks.filter((task) => taskBelongsToSlice(task.issue, activeSliceId, task.metadata))
     : [];
   const scopedClosedTasks = activeSliceId
-    ? closedTasks.filter((task) => taskBelongsToSlice(task.issue, activeSliceId))
+    ? closedTasks.filter((task) => taskBelongsToSlice(task.issue, activeSliceId, task.metadata))
     : [];
 
   const activeTaskEntry = scopedOpenTasks[0] ?? null;

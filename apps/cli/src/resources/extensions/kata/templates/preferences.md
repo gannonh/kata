@@ -28,9 +28,12 @@ See `~/.kata-cli/agent/extensions/kata/docs/preferences-reference.md` for full f
 
 ## Quick start
 
-- `workflow.mode` is Linear-only. Keep `workflow.mode: linear`.
-- Fill in the `linear` block to bind this project to a Linear team/project.
-- Keep secrets out of this file. Store credentials in `~/.kata-cli/agent/auth.json` (preferred) or env vars (`LINEAR_API_KEY`, etc.). `.env` is optional.
+- Choose a workflow backend with `workflow.mode`:
+  - `linear` for Linear-backed planning/execution
+  - `github` for GitHub-backed planning artifacts and state derivation
+- If using `linear`, fill in the `linear` block to bind this project to a Linear team/project.
+- If using `github`, configure `tracker.kind: github` in `WORKFLOW.md` with `repo_owner` and `repo_name`.
+- Keep secrets out of this file. Store credentials in `~/.kata-cli/agent/auth.json` (preferred) or env vars (`LINEAR_API_KEY`, `KATA_GITHUB_TOKEN`, etc.). `.env` is optional.
 - Set `pr.enabled: true` to activate the PR lifecycle (create, review, address, merge via `gh` CLI).
 
 ## Models example

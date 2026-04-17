@@ -513,12 +513,12 @@ function buildGithubEntrypointGuard(
   entrypoint: WorkflowEntrypoint,
   protocol: WorkflowProtocolResolution,
 ): WorkflowEntrypointGuard {
-  // GitHub mode in S01 supports read-only/status-oriented flows.
   const supportedEntrypoints: WorkflowEntrypoint[] = [
     "smart-entry",
     "status",
     "dashboard",
     "discuss",
+    "plan",
     "system-prompt",
   ];
 
@@ -528,6 +528,7 @@ function buildGithubEntrypointGuard(
       status: "Showing live progress derived from GitHub API.",
       dashboard: "Showing live progress derived from GitHub API.",
       discuss: "Running in GitHub mode. Discussion artifacts stored in GitHub.",
+      plan: "Running in GitHub mode. Planning artifacts are persisted to GitHub issues with stable Kata metadata.",
       "system-prompt": protocol.ready
         ? "Workflow mode is GitHub. Follow the GitHub mode instructions in KATA-WORKFLOW.md. Do not fall back to file-backed .kata artifacts."
         : "Workflow mode is GitHub. Do not fall back to file-backed .kata artifacts. Workflow document not found — use `/kata prefs status` to inspect config.",
@@ -537,19 +538,19 @@ function buildGithubEntrypointGuard(
       isLinearMode: false,
       allow: true,
       noticeLevel: entrypoint === "system-prompt" ? "warning" : "info",
-      notice: noticeMap[entrypoint] ?? `Running in GitHub mode.`,
+      notice: noticeMap[entrypoint] ?? "Running in GitHub mode.",
       protocol,
     };
   }
 
-  if (entrypoint === "plan" || entrypoint === "auto") {
+  if (entrypoint === "auto") {
     return {
       mode: "github",
       isLinearMode: false,
       allow: false,
       noticeLevel: "warning",
       notice:
-        "GitHub mode planning and auto execution are not available yet. Use `/kata status` or `/kata discuss` for S01 read-only workflows.",
+        "GitHub mode auto execution is not available yet. Use `/kata plan`, `/kata discuss`, or `/kata status` for GitHub-backed planning workflows.",
       protocol,
     };
   }
