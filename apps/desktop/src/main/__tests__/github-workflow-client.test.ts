@@ -73,6 +73,7 @@ describe('GithubWorkflowClient', () => {
     expect(snapshot.backend).toBe('github')
     expect(snapshot.source.githubStateMode).toBe('labels')
     expect(snapshot.columns.find((column) => column.id === 'in_progress')?.cards[0]).toMatchObject({
+      id: '2249',
       identifier: '#2249',
       stateName: 'In Progress',
     })
@@ -149,6 +150,7 @@ describe('GithubWorkflowClient', () => {
     expect(snapshot.source.githubStateMode).toBe('projects_v2')
     expect(snapshot.activeMilestone?.name).toBe('GitHub Project #7')
     expect(snapshot.columns.find((column) => column.id === 'agent_review')?.cards[0]).toMatchObject({
+      id: '2249',
       identifier: '#2249',
       stateName: 'Agent Review',
     })

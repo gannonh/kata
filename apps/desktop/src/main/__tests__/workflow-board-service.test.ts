@@ -916,6 +916,104 @@ describe('WorkflowBoardService', () => {
     expect(response.snapshot.symphony?.diagnostics.correlationMisses).toEqual([])
   })
 
+  test('correlates GitHub board cards with Symphony workers using GitHub issue-number keys', async () => {
+    const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-github-correlation-'))
+    writeFileSync(
+      path.join(workspacePath, 'WORKFLOW.md'),
+      ['---', 'tracker:', '  kind: github', '  repo_owner: kata-sh', '  repo_name: kata-mono', '---', ''].join('\n'),
+      'utf8',
+    )
+
+    const symphonySnapshot: SymphonyOperatorSnapshot = {
+      fetchedAt: new Date().toISOString(),
+      queueCount: 0,
+      completedCount: 0,
+      workers: [
+        {
+          issueId: 'gh-2249',
+          identifier: '[S02]#2249',
+          issueTitle: 'GitHub parity slice',
+          state: 'in_progress',
+          toolName: 'edit',
+          model: 'claude-sonnet-4-6',
+        },
+      ],
+      escalations: [
+        {
+          requestId: 'req-gh-2249',
+          issueId: '2249',
+          issueIdentifier: '#2249',
+          issueTitle: 'GitHub parity slice',
+          questionPreview: 'Need state confirmation',
+          createdAt: new Date().toISOString(),
+          timeoutMs: 300000,
+        },
+      ],
+      connection: {
+        state: 'connected',
+        updatedAt: new Date().toISOString(),
+      },
+      freshness: {
+        status: 'fresh',
+      },
+      response: {},
+    }
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => workspacePath,
+      getSymphonySnapshot: () => symphonySnapshot,
+    })
+
+    ;(service as any).githubClient.fetchSnapshot = vi.fn(async () => ({
+      backend: 'github',
+      fetchedAt: '2026-04-17T00:00:00.000Z',
+      status: 'fresh',
+      source: {
+        projectId: 'github:kata-sh/kata-mono',
+        trackerKind: 'github',
+        githubStateMode: 'labels',
+        repoOwner: 'kata-sh',
+        repoName: 'kata-mono',
+      },
+      activeMilestone: null,
+      columns: [
+        {
+          id: 'in_progress',
+          title: 'In Progress',
+          cards: [
+            {
+              id: '1001',
+              identifier: '#2249',
+              title: '[S02] GitHub Workflow Board Parity',
+              columnId: 'in_progress',
+              stateName: 'In Progress',
+              stateType: 'label',
+              milestoneId: 'github:kata-sh/kata-mono',
+              milestoneName: 'kata-sh/kata-mono',
+              taskCounts: { total: 0, done: 0 },
+              tasks: [],
+              url: 'https://github.com/kata-sh/kata-mono/issues/2249',
+            },
+          ],
+        },
+      ],
+      poll: { status: 'success', backend: 'github', lastAttemptAt: '2026-04-17T00:00:00.000Z' },
+    }))
+
+    service.setActive(true)
+    service.setScope({ scopeKey: 'workspace:test::session:test::scope:active', requestedScope: 'active' })
+    const response = await service.refreshBoard()
+
+    const matchedCard = response.snapshot.columns[0]?.cards[0]
+    expect(matchedCard?.symphony?.assignmentState).toBe('assigned')
+    expect(matchedCard?.symphony?.identifier).toBe('[S02]#2249')
+    expect(matchedCard?.symphony?.pendingEscalations).toBe(1)
+    expect(response.snapshot.scope?.resolved).toBe('active')
+    expect(response.snapshot.scope?.activeMatchCount).toBe(1)
+    expect(response.snapshot.symphony?.diagnostics.correlationMisses).toEqual([])
+  })
+
   test('does not report false correlation misses when escalation joins by issue id', async () => {
     const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-escalation-issue-id-join-'))
     mkdirSync(path.join(workspacePath, '.kata'), { recursive: true })

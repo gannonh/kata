@@ -1306,70 +1306,67 @@ export class WorkflowBoardService {
 
     const { freshness, provenance, staleReason } = deriveSymphonyEnvelope(operatorSnapshot)
 
-    const workersByIdentifier = new Map<string, SymphonyOperatorSnapshot['workers'][number]>()
-    const workersByIssueId = new Map<string, SymphonyOperatorSnapshot['workers'][number]>()
+    const workersByCorrelationKey = new Map<string, SymphonyOperatorSnapshot['workers'][number]>()
     for (const worker of operatorSnapshot.workers) {
-      const normalizedIdentifier = normalizeIdentifier(worker.identifier)
-      if (normalizedIdentifier) {
-        workersByIdentifier.set(normalizedIdentifier, worker)
-      }
+      const correlationKeys = correlationKeysFromIssueReference({
+        identifier: worker.identifier,
+        issueId: worker.issueId,
+      })
 
-      const normalizedIssueId = normalizeIdentifier(worker.issueId)
-      if (normalizedIssueId) {
-        workersByIssueId.set(normalizedIssueId, worker)
+      for (const key of correlationKeys) {
+        if (!workersByCorrelationKey.has(key)) {
+          workersByCorrelationKey.set(key, worker)
+        }
       }
     }
 
-    const escalationsByIdentifier = new Map<string, SymphonyOperatorSnapshot['escalations']>()
-    const escalationsByIssueId = new Map<string, SymphonyOperatorSnapshot['escalations']>()
+    const escalationsByCorrelationKey = new Map<string, SymphonyOperatorSnapshot['escalations']>()
     for (const escalation of operatorSnapshot.escalations) {
-      const normalizedIdentifier = normalizeIdentifier(escalation.issueIdentifier)
-      if (normalizedIdentifier) {
-        const entries = escalationsByIdentifier.get(normalizedIdentifier) ?? []
-        entries.push(escalation)
-        escalationsByIdentifier.set(normalizedIdentifier, entries)
-      }
+      const correlationKeys = correlationKeysFromIssueReference({
+        identifier: escalation.issueIdentifier,
+        issueId: escalation.issueId,
+      })
 
-      const normalizedIssueId = normalizeIdentifier(escalation.issueId)
-      if (normalizedIssueId) {
-        const entries = escalationsByIssueId.get(normalizedIssueId) ?? []
+      for (const key of correlationKeys) {
+        const entries = escalationsByCorrelationKey.get(key) ?? []
         entries.push(escalation)
-        escalationsByIssueId.set(normalizedIssueId, entries)
+        escalationsByCorrelationKey.set(key, entries)
       }
     }
 
-    const matchedWorkerKeys = new Set<string>()
-    const matchedEscalationRequestIds = new Set<string>()
+    const matchedWorkers = new Set<SymphonyOperatorSnapshot['workers'][number]>()
+    const matchedEscalations = new Set<SymphonyOperatorSnapshot['escalations'][number]>()
 
     const enrichItem = (
-      item: Pick<WorkflowBoardSliceCard, 'id' | 'identifier'> | Pick<WorkflowBoardTask, 'id' | 'identifier'>,
+      item: Pick<WorkflowBoardSliceCard, 'id' | 'identifier' | 'url'> | Pick<WorkflowBoardTask, 'id' | 'identifier' | 'url'>,
     ) => {
-      const normalizedIdentifier = normalizeIdentifier(item.identifier)
-      const normalizedIssueId = normalizeIdentifier(item.id)
+      const correlationKeys = correlationKeysFromIssueReference({
+        identifier: item.identifier,
+        issueId: item.id,
+        issueUrl: item.url,
+      })
 
-      const workerByIdentifier = normalizedIdentifier ? workersByIdentifier.get(normalizedIdentifier) : undefined
-      const workerByIssueId = normalizedIssueId ? workersByIssueId.get(normalizedIssueId) : undefined
-      const worker = workerByIdentifier ?? workerByIssueId
+      let worker: SymphonyOperatorSnapshot['workers'][number] | undefined
+      for (const key of correlationKeys) {
+        worker = workersByCorrelationKey.get(key)
+        if (worker) {
+          matchedWorkers.add(worker)
+          break
+        }
+      }
 
       const matchedEscalationsByRequestId = new Map<string, SymphonyOperatorSnapshot['escalations'][number]>()
-      for (const escalation of normalizedIdentifier ? escalationsByIdentifier.get(normalizedIdentifier) ?? [] : []) {
-        matchedEscalationsByRequestId.set(escalation.requestId, escalation)
-      }
-      for (const escalation of normalizedIssueId ? escalationsByIssueId.get(normalizedIssueId) ?? [] : []) {
-        matchedEscalationsByRequestId.set(escalation.requestId, escalation)
-      }
-
-      const matchedEscalations = Array.from(matchedEscalationsByRequestId.values())
-      const pendingEscalations = matchedEscalations.length
-
-      if (workerByIdentifier && normalizedIdentifier) {
-        matchedWorkerKeys.add(`identifier:${normalizedIdentifier}`)
-      } else if (workerByIssueId && normalizedIssueId) {
-        matchedWorkerKeys.add(`issue:${normalizedIssueId}`)
+      for (const key of correlationKeys) {
+        for (const escalation of escalationsByCorrelationKey.get(key) ?? []) {
+          matchedEscalationsByRequestId.set(escalation.requestId, escalation)
+        }
       }
 
-      for (const escalation of matchedEscalations) {
-        matchedEscalationRequestIds.add(escalation.requestId)
+      const matchedEscalationEntries = Array.from(matchedEscalationsByRequestId.values())
+      const pendingEscalations = matchedEscalationEntries.length
+
+      for (const escalation of matchedEscalationEntries) {
+        matchedEscalations.add(escalation)
       }
 
       return {
@@ -1381,7 +1378,7 @@ export class WorkflowBoardService {
         lastActivityAt: worker?.lastActivityAt,
         lastError: worker?.lastError,
         pendingEscalations,
-        pendingEscalationRequests: matchedEscalations.map((escalation) => ({
+        pendingEscalationRequests: matchedEscalationEntries.map((escalation) => ({
           requestId: escalation.requestId,
           questionPreview: escalation.questionPreview,
           createdAt: escalation.createdAt,
@@ -1409,19 +1406,14 @@ export class WorkflowBoardService {
     const correlationMisses: string[] = []
 
     for (const worker of operatorSnapshot.workers) {
-      const identifierKey = normalizeIdentifier(worker.identifier)
-      const issueKey = normalizeIdentifier(worker.issueId)
-      if (
-        (identifierKey && matchedWorkerKeys.has(`identifier:${identifierKey}`)) ||
-        (issueKey && matchedWorkerKeys.has(`issue:${issueKey}`))
-      ) {
+      if (matchedWorkers.has(worker)) {
         continue
       }
       correlationMisses.push(`worker:${worker.identifier || worker.issueId}`)
     }
 
     for (const escalation of operatorSnapshot.escalations) {
-      if (matchedEscalationRequestIds.has(escalation.requestId)) {
+      if (matchedEscalations.has(escalation)) {
         continue
       }
       correlationMisses.push(`escalation:${escalation.requestId}`)
@@ -1952,6 +1944,56 @@ function deriveSymphonyEnvelope(operatorSnapshot: SymphonyOperatorSnapshot): {
 function normalizeIdentifier(value: string | undefined): string | null {
   const normalized = value?.trim()
   return normalized ? normalized.toUpperCase() : null
+}
+
+function correlationKeysFromIssueReference(input: {
+  identifier?: string
+  issueId?: string
+  issueUrl?: string
+}): string[] {
+  const keys = new Set<string>()
+
+  for (const value of [input.identifier, input.issueId, input.issueUrl]) {
+    const normalized = normalizeIdentifier(value)
+    if (normalized) {
+      keys.add(`raw:${normalized}`)
+    }
+
+    const githubIssueNumber = parseGithubIssueNumber(value)
+    if (githubIssueNumber) {
+      keys.add(`github:${githubIssueNumber}`)
+    }
+  }
+
+  return Array.from(keys)
+}
+
+function parseGithubIssueNumber(value: string | undefined): string | null {
+  const trimmed = value?.trim()
+  if (!trimmed) {
+    return null
+  }
+
+  const issueUrlMatch = trimmed.match(/\/issues\/(\d+)(?:[/?#].*)?$/i)
+  if (issueUrlMatch?.[1]) {
+    return issueUrlMatch[1]
+  }
+
+  const kataIdentifierMatch = trimmed.match(/^(?:\[[MST]\d+\])?#(\d+)$/i)
+  if (kataIdentifierMatch?.[1]) {
+    return kataIdentifierMatch[1]
+  }
+
+  const ghPrefixedMatch = trimmed.match(/^gh-(\d+)$/i)
+  if (ghPrefixedMatch?.[1]) {
+    return ghPrefixedMatch[1]
+  }
+
+  if (/^\d+$/.test(trimmed)) {
+    return trimmed
+  }
+
+  return null
 }
 
 function isWorkflowFixtureEnabled(): boolean {

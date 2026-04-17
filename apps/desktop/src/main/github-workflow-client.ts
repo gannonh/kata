@@ -163,7 +163,7 @@ export class GithubWorkflowClient {
       )
 
       cards.push({
-        id: String(issue.id ?? issueNumber),
+        id: String(issueNumber),
         identifier: `#${issueNumber}`,
         title: issueTitle,
         url: issue.html_url,
@@ -256,7 +256,7 @@ export class GithubWorkflowClient {
       const stateName = item.fieldValueByName?.name?.trim() || 'Unknown'
 
       cards.push({
-        id: item.content?.id || String(issueNumber),
+        id: String(issueNumber),
         identifier: `#${issueNumber}`,
         title: issueTitle,
         url: item.content?.url,
