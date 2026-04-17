@@ -114,6 +114,17 @@ const SLICE_PLAN = `# S02: Planning authoring
   - Verify: pnpm test github backend
 `;
 
+const SLICE_PLAN_LOWERCASE_IDS = `# S02: Planning authoring
+
+## Tasks
+
+- [ ] **t01: Define metadata contract** \`est:2h\`
+  - Verify: pnpm test metadata
+
+- [ ] **t02: Implement upsert paths** \`est:3h\`
+  - Verify: pnpm test github backend
+`;
+
 describe("GithubBackend artifact persistence", () => {
   it("upserts milestone roadmap and materializes slice dependency metadata", async () => {
     const client = new FakeGithubClient();
@@ -203,5 +214,25 @@ describe("GithubBackend artifact persistence", () => {
     await backend.writeDocument("S02-PLAN", SLICE_PLAN, scope);
 
     expect(client.getListIssuesCallCount()).toBeLessThanOrEqual(1);
+  });
+
+  it("normalizes lowercase task IDs to uppercase when materializing task issues", async () => {
+    const client = new FakeGithubClient();
+    const backend = makeBackend(client);
+
+    await backend.writeDocument("M009-ROADMAP", ROADMAP);
+    const scope = await backend.resolveSliceScope("M009", "S02");
+    expect(scope).toBeTruthy();
+    if (!scope) throw new Error("Expected scope for S02");
+
+    await backend.writeDocument("S02-PLAN", SLICE_PLAN_LOWERCASE_IDS, scope);
+
+    expect(client.countIssuesByPrefix("[T01]")).toBe(1);
+    expect(client.countIssuesByPrefix("[T02]")).toBe(1);
+    expect(client.countIssuesByPrefix("[t01]")).toBe(0);
+    expect(client.countIssuesByPrefix("[t02]")).toBe(0);
+
+    const taskIssue = client.findIssueByKataId("T01");
+    expect(taskIssue?.title).toContain("[T01]");
   });
 });

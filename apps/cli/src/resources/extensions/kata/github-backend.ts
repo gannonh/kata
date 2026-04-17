@@ -335,16 +335,6 @@ function inferMetadataFromIssue(issue: GithubIssueSummary): GithubArtifactMetada
   return null;
 }
 
-function parseDependencyIds(content: string): string[] {
-  try {
-    const roadmap = parseRoadmap(content);
-    const deps = roadmap.slices.flatMap((slice) => slice.depends);
-    return [...new Set(deps.map((dep) => dep.toUpperCase()))].sort();
-  } catch {
-    return [];
-  }
-}
-
 export class GithubBackend implements KataBackend {
   readonly basePath: string;
   readonly gitRoot: string;
@@ -528,7 +518,7 @@ export class GithubBackend implements KataBackend {
 
   private buildMetadataForDocument(
     document: ParsedDocumentName,
-    scope?: DocumentScope,
+    _scope?: DocumentScope,
   ): GithubArtifactMetadataV1 {
     if (document.kind === "milestone") {
       return {
@@ -551,15 +541,6 @@ export class GithubBackend implements KataBackend {
         schema: "kata/github-artifact/v1",
         kind: "task",
         kataId: document.kataId ?? "T00",
-      };
-    }
-
-    const issueNumber = issueNumberFromScope(scope);
-    if (issueNumber) {
-      return {
-        schema: "kata/github-artifact/v1",
-        kind: "document",
-        kataId: document.normalized,
       };
     }
 
@@ -669,16 +650,18 @@ export class GithubBackend implements KataBackend {
     const milestoneId = sliceMetadata?.milestoneId;
 
     for (const task of plan.tasks) {
+      const normalizedTaskId = task.id.trim().toUpperCase();
+
       const taskMetadata: GithubArtifactMetadataV1 = {
         schema: "kata/github-artifact/v1",
         kind: "task",
-        kataId: task.id,
+        kataId: normalizedTaskId,
         sliceId,
         ...(milestoneId ? { milestoneId } : {}),
       };
 
       const issue = await this.ensureIssue(taskMetadata, {
-        title: `[${task.id}] ${task.title}`,
+        title: `[${normalizedTaskId}] ${task.title}`,
         labels: [
           primaryLabel(this.config.labelPrefix, "task"),
           `${this.config.labelPrefix.endsWith(":") ? this.config.labelPrefix : `${this.config.labelPrefix}:`}slice:${sliceId.toLowerCase()}`,
@@ -690,10 +673,10 @@ export class GithubBackend implements KataBackend {
         ...(parsedTaskMetadata ?? taskMetadata),
         sliceId,
         ...(milestoneId ? { milestoneId } : {}),
-      }, `${task.id}-PLAN`));
+      }, `${normalizedTaskId}-PLAN`));
 
       const generatedTaskPlan = [
-        `# ${task.id}: ${task.title}`,
+        `# ${normalizedTaskId}: ${task.title}`,
         "",
         task.description || `Task generated from ${sliceId}-PLAN.`,
         "",
@@ -704,16 +687,16 @@ export class GithubBackend implements KataBackend {
         task.verify ? `- ${task.verify}` : "- Add task-specific verification before execution.",
       ].join("\n");
 
-      nextBody = upsertEmbeddedDocument(nextBody, `${task.id}-PLAN`, generatedTaskPlan);
+      nextBody = upsertEmbeddedDocument(nextBody, `${normalizedTaskId}-PLAN`, generatedTaskPlan);
       await this.updateIssue(issue.number, {
         body: nextBody,
-        title: `[${task.id}] ${task.title}`,
+        title: `[${normalizedTaskId}] ${task.title}`,
       });
 
       emitPlanningSignal("github_planning_artifact_upsert", {
         stage: "update",
         entity: "task",
-        kataId: task.id,
+        kataId: normalizedTaskId,
         issueNumber: issue.number,
       });
     }
@@ -771,14 +754,6 @@ export class GithubBackend implements KataBackend {
 
     let nextBody = upsertGithubArtifactMetadata(issue.body ?? "", mergedMetadata);
     nextBody = upsertEmbeddedDocument(nextBody, normalizedName, content);
-
-    const dependencies = parseDependencyIds(content);
-    if (dependencies.length > 0 && mergedMetadata.kind === "slice") {
-      nextBody = upsertGithubArtifactMetadata(nextBody, {
-        ...mergedMetadata,
-        dependsOn: dependencies,
-      });
-    }
 
     await this.updateIssue(issue.number, { body: nextBody });
 

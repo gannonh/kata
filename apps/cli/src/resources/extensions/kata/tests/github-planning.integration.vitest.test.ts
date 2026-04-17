@@ -1,3 +1,7 @@
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { GithubBackend, type GithubBackendClient, type GithubBackendConfig } from "../github-backend.js";
@@ -97,7 +101,8 @@ const PLAN_V2 = `# S02: Planning artifact authoring
 describe("GitHub planning integration", () => {
   it("round-trips create -> derive -> replan without duplicate artifacts", async () => {
     const client = new FixtureGithubClient();
-    const backend = new GithubBackend("/tmp/github-integration", CONFIG, client);
+    const workspace = mkdtempSync(join(tmpdir(), "github-integration-"));
+    const backend = new GithubBackend(workspace, CONFIG, client);
 
     await backend.writeDocument("M009-ROADMAP", ROADMAP);
     const sliceScope = await backend.resolveSliceScope("M009", "S02");
