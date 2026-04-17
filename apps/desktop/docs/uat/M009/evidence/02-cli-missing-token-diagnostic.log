@@ -1,0 +1,13 @@
+== 02: CLI failure-path diagnostic: missing token error is actionable ==
+UTC 2026-04-17T14:52:13Z
+
+bun test v1.3.11 (af24e281)
+
+src/resources/extensions/kata/tests/github-backend.integration.test.ts:
+[kata][backend-bootstrap] {"backend":"github","status":"invalid_config","diagnostics":["missing_github_token"]}
+(pass) createBackend returns actionable diagnostics when GitHub token is missing [6.54ms]
+
+ 1 pass
+ 4 filtered out
+ 0 fail
+Ran 1 test across 1 file. [230.00ms]
