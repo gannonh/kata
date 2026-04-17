@@ -61,6 +61,8 @@ export interface GithubBackendClient extends GithubStateClient {
   getIssue(number: number): Promise<GithubIssueSummary | null>;
   createIssue(payload: { title: string; body?: string; labels?: string[] }): Promise<GithubIssueSummary>;
   updateIssue(number: number, payload: GithubIssueMutation): Promise<GithubIssueSummary>;
+  listSubIssueNumbers(parentIssueNumber: number): Promise<number[]>;
+  addSubIssue(parentIssueNumber: number, subIssueNumber: number): Promise<void>;
 }
 
 class GithubApiClient implements GithubBackendClient {
@@ -127,6 +129,40 @@ class GithubApiClient implements GithubBackendClient {
     const text = await response.text();
     if (!text.trim()) return {} as T;
     return JSON.parse(text) as T;
+  }
+
+  private async graphqlRequest<TData>(
+    query: string,
+    variables: Record<string, unknown>,
+  ): Promise<TData> {
+    const payload = await this.request<{ data?: TData; errors?: Array<{ message?: string }> }>(
+      "/graphql",
+      {
+        method: "POST",
+        body: {
+          query,
+          variables,
+        },
+      },
+    );
+
+    if (payload.errors && payload.errors.length > 0) {
+      const message = payload.errors
+        .map((entry) => entry.message)
+        .filter((msg): msg is string => Boolean(msg && msg.trim()))
+        .join("; ");
+      throw new Error(
+        `GitHub GraphQL request failed for ${this.config.repoOwner}/${this.config.repoName}: ${message || "unknown error"}`,
+      );
+    }
+
+    if (!payload.data) {
+      throw new Error(
+        `GitHub GraphQL request returned no data for ${this.config.repoOwner}/${this.config.repoName}`,
+      );
+    }
+
+    return payload.data;
   }
 
   private toSummary(issue: GithubApiIssue): GithubIssueSummary {
@@ -208,6 +244,121 @@ class GithubApiClient implements GithubBackendClient {
     );
 
     return this.toSummary(issue);
+  }
+
+  async listSubIssueNumbers(parentIssueNumber: number): Promise<number[]> {
+    const numbers: number[] = [];
+    let after: string | null = null;
+
+    for (;;) {
+      const data = await this.graphqlRequest<{
+        repository: {
+          issue: {
+            subIssues: {
+              nodes: Array<{ number: number }>;
+              pageInfo: { hasNextPage: boolean; endCursor: string | null };
+            };
+          } | null;
+        } | null;
+      }>(
+        `query ListSubIssues($owner: String!, $repo: String!, $number: Int!, $after: String) {
+          repository(owner: $owner, name: $repo) {
+            issue(number: $number) {
+              subIssues(first: 100, after: $after) {
+                nodes { number }
+                pageInfo { hasNextPage endCursor }
+              }
+            }
+          }
+        }`,
+        {
+          owner: this.config.repoOwner,
+          repo: this.config.repoName,
+          number: parentIssueNumber,
+          after,
+        },
+      );
+
+      const issue = data.repository?.issue;
+      if (!issue) return numbers;
+
+      for (const node of issue.subIssues.nodes) {
+        numbers.push(node.number);
+      }
+
+      if (!issue.subIssues.pageInfo.hasNextPage) {
+        return numbers;
+      }
+
+      after = issue.subIssues.pageInfo.endCursor;
+      if (!after) {
+        return numbers;
+      }
+    }
+  }
+
+  async addSubIssue(parentIssueNumber: number, subIssueNumber: number): Promise<void> {
+    if (parentIssueNumber === subIssueNumber) return;
+
+    const existingSubIssues = await this.listSubIssueNumbers(parentIssueNumber);
+    if (existingSubIssues.includes(subIssueNumber)) {
+      return;
+    }
+
+    const data = await this.graphqlRequest<{
+      repository: {
+        parentIssue: { id: string; number: number } | null;
+        childIssue: { id: string; number: number; parent: { number: number } | null } | null;
+      } | null;
+    }>(
+      `query ResolveIssueIds($owner: String!, $repo: String!, $parent: Int!, $child: Int!) {
+        repository(owner: $owner, name: $repo) {
+          parentIssue: issue(number: $parent) { id number }
+          childIssue: issue(number: $child) { id number parent { number } }
+        }
+      }`,
+      {
+        owner: this.config.repoOwner,
+        repo: this.config.repoName,
+        parent: parentIssueNumber,
+        child: subIssueNumber,
+      },
+    );
+
+    const parentIssue = data.repository?.parentIssue;
+    const childIssue = data.repository?.childIssue;
+    if (!parentIssue || !childIssue) {
+      throw new Error(
+        `Unable to resolve parent/child issues for sub-issue link (${parentIssueNumber} -> ${subIssueNumber})`,
+      );
+    }
+
+    if (childIssue.parent?.number === parentIssueNumber) {
+      return;
+    }
+    if (childIssue.parent && childIssue.parent.number !== parentIssueNumber) {
+      throw new Error(
+        `Task #${subIssueNumber} is already attached to parent #${childIssue.parent.number}; refusing to relink automatically.`,
+      );
+    }
+
+    await this.graphqlRequest<{
+      addSubIssue: {
+        issue: { number: number };
+        subIssue: { number: number };
+      };
+    }>(
+      `mutation AddSubIssue($issueId: ID!, $subIssueId: ID!) {
+        addSubIssue(input: { issueId: $issueId, subIssueId: $subIssueId }) {
+          issue { number }
+          subIssue { number }
+        }
+      }`,
+      {
+        issueId: parentIssue.id,
+        subIssueId: childIssue.id,
+      },
+    );
   }
 }
 
@@ -301,6 +452,28 @@ function bodyFallbackDocumentName(metadata: GithubArtifactMetadataV1): string | 
   if (metadata.kind === "slice") return `${metadata.kataId}-PLAN`;
   if (metadata.kind === "task") return `${metadata.kataId}-PLAN`;
   return null;
+}
+
+function titleFallbackDocumentName(issue: GithubIssueSummary): string | null {
+  const parsed = parseGithubKataTitle(issue.title);
+  if (!parsed) return null;
+
+  if (parsed.kataId.startsWith("M")) return `${parsed.kataId}-ROADMAP`;
+  if (parsed.kataId.startsWith("S")) return `${parsed.kataId}-PLAN`;
+  if (parsed.kataId.startsWith("T")) return `${parsed.kataId}-PLAN`;
+  return null;
+}
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function issueMentionsScopedId(issue: GithubIssueSummary, scopedId: string): boolean {
+  const normalized = scopedId.trim().toUpperCase();
+  if (!normalized) return false;
+  const text = `${issue.title}\n${issue.body ?? ""}`;
+  const matcher = new RegExp(`\\b${escapeRegex(normalized)}\\b`, "i");
+  return matcher.test(text);
 }
 
 function inferMetadataFromIssue(issue: GithubIssueSummary): GithubArtifactMetadataV1 | null {
@@ -458,18 +631,38 @@ export class GithubBackend implements KataBackend {
       return candidates.sort((a, b) => a.number - b.number)[0] ?? null;
     }
 
-    const hasExplicitScope = Boolean(normalizedMilestoneId || normalizedSliceId);
-    if (hasExplicitScope) {
-      return null;
-    }
-
     const fallback = issues
       .map((issue) => ({ issue, parsed: parseGithubKataTitle(issue.title) }))
       .filter((entry) => entry.parsed?.kataId === normalizedKataId)
       .map((entry) => entry.issue)
       .sort((a, b) => a.number - b.number);
 
-    return fallback[0] ?? null;
+    const hasExplicitScope = Boolean(normalizedMilestoneId || normalizedSliceId);
+    if (!hasExplicitScope) {
+      return fallback[0] ?? null;
+    }
+
+    const scopedFallback = fallback.filter((issue) => {
+      if (normalizedMilestoneId && !issueMentionsScopedId(issue, normalizedMilestoneId)) {
+        return false;
+      }
+      if (normalizedSliceId && !issueMentionsScopedId(issue, normalizedSliceId)) {
+        return false;
+      }
+      return true;
+    });
+
+    if (scopedFallback.length > 0) {
+      return scopedFallback[0] ?? null;
+    }
+
+    // Backward compatibility: when there is only one title match, prefer it
+    // even if scoped metadata/text is missing.
+    if (fallback.length === 1) {
+      return fallback[0] ?? null;
+    }
+
+    return null;
   }
 
   private async ensureIssue(
@@ -562,10 +755,18 @@ export class GithubBackend implements KataBackend {
     if (embedded !== null) return embedded;
 
     const metadata = maybeParseGithubArtifactMetadata(body);
-    if (!metadata) return null;
+    if (metadata) {
+      const fallbackName = bodyFallbackDocumentName(metadata);
+      if (fallbackName === normalizedName) {
+        const raw = stripEmbeddedDocuments(stripGithubArtifactMetadata(body)).trim();
+        return raw.length > 0 ? raw : null;
+      }
+    }
 
-    const fallbackName = bodyFallbackDocumentName(metadata);
-    if (fallbackName === normalizedName) {
+    // Backward compatibility for issues authored without explicit
+    // KATA:GITHUB_ARTIFACT metadata.
+    const titleFallback = titleFallbackDocumentName(issue);
+    if (titleFallback === normalizedName) {
       const raw = stripEmbeddedDocuments(stripGithubArtifactMetadata(body)).trim();
       return raw.length > 0 ? raw : null;
     }
@@ -691,6 +892,14 @@ export class GithubBackend implements KataBackend {
       await this.updateIssue(issue.number, {
         body: nextBody,
         title: `[${normalizedTaskId}] ${task.title}`,
+      });
+
+      await this.client.addSubIssue(sliceIssue.number, issue.number);
+      emitPlanningSignal("github_planning_subissue_linked", {
+        sliceId,
+        sliceIssueNumber: sliceIssue.number,
+        taskId: normalizedTaskId,
+        taskIssueNumber: issue.number,
       });
 
       emitPlanningSignal("github_planning_artifact_upsert", {
@@ -842,25 +1051,24 @@ export class GithubBackend implements KataBackend {
   }
 
   async isSlicePlanned(milestoneId: string, sliceId: string): Promise<boolean> {
-    const issues = await this.listIssues();
     const normalizedSliceId = sliceId.trim().toUpperCase();
     const normalizedMilestoneId = milestoneId.trim().toUpperCase();
 
-    return issues.some((issue) => {
-      const metadata = inferMetadataFromIssue(issue);
-      if (!metadata || metadata.kind !== "task") return false;
-      if (metadata.sliceId?.toUpperCase() !== normalizedSliceId) return false;
-      if (metadata.milestoneId && metadata.milestoneId.toUpperCase() !== normalizedMilestoneId) {
-        return false;
-      }
-      return true;
+    const sliceIssue = await this.findIssueByKataId(normalizedSliceId, "slice", {
+      milestoneId: normalizedMilestoneId,
     });
+    if (!sliceIssue) return false;
+
+    const existingSubIssueNumbers = await this.client.listSubIssueNumbers(sliceIssue.number);
+    return existingSubIssueNumbers.length > 0;
   }
 
   private buildGithubPlanMilestoneOps(mid: string): OpsBlock {
     const backendRules = [
       "Hard rule: In GitHub mode, never use Linear tools (`kata_*`, `linear_*`) to read or write planning artifacts.",
+      "Hard rule: Never read local `.kata/*.md` planning files in GitHub mode — they are not canonical and may not exist.",
       "Use GitHub issues as the source of truth and include `KATA:GITHUB_ARTIFACT` metadata markers for every milestone/slice/task artifact.",
+      "Use `gh` CLI (`gh issue list/view/create/edit`) for GitHub issue discovery and updates.",
     ].join("\n");
 
     const backendOps = [
@@ -890,7 +1098,9 @@ export class GithubBackend implements KataBackend {
   private buildGithubPlanSliceOps(sid: string): OpsBlock {
     const backendRules = [
       "Hard rule: In GitHub mode, do not call Linear tools for planning writes.",
+      "Hard rule: Do not read/write local `.kata/*.md` planning files in GitHub mode.",
       "Slice and task planning artifacts must be GitHub issue-backed and include `KATA:GITHUB_ARTIFACT` metadata.",
+      "Use `gh` CLI (`gh issue list/view/create/edit`) for GitHub issue discovery and updates.",
     ].join("\n");
 
     const backendOps = [
@@ -900,7 +1110,8 @@ export class GithubBackend implements KataBackend {
       "11. Upsert slice plan artifact:",
       "    - Persist the canonical slice plan artifact to the slice issue with stable metadata markers.",
       "12. Upsert task artifacts:",
-      "    - For each planned task (`T##`), create or update a GitHub issue with task metadata linking to the slice.",
+      "    - For each planned task (`T##`), create or update a GitHub issue with task metadata.",
+      "    - Link every task to the slice via real GitHub sub-issue relationships (parent = slice issue).",
       "    - Ensure reruns update existing task issues rather than creating duplicates.",
       "13. Dependency readback check:",
       "    - Read dependency metadata from the slice issue and confirm each referenced dependency is still resolvable.",
@@ -924,12 +1135,13 @@ export class GithubBackend implements KataBackend {
       "## Context Retrieval (read these before proceeding)",
       "",
       "1. Confirm active milestone from GitHub-backed state.",
-      "2. Read required context artifacts if present:",
+      "2. Read required context artifacts from GitHub issues (never from local `.kata/*.md` files):",
       `   - ${mid}-CONTEXT`,
-      "3. Read optional project artifacts when available:",
+      "3. Read optional project artifacts from GitHub issues when available:",
       "   - PROJECT",
       "   - REQUIREMENTS",
       "   - DECISIONS",
+      "4. If you need raw content, use `gh issue view <number> --repo <owner>/<repo> --json body`.",
     ].join("\n");
 
     const ops = this.buildGithubPlanMilestoneOps(mid);
@@ -959,12 +1171,13 @@ export class GithubBackend implements KataBackend {
       "## Context Retrieval (read these before proceeding)",
       "",
       "1. Confirm active milestone/slice from GitHub-backed state.",
-      "2. Read required artifact:",
+      "2. Read required artifact from GitHub issues (never from local `.kata/*.md` files):",
       `   - ${mid}-ROADMAP`,
-      "3. Read optional artifacts when present:",
+      "3. Read optional artifacts from GitHub issues when present:",
       `   - ${sid}-RESEARCH`,
       "   - REQUIREMENTS",
       "   - DECISIONS",
+      "4. If you need raw content, use `gh issue view <number> --repo <owner>/<repo> --json body`.",
     ].join("\n");
 
     const ops = this.buildGithubPlanSliceOps(sid);
@@ -1011,6 +1224,8 @@ export class GithubBackend implements KataBackend {
       "",
       "GitHub mode discussion is enabled.",
       "Persist planning artifacts to GitHub issues with stable Kata IDs and metadata markers.",
+      "Do not read or write local `.kata/*.md` planning artifacts.",
+      "Do not use Linear planning tools (`kata_*`, `linear_*`) in GitHub mode.",
     ].join("\n");
   }
 

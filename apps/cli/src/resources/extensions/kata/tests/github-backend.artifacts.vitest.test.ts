@@ -18,6 +18,8 @@ class FakeGithubClient implements GithubBackendClient {
   private issues: MutableIssue[] = [];
   private nextNumber = 1;
   private listIssuesCalls = 0;
+  private parentByChild = new Map<number, number>();
+  private childrenByParent = new Map<number, Set<number>>();
 
   constructor(seed: MutableIssue[] = []) {
     this.issues = seed.map((issue) => ({ ...issue, labels: [...issue.labels] }));
@@ -78,6 +80,24 @@ class FakeGithubClient implements GithubBackendClient {
   getListIssuesCallCount(): number {
     return this.listIssuesCalls;
   }
+
+  async listSubIssueNumbers(parentIssueNumber: number): Promise<number[]> {
+    return [...(this.childrenByParent.get(parentIssueNumber) ?? new Set<number>())].sort((a, b) => a - b);
+  }
+
+  async addSubIssue(parentIssueNumber: number, subIssueNumber: number): Promise<void> {
+    if (parentIssueNumber === subIssueNumber) return;
+
+    const existingParent = this.parentByChild.get(subIssueNumber);
+    if (existingParent && existingParent !== parentIssueNumber) {
+      throw new Error(`Task #${subIssueNumber} already linked to parent #${existingParent}`);
+    }
+
+    this.parentByChild.set(subIssueNumber, parentIssueNumber);
+    const children = this.childrenByParent.get(parentIssueNumber) ?? new Set<number>();
+    children.add(subIssueNumber);
+    this.childrenByParent.set(parentIssueNumber, children);
+  }
 }
 
 const CONFIG: GithubBackendConfig = {
@@ -125,6 +145,16 @@ const SLICE_PLAN_LOWERCASE_IDS = `# S02: Planning authoring
   - Verify: pnpm test github backend
 `;
 
+const SLICE_PLAN_MALFORMED = `# S02: Planning authoring
+
+This plan intentionally omits canonical task IDs.
+
+## Tasks
+
+- [ ] Define metadata contract
+- [ ] Implement upsert paths
+`;
+
 describe("GithubBackend artifact persistence", () => {
   it("upserts milestone roadmap and materializes slice dependency metadata", async () => {
     const client = new FakeGithubClient();
@@ -164,6 +194,9 @@ describe("GithubBackend artifact persistence", () => {
     expect(client.countIssuesByPrefix("[T01]")).toBe(1);
     expect(client.countIssuesByPrefix("[T02]")).toBe(1);
 
+    const sliceIssueNumber = Number(scope.issueId);
+    expect(await client.listSubIssueNumbers(sliceIssueNumber)).toEqual([4, 5]);
+
     expect(await backend.isSlicePlanned("M009", "S02")).toBe(true);
 
     await backend.writeDocument("S02-PLAN", SLICE_PLAN, scope);
@@ -172,6 +205,65 @@ describe("GithubBackend artifact persistence", () => {
 
     const docs = await backend.listDocuments(scope);
     expect(docs).toContain("S02-PLAN");
+  });
+
+  it("does not treat a slice as planned when no task sub-issues were materialized", async () => {
+    const client = new FakeGithubClient();
+    const backend = makeBackend(client);
+
+    await backend.writeDocument("M009-ROADMAP", ROADMAP);
+
+    const scope = await backend.resolveSliceScope("M009", "S02");
+    expect(scope).toEqual({ issueId: expect.any(String) });
+
+    await backend.writeDocument("S02-PLAN", SLICE_PLAN_MALFORMED, scope);
+
+    // No canonical T## tasks should be materialized from malformed plan content.
+    expect(client.countIssuesByPrefix("[T01]")).toBe(0);
+    expect(client.countIssuesByPrefix("[T02]")).toBe(0);
+
+    // Without task sub-issues, the slice is not considered planned.
+    expect(await backend.isSlicePlanned("M009", "S02")).toBe(false);
+  });
+
+  it("does not treat legacy plain-body artifacts as planned without real sub-issue links", async () => {
+    const client = new FakeGithubClient([
+      {
+        number: 341,
+        title: "[S01] Command + skill discovery substrate",
+        state: "open",
+        labels: ["kata:slice"],
+        body: [
+          "# S01: Command + skill discovery substrate",
+          "",
+          "**Milestone:** M001 — Desktop Slash Autocomplete Parity",
+          "",
+          "## Tasks",
+          "- [ ] **T01: Define SlashCommandEntry and SkillEntry types**",
+        ].join("\n"),
+      },
+      {
+        number: 347,
+        title: "[T01] Define SlashCommandEntry and SkillEntry types",
+        state: "open",
+        labels: ["kata:task"],
+        body: [
+          "# T01: Define SlashCommandEntry and SkillEntry types",
+          "",
+          "**Slice:** S01",
+          "**Milestone:** M001",
+          "",
+          "Parent: #341",
+        ].join("\n"),
+      },
+    ]);
+    const backend = makeBackend(client);
+
+    const scope = await backend.resolveSliceScope("M001", "S01");
+    expect(scope).toEqual({ issueId: "341" });
+
+    expect(await backend.isSlicePlanned("M001", "S01")).toBe(false);
+    expect(await client.listSubIssueNumbers(341)).toEqual([]);
   });
 
   it("requires explicit milestone/slice scope matches when resolving issues by Kata ID", async () => {

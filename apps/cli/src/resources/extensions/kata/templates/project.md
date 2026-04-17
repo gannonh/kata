@@ -21,7 +21,7 @@
 
 ## Capability Contract
 
-See `.kata/REQUIREMENTS.md` for the explicit capability contract, requirement status, and coverage mapping.
+See the `REQUIREMENTS` artifact for the explicit capability contract, requirement status, and coverage mapping.
 
 ## Milestone Sequence
 

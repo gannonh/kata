@@ -40,7 +40,7 @@ completed_at: {{date}}
 
 {{whatWasVerifiedAcrossAllTasks — tests, builds, manual checks}}
 
-<!-- If the project has no REQUIREMENTS.md, omit all four requirement sections below entirely — do not fill them with "none". These sections only apply when requirements are being actively tracked. -->
+<!-- If the project has no REQUIREMENTS artifact, omit all four requirement sections below entirely — do not fill them with "none". These sections only apply when requirements are being actively tracked. -->
 ## Requirements Advanced
 
 - {{requirementId}} — {{howThisSliceAdvancedIt}}

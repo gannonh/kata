@@ -17,6 +17,8 @@ interface IssueShape {
 class FixtureGithubClient implements GithubBackendClient {
   private issues: IssueShape[] = [];
   private nextNumber = 1;
+  private parentByChild = new Map<number, number>();
+  private childrenByParent = new Map<number, Set<number>>();
 
   async listIssues() {
     return this.issues
@@ -54,6 +56,22 @@ class FixtureGithubClient implements GithubBackendClient {
 
   count(prefix: string): number {
     return this.issues.filter((issue) => issue.title.startsWith(prefix)).length;
+  }
+
+  async listSubIssueNumbers(parentIssueNumber: number): Promise<number[]> {
+    return [...(this.childrenByParent.get(parentIssueNumber) ?? new Set<number>())].sort((a, b) => a - b);
+  }
+
+  async addSubIssue(parentIssueNumber: number, subIssueNumber: number): Promise<void> {
+    if (parentIssueNumber === subIssueNumber) return;
+    const existingParent = this.parentByChild.get(subIssueNumber);
+    if (existingParent && existingParent !== parentIssueNumber) {
+      throw new Error(`Task #${subIssueNumber} already linked to parent #${existingParent}`);
+    }
+    this.parentByChild.set(subIssueNumber, parentIssueNumber);
+    const children = this.childrenByParent.get(parentIssueNumber) ?? new Set<number>();
+    children.add(subIssueNumber);
+    this.childrenByParent.set(parentIssueNumber, children);
   }
 }
 
