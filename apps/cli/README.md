@@ -128,7 +128,6 @@ Kata workflow state is Linear-backed: milestones, slices, tasks, plans, and summ
 | Command | Description |
 |---------|-------------|
 | `/mcp` | Show MCP server status and tools |
-| `/gh` | GitHub helper — issues, PRs, labels, milestones, status |
 | `/symphony` | Symphony operator workflows (`status`, `watch`, `console`, `config`) |
 | `/subagent` | List available subagents |
 | `/export` | Export session to HTML file |

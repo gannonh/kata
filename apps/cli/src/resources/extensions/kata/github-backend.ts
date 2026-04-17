@@ -865,7 +865,7 @@ export class GithubBackend implements KataBackend {
 
     const backendOps = [
       "6. Idempotency check:",
-      "   - Use `github_issues` search/list to find existing `[M###]` and `[S##]` issues before creating anything.",
+      "   - Use GitHub backend list/search operations to find existing `[M###]` and `[S##]` issues before creating anything.",
       `   - If \`${mid}-ROADMAP\` already exists in the milestone issue metadata, update in place instead of creating duplicates.`,
       "7. Upsert milestone roadmap artifact:",
       "   - Ensure a milestone issue exists with stable kata ID in title (`[M###] ...`).",
