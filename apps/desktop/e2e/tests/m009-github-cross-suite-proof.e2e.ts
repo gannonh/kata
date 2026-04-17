@@ -22,6 +22,9 @@ test.describe('M009 desktop workflow evidence capture', () => {
     )
 
     await readyWindow.getByRole('button', { name: /Refresh workflow board/i }).click()
+
+    // KAT-2773: intentionally loose — this fixture currently falls back to Linear in
+    // test mode, so we assert refresh completion and capture screenshot evidence only.
     await expect(readyWindow.getByTestId('workflow-board-status')).toContainText('Live data ·')
 
     const screenshotDir = path.join(process.cwd(), 'docs/uat/M009/evidence/screenshots')

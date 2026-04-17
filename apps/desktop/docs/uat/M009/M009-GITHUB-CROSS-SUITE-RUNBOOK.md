@@ -1,6 +1,6 @@
 # M009/S06 Cross-Suite GitHub Acceptance Runbook
 
-Run this from repo root (`/Volumes/EVO/symphony-workspaces/KAT-2708`).
+Run this from repo root (wherever you cloned `kata-mono`).
 
 ## Goal
 
