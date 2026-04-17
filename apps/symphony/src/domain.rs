@@ -46,6 +46,38 @@ fn default_true() -> bool {
     true
 }
 
+/// Canonical Kata workflow phase vocabulary shared across CLI/Desktop/Symphony.
+pub const KATA_PHASE_NAMES: [&str; 7] = [
+    "Backlog",
+    "Todo",
+    "In Progress",
+    "Agent Review",
+    "Human Review",
+    "Merging",
+    "Done",
+];
+
+/// Return the canonical Kata phase name when the provided value matches one.
+///
+/// Matching is case-insensitive and whitespace/underscore/hyphen agnostic.
+pub fn canonical_kata_phase_name(state_name: &str) -> Option<&'static str> {
+    let normalized = normalize_kata_phase_key(state_name);
+    KATA_PHASE_NAMES
+        .iter()
+        .copied()
+        .find(|phase| normalize_kata_phase_key(phase) == normalized)
+}
+
+fn normalize_kata_phase_key(value: &str) -> String {
+    value
+        .trim()
+        .to_ascii_lowercase()
+        .replace(['_', '-'], " ")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 /// A blocker reference from an inverse relation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlockerRef {

@@ -1,6 +1,6 @@
 use mockito::{Matcher, Server, ServerGuard};
 use serde_json::json;
-use symphony::domain::{ApiKey, TrackerConfig};
+use symphony::domain::{ApiKey, TrackerConfig, KATA_PHASE_NAMES};
 use symphony::error::SymphonyError;
 use symphony::github::adapter::{GithubAdapter, StateMode};
 use symphony::github::client::GithubClient;
@@ -169,6 +169,15 @@ fn issue_json(
 fn issue_state_json(mut issue: serde_json::Value, state: &str) -> serde_json::Value {
     issue["state"] = json!(state);
     issue
+}
+
+fn phase_to_label(phase: &str) -> String {
+    phase
+        .to_ascii_lowercase()
+        .replace('_', "-")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join("-")
 }
 
 fn pull_request_json(mut issue: serde_json::Value) -> serde_json::Value {
@@ -598,6 +607,215 @@ async fn test_update_issue_state_handles_missing_old_label() {
 
     get_mock.assert_async().await;
     add_mock.assert_async().await;
+}
+
+#[tokio::test]
+async fn test_kata_phase_vocabulary_round_trip_in_label_mode() {
+    for phase in KATA_PHASE_NAMES {
+        let mut server = Server::new_async().await;
+        let adapter = test_adapter(&server, None);
+
+        let initial_issue = issue_json(77, &["symphony:todo"], "alice", &["alice"], None);
+        let round_trip_label = format!("symphony:{}", phase_to_label(phase));
+        let round_trip_issue =
+            issue_json(77, &[round_trip_label.as_str()], "alice", &["alice"], None);
+
+        let get_for_update = server
+            .mock("GET", "/repos/kata-sh/kata-mono/issues/77")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(initial_issue.to_string())
+            .expect(1)
+            .create_async()
+            .await;
+
+        let remove_old = if phase != "Todo" {
+            Some(
+                server
+                    .mock(
+                        "DELETE",
+                        "/repos/kata-sh/kata-mono/issues/77/labels/symphony:todo",
+                    )
+                    .with_status(200)
+                    .with_header("content-type", "application/json")
+                    .with_body("{}")
+                    .expect(1)
+                    .create_async()
+                    .await,
+            )
+        } else {
+            None
+        };
+
+        let add_new = if phase != "Todo" {
+            Some(
+                server
+                    .mock("POST", "/repos/kata-sh/kata-mono/issues/77/labels")
+                    .match_body(Matcher::PartialJson(json!({
+                        "labels": [round_trip_label]
+                    })))
+                    .with_status(200)
+                    .with_header("content-type", "application/json")
+                    .with_body("[]")
+                    .expect(1)
+                    .create_async()
+                    .await,
+            )
+        } else {
+            None
+        };
+
+        let get_for_fetch = server
+            .mock("GET", "/repos/kata-sh/kata-mono/issues/77")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(round_trip_issue.to_string())
+            .expect(1)
+            .create_async()
+            .await;
+
+        adapter
+            .update_issue_state("77", phase)
+            .await
+            .expect("update_issue_state should support canonical kata phases");
+
+        let issues = adapter
+            .fetch_issue_states_by_ids(&["77".to_string()])
+            .await
+            .expect("fetch_issue_states_by_ids should succeed");
+
+        get_for_update.assert_async().await;
+        if let Some(mock) = remove_old {
+            mock.assert_async().await;
+        }
+        if let Some(mock) = add_new {
+            mock.assert_async().await;
+        }
+        get_for_fetch.assert_async().await;
+
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].state, phase);
+    }
+}
+
+#[tokio::test]
+async fn test_kata_phase_vocabulary_round_trip_in_projects_v2_mode() {
+    let mapping = [
+        ("Backlog", "backlog"),
+        ("Todo", "to_do"),
+        ("In Progress", "in-progress"),
+        ("Agent Review", "agent_review"),
+        ("Human Review", "human review"),
+        ("Merging", "merging"),
+        ("Done", "done"),
+    ];
+
+    for (phase, option_name) in mapping {
+        let mut server = Server::new_async().await;
+        let adapter = test_projects_adapter(&server, None, 42);
+
+        let fields_mock = server
+            .mock("POST", "/graphql")
+            .match_body(Matcher::Regex("projectV2\\(number".to_string()))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                json!({
+                    "data": {
+                        "user": {
+                            "projectV2": {
+                                "id": "project_42",
+                                "field": {
+                                    "id": "status_field",
+                                    "options": [
+                                        { "id": "opt_target", "name": option_name }
+                                    ]
+                                }
+                            }
+                        },
+                        "organization": null
+                    }
+                })
+                .to_string(),
+            )
+            .expect(1)
+            .create_async()
+            .await;
+
+        let items_mock = server
+            .mock("POST", "/graphql")
+            .match_body(Matcher::Regex("fieldValueByName".to_string()))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                projects_v2_items_payload(&[project_item_node(
+                    "item_7",
+                    7,
+                    "opt_target",
+                    option_name,
+                )])
+                .to_string(),
+            )
+            .expect(2)
+            .create_async()
+            .await;
+
+        let mutation_mock = server
+            .mock("POST", "/graphql")
+            .match_body(Matcher::AllOf(vec![
+                Matcher::Regex("updateProjectV2ItemFieldValue".to_string()),
+                Matcher::PartialJson(json!({
+                    "variables": {
+                        "projectId": "project_42",
+                        "itemId": "item_7",
+                        "fieldId": "status_field",
+                        "singleSelectOptionId": "opt_target"
+                    }
+                })),
+            ]))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                json!({
+                    "data": {
+                        "updateProjectV2ItemFieldValue": {
+                            "projectV2Item": { "id": "item_7" }
+                        }
+                    }
+                })
+                .to_string(),
+            )
+            .expect(1)
+            .create_async()
+            .await;
+
+        let issue_mock = server
+            .mock("GET", "/repos/kata-sh/kata-mono/issues/7")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(issue_json(7, &["symphony:todo"], "alice", &["alice"], None).to_string())
+            .expect(1)
+            .create_async()
+            .await;
+
+        adapter
+            .update_issue_state("7", phase)
+            .await
+            .expect("Projects v2 update should accept canonical kata phase names");
+
+        let states = adapter
+            .fetch_issue_states_by_ids(&["7".to_string()])
+            .await
+            .expect("Projects v2 state fetch should succeed");
+
+        fields_mock.assert_async().await;
+        items_mock.assert_async().await;
+        mutation_mock.assert_async().await;
+        issue_mock.assert_async().await;
+
+        assert_eq!(states.len(), 1);
+        assert_eq!(states[0].state, phase);
+    }
 }
 
 #[tokio::test]
