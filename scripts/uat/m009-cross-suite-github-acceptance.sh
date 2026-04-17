@@ -70,7 +70,7 @@ run_step \
   "05" \
   "Desktop GitHub board parity e2e screenshot proof" \
   "$EVIDENCE_DIR/05-desktop-github-e2e.log" \
-  bash -lc "pnpm --dir apps/desktop run build:main && pnpm --dir apps/desktop run build:preload && pnpm --dir apps/desktop run build:renderer && pnpm --dir apps/desktop exec playwright test e2e/tests/m009-github-cross-suite-proof.e2e.ts --output ${PLAYWRIGHT_OUTPUT_DIR}"
+  bash -c "pnpm --dir apps/desktop run build:main && pnpm --dir apps/desktop run build:preload && pnpm --dir apps/desktop run build:renderer && KATA_M009_EVIDENCE=1 pnpm --dir apps/desktop exec playwright test e2e/tests/m009-github-cross-suite-proof.e2e.ts --output \"$PLAYWRIGHT_OUTPUT_DIR\""
 
 {
   echo ""
