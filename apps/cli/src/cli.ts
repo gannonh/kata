@@ -274,10 +274,11 @@ if (!isPrintMode && !isRpcMode) {
 }
 
 // Read appended system prompt from file if provided (used by subagent spawns)
-let appendSystemPromptContent: string | undefined
+let appendSystemPromptContent: string[] | undefined
 if (cliFlags.appendSystemPrompt) {
   try {
-    appendSystemPromptContent = readFileSync(cliFlags.appendSystemPrompt, 'utf-8')
+    const content = readFileSync(cliFlags.appendSystemPrompt, 'utf-8')
+    appendSystemPromptContent = [content]
   } catch {
     process.stderr.write(`[kata] Failed to read --append-system-prompt: ${cliFlags.appendSystemPrompt}\n`)
   }

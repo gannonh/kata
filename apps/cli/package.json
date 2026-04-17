@@ -45,8 +45,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@mariozechner/pi-coding-agent": "^0.66.1",
-    "@mariozechner/pi-tui": "^0.66.1",
+    "@mariozechner/pi-coding-agent": "^0.67.6",
+    "@mariozechner/pi-tui": "^0.67.6",
     "@sinclair/typebox": "^0.34.48",
     "js-yaml": "^4.1.1",
     "playwright": "^1.58.2",
