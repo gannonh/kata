@@ -1703,6 +1703,14 @@ struct RunningSessionStats {
 }
 
 #[derive(Debug, Clone)]
+struct CompletionCommentSummary {
+    turn_count: u32,
+    total_tokens: u64,
+    duration: chrono::Duration,
+    worker_host: Option<String>,
+}
+
+#[derive(Debug, Clone)]
 pub enum WorkerCompletion {
     Completed { schedule_continuation: bool },
     Failed { error: String },
@@ -1952,6 +1960,7 @@ pub struct Orchestrator {
     worker_steer_tx:
         HashMap<String, tokio::sync::mpsc::UnboundedSender<rpc_bridge::FollowUpRequest>>,
     running_session_stats: HashMap<String, RunningSessionStats>,
+    completion_comment_summaries: HashMap<String, CompletionCommentSummary>,
     /// Blocked issues from the latest dispatch phase.
     blocked_issues: Vec<crate::domain::BlockedIssueEntry>,
     pending_terminal_cleanup: HashMap<String, PendingTerminalCleanup>,
@@ -2049,6 +2058,7 @@ impl Orchestrator {
             worker_session_ids: HashMap::new(),
             worker_steer_tx: HashMap::new(),
             running_session_stats: HashMap::new(),
+            completion_comment_summaries: HashMap::new(),
             blocked_issues: Vec::new(),
             pending_terminal_cleanup: HashMap::new(),
             running_issue_states: HashMap::new(),
@@ -3267,6 +3277,38 @@ impl Orchestrator {
         // Keep running_issue_states until reconciliation — needed for
         // state-change notification detection on the next poll cycle.
         self.worker_last_activity_ms.remove(issue_id);
+
+        let completed_turn_count = self
+            .running_session_stats
+            .get(issue_id)
+            .map(|stats| stats.turn_count)
+            .or_else(|| {
+                self.worker_session_info
+                    .get(issue_id)
+                    .map(|info| info.turn_count.saturating_sub(1))
+            })
+            .unwrap_or_default();
+        let completed_total_tokens = self
+            .running_session_stats
+            .get(issue_id)
+            .map(|stats| stats.total_tokens)
+            .or_else(|| {
+                self.worker_session_info
+                    .get(issue_id)
+                    .map(|info| info.session_tokens.total_tokens)
+            })
+            .unwrap_or_default();
+
+        self.completion_comment_summaries.insert(
+            issue_id.to_string(),
+            CompletionCommentSummary {
+                turn_count: completed_turn_count,
+                total_tokens: completed_total_tokens,
+                duration: Utc::now().signed_duration_since(run_attempt.started_at),
+                worker_host: run_attempt.worker_host.clone(),
+            },
+        );
+
         self.running_session_stats.remove(issue_id);
         self.worker_session_info.remove(issue_id);
         self.running_parent_identifiers.remove(issue_id);
@@ -3406,6 +3448,7 @@ impl Orchestrator {
             None
         };
 
+        self.completion_comment_summaries.remove(&issue.id);
         self.state.running.insert(
             issue.id.clone(),
             RunAttempt {
@@ -4837,6 +4880,7 @@ impl Orchestrator {
             issue_url: issue.url.clone(),
         };
 
+        self.completion_comment_summaries.remove(&issue.id);
         self.state.running.insert(issue.id.clone(), attempt);
         let _ = self.ensure_worker_session_info(&issue.id);
         self.state.claimed.insert(issue.id.clone());
@@ -5083,16 +5127,27 @@ impl Orchestrator {
 
     fn completion_comment_for_issue(&self, issue: &Issue, now: DateTime<Utc>) -> String {
         let run_attempt = self.state.running.get(&issue.id);
+        let running_stats = self.running_session_stats.get(&issue.id);
         let session_info = self.worker_session_info.get(&issue.id);
+        let summary = self.completion_comment_summaries.get(&issue.id);
 
-        let turn_count = session_info.map(|info| info.turn_count).unwrap_or_default();
-        let total_tokens = session_info
-            .map(|info| info.session_tokens.total_tokens)
+        let turn_count = running_stats
+            .map(|stats| stats.turn_count)
+            .or_else(|| session_info.map(|info| info.turn_count.saturating_sub(1)))
+            .or_else(|| summary.map(|cached| cached.turn_count))
+            .unwrap_or_default();
+        let total_tokens = running_stats
+            .map(|stats| stats.total_tokens)
+            .or_else(|| session_info.map(|info| info.session_tokens.total_tokens))
+            .or_else(|| summary.map(|cached| cached.total_tokens))
             .unwrap_or_default();
         let duration = run_attempt
             .map(|attempt| now.signed_duration_since(attempt.started_at))
+            .or_else(|| summary.map(|cached| cached.duration))
             .unwrap_or_else(chrono::Duration::zero);
-        let worker_host = run_attempt.and_then(|attempt| attempt.worker_host.as_deref());
+        let worker_host = run_attempt
+            .and_then(|attempt| attempt.worker_host.as_deref())
+            .or_else(|| summary.and_then(|cached| cached.worker_host.as_deref()));
 
         CompletionCommentBuilder::new(
             &issue.identifier,
@@ -5204,6 +5259,7 @@ impl Orchestrator {
         self.worker_session_ids.remove(issue_id);
         self.worker_steer_tx.remove(issue_id);
         self.running_session_stats.remove(issue_id);
+        self.completion_comment_summaries.remove(issue_id);
     }
 
     fn cleanup_workspace(&self, issue: &Issue, workspace_path: &str) {
@@ -5260,6 +5316,7 @@ impl Orchestrator {
         self.worker_session_ids.remove(issue_id);
         self.worker_steer_tx.remove(issue_id);
         self.running_session_stats.remove(issue_id);
+        self.completion_comment_summaries.remove(issue_id);
     }
 
     fn active_state_set(&self) -> HashSet<String> {

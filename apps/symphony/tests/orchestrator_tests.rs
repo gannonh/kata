@@ -4743,7 +4743,7 @@ fn test_reconcile_terminal_github_writes_structured_completion_comment() {
     assert!(comment_call.contains("## Symphony Execution Summary"));
     assert!(comment_call.contains("**Issue:** #7"));
     assert!(comment_call.contains("**Status:** Done"));
-    assert!(comment_call.contains("**Turns:**"));
+    assert!(comment_call.contains("**Turns:** 1"));
     assert!(comment_call.contains("**Tokens:** 120"));
     assert!(comment_call.contains("**Duration:**"));
     assert!(comment_call.contains("**Worker:** local"));
