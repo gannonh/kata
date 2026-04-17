@@ -121,6 +121,19 @@ describe('GithubWorkflowClient', () => {
                         optionId: 'opt_1',
                       },
                     },
+                    {
+                      id: 'PVTI_2',
+                      content: {
+                        id: 'I_kwDOB',
+                        number: 2249,
+                        title: '[S99] Foreign Repo Item',
+                        url: 'https://github.com/other-org/other-repo/issues/2249',
+                      },
+                      fieldValueByName: {
+                        name: 'Agent Review',
+                        optionId: 'opt_1',
+                      },
+                    },
                   ],
                   pageInfo: {
                     hasNextPage: false,
@@ -149,7 +162,9 @@ describe('GithubWorkflowClient', () => {
     expect(snapshot.backend).toBe('github')
     expect(snapshot.source.githubStateMode).toBe('projects_v2')
     expect(snapshot.activeMilestone?.name).toBe('GitHub Project #7')
-    expect(snapshot.columns.find((column) => column.id === 'agent_review')?.cards[0]).toMatchObject({
+    const agentReviewCards = snapshot.columns.find((column) => column.id === 'agent_review')?.cards ?? []
+    expect(agentReviewCards).toHaveLength(1)
+    expect(agentReviewCards[0]).toMatchObject({
       id: '2249',
       identifier: '#2249',
       stateName: 'Agent Review',
