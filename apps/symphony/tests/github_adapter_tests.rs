@@ -490,6 +490,30 @@ async fn test_create_comment_delegates_to_client() {
 }
 
 #[tokio::test]
+async fn test_create_comment_preserves_structured_markdown_body() {
+    let mut server = Server::new_async().await;
+    let adapter = test_adapter(&server, None);
+
+    let structured_body = "## Symphony Execution Summary\n\n**Issue:** [S01]#7\n**Status:** Done\n**Turns:** 3\n**Tokens:** 1200\n**Duration:** 2m 1s\n**Worker:** local";
+
+    let mock = server
+        .mock("POST", "/repos/kata-sh/kata-mono/issues/7/comments")
+        .match_body(Matcher::PartialJson(json!({ "body": structured_body })))
+        .with_status(201)
+        .with_header("content-type", "application/json")
+        .with_body("{}")
+        .create_async()
+        .await;
+
+    adapter
+        .create_comment("7", structured_body)
+        .await
+        .expect("create_comment should preserve structured markdown");
+
+    mock.assert_async().await;
+}
+
+#[tokio::test]
 async fn test_update_issue_state_swaps_labels() {
     let mut server = Server::new_async().await;
     let adapter = test_adapter(&server, None);
