@@ -172,6 +172,53 @@ fn test_repo_workflow_example_uses_per_state_prompts() {
     );
 }
 
+#[test]
+fn test_worker_prompts_use_backend_neutral_kata_contract() {
+    let prompts_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("prompts");
+    let files = [
+        "system.md",
+        "in-progress.md",
+        "agent-review.md",
+        "rework.md",
+        "merging.md",
+    ];
+
+    let required = [
+        "kata_get_issue",
+        "kata_list_tasks",
+        "kata_read_document",
+        "kata_upsert_comment",
+        "kata_update_issue_state",
+    ];
+
+    let forbidden = [
+        "linear_get_issue",
+        "linear_update_issue",
+        "linear_add_comment",
+        "linear_graphql",
+        "You are working on a Linear ticket",
+    ];
+
+    for file in files {
+        let content =
+            std::fs::read_to_string(prompts_dir.join(file)).expect("prompt file should exist");
+
+        for needle in required {
+            assert!(
+                content.contains(needle),
+                "{file} must include required operation {needle}"
+            );
+        }
+
+        for needle in forbidden {
+            assert!(
+                !content.contains(needle),
+                "{file} must not include backend-specific token {needle}"
+            );
+        }
+    }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Config group
 // ─────────────────────────────────────────────────────────────────────────────
