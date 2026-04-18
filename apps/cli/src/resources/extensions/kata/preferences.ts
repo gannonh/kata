@@ -76,6 +76,16 @@ export interface KataLinearPreferences {
   projectSlug?: string;
 }
 
+export type KataGithubStateMode = "labels" | "projects_v2";
+
+export interface KataGithubPreferences {
+  repoOwner?: string;
+  repoName?: string;
+  stateMode?: KataGithubStateMode;
+  githubProjectNumber?: number;
+  labelPrefix?: string;
+}
+
 export type KataSymphonyConsolePosition = "below-output" | "above-status";
 
 export interface KataSymphonyPreferences {
@@ -103,6 +113,7 @@ export interface KataPreferences {
   skill_discovery?: SkillDiscoveryMode;
   workflow?: KataWorkflowPreferences;
   linear?: KataLinearPreferences;
+  github?: KataGithubPreferences;
   symphony?: KataSymphonyPreferences;
   pr?: KataPrPreferences;
   auto_supervisor?: AutoSupervisorConfig;
@@ -776,6 +787,14 @@ function mergePreferences(
           },
         }
       : {}),
+    ...(base.github || override.github
+      ? {
+          github: {
+            ...(base.github ?? {}),
+            ...(override.github ?? {}),
+          },
+        }
+      : {}),
     ...(base.symphony || override.symphony
       ? {
           symphony: {
@@ -841,6 +860,14 @@ function validatePreferences(preferences: KataPreferences): {
   }
   if (normalizedLinear.value) {
     validated.linear = normalizedLinear.value;
+  }
+
+  const normalizedGithub = normalizeGithubPreferences(preferences.github);
+  if (normalizedGithub.errors.length > 0) {
+    errors.push(...normalizedGithub.errors);
+  }
+  if (normalizedGithub.value) {
+    validated.github = normalizedGithub.value;
   }
 
   const normalizedSymphony = normalizeSymphonyPreferences(
@@ -1004,6 +1031,100 @@ function normalizeLinearPreferences(value: unknown): {
     const trimmed = raw.trim();
     if (trimmed) {
       normalized[key] = trimmed;
+    }
+  }
+
+  return {
+    value: Object.keys(normalized).length > 0 ? normalized : undefined,
+    errors,
+  };
+}
+
+function normalizeGithubPreferences(value: unknown): {
+  value?: KataGithubPreferences;
+  errors: string[];
+} {
+  if (value === undefined) return { errors: [] };
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { errors: ["github must be an object"] };
+  }
+
+  const normalized: KataGithubPreferences = {};
+  const errors: string[] = [];
+
+  const rawRepoOwner = (value as Record<string, unknown>).repoOwner;
+  if (rawRepoOwner !== undefined) {
+    if (typeof rawRepoOwner !== "string") {
+      errors.push("github.repoOwner must be a string");
+    } else {
+      const trimmed = rawRepoOwner.trim();
+      if (!trimmed) {
+        errors.push("github.repoOwner must not be empty");
+      } else {
+        normalized.repoOwner = trimmed;
+      }
+    }
+  }
+
+  const rawRepoName = (value as Record<string, unknown>).repoName;
+  if (rawRepoName !== undefined) {
+    if (typeof rawRepoName !== "string") {
+      errors.push("github.repoName must be a string");
+    } else {
+      const trimmed = rawRepoName.trim();
+      if (!trimmed) {
+        errors.push("github.repoName must not be empty");
+      } else {
+        normalized.repoName = trimmed;
+      }
+    }
+  }
+
+  const rawStateMode = (value as Record<string, unknown>).stateMode;
+  if (rawStateMode !== undefined) {
+    if (typeof rawStateMode !== "string") {
+      errors.push("github.stateMode must be a string");
+    } else {
+      const trimmed = rawStateMode.trim().toLowerCase();
+      if (trimmed !== "labels" && trimmed !== "projects_v2") {
+        errors.push('github.stateMode must be "labels" or "projects_v2"');
+      } else {
+        normalized.stateMode = trimmed as KataGithubStateMode;
+      }
+    }
+  }
+
+  const rawGithubProjectNumber = (value as Record<string, unknown>).githubProjectNumber;
+  if (rawGithubProjectNumber !== undefined) {
+    let parsed: number | null = null;
+    if (typeof rawGithubProjectNumber === "number" && Number.isFinite(rawGithubProjectNumber)) {
+      parsed = rawGithubProjectNumber;
+    } else if (typeof rawGithubProjectNumber === "string") {
+      const trimmed = rawGithubProjectNumber.trim();
+      if (trimmed.length > 0) {
+        const numeric = Number(trimmed);
+        if (Number.isFinite(numeric)) parsed = numeric;
+      }
+    }
+
+    if (parsed === null || !Number.isInteger(parsed) || parsed <= 0) {
+      errors.push("github.githubProjectNumber must be a positive integer");
+    } else {
+      normalized.githubProjectNumber = parsed;
+    }
+  }
+
+  const rawLabelPrefix = (value as Record<string, unknown>).labelPrefix;
+  if (rawLabelPrefix !== undefined) {
+    if (typeof rawLabelPrefix !== "string") {
+      errors.push("github.labelPrefix must be a string");
+    } else {
+      const trimmed = rawLabelPrefix.trim();
+      if (!trimmed) {
+        errors.push("github.labelPrefix must not be empty");
+      } else {
+        normalized.labelPrefix = trimmed;
+      }
     }
   }
 

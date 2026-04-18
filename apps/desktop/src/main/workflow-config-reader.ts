@@ -10,11 +10,11 @@ export interface WorkflowConfigReadResult {
 export async function readWorkspaceWorkflowTrackerConfig(
   workspacePath: string,
 ): Promise<WorkflowConfigReadResult> {
-  const workflowPath = path.join(workspacePath, 'WORKFLOW.md')
+  const preferencesPath = path.join(workspacePath, '.kata', 'preferences.md')
 
   let content: string
   try {
-    content = await fs.readFile(workflowPath, 'utf8')
+    content = await fs.readFile(preferencesPath, 'utf8')
   } catch (error) {
     const code =
       typeof error === 'object' && error !== null && 'code' in error
@@ -29,52 +29,67 @@ export async function readWorkspaceWorkflowTrackerConfig(
       config: null,
       error: {
         code: 'UNKNOWN',
-        message: `Unable to read WORKFLOW.md: ${error instanceof Error ? error.message : String(error)}`,
+        message: `Unable to read .kata/preferences.md: ${error instanceof Error ? error.message : String(error)}`,
       },
     }
   }
 
   const frontmatterMatch = content.match(/^\uFEFF?\s*---\s*\r?\n([\s\S]*?)\r?\n---/)
   if (!frontmatterMatch?.[1]) {
+    return { config: null }
+  }
+
+  const frontmatter = frontmatterMatch[1]
+  const workflowBlock = extractNestedBlock(frontmatter, 'workflow')
+  const workflowFields = workflowBlock ? parseSimpleObject(workflowBlock) : {}
+  const mode = stripYamlWrapping(workflowFields.mode ?? '').toLowerCase()
+
+  if (!mode || mode === 'linear') {
+    return { config: { kind: 'linear' } }
+  }
+
+  if (mode !== 'github') {
     return {
       config: null,
       error: {
         code: 'INVALID_CONFIG',
-        message: 'WORKFLOW.md is missing YAML frontmatter.',
+        message: 'workflow.mode must be either linear or github in .kata/preferences.md.',
       },
     }
   }
 
-  const frontmatter = frontmatterMatch[1]
-  const trackerBlock = extractNestedBlock(frontmatter, 'tracker')
-
-  if (!trackerBlock) {
-    return { config: { kind: 'linear' } }
+  const githubBlock = extractNestedBlock(frontmatter, 'github')
+  if (!githubBlock) {
+    return {
+      config: null,
+      error: {
+        code: 'INVALID_CONFIG',
+        message:
+          'GitHub workflow mode requires a github block in .kata/preferences.md with repoOwner and repoName.',
+      },
+    }
   }
 
-  const trackerFields = parseSimpleObject(trackerBlock)
-  const kind = (trackerFields.kind ?? 'linear').toLowerCase()
+  const githubFields = parseSimpleObject(githubBlock)
 
-  if (kind !== 'github') {
-    return { config: { kind: 'linear' } }
-  }
-
-  const repoOwner = stripYamlWrapping(trackerFields.repo_owner ?? '')
-  const repoName = stripYamlWrapping(trackerFields.repo_name ?? '')
-  const labelPrefix = stripYamlWrapping(trackerFields.label_prefix ?? '') || undefined
+  const repoOwner = stripYamlWrapping(githubFields.repoOwner ?? '')
+  const repoName = stripYamlWrapping(githubFields.repoName ?? '')
+  const normalizedLabelPrefix = stripYamlWrapping(githubFields.labelPrefix ?? '')
+    .trim()
+    .replace(/:+$/, '')
+  const labelPrefix = normalizedLabelPrefix || undefined
 
   if (!repoOwner || !repoName) {
     return {
       config: null,
       error: {
         code: 'INVALID_CONFIG',
-        message: 'GitHub tracker requires tracker.repo_owner and tracker.repo_name in WORKFLOW.md.',
+        message: 'GitHub workflow mode requires github.repoOwner and github.repoName in .kata/preferences.md.',
       },
     }
   }
 
-  const projectNumberRaw = stripYamlWrapping(trackerFields.github_project_number ?? '')
-
+  const projectNumberRaw = stripYamlWrapping(githubFields.githubProjectNumber ?? '')
   let githubProjectNumber: number | undefined
   if (projectNumberRaw) {
     const parsedProjectNumber = Number(projectNumberRaw)
@@ -83,7 +98,7 @@ export async function readWorkspaceWorkflowTrackerConfig(
         config: null,
         error: {
           code: 'INVALID_CONFIG',
-          message: 'tracker.github_project_number must be a positive number in WORKFLOW.md.',
+          message: 'github.githubProjectNumber must be a positive number in .kata/preferences.md.',
         },
       }
     }
@@ -91,12 +106,29 @@ export async function readWorkspaceWorkflowTrackerConfig(
     githubProjectNumber = parsedProjectNumber
   }
 
+  const stateModeRaw = stripYamlWrapping(githubFields.stateMode ?? '').toLowerCase()
+  let stateMode: 'labels' | 'projects_v2'
+
+  if (!stateModeRaw) {
+    stateMode = githubProjectNumber ? 'projects_v2' : 'labels'
+  } else if (stateModeRaw === 'labels' || stateModeRaw === 'projects_v2') {
+    stateMode = stateModeRaw
+  } else {
+    return {
+      config: null,
+      error: {
+        code: 'INVALID_CONFIG',
+        message: 'github.stateMode must be labels or projects_v2 in .kata/preferences.md.',
+      },
+    }
+  }
+
   return {
     config: {
       kind: 'github',
       repoOwner,
       repoName,
-      stateMode: githubProjectNumber ? 'projects_v2' : 'labels',
+      stateMode,
       githubProjectNumber,
       labelPrefix,
     },

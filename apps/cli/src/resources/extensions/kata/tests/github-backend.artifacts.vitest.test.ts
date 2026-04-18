@@ -12,6 +12,7 @@ interface MutableIssue {
   state: "open" | "closed";
   labels: string[];
   body?: string | null;
+  updatedAt?: string | null;
 }
 
 class FakeGithubClient implements GithubBackendClient {
@@ -22,7 +23,7 @@ class FakeGithubClient implements GithubBackendClient {
   private childrenByParent = new Map<number, Set<number>>();
 
   constructor(seed: MutableIssue[] = []) {
-    this.issues = seed.map((issue) => ({ ...issue, labels: [...issue.labels] }));
+    this.issues = seed.map((issue) => ({ ...issue, labels: [...issue.labels], updatedAt: issue.updatedAt ?? "2026-04-12T00:00:00.000Z" }));
     this.nextNumber =
       this.issues.length > 0 ? Math.max(...this.issues.map((issue) => issue.number)) + 1 : 1;
   }
@@ -48,6 +49,7 @@ class FakeGithubClient implements GithubBackendClient {
       body: payload.body ?? "",
       state: "open",
       labels: payload.labels ? [...payload.labels] : [],
+      updatedAt: "2026-04-12T00:00:00.000Z",
     };
     this.issues.push(issue);
     return { ...issue, labels: [...issue.labels] };
@@ -61,6 +63,7 @@ class FakeGithubClient implements GithubBackendClient {
     if (payload.body !== undefined) issue.body = payload.body;
     if (payload.state !== undefined) issue.state = payload.state;
     if (payload.labels !== undefined) issue.labels = [...payload.labels];
+    issue.updatedAt = "2026-04-12T00:00:00.000Z";
 
     return { ...issue, labels: [...issue.labels] };
   }
@@ -156,6 +159,78 @@ This plan intentionally omits canonical task IDs.
 `;
 
 describe("GithubBackend artifact persistence", () => {
+  it("surfaces milestone target dates from live artifact bodies", async () => {
+    const client = new FakeGithubClient([
+      {
+        number: 10,
+        title: "[M901] Live mutation test",
+        state: "open",
+        labels: ["kata:milestone"],
+        body: `<!-- KATA:GITHUB_ARTIFACT {"schema":"kata/github-artifact/v1","kind":"milestone","kataId":"M901"} -->\n\nScratch milestone\n\nTarget date: 2026-04-30`,
+        updatedAt: "2026-04-17T22:58:07Z",
+      },
+    ]);
+    const backend = makeBackend(client);
+
+    const milestones = await backend.listMilestones();
+    expect(milestones).toEqual([
+      expect.objectContaining({
+        id: "10",
+        name: "[M901] Live mutation test",
+        targetDate: "2026-04-30",
+        updatedAt: "2026-04-17T22:58:07Z",
+      }),
+    ]);
+  });
+
+  it("surfaces slice milestone ids in issue inventory", async () => {
+    const client = new FakeGithubClient([
+      {
+        number: 11,
+        title: "[S91] Live mutation slice",
+        state: "open",
+        labels: ["kata:slice"],
+        body: `<!-- KATA:GITHUB_ARTIFACT {"schema":"kata/github-artifact/v1","kind":"slice","kataId":"S91","milestoneId":"M901"} -->\n\nSlice body`,
+        updatedAt: "2026-04-17T22:59:54Z",
+      },
+    ]);
+    const backend = makeBackend(client);
+
+    const slices = await backend.listSlices();
+    expect(slices).toEqual([
+      expect.objectContaining({
+        id: "11",
+        identifier: "#11",
+        milestoneName: "M901",
+        updatedAt: "2026-04-17T22:59:54Z",
+      }),
+    ]);
+  });
+
+  it("listTasks includes parent issue identifier and updatedAt", async () => {
+    const client = new FakeGithubClient();
+    const backend = makeBackend(client);
+
+    await backend.writeDocument("M009-ROADMAP", ROADMAP);
+    const scope = await backend.resolveSliceScope("M009", "S02");
+    expect(scope).toEqual({ issueId: expect.any(String) });
+    await backend.writeDocument("S02-PLAN", SLICE_PLAN, scope);
+
+    const tasks = await backend.listTasks(String(scope!.issueId));
+    expect(tasks).toEqual([
+      expect.objectContaining({
+        identifier: "#4",
+        parentIdentifier: String(scope!.issueId),
+        updatedAt: "2026-04-12T00:00:00.000Z",
+      }),
+      expect.objectContaining({
+        identifier: "#5",
+        parentIdentifier: String(scope!.issueId),
+        updatedAt: "2026-04-12T00:00:00.000Z",
+      }),
+    ]);
+  });
+
   it("upserts milestone roadmap and materializes slice dependency metadata", async () => {
     const client = new FakeGithubClient();
     const backend = makeBackend(client);
@@ -205,6 +280,24 @@ describe("GithubBackend artifact persistence", () => {
 
     const docs = await backend.listDocuments(scope);
     expect(docs).toContain("S02-PLAN");
+  });
+
+  it("lists milestone slices via roadmap fallback when slice issues lack milestone metadata", async () => {
+    const client = new FakeGithubClient();
+    const backend = makeBackend(client);
+
+    await backend.writeDocument("M009-ROADMAP", ROADMAP);
+
+    const s01 = client.findIssueByKataId("S01");
+    const s02 = client.findIssueByKataId("S02");
+    expect(s01).toBeTruthy();
+    expect(s02).toBeTruthy();
+
+    await client.updateIssue(s01!.number, { body: "# S01\n\nLegacy body without metadata" });
+    await client.updateIssue(s02!.number, { body: "# S02\n\nLegacy body without metadata" });
+
+    const slices = await backend.listSlices({ milestoneId: "M009" });
+    expect(slices.map((slice) => slice.identifier)).toEqual([`#${s01!.number}`, `#${s02!.number}`]);
   });
 
   it("does not treat a slice as planned when no task sub-issues were materialized", async () => {

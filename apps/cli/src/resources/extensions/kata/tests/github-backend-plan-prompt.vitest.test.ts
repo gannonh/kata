@@ -55,7 +55,8 @@ describe("GithubBackend planning prompts", () => {
     expect(prompt).toMatch(/Idempotency check/i);
     expect(prompt).toMatch(/depends:\[/i);
     expect(prompt).toMatch(/dependency metadata/i);
-    expect(prompt).toMatch(/never use Linear tools/i);
+    expect(prompt).toMatch(/never use `linear_\*` tools/i);
+    expect(prompt).toMatch(/Use backend-aware `kata_\*` tools as the primary write path/i);
     expect(prompt).toMatch(/Never read local `\.kata\/\*\.md` planning files/i);
   });
 

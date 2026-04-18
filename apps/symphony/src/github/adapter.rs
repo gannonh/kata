@@ -4,8 +4,7 @@ use async_trait::async_trait;
 use tokio::sync::OnceCell;
 
 use crate::domain::{
-    canonical_kata_phase_name, parse_kata_identifier, parse_parent_issue_reference, Issue,
-    TrackerConfig, KATA_PHASE_NAMES,
+    canonical_kata_phase_name, parse_kata_identifier, Issue, TrackerConfig, KATA_PHASE_NAMES,
 };
 use crate::error::{Result, SymphonyError};
 use crate::github::client::{GithubClient, GithubIssue};
@@ -96,18 +95,21 @@ impl GithubAdapter {
         }
     }
 
-    fn state_prefix(&self) -> &str {
-        self.config
+    fn state_prefix(&self) -> String {
+        let raw = self
+            .config
             .label_prefix
             .as_deref()
-            .unwrap_or(self.client.label_prefix.as_str())
+            .unwrap_or(self.client.label_prefix.as_str());
+        normalize_label_prefix(raw)
     }
 
     fn issue_to_domain_with_state(&self, gh: &GithubIssue, state_override: Option<&str>) -> Issue {
+        let state_prefix = self.state_prefix();
         let state = state_override
             .map(normalize_state_for_display)
             .unwrap_or_else(|| {
-                extract_state_from_labels(&gh.labels, self.state_prefix())
+                extract_state_from_labels(&gh.labels, &state_prefix)
                     .map(|(_, display)| display)
                     .unwrap_or_default()
             });
@@ -138,7 +140,17 @@ impl GithubAdapter {
             format!("#{}", gh.number)
         };
 
-        let parent_identifier = gh.body.as_deref().and_then(parse_parent_issue_reference);
+        let parent_identifier = gh
+            .parent_issue_url
+            .as_deref()
+            .and_then(parse_issue_number_from_url)
+            .map(|number| format!("#{number}"));
+
+        let children_count = gh
+            .sub_issues_summary
+            .as_ref()
+            .map(|summary| summary.total)
+            .unwrap_or(0);
 
         Issue {
             id: gh.number.to_string(),
@@ -155,7 +167,7 @@ impl GithubAdapter {
             assigned_to_worker: self.assigned_to_worker(gh),
             created_at: gh.created_at,
             updated_at: gh.updated_at,
-            children_count: 0,
+            children_count,
             parent_identifier,
         }
     }
@@ -275,6 +287,7 @@ impl GithubAdapter {
         let issues = self.client.list_issues("open", &[]).await?;
         let allowed_states = self.candidate_state_set();
         let assignee_filter = self.assignee_filter();
+        let state_prefix = self.state_prefix();
 
         let filtered = issues
             .iter()
@@ -288,7 +301,7 @@ impl GithubAdapter {
                 }
 
                 let Some((normalized_state, _)) =
-                    extract_state_from_labels(&issue.labels, self.state_prefix())
+                    extract_state_from_labels(&issue.labels, &state_prefix)
                 else {
                     tracing::warn!(
                         issue_number = issue.number,
@@ -384,6 +397,7 @@ impl GithubAdapter {
             .iter()
             .map(|state| normalize_state_for_label(state))
             .collect();
+        let state_prefix = self.state_prefix();
 
         let filtered = issues
             .iter()
@@ -396,7 +410,7 @@ impl GithubAdapter {
                     return false;
                 }
 
-                extract_state_from_labels(&issue.labels, self.state_prefix())
+                extract_state_from_labels(&issue.labels, &state_prefix)
                     .map(|(normalized, _)| state_filters.contains(&normalized))
                     .unwrap_or(false)
             })
@@ -714,6 +728,15 @@ impl TrackerAdapter for GithubAdapter {
             }
         }
     }
+}
+
+fn normalize_label_prefix(prefix: &str) -> String {
+    prefix.trim().trim_end_matches(':').to_string()
+}
+
+fn parse_issue_number_from_url(url: &str) -> Option<u64> {
+    let segment = url.trim().trim_end_matches('/').rsplit('/').next()?;
+    segment.parse::<u64>().ok()
 }
 
 fn extract_state_from_labels(

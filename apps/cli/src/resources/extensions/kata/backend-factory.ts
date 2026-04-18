@@ -6,6 +6,7 @@
  * - github
  */
 
+import { debuglog } from "node:util";
 import type { KataBackend } from "./backend.js";
 import { GithubBackend } from "./github-backend.js";
 import {
@@ -31,8 +32,18 @@ interface BackendBootstrapEvent {
   diagnostics?: string[];
 }
 
+const debugBackendBootstrap = debuglog("kata_backend_bootstrap");
+
 function emitBackendBootstrap(event: BackendBootstrapEvent): void {
-  process.stderr.write(`[kata][backend-bootstrap] ${JSON.stringify(event)}\n`);
+  // Keep this silent for end users by default (slash command output should not
+  // be polluted by internal bootstrap telemetry). Enable explicit logging when
+  // diagnosing backend selection issues.
+  if (process.env.KATA_BACKEND_BOOTSTRAP_LOG === "1") {
+    process.stderr.write(`[kata][backend-bootstrap] ${JSON.stringify(event)}\n`);
+    return;
+  }
+
+  debugBackendBootstrap("%j", event);
 }
 
 function buildGithubBootstrapError(
@@ -41,7 +52,7 @@ function buildGithubBootstrapError(
   const report = formatGithubConfigStatus(validation);
   const relevantLines = report.lines.filter((line) =>
     line.startsWith("GITHUB_TOKEN:") ||
-    line.startsWith("tracker.") ||
+    line.startsWith("github.") ||
     line.startsWith("validation:") ||
     line.startsWith("diagnostic:") ||
     line.startsWith("action:"),
@@ -56,8 +67,11 @@ function buildGithubBootstrapError(
   return new Error(message);
 }
 
-async function createGithubBackend(basePath: string): Promise<KataBackend> {
-  const validation = validateGithubConfig({ basePath });
+async function createGithubBackend(
+  basePath: string,
+  loadedPreferences: LoadedKataPreferences | null,
+): Promise<KataBackend> {
+  const validation = validateGithubConfig({ basePath, loadedPreferences });
 
   if (!validation.ok || !validation.trackerConfig) {
     const diagnostics = validation.diagnostics.map((diagnostic) => diagnostic.code);
@@ -171,7 +185,7 @@ async function createLinearBackend(
         apiKey,
         projectId,
         teamId: teamResolution.teamId,
-        sliceLabelId: labelSet.slice.id,
+        labelSet,
       });
     } catch (err) {
       lastError = err;
@@ -212,7 +226,7 @@ export async function createBackend(basePath: string): Promise<KataBackend> {
   const config = loadEffectiveLinearProjectConfig(loadedPreferences);
 
   if (config.isGithubMode) {
-    return createGithubBackend(basePath);
+    return createGithubBackend(basePath, loadedPreferences);
   }
 
   return createLinearBackend(basePath, loadedPreferences);

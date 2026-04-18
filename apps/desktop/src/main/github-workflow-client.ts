@@ -133,7 +133,7 @@ export class GithubWorkflowClient {
     token: string,
     config: Extract<WorkflowTrackerConfig, { kind: 'github' }>,
   ): Promise<WorkflowBoardSnapshot> {
-    const prefix = config.labelPrefix?.trim() || 'symphony'
+    const prefix = normalizeLabelPrefix(config.labelPrefix)
 
     const issues = await this.fetchAllRepoIssues(token, config.repoOwner, config.repoName)
     const cards: WorkflowBoardSliceCard[] = []
@@ -613,11 +613,16 @@ export function extractPrMetadataFromGithubIssue(
   return undefined
 }
 
+function normalizeLabelPrefix(prefix: string | undefined): string {
+  const normalized = (prefix ?? '').trim().replace(/:+$/, '')
+  return normalized || 'symphony'
+}
+
 function extractStateFromLabels(
   labels: GithubIssueLabel[],
   prefix: string,
 ): { displayState: string } | null {
-  const marker = `${prefix.toLowerCase()}:`
+  const marker = `${normalizeLabelPrefix(prefix).toLowerCase()}:`
 
   for (const label of labels) {
     const labelName = label.name?.trim()

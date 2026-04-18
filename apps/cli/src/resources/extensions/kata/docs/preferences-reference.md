@@ -29,13 +29,20 @@ Full documentation for `~/.kata-cli/preferences.md` (global) and `.kata/preferen
 - `workflow`: workflow-mode configuration.
   - `workflow.mode`: `linear` (default) or `github`.
     - `linear` — Kata workflow state is Linear-backed (milestones, slices, tasks as Linear issues/milestones).
-    - `github` — Kata workflow state is GitHub-backed (milestones, slices, tasks as GitHub issues). Requires a `WORKFLOW.md` tracker block (see below).
+    - `github` — Kata workflow state is GitHub-backed (milestones, slices, tasks as GitHub issues). Requires a `github` block in `.kata/preferences.md` (see below).
     - File mode has been removed; file-backed `.kata/` workflow artifacts are no longer used.
 
 - `linear`: Linear binding configuration. Required when `workflow.mode: linear`.
   - `linear.teamKey`: Linear team key such as `KAT`. Required.
   - `linear.projectSlug`: Linear project slug from the project URL (e.g. `459f9835e809`). Required.
   - `linear.teamId`: optional Linear team UUID (alternative to `teamKey`).
+
+- `github`: GitHub tracker binding. Required when `workflow.mode: github`.
+  - `github.repoOwner`: GitHub org or user owner (required).
+  - `github.repoName`: GitHub repository name (required).
+  - `github.stateMode`: `labels` (default) or `projects_v2`.
+  - `github.githubProjectNumber`: positive integer project number (optional).
+  - `github.labelPrefix`: issue label prefix for phase derivation (optional, default `kata:`).
 
 - `pr`: PR lifecycle configuration. Controls whether and how Kata manages GitHub pull requests.
   - `pr.enabled`: set to `true` to activate the PR lifecycle. Requires `gh` CLI installed and authenticated.
@@ -76,7 +83,7 @@ Full documentation for `~/.kata-cli/preferences.md` (global) and `.kata/preferen
 
 ## GitHub Mode Configuration
 
-To use GitHub as the Kata workflow backend, set `workflow.mode: github` in `.kata/preferences.md` and add a `tracker:` block to `WORKFLOW.md` in the project root.
+To use GitHub as the Kata workflow backend, set `workflow.mode: github` in `.kata/preferences.md` and configure the `github:` block in the same file.
 
 ### `.kata/preferences.md` (project preferences)
 
@@ -84,23 +91,16 @@ To use GitHub as the Kata workflow backend, set `workflow.mode: github` in `.kat
 ---
 workflow:
   mode: github
+github:
+  repoOwner: my-org
+  repoName: my-repo
+  stateMode: labels          # or projects_v2
+  githubProjectNumber: 7     # optional
+  labelPrefix: kata:         # optional
 ---
 ```
 
-### `WORKFLOW.md` (project root — tracker block)
-
-```yaml
----
-tracker:
-  kind: github
-  repo_owner: my-org             # GitHub org or user name (required)
-  repo_name: my-repo             # GitHub repository name (required)
-  github_project_number: 7       # GitHub Projects v2 number (optional; reserved for future project-board integration)
-  label_prefix: kata:            # Issue label prefix for state derivation (optional; default: kata:)
----
-```
-
-Kata currently derives workflow phase from issue labels with the configured `label_prefix`. `github_project_number` is parsed and validated for forward compatibility, but it does not yet switch phase derivation to Projects v2 fields.
+Kata derives workflow phase from labels by default (`stateMode: labels`). Use `projects_v2` when your workflow state comes from a GitHub Project.
 
 In GitHub mode planning, `/kata plan` persists milestone/slice/task artifacts into GitHub issues with stable Kata metadata markers (`KATA:GITHUB_ARTIFACT`) and idempotent upsert semantics. Roadmap `depends:[]` entries are materialized as durable dependency metadata on slice artifacts.
 
@@ -119,12 +119,12 @@ To check GitHub mode readiness:
 Kata prefs status
 mode: github
 GITHUB_TOKEN: present (via KATA_GITHUB_TOKEN)
-tracker.repo: my-org/my-repo
-tracker.state_mode: labels
+github.repo: my-org/my-repo
+github.state_mode: labels
 validation: valid
 ```
 
-If GitHub mode is configured but not ready, the status output is actionable — for example `GITHUB_TOKEN: missing`, `diagnostic: missing_repo_owner`, or `diagnostic: unsupported_tracker_kind`.
+If GitHub mode is configured but not ready, the status output is actionable — for example `GITHUB_TOKEN: missing`, `diagnostic: missing_repo_owner`, or `diagnostic: missing_github_config`.
 
 `/kata status` and `/kata` smart-entry now surface the same backend bootstrap diagnostics. If runtime initialization fails, the message includes diagnostic codes plus remediation actions and points back to `/kata prefs status` for full detail.
 

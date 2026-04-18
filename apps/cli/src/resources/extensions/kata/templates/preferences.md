@@ -3,6 +3,7 @@ version: 1
 workflow:
   mode: linear
 linear: {}
+github: {}
 pr:
   enabled: false
   auto_create: false
@@ -32,7 +33,7 @@ See `~/.kata-cli/agent/extensions/kata/docs/preferences-reference.md` for full f
   - `linear` for Linear-backed planning/execution
   - `github` for GitHub-backed planning artifacts and state derivation
 - If using `linear`, fill in the `linear` block to bind this project to a Linear team/project.
-- If using `github`, configure `tracker.kind: github` in `WORKFLOW.md` with `repo_owner` and `repo_name`.
+- If using `github`, fill in the `github` block with `repoOwner` and `repoName`.
 - Keep secrets out of this file. Store credentials in `~/.kata-cli/agent/auth.json` (preferred) or env vars (`LINEAR_API_KEY`, `KATA_GITHUB_TOKEN`, etc.). `.env` is optional.
 - Set `pr.enabled: true` to activate the PR lifecycle (create, review, address, merge via `gh` CLI).
 
@@ -75,4 +76,16 @@ workflow:
 linear:
   teamKey: KAT
   projectSlug: 459f9835e809   # from your Linear project URL (or use projectId for UUID)
+```
+
+## GitHub example
+
+```yaml
+workflow:
+  mode: github
+github:
+  repoOwner: kata-sh
+  repoName: kata-mono
+  stateMode: labels      # or projects_v2
+  labelPrefix: kata:
 ```

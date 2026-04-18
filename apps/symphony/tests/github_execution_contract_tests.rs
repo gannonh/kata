@@ -57,6 +57,12 @@ fn projects_adapter(server: &ServerGuard) -> GithubAdapter {
 }
 
 fn issue_json(number: u64, title: &str, body: Option<&str>, labels: &[&str]) -> serde_json::Value {
+    let parent_issue_url = body
+        .and_then(parent_issue_number_from_body)
+        .map(|parent_number| {
+            format!("https://api.github.com/repos/kata-sh/kata-mono/issues/{parent_number}")
+        });
+
     json!({
         "number": number,
         "title": title,
@@ -71,8 +77,24 @@ fn issue_json(number: u64, title: &str, body: Option<&str>, labels: &[&str]) -> 
             .collect::<Vec<_>>(),
         "created_at": "2026-03-29T10:00:00Z",
         "updated_at": "2026-03-29T10:30:00Z",
-        "html_url": format!("https://github.com/kata-sh/kata-mono/issues/{number}")
+        "html_url": format!("https://github.com/kata-sh/kata-mono/issues/{number}"),
+        "parent_issue_url": parent_issue_url,
+        "sub_issues_summary": { "total": 0, "completed": 0, "percent_completed": 0 }
     })
+}
+
+fn parent_issue_number_from_body(body: &str) -> Option<u64> {
+    let marker_index = body.find('#')?;
+    let digits: String = body[marker_index + 1..]
+        .chars()
+        .take_while(|ch| ch.is_ascii_digit())
+        .collect();
+
+    if digits.is_empty() {
+        return None;
+    }
+
+    digits.parse::<u64>().ok()
 }
 
 fn projects_field_payload(options: &[(&str, &str)]) -> serde_json::Value {
@@ -118,6 +140,52 @@ fn project_items_payload(status_name: &str, option_id: &str) -> serde_json::Valu
             }
         }
     })
+}
+
+#[tokio::test]
+async fn test_label_mode_execution_lifecycle_contract_accepts_trailing_colon_prefix() {
+    let mut server = Server::new_async().await;
+    let mut config = base_config();
+    config.label_prefix = Some("symphony:".to_string());
+
+    let client = GithubClient::with_base_url(
+        "test-token",
+        "kata-sh",
+        "kata-mono",
+        "symphony",
+        server.url(),
+    );
+    let adapter = GithubAdapter::new(client, config);
+
+    let list_mock = server
+        .mock("GET", "/repos/kata-sh/kata-mono/issues")
+        .match_query(Matcher::AllOf(vec![
+            Matcher::UrlEncoded("state".into(), "open".into()),
+            Matcher::UrlEncoded("per_page".into(), "100".into()),
+        ]))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            json!([issue_json(
+                7,
+                "[S01] Build feature",
+                Some("body"),
+                &["symphony:todo", "kata:slice"],
+            )])
+            .to_string(),
+        )
+        .expect(1)
+        .create_async()
+        .await;
+
+    let candidates = adapter
+        .fetch_candidate_issues()
+        .await
+        .expect("candidate dispatch fetch should succeed with trailing-colon label prefix");
+
+    list_mock.assert_async().await;
+    assert_eq!(candidates.len(), 1);
+    assert_eq!(candidates[0].state, "Todo");
 }
 
 #[tokio::test]

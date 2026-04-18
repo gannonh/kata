@@ -80,6 +80,40 @@ describe('GithubWorkflowClient', () => {
     expect(snapshot.columns.find((column) => column.id === 'todo')?.cards).toHaveLength(0)
   })
 
+  test('accepts labelPrefix with trailing colon', async () => {
+    process.env.GH_TOKEN = 'ghp_test'
+
+    globalThis.fetch = vi.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify([
+          {
+            id: 1001,
+            number: 2249,
+            title: '[S02] GitHub Workflow Board Parity',
+            html_url: 'https://github.com/kata-sh/kata/issues/2249',
+            labels: [{ name: 'symphony:in-progress' }],
+          },
+        ]),
+        { status: 200 },
+      ),
+    ) as unknown as typeof fetch
+
+    const client = new GithubWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
+
+    const snapshot = await client.fetchSnapshot({
+      config: {
+        kind: 'github',
+        repoOwner: 'kata-sh',
+        repoName: 'kata',
+        stateMode: 'labels',
+        labelPrefix: 'symphony:',
+      },
+    })
+
+    expect(snapshot.columns.find((column) => column.id === 'in_progress')?.cards).toHaveLength(1)
+    expect(snapshot.columns.find((column) => column.id === 'in_progress')?.cards[0]?.stateName).toBe('In Progress')
+  })
+
   test('normalizes projects v2 status into canonical board columns', async () => {
     process.env.GH_TOKEN = 'ghp_test'
 

@@ -592,7 +592,7 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
             raw_tracker
                 .label_prefix
                 .map(|v| resolve_env(&v))
-                .map(|v| v.trim().to_string())
+                .map(|v| v.trim().trim_end_matches(':').to_string())
                 .filter(|v| !v.is_empty())
                 .unwrap_or_else(|| "symphony".to_string()),
         ),

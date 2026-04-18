@@ -275,6 +275,24 @@ tracker:
 }
 
 #[test]
+fn test_github_tracker_config_trims_trailing_colon_from_label_prefix() {
+    let yaml_str = r#"
+tracker:
+  kind: github
+  api_key: github-test-token
+  repo_owner: kata-sh
+  repo_name: kata-mono
+  label_prefix: 'kata:'
+"#;
+
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let config = from_workflow(&raw)
+        .expect("github tracker config with trailing-colon label prefix should parse");
+
+    assert_eq!(config.tracker.label_prefix.as_deref(), Some("kata"));
+}
+
+#[test]
 fn test_linear_config_unaffected() {
     let yaml_str = r#"
 tracker:

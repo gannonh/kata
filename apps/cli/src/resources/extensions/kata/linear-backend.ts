@@ -16,6 +16,10 @@ import type {
   DashboardData,
   PrContext,
   OpsBlock,
+  KataIssueRecord,
+  KataIssueStateUpdateResult,
+  KataMilestoneRecord,
+  KataWorkflowPhase,
 } from "./backend.js";
 import type { KataState, Phase } from "./types.js";
 
@@ -26,8 +30,17 @@ import {
   writeKataDocument,
   listKataDocuments,
 } from "../linear/linear-documents.js";
-import { listKataMilestones, listKataSlices, parseKataEntityTitle } from "../linear/linear-entities.js";
-import type { DocumentAttachment, LinearComment } from "../linear/linear-types.js";
+import {
+  createKataMilestone,
+  createKataSlice,
+  createKataTask,
+  getLinearStateForKataPhase,
+  listKataMilestones,
+  listKataSlices,
+  listKataTasks,
+  parseKataEntityTitle,
+} from "../linear/linear-entities.js";
+import type { DocumentAttachment, KataLabelSet, LinearComment } from "../linear/linear-types.js";
 import { ensureGitignore } from "./gitignore.js";
 import { loadPrompt } from "./prompt-loader.js";
 import { buildSkillDiscoveryVars } from "./preferences.js";
@@ -54,7 +67,7 @@ export interface LinearBackendConfig {
   apiKey: string;
   projectId: string;
   teamId: string;
-  sliceLabelId: string;
+  labelSet: KataLabelSet;
 }
 
 // ─── LinearBackend ───────────────────────────────────────────────────────────
@@ -87,7 +100,7 @@ export class LinearBackend implements KataBackend {
     const state = await deriveLinearState(this.client, {
       projectId: this.config.projectId,
       teamId: this.config.teamId,
-      sliceLabelId: this.config.sliceLabelId,
+      sliceLabelId: this.config.labelSet.slice.id,
       basePath: this.basePath,
     });
     this.stateCache = { state, timestamp: Date.now() };
@@ -235,7 +248,7 @@ export class LinearBackend implements KataBackend {
       const slices = await listKataSlices(
         this.client,
         this.config.projectId,
-        this.config.sliceLabelId,
+        this.config.labelSet.slice.id,
         milestoneLinearId,
       );
       const sliceIssue = slices.find((slice) => parseKataEntityTitle(slice.title)?.kataId === sliceId);
@@ -256,7 +269,7 @@ export class LinearBackend implements KataBackend {
       const slices = await listKataSlices(
         this.client,
         this.config.projectId,
-        this.config.sliceLabelId,
+        this.config.labelSet.slice.id,
         milestoneLinearId,
       );
       const sliceIssue = slices.find((slice) => parseKataEntityTitle(slice.title)?.kataId === sliceId);
@@ -264,6 +277,148 @@ export class LinearBackend implements KataBackend {
     } catch {
       return false;
     }
+  }
+
+  private toMilestoneRecord(milestone: Awaited<ReturnType<typeof listKataMilestones>>[number]): KataMilestoneRecord {
+    return {
+      id: milestone.id,
+      name: milestone.name,
+      targetDate: milestone.targetDate ?? null,
+      updatedAt: milestone.updatedAt ?? null,
+    };
+  }
+
+  private toIssueRecord(issue: {
+    id: string;
+    identifier: string;
+    title: string;
+    state: { name: string };
+    labels?: Array<{ name: string }>;
+    updatedAt?: string;
+    project?: { name: string } | null;
+    projectMilestone?: { name: string } | null;
+    parent?: { identifier: string } | null;
+  }): KataIssueRecord {
+    return {
+      id: issue.id,
+      identifier: issue.identifier,
+      title: issue.title,
+      state: issue.state.name,
+      labels: issue.labels?.map((label) => label.name) ?? [],
+      updatedAt: issue.updatedAt ?? null,
+      projectName: issue.project?.name ?? null,
+      milestoneName: issue.projectMilestone?.name ?? null,
+      parentIdentifier: issue.parent?.identifier ?? null,
+    };
+  }
+
+  async createMilestone(input: {
+    kataId: string;
+    title: string;
+    description?: string;
+    targetDate?: string;
+  }): Promise<KataMilestoneRecord> {
+    const milestone = await createKataMilestone(
+      this.client,
+      { projectId: this.config.projectId },
+      input,
+    );
+    this.invalidateStateCache();
+    return this.toMilestoneRecord(milestone);
+  }
+
+  async createSlice(input: {
+    kataId: string;
+    title: string;
+    description?: string;
+    milestoneId?: string;
+    initialPhase?: KataWorkflowPhase;
+  }): Promise<KataIssueRecord> {
+    const states = input.initialPhase ? await this.client.listWorkflowStates(this.config.teamId) : undefined;
+    const issue = await createKataSlice(
+      this.client,
+      { teamId: this.config.teamId, projectId: this.config.projectId, labelSet: this.config.labelSet },
+      {
+        ...input,
+        states,
+      },
+    );
+    this.invalidateStateCache();
+    return this.toIssueRecord(issue);
+  }
+
+  async createTask(input: {
+    kataId: string;
+    title: string;
+    sliceIssueId: string;
+    description?: string;
+    initialPhase?: KataWorkflowPhase;
+  }): Promise<KataIssueRecord> {
+    const states = input.initialPhase ? await this.client.listWorkflowStates(this.config.teamId) : undefined;
+    const issue = await createKataTask(
+      this.client,
+      { teamId: this.config.teamId, projectId: this.config.projectId, labelSet: this.config.labelSet },
+      {
+        ...input,
+        states,
+      },
+    );
+    this.invalidateStateCache();
+    return this.toIssueRecord(issue);
+  }
+
+  async listMilestones(): Promise<KataMilestoneRecord[]> {
+    const milestones = await listKataMilestones(this.client, this.config.projectId);
+    return milestones.map((milestone) => this.toMilestoneRecord(milestone));
+  }
+
+  async listSlices(input: { milestoneId?: string } = {}): Promise<KataIssueRecord[]> {
+    const slices = await listKataSlices(
+      this.client,
+      this.config.projectId,
+      this.config.labelSet.slice.id,
+      input.milestoneId,
+    );
+    return slices.map((issue) => this.toIssueRecord(issue));
+  }
+
+  async listTasks(sliceIssueId: string): Promise<KataIssueRecord[]> {
+    const tasks = await listKataTasks(this.client, sliceIssueId);
+    return tasks.map((issue) => this.toIssueRecord(issue));
+  }
+
+  async updateIssueState(
+    issueId: string,
+    phase: KataWorkflowPhase,
+    teamId?: string,
+  ): Promise<KataIssueStateUpdateResult> {
+    const resolvedTeamId = teamId ?? this.config.teamId;
+
+    if (phase === "done") {
+      const issue = await this.client.getIssue(issueId);
+      const isSlice = issue?.labels?.some((label) => label.name === "kata:slice");
+      if (isSlice) {
+        throw new Error(
+          "Cannot advance a slice to done directly. The orchestrator handles slice completion after the summarizing phase.",
+        );
+      }
+    }
+
+    const states = await this.client.listWorkflowStates(resolvedTeamId);
+    const targetState = getLinearStateForKataPhase(states, phase);
+    if (!targetState) {
+      throw new Error(`No workflow state found for phase: ${phase}`);
+    }
+
+    const issue = await this.client.updateIssue(issueId, { stateId: targetState.id });
+    this.invalidateStateCache();
+    return {
+      issueId: issue.id,
+      identifier: issue.identifier,
+      phase,
+      stateId: targetState.id,
+      state: issue.state.name,
+    };
   }
 
   // ── Lifecycle ─────────────────────────────────────────────────────────
@@ -289,7 +444,7 @@ export class LinearBackend implements KataBackend {
     // Fetch all slices for the current milestone so completed slices remain
     // visible in the dashboard and available for PR title resolution.
     try {
-      const allSlices = await listKataSlices(this.client, this.config.projectId, this.config.sliceLabelId);
+      const allSlices = await listKataSlices(this.client, this.config.projectId, this.config.labelSet.slice.id);
       const activeSliceId = state.activeSlice?.id;
 
       for (const issue of allSlices) {

@@ -23,6 +23,7 @@ export type PrefsSectionKey =
   | "general"
   | "workflow"
   | "linear"
+  | "github"
   | "pr"
   | "models"
   | "symphony"
@@ -54,6 +55,11 @@ export const PREFS_SECTION_DEFINITIONS: readonly PrefsSectionDefinition[] = [
     key: "linear",
     label: "Linear",
     description: "Linear binding configuration for Linear-backed workflow.",
+  },
+  {
+    key: "github",
+    label: "GitHub",
+    description: "GitHub tracker configuration for GitHub-backed workflow.",
   },
   {
     key: "pr",
@@ -162,6 +168,49 @@ export const PREFS_FIELD_DEFINITIONS: readonly PrefsFieldDefinition[] = [
     description: "Optional Linear team UUID.",
   },
   // projectId is still read at runtime for backward compat but hidden from the editor.
+
+  // ── GitHub ───────────────────────────────────────────────────────────────
+  {
+    section: "github",
+    key: "repoOwner",
+    label: "Repo Owner",
+    path: ["github", "repoOwner"],
+    type: "string",
+    description: "GitHub org or user owner (required for GitHub mode).",
+  },
+  {
+    section: "github",
+    key: "repoName",
+    label: "Repo Name",
+    path: ["github", "repoName"],
+    type: "string",
+    description: "GitHub repository name (required for GitHub mode).",
+  },
+  {
+    section: "github",
+    key: "stateMode",
+    label: "State Mode",
+    path: ["github", "stateMode"],
+    type: "enum",
+    enumValues: ["labels", "projects_v2"],
+    description: "GitHub workflow state source.",
+  },
+  {
+    section: "github",
+    key: "githubProjectNumber",
+    label: "Project Number",
+    path: ["github", "githubProjectNumber"],
+    type: "number",
+    description: "GitHub Projects v2 project number (optional).",
+  },
+  {
+    section: "github",
+    key: "labelPrefix",
+    label: "Label Prefix",
+    path: ["github", "labelPrefix"],
+    type: "string",
+    description: "Label prefix used for phase derivation (default: kata:).",
+  },
 
   // ── PR ────────────────────────────────────────────────────────────────────
   {

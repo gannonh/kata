@@ -24,6 +24,7 @@ import type {
 } from "@mariozechner/pi-coding-agent";
 
 import { registerKataCommand } from "./commands.js";
+import { registerKataTools } from "./tools.js";
 import { loadPrompt } from "./prompt-loader.js";
 import {
   isAutoActive,
@@ -66,6 +67,7 @@ export default function (pi: ExtensionAPI) {
   setLatestPi(pi);
 
   registerKataCommand(pi);
+  registerKataTools(pi);
 
   // ── session_start: render branded Kata header ───────────────────────────
   pi.on("session_start", async (_event, ctx) => {

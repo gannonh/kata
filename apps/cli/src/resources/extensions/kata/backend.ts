@@ -7,6 +7,36 @@
 
 import type { KataState, Phase } from "./types.js";
 
+export type KataWorkflowPhase = "backlog" | "planning" | "executing" | "verifying" | "done";
+
+export interface KataMilestoneRecord {
+  id: string;
+  name: string;
+  targetDate?: string | null;
+  updatedAt?: string | null;
+  trackerIssueId?: string;
+}
+
+export interface KataIssueRecord {
+  id: string;
+  identifier: string;
+  title: string;
+  state: string;
+  labels: string[];
+  updatedAt?: string | null;
+  projectName?: string | null;
+  milestoneName?: string | null;
+  parentIdentifier?: string | null;
+}
+
+export interface KataIssueStateUpdateResult {
+  issueId: string;
+  identifier?: string;
+  phase: KataWorkflowPhase;
+  state: string;
+  stateId?: string;
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type DocumentScope =
@@ -94,6 +124,30 @@ export interface KataBackend {
   checkMilestoneCreated(milestoneId: string): Promise<boolean>;
   loadDashboardData(): Promise<DashboardData>;
   preparePrContext(milestoneId: string, sliceId: string): Promise<PrContext>;
+  createMilestone(input: {
+    kataId: string;
+    title: string;
+    description?: string;
+    targetDate?: string;
+  }): Promise<KataMilestoneRecord>;
+  createSlice(input: {
+    kataId: string;
+    title: string;
+    description?: string;
+    milestoneId?: string;
+    initialPhase?: KataWorkflowPhase;
+  }): Promise<KataIssueRecord>;
+  createTask(input: {
+    kataId: string;
+    title: string;
+    sliceIssueId: string;
+    description?: string;
+    initialPhase?: KataWorkflowPhase;
+  }): Promise<KataIssueRecord>;
+  listMilestones(): Promise<KataMilestoneRecord[]>;
+  listSlices(input?: { milestoneId?: string }): Promise<KataIssueRecord[]>;
+  listTasks(sliceIssueId: string): Promise<KataIssueRecord[]>;
+  updateIssueState(issueId: string, phase: KataWorkflowPhase, teamId?: string): Promise<KataIssueStateUpdateResult>;
 }
 
 // ─── Factory ──────────────────────────────────────────────────────────────────
