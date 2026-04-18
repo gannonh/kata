@@ -1228,9 +1228,31 @@ export class LinearClient {
 
   // ── Comments ────────────────────────────────────────────────────────────
 
-  async createComment(issueId: string, body: string): Promise<{ id: string; body: string; createdAt: string; url: string }> {
+  async listIssueComments(issueId: string): Promise<LinearComment[]> {
     const data = await this.graphql<{
-      commentCreate: { success: boolean; comment: { id: string; body: string; createdAt: string; url: string } };
+      issue: { comments: { nodes: LinearComment[] } | null } | null;
+    }>(`
+      query ListIssueComments($id: String!) {
+        issue(id: $id) {
+          comments(first: 50) {
+            nodes {
+              id
+              body
+              createdAt
+              updatedAt
+              url
+            }
+          }
+        }
+      }
+    `, { id: issueId });
+
+    return data.issue?.comments?.nodes ?? [];
+  }
+
+  async createComment(issueId: string, body: string): Promise<{ id: string; body: string; createdAt: string; updatedAt?: string; url: string }> {
+    const data = await this.graphql<{
+      commentCreate: { success: boolean; comment: { id: string; body: string; createdAt: string; updatedAt?: string; url: string } };
     }>(`
       mutation CreateComment($input: CommentCreateInput!) {
         commentCreate(input: $input) {
@@ -1239,6 +1261,7 @@ export class LinearClient {
             id
             body
             createdAt
+            updatedAt
             url
           }
         }
@@ -1246,5 +1269,29 @@ export class LinearClient {
     `, { input: { issueId, body } });
     this.assertSuccess("commentCreate", data.commentCreate.success);
     return data.commentCreate.comment;
+  }
+
+  async updateComment(id: string, body: string): Promise<{ id: string; body: string; createdAt: string; updatedAt?: string; url: string }> {
+    const data = await this.graphql<{
+      commentUpdate: { success: boolean; comment: { id: string; body: string; createdAt: string; updatedAt?: string; url: string } };
+    }>(`
+      mutation UpdateComment($id: String!, $input: CommentUpdateInput!) {
+        commentUpdate(id: $id, input: $input) {
+          success
+          comment {
+            id
+            body
+            createdAt
+            updatedAt
+            url
+          }
+        }
+      }
+    `, {
+      id,
+      input: { body },
+    });
+    this.assertSuccess("commentUpdate", data.commentUpdate.success);
+    return data.commentUpdate.comment;
   }
 }

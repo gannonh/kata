@@ -68,6 +68,195 @@ describe("LinearBackend interface", () => {
   });
 });
 
+describe("LinearBackend canonical worker operations", () => {
+  it("getIssue returns issue detail with optional children/comments", async () => {
+    const backend = makeBackend();
+    let listIssueCommentsCalls = 0;
+
+    (backend as any).client = {
+      async getIssue(issueId: string) {
+        return {
+          id: issueId,
+          identifier: "KAT-42",
+          title: "[S01] Test Slice",
+          state: { id: "state-started", name: "In Progress", type: "started", color: "#000", position: 0 },
+          labels: [{ id: "label-789", name: "kata:slice", color: "#2563EB", isGroup: false }],
+          children: {
+            nodes: [{
+              id: "task-linear-1",
+              identifier: "KAT-43",
+              title: "[T01] Task",
+              state: { id: "state-started", name: "In Progress", type: "started", color: "#000", position: 1 },
+              labels: [{ id: "label-790", name: "kata:task", color: "#16A34A", isGroup: false }],
+              createdAt: "2024-01-01T00:00:00.000Z",
+              updatedAt: "2024-01-02T00:00:00.000Z",
+            }],
+          },
+          project: { id: "proj-123", name: "Test Project" },
+          projectMilestone: { id: "mile-1", name: "[M001] Milestone" },
+          parent: null,
+          description: "Slice description",
+          createdAt: "2024-01-01T00:00:00.000Z",
+          updatedAt: "2024-01-02T00:00:00.000Z",
+        };
+      },
+      async listIssueComments(issueId: string) {
+        listIssueCommentsCalls++;
+        return [{
+          id: "comment-1",
+          body: "<!-- KATA:S01-SUMMARY -->\nsummary",
+          createdAt: "2024-01-03T00:00:00.000Z",
+          updatedAt: "2024-01-04T00:00:00.000Z",
+          url: `https://linear.app/comment/${issueId}`,
+        }];
+      },
+    };
+
+    const detail = await backend.getIssue("slice-linear-1");
+    expect(detail).toMatchObject({
+      id: "slice-linear-1",
+      identifier: "KAT-42",
+      title: "[S01] Test Slice",
+      state: "In Progress",
+      labels: ["kata:slice"],
+      description: "Slice description",
+      children: [{
+        id: "task-linear-1",
+        identifier: "KAT-43",
+        title: "[T01] Task",
+      }],
+      comments: [{
+        id: "comment-1",
+        issueId: "slice-linear-1",
+        marker: "KATA:S01-SUMMARY",
+      }],
+    });
+
+    const compact = await backend.getIssue("slice-linear-1", {
+      includeChildren: false,
+      includeComments: false,
+    });
+    expect(compact?.children).toEqual([]);
+    expect(compact?.comments).toEqual([]);
+    expect(listIssueCommentsCalls).toBe(1);
+  });
+
+  it("upsertComment updates marker-matched comments before creating new comments", async () => {
+    const backend = makeBackend();
+    const calls: string[] = [];
+
+    (backend as any).client = {
+      async listIssueComments() {
+        calls.push("list");
+        return [{
+          id: "comment-1",
+          body: "<!-- KATA:S01-SUMMARY -->\nold body",
+          createdAt: "2024-01-03T00:00:00.000Z",
+          updatedAt: "2024-01-04T00:00:00.000Z",
+          url: "https://linear.app/comment/1",
+        }];
+      },
+      async updateComment(id: string, body: string) {
+        calls.push(`update:${id}`);
+        return {
+          id,
+          body,
+          createdAt: "2024-01-03T00:00:00.000Z",
+          updatedAt: "2024-01-05T00:00:00.000Z",
+          url: "https://linear.app/comment/1",
+        };
+      },
+      async createComment() {
+        calls.push("create");
+        throw new Error("createComment should not be called when marker match exists");
+      },
+    };
+
+    const comment = await backend.upsertComment({
+      issueId: "slice-linear-1",
+      marker: "KATA:S01-SUMMARY",
+      body: "updated summary",
+    });
+
+    expect(calls).toEqual(["list", "update:comment-1"]);
+    expect(comment).toMatchObject({
+      id: "comment-1",
+      issueId: "slice-linear-1",
+      marker: "KATA:S01-SUMMARY",
+      action: "updated",
+    });
+  });
+
+  it("createFollowupIssue creates a relation when parent+relationType are provided", async () => {
+    const backend = makeBackend();
+    const calls: Array<Record<string, unknown>> = [];
+
+    (backend as any).client = {
+      async createIssue(input: Record<string, unknown>) {
+        calls.push({ type: "createIssue", input });
+        return {
+          id: "followup-1",
+          identifier: "KAT-99",
+          title: String(input.title ?? ""),
+          state: { id: "state-backlog", name: "Backlog", type: "backlog", color: "#777", position: 0 },
+          labels: [],
+          children: { nodes: [] },
+          project: { id: "proj-123", name: "Test Project" },
+          projectMilestone: null,
+          parent: input.parentId ? { id: String(input.parentId), identifier: "KAT-42", title: "Parent" } : null,
+          createdAt: "2024-01-01T00:00:00.000Z",
+          updatedAt: "2024-01-02T00:00:00.000Z",
+        };
+      },
+      async createRelation(input: Record<string, unknown>) {
+        calls.push({ type: "createRelation", input });
+        return {
+          id: "rel-1",
+          type: "blocked_by",
+          direction: "inbound",
+          issue: { id: "parent-1", identifier: "KAT-42", title: "Parent" },
+          relatedIssue: { id: "followup-1", identifier: "KAT-99", title: "Investigate regression" },
+          otherIssue: { id: "parent-1", identifier: "KAT-42", title: "Parent" },
+        };
+      },
+    };
+
+    const issue = await backend.createFollowupIssue({
+      parentIssueId: "parent-1",
+      relationType: "blocked_by",
+      title: "Investigate regression",
+      description: "Detailed follow-up",
+    });
+
+    expect(issue).toMatchObject({
+      id: "followup-1",
+      identifier: "KAT-99",
+      title: "Investigate regression",
+      parentIdentifier: "KAT-42",
+    });
+    expect(calls).toEqual([
+      {
+        type: "createIssue",
+        input: {
+          teamId: "team-456",
+          projectId: "proj-123",
+          parentId: "parent-1",
+          title: "Investigate regression",
+          description: "Detailed follow-up",
+        },
+      },
+      {
+        type: "createRelation",
+        input: {
+          issueId: "followup-1",
+          relatedIssueId: "parent-1",
+          type: "blocked_by",
+        },
+      },
+    ]);
+  });
+});
+
 // ─── preparePrContext ───────────────────────────────────────────────────────
 
 describe("LinearBackend.preparePrContext", () => {

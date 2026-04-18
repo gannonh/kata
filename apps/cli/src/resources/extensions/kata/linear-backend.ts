@@ -16,6 +16,10 @@ import type {
   DashboardData,
   PrContext,
   OpsBlock,
+  KataCommentUpsertInput,
+  KataFollowupIssueInput,
+  KataIssueCommentRecord,
+  KataIssueDetailRecord,
   KataIssueRecord,
   KataIssueStateUpdateResult,
   KataMilestoneRecord,
@@ -126,25 +130,28 @@ export class LinearBackend implements KataBackend {
   }
 
   private async listIssueComments(issueId: string): Promise<LinearComment[]> {
-    const data = await this.client.graphql<{
-      issue: { comments: { nodes: LinearComment[] } | null } | null;
-    }>(`
-      query KataIssueComments($id: String!) {
-        issue(id: $id) {
-          comments(first: 50) {
-            nodes {
-              id
-              body
-              createdAt
-              updatedAt
-              url
-            }
-          }
-        }
-      }
-    `, { id: issueId });
+    return this.client.listIssueComments(issueId);
+  }
 
-    return data.issue?.comments?.nodes ?? [];
+  private static readonly MARKER_RE = /<!--\s*([A-Za-z0-9:_-]+)\s*-->/;
+
+  private extractMarker(body: string): string | null {
+    const markerMatch = LinearBackend.MARKER_RE.exec(body);
+    return markerMatch?.[1] ?? null;
+  }
+
+  private hasMarker(body: string, marker: string): boolean {
+    const normalized = marker.trim();
+    if (!normalized) return false;
+    if (body.includes(`<!-- ${normalized} -->`) || body.includes(`<!--${normalized}-->`)) return true;
+    return this.extractMarker(body) === normalized;
+  }
+
+  private withMarker(body: string, marker?: string): string {
+    const normalized = marker?.trim();
+    if (!normalized) return body;
+    if (this.hasMarker(body, normalized)) return body;
+    return `<!-- ${normalized} -->\n${body}`;
   }
 
   private pickLatestSummaryComment(name: string, comments: LinearComment[]): string | null {
@@ -385,6 +392,107 @@ export class LinearBackend implements KataBackend {
   async listTasks(sliceIssueId: string): Promise<KataIssueRecord[]> {
     const tasks = await listKataTasks(this.client, sliceIssueId);
     return tasks.map((issue) => this.toIssueRecord(issue));
+  }
+
+  async getIssue(
+    issueId: string,
+    opts?: { includeChildren?: boolean; includeComments?: boolean },
+  ): Promise<KataIssueDetailRecord | null> {
+    const includeChildren = opts?.includeChildren ?? true;
+    const includeComments = opts?.includeComments ?? true;
+
+    const issue = await this.client.getIssue(issueId);
+    if (!issue) return null;
+
+    const children: KataIssueRecord[] = includeChildren
+      ? (issue.children?.nodes ?? []).map((child) => ({
+          id: child.id,
+          identifier: child.identifier,
+          title: child.title,
+          state: child.state.name,
+          labels: [],
+          updatedAt: null,
+          projectName: issue.project?.name ?? null,
+          milestoneName: issue.projectMilestone?.name ?? null,
+          parentIdentifier: issue.identifier,
+        }))
+      : [];
+
+    const comments: KataIssueCommentRecord[] = includeComments
+      ? (await this.client.listIssueComments(issueId)).map((comment) => ({
+          id: comment.id,
+          issueId,
+          marker: this.extractMarker(comment.body),
+          createdAt: comment.createdAt,
+          updatedAt: comment.updatedAt ?? null,
+          url: comment.url,
+        }))
+      : [];
+
+    return {
+      ...this.toIssueRecord(issue),
+      description: issue.description ?? null,
+      children,
+      comments,
+    };
+  }
+
+  async upsertComment(input: KataCommentUpsertInput): Promise<KataIssueCommentRecord> {
+    const marker = input.marker?.trim() || undefined;
+    const body = this.withMarker(input.body, marker);
+
+    if (marker) {
+      const comments = await this.client.listIssueComments(input.issueId);
+      const existing = comments.find((comment) => this.hasMarker(comment.body, marker));
+      if (existing) {
+        const updated = await this.client.updateComment(existing.id, body);
+        return {
+          id: updated.id,
+          issueId: input.issueId,
+          marker,
+          action: "updated",
+          createdAt: updated.createdAt ?? existing.createdAt ?? null,
+          updatedAt: updated.updatedAt ?? null,
+          url: updated.url ?? existing.url ?? null,
+        };
+      }
+    }
+
+    const created = await this.client.createComment(input.issueId, body);
+    return {
+      id: created.id,
+      issueId: input.issueId,
+      marker: marker ?? this.extractMarker(created.body),
+      action: "created",
+      createdAt: created.createdAt,
+      updatedAt: created.updatedAt ?? null,
+      url: created.url,
+    };
+  }
+
+  async createFollowupIssue(input: KataFollowupIssueInput): Promise<KataIssueRecord> {
+    if (input.relationType && !input.parentIssueId) {
+      throw new Error("parentIssueId is required when relationType is provided");
+    }
+
+    const issue = await this.client.createIssue({
+      teamId: this.config.teamId,
+      projectId: this.config.projectId,
+      parentId: input.parentIssueId,
+      title: input.title,
+      description: input.description,
+    });
+
+    if (input.parentIssueId && input.relationType) {
+      await this.client.createRelation({
+        issueId: issue.id,
+        relatedIssueId: input.parentIssueId,
+        type: input.relationType,
+      });
+    }
+
+    this.invalidateStateCache();
+    return this.toIssueRecord(issue);
   }
 
   async updateIssueState(
