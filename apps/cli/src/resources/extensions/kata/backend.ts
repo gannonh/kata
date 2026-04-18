@@ -29,6 +29,35 @@ export interface KataIssueRecord {
   parentIdentifier?: string | null;
 }
 
+export interface KataIssueCommentRecord {
+  id: string;
+  issueId: string;
+  marker?: string | null;
+  action?: "created" | "updated";
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  url?: string | null;
+}
+
+export interface KataIssueDetailRecord extends KataIssueRecord {
+  description?: string | null;
+  children: KataIssueRecord[];
+  comments: KataIssueCommentRecord[];
+}
+
+export interface KataCommentUpsertInput {
+  issueId: string;
+  body: string;
+  marker?: string;
+}
+
+export interface KataFollowupIssueInput {
+  parentIssueId?: string;
+  relationType?: "relates_to" | "blocked_by";
+  title: string;
+  description: string;
+}
+
 export interface KataIssueStateUpdateResult {
   issueId: string;
   identifier?: string;
@@ -147,6 +176,10 @@ export interface KataBackend {
   listMilestones(): Promise<KataMilestoneRecord[]>;
   listSlices(input?: { milestoneId?: string }): Promise<KataIssueRecord[]>;
   listTasks(sliceIssueId: string): Promise<KataIssueRecord[]>;
+  /** Tool layer defaults includeChildren/includeComments to true when omitted. */
+  getIssue(issueId: string, opts?: { includeChildren?: boolean; includeComments?: boolean }): Promise<KataIssueDetailRecord | null>;
+  upsertComment(input: KataCommentUpsertInput): Promise<KataIssueCommentRecord>;
+  createFollowupIssue(input: KataFollowupIssueInput): Promise<KataIssueRecord>;
   updateIssueState(issueId: string, phase: KataWorkflowPhase, teamId?: string): Promise<KataIssueStateUpdateResult>;
 }
 

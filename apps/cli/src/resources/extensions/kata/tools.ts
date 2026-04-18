@@ -16,6 +16,9 @@ export const KATA_TOOL_STRATEGIES = {
   kata_create_task: "mutation",
   kata_list_slices: "inventory",
   kata_list_tasks: "inventory",
+  kata_get_issue: "paged-read",
+  kata_upsert_comment: "mutation",
+  kata_create_followup_issue: "mutation",
   kata_write_document: "mutation",
   kata_read_document: "paged-read",
   kata_list_documents: "inventory",
@@ -288,6 +291,133 @@ export function registerKataTools(
             `   labels: ${issue.labels.join(", ") || "—"}`,
             `   updatedAt: ${issue.updatedAt ?? "—"}`,
           ].join("\n"),
+        });
+      });
+    },
+  });
+
+  pi.registerTool({
+    name: "kata_get_issue",
+    label: "Kata: Get Issue",
+    description:
+      "Read one backend-native Kata issue by identifier with paged description output and compact child/comment metadata.",
+    promptSnippet: "Read one backend-native Kata issue by identifier with paged description output.",
+    parameters: Type.Object({
+      issueId: Type.String({ description: "Backend issue identifier" }),
+      includeChildren: Type.Optional(Type.Boolean({ description: "Include child issue metadata (default true)" })),
+      includeComments: Type.Optional(Type.Boolean({ description: "Include comment metadata (default true)" })),
+      offset: Type.Optional(Type.Integer({ minimum: 1, description: "Line number to start reading description from (1-indexed)" })),
+      limit: Type.Optional(Type.Integer({ minimum: 1, description: "Maximum number of description lines to read" })),
+    }),
+    async execute(_id, params) {
+      return withBackend(createBackendImpl, async (backend) => {
+        const issue = await backend.getIssue(params.issueId, {
+          includeChildren: params.includeChildren ?? true,
+          includeComments: params.includeComments ?? true,
+        });
+        if (issue === null) return null;
+
+        return renderCompactRead({
+          heading: `Issue ${issue.identifier}: ${issue.title}`,
+          metadata: [
+            `id: ${issue.id}`,
+            `state: ${issue.state}`,
+            `project: ${issue.projectName ?? "—"}`,
+            `milestone: ${issue.milestoneName ?? "—"}`,
+            `parent: ${issue.parentIdentifier ?? "—"}`,
+            `labels: ${issue.labels.join(", ") || "—"}`,
+            `children: ${issue.children.length}`,
+            `comments: ${issue.comments.length}`,
+            `updatedAt: ${issue.updatedAt ?? "—"}`,
+          ],
+          bodyLabel: "description",
+          body: issue.description,
+          offset: params.offset,
+          limit: params.limit,
+          emptyBodyMessage: "No description.",
+        });
+      });
+    },
+  });
+
+  pi.registerTool({
+    name: "kata_upsert_comment",
+    label: "Kata: Upsert Comment",
+    description:
+      "Create or update an issue comment in a backend-native way. Marker-aware dispatch lets workers retry safely without duplicate summaries.",
+    promptSnippet: "Create or update an issue comment with optional marker-aware dispatch.",
+    parameters: Type.Object({
+      issueId: Type.String({ description: "Backend issue identifier" }),
+      body: Type.String({ description: "Comment body markdown" }),
+      marker: Type.Optional(Type.String({ description: "Stable marker used to locate and upsert an existing comment" })),
+    }),
+    async execute(_id, params) {
+      return withBackend(createBackendImpl, async (backend) => {
+        const comment = await backend.upsertComment({
+          issueId: params.issueId,
+          body: params.body,
+          marker: params.marker,
+        });
+        return renderMutationSummary({
+          noun: "Comment",
+          action: "upserted",
+          lines: [
+            `id: ${comment.id}`,
+            `issueId: ${comment.issueId}`,
+            `action: ${comment.action ?? "upserted"}`,
+            ...(params.marker ? [`requestedMarker: ${params.marker}`] : []),
+            ...(comment.marker !== undefined ? [`storedMarker: ${comment.marker ?? "—"}`] : []),
+            `createdAt: ${comment.createdAt ?? "—"}`,
+            `updatedAt: ${comment.updatedAt ?? "—"}`,
+            ...(comment.url ? [`url: ${comment.url}`] : []),
+          ],
+        });
+      });
+    },
+  });
+
+  pi.registerTool({
+    name: "kata_create_followup_issue",
+    label: "Kata: Create Follow-up Issue",
+    description:
+      "Create a backend-native follow-up issue linked to an existing issue. Returns a compact mutation summary to keep output bounded.",
+    promptSnippet: "Create a backend-native follow-up issue linked to an existing issue.",
+    parameters: Type.Object({
+      parentIssueId: Type.Optional(Type.String({ description: "Optional parent/source issue identifier for the follow-up" })),
+      relationType: Type.Optional(
+        Type.Union([
+          Type.Literal("relates_to"),
+          Type.Literal("blocked_by"),
+        ], { description: "Optional relationship type when linking to parent/source issue" }),
+      ),
+      title: Type.String({ description: "Follow-up issue title" }),
+      description: Type.String({ description: "Follow-up issue description" }),
+    }),
+    async execute(_id, params) {
+      if (params.relationType && !params.parentIssueId) {
+        return fail(new Error("parentIssueId is required when relationType is provided"));
+      }
+
+      return withBackend(createBackendImpl, async (backend) => {
+        const issue = await backend.createFollowupIssue({
+          parentIssueId: params.parentIssueId,
+          relationType: params.relationType,
+          title: params.title,
+          description: params.description,
+        });
+        return renderMutationSummary({
+          noun: "Follow-up issue",
+          action: "created",
+          lines: [
+            `id: ${issue.id}`,
+            `identifier: ${issue.identifier}`,
+            `title: ${issue.title}`,
+            `state: ${issue.state}`,
+            `parent: ${issue.parentIdentifier ?? params.parentIssueId ?? "—"}`,
+            ...(params.relationType ? [`relationType: ${params.relationType}`] : []),
+            `project: ${issue.projectName ?? "—"}`,
+            `milestone: ${issue.milestoneName ?? "—"}`,
+          ],
         });
       });
     },
