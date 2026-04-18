@@ -21,6 +21,14 @@ class FakeGithubClient implements GithubBackendClient {
   private listIssuesCalls = 0;
   private parentByChild = new Map<number, number>();
   private childrenByParent = new Map<number, Set<number>>();
+  private commentsByIssue = new Map<number, Array<{
+    id: number;
+    body: string;
+    created_at: string;
+    updated_at: string;
+    html_url: string;
+  }>>();
+  private nextCommentId = 1;
 
   constructor(seed: MutableIssue[] = []) {
     this.issues = seed.map((issue) => ({ ...issue, labels: [...issue.labels], updatedAt: issue.updatedAt ?? "2026-04-12T00:00:00.000Z" }));
@@ -101,6 +109,61 @@ class FakeGithubClient implements GithubBackendClient {
     children.add(subIssueNumber);
     this.childrenByParent.set(parentIssueNumber, children);
   }
+
+  seedComments(issueNumber: number, comments: Array<{ id: number; body: string }>): void {
+    this.commentsByIssue.set(
+      issueNumber,
+      comments.map((comment) => ({
+        id: comment.id,
+        body: comment.body,
+        created_at: "2026-04-12T00:00:00.000Z",
+        updated_at: "2026-04-12T00:00:00.000Z",
+        html_url: `https://github.com/${CONFIG.repoOwner}/${CONFIG.repoName}/issues/comments/${comment.id}`,
+      })),
+    );
+    if (comments.length > 0) {
+      this.nextCommentId = Math.max(this.nextCommentId, ...comments.map((comment) => comment.id + 1));
+    }
+  }
+
+  async listIssueComments(issueNumber: number) {
+    return [...(this.commentsByIssue.get(issueNumber) ?? [])]
+      .sort((a, b) => a.id - b.id)
+      .map((comment) => ({ ...comment }));
+  }
+
+  async createIssueComment(issueNumber: number, body: string) {
+    const comment = {
+      id: this.nextCommentId++,
+      body,
+      created_at: "2026-04-12T00:00:00.000Z",
+      updated_at: "2026-04-12T00:00:00.000Z",
+      html_url: `https://github.com/${CONFIG.repoOwner}/${CONFIG.repoName}/issues/comments/${this.nextCommentId - 1}`,
+    };
+    const list = this.commentsByIssue.get(issueNumber) ?? [];
+    list.push(comment);
+    this.commentsByIssue.set(issueNumber, list);
+    return { ...comment };
+  }
+
+  async updateIssueComment(commentId: number, body: string) {
+    for (const comments of this.commentsByIssue.values()) {
+      const match = comments.find((comment) => comment.id === commentId);
+      if (!match) continue;
+      match.body = body;
+      match.updated_at = "2026-04-12T00:01:00.000Z";
+      return { ...match };
+    }
+    throw new Error(`Comment ${commentId} not found`);
+  }
+
+  updatedCommentBodies(): string[] {
+    return [...this.commentsByIssue.values()].flat().map((comment) => comment.body);
+  }
+
+  lastCreatedIssue(): MutableIssue | undefined {
+    return this.issues[this.issues.length - 1];
+  }
 }
 
 const CONFIG: GithubBackendConfig = {
@@ -157,6 +220,72 @@ This plan intentionally omits canonical task IDs.
 - [ ] Define metadata contract
 - [ ] Implement upsert paths
 `;
+
+describe("GithubBackend canonical worker operations", () => {
+  it("getIssue returns detail with optional child tasks and comments", async () => {
+    const client = new FakeGithubClient([
+      { number: 21, title: "[S01] Slice", state: "open", labels: ["kata:slice"], body: "slice plan" },
+      { number: 22, title: "[T01] Task", state: "open", labels: ["kata:task"], body: "task plan" },
+    ]);
+    await client.addSubIssue(21, 22);
+    client.seedComments(21, [{ id: 9001, body: "## Agent Workpad\n\nold" }]);
+
+    const backend = makeBackend(client);
+    const issue = await backend.getIssue("21", { includeChildren: true, includeComments: true });
+
+    expect(issue?.identifier).toBe("#21");
+    expect(issue?.children.map((child) => child.identifier)).toEqual(["#22"]);
+    expect(issue?.comments.length).toBe(1);
+
+    const compact = await backend.getIssue("21", { includeChildren: false, includeComments: false });
+    expect(compact?.children).toEqual([]);
+    expect(compact?.comments).toEqual([]);
+  });
+
+  it("upsertComment updates marker comment in place", async () => {
+    const client = new FakeGithubClient([
+      { number: 30, title: "[S02] Slice", state: "open", labels: ["kata:slice"], body: "body" },
+    ]);
+    client.seedComments(30, [{ id: 77, body: "## Agent Workpad\n\nold" }]);
+
+    const backend = makeBackend(client);
+    await backend.upsertComment({
+      issueId: "30",
+      marker: "## Agent Workpad",
+      body: "## Agent Workpad\n\nnew",
+    });
+
+    expect(client.updatedCommentBodies()).toContain("## Agent Workpad\n\nnew");
+  });
+
+  it("createFollowupIssue creates issue and relation metadata", async () => {
+    const client = new FakeGithubClient([
+      { number: 40, title: "[T01] Parent", state: "open", labels: ["kata:task"], body: "parent" },
+    ]);
+    const backend = makeBackend(client);
+
+    const followup = await backend.createFollowupIssue({
+      title: "Follow-up: flaky test guard",
+      description: "Track flaky guardrails",
+      parentIssueId: "40",
+      relationType: "blocked_by",
+    });
+
+    expect(followup.identifier).toMatch(/^#/);
+    expect(client.lastCreatedIssue()?.title).toBe("Follow-up: flaky test guard");
+    expect(await client.listSubIssueNumbers(40)).toContain(Number(followup.id));
+  });
+
+  it("createFollowupIssue rejects relationType without parent", async () => {
+    const backend = makeBackend(new FakeGithubClient());
+
+    await expect(backend.createFollowupIssue({
+      title: "Follow-up: guard",
+      description: "desc",
+      relationType: "relates_to",
+    })).rejects.toThrow("parentIssueId is required when relationType is provided");
+  });
+});
 
 describe("GithubBackend artifact persistence", () => {
   it("surfaces milestone target dates from live artifact bodies", async () => {

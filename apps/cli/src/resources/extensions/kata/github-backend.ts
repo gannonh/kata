@@ -6,6 +6,10 @@ import type {
   DocumentScope,
   KataBackend,
   KataIssueRecord,
+  KataIssueDetailRecord,
+  KataIssueCommentRecord,
+  KataCommentUpsertInput,
+  KataFollowupIssueInput,
   KataIssueStateUpdateResult,
   KataMilestoneRecord,
   KataWorkflowPhase,
@@ -62,12 +66,23 @@ interface GithubIssueMutation {
   labels?: string[];
 }
 
+interface GithubIssueComment {
+  id: number;
+  body: string;
+  created_at: string;
+  updated_at: string;
+  html_url: string;
+}
+
 export interface GithubBackendClient extends GithubStateClient {
   getIssue(number: number): Promise<GithubIssueSummary | null>;
   createIssue(payload: { title: string; body?: string; labels?: string[] }): Promise<GithubIssueSummary>;
   updateIssue(number: number, payload: GithubIssueMutation): Promise<GithubIssueSummary>;
   listSubIssueNumbers(parentIssueNumber: number): Promise<number[]>;
   addSubIssue(parentIssueNumber: number, subIssueNumber: number): Promise<void>;
+  listIssueComments(issueNumber: number): Promise<GithubIssueComment[]>;
+  createIssueComment(issueNumber: number, body: string): Promise<GithubIssueComment>;
+  updateIssueComment(commentId: number, body: string): Promise<GithubIssueComment>;
 }
 
 class GithubApiClient implements GithubBackendClient {
@@ -574,6 +589,35 @@ class GithubApiClient implements GithubBackendClient {
       },
     );
   }
+
+  async listIssueComments(issueNumber: number): Promise<GithubIssueComment[]> {
+    return this.request(
+      `/repos/${this.config.repoOwner}/${this.config.repoName}/issues/${issueNumber}/comments`,
+      {
+        query: { per_page: "100" },
+      },
+    );
+  }
+
+  async createIssueComment(issueNumber: number, body: string): Promise<GithubIssueComment> {
+    return this.request(
+      `/repos/${this.config.repoOwner}/${this.config.repoName}/issues/${issueNumber}/comments`,
+      {
+        method: "POST",
+        body: { body },
+      },
+    );
+  }
+
+  async updateIssueComment(commentId: number, body: string): Promise<GithubIssueComment> {
+    return this.request(
+      `/repos/${this.config.repoOwner}/${this.config.repoName}/issues/comments/${commentId}`,
+      {
+        method: "PATCH",
+        body: { body },
+      },
+    );
+  }
 }
 
 const SUPPORTED_PHASES: Phase[] = ["pre-planning", "planning"];
@@ -877,6 +921,19 @@ export class GithubBackend implements KataBackend {
     const issue = await this.client.getIssue(number);
     if (issue) this.upsertIssueCache(issue);
     return issue;
+  }
+
+  private extractCommentMarker(body: string): string | null {
+    const htmlMarker = body.match(/^\s*<!--\s*([^>]+?)\s*-->/m)?.[1]?.trim();
+    if (htmlMarker) return htmlMarker;
+    return null;
+  }
+
+  private withCommentMarker(body: string, marker?: string): string {
+    const normalized = marker?.trim();
+    if (!normalized) return body;
+    if (body.includes(normalized)) return body;
+    return `<!-- ${normalized} -->\n\n${body}`;
   }
 
   private async findIssueByDocumentTitle(documentTitle: string): Promise<GithubIssueSummary | null> {
@@ -1533,6 +1590,118 @@ export class GithubBackend implements KataBackend {
         ...this.toIssueRecord(issue),
         parentIdentifier: sliceIssueId,
       }));
+  }
+
+  async getIssue(
+    issueId: string,
+    opts: { includeChildren?: boolean; includeComments?: boolean } = {},
+  ): Promise<KataIssueDetailRecord | null> {
+    const issueNumber = Number.parseInt(issueId, 10);
+    if (!Number.isFinite(issueNumber) || issueNumber <= 0) {
+      throw new Error(`Invalid GitHub issue id: ${issueId}`);
+    }
+
+    const includeChildren = opts.includeChildren ?? true;
+    const includeComments = opts.includeComments ?? true;
+
+    const issue = await this.findIssueByNumber(issueNumber);
+    if (!issue) return null;
+
+    const children = includeChildren
+      ? (await Promise.all(
+          (await this.client.listSubIssueNumbers(issueNumber))
+            .map((number) => this.findIssueByNumber(number)),
+        ))
+          .filter((child): child is GithubIssueSummary => child !== null)
+          .map((child) => ({
+            ...this.toIssueRecord(child),
+            parentIdentifier: `#${issueNumber}`,
+          }))
+      : [];
+
+    const comments = includeComments
+      ? (await this.client.listIssueComments(issueNumber)).map((comment) => ({
+          id: String(comment.id),
+          issueId: String(issueNumber),
+          marker: this.extractCommentMarker(comment.body),
+          createdAt: comment.created_at,
+          updatedAt: comment.updated_at,
+          url: comment.html_url,
+        }))
+      : [];
+
+    return {
+      ...this.toIssueRecord(issue),
+      description: issue.body ?? null,
+      children,
+      comments,
+    };
+  }
+
+  async upsertComment(input: KataCommentUpsertInput): Promise<KataIssueCommentRecord> {
+    const issueNumber = Number.parseInt(input.issueId, 10);
+    if (!Number.isFinite(issueNumber) || issueNumber <= 0) {
+      throw new Error(`Invalid GitHub issue id: ${input.issueId}`);
+    }
+
+    const marker = input.marker?.trim() || undefined;
+    const nextBody = this.withCommentMarker(input.body, marker);
+
+    if (marker) {
+      const comments = await this.client.listIssueComments(issueNumber);
+      const existing = comments
+        .filter((comment) => comment.body.includes(marker))
+        .sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at))[0];
+      if (existing) {
+        const updated = await this.client.updateIssueComment(existing.id, nextBody);
+        return {
+          id: String(updated.id),
+          issueId: String(issueNumber),
+          marker,
+          action: "updated",
+          createdAt: updated.created_at,
+          updatedAt: updated.updated_at,
+          url: updated.html_url,
+        };
+      }
+    }
+
+    const created = await this.client.createIssueComment(issueNumber, nextBody);
+    return {
+      id: String(created.id),
+      issueId: String(issueNumber),
+      marker: marker ?? this.extractCommentMarker(created.body),
+      action: "created",
+      createdAt: created.created_at,
+      updatedAt: created.updated_at,
+      url: created.html_url,
+    };
+  }
+
+  async createFollowupIssue(input: KataFollowupIssueInput): Promise<KataIssueRecord> {
+    if (input.relationType && !input.parentIssueId) {
+      throw new Error("parentIssueId is required when relationType is provided");
+    }
+
+    const created = await this.createIssue({
+      title: input.title,
+      body: input.description,
+      labels: [primaryLabel(this.config.labelPrefix, "backlog")],
+    });
+
+    if (input.parentIssueId) {
+      const parentIssueNumber = Number.parseInt(input.parentIssueId, 10);
+      if (!Number.isFinite(parentIssueNumber) || parentIssueNumber <= 0) {
+        throw new Error(`Invalid GitHub issue id: ${input.parentIssueId}`);
+      }
+      await this.client.addSubIssue(parentIssueNumber, created.number);
+    }
+
+    this.invalidateStateCache();
+    return {
+      ...this.toIssueRecord(created),
+      parentIdentifier: input.parentIssueId ? `#${Number.parseInt(input.parentIssueId, 10)}` : null,
+    };
   }
 
   async updateIssueState(
