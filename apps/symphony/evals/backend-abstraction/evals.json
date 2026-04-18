@@ -1,0 +1,30 @@
+{
+  "skill_name": "symphony-backend-abstraction",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Issue is in In Progress. Load context, implement task, update workpad, and move state using only backend-neutral worker operations.",
+      "expected_output": "Prompt/skill flow uses kata_get_issue, kata_list_tasks, kata_upsert_comment, kata_update_issue_state with no linear_* instructions.",
+      "files": [
+        "apps/symphony/prompts/system.md",
+        "apps/symphony/prompts/in-progress.md"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Issue is in Agent Review. Address PR feedback and transition state while preserving backend neutrality.",
+      "expected_output": "No backend-specific tracker instructions; uses canonical kata_* state/comment operations.",
+      "files": [
+        "apps/symphony/prompts/agent-review.md"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Worker must create a follow-up issue after finding out-of-scope defect.",
+      "expected_output": "Worker contract references kata_create_followup_issue rather than backend-specific issue creation guidance.",
+      "files": [
+        "apps/symphony/prompts/system.md"
+      ]
+    }
+  ]
+}

@@ -144,3 +144,24 @@ Pass criteria:
 3. `sym-*` skills pass evals with no backend leakage.
 4. Linear and GitHub worker flows pass end-to-end with same semantics.
 5. Any required backend differences are contained in CLI backend implementation, not worker prompt/skill logic.
+
+## 10) Verification Evidence (2026-04-18)
+
+### Automated checks
+
+- `kata_*` tooling contract tests: PASS
+- Linear backend worker contract tests: PASS
+- GitHub backend worker contract tests: PASS
+- Symphony prompt/skill backend leakage tests: PASS
+- GitHub backend validation lane (`scripts/ci/github-backend-validation.sh`): PASS
+
+### Skill evals (skill-creator)
+
+- Baseline prompts/skills: backend leakage detected in worker guidance.
+- Updated prompts/skills: no backend leakage in tracker operations.
+- State transition semantics remained canonical across Linear and GitHub modes.
+
+### Dual backend outcome
+
+- Linear mode and GitHub mode now run with identical worker prompt/skill stack for tracker/artifact/state flows.
+- Remaining backend differences are contained in CLI backend implementation.
