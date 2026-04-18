@@ -11,7 +11,11 @@ const TEST_CONFIG: LinearBackendConfig = {
   apiKey: "test-key",
   projectId: "proj-123",
   teamId: "team-456",
-  sliceLabelId: "label-789",
+  labelSet: {
+    milestone: { id: "label-788", name: "kata:milestone", color: "#7C3AED", isGroup: false },
+    slice: { id: "label-789", name: "kata:slice", color: "#2563EB", isGroup: false },
+    task: { id: "label-790", name: "kata:task", color: "#16A34A", isGroup: false },
+  },
 };
 
 function makeBackend(): LinearBackend {

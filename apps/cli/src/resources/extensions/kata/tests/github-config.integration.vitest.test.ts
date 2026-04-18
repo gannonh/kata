@@ -44,6 +44,7 @@ describe("github backend config integration", () => {
           KATA_GITHUB_TOKEN: undefined,
           GH_TOKEN: undefined,
           GITHUB_TOKEN: undefined,
+          HOME: workspace,
         },
         async () => {
           let errorMessage = "";
