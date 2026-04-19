@@ -1,10 +1,28 @@
 // @vitest-environment jsdom
 
 import { createRef } from 'react'
-import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, test, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, beforeAll, describe, expect, test, vi } from 'vitest'
 import type { SlashCommandEntry } from '@shared/types'
 import { CommandSuggestionDropdown } from '../CommandSuggestionDropdown'
+
+beforeAll(() => {
+  class ResizeObserverMock {
+    observe(): void {}
+    unobserve(): void {}
+    disconnect(): void {}
+  }
+
+  ;(globalThis as { ResizeObserver?: typeof ResizeObserverMock }).ResizeObserver = ResizeObserverMock
+
+  if (!HTMLElement.prototype.scrollIntoView) {
+    HTMLElement.prototype.scrollIntoView = () => {}
+  }
+})
+
+afterEach(() => {
+  cleanup()
+})
 
 const SUGGESTIONS: SlashCommandEntry[] = [
   { name: '/kata', description: 'Root command', category: 'builtin' },
@@ -59,8 +77,9 @@ describe('CommandSuggestionDropdown', () => {
       />,
     )
 
-    expect(screen.getByRole('option', { name: '/kata' }).getAttribute('data-selected')).toBe('false')
-    expect(screen.getByRole('option', { name: '/kata plan' }).getAttribute('data-selected')).toBe('true')
+    const options = screen.getAllByRole('option')
+    expect(options[0]?.getAttribute('data-selected')).toBe('false')
+    expect(options[1]?.getAttribute('data-selected')).toBe('true')
   })
 
   test('calls onClose when Escape is pressed', () => {
@@ -95,10 +114,9 @@ describe('CommandSuggestionDropdown', () => {
       />,
     )
 
-    const listbox = screen.getByRole('listbox')
-    expect(listbox.getAttribute('aria-activedescendant')).toBe('command-suggestion-1')
-    expect(screen.getByRole('option', { name: '/kata plan' }).getAttribute('id')).toBe(
-      'command-suggestion-1',
-    )
+    const combobox = screen.getByRole('combobox')
+    expect(combobox.getAttribute('aria-activedescendant')).toBe('command-suggestion-1')
+    expect(combobox.getAttribute('aria-controls')).toBe('command-suggestion-listbox')
+    expect(screen.queryByRole('listbox')).not.toBeNull()
   })
 })
