@@ -29,6 +29,7 @@ class FakeGithubClient implements GithubBackendClient {
     html_url: string;
   }>>();
   private nextCommentId = 1;
+  private projectStatusUpdates: Array<{ issueNumber: number; stateName: string }> = [];
 
   constructor(seed: MutableIssue[] = []) {
     this.issues = seed.map((issue) => ({ ...issue, labels: [...issue.labels], updatedAt: issue.updatedAt ?? "2026-04-12T00:00:00.000Z" }));
@@ -157,6 +158,15 @@ class FakeGithubClient implements GithubBackendClient {
     throw new Error(`Comment ${commentId} not found`);
   }
 
+  async updateProjectV2ItemStatus(issueNumber: number, stateName: string): Promise<string> {
+    this.projectStatusUpdates.push({ issueNumber, stateName });
+    return stateName;
+  }
+
+  getProjectStatusUpdates(): Array<{ issueNumber: number; stateName: string }> {
+    return [...this.projectStatusUpdates];
+  }
+
   updatedCommentBodies(): string[] {
     return [...this.commentsByIssue.values()].flat().map((comment) => comment.body);
   }
@@ -174,8 +184,8 @@ const CONFIG: GithubBackendConfig = {
   labelPrefix: "kata:",
 };
 
-function makeBackend(client: FakeGithubClient): GithubBackend {
-  return new GithubBackend("/tmp/kata-github-artifacts", CONFIG, client);
+function makeBackend(client: FakeGithubClient, config: GithubBackendConfig = CONFIG): GithubBackend {
+  return new GithubBackend("/tmp/kata-github-artifacts", config, client);
 }
 
 const ROADMAP = `# M009: GitHub Backend Parity
@@ -322,6 +332,32 @@ describe("GithubBackend canonical worker operations", () => {
     expect(issue?.state).toBe("closed");
     expect(issue?.labels).toContain("kata:done");
     expect(issue?.labels).not.toContain("kata:merging");
+  });
+
+  it("updateIssueState in projects_v2 mode updates project status without label rewrites", async () => {
+    const client = new FakeGithubClient([
+      { number: 53, title: "[S05] Projects flow", state: "open", labels: ["kata:slice", "kata:in-progress"] },
+    ]);
+    const backend = makeBackend(client, {
+      ...CONFIG,
+      stateMode: "projects_v2",
+      githubProjectNumber: 17,
+    });
+
+    const updated = await backend.updateIssueState("53", "agent-review");
+
+    expect(updated).toMatchObject({
+      issueId: "53",
+      phase: "agent-review",
+      state: "Agent Review",
+    });
+    expect(client.getProjectStatusUpdates()).toEqual([
+      { issueNumber: 53, stateName: "Agent Review" },
+    ]);
+
+    const issue = await client.getIssue(53);
+    expect(issue?.state).toBe("open");
+    expect(issue?.labels).toEqual(["kata:slice", "kata:in-progress"]);
   });
 });
 

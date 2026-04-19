@@ -85,6 +85,7 @@ export interface GithubBackendClient extends GithubStateClient {
   listIssueComments(issueNumber: number): Promise<GithubIssueComment[]>;
   createIssueComment(issueNumber: number, body: string): Promise<GithubIssueComment>;
   updateIssueComment(commentId: number, body: string): Promise<GithubIssueComment>;
+  updateProjectV2ItemStatus(issueNumber: number, stateName: string): Promise<string>;
 }
 
 class GithubApiClient implements GithubBackendClient {
@@ -211,37 +212,61 @@ class GithubApiClient implements GithubBackendClient {
     }
 
     const data = await this.graphqlRequest<{
-      user: { projectV2: { id: string; field: { id: string; options: Array<{ id: string; name: string }> } | null } | null } | null;
-      organization: { projectV2: { id: string; field: { id: string; options: Array<{ id: string; name: string }> } | null } | null } | null;
+      repository: {
+        owner:
+          | {
+              __typename: "User";
+              login: string;
+              projectV2: {
+                id: string;
+                field: { id: string; options: Array<{ id: string; name: string }> } | null;
+              } | null;
+            }
+          | {
+              __typename: "Organization";
+              login: string;
+              projectV2: {
+                id: string;
+                field: { id: string; options: Array<{ id: string; name: string }> } | null;
+              } | null;
+            }
+          | null;
+      } | null;
     }>(
-      `query($projectNumber: Int!, $owner: String!) {
-        user(login: $owner) {
-          projectV2(number: $projectNumber) {
-            id
-            field(name: "Status") {
-              ... on ProjectV2SingleSelectField {
+      `query($projectNumber: Int!, $owner: String!, $repo: String!) {
+        repository(owner: $owner, name: $repo) {
+          owner {
+            __typename
+            login
+            ... on User {
+              projectV2(number: $projectNumber) {
                 id
-                options { id name }
+                field(name: "Status") {
+                  ... on ProjectV2SingleSelectField {
+                    id
+                    options { id name }
+                  }
+                }
               }
             }
-          }
-        }
-        organization(login: $owner) {
-          projectV2(number: $projectNumber) {
-            id
-            field(name: "Status") {
-              ... on ProjectV2SingleSelectField {
+            ... on Organization {
+              projectV2(number: $projectNumber) {
                 id
-                options { id name }
+                field(name: "Status") {
+                  ... on ProjectV2SingleSelectField {
+                    id
+                    options { id name }
+                  }
+                }
               }
             }
           }
         }
       }`,
-      { projectNumber, owner: this.config.repoOwner },
+      { projectNumber, owner: this.config.repoOwner, repo: this.config.repoName },
     );
 
-    const project = data.user?.projectV2 ?? data.organization?.projectV2;
+    const project = data.repository?.owner?.projectV2;
     if (!project) {
       throw new Error(`GitHub Project #${projectNumber} not found for owner ${this.config.repoOwner}`);
     }
