@@ -8,7 +8,8 @@ linear:
 github:
   repoOwner: gannonh
   repoName: kata
-  stateMode: labels
+  stateMode: projects_v2
+  githubProjectNumber: 17
   labelPrefix: kata:
 pr:
   enabled: false
