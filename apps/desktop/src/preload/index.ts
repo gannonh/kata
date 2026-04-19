@@ -79,6 +79,9 @@ const api: DesktopApi = {
   setThinkingLevel: async (level: ThinkingLevel) => {
     return ipcRenderer.invoke(IPC_CHANNELS.sessionSetThinkingLevel, level)
   },
+  getSlashCommands: async () => {
+    return ipcRenderer.invoke(IPC_CHANNELS.commandsGetAll)
+  },
   sessions: {
     list: async () => {
       return ipcRenderer.invoke(IPC_CHANNELS.sessionList)

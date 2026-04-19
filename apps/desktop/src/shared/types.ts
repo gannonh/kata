@@ -61,11 +61,31 @@ export const IPC_CHANNELS = {
   reliabilityGetStabilitySnapshot: 'reliability:get-stability-snapshot',
   reliabilityStabilitySnapshot: 'reliability:stability-snapshot',
   reliabilityRequestRecoveryAction: 'reliability:request-recovery-action',
+  commandsGetAll: 'commands:get-all',
 } as const
 
 export type PermissionMode = 'explore' | 'ask' | 'auto'
 
 export type ThinkingLevel = 'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'
+
+export type SlashCommandCategory = 'builtin' | 'skill'
+
+export interface SlashCommandEntry {
+  name: string
+  description?: string
+  category: SlashCommandCategory
+}
+
+export interface SkillEntry {
+  name: string
+  description?: string
+}
+
+export interface SlashCommandsResponse {
+  success: boolean
+  commands: SlashCommandEntry[]
+  error?: string
+}
 
 export const ALL_AUTH_PROVIDERS = [
   'anthropic',
@@ -1677,6 +1697,7 @@ export interface DesktopApi {
   getAvailableModels: () => Promise<AvailableModelsResponse>
   setModel: (model: string) => Promise<SetModelResponse>
   setThinkingLevel: (level: ThinkingLevel) => Promise<SetThinkingLevelResponse>
+  getSlashCommands: () => Promise<SlashCommandsResponse>
   sessions: {
     list: () => Promise<SessionListResponse>
     create: () => Promise<CreateSessionResponse>

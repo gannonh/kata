@@ -4,6 +4,8 @@ import path from 'node:path'
 import { promisify } from 'node:util'
 import { dialog, ipcMain, shell, type BrowserWindow } from 'electron'
 import log from './logger'
+import { listBuiltinCommands } from './command-registry'
+import { refreshSkillCache } from './skill-scanner'
 import { AuthBridge } from './auth-bridge'
 import { LinearDocumentClient } from './linear-document-client'
 import { PiAgentBridge } from './pi-agent-bridge'
@@ -50,6 +52,8 @@ import {
   type SessionInfo,
   type SessionListResponse,
   type SetThinkingLevelResponse,
+  type SlashCommandEntry,
+  type SlashCommandsResponse,
   type ThinkingLevel,
   type WorkspaceInfo,
   type WorkspaceGitInfo,
@@ -874,6 +878,42 @@ export function registerSessionIpc({
   sendReliabilitySnapshot(reliabilityAggregator.getSnapshot())
   sendStabilitySnapshot(syncStabilityMetricsFromServices())
 
+  const refreshSkillCommands = async (reason: 'startup' | 'focus'): Promise<void> => {
+    const workspacePath = bridge.getWorkspacePath()
+
+    try {
+      const skills = await refreshSkillCache(workspacePath)
+      log.debug('[desktop-ipc] skill cache refreshed', {
+        reason,
+        workspacePath,
+        count: skills.length,
+      })
+    } catch (error) {
+      log.warn('[desktop-ipc] skill cache refresh failed', {
+        reason,
+        workspacePath,
+        error: error instanceof Error ? error.message : String(error),
+      })
+    }
+  }
+
+  const onWindowFocus = (): void => {
+    void refreshSkillCommands('focus')
+  }
+
+  // Some unit tests intentionally provide partial BrowserWindow stubs that omit
+  // EventEmitter bindings. Guard this subscription to keep IPC registration
+  // resilient in those test harnesses.
+  const canBindWindowFocus =
+    typeof (window as Partial<BrowserWindow>).on === 'function' &&
+    typeof (window as Partial<BrowserWindow>).off === 'function'
+
+  if (canBindWindowFocus) {
+    window.on('focus', onWindowFocus)
+  }
+
+  void refreshSkillCommands('startup')
+
   ipcMain.removeHandler(IPC_CHANNELS.sessionSend)
   ipcMain.removeHandler(IPC_CHANNELS.sessionStop)
   ipcMain.removeHandler(IPC_CHANNELS.sessionRestart)
@@ -892,6 +932,7 @@ export function registerSessionIpc({
   ipcMain.removeHandler(IPC_CHANNELS.workspaceSet)
   ipcMain.removeHandler(IPC_CHANNELS.workspacePick)
   ipcMain.removeHandler(IPC_CHANNELS.workspaceGetGitInfo)
+  ipcMain.removeHandler(IPC_CHANNELS.commandsGetAll)
   ipcMain.removeHandler(IPC_CHANNELS.authGetProviders)
   ipcMain.removeHandler(IPC_CHANNELS.authSetKey)
   ipcMain.removeHandler(IPC_CHANNELS.authRemoveKey)
@@ -1336,6 +1377,34 @@ export function registerSessionIpc({
 
   ipcMain.handle(IPC_CHANNELS.workspaceGetGitInfo, async (): Promise<WorkspaceGitInfo> => {
     return readWorkspaceGitInfo(bridge.getWorkspacePath())
+  })
+
+  ipcMain.handle(IPC_CHANNELS.commandsGetAll, async (): Promise<SlashCommandsResponse> => {
+    try {
+      const workspacePath = bridge.getWorkspacePath() || process.cwd()
+      const builtinCommands = listBuiltinCommands()
+      const skillCommands = await refreshSkillCache(workspacePath)
+      const commands: SlashCommandEntry[] = [...builtinCommands, ...skillCommands].sort((left, right) =>
+        left.name.localeCompare(right.name),
+      )
+
+      return {
+        success: true,
+        commands,
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+
+      log.warn('[desktop-ipc] get slash commands failed', {
+        error: message,
+      })
+
+      return {
+        success: false,
+        commands: [],
+        error: message,
+      }
+    }
   })
 
   ipcMain.handle(IPC_CHANNELS.authGetProviders, async (): Promise<AuthProvidersResponse> => {
@@ -1969,6 +2038,10 @@ export function registerSessionIpc({
   )
 
   return () => {
+    if (canBindWindowFocus) {
+      window.off('focus', onWindowFocus)
+    }
+
     bridge.off('rpc-event', onRpcEvent)
     bridge.off('extension-ui-request', onExtensionUiRequest)
     bridge.off('status', onStatus)
@@ -1998,6 +2071,7 @@ export function registerSessionIpc({
     ipcMain.removeHandler(IPC_CHANNELS.workspaceSet)
     ipcMain.removeHandler(IPC_CHANNELS.workspacePick)
     ipcMain.removeHandler(IPC_CHANNELS.workspaceGetGitInfo)
+    ipcMain.removeHandler(IPC_CHANNELS.commandsGetAll)
     ipcMain.removeHandler(IPC_CHANNELS.authGetProviders)
     ipcMain.removeHandler(IPC_CHANNELS.authSetKey)
     ipcMain.removeHandler(IPC_CHANNELS.authRemoveKey)
