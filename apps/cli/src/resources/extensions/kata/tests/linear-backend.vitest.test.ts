@@ -255,6 +255,84 @@ describe("LinearBackend canonical worker operations", () => {
       },
     ]);
   });
+
+  it("updateIssueState resolves PR lifecycle phases by workflow state name", async () => {
+    const backend = makeBackend();
+    const calls: Array<Record<string, unknown>> = [];
+
+    (backend as any).client = {
+      async listWorkflowStates() {
+        return [
+          { id: "todo", name: "Todo", type: "unstarted", color: "#000", position: 0 },
+          { id: "in-progress", name: "In Progress", type: "started", color: "#000", position: 1 },
+          { id: "agent-review", name: "Agent Review", type: "started", color: "#000", position: 2 },
+          { id: "human-review", name: "Human Review", type: "started", color: "#000", position: 3 },
+          { id: "merging", name: "Merging", type: "started", color: "#000", position: 4 },
+          { id: "rework", name: "Rework", type: "started", color: "#000", position: 5 },
+          { id: "done", name: "Done", type: "completed", color: "#000", position: 6 },
+        ];
+      },
+      async updateIssue(issueId: string, input: Record<string, unknown>) {
+        calls.push({ type: "updateIssue", issueId, input });
+        const stateId = String(input.stateId ?? "unknown");
+        const stateNameById: Record<string, string> = {
+          todo: "Todo",
+          "in-progress": "In Progress",
+          "agent-review": "Agent Review",
+          "human-review": "Human Review",
+          merging: "Merging",
+          rework: "Rework",
+          done: "Done",
+        };
+        return {
+          id: issueId,
+          identifier: "KAT-42",
+          title: "Issue",
+          state: { id: stateId, name: stateNameById[stateId] ?? "Unknown", type: "started", color: "#000", position: 0 },
+          labels: [],
+          children: { nodes: [] },
+          project: null,
+          projectMilestone: null,
+          parent: null,
+          description: null,
+          createdAt: "2024-01-01T00:00:00.000Z",
+          updatedAt: "2024-01-02T00:00:00.000Z",
+        };
+      },
+      async getIssue() {
+        return {
+          id: "issue-1",
+          identifier: "KAT-42",
+          title: "Issue",
+          state: { id: "in-progress", name: "In Progress", type: "started", color: "#000", position: 1 },
+          labels: [],
+          children: { nodes: [] },
+          project: null,
+          projectMilestone: null,
+          parent: null,
+          description: null,
+          createdAt: "2024-01-01T00:00:00.000Z",
+          updatedAt: "2024-01-02T00:00:00.000Z",
+        };
+      },
+    };
+
+    const result = await backend.updateIssueState("issue-1", "human-review");
+
+    expect(result).toMatchObject({
+      issueId: "issue-1",
+      phase: "human-review",
+      stateId: "human-review",
+      state: "Human Review",
+    });
+    expect(calls).toEqual([
+      {
+        type: "updateIssue",
+        issueId: "issue-1",
+        input: { stateId: "human-review" },
+      },
+    ]);
+  });
 });
 
 // ─── preparePrContext ───────────────────────────────────────────────────────

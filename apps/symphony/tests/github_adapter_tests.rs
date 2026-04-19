@@ -634,6 +634,73 @@ async fn test_update_issue_state_swaps_labels() {
 }
 
 #[tokio::test]
+async fn test_update_issue_state_preserves_prefixed_non_state_labels() {
+    let mut server = Server::new_async().await;
+    let adapter = test_adapter(&server, None);
+
+    let get_mock = server
+        .mock("GET", "/repos/kata-sh/kata-mono/issues/71")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            issue_json(
+                71,
+                &["symphony:todo", "symphony:slice", "bug"],
+                "alice",
+                &["alice"],
+                None,
+            )
+            .to_string(),
+        )
+        .create_async()
+        .await;
+
+    let remove_todo = server
+        .mock(
+            "DELETE",
+            "/repos/kata-sh/kata-mono/issues/71/labels/symphony:todo",
+        )
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body("{}")
+        .create_async()
+        .await;
+
+    let remove_slice = server
+        .mock(
+            "DELETE",
+            "/repos/kata-sh/kata-mono/issues/71/labels/symphony:slice",
+        )
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body("{}")
+        .expect(0)
+        .create_async()
+        .await;
+
+    let add_in_progress = server
+        .mock("POST", "/repos/kata-sh/kata-mono/issues/71/labels")
+        .match_body(Matcher::PartialJson(
+            json!({ "labels": ["symphony:in-progress"] }),
+        ))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body("[]")
+        .create_async()
+        .await;
+
+    adapter
+        .update_issue_state("71", "In Progress")
+        .await
+        .expect("update_issue_state should preserve non-state prefixed labels");
+
+    get_mock.assert_async().await;
+    remove_todo.assert_async().await;
+    remove_slice.assert_async().await;
+    add_in_progress.assert_async().await;
+}
+
+#[tokio::test]
 async fn test_update_issue_state_removes_all_existing_state_labels() {
     let mut server = Server::new_async().await;
     let adapter = test_adapter(&server, None);

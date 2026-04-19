@@ -285,6 +285,44 @@ describe("GithubBackend canonical worker operations", () => {
       relationType: "relates_to",
     })).rejects.toThrow("parentIssueId is required when relationType is provided");
   });
+
+  it("updateIssueState maps PR lifecycle phases to canonical labels", async () => {
+    const client = new FakeGithubClient([
+      { number: 51, title: "[S03] Review flow", state: "open", labels: ["kata:slice", "kata:in-progress"] },
+    ]);
+    const backend = makeBackend(client);
+
+    const updated = await backend.updateIssueState("51", "human-review");
+
+    expect(updated).toMatchObject({
+      issueId: "51",
+      phase: "human-review",
+      state: "kata:human-review",
+    });
+    const issue = await client.getIssue(51);
+    expect(issue?.state).toBe("open");
+    expect(issue?.labels).toContain("kata:human-review");
+    expect(issue?.labels).not.toContain("kata:in-progress");
+  });
+
+  it("updateIssueState(done) closes issue and applies terminal label", async () => {
+    const client = new FakeGithubClient([
+      { number: 52, title: "[S04] Merge flow", state: "open", labels: ["kata:slice", "kata:merging"] },
+    ]);
+    const backend = makeBackend(client);
+
+    const updated = await backend.updateIssueState("52", "done");
+
+    expect(updated).toMatchObject({
+      issueId: "52",
+      phase: "done",
+      state: "closed",
+    });
+    const issue = await client.getIssue(52);
+    expect(issue?.state).toBe("closed");
+    expect(issue?.labels).toContain("kata:done");
+    expect(issue?.labels).not.toContain("kata:merging");
+  });
 });
 
 describe("GithubBackend artifact persistence", () => {

@@ -592,12 +592,21 @@ export function registerKataTools(
     parameters: Type.Object({
       issueId: Type.String({ description: "Backend issue identifier" }),
       phase: Type.Union([
+        // Kata planning/execution phases
         Type.Literal("backlog"),
         Type.Literal("planning"),
         Type.Literal("executing"),
         Type.Literal("verifying"),
         Type.Literal("done"),
-      ], { description: "Kata phase to advance the issue to" }),
+        // Symphony PR lifecycle phases
+        Type.Literal("todo"),
+        Type.Literal("in-progress"),
+        Type.Literal("agent-review"),
+        Type.Literal("human-review"),
+        Type.Literal("merging"),
+        Type.Literal("rework"),
+        Type.Literal("closed"),
+      ], { description: "Backend-neutral issue phase/state to advance to" }),
       teamId: Type.Optional(Type.String({ description: "Team UUID override in Linear mode (ignored in GitHub mode)" })),
     }),
     async execute(_id, params) {

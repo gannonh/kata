@@ -141,6 +141,30 @@ fn test_repo_workflow_requires_publish_gate_before_agent_review() {
         content.contains("Agent Review"),
         "in-progress.md must transition to Agent Review (not Human Review)"
     );
+    assert!(
+        content.contains("phase: \"agent-review\""),
+        "in-progress.md must move state via kata_update_issue_state(... phase: \"agent-review\")"
+    );
+    assert!(
+        !content.contains("phase: \"verifying\""),
+        "in-progress.md must not use verifying as a PR-review handoff phase"
+    );
+}
+
+#[test]
+fn test_agent_review_prompt_transitions_to_human_review() {
+    let prompt_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("prompts/agent-review.md");
+    let content = std::fs::read_to_string(&prompt_path)
+        .expect("prompts/agent-review.md should exist for review-transition assertions");
+
+    assert!(
+        content.contains("phase: \"human-review\""),
+        "agent-review.md must advance to human-review after feedback is resolved"
+    );
+    assert!(
+        !content.contains("phase: \"verifying\""),
+        "agent-review.md must not use verifying as a human-review handoff phase"
+    );
 }
 
 #[test]

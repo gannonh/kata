@@ -9,6 +9,22 @@ import type { KataState, Phase } from "./types.js";
 
 export type KataWorkflowPhase = "backlog" | "planning" | "executing" | "verifying" | "done";
 
+/**
+ * Canonical backend-neutral issue lifecycle states used by worker orchestration.
+ *
+ * Includes Kata planning phases (for /kata flows) plus PR lifecycle phases
+ * (for Symphony tracker workflows).
+ */
+export type KataIssueStatePhase =
+  | KataWorkflowPhase
+  | "todo"
+  | "in-progress"
+  | "agent-review"
+  | "human-review"
+  | "merging"
+  | "rework"
+  | "closed";
+
 export interface KataMilestoneRecord {
   id: string;
   name: string;
@@ -61,7 +77,7 @@ export interface KataFollowupIssueInput {
 export interface KataIssueStateUpdateResult {
   issueId: string;
   identifier?: string;
-  phase: KataWorkflowPhase;
+  phase: KataIssueStatePhase;
   state: string;
   stateId?: string;
 }
@@ -180,7 +196,7 @@ export interface KataBackend {
   getIssue(issueId: string, opts?: { includeChildren?: boolean; includeComments?: boolean }): Promise<KataIssueDetailRecord | null>;
   upsertComment(input: KataCommentUpsertInput): Promise<KataIssueCommentRecord>;
   createFollowupIssue(input: KataFollowupIssueInput): Promise<KataIssueRecord>;
-  updateIssueState(issueId: string, phase: KataWorkflowPhase, teamId?: string): Promise<KataIssueStateUpdateResult>;
+  updateIssueState(issueId: string, phase: KataIssueStatePhase, teamId?: string): Promise<KataIssueStateUpdateResult>;
 }
 
 // ─── Factory ──────────────────────────────────────────────────────────────────

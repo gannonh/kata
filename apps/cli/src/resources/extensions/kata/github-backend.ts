@@ -13,6 +13,7 @@ import type {
   KataIssueStateUpdateResult,
   KataMilestoneRecord,
   KataWorkflowPhase,
+  KataIssueStatePhase,
   OpsBlock,
   PrContext,
   PromptOptions,
@@ -717,6 +718,25 @@ function issueNumberFromScope(scope: DocumentScope | undefined): number | undefi
   return parsed;
 }
 
+const KATA_STATE_LABEL_SUFFIXES = [
+  "backlog",
+  "planning",
+  "executing",
+  "verifying",
+  "todo",
+  "in-progress",
+  "agent-review",
+  "human-review",
+  "merging",
+  "rework",
+  "done",
+  "closed",
+] as const;
+
+function stateLabelSuffix(phase: KataIssueStatePhase): string {
+  return phase;
+}
+
 function defaultGithubLabelColor(labelName: string): string {
   const normalized = labelName.trim().toLowerCase();
   if (normalized.endsWith("milestone")) return "7C3AED";
@@ -724,9 +744,16 @@ function defaultGithubLabelColor(labelName: string): string {
   if (normalized.endsWith("task")) return "16A34A";
   if (normalized.endsWith("backlog")) return "94A3B8";
   if (normalized.endsWith("planning")) return "0EA5E9";
+  if (normalized.endsWith("todo")) return "0EA5E9";
   if (normalized.endsWith("executing")) return "F59E0B";
+  if (normalized.endsWith("in-progress")) return "F59E0B";
+  if (normalized.endsWith("agent-review")) return "8B5CF6";
+  if (normalized.endsWith("human-review")) return "6366F1";
+  if (normalized.endsWith("merging")) return "14B8A6";
+  if (normalized.endsWith("rework")) return "EF4444";
   if (normalized.endsWith("verifying")) return "8B5CF6";
   if (normalized.endsWith("done")) return "22C55E";
+  if (normalized.endsWith("closed")) return "64748B";
   return "5319E7";
 }
 
@@ -1706,7 +1733,7 @@ export class GithubBackend implements KataBackend {
 
   async updateIssueState(
     issueId: string,
-    phase: KataWorkflowPhase,
+    phase: KataIssueStatePhase,
   ): Promise<KataIssueStateUpdateResult> {
     const number = Number.parseInt(issueId, 10);
     if (!Number.isFinite(number) || number <= 0) {
@@ -1719,25 +1746,26 @@ export class GithubBackend implements KataBackend {
     }
 
     const phasePrefix = this.config.labelPrefix.endsWith(":") ? this.config.labelPrefix : `${this.config.labelPrefix}:`;
-    const knownPhaseLabels = new Set([
-      `${phasePrefix}backlog`.toLowerCase(),
-      `${phasePrefix}planning`.toLowerCase(),
-      `${phasePrefix}executing`.toLowerCase(),
-      `${phasePrefix}verifying`.toLowerCase(),
-      `${phasePrefix}done`.toLowerCase(),
-    ]);
+    const knownPhaseLabels = new Set(
+      KATA_STATE_LABEL_SUFFIXES.map((suffix) => `${phasePrefix}${suffix}`.toLowerCase()),
+    );
+
     const preservedLabels = issue.labels.filter((label) => !knownPhaseLabels.has(label.toLowerCase()));
-    const nextLabels = phase === "done" ? preservedLabels : [...preservedLabels, `${phasePrefix}${phase}`];
+    const labelSuffix = stateLabelSuffix(phase);
+    const nextPhaseLabel = `${phasePrefix}${labelSuffix}`;
+    const shouldClose = phase === "done" || phase === "closed";
+    const nextLabels = [...preservedLabels, nextPhaseLabel];
+
     const updated = await this.updateIssue(number, {
       labels: nextLabels,
-      state: phase === "done" ? "closed" : "open",
+      state: shouldClose ? "closed" : "open",
     });
     this.invalidateStateCache();
     return {
       issueId: String(updated.number),
       identifier: `#${updated.number}`,
       phase,
-      state: phase === "done" ? "closed" : `${phasePrefix}${phase}`,
+      state: shouldClose ? "closed" : nextPhaseLabel,
     };
   }
 

@@ -24,6 +24,7 @@ import type {
   KataIssueStateUpdateResult,
   KataMilestoneRecord,
   KataWorkflowPhase,
+  KataIssueStatePhase,
 } from "./backend.js";
 import type { KataState, Phase } from "./types.js";
 
@@ -44,7 +45,7 @@ import {
   listKataTasks,
   parseKataEntityTitle,
 } from "../linear/linear-entities.js";
-import type { DocumentAttachment, KataLabelSet, LinearComment } from "../linear/linear-types.js";
+import type { DocumentAttachment, KataLabelSet, LinearComment, LinearWorkflowState } from "../linear/linear-types.js";
 import { ensureGitignore } from "./gitignore.js";
 import { loadPrompt } from "./prompt-loader.js";
 import { buildSkillDiscoveryVars } from "./preferences.js";
@@ -64,6 +65,46 @@ const DISCOVER_PROJECT_DOCS = [
 const DISCOVER_SLICE_DOCS = [
   `   - For slice-scoped documents, also call \`kata_list_documents({ issueId: "<slice-issue-uuid>" })\`.`,
 ].join("\n");
+
+function normalizeStateKey(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ");
+}
+
+const LINEAR_STATE_PHASE_ALIASES: Record<string, string[]> = {
+  todo: ["todo"],
+  "in-progress": ["in progress"],
+  "agent-review": ["agent review"],
+  "human-review": ["human review"],
+  merging: ["merging"],
+  rework: ["rework"],
+  closed: ["closed", "cancelled", "canceled"],
+};
+
+function resolveLinearWorkflowStateForPhase(
+  states: LinearWorkflowState[],
+  phase: KataIssueStatePhase,
+): LinearWorkflowState | null {
+  switch (phase) {
+    case "backlog":
+    case "planning":
+    case "executing":
+    case "verifying":
+    case "done":
+      return getLinearStateForKataPhase(states, phase);
+    default:
+      break;
+  }
+
+  const aliases = LINEAR_STATE_PHASE_ALIASES[phase] ?? [];
+  if (aliases.length === 0) return null;
+
+  const desired = new Set(aliases.map(normalizeStateKey));
+  return states.find((state) => desired.has(normalizeStateKey(state.name))) ?? null;
+}
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
@@ -497,7 +538,7 @@ export class LinearBackend implements KataBackend {
 
   async updateIssueState(
     issueId: string,
-    phase: KataWorkflowPhase,
+    phase: KataIssueStatePhase,
     teamId?: string,
   ): Promise<KataIssueStateUpdateResult> {
     const resolvedTeamId = teamId ?? this.config.teamId;
@@ -513,7 +554,7 @@ export class LinearBackend implements KataBackend {
     }
 
     const states = await this.client.listWorkflowStates(resolvedTeamId);
-    const targetState = getLinearStateForKataPhase(states, phase);
+    const targetState = resolveLinearWorkflowStateForPhase(states, phase);
     if (!targetState) {
       throw new Error(`No workflow state found for phase: ${phase}`);
     }
