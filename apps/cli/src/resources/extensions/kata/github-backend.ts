@@ -47,6 +47,7 @@ export interface GithubBackendConfig {
   repoName: string;
   stateMode: GithubStateMode;
   labelPrefix: string;
+  githubProjectNumber?: number;
   apiBaseUrl?: string;
 }
 
@@ -187,6 +188,166 @@ class GithubApiClient implements GithubBackendClient {
     }
 
     return payload.data;
+  }
+
+  // ── Projects v2 support ──────────────────────────────────────────────────
+
+  private projectV2StatusFieldCache: {
+    projectId: string;
+    fieldId: string;
+    options: Array<{ id: string; name: string }>;
+  } | null = null;
+
+  async resolveProjectV2StatusField(): Promise<{
+    projectId: string;
+    fieldId: string;
+    options: Array<{ id: string; name: string }>;
+  }> {
+    if (this.projectV2StatusFieldCache) return this.projectV2StatusFieldCache;
+
+    const projectNumber = this.config.githubProjectNumber;
+    if (!projectNumber) {
+      throw new Error("Projects v2 status field resolution requires githubProjectNumber in config");
+    }
+
+    const data = await this.graphqlRequest<{
+      user: { projectV2: { id: string; field: { id: string; options: Array<{ id: string; name: string }> } | null } | null } | null;
+      organization: { projectV2: { id: string; field: { id: string; options: Array<{ id: string; name: string }> } | null } | null } | null;
+    }>(
+      `query($projectNumber: Int!, $owner: String!) {
+        user(login: $owner) {
+          projectV2(number: $projectNumber) {
+            id
+            field(name: "Status") {
+              ... on ProjectV2SingleSelectField {
+                id
+                options { id name }
+              }
+            }
+          }
+        }
+        organization(login: $owner) {
+          projectV2(number: $projectNumber) {
+            id
+            field(name: "Status") {
+              ... on ProjectV2SingleSelectField {
+                id
+                options { id name }
+              }
+            }
+          }
+        }
+      }`,
+      { projectNumber, owner: this.config.repoOwner },
+    );
+
+    const project = data.user?.projectV2 ?? data.organization?.projectV2;
+    if (!project) {
+      throw new Error(`GitHub Project #${projectNumber} not found for owner ${this.config.repoOwner}`);
+    }
+    if (!project.field) {
+      throw new Error(`Status field not found on GitHub Project #${projectNumber}`);
+    }
+
+    this.projectV2StatusFieldCache = {
+      projectId: project.id,
+      fieldId: project.field.id,
+      options: project.field.options,
+    };
+    return this.projectV2StatusFieldCache;
+  }
+
+  async findProjectV2ItemId(issueNumber: number): Promise<string | null> {
+    const statusField = await this.resolveProjectV2StatusField();
+    let after: string | null = null;
+
+    for (let page = 0; page < 10; page++) {
+      const data = await this.graphqlRequest<{
+        node: {
+          items: {
+            nodes: Array<{ id: string; content: { number?: number } | null }>;
+            pageInfo: { hasNextPage: boolean; endCursor: string | null };
+          };
+        } | null;
+      }>(
+        `query($projectId: ID!, $first: Int!, $after: String) {
+          node(id: $projectId) {
+            ... on ProjectV2 {
+              items(first: $first, after: $after) {
+                nodes {
+                  id
+                  content { ... on Issue { number } }
+                }
+                pageInfo { hasNextPage endCursor }
+              }
+            }
+          }
+        }`,
+        { projectId: statusField.projectId, first: 100, after },
+      );
+
+      const items = data.node?.items;
+      if (!items) break;
+
+      for (const item of items.nodes) {
+        if (item.content?.number === issueNumber) return item.id;
+      }
+
+      if (items.pageInfo.hasNextPage && items.pageInfo.endCursor) {
+        after = items.pageInfo.endCursor;
+      } else {
+        break;
+      }
+    }
+
+    return null;
+  }
+
+  async updateProjectV2ItemStatus(issueNumber: number, stateName: string): Promise<string> {
+    const statusField = await this.resolveProjectV2StatusField();
+
+    const normalizedTarget = stateName.trim().toLowerCase().replace(/[_-]+/g, " ");
+    const option = statusField.options.find(
+      (opt) => opt.name.trim().toLowerCase().replace(/[_-]+/g, " ") === normalizedTarget,
+    );
+    if (!option) {
+      const available = statusField.options.map((opt) => opt.name).join(", ");
+      throw new Error(
+        `Projects v2 status option '${stateName}' not found; available: [${available}]`,
+      );
+    }
+
+    const itemId = await this.findProjectV2ItemId(issueNumber);
+    if (!itemId) {
+      throw new Error(
+        `Issue #${issueNumber} is not on GitHub Project #${this.config.githubProjectNumber}`,
+      );
+    }
+
+    await this.graphqlRequest<{
+      updateProjectV2ItemFieldValue: { projectV2Item: { id: string } } | null;
+    }>(
+      `mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $singleSelectOptionId: String!) {
+        updateProjectV2ItemFieldValue(
+          input: {
+            projectId: $projectId
+            itemId: $itemId
+            fieldId: $fieldId
+            value: { singleSelectOptionId: $singleSelectOptionId }
+          }
+        ) {
+          projectV2Item { id }
+        }
+      }`,
+      {
+        projectId: statusField.projectId,
+        itemId,
+        fieldId: statusField.fieldId,
+        singleSelectOptionId: option.id,
+      },
+    );
+
+    return option.name;
   }
 
   private toSummary(issue: GithubApiIssue): GithubIssueSummary {
@@ -735,6 +896,29 @@ const KATA_STATE_LABEL_SUFFIXES = [
 
 function stateLabelSuffix(phase: KataIssueStatePhase): string {
   return phase;
+}
+
+/**
+ * Map a KataIssueStatePhase to the display name expected by GitHub Projects v2
+ * Status field options. These match the canonical Kata phase names used in
+ * Symphony WORKFLOW.md `active_states` / `terminal_states`.
+ */
+function phaseToProjectsV2StatusName(phase: KataIssueStatePhase): string {
+  switch (phase) {
+    case "backlog":      return "Backlog";
+    case "todo":         return "Todo";
+    case "planning":     return "Planning";
+    case "executing":    return "In Progress";
+    case "in-progress":  return "In Progress";
+    case "verifying":    return "In Progress";
+    case "agent-review": return "Agent Review";
+    case "human-review": return "Human Review";
+    case "merging":      return "Merging";
+    case "rework":       return "Rework";
+    case "done":         return "Done";
+    case "closed":       return "Closed";
+    default:             return phase;
+  }
 }
 
 function defaultGithubLabelColor(labelName: string): string {
@@ -1745,6 +1929,29 @@ export class GithubBackend implements KataBackend {
       throw new Error(`GitHub issue not found: ${issueId}`);
     }
 
+    // Projects v2 mode: mutate the project board Status field directly.
+    if (this.config.stateMode === "projects_v2" && this.config.githubProjectNumber) {
+      const displayName = phaseToProjectsV2StatusName(phase);
+      const actualStatus = await this.client.updateProjectV2ItemStatus(number, displayName);
+
+      // Also close/reopen the issue if terminal
+      const shouldClose = phase === "done" || phase === "closed";
+      if (shouldClose && issue.state !== "closed") {
+        await this.updateIssue(number, { state: "closed" });
+      } else if (!shouldClose && issue.state !== "open") {
+        await this.updateIssue(number, { state: "open" });
+      }
+
+      this.invalidateStateCache();
+      return {
+        issueId: String(number),
+        identifier: `#${number}`,
+        phase,
+        state: actualStatus,
+      };
+    }
+
+    // Label mode: swap state labels.
     const phasePrefix = this.config.labelPrefix.endsWith(":") ? this.config.labelPrefix : `${this.config.labelPrefix}:`;
     const knownPhaseLabels = new Set(
       KATA_STATE_LABEL_SUFFIXES.map((suffix) => `${phasePrefix}${suffix}`.toLowerCase()),

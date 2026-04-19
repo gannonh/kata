@@ -120,6 +120,7 @@ async function createGithubBackend(
     repoOwner: validation.trackerConfig.repoOwner,
     repoName: validation.trackerConfig.repoName,
     stateMode: validation.trackerConfig.stateMode,
+    githubProjectNumber: validation.trackerConfig.githubProjectNumber,
     labelPrefix: validation.trackerConfig.labelPrefix ?? "kata:",
     apiBaseUrl: process.env.KATA_GITHUB_API_BASE_URL,
   });
