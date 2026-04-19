@@ -8,8 +8,8 @@ import type { SlashCommandEntry, SlashCommandsResponse } from '@shared/types'
 import { useCommandSuggestions } from '../useCommandSuggestions'
 
 const COMMANDS: SlashCommandEntry[] = [
-  { name: '/kata', description: 'Root command', category: 'builtin' },
-  { name: '/kata plan', description: 'Plan mode', category: 'builtin' },
+  { name: 'kata', description: 'Root command', category: 'builtin' },
+  { name: 'kata plan', description: 'Plan mode', category: 'builtin' },
   { name: '/skill:frontend-design', description: 'Skill command', category: 'skill' },
 ]
 

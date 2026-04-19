@@ -1,7 +1,11 @@
 import { useAtomValue } from 'jotai'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { SlashCommandEntry } from '@shared/types'
 import { commandsLoadableAtom, commandsLoadingAtom } from '@/atoms/commands'
+
+function normalizeCommandName(name: string): string {
+  return name.startsWith('/') ? name : `/${name}`
+}
 
 interface CommandSuggestionsResult {
   suggestions: SlashCommandEntry[]
@@ -16,7 +20,6 @@ export function useCommandSuggestions(input: string): CommandSuggestionsResult {
   const commandsState = useAtomValue(commandsLoadableAtom)
   const isLoading = useAtomValue(commandsLoadingAtom)
   const [selectedIndex, setSelectedIndex] = useState(0)
-  const lastFilterRef = useRef<string>('')
 
   const hasSlashPrefix = input.startsWith('/')
 
@@ -25,7 +28,10 @@ export function useCommandSuggestions(input: string): CommandSuggestionsResult {
       return []
     }
 
-    const commands = commandsState.state === 'hasData' ? commandsState.data : []
+    const commands = (commandsState.state === 'hasData' ? commandsState.data : []).map((entry) => ({
+      ...entry,
+      name: normalizeCommandName(entry.name),
+    }))
     const normalizedInput = input.toLowerCase()
 
     if (normalizedInput === '/') {
@@ -38,17 +44,7 @@ export function useCommandSuggestions(input: string): CommandSuggestionsResult {
   useEffect(() => {
     if (!hasSlashPrefix) {
       setSelectedIndex(0)
-      lastFilterRef.current = ''
       return
-    }
-
-    const filterKey = `${input.toLowerCase()}|${suggestions.length}`
-    if (import.meta.env.DEV && filterKey !== lastFilterRef.current) {
-      console.debug('[CommandSuggestions] filter', {
-        input,
-        matchCount: suggestions.length,
-      })
-      lastFilterRef.current = filterKey
     }
 
     setSelectedIndex((current) => {
@@ -58,7 +54,7 @@ export function useCommandSuggestions(input: string): CommandSuggestionsResult {
 
       return Math.min(current, suggestions.length - 1)
     })
-  }, [hasSlashPrefix, input, suggestions])
+  }, [hasSlashPrefix, suggestions])
 
   const moveSelection = useCallback(
     (delta: number) => {
