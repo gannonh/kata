@@ -52,8 +52,8 @@ If CI fails, run `.agents/skills/sym-fix-ci/SKILL.md`, fix failures, and re-run 
 
 - If all actionable feedback is resolved and checks are green:
   `kata_update_issue_state({ issueId: "<current-issue-id>", phase: "human-review" })`.
-- If the approach is rejected and requires restart:
-  `kata_update_issue_state({ issueId: "<current-issue-id>", phase: "rework" })`.
+- If PR missing for current branch: upsert blocker in workpad and move back to execution:
+  `kata_update_issue_state({ issueId: "<current-issue-id>", phase: "in-progress" })`.
 
 ## Guardrails
 
