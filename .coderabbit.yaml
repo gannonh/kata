@@ -1,3 +1,6 @@
 reviews:
   path_filters:
     - "!**/*.md"
+issue_enrichment:
+  auto_enrich:
+    enabled: false
