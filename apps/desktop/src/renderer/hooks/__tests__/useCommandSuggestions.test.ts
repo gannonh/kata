@@ -2,8 +2,8 @@
 
 import { createElement, type ReactNode } from 'react'
 import { Provider, createStore } from 'jotai'
-import { renderHook, waitFor } from '@testing-library/react'
-import { afterEach, describe, expect, test, vi } from 'vitest'
+import { act, renderHook, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import type { SlashCommandEntry, SlashCommandsResponse } from '@shared/types'
 import { useCommandSuggestions } from '../useCommandSuggestions'
 
@@ -18,20 +18,28 @@ const successResponse: SlashCommandsResponse = {
   commands: COMMANDS,
 }
 
+const getSlashCommandsMock = vi.fn<() => Promise<SlashCommandsResponse>>()
+
 function createWrapper() {
   const store = createStore()
 
-  return ({ children }: { children: ReactNode }) =>
-    createElement(Provider, { store }, children)
+  return ({ children }: { children: ReactNode }) => createElement(Provider, { store }, children)
 }
 
 describe('useCommandSuggestions', () => {
+  beforeEach(() => {
+    getSlashCommandsMock.mockReset()
+    ;(window as unknown as { api: { getSlashCommands: typeof getSlashCommandsMock } }).api = {
+      getSlashCommands: getSlashCommandsMock,
+    }
+  })
+
   afterEach(() => {
     vi.restoreAllMocks()
   })
 
   test('returns empty suggestions when input does not start with slash', async () => {
-    vi.spyOn(window.api, 'getSlashCommands').mockResolvedValue(successResponse)
+    getSlashCommandsMock.mockResolvedValue(successResponse)
 
     const { result } = renderHook(() => useCommandSuggestions('hello kata'), {
       wrapper: createWrapper(),
@@ -46,7 +54,7 @@ describe('useCommandSuggestions', () => {
   })
 
   test('returns all commands when input is exactly slash', async () => {
-    vi.spyOn(window.api, 'getSlashCommands').mockResolvedValue(successResponse)
+    getSlashCommandsMock.mockResolvedValue(successResponse)
 
     const { result } = renderHook(() => useCommandSuggestions('/'), {
       wrapper: createWrapper(),
@@ -65,7 +73,7 @@ describe('useCommandSuggestions', () => {
   })
 
   test('filters commands by slash prefix case-insensitively', async () => {
-    vi.spyOn(window.api, 'getSlashCommands').mockResolvedValue(successResponse)
+    getSlashCommandsMock.mockResolvedValue(successResponse)
 
     const { result, rerender } = renderHook(({ value }) => useCommandSuggestions(value), {
       wrapper: createWrapper(),
@@ -88,7 +96,7 @@ describe('useCommandSuggestions', () => {
   test('exposes loading state while commands are being fetched', async () => {
     let resolveFetch: ((value: SlashCommandsResponse) => void) | undefined
 
-    vi.spyOn(window.api, 'getSlashCommands').mockImplementation(
+    getSlashCommandsMock.mockImplementation(
       () =>
         new Promise<SlashCommandsResponse>((resolve) => {
           resolveFetch = resolve
@@ -112,7 +120,7 @@ describe('useCommandSuggestions', () => {
   })
 
   test('tracks selected index and wraps keyboard navigation', async () => {
-    vi.spyOn(window.api, 'getSlashCommands').mockResolvedValue(successResponse)
+    getSlashCommandsMock.mockResolvedValue(successResponse)
 
     const { result } = renderHook(() => useCommandSuggestions('/'), {
       wrapper: createWrapper(),
@@ -124,17 +132,25 @@ describe('useCommandSuggestions', () => {
 
     expect(result.current.selectedIndex).toBe(0)
 
-    result.current.moveSelection(1)
+    act(() => {
+      result.current.moveSelection(1)
+    })
     expect(result.current.selectedIndex).toBe(1)
 
-    result.current.moveSelection(10)
+    act(() => {
+      result.current.moveSelection(10)
+    })
     expect(result.current.selectedIndex).toBe(2)
 
-    result.current.moveSelection(-1)
+    act(() => {
+      result.current.moveSelection(-1)
+    })
     expect(result.current.selectedIndex).toBe(1)
 
-    result.current.setSelectedIndex(2)
-    result.current.moveSelection(1)
+    act(() => {
+      result.current.setSelectedIndex(2)
+      result.current.moveSelection(1)
+    })
     expect(result.current.selectedIndex).toBe(0)
   })
 })
