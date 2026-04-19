@@ -901,6 +901,9 @@ export function registerSessionIpc({
     void refreshSkillCommands('focus')
   }
 
+  // Some unit tests intentionally provide partial BrowserWindow stubs that omit
+  // EventEmitter bindings. Guard this subscription to keep IPC registration
+  // resilient in those test harnesses.
   const canBindWindowFocus =
     typeof (window as Partial<BrowserWindow>).on === 'function' &&
     typeof (window as Partial<BrowserWindow>).off === 'function'

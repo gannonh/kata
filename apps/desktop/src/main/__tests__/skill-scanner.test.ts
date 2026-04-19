@@ -72,29 +72,46 @@ describe('skill-scanner', () => {
     })
   })
 
-  test('parseSkillFrontmatter handles missing fields and malformed input', () => {
+  test('parseSkillFrontmatter handles missing fields, malformed input, and quote mismatches', () => {
     expect(parseSkillFrontmatter('not-frontmatter')).toEqual({})
     expect(parseSkillFrontmatter(['---', 'name: skill-only', '---'].join('\n'))).toEqual({
       name: 'skill-only',
       description: undefined,
     })
+
+    expect(
+      parseSkillFrontmatter(
+        ['---', `name: 'mismatched"`, 'description: "Valid quoted description"', '---'].join('\n'),
+      ),
+    ).toEqual({
+      name: `'mismatched"`,
+      description: 'Valid quoted description',
+    })
   })
 
-  test('scanSkillDirectory reads direct child directories with SKILL.md', async () => {
+  test('scanSkillDirectory discovers SKILL.md recursively, including root-level files', async () => {
     const skillsDir = path.join(fakeWorkspace, '.agents', 'skills')
     await writeSkill(skillsDir, 'frontend-design')
+    await writeSkill(path.join(skillsDir, 'nested'), 'inner-skill')
     await writeSkill(
       skillsDir,
       'quoted-skill',
       ['---', "name: 'quoted-skill'", 'description: "Quoted description"', '---'].join('\n'),
     )
     await fs.mkdir(path.join(skillsDir, 'missing-file'), { recursive: true })
+    await fs.writeFile(
+      path.join(skillsDir, 'SKILL.md'),
+      ['---', 'name: root-skill', 'description: root skill description', '---'].join('\n'),
+      'utf8',
+    )
 
     const skills = await scanSkillDirectory(skillsDir)
 
     expect(skills).toEqual([
       { name: 'frontend-design', description: 'frontend-design description' },
+      { name: 'inner-skill', description: 'inner-skill description' },
       { name: 'quoted-skill', description: 'Quoted description' },
+      { name: 'root-skill', description: 'root skill description' },
     ])
   })
 
@@ -112,6 +129,12 @@ describe('skill-scanner', () => {
     await writeSkill(userSkillsDir, 'shared-skill', ['---', 'name: shared-skill', 'description: user copy', '---'].join('\n'))
     await writeSkill(workspaceSkillsDir, 'shared-skill', ['---', 'name: shared-skill', 'description: workspace copy', '---'].join('\n'))
     await writeSkill(workspaceSkillsDir, 'frontend-design')
+    await writeSkill(path.join(workspaceSkillsDir, 'nested'), 'deep-skill')
+    await fs.writeFile(
+      path.join(workspaceSkillsDir, 'SKILL.md'),
+      ['---', 'name: root-workspace-skill', 'description: root workspace copy', '---'].join('\n'),
+      'utf8',
+    )
 
     const commands = await scanAllSkillDirectories(fakeWorkspace)
 
@@ -122,13 +145,23 @@ describe('skill-scanner', () => {
         category: 'skill',
       },
       {
+        name: '/skill:deep-skill',
+        description: 'deep-skill description',
+        category: 'skill',
+      },
+      {
         name: '/skill:frontend-design',
         description: 'frontend-design description',
         category: 'skill',
       },
       {
+        name: '/skill:root-workspace-skill',
+        description: 'root workspace copy',
+        category: 'skill',
+      },
+      {
         name: '/skill:shared-skill',
-        description: 'user copy',
+        description: 'workspace copy',
         category: 'skill',
       },
     ])
@@ -157,5 +190,24 @@ describe('skill-scanner', () => {
     const third = await refreshSkillCache(fakeWorkspace)
 
     expect(third.map((entry) => entry.name)).toEqual(['/skill:added-later', '/skill:initial-skill'])
+  })
+
+  test('refreshSkillCache reuses in-flight scan for concurrent callers', async () => {
+    const workspaceSkillsDir = path.join(fakeWorkspace, '.agents', 'skills')
+    await writeSkill(workspaceSkillsDir, 'initial-skill')
+
+    const readFileSpy = vi.spyOn(fs, 'readFile')
+
+    const [first, second] = await Promise.all([
+      refreshSkillCache(fakeWorkspace),
+      refreshSkillCache(fakeWorkspace),
+    ])
+
+    expect(first).toEqual(second)
+
+    const skillReads = readFileSpy.mock.calls.filter(([filePath]) =>
+      String(filePath).endsWith(`${path.sep}SKILL.md`),
+    )
+    expect(skillReads).toHaveLength(1)
   })
 })

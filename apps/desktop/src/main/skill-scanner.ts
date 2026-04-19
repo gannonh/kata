@@ -15,6 +15,8 @@ export const SKILL_REFRESH_DEBOUNCE_MS = 2_000
 let cachedSkills: SlashCommandEntry[] | null = null
 let cachedWorkspacePath: string | null = null
 let lastRefreshAt = 0
+let inFlightRefresh: Promise<SlashCommandEntry[]> | null = null
+let inFlightWorkspacePath: string | null = null
 
 function resolveSkillDirectories(workspacePath?: string): string[] {
   const homeDirectory = os.homedir()
@@ -30,7 +32,15 @@ function resolveSkillDirectories(workspacePath?: string): string[] {
 }
 
 function stripYamlWrapping(value: string): string {
-  return value.replace(/^['"]/, '').replace(/['"]$/, '').trim()
+  const trimmed = value.trim()
+  if (
+    (trimmed.startsWith("'") && trimmed.endsWith("'")) ||
+    (trimmed.startsWith('"') && trimmed.endsWith('"'))
+  ) {
+    return trimmed.slice(1, -1).trim()
+  }
+
+  return trimmed
 }
 
 export function parseSkillFrontmatter(content: string): { name?: string; description?: string } {
@@ -49,10 +59,7 @@ export function parseSkillFrontmatter(content: string): { name?: string; descrip
   }
 }
 
-export async function scanSkillDirectory(directoryPath: string): Promise<SkillEntry[]> {
-  const startedAt = Date.now()
-  log.debug('[skill-scanner] scanning directory', { directoryPath })
-
+async function listSkillFiles(directoryPath: string): Promise<string[]> {
   let directoryEntries: Array<import('node:fs').Dirent<string>>
 
   try {
@@ -81,19 +88,39 @@ export async function scanSkillDirectory(directoryPath: string): Promise<SkillEn
     return []
   }
 
-  const skills: SkillEntry[] = []
+  const sortedEntries = [...directoryEntries].sort((left, right) => left.name.localeCompare(right.name))
+  const discoveredSkillFiles: string[] = []
 
-  for (const entry of directoryEntries) {
-    if (!entry.isDirectory()) {
+  for (const entry of sortedEntries) {
+    const entryPath = path.join(directoryPath, entry.name)
+
+    if (entry.isDirectory()) {
+      discoveredSkillFiles.push(...(await listSkillFiles(entryPath)))
       continue
     }
 
-    const skillFilePath = path.join(directoryPath, entry.name, 'SKILL.md')
+    if (entry.isFile() && entry.name === 'SKILL.md') {
+      discoveredSkillFiles.push(entryPath)
+    }
+  }
+
+  return discoveredSkillFiles
+}
+
+export async function scanSkillDirectory(directoryPath: string): Promise<SkillEntry[]> {
+  const startedAt = Date.now()
+  log.debug('[skill-scanner] scanning directory', { directoryPath })
+
+  const skillFilePaths = await listSkillFiles(directoryPath)
+  const skills: SkillEntry[] = []
+
+  for (const skillFilePath of skillFilePaths) {
+    const skillDirectory = path.basename(path.dirname(skillFilePath))
 
     try {
       const content = await fs.readFile(skillFilePath, 'utf8')
       const frontmatter = parseSkillFrontmatter(content)
-      const skillName = frontmatter.name?.trim() || entry.name.trim()
+      const skillName = frontmatter.name?.trim() || skillDirectory.trim()
 
       if (!skillName) {
         continue
@@ -112,7 +139,7 @@ export async function scanSkillDirectory(directoryPath: string): Promise<SkillEn
       if (code !== 'ENOENT') {
         log.warn('[skill-scanner] failed to read SKILL.md', {
           directoryPath,
-          skillDirectory: entry.name,
+          skillDirectory,
           skillFilePath,
           code,
           error: error instanceof Error ? error.message : String(error),
@@ -121,13 +148,15 @@ export async function scanSkillDirectory(directoryPath: string): Promise<SkillEn
     }
   }
 
+  const sortedSkills = [...skills].sort((left, right) => left.name.localeCompare(right.name))
+
   log.debug('[skill-scanner] directory scan complete', {
     directoryPath,
-    discoveredSkillCount: skills.length,
+    discoveredSkillCount: sortedSkills.length,
     durationMs: Date.now() - startedAt,
   })
 
-  return skills
+  return sortedSkills
 }
 
 export async function scanAllSkillDirectories(workspacePath?: string): Promise<SlashCommandEntry[]> {
@@ -152,12 +181,10 @@ export async function scanAllSkillDirectories(workspacePath?: string): Promise<S
         }
 
         const dedupeKey = normalizedSkillName.toLowerCase()
-        if (!dedupedSkills.has(dedupeKey)) {
-          dedupedSkills.set(dedupeKey, {
-            ...skill,
-            name: normalizedSkillName,
-          })
-        }
+        dedupedSkills.set(dedupeKey, {
+          ...skill,
+          name: normalizedSkillName,
+        })
       }
     }
 
@@ -202,11 +229,33 @@ export async function refreshSkillCache(workspacePath?: string): Promise<SlashCo
     return cachedSkills.map((entry) => ({ ...entry }))
   }
 
-  const refreshedSkills = await scanAllSkillDirectories(resolvedWorkspacePath)
-  cachedSkills = refreshedSkills
-  cachedWorkspacePath = resolvedWorkspacePath
-  lastRefreshAt = now
+  if (inFlightRefresh && inFlightWorkspacePath === resolvedWorkspacePath) {
+    log.debug('[skill-scanner] awaiting in-flight refresh', {
+      workspacePath: resolvedWorkspacePath,
+    })
 
+    const inFlightSkills = await inFlightRefresh
+    return inFlightSkills.map((entry) => ({ ...entry }))
+  }
+
+  const refreshPromise = scanAllSkillDirectories(resolvedWorkspacePath)
+    .then((refreshedSkills) => {
+      cachedSkills = refreshedSkills
+      cachedWorkspacePath = resolvedWorkspacePath
+      lastRefreshAt = Date.now()
+      return refreshedSkills
+    })
+    .finally(() => {
+      if (inFlightRefresh === refreshPromise) {
+        inFlightRefresh = null
+        inFlightWorkspacePath = null
+      }
+    })
+
+  inFlightRefresh = refreshPromise
+  inFlightWorkspacePath = resolvedWorkspacePath
+
+  const refreshedSkills = await refreshPromise
   return refreshedSkills.map((entry) => ({ ...entry }))
 }
 
@@ -218,4 +267,6 @@ export function clearSkillCache(): void {
   cachedSkills = null
   cachedWorkspacePath = null
   lastRefreshAt = 0
+  inFlightRefresh = null
+  inFlightWorkspacePath = null
 }
