@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { RefObject } from 'react'
 import type { SlashCommandEntry } from '@shared/types'
 import {
@@ -14,9 +14,9 @@ interface CommandSuggestionDropdownProps {
   suggestions: SlashCommandEntry[]
   selectedIndex: number
   onSelect: (command: SlashCommandEntry) => void
-  onClose: () => void
   anchorRef: RefObject<HTMLElement | null>
   isOpen?: boolean
+  isLoading?: boolean
 }
 
 interface AnchorPosition {
@@ -35,25 +35,19 @@ export function CommandSuggestionDropdown({
   suggestions,
   selectedIndex,
   onSelect,
-  onClose,
   anchorRef,
   isOpen,
+  isLoading = false,
 }: CommandSuggestionDropdownProps) {
-  const visible = isOpen ?? suggestions.length > 0
+  const visible = isOpen ?? (isLoading || suggestions.length > 0)
   const [position, setPosition] = useState<AnchorPosition>(DEFAULT_POSITION)
-
-  const activeDescendant = useMemo(() => {
-    if (suggestions.length === 0 || selectedIndex < 0 || selectedIndex >= suggestions.length) {
-      return undefined
-    }
-
-    return `command-suggestion-${selectedIndex}`
-  }, [selectedIndex, suggestions.length])
 
   useEffect(() => {
     if (!visible) {
       return
     }
+
+    let resizeObserver: ResizeObserver | undefined
 
     const updatePosition = () => {
       const anchor = anchorRef.current
@@ -73,9 +67,18 @@ export function CommandSuggestionDropdown({
     window.addEventListener('resize', updatePosition)
     window.addEventListener('scroll', updatePosition, true)
 
+    const anchor = anchorRef.current
+    if (anchor && typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(() => {
+        updatePosition()
+      })
+      resizeObserver.observe(anchor)
+    }
+
     return () => {
       window.removeEventListener('resize', updatePosition)
       window.removeEventListener('scroll', updatePosition, true)
+      resizeObserver?.disconnect()
     }
   }, [anchorRef, visible])
 
@@ -86,18 +89,6 @@ export function CommandSuggestionDropdown({
   return (
     <div
       className="z-50"
-      role="combobox"
-      aria-expanded={visible}
-      aria-controls="command-suggestion-listbox"
-      aria-activedescendant={activeDescendant}
-      onKeyDown={(event) => {
-        if (event.key !== 'Escape' || event.defaultPrevented) {
-          return
-        }
-
-        event.preventDefault()
-        onClose()
-      }}
       style={{
         position: 'fixed',
         top: `${position.top}px`,
@@ -111,7 +102,11 @@ export function CommandSuggestionDropdown({
         onValueChange={() => {}}
       >
         <CommandList id="command-suggestion-listbox">
-          {suggestions.length === 0 ? (
+          {isLoading ? (
+            <div role="status" className="px-2 py-4 text-center text-sm text-muted-foreground">
+              Loading commands…
+            </div>
+          ) : suggestions.length === 0 ? (
             <CommandEmpty>No commands found</CommandEmpty>
           ) : (
             <CommandGroup>

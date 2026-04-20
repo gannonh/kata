@@ -1,4 +1,5 @@
 import { type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import type { SlashCommandEntry } from '@shared/types'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { CommandSuggestionDropdown } from './CommandSuggestionDropdown'
@@ -31,6 +32,7 @@ export function MessageInput({
     selectedIndex,
     setSelectedIndex,
     isOpen,
+    isLoading,
     moveSelection,
   } = useCommandSuggestions(value)
 
@@ -82,7 +84,41 @@ export function MessageInput({
     })
   }
 
-  const showSuggestions = isOpen && !isSuggestionDismissed
+  const showSuggestions =
+    isOpen && !isSuggestionDismissed && (isLoading || suggestions.length > 0)
+
+  const activeSuggestionId =
+    showSuggestions && suggestions.length > 0 && selectedIndex >= 0 && selectedIndex < suggestions.length
+      ? `command-suggestion-${selectedIndex}`
+      : undefined
+
+  const applyCommandSuggestion = (command: SlashCommandEntry): void => {
+    const textarea = textareaRef.current
+    const selectionStart = textarea?.selectionStart ?? value.length
+    const selectionEnd = textarea?.selectionEnd ?? value.length
+    const tokenStart = value.lastIndexOf('/', selectionStart)
+
+    const replaceStart = tokenStart >= 0 ? tokenStart : 0
+    const tokenEnd = value.indexOf(' ', Math.max(selectionEnd, replaceStart))
+    const replaceEnd = tokenStart >= 0 ? (tokenEnd === -1 ? value.length : tokenEnd) : value.length
+
+    const nextValue = `${value.slice(0, replaceStart)}${command.name} ${value.slice(replaceEnd)}`
+    const nextCaret = replaceStart + command.name.length + 1
+
+    setValue(nextValue)
+    setSelectedIndex(0)
+    setIsSuggestionDismissed(true)
+
+    queueMicrotask(() => {
+      const element = textareaRef.current
+      if (!element) {
+        return
+      }
+
+      element.focus()
+      element.setSelectionRange(nextCaret, nextCaret)
+    })
+  }
 
   return (
     <div className="border-t border-border p-4">
@@ -90,6 +126,11 @@ export function MessageInput({
         <Textarea
           ref={textareaRef}
           data-testid="chat-input"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={showSuggestions}
+          aria-controls={showSuggestions ? 'command-suggestion-listbox' : undefined}
+          aria-activedescendant={activeSuggestionId}
           value={value}
           onChange={(event) => setValue(event.target.value)}
           onKeyDown={(event) => {
@@ -116,6 +157,17 @@ export function MessageInput({
               return
             }
 
+            if (showSuggestions && suggestions.length > 0 && event.key === 'Enter' && !event.shiftKey) {
+              event.preventDefault()
+              event.stopPropagation()
+
+              const selectedSuggestion = suggestions[selectedIndex]
+              if (selectedSuggestion) {
+                applyCommandSuggestion(selectedSuggestion)
+              }
+              return
+            }
+
             if (event.key === 'Enter' && !event.shiftKey) {
               event.preventDefault()
               handleSend()
@@ -132,18 +184,14 @@ export function MessageInput({
             selectedIndex={selectedIndex}
             anchorRef={composerRef}
             isOpen={showSuggestions}
-            onClose={() => {
-              setIsSuggestionDismissed(true)
-            }}
+            isLoading={isLoading}
             onSelect={(command) => {
               const index = suggestions.findIndex((suggestion) => suggestion.name === command.name)
               if (index >= 0) {
                 setSelectedIndex(index)
               }
 
-              setValue(`${command.name} `)
-              setIsSuggestionDismissed(true)
-              textareaRef.current?.focus()
+              applyCommandSuggestion(command)
             }}
           />
         ) : null}

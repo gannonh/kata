@@ -23,12 +23,14 @@ export function useCommandSuggestions(input: string): CommandSuggestionsResult {
 
   const hasSlashPrefix = input.startsWith('/')
 
+  const commandsData = commandsState.state === 'hasData' ? commandsState.data : null
+
   const suggestions = useMemo(() => {
     if (!hasSlashPrefix) {
       return []
     }
 
-    const commands = (commandsState.state === 'hasData' ? commandsState.data : []).map((entry) => ({
+    const commands = (commandsData ?? []).map((entry) => ({
       ...entry,
       name: normalizeCommandName(entry.name),
     }))
@@ -39,7 +41,7 @@ export function useCommandSuggestions(input: string): CommandSuggestionsResult {
     }
 
     return commands.filter((entry) => entry.name.toLowerCase().startsWith(normalizedInput))
-  }, [commandsState, hasSlashPrefix, input])
+  }, [commandsData, hasSlashPrefix, input])
 
   useEffect(() => {
     if (!hasSlashPrefix) {

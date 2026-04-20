@@ -34,7 +34,7 @@ const SUGGESTIONS: SlashCommandEntry[] = [
 ]
 
 describe('CommandSuggestionDropdown', () => {
-  test('renders nothing when suggestions are empty', () => {
+  test('renders nothing when suggestions are empty and not loading', () => {
     const anchorRef = createRef<HTMLDivElement>()
 
     const { container } = render(
@@ -42,12 +42,29 @@ describe('CommandSuggestionDropdown', () => {
         suggestions={[]}
         selectedIndex={0}
         onSelect={() => {}}
-        onClose={() => {}}
         anchorRef={anchorRef}
       />,
     )
 
     expect(container.firstChild).toBeNull()
+  })
+
+  test('renders loading state when isLoading is true', () => {
+    const anchorRef = createRef<HTMLDivElement>()
+
+    render(
+      <CommandSuggestionDropdown
+        suggestions={[]}
+        selectedIndex={0}
+        isOpen
+        isLoading
+        onSelect={() => {}}
+        anchorRef={anchorRef}
+      />,
+    )
+
+    expect(screen.getByRole('status').textContent).toContain('Loading commands')
+    expect(screen.queryByRole('listbox')).not.toBeNull()
   })
 
   test('renders dropdown with command items', () => {
@@ -58,7 +75,6 @@ describe('CommandSuggestionDropdown', () => {
         suggestions={SUGGESTIONS}
         selectedIndex={0}
         onSelect={() => {}}
-        onClose={() => {}}
         anchorRef={anchorRef}
       />,
     )
@@ -76,7 +92,6 @@ describe('CommandSuggestionDropdown', () => {
         suggestions={SUGGESTIONS}
         selectedIndex={1}
         onSelect={() => {}}
-        onClose={() => {}}
         anchorRef={anchorRef}
       />,
     )
@@ -86,41 +101,22 @@ describe('CommandSuggestionDropdown', () => {
     expect(options[1]?.getAttribute('aria-selected')).toBe('true')
   })
 
-  test('calls onClose when Escape is pressed', () => {
-    const onClose = vi.fn()
+  test('calls onSelect when a suggestion is clicked', () => {
+    const onSelect = vi.fn()
     const anchorRef = createRef<HTMLDivElement>()
 
     render(
       <CommandSuggestionDropdown
         suggestions={SUGGESTIONS}
         selectedIndex={0}
-        onSelect={() => {}}
-        onClose={onClose}
+        onSelect={onSelect}
         anchorRef={anchorRef}
       />,
     )
 
-    fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' })
+    fireEvent.click(screen.getByRole('option', { name: '/kata plan' }))
 
-    expect(onClose).toHaveBeenCalledTimes(1)
-  })
-
-  test('applies combobox/listbox aria attributes', () => {
-    const anchorRef = createRef<HTMLDivElement>()
-
-    render(
-      <CommandSuggestionDropdown
-        suggestions={SUGGESTIONS}
-        selectedIndex={1}
-        onSelect={() => {}}
-        onClose={() => {}}
-        anchorRef={anchorRef}
-      />,
-    )
-
-    const combobox = screen.getByRole('combobox')
-    expect(combobox.getAttribute('aria-activedescendant')).toBe('command-suggestion-1')
-    expect(combobox.getAttribute('aria-controls')).toBe('command-suggestion-listbox')
-    expect(screen.queryByRole('listbox')).not.toBeNull()
+    expect(onSelect).toHaveBeenCalledTimes(1)
+    expect(onSelect).toHaveBeenCalledWith(SUGGESTIONS[1])
   })
 })
