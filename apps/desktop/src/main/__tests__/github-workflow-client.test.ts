@@ -123,13 +123,16 @@ describe('GithubWorkflowClient', () => {
         new Response(
           JSON.stringify({
             data: {
-              user: {
-                projectV2: {
-                  id: 'PVT_kwDOG7',
-                  field: { id: 'PVTSSF_kwDOG7_status' },
+              repository: {
+                owner: {
+                  __typename: 'User',
+                  login: 'kata-sh',
+                  projectV2: {
+                    id: 'PVT_kwDOG7',
+                    field: { id: 'PVTSSF_kwDOG7_status' },
+                  },
                 },
               },
-              organization: null,
             },
           }),
           { status: 200 },
@@ -159,6 +162,25 @@ describe('GithubWorkflowClient', () => {
                       id: 'PVTI_2',
                       content: {
                         id: 'I_kwDOB',
+                        number: 2250,
+                        title: '[T01] Subtask on board',
+                        url: 'https://github.com/kata-sh/kata/issues/2250',
+                        labels: {
+                          nodes: [{ name: 'kata:task' }],
+                        },
+                        parent: {
+                          number: 2249,
+                        },
+                      },
+                      fieldValueByName: {
+                        name: 'Done',
+                        optionId: 'opt_done',
+                      },
+                    },
+                    {
+                      id: 'PVTI_3',
+                      content: {
+                        id: 'I_kwDOC',
                         number: 2249,
                         title: '[S99] Foreign Repo Item',
                         url: 'https://github.com/other-org/other-repo/issues/2249',
@@ -202,7 +224,86 @@ describe('GithubWorkflowClient', () => {
       id: '2249',
       identifier: '#2249',
       stateName: 'Agent Review',
+      taskCounts: {
+        total: 1,
+        done: 1,
+      },
     })
+    expect(agentReviewCards[0]?.tasks).toEqual([
+      expect.objectContaining({
+        id: '2250',
+        identifier: '#2250',
+        title: '[T01] Subtask on board',
+        columnId: 'done',
+        parentSliceId: '2249',
+        stateType: 'projects_v2',
+      }),
+    ])
+  })
+
+  test('projects_v2 owner resolution uses repository owner union (no org-only lookup)', async () => {
+    process.env.GH_TOKEN = 'ghp_test'
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              repository: {
+                owner: {
+                  __typename: 'User',
+                  login: 'gannonh',
+                  projectV2: {
+                    id: 'PVT_user_17',
+                    field: { id: 'PVTSSF_status' },
+                  },
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              node: {
+                items: {
+                  nodes: [],
+                  pageInfo: {
+                    hasNextPage: false,
+                    endCursor: null,
+                  },
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      ) as unknown as typeof fetch
+
+    globalThis.fetch = fetchMock
+
+    const client = new GithubWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
+
+    await client.fetchSnapshot({
+      config: {
+        kind: 'github',
+        repoOwner: 'gannonh',
+        repoName: 'kata',
+        stateMode: 'projects_v2',
+        githubProjectNumber: 17,
+      },
+    })
+
+    const firstCallInit = (fetchMock as unknown as ReturnType<typeof vi.fn>).mock.calls[0]?.[1]
+    const body = String(firstCallInit?.body ?? '')
+
+    expect(body).toContain('repository(owner: $owner, name: $repo)')
+    expect(body).not.toContain('organization(login: $owner)')
+    expect(body).not.toContain('user(login: $owner)')
   })
 
   test('paginates label mode issue requests and returns empty state when no mapped labels are present', async () => {
@@ -307,7 +408,17 @@ describe('GithubWorkflowClient', () => {
       .fn()
       .mockResolvedValueOnce(
         new Response(
-          JSON.stringify({ data: { user: { projectV2: { id: 'p1', field: { id: 'f1' } } }, organization: null } }),
+          JSON.stringify({
+            data: {
+              repository: {
+                owner: {
+                  __typename: 'User',
+                  login: 'kata-sh',
+                  projectV2: { id: 'p1', field: { id: 'f1' } },
+                },
+              },
+            },
+          }),
           { status: 200 },
         ),
       )
@@ -343,7 +454,20 @@ describe('GithubWorkflowClient', () => {
     ).rejects.toMatchObject({ code: 'INVALID_CONFIG' })
 
     globalThis.fetch = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ data: { user: { projectV2: null }, organization: null } }), { status: 200 }),
+      new Response(
+        JSON.stringify({
+          data: {
+            repository: {
+              owner: {
+                __typename: 'User',
+                login: 'kata-sh',
+                projectV2: null,
+              },
+            },
+          },
+        }),
+        { status: 200 },
+      ),
     ) as unknown as typeof fetch
 
     await expect(

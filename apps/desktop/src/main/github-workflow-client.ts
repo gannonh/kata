@@ -5,6 +5,7 @@ import {
   type WorkflowBoardPrMetadata,
   type WorkflowBoardSliceCard,
   type WorkflowBoardSnapshot,
+  type WorkflowBoardTask,
   type WorkflowTrackerConfig,
 } from '../shared/types'
 import { createEmptyWorkflowColumns, mapLinearStateToColumnId } from './linear-workflow-client'
@@ -35,12 +36,13 @@ interface GithubProjectsGraphqlEnvelope<TData> {
 }
 
 interface GithubProjectsFieldResponse {
-  user?: GithubProjectsOwner | null
-  organization?: GithubProjectsOwner | null
-}
-
-interface GithubProjectsOwner {
-  projectV2?: GithubProjectsNode | null
+  repository?: {
+    owner?: {
+      __typename?: 'User' | 'Organization'
+      login?: string
+      projectV2?: GithubProjectsNode | null
+    } | null
+  } | null
 }
 
 interface GithubProjectsNode {
@@ -62,6 +64,9 @@ interface GithubProjectItemNode {
     title?: string
     url?: string
     labels?: { nodes?: Array<{ name?: string }> }
+    parent?: {
+      number?: number
+    } | null
   } | null
   fieldValueByName?: {
     name?: string
@@ -234,7 +239,7 @@ export class GithubWorkflowClient {
       )
     }
 
-    const projectField = await this.resolveProjectsV2Field(token, config.repoOwner, projectNumber)
+    const projectField = await this.resolveProjectsV2Field(token, config.repoOwner, projectNumber, config.repoName)
 
     if (!projectField.projectId || !projectField.statusFieldId) {
       throw new GithubWorkflowClientError(
@@ -245,7 +250,16 @@ export class GithubWorkflowClient {
 
     const items = await this.fetchProjectsV2Items(token, projectField.projectId)
 
-    const cards: WorkflowBoardSliceCard[] = []
+    const normalizedIssues: Array<{
+      issueNumber: number
+      issueTitle: string
+      issueUrl: string
+      stateName: string
+      parentIssueNumber: number | null
+      isTask: boolean
+      isSlice: boolean
+    }> = []
+
     for (const item of items) {
       const issueNumber = item.content?.number
       const issueTitle = item.content?.title?.trim()
@@ -262,26 +276,75 @@ export class GithubWorkflowClient {
       }
 
       const stateName = item.fieldValueByName?.name?.trim() || 'Unknown'
+      const labelNames = (item.content?.labels?.nodes ?? [])
+        .map((label) => label.name?.trim().toLowerCase())
+        .filter((label): label is string => Boolean(label))
+      const parentIssueNumber = item.content?.parent?.number ?? null
+      const hasTaskLabel = labelNames.some((label) => label.endsWith(':task'))
+      const hasSliceLabel = labelNames.some((label) => label.endsWith(':slice'))
+      const isTask = hasTaskLabel || Boolean(parentIssueNumber)
+      const isSlice = !isTask && (hasSliceLabel || !hasTaskLabel)
 
-      cards.push({
-        id: String(issueNumber),
-        identifier: `#${issueNumber}`,
-        title: issueTitle,
-        url: issueUrl,
-        columnId: mapLinearStateToColumnId(stateName, undefined),
+      normalizedIssues.push({
+        issueNumber,
+        issueTitle,
+        issueUrl,
         stateName,
-        stateType: 'projects_v2',
-        milestoneId: `github-project:${projectNumber}`,
-        milestoneName: `GitHub Project #${projectNumber}`,
-        taskCounts: { total: 0, done: 0 },
-        tasks: [],
+        parentIssueNumber,
+        isTask,
+        isSlice,
       })
     }
+
+    const tasksByParent = new Map<number, WorkflowBoardTask[]>()
+    for (const issue of normalizedIssues) {
+      if (!issue.isTask || !issue.parentIssueNumber) {
+        continue
+      }
+
+      const nextTask = {
+        id: String(issue.issueNumber),
+        identifier: `#${issue.issueNumber}`,
+        title: issue.issueTitle,
+        columnId: mapLinearStateToColumnId(issue.stateName, undefined),
+        stateName: issue.stateName,
+        stateType: 'projects_v2',
+        parentSliceId: String(issue.parentIssueNumber),
+        url: issue.issueUrl,
+      } satisfies WorkflowBoardTask
+
+      const currentTasks = tasksByParent.get(issue.parentIssueNumber) ?? []
+      currentTasks.push(nextTask)
+      tasksByParent.set(issue.parentIssueNumber, currentTasks)
+    }
+
+    const cards: WorkflowBoardSliceCard[] = normalizedIssues
+      .filter((issue) => issue.isSlice)
+      .map((issue) => {
+        const tasks = tasksByParent.get(issue.issueNumber) ?? []
+        const doneCount = tasks.filter((task) => task.columnId === 'done').length
+
+        return {
+          id: String(issue.issueNumber),
+          identifier: `#${issue.issueNumber}`,
+          title: issue.issueTitle,
+          url: issue.issueUrl,
+          columnId: mapLinearStateToColumnId(issue.stateName, undefined),
+          stateName: issue.stateName,
+          stateType: 'projects_v2',
+          milestoneId: `github-project:${projectNumber}`,
+          milestoneName: `GitHub Project #${projectNumber}`,
+          taskCounts: { total: tasks.length, done: doneCount },
+          tasks,
+        }
+      })
 
     log.debug('[github-workflow-client] projects_v2 cards normalized', {
       projectNumber,
       itemCount: items.length,
+      issueCount: normalizedIssues.length,
       cardCount: cards.length,
+      attachedTaskCount: Array.from(tasksByParent.values()).reduce((count, tasks) => count + tasks.length, 0),
     })
 
     const hasCards = cards.length > 0
@@ -322,28 +385,34 @@ export class GithubWorkflowClient {
     }
   }
 
-  private async resolveProjectsV2Field(token: string, owner: string, projectNumber: number): Promise<{
+  private async resolveProjectsV2Field(token: string, owner: string, projectNumber: number, repo: string): Promise<{
     projectId: string | null
     statusFieldId: string | null
   }> {
     const query = `
-      query($projectNumber: Int!, $owner: String!) {
-        user(login: $owner) {
-          projectV2(number: $projectNumber) {
-            id
-            field(name: "Status") {
-              ... on ProjectV2SingleSelectField {
+      query($projectNumber: Int!, $owner: String!, $repo: String!) {
+        repository(owner: $owner, name: $repo) {
+          owner {
+            __typename
+            login
+            ... on User {
+              projectV2(number: $projectNumber) {
                 id
+                field(name: "Status") {
+                  ... on ProjectV2SingleSelectField {
+                    id
+                  }
+                }
               }
             }
-          }
-        }
-        organization(login: $owner) {
-          projectV2(number: $projectNumber) {
-            id
-            field(name: "Status") {
-              ... on ProjectV2SingleSelectField {
+            ... on Organization {
+              projectV2(number: $projectNumber) {
                 id
+                field(name: "Status") {
+                  ... on ProjectV2SingleSelectField {
+                    id
+                  }
+                }
               }
             }
           }
@@ -353,10 +422,11 @@ export class GithubWorkflowClient {
 
     const data = await this.graphqlRequest<GithubProjectsFieldResponse>(token, query, {
       owner,
+      repo,
       projectNumber,
     })
 
-    const project = data.user?.projectV2 ?? data.organization?.projectV2
+    const project = data.repository?.owner?.projectV2
 
     return {
       projectId: project?.id?.trim() || null,
@@ -385,6 +455,9 @@ export class GithubWorkflowClient {
                       nodes {
                         name
                       }
+                    }
+                    parent {
+                      number
                     }
                   }
                 }
