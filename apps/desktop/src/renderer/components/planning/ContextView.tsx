@@ -46,9 +46,9 @@ export function ContextView({ context }: ContextViewProps) {
 
           <CollapsibleContent className="space-y-2 border-t border-border bg-background px-3 py-2">
             {group.parent.content ? (
-              <Markdown mode="full" className="text-sm leading-relaxed">
-                {group.parent.content}
-              </Markdown>
+              <div className="prose prose-sm max-w-none text-foreground dark:prose-invert prose-headings:text-foreground prose-headings:font-semibold prose-h1:text-xl prose-h1:mb-3 prose-h2:text-lg prose-h3:text-base prose-strong:text-foreground prose-a:text-foreground prose-code:text-foreground">
+                <Markdown mode="minimal">{group.parent.content}</Markdown>
+              </div>
             ) : null}
 
             {group.children.length > 0 ? (
@@ -71,9 +71,9 @@ export function ContextView({ context }: ContextViewProps) {
 
                     <CollapsibleContent className="border-t border-border bg-background px-3 py-2">
                       {child.content ? (
-                        <Markdown mode="full" className="text-sm leading-relaxed">
-                          {child.content}
-                        </Markdown>
+                        <div className="prose prose-sm max-w-none text-foreground dark:prose-invert prose-headings:text-foreground prose-headings:font-semibold prose-h1:text-xl prose-h1:mb-3 prose-h2:text-lg prose-h3:text-base prose-strong:text-foreground prose-a:text-foreground prose-code:text-foreground">
+                          <Markdown mode="minimal">{child.content}</Markdown>
+                        </div>
                       ) : (
                         <p className="text-xs text-muted-foreground">No content</p>
                       )}

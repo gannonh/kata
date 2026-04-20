@@ -256,14 +256,16 @@ function createComponents(
     p: ({ children }) => <p className="my-3 leading-relaxed">{children}</p>,
     // Styled lists - ul uses tighter spacing, ol uses standard for number alignment
     ul: ({ children }) => (
-      <ul className="my-3 space-y-1.5 ps-[16px] pe-2 list-disc marker:text-[var(--md-bullets)]">
+      <ul className="my-3 list-inside list-disc space-y-1.5 pl-2 marker:text-[var(--md-bullets)] [&_ol]:mt-1 [&_ol]:list-inside [&_ol]:list-decimal [&_ol]:pl-2 [&_ul]:mt-1 [&_ul]:list-inside [&_ul]:list-disc [&_ul]:pl-2">
         {children}
       </ul>
     ),
     ol: ({ children }) => (
-      <ol className="my-3 space-y-1.5 pl-6 list-decimal">{children}</ol>
+      <ol className="my-3 list-inside list-decimal space-y-1.5 pl-2 [&_ol]:mt-1 [&_ol]:list-inside [&_ol]:list-decimal [&_ol]:pl-2 [&_ul]:mt-1 [&_ul]:list-inside [&_ul]:list-disc [&_ul]:pl-2">
+        {children}
+      </ol>
     ),
-    li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+    li: ({ children }) => <li className="leading-relaxed pl-1">{children}</li>,
     // Beautiful tables
     table: ({ children }) => (
       <div className="my-4 overflow-x-auto rounded-md border">

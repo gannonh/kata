@@ -248,7 +248,24 @@ export class GithubWorkflowClient {
       )
     }
 
-    const items = await this.fetchProjectsV2Items(token, projectField.projectId)
+    const itemsPromise = this.fetchProjectsV2Items(token, projectField.projectId)
+    const activeKataMilestonePromise = this.resolveActiveKataMilestone(
+      token,
+      config.repoOwner,
+      config.repoName,
+    ).catch((error: unknown) => {
+      log.warn('[github-workflow-client] failed to resolve active Kata milestone for header context', {
+        repo: `${config.repoOwner}/${config.repoName}`,
+        error: error instanceof Error ? error.message : String(error),
+      })
+      return null
+    })
+
+    const [items, activeKataMilestone] = await Promise.all([itemsPromise, activeKataMilestonePromise])
+
+    const projectLabel = `GitHub Project #${projectNumber}`
+    const cardMilestoneId = activeKataMilestone?.id ?? `github-project:${projectNumber}`
+    const cardMilestoneName = activeKataMilestone?.name ?? projectLabel
 
     const normalizedIssues: Array<{
       issueNumber: number
@@ -332,8 +349,8 @@ export class GithubWorkflowClient {
           columnId: mapLinearStateToColumnId(issue.stateName, undefined),
           stateName: issue.stateName,
           stateType: 'projects_v2',
-          milestoneId: `github-project:${projectNumber}`,
-          milestoneName: `GitHub Project #${projectNumber}`,
+          milestoneId: cardMilestoneId,
+          milestoneName: cardMilestoneName,
           taskCounts: { total: tasks.length, done: doneCount },
           tasks,
         }
@@ -373,7 +390,7 @@ export class GithubWorkflowClient {
       },
       activeMilestone: {
         id: `github-project:${projectNumber}`,
-        name: `GitHub Project #${projectNumber}`,
+        name: projectLabel,
       },
       columns,
       emptyReason: hasCards ? undefined : 'No GitHub project issues matched workflow board.',
@@ -500,6 +517,67 @@ export class GithubWorkflowClient {
     } while (after)
 
     return items
+  }
+
+  private async resolveActiveKataMilestone(
+    token: string,
+    repoOwner: string,
+    repoName: string,
+  ): Promise<{ id: string; name: string } | null> {
+    const issues = await this.restRequest<GithubIssueResponse[]>(
+      token,
+      `/repos/${encodeURIComponent(repoOwner)}/${encodeURIComponent(repoName)}/issues?state=open&labels=${encodeURIComponent(
+        'kata:milestone',
+      )}&per_page=30&page=1`,
+      [],
+    )
+
+    const candidates = issues
+      .filter((issue) => !issue.pull_request)
+      .map((issue) => {
+        const number = typeof issue.number === 'number' ? issue.number : null
+        const title = issue.title?.trim() || ''
+        if (!number || !title) {
+          return null
+        }
+
+        return {
+          number,
+          title,
+          ordinal: parseKataMilestoneOrdinal(title),
+        }
+      })
+      .filter((candidate): candidate is { number: number; title: string; ordinal: number | null } => Boolean(candidate))
+
+    if (candidates.length === 0) {
+      return null
+    }
+
+    candidates.sort((left, right) => {
+      if (left.ordinal !== null && right.ordinal !== null && left.ordinal !== right.ordinal) {
+        return right.ordinal - left.ordinal
+      }
+
+      if (left.ordinal !== null && right.ordinal === null) {
+        return -1
+      }
+
+      if (left.ordinal === null && right.ordinal !== null) {
+        return 1
+      }
+
+      return right.number - left.number
+    })
+
+    const selected = candidates[0]
+    if (!selected) {
+      return null
+    }
+
+    return {
+      id: `github-milestone:${selected.number}`,
+      name: selected.title,
+    }
   }
 
   // We intentionally cap REST pagination to MAX_REST_PAGES * PAGE_SIZE (1000 issues)
@@ -734,6 +812,16 @@ function denormalizeLabelState(value: string): string {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ')
+}
+
+function parseKataMilestoneOrdinal(title: string): number | null {
+  const match = title.trim().match(/^\[M(\d+)\]/i)
+  if (!match) {
+    return null
+  }
+
+  const ordinal = Number(match[1])
+  return Number.isFinite(ordinal) ? ordinal : null
 }
 
 function isIssueInRepository(issueUrl: string, repoOwner: string, repoName: string): boolean {

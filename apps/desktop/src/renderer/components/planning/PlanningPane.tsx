@@ -395,9 +395,9 @@ export function PlanningPane() {
                   slice={activeArtifact.sliceData ?? slicesByArtifactKey[activeArtifact.artifactKey]}
                 />
               ) : (
-                <Markdown mode="full" className="text-sm leading-relaxed">
-                  {activeArtifact.content}
-                </Markdown>
+                <div className="prose prose-sm max-w-none text-foreground dark:prose-invert prose-headings:text-foreground prose-headings:font-semibold prose-h1:text-xl prose-h1:mb-3 prose-h2:text-lg prose-h3:text-base prose-strong:text-foreground prose-a:text-foreground prose-code:text-foreground">
+                  <Markdown mode="minimal">{activeArtifact.content}</Markdown>
+                </div>
               )}
             </div>
           ) : null}

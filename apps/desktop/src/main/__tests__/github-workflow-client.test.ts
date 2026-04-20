@@ -201,6 +201,18 @@ describe('GithubWorkflowClient', () => {
           }),
           { status: 200 },
         ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify([
+            {
+              number: 340,
+              title: '[M001] Desktop Slash Autocomplete Parity',
+              labels: [{ name: 'kata:milestone' }],
+            },
+          ]),
+          { status: 200 },
+        ),
       ) as unknown as typeof fetch
 
     const client = new GithubWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
@@ -224,6 +236,7 @@ describe('GithubWorkflowClient', () => {
       id: '2249',
       identifier: '#2249',
       stateName: 'Agent Review',
+      milestoneName: '[M001] Desktop Slash Autocomplete Parity',
       taskCounts: {
         total: 1,
         done: 1,
@@ -282,7 +295,8 @@ describe('GithubWorkflowClient', () => {
           }),
           { status: 200 },
         ),
-      ) as unknown as typeof fetch
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify([]), { status: 200 })) as unknown as typeof fetch
 
     globalThis.fetch = fetchMock
 

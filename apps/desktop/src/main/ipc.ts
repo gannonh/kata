@@ -8,6 +8,8 @@ import { listBuiltinCommands } from './command-registry'
 import { refreshSkillCache } from './skill-scanner'
 import { AuthBridge } from './auth-bridge'
 import { LinearDocumentClient } from './linear-document-client'
+import { GithubPlanningClient, GithubPlanningClientError } from './github-planning-client'
+import { readWorkspaceWorkflowTrackerConfig } from './workflow-config-reader'
 import { PiAgentBridge } from './pi-agent-bridge'
 import { PlanningToolDetector } from './planning-tool-detector'
 import { RpcEventAdapter } from './rpc-event-adapter'
@@ -49,6 +51,7 @@ import {
   type PlanningArtifactFetchResponse,
   type PlanningArtifactFetchStateEvent,
   type PlanningArtifactListResponse,
+  type PlanningArtifactErrorCode,
   type SessionInfo,
   type SessionListResponse,
   type SetThinkingLevelResponse,
@@ -126,6 +129,7 @@ export function registerSessionIpc({
   const adapter = new RpcEventAdapter()
   const planningToolDetector = new PlanningToolDetector()
   const linearDocumentClient = new LinearDocumentClient(authBridge)
+  const githubPlanningClient = new GithubPlanningClient(authBridge)
   const sessionHistoryLoader = new SessionHistoryLoader()
   const workflowBoardService = new WorkflowBoardService({
     authBridge,
@@ -499,11 +503,32 @@ export function registerSessionIpc({
     }
 
     try {
-      const fetchedArtifact = await linearDocumentClient.fetchByTitle({
-        title: trimmedTitle,
-        projectId: options?.projectId,
-        issueId: options?.issueId,
-      })
+      const workspacePath = bridge.getWorkspacePath()
+      const trackerResolution = await readWorkspaceWorkflowTrackerConfig(workspacePath)
+      if (trackerResolution.error) {
+        return {
+          success: false,
+          error: {
+            code: toPlanningArtifactErrorCode(trackerResolution.error.code),
+            message: trackerResolution.error.message,
+          },
+        }
+      }
+
+      const tracker = trackerResolution.config
+      const fetchedArtifact =
+        tracker?.kind === 'github'
+          ? await githubPlanningClient.fetchByTitle({
+              title: trimmedTitle,
+              issueId: options?.issueId,
+              repoOwner: tracker.repoOwner,
+              repoName: tracker.repoName,
+            })
+          : await linearDocumentClient.fetchByTitle({
+              title: trimmedTitle,
+              projectId: options?.projectId,
+              issueId: options?.issueId,
+            })
 
       if (!fetchedArtifact) {
         return {
@@ -547,7 +572,10 @@ export function registerSessionIpc({
     } catch (error) {
       return {
         success: false,
-        error: LinearDocumentClient.toPlanningArtifactError(error),
+        error:
+          error instanceof GithubPlanningClientError
+            ? GithubPlanningClient.toPlanningArtifactError(error)
+            : LinearDocumentClient.toPlanningArtifactError(error),
       }
     }
   }
@@ -1492,8 +1520,28 @@ export function registerSessionIpc({
     let staleError: PlanningArtifactListResponse['error']
 
     const workspacePath = bridge.getWorkspacePath()
-    const projectRef = await readLinearProjectReference(workspacePath)
-    const startupScopePrefix = projectRef ? `startup:${workspacePath}:${projectRef}:` : null
+    const trackerResolution = await readWorkspaceWorkflowTrackerConfig(workspacePath)
+
+    if (trackerResolution.error) {
+      return {
+        success: false,
+        artifacts: [],
+        stale: false,
+        error: {
+          code: toPlanningArtifactErrorCode(trackerResolution.error.code),
+          message: trackerResolution.error.message,
+        },
+      }
+    }
+
+    const tracker = trackerResolution.config
+    const projectRef = tracker?.kind === 'github' ? null : await readLinearProjectReference(workspacePath)
+    const startupScopePrefix =
+      tracker?.kind === 'github'
+        ? `startup:${workspacePath}:github:${tracker.repoOwner}/${tracker.repoName}:`
+        : projectRef
+          ? `startup:${workspacePath}:${projectRef}:`
+          : null
 
     const clearStartupProactiveArtifacts = (): void => {
       for (const [artifactKey, metadata] of planningMetadataByKey.entries()) {
@@ -1510,15 +1558,21 @@ export function registerSessionIpc({
       }
     }
 
-    if (projectRef) {
+    if (tracker?.kind === 'github' || projectRef) {
       try {
-        const projectArtifacts = await linearDocumentClient.listByProject(projectRef)
+        const projectArtifacts =
+          tracker?.kind === 'github'
+            ? await githubPlanningClient.listByRepository({
+                repoOwner: tracker.repoOwner,
+                repoName: tracker.repoName,
+              })
+            : await linearDocumentClient.listByProject(projectRef as string)
 
         clearStartupProactiveArtifacts()
 
         for (const projectArtifact of projectArtifacts) {
           const artifactType = detectArtifactTypeFromTitle(projectArtifact.title)
-          if (!isStartupProactiveArtifactType(artifactType)) {
+          if (tracker?.kind !== 'github' && !isStartupProactiveArtifactType(artifactType)) {
             continue
           }
 
@@ -1544,11 +1598,16 @@ export function registerSessionIpc({
           })
         }
       } catch (error) {
-        staleError = LinearDocumentClient.toPlanningArtifactError(error)
+        staleError =
+          error instanceof GithubPlanningClientError
+            ? GithubPlanningClient.toPlanningArtifactError(error)
+            : LinearDocumentClient.toPlanningArtifactError(error)
 
         log.warn('[desktop-ipc] planning proactive artifact load failed', {
           workspacePath,
           projectRef,
+          trackerKind: tracker?.kind ?? 'unknown',
+          repo: tracker?.kind === 'github' ? `${tracker.repoOwner}/${tracker.repoName}` : undefined,
           error: staleError,
         })
       }
@@ -2110,7 +2169,7 @@ export function registerSessionIpc({
 }
 
 function detectArtifactTypeFromTitle(title: string): ArtifactType | undefined {
-  const normalized = title.trim().toUpperCase()
+  const normalized = normalizeArtifactTitle(title)
 
   if (/-ROADMAP(?:\b|$)/.test(normalized) || normalized === 'ROADMAP') {
     return 'roadmap'
@@ -2139,6 +2198,10 @@ function detectArtifactTypeFromTitle(title: string): ArtifactType | undefined {
   return undefined
 }
 
+function normalizeArtifactTitle(title: string): string {
+  return title.trim().toUpperCase().replace(/^KATA-DOC\s*:\s*/, '')
+}
+
 function isStartupProactiveArtifactType(artifactType: ArtifactType | undefined): boolean {
   return (
     artifactType === 'roadmap' ||
@@ -2146,6 +2209,20 @@ function isStartupProactiveArtifactType(artifactType: ArtifactType | undefined):
     artifactType === 'decisions' ||
     artifactType === 'context'
   )
+}
+
+function toPlanningArtifactErrorCode(code: string): PlanningArtifactErrorCode {
+  switch (code) {
+    case 'MISSING_API_KEY':
+    case 'UNAUTHORIZED':
+    case 'NOT_FOUND':
+    case 'RATE_LIMITED':
+    case 'NETWORK':
+    case 'GRAPHQL':
+      return code
+    default:
+      return 'UNKNOWN'
+  }
 }
 
 async function readLinearProjectReference(workspacePath: string): Promise<string | null> {
