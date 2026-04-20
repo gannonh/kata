@@ -1,6 +1,7 @@
 import { atom } from 'jotai'
 import { loadable } from 'jotai/utils'
 import type { SlashCommandEntry } from '@shared/types'
+import { workingDirectoryAtom } from './session'
 
 const refreshCommandsNonceAtom = atom(0)
 
@@ -18,6 +19,7 @@ function updateDebugCommands(commands: SlashCommandEntry[]): void {
 
 export const commandsAtom = atom(async (get): Promise<SlashCommandEntry[]> => {
   get(refreshCommandsNonceAtom)
+  get(workingDirectoryAtom)
 
   try {
     const response = await window.api.getSlashCommands()

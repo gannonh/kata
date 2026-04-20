@@ -79,26 +79,6 @@ export function CommandSuggestionDropdown({
     }
   }, [anchorRef, visible])
 
-  useEffect(() => {
-    if (!visible) {
-      return
-    }
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') {
-        return
-      }
-
-      event.preventDefault()
-      onClose()
-    }
-
-    window.addEventListener('keydown', onKeyDown)
-    return () => {
-      window.removeEventListener('keydown', onKeyDown)
-    }
-  }, [onClose, visible])
-
   if (!visible) {
     return null
   }
@@ -110,6 +90,14 @@ export function CommandSuggestionDropdown({
       aria-expanded={visible}
       aria-controls="command-suggestion-listbox"
       aria-activedescendant={activeDescendant}
+      onKeyDown={(event) => {
+        if (event.key !== 'Escape' || event.defaultPrevented) {
+          return
+        }
+
+        event.preventDefault()
+        onClose()
+      }}
       style={{
         position: 'fixed',
         top: `${position.top}px`,
@@ -129,10 +117,10 @@ export function CommandSuggestionDropdown({
             <CommandGroup>
               {suggestions.map((suggestion, index) => (
                 <CommandItem
+                  id={`command-suggestion-${index}`}
                   key={suggestion.name}
                   role="option"
                   aria-selected={selectedIndex === index}
-                  data-selected={selectedIndex === index ? 'true' : 'false'}
                   className={cn(selectedIndex === index && 'bg-muted text-foreground')}
                   onMouseDown={(event) => {
                     event.preventDefault()
@@ -141,9 +129,7 @@ export function CommandSuggestionDropdown({
                     onSelect(suggestion)
                   }}
                 >
-                  <span id={`command-suggestion-${index}`} className="truncate">
-                    {suggestion.name}
-                  </span>
+                  <span className="truncate">{suggestion.name}</span>
                 </CommandItem>
               ))}
             </CommandGroup>

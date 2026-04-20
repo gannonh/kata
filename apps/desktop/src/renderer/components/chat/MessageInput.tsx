@@ -111,6 +111,7 @@ export function MessageInput({
 
             if (showSuggestions && event.key === 'Escape') {
               event.preventDefault()
+              event.stopPropagation()
               setIsSuggestionDismissed(true)
               return
             }
@@ -139,6 +140,10 @@ export function MessageInput({
               if (index >= 0) {
                 setSelectedIndex(index)
               }
+
+              setValue(`${command.name} `)
+              setIsSuggestionDismissed(true)
+              textareaRef.current?.focus()
             }}
           />
         ) : null}

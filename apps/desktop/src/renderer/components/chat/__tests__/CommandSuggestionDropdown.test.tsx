@@ -82,8 +82,8 @@ describe('CommandSuggestionDropdown', () => {
     )
 
     const options = screen.getAllByRole('option')
-    expect(options[0]?.getAttribute('data-selected')).toBe('false')
-    expect(options[1]?.getAttribute('data-selected')).toBe('true')
+    expect(options[0]?.getAttribute('aria-selected')).toBe('false')
+    expect(options[1]?.getAttribute('aria-selected')).toBe('true')
   })
 
   test('calls onClose when Escape is pressed', () => {
@@ -100,7 +100,7 @@ describe('CommandSuggestionDropdown', () => {
       />,
     )
 
-    fireEvent.keyDown(window, { key: 'Escape' })
+    fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' })
 
     expect(onClose).toHaveBeenCalledTimes(1)
   })
