@@ -5,7 +5,7 @@ const originalFetch = globalThis.fetch
 const originalGhToken = process.env.GH_TOKEN
 const originalGithubToken = process.env.GITHUB_TOKEN
 
-function createClient(getApiKey = vi.fn(async () => null)) {
+function createClient(getApiKey: ReturnType<typeof vi.fn<() => Promise<string | null>>> = vi.fn(async () => null)) {
   return new GithubPlanningClient({ getApiKey } as never)
 }
 
