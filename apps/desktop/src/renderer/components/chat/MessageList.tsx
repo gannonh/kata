@@ -8,11 +8,12 @@ import { ToolCallCard } from './ToolCallCard'
 interface MessageListProps {
   messages: ChatMessageView[]
   tools: ToolCallView[]
+  isStreaming: boolean
 }
 
 const MAX_RENDERED_MESSAGES = 80
 
-export function MessageList({ messages, tools }: MessageListProps) {
+export function MessageList({ messages, tools, isStreaming }: MessageListProps) {
   const [showAllMessages, setShowAllMessages] = useState(false)
 
   const oldestMessageId = messages[0]?.id ?? null
@@ -42,6 +43,11 @@ export function MessageList({ messages, tools }: MessageListProps) {
 
     return map
   }, [tools])
+
+  const hasActiveAssistantMessage = messages.some(
+    (message) => message.role === 'assistant' && (message.streaming || message.isThinking),
+  )
+  const showPendingWorkingIndicator = isStreaming && !hasActiveAssistantMessage
 
   return (
     <div className="flex flex-col gap-6 px-5 py-6">
@@ -103,6 +109,12 @@ export function MessageList({ messages, tools }: MessageListProps) {
           </article>
         )
       })}
+
+      {showPendingWorkingIndicator ? (
+        <article className="flex flex-col gap-3" aria-live="polite">
+          <StreamingMessage content="" isStreaming />
+        </article>
+      ) : null}
     </div>
   )
 }
