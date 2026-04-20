@@ -252,6 +252,19 @@ describe("GithubBackend canonical worker operations", () => {
     expect(compact?.comments).toEqual([]);
   });
 
+  it("getIssue accepts scoped identifiers used in worker prompts", async () => {
+    const client = new FakeGithubClient([
+      { number: 29, title: "[S09] Slice", state: "open", labels: ["kata:slice"], body: "slice body" },
+    ]);
+    const backend = makeBackend(client);
+
+    const bracketScoped = await backend.getIssue("[S09]#29", { includeChildren: false, includeComments: false });
+    const repoScoped = await backend.getIssue("kata-sh/kata-mono#29", { includeChildren: false, includeComments: false });
+
+    expect(bracketScoped?.identifier).toBe("#29");
+    expect(repoScoped?.identifier).toBe("#29");
+  });
+
   it("upsertComment updates marker comment in place", async () => {
     const client = new FakeGithubClient([
       { number: 30, title: "[S02] Slice", state: "open", labels: ["kata:slice"], body: "body" },
@@ -311,6 +324,24 @@ describe("GithubBackend canonical worker operations", () => {
     });
     const issue = await client.getIssue(51);
     expect(issue?.state).toBe("open");
+    expect(issue?.labels).toContain("kata:human-review");
+    expect(issue?.labels).not.toContain("kata:in-progress");
+  });
+
+  it("updateIssueState accepts scoped identifiers used in worker prompts", async () => {
+    const client = new FakeGithubClient([
+      { number: 50, title: "[S03] Review flow", state: "open", labels: ["kata:slice", "kata:in-progress"] },
+    ]);
+    const backend = makeBackend(client);
+
+    const updated = await backend.updateIssueState("[S03]#50", "human-review");
+
+    expect(updated).toMatchObject({
+      issueId: "50",
+      phase: "human-review",
+      state: "kata:human-review",
+    });
+    const issue = await client.getIssue(50);
     expect(issue?.labels).toContain("kata:human-review");
     expect(issue?.labels).not.toContain("kata:in-progress");
   });

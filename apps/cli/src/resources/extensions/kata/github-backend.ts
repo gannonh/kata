@@ -897,11 +897,33 @@ function defaultIssueTitle(kind: GithubArtifactKind, kataId: string): string {
   }
 }
 
+function parseGithubIssueNumber(input: string): number | null {
+  const normalized = input.trim();
+  if (!normalized) return null;
+
+  if (/^\d+$/.test(normalized)) {
+    const parsed = Number.parseInt(normalized, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }
+
+  const hashMatch = normalized.match(/#(\d+)\s*$/);
+  if (!hashMatch) return null;
+
+  const parsed = Number.parseInt(hashMatch[1] ?? "", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function requireGithubIssueNumber(input: string, kind: "issue" | "slice issue" = "issue"): number {
+  const parsed = parseGithubIssueNumber(input);
+  if (!parsed) {
+    throw new Error(`Invalid GitHub ${kind} id: ${input}`);
+  }
+  return parsed;
+}
+
 function issueNumberFromScope(scope: DocumentScope | undefined): number | undefined {
   if (!scope || !("issueId" in scope)) return undefined;
-  const parsed = Number.parseInt(scope.issueId, 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) return undefined;
-  return parsed;
+  return parseGithubIssueNumber(scope.issueId) ?? undefined;
 }
 
 const KATA_STATE_LABEL_SUFFIXES = [
@@ -1716,10 +1738,7 @@ export class GithubBackend implements KataBackend {
     description?: string;
     initialPhase?: KataWorkflowPhase;
   }): Promise<KataIssueRecord> {
-    const parentIssueNumber = Number.parseInt(input.sliceIssueId, 10);
-    if (!Number.isFinite(parentIssueNumber) || parentIssueNumber <= 0) {
-      throw new Error(`Invalid GitHub slice issue id: ${input.sliceIssueId}`);
-    }
+    const parentIssueNumber = requireGithubIssueNumber(input.sliceIssueId, "slice issue");
 
     const parentIssue = await this.findIssueByNumber(parentIssueNumber);
     if (!parentIssue) {
@@ -1812,10 +1831,7 @@ export class GithubBackend implements KataBackend {
   }
 
   async listTasks(sliceIssueId: string): Promise<KataIssueRecord[]> {
-    const parentIssueNumber = Number.parseInt(sliceIssueId, 10);
-    if (!Number.isFinite(parentIssueNumber) || parentIssueNumber <= 0) {
-      throw new Error(`Invalid GitHub slice issue id: ${sliceIssueId}`);
-    }
+    const parentIssueNumber = requireGithubIssueNumber(sliceIssueId, "slice issue");
 
     const subIssueNumbers = await this.client.listSubIssueNumbers(parentIssueNumber);
     const issues = await Promise.all(subIssueNumbers.map((number) => this.findIssueByNumber(number)));
@@ -1832,10 +1848,7 @@ export class GithubBackend implements KataBackend {
     issueId: string,
     opts: { includeChildren?: boolean; includeComments?: boolean } = {},
   ): Promise<KataIssueDetailRecord | null> {
-    const issueNumber = Number.parseInt(issueId, 10);
-    if (!Number.isFinite(issueNumber) || issueNumber <= 0) {
-      throw new Error(`Invalid GitHub issue id: ${issueId}`);
-    }
+    const issueNumber = requireGithubIssueNumber(issueId, "issue");
 
     const includeChildren = opts.includeChildren ?? true;
     const includeComments = opts.includeComments ?? true;
@@ -1875,10 +1888,7 @@ export class GithubBackend implements KataBackend {
   }
 
   async upsertComment(input: KataCommentUpsertInput): Promise<KataIssueCommentRecord> {
-    const issueNumber = Number.parseInt(input.issueId, 10);
-    if (!Number.isFinite(issueNumber) || issueNumber <= 0) {
-      throw new Error(`Invalid GitHub issue id: ${input.issueId}`);
-    }
+    const issueNumber = requireGithubIssueNumber(input.issueId, "issue");
 
     const marker = input.marker?.trim() || undefined;
     const nextBody = this.withCommentMarker(input.body, marker);
@@ -1926,17 +1936,14 @@ export class GithubBackend implements KataBackend {
     });
 
     if (input.parentIssueId) {
-      const parentIssueNumber = Number.parseInt(input.parentIssueId, 10);
-      if (!Number.isFinite(parentIssueNumber) || parentIssueNumber <= 0) {
-        throw new Error(`Invalid GitHub issue id: ${input.parentIssueId}`);
-      }
+      const parentIssueNumber = requireGithubIssueNumber(input.parentIssueId, "issue");
       await this.client.addSubIssue(parentIssueNumber, created.number);
     }
 
     this.invalidateStateCache();
     return {
       ...this.toIssueRecord(created),
-      parentIdentifier: input.parentIssueId ? `#${Number.parseInt(input.parentIssueId, 10)}` : null,
+      parentIdentifier: input.parentIssueId ? `#${requireGithubIssueNumber(input.parentIssueId, "issue")}` : null,
     };
   }
 
@@ -1944,10 +1951,7 @@ export class GithubBackend implements KataBackend {
     issueId: string,
     phase: KataIssueStatePhase,
   ): Promise<KataIssueStateUpdateResult> {
-    const number = Number.parseInt(issueId, 10);
-    if (!Number.isFinite(number) || number <= 0) {
-      throw new Error(`Invalid GitHub issue id: ${issueId}`);
-    }
+    const number = requireGithubIssueNumber(issueId, "issue");
 
     const issue = await this.findIssueByNumber(number);
     if (!issue) {
