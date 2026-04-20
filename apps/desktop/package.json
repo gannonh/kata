@@ -36,15 +36,16 @@
     "qa:m006:release-gate": "pnpm exec tsx scripts/qa/m006-release-gate.ts"
   },
   "dependencies": {
+    "@fontsource-variable/geist": "^5.2.8",
+    "@hugeicons/core-free-icons": "^4.1.1",
+    "@hugeicons/react": "^1.1.6",
     "@kata/core": "workspace:*",
     "@kata/mermaid": "workspace:*",
     "@kata/shared": "workspace:*",
     "@kata/ui": "workspace:*",
-    "@fontsource-variable/geist": "^5.2.8",
-    "@hugeicons/core-free-icons": "^4.1.1",
-    "@hugeicons/react": "^1.1.6",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "cmdk": "^1.0.0",
     "lucide-react": "^1.7.0",
     "radix-ui": "^1.4.3",
     "shadcn": "^4.2.0",
@@ -56,6 +57,7 @@
     "@radix-ui/react-collapsible": "^1.1.12",
     "@tailwindcss/typography": "^0.5.19",
     "@tailwindcss/vite": "^4.1.18",
+    "@testing-library/react": "^16.3.2",
     "@types/node": "^25.0.8",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
@@ -67,14 +69,15 @@
     "electron-log": "^5.4.3",
     "esbuild": "^0.28.0",
     "jotai": "^2.16.0",
+    "jsdom": "^29.0.2",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-resizable-panels": "^4.6.3",
     "tailwindcss": "^4.1.18",
+    "tsx": "^4.20.6",
     "typescript": "^6.0.2",
     "vite": "^8.0.2",
     "vitest": "^4.1.2",
-    "wait-on": "^9.0.4",
-    "tsx": "^4.20.6"
+    "wait-on": "^9.0.4"
   }
 }
