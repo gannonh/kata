@@ -101,6 +101,7 @@ export function MessageInput({
 
   useEffect(() => {
     setIsSuggestionDismissed(false)
+    lastAcceptedSuggestionRef.current = null
   }, [value])
 
   const send = async (): Promise<void> => {

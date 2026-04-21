@@ -239,4 +239,46 @@ describe('MessageInput slash acceptance', () => {
       }),
     )
   })
+
+  test('allows accepting the same suggestion again after input changes', async () => {
+    const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {})
+
+    render(
+      <MessageInput
+        onSubmit={async () => {}}
+        onStop={async () => {}}
+      />,
+    )
+
+    const textarea = screen.getByTestId('chat-input') as HTMLTextAreaElement
+
+    fireEvent.change(textarea, { target: { value: '/ka' } })
+    textarea.setSelectionRange(3, 3)
+    fireEvent.keyDown(textarea, { key: 'ArrowDown' })
+    fireEvent.keyDown(textarea, { key: 'Enter' })
+
+    await waitFor(() => {
+      expect((screen.getByTestId('chat-input') as HTMLTextAreaElement).value).toBe('/kata plan ')
+    })
+
+    fireEvent.change(textarea, { target: { value: '/ka' } })
+    textarea.setSelectionRange(3, 3)
+    fireEvent.keyDown(textarea, { key: 'ArrowDown' })
+    fireEvent.keyDown(textarea, { key: 'Enter' })
+
+    await waitFor(() => {
+      expect((screen.getByTestId('chat-input') as HTMLTextAreaElement).value).toBe('/kata ')
+    })
+
+    const suppressedDuplicateEvents = debugSpy.mock.calls.filter(
+      ([scope, payload]) =>
+        scope === '[SlashAutocomplete]' &&
+        typeof payload === 'object' &&
+        payload !== null &&
+        'code' in payload &&
+        (payload as { code?: string }).code === 'SLASH_ACCEPT_SUPPRESSED_DUPLICATE',
+    )
+
+    expect(suppressedDuplicateEvents).toHaveLength(0)
+  })
 })
