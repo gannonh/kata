@@ -130,7 +130,7 @@ export function registerKataTools(
       "In Linear mode, labels are ensured during backend bootstrap. In GitHub mode, labels are created lazily during artifact writes.",
     promptSnippet: "Ensure backend-managed Kata labels or marker conventions are ready for the active workflow backend.",
     parameters: Type.Object({
-      teamId: Type.String({ description: "Team UUID in which to provision the Kata labels (used in Linear mode; ignored in GitHub mode)" }),
+      teamId: Type.Optional(Type.String({ description: "Team UUID in which to provision the Kata labels (used in Linear mode; ignored in GitHub mode)" })),
     }),
     async execute() {
       return withBackend(createBackendImpl, async (backend) => renderMutationSummary({
@@ -153,7 +153,7 @@ export function registerKataTools(
       "Create a backend-native Kata milestone. Linear mode creates a ProjectMilestone. GitHub mode creates or updates a milestone issue with canonical metadata.",
     promptSnippet: "Create a backend-native Kata milestone.",
     parameters: Type.Object({
-      projectId: Type.String({ description: "Project UUID to attach the milestone to in Linear mode (ignored in GitHub mode)" }),
+      projectId: Type.Optional(Type.String({ description: "Project UUID to attach the milestone to in Linear mode (ignored in GitHub mode)" })),
       kataId: Type.String({ description: "Kata milestone ID, e.g. 'M001'" }),
       title: Type.String({ description: "Human-readable milestone title" }),
       description: Type.Optional(Type.String({ description: "Milestone description (markdown)" })),
@@ -188,8 +188,8 @@ export function registerKataTools(
       "Create a backend-native Kata slice. Linear mode creates a slice issue. GitHub mode creates or updates a slice issue with canonical metadata and plan body.",
     promptSnippet: "Create a backend-native Kata slice.",
     parameters: Type.Object({
-      teamId: Type.String({ description: "Team UUID in Linear mode (ignored in GitHub mode)" }),
-      projectId: Type.String({ description: "Project UUID in Linear mode (ignored in GitHub mode)" }),
+      teamId: Type.Optional(Type.String({ description: "Team UUID in Linear mode (ignored in GitHub mode)" })),
+      projectId: Type.Optional(Type.String({ description: "Project UUID in Linear mode (ignored in GitHub mode)" })),
       kataId: Type.String({ description: "Kata slice ID, e.g. 'S01'" }),
       title: Type.String({ description: "Human-readable slice title" }),
       milestoneId: Type.Optional(Type.String({ description: "Milestone identifier for the active backend" })),
@@ -238,8 +238,8 @@ export function registerKataTools(
       "Create a backend-native Kata task. Linear mode creates a sub-issue. GitHub mode creates or updates a task issue and links it as a real GitHub sub-issue via GraphQL.",
     promptSnippet: "Create a backend-native Kata task.",
     parameters: Type.Object({
-      teamId: Type.String({ description: "Team UUID in Linear mode (ignored in GitHub mode)" }),
-      projectId: Type.String({ description: "Project UUID in Linear mode (ignored in GitHub mode)" }),
+      teamId: Type.Optional(Type.String({ description: "Team UUID in Linear mode (ignored in GitHub mode)" })),
+      projectId: Type.Optional(Type.String({ description: "Project UUID in Linear mode (ignored in GitHub mode)" })),
       kataId: Type.String({ description: "Kata task ID, e.g. 'T01'" }),
       title: Type.String({ description: "Human-readable task title" }),
       sliceIssueId: Type.String({ description: "Parent slice issue identifier for the active backend" }),
@@ -287,8 +287,8 @@ export function registerKataTools(
       "List backend-native Kata slices for the active project. Pass milestoneId whenever you are working within one milestone.",
     promptSnippet: "List backend-native Kata slices for the active project.",
     parameters: Type.Object({
-      projectId: Type.String({ description: "Project UUID to scope the query in Linear mode (ignored in GitHub mode)" }),
-      teamId: Type.String({ description: "Team UUID in Linear mode (ignored in GitHub mode)" }),
+      projectId: Type.Optional(Type.String({ description: "Project UUID to scope the query in Linear mode (ignored in GitHub mode)" })),
+      teamId: Type.Optional(Type.String({ description: "Team UUID in Linear mode (ignored in GitHub mode)" })),
       milestoneId: Type.Optional(Type.String({ description: "Backend milestone identifier; strongly recommended when working within one milestone." })),
       offset: Type.Optional(Type.Integer({ minimum: 1, description: "Item number to start from (1-indexed)" })),
       limit: Type.Optional(Type.Integer({ minimum: 1, description: "Maximum number of items to return" })),
@@ -635,7 +635,7 @@ export function registerKataTools(
     description: "List backend-native Kata milestones for the active project.",
     promptSnippet: "List backend-native Kata milestones for the active project.",
     parameters: Type.Object({
-      projectId: Type.String({ description: "Project UUID in Linear mode (ignored in GitHub mode)" }),
+      projectId: Type.Optional(Type.String({ description: "Project UUID in Linear mode (ignored in GitHub mode)" })),
       offset: Type.Optional(Type.Integer({ minimum: 1, description: "Item number to start from (1-indexed)" })),
       limit: Type.Optional(Type.Integer({ minimum: 1, description: "Maximum number of items to return" })),
     }),
