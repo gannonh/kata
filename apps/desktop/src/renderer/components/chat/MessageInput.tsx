@@ -13,6 +13,53 @@ interface MessageInputProps {
   onStop: () => Promise<void>
 }
 
+type SlashAcceptDiagnosticCode =
+  | 'SLASH_ACCEPTED'
+  | 'SLASH_ACCEPT_NO_SELECTION'
+  | 'SLASH_ACCEPT_SUPPRESSED_DUPLICATE'
+
+type SlashAcceptTriggerKey = 'Enter' | 'Tab' | 'Pointer'
+
+const SLASH_DUPLICATE_SUPPRESSION_WINDOW_MS = 64
+
+function slashDiagnosticsEnabled(): boolean {
+  return import.meta.env.DEV
+}
+
+function emitSlashDiagnostic(
+  level: 'debug' | 'warn',
+  code: SlashAcceptDiagnosticCode,
+  details: Record<string, unknown>,
+): void {
+  if (!slashDiagnosticsEnabled()) {
+    return
+  }
+
+  const payload = {
+    code,
+    ...details,
+  }
+
+  if (level === 'warn') {
+    console.warn('[SlashAutocomplete]', payload)
+    return
+  }
+
+  console.debug('[SlashAutocomplete]', payload)
+}
+
+function extractSlashPrefix(value: string, caret: number): string {
+  const boundedCaret = Math.max(0, Math.min(caret, value.length))
+  const tokenStart = value.lastIndexOf('/', boundedCaret)
+
+  if (tokenStart < 0) {
+    return ''
+  }
+
+  const tokenEnd = value.indexOf(' ', tokenStart)
+  return tokenEnd === -1 ? value.slice(tokenStart) : value.slice(tokenStart, tokenEnd)
+}
+
 export function MessageInput({
   disabled = false,
   stopDisabled = disabled,
@@ -26,6 +73,7 @@ export function MessageInput({
   const sendingRef = useRef(false)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const composerRef = useRef<HTMLDivElement | null>(null)
+  const lastAcceptedSuggestionRef = useRef<{ commandName: string; acceptedAt: number } | null>(null)
 
   const {
     suggestions,
@@ -92,7 +140,7 @@ export function MessageInput({
       ? `command-suggestion-${selectedIndex}`
       : undefined
 
-  const applyCommandSuggestion = (command: SlashCommandEntry): void => {
+  const applyCommandSuggestion = useCallback((command: SlashCommandEntry): boolean => {
     const textarea = textareaRef.current
     const selectionStart = textarea?.selectionStart ?? value.length
     const selectionEnd = textarea?.selectionEnd ?? value.length
@@ -104,6 +152,11 @@ export function MessageInput({
 
     const nextValue = `${value.slice(0, replaceStart)}${command.name} ${value.slice(replaceEnd)}`
     const nextCaret = replaceStart + command.name.length + 1
+
+    if (nextValue === value) {
+      setIsSuggestionDismissed(true)
+      return false
+    }
 
     setValue(nextValue)
     setSelectedIndex(0)
@@ -118,7 +171,58 @@ export function MessageInput({
       element.focus()
       element.setSelectionRange(nextCaret, nextCaret)
     })
-  }
+
+    return true
+  }, [setSelectedIndex, value])
+
+  const acceptSuggestion = useCallback(
+    (key: SlashAcceptTriggerKey, command?: SlashCommandEntry): void => {
+      const selectedSuggestion = command ?? suggestions[selectedIndex]
+      const caret = textareaRef.current?.selectionStart ?? value.length
+      const slashPrefix = extractSlashPrefix(value, caret)
+
+      if (!selectedSuggestion) {
+        emitSlashDiagnostic('warn', 'SLASH_ACCEPT_NO_SELECTION', {
+          key,
+          prefix: slashPrefix,
+        })
+        return
+      }
+
+      const now = Date.now()
+      const lastAccepted = lastAcceptedSuggestionRef.current
+      if (
+        lastAccepted &&
+        lastAccepted.commandName === selectedSuggestion.name &&
+        now - lastAccepted.acceptedAt <= SLASH_DUPLICATE_SUPPRESSION_WINDOW_MS
+      ) {
+        setIsSuggestionDismissed(true)
+        emitSlashDiagnostic('debug', 'SLASH_ACCEPT_SUPPRESSED_DUPLICATE', {
+          key,
+          prefix: slashPrefix,
+          command: selectedSuggestion.name,
+        })
+        return
+      }
+
+      lastAcceptedSuggestionRef.current = {
+        commandName: selectedSuggestion.name,
+        acceptedAt: now,
+      }
+
+      const inserted = applyCommandSuggestion(selectedSuggestion)
+      emitSlashDiagnostic(
+        'debug',
+        inserted ? 'SLASH_ACCEPTED' : 'SLASH_ACCEPT_SUPPRESSED_DUPLICATE',
+        {
+          key,
+          prefix: slashPrefix,
+          command: selectedSuggestion.name,
+        },
+      )
+    },
+    [applyCommandSuggestion, selectedIndex, suggestions, value],
+  )
 
   return (
     <div className="border-t border-border p-4">
@@ -157,14 +261,13 @@ export function MessageInput({
               return
             }
 
-            if (showSuggestions && suggestions.length > 0 && event.key === 'Enter' && !event.shiftKey) {
+            const shouldAcceptWithEnter = event.key === 'Enter' && !event.shiftKey
+            const shouldAcceptWithTab = event.key === 'Tab'
+
+            if (showSuggestions && (shouldAcceptWithEnter || shouldAcceptWithTab)) {
               event.preventDefault()
               event.stopPropagation()
-
-              const selectedSuggestion = suggestions[selectedIndex]
-              if (selectedSuggestion) {
-                applyCommandSuggestion(selectedSuggestion)
-              }
+              acceptSuggestion(shouldAcceptWithTab ? 'Tab' : 'Enter')
               return
             }
 
@@ -191,7 +294,7 @@ export function MessageInput({
                 setSelectedIndex(index)
               }
 
-              applyCommandSuggestion(command)
+              acceptSuggestion('Pointer', command)
             }}
           />
         ) : null}
