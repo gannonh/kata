@@ -4,8 +4,7 @@ use async_trait::async_trait;
 use tokio::sync::OnceCell;
 
 use crate::domain::{
-    canonical_kata_phase_name, parse_kata_identifier, parse_parent_issue_reference, Issue,
-    TrackerConfig, KATA_PHASE_NAMES,
+    canonical_kata_phase_name, parse_kata_identifier, Issue, TrackerConfig, KATA_PHASE_NAMES,
 };
 use crate::error::{Result, SymphonyError};
 use crate::github::client::{GithubClient, GithubIssue};
@@ -146,12 +145,7 @@ impl GithubAdapter {
             .parent_issue_url
             .as_deref()
             .and_then(parse_issue_number_from_url)
-            .map(|number| format!("#{number}"))
-            .or_else(|| {
-                gh.body
-                    .as_deref()
-                    .and_then(parse_parent_issue_reference)
-            });
+            .map(|number| format!("#{number}"));
 
         let children_count = gh
             .sub_issues_summary
