@@ -4,7 +4,8 @@ use async_trait::async_trait;
 use tokio::sync::OnceCell;
 
 use crate::domain::{
-    canonical_kata_phase_name, parse_kata_identifier, Issue, TrackerConfig, KATA_PHASE_NAMES,
+    canonical_kata_phase_name, parse_kata_identifier, parse_parent_issue_reference, Issue,
+    TrackerConfig, KATA_PHASE_NAMES,
 };
 use crate::error::{Result, SymphonyError};
 use crate::github::client::{GithubClient, GithubIssue};
@@ -145,7 +146,12 @@ impl GithubAdapter {
             .parent_issue_url
             .as_deref()
             .and_then(parse_issue_number_from_url)
-            .map(|number| format!("#{number}"));
+            .map(|number| format!("#{number}"))
+            .or_else(|| {
+                gh.body
+                    .as_deref()
+                    .and_then(parse_parent_issue_reference)
+            });
 
         let children_count = gh
             .sub_issues_summary
@@ -770,11 +776,18 @@ impl TrackerAdapter for GithubAdapter {
 }
 
 fn normalize_label_prefix(prefix: &str) -> String {
-    prefix.trim().trim_end_matches(':').to_string()
+    let normalized = prefix.trim().trim_end_matches(':');
+    if normalized.is_empty() {
+        "symphony".to_string()
+    } else {
+        normalized.to_string()
+    }
 }
 
 fn parse_issue_number_from_url(url: &str) -> Option<u64> {
-    let segment = url.trim().trim_end_matches('/').rsplit('/').next()?;
+    let trimmed = url.trim().trim_end_matches('/');
+    let segment = trimmed.rsplit('/').next()?;
+    let segment = segment.split(&['?', '#'][..]).next()?;
     segment.parse::<u64>().ok()
 }
 

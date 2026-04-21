@@ -93,12 +93,12 @@ export async function readWorkspaceWorkflowTrackerConfig(
   let githubProjectNumber: number | undefined
   if (projectNumberRaw) {
     const parsedProjectNumber = Number(projectNumberRaw)
-    if (!Number.isFinite(parsedProjectNumber) || parsedProjectNumber <= 0) {
+    if (!Number.isFinite(parsedProjectNumber) || parsedProjectNumber <= 0 || !Number.isInteger(parsedProjectNumber)) {
       return {
         config: null,
         error: {
           code: 'INVALID_CONFIG',
-          message: 'github.githubProjectNumber must be a positive number in .kata/preferences.md.',
+          message: 'github.githubProjectNumber must be a positive integer in .kata/preferences.md.',
         },
       }
     }
@@ -119,6 +119,16 @@ export async function readWorkspaceWorkflowTrackerConfig(
       error: {
         code: 'INVALID_CONFIG',
         message: 'github.stateMode must be labels or projects_v2 in .kata/preferences.md.',
+      },
+    }
+  }
+
+  if (stateMode === 'projects_v2' && githubProjectNumber === undefined) {
+    return {
+      config: null,
+      error: {
+        code: 'INVALID_CONFIG',
+        message: 'github.githubProjectNumber is required when github.stateMode is projects_v2 in .kata/preferences.md.',
       },
     }
   }

@@ -106,7 +106,7 @@ Output: skills conform to canonical contract.
 ### Phase 5 — Evals (required)
 
 Run skill evals using:
-`/Users/gannonhall/.agents/skills/skill-creator/SKILL.md`
+`$HOME/.agents/skills/skill-creator/SKILL.md`
 
 Evaluate:
 - baseline vs updated skills/prompts

@@ -248,6 +248,56 @@ describe("registerKataTools", () => {
     expect(result.content[0].text).toContain("three");
   });
 
+  it("document tools allow omitted scope and default to backend project scope", async () => {
+    const writeScopes: Array<unknown> = [];
+    const readScopes: Array<unknown> = [];
+    const listScopes: Array<unknown> = [];
+    const backend = makeBackend({
+      async writeDocument(_title, _content, scope) {
+        writeScopes.push(scope);
+      },
+      async readDocument(_title, scope) {
+        readScopes.push(scope);
+        return "content";
+      },
+      async listDocuments(scope) {
+        listScopes.push(scope);
+        return ["M001-ROADMAP"];
+      },
+    });
+    const { tools } = registerKataToolsForTest(backend);
+
+    const writeResult = await tools.get("kata_write_document").execute("tool-1", {
+      title: "M001-ROADMAP",
+      content: "body",
+    });
+    const readResult = await tools.get("kata_read_document").execute("tool-1", {
+      title: "M001-ROADMAP",
+    });
+    const listResult = await tools.get("kata_list_documents").execute("tool-1", {});
+
+    expect(writeScopes).toEqual([undefined]);
+    expect(readScopes).toEqual([undefined]);
+    expect(listScopes).toEqual([undefined]);
+    expect(writeResult.content[0].text).toContain("scope: default-project");
+    expect(readResult.content[0].text).toContain("scope: default-project");
+    expect(listResult.content[0].text).toContain("1. M001-ROADMAP");
+  });
+
+  it("document tools reject passing both projectId and issueId", async () => {
+    const { tools } = registerKataToolsForTest(makeBackend());
+
+    const writeResult = await tools.get("kata_write_document").execute("tool-1", {
+      title: "M001-ROADMAP",
+      content: "body",
+      projectId: "proj-1",
+      issueId: "issue-1",
+    });
+
+    expect(writeResult.isError).toBe(true);
+    expect(writeResult.content[0].text).toContain("At most one of projectId or issueId may be provided");
+  });
+
   it("kata_get_issue defaults includeChildren/includeComments to true", async () => {
     const calls: Array<{ issueId: string; opts?: { includeChildren?: boolean; includeComments?: boolean } }> = [];
     const backend = makeBackend({
@@ -342,6 +392,59 @@ describe("registerKataTools", () => {
     expect(result.content[0].text).toContain("three");
     expect(result.content[0].text).toContain("comments: 1");
     expect(result.content[0].text).toContain("Showing description lines 2-3 of 4. Use offset=4 to continue.");
+  });
+
+  it("kata_get_issue includes bounded child and comment detail lines", async () => {
+    const backend = makeBackend({
+      async getIssue() {
+        return {
+          id: "slice-1",
+          identifier: "#501",
+          title: "[S01] Hardening",
+          state: "executing",
+          labels: ["kata:slice"],
+          updatedAt: "2026-04-12T00:00:00.000Z",
+          projectName: "repo",
+          milestoneName: "M001",
+          parentIdentifier: null,
+          description: "one",
+          children: [
+            {
+              id: "task-1",
+              identifier: "#601",
+              title: "[T01] Prepare schema",
+              state: "executing",
+              labels: ["kata:task"],
+              updatedAt: null,
+              projectName: "repo",
+              milestoneName: "M001",
+              parentIdentifier: "#501",
+            },
+          ],
+          comments: [
+            {
+              id: "comment-1",
+              issueId: "slice-1",
+              marker: "KATA:S01-SUMMARY",
+              createdAt: "2026-04-12T00:00:00.000Z",
+              updatedAt: "2026-04-12T00:00:00.000Z",
+              body: "Summary details from previous run",
+            },
+          ],
+        };
+      },
+    });
+    const { tools } = registerKataToolsForTest(backend);
+
+    const result = await tools.get("kata_get_issue").execute("tool-1", {
+      issueId: "slice-1",
+      offset: 1,
+      limit: 1,
+    });
+
+    expect(result.content[0].text).toContain("child: task-1 #601 [T01] Prepare schema [executing]");
+    expect(result.content[0].text).toContain("comment: comment-1 marker=KATA:S01-SUMMARY");
+    expect(result.content[0].text).toContain("excerpt=\"Summary details from previous run\"");
   });
 
   it("kata_upsert_comment threads marker-aware payload and returns compact output", async () => {

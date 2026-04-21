@@ -246,6 +246,10 @@ describe("GithubBackend canonical worker operations", () => {
     expect(issue?.identifier).toBe("#21");
     expect(issue?.children.map((child) => child.identifier)).toEqual(["#22"]);
     expect(issue?.comments.length).toBe(1);
+    expect(issue?.comments[0]).toMatchObject({
+      body: "## Agent Workpad\n\nold",
+      marker: null,
+    });
 
     const compact = await backend.getIssue("21", { includeChildren: false, includeComments: false });
     expect(compact?.children).toEqual([]);
@@ -281,6 +285,24 @@ describe("GithubBackend canonical worker operations", () => {
     expect(client.updatedCommentBodies()).toContain("## Agent Workpad\n\nnew");
   });
 
+  it("upsertComment does not match marker text embedded in unrelated prose", async () => {
+    const client = new FakeGithubClient([
+      { number: 31, title: "[S03] Slice", state: "open", labels: ["kata:slice"], body: "body" },
+    ]);
+    client.seedComments(31, [{ id: 78, body: "This note mentions ## Agent Workpad but is not the workpad." }]);
+
+    const backend = makeBackend(client);
+    const result = await backend.upsertComment({
+      issueId: "31",
+      marker: "## Agent Workpad",
+      body: "## Agent Workpad\n\nnew",
+    });
+
+    expect(result.action).toBe("created");
+    expect(client.updatedCommentBodies()).toContain("This note mentions ## Agent Workpad but is not the workpad.");
+    expect(client.updatedCommentBodies()).toContain("## Agent Workpad\n\nnew");
+  });
+
   it("createFollowupIssue creates issue and relation metadata", async () => {
     const client = new FakeGithubClient([
       { number: 40, title: "[T01] Parent", state: "open", labels: ["kata:task"], body: "parent" },
@@ -296,7 +318,39 @@ describe("GithubBackend canonical worker operations", () => {
 
     expect(followup.identifier).toMatch(/^#/);
     expect(client.lastCreatedIssue()?.title).toBe("Follow-up: flaky test guard");
+    expect(client.lastCreatedIssue()?.labels).toEqual(["kata:backlog"]);
     expect(await client.listSubIssueNumbers(40)).toContain(Number(followup.id));
+  });
+
+  it("createFollowupIssue validates parent before creating an issue", async () => {
+    const client = new FakeGithubClient();
+    const backend = makeBackend(client);
+
+    await expect(backend.createFollowupIssue({
+      title: "Follow-up: flaky test guard",
+      description: "Track flaky guardrails",
+      parentIssueId: "404",
+      relationType: "blocked_by",
+    })).rejects.toThrow("Parent GitHub issue not found: 404");
+
+    expect(client.lastCreatedIssue()).toBeUndefined();
+  });
+
+  it("createFollowupIssue does not coerce relates_to into a sub-issue link", async () => {
+    const client = new FakeGithubClient([
+      { number: 41, title: "[T02] Parent", state: "open", labels: ["kata:task"], body: "parent" },
+    ]);
+    const backend = makeBackend(client);
+
+    const followup = await backend.createFollowupIssue({
+      title: "Follow-up: note",
+      description: "Track note",
+      parentIssueId: "41",
+      relationType: "relates_to",
+    });
+
+    expect(followup.parentIdentifier).toBe("#41");
+    expect(await client.listSubIssueNumbers(41)).toEqual([]);
   });
 
   it("createFollowupIssue rejects relationType without parent", async () => {
@@ -390,6 +444,64 @@ describe("GithubBackend canonical worker operations", () => {
     expect(issue?.state).toBe("open");
     expect(issue?.labels).toEqual(["kata:slice", "kata:in-progress"]);
   });
+
+  it("isSlicePlanned falls back to metadata-linked tasks when no sub-issue links exist yet", async () => {
+    const client = new FakeGithubClient([
+      {
+        number: 60,
+        title: "[S07] Slice",
+        state: "open",
+        labels: ["kata:slice"],
+        body: serializeGithubArtifactMetadata({
+          schema: "kata/github-artifact/v1",
+          kind: "slice",
+          kataId: "S07",
+          milestoneId: "M009",
+        }),
+      },
+      {
+        number: 61,
+        title: "[T07] Task",
+        state: "open",
+        labels: ["kata:task"],
+        body: serializeGithubArtifactMetadata({
+          schema: "kata/github-artifact/v1",
+          kind: "task",
+          kataId: "T07",
+          sliceId: "S07",
+          milestoneId: "M009",
+        }),
+      },
+    ]);
+    const backend = makeBackend(client);
+
+    await expect(backend.isSlicePlanned("M009", "S07")).resolves.toBe(true);
+  });
+
+  it("isSlicePlanned honors custom label prefixes in the legacy fallback", async () => {
+    const client = new FakeGithubClient([
+      {
+        number: 62,
+        title: "[S08] Slice",
+        state: "open",
+        labels: ["symphony:slice"],
+        body: "slice body",
+      },
+      {
+        number: 63,
+        title: "[T08] Task",
+        state: "open",
+        labels: ["symphony:task", "symphony:slice:s08"],
+        body: "task body",
+      },
+    ]);
+    const backend = makeBackend(client, {
+      ...CONFIG,
+      labelPrefix: "symphony",
+    });
+
+    await expect(backend.isSlicePlanned("M009", "S08")).resolves.toBe(true);
+  });
 });
 
 describe("GithubBackend artifact persistence", () => {
@@ -415,6 +527,26 @@ describe("GithubBackend artifact persistence", () => {
         updatedAt: "2026-04-17T22:58:07Z",
       }),
     ]);
+  });
+
+  it("createMilestone preserves existing plain body text when optional fields are omitted on update", async () => {
+    const client = new FakeGithubClient();
+    const backend = makeBackend(client);
+
+    await backend.createMilestone({
+      kataId: "M111",
+      title: "First title",
+      description: "Keep this description",
+    });
+
+    await backend.createMilestone({
+      kataId: "M111",
+      title: "Renamed milestone",
+    });
+
+    const milestone = client.findIssueByKataId("M111");
+    expect(milestone?.title).toBe("[M111] Renamed milestone");
+    expect(milestone?.body).toContain("Keep this description");
   });
 
   it("surfaces slice milestone ids in issue inventory", async () => {
@@ -553,7 +685,7 @@ describe("GithubBackend artifact persistence", () => {
     expect(await backend.isSlicePlanned("M009", "S02")).toBe(false);
   });
 
-  it("does not treat legacy plain-body artifacts as planned without real sub-issue links", async () => {
+  it("treats legacy plain-body artifacts as planned when task content still points at the slice", async () => {
     const client = new FakeGithubClient([
       {
         number: 341,
@@ -589,7 +721,7 @@ describe("GithubBackend artifact persistence", () => {
     const scope = await backend.resolveSliceScope("M001", "S01");
     expect(scope).toEqual({ issueId: "341" });
 
-    expect(await backend.isSlicePlanned("M001", "S01")).toBe(false);
+    expect(await backend.isSlicePlanned("M001", "S01")).toBe(true);
     expect(await client.listSubIssueNumbers(341)).toEqual([]);
   });
 

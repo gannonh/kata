@@ -209,7 +209,7 @@ export const PREFS_FIELD_DEFINITIONS: readonly PrefsFieldDefinition[] = [
     label: "Label Prefix",
     path: ["github", "labelPrefix"],
     type: "string",
-    description: "Label prefix used for phase derivation (default: kata:).",
+    description: "Label prefix used for phase derivation (default: kata: in CLI, symphony in Desktop/Symphony).",
   },
 
   // ── PR ────────────────────────────────────────────────────────────────────

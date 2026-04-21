@@ -65,6 +65,57 @@ async function withBackend<T>(
   });
 }
 
+const DETAIL_PAGE_LIMIT = 25;
+
+function assertOneIndexedOffset(offset: number) {
+  if (!Number.isInteger(offset) || offset < 1) {
+    throw new Error("offset must be >= 1");
+  }
+}
+
+function assertPositiveLimit(limit: number) {
+  if (!Number.isInteger(limit) || limit < 1) {
+    throw new Error("limit must be >= 1");
+  }
+}
+
+function renderDetailSection<T>(opts: {
+  label: string;
+  items: T[];
+  offset?: number;
+  limit?: number;
+  renderItem: (item: T) => string;
+}): string[] {
+  if (opts.items.length === 0) return [];
+
+  const offset = opts.offset ?? 1;
+  const limit = Math.min(opts.limit ?? DETAIL_PAGE_LIMIT, DETAIL_PAGE_LIMIT);
+  assertOneIndexedOffset(offset);
+  assertPositiveLimit(limit);
+  if (offset > opts.items.length) {
+    return [];
+  }
+
+  const start = offset - 1;
+  const page = opts.items.slice(start, start + limit);
+  const lines = page.map((item) => `${opts.label}: ${opts.renderItem(item)}`);
+  const shownEnd = start + page.length;
+
+  if (shownEnd < opts.items.length) {
+    lines.push(
+      `${opts.label}: showing entries ${offset}-${shownEnd} of ${opts.items.length}. Use offset=${shownEnd + 1} to continue.`,
+    );
+  }
+
+  return lines;
+}
+
+function excerpt(value: string | null | undefined, max = 80): string {
+  const compact = (value ?? "").replace(/\s+/g, " ").trim();
+  if (!compact) return "—";
+  return compact.length > max ? `${compact.slice(0, max - 1)}…` : compact;
+}
+
 export function registerKataTools(
   pi: ExtensionAPI,
   deps: { createBackend?: typeof createBackend } = {},
@@ -317,6 +368,33 @@ export function registerKataTools(
         });
         if (issue === null) return null;
 
+        const childLines = renderDetailSection({
+          label: "child",
+          items: issue.children,
+          offset: params.offset,
+          limit: params.limit,
+          renderItem: (child) => [
+            child.id,
+            child.identifier,
+            child.title,
+            `[${child.state}]`,
+          ].join(" "),
+        });
+
+        const commentLines = renderDetailSection({
+          label: "comment",
+          items: issue.comments,
+          offset: params.offset,
+          limit: params.limit,
+          renderItem: (comment) => [
+            `${comment.id}`,
+            `marker=${comment.marker ?? "—"}`,
+            `createdAt=${comment.createdAt ?? "—"}`,
+            `updatedAt=${comment.updatedAt ?? "—"}`,
+            `excerpt="${excerpt(comment.body)}"`,
+          ].join(" "),
+        });
+
         return renderCompactRead({
           heading: `Issue ${issue.identifier}: ${issue.title}`,
           metadata: [
@@ -328,6 +406,8 @@ export function registerKataTools(
             `labels: ${issue.labels.join(", ") || "—"}`,
             `children: ${issue.children.length}`,
             `comments: ${issue.comments.length}`,
+            ...childLines,
+            ...commentLines,
             `updatedAt: ${issue.updatedAt ?? "—"}`,
           ],
           bodyLabel: "description",
@@ -427,7 +507,7 @@ export function registerKataTools(
     name: "kata_write_document",
     label: "Kata: Write Document",
     description:
-      "Write a backend-native Kata artifact document. Exactly one of projectId or issueId must be provided. Content is not echoed.",
+      "Write a backend-native Kata artifact document. Optionally scope by projectId or issueId. Content is not echoed.",
     promptSnippet: "Write a backend-native Kata artifact document.",
     parameters: Type.Object({
       title: Type.String({ description: "Document title, e.g. 'M001-ROADMAP' or 'DECISIONS'" }),
@@ -438,21 +518,26 @@ export function registerKataTools(
     async execute(_id, params) {
       const hasProject = params.projectId !== undefined;
       const hasIssue = params.issueId !== undefined;
-      if (hasProject === hasIssue) {
-        return fail(new Error("Exactly one of projectId or issueId is required"));
+      if (hasProject && hasIssue) {
+        return fail(new Error("At most one of projectId or issueId may be provided"));
       }
+      const scope = hasProject
+        ? { projectId: params.projectId! }
+        : hasIssue
+          ? { issueId: params.issueId! }
+          : undefined;
       return withBackend(createBackendImpl, async (backend) => {
         await backend.writeDocument(
           params.title,
           params.content,
-          hasProject ? { projectId: params.projectId! } : { issueId: params.issueId! },
+          scope,
         );
         return renderMutationSummary({
           noun: "Document",
           action: "written",
           lines: [
             `title: ${params.title}`,
-            `scope: ${hasProject ? `project:${params.projectId}` : `issue:${params.issueId}`}`,
+            `scope: ${hasProject ? `project:${params.projectId}` : hasIssue ? `issue:${params.issueId}` : "default-project"}`,
             "Use kata_read_document to inspect content.",
           ],
         });
@@ -476,20 +561,25 @@ export function registerKataTools(
     async execute(_id, params) {
       const hasProject = params.projectId !== undefined;
       const hasIssue = params.issueId !== undefined;
-      if (hasProject === hasIssue) {
-        return fail(new Error("Exactly one of projectId or issueId is required"));
+      if (hasProject && hasIssue) {
+        return fail(new Error("At most one of projectId or issueId may be provided"));
       }
+      const scope = hasProject
+        ? { projectId: params.projectId! }
+        : hasIssue
+          ? { issueId: params.issueId! }
+          : undefined;
       return withBackend(createBackendImpl, async (backend) => {
         const content = await backend.readDocument(
           params.title,
-          hasProject ? { projectId: params.projectId! } : { issueId: params.issueId! },
+          scope,
         );
         if (content === null) return null;
 
         return renderCompactRead({
           heading: `Document ${params.title}`,
           metadata: [
-            `scope: ${hasProject ? `project:${params.projectId}` : `issue:${params.issueId}`}`,
+            `scope: ${hasProject ? `project:${params.projectId}` : hasIssue ? `issue:${params.issueId}` : "default-project"}`,
           ],
           bodyLabel: "content",
           body: content,
@@ -517,13 +607,16 @@ export function registerKataTools(
     async execute(_id, params) {
       const hasProject = params.projectId !== undefined;
       const hasIssue = params.issueId !== undefined;
-      if (hasProject === hasIssue) {
-        return fail(new Error("Exactly one of projectId or issueId is required"));
+      if (hasProject && hasIssue) {
+        return fail(new Error("At most one of projectId or issueId may be provided"));
       }
+      const scope = hasProject
+        ? { projectId: params.projectId! }
+        : hasIssue
+          ? { issueId: params.issueId! }
+          : undefined;
       return withBackend(createBackendImpl, async (backend) => {
-        const docs = await backend.listDocuments(
-          hasProject ? { projectId: params.projectId! } : { issueId: params.issueId! },
-        );
+        const docs = await backend.listDocuments(scope);
         return renderInventoryResult({
           noun: "documents",
           items: docs,

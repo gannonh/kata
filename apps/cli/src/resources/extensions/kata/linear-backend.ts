@@ -53,7 +53,7 @@ import { resolveGitRoot, ensureGitRepo } from "./git-utils.js";
 
 // ─── Prompt Constants ─────────────────────────────────────────────────────────
 
-const HARD_RULE = `Hard rule: In Linear mode, never use bash/read/find/rg/git to locate workflow artifacts. Milestone-level artifacts (M001-ROADMAP, M001-CONTEXT, M001-RESEARCH, M001-SUMMARY, PROJECT, REQUIREMENTS, DECISIONS) are LinearDocuments via kata_read_document/kata_write_document with { projectId }. Slice/task plans live in issue descriptions (slice issue + task sub-issue), read/write them via linear_get_issue / linear_update_issue or kata_create_slice / kata_create_task description fields. Backward compatibility: if a slice/task plan description is empty, fall back to legacy S01-PLAN/T01-PLAN docs via kata_read_document. Slice/task summaries are issue comments via linear_add_comment. List tools are for discovery; get tools are for full issue bodies. For Kata planning and milestone-scoped slice lookup, do NOT use linear_list_issues; it returns full issue payloads and can blow context. Use kata_list_slices({ projectId, teamId, milestoneId }) / kata_list_tasks({ sliceIssueId }) to enumerate, then linear_get_issue(id) for the specific issue you need.`;
+const HARD_RULE = `Hard rule: In Linear mode, never use bash/read/find/rg/git to locate workflow artifacts. Milestone-level artifacts (M001-ROADMAP, M001-CONTEXT, M001-RESEARCH, M001-SUMMARY, PROJECT, REQUIREMENTS, DECISIONS) are LinearDocuments via kata_read_document/kata_write_document with { projectId }. Read issue content through kata_get_issue (not linear_get_issue) and write summaries through kata_upsert_comment. Slice/task plans live in issue descriptions (slice issue + task sub-issue); create them with kata_create_slice / kata_create_task description fields, and update existing descriptions with linear_update_issue only when a backend-neutral update path is unavailable. Backward compatibility: if a slice/task plan description is empty, fall back to legacy S01-PLAN/T01-PLAN docs via kata_read_document. List tools are for discovery; get tools are for full issue bodies. For Kata planning and milestone-scoped slice lookup, do NOT use linear_list_issues; it returns full issue payloads and can blow context. Use kata_list_slices({ projectId, teamId, milestoneId }) / kata_list_tasks({ sliceIssueId }) to enumerate, then kata_get_issue({ issueId }) for the specific issue you need.`;
 
 const REFERENCE = `**Reference:** Consult \`KATA-WORKFLOW.md\` (injected into your system prompt) for full operation steps, entity conventions, artifact storage format, and phase transition rules.`;
 
@@ -75,13 +75,13 @@ function normalizeStateKey(value: string): string {
 }
 
 const LINEAR_STATE_PHASE_ALIASES: Record<string, string[]> = {
-  todo: ["todo"],
+  todo: ["todo", "to do"],
   "in-progress": ["in progress"],
   "agent-review": ["agent review"],
   "human-review": ["human review"],
   merging: ["merging"],
   rework: ["rework"],
-  closed: ["closed", "cancelled", "canceled"],
+  closed: ["closed", "done", "complete", "completed", "cancelled", "canceled"],
 };
 
 function resolveLinearWorkflowStateForPhase(
@@ -181,11 +181,22 @@ export class LinearBackend implements KataBackend {
     return markerMatch?.[1] ?? null;
   }
 
+  private hasLegacyPlainTextMarker(body: string, marker: string): boolean {
+    const normalized = marker.trim();
+    if (!normalized) return false;
+
+    const escaped = normalized.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const headingRe = new RegExp(`^\\s{0,3}#{1,6}\\s+${escaped}\\s*$`, "im");
+    const exactLineRe = new RegExp(`^\\s*${escaped}\\s*$`, "im");
+    return headingRe.test(body) || exactLineRe.test(body);
+  }
+
   private hasMarker(body: string, marker: string): boolean {
     const normalized = marker.trim();
     if (!normalized) return false;
     if (body.includes(`<!-- ${normalized} -->`) || body.includes(`<!--${normalized}-->`)) return true;
-    return this.extractMarker(body) === normalized;
+    if (this.extractMarker(body) === normalized) return true;
+    return this.hasLegacyPlainTextMarker(body, normalized);
   }
 
   private withMarker(body: string, marker?: string): string {
@@ -451,8 +462,8 @@ export class LinearBackend implements KataBackend {
           identifier: child.identifier,
           title: child.title,
           state: child.state.name,
-          labels: [],
-          updatedAt: null,
+          labels: child.labels?.map((label) => label.name) ?? [],
+          updatedAt: child.updatedAt ?? null,
           projectName: issue.project?.name ?? null,
           milestoneName: issue.projectMilestone?.name ?? null,
           parentIdentifier: issue.identifier,
@@ -463,6 +474,7 @@ export class LinearBackend implements KataBackend {
       ? (await this.client.listIssueComments(issueId)).map((comment) => ({
           id: comment.id,
           issueId,
+          body: comment.body,
           marker: this.extractMarker(comment.body),
           createdAt: comment.createdAt,
           updatedAt: comment.updatedAt ?? null,
@@ -490,6 +502,7 @@ export class LinearBackend implements KataBackend {
         return {
           id: updated.id,
           issueId: input.issueId,
+          body: updated.body,
           marker,
           action: "updated",
           createdAt: updated.createdAt ?? existing.createdAt ?? null,
@@ -503,6 +516,7 @@ export class LinearBackend implements KataBackend {
     return {
       id: created.id,
       issueId: input.issueId,
+      body: created.body,
       marker: marker ?? this.extractMarker(created.body),
       action: "created",
       createdAt: created.createdAt,
@@ -542,16 +556,6 @@ export class LinearBackend implements KataBackend {
     teamId?: string,
   ): Promise<KataIssueStateUpdateResult> {
     const resolvedTeamId = teamId ?? this.config.teamId;
-
-    if (phase === "done") {
-      const issue = await this.client.getIssue(issueId);
-      const isSlice = issue?.labels?.some((label) => label.name === "kata:slice");
-      if (isSlice) {
-        throw new Error(
-          "Cannot advance a slice to done directly. The orchestrator handles slice completion after the summarizing phase.",
-        );
-      }
-    }
 
     const states = await this.client.listWorkflowStates(resolvedTeamId);
     const targetState = resolveLinearWorkflowStateForPhase(states, phase);

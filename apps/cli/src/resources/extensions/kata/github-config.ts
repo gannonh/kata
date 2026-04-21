@@ -64,13 +64,18 @@ export interface GithubConfigValidationResult {
  * Legacy export kept for compatibility with existing callers/tests.
  * GitHub tracker config now lives in `.kata/preferences.md`.
  */
-export function resolveGithubWorkflowPath(basePath: string = process.cwd()): string {
+export function resolveGithubWorkflowPath(
+  basePath: string = process.cwd(),
+): string {
   return join(basePath, ".kata", "preferences.md");
 }
 
 function buildTrackerConfigFromPreferences(
   githubPrefs: KataGithubPreferences | undefined,
-): { config: GithubTrackerConfig | null; diagnostic: GithubConfigDiagnostic | null } {
+): {
+  config: GithubTrackerConfig | null;
+  diagnostic: GithubConfigDiagnostic | null;
+} {
   if (!githubPrefs) {
     return {
       config: null,
@@ -147,7 +152,22 @@ function buildTrackerConfigFromPreferences(
     };
   }
 
-  const stateMode = (rawStateMode as GithubStateMode | undefined) ?? "labels";
+  if (rawStateMode === "projects_v2" && githubProjectNumber === undefined) {
+    return {
+      config: null,
+      diagnostic: {
+        code: "invalid_github_project_number",
+        message:
+          "github.githubProjectNumber is required when github.stateMode is \"projects_v2\".",
+        field: "github.githubProjectNumber",
+        retryable: false,
+      },
+    };
+  }
+
+  const stateMode: GithubStateMode =
+    (rawStateMode as GithubStateMode | undefined) ??
+    (githubProjectNumber !== undefined ? "projects_v2" : "labels");
 
   return {
     config: {
@@ -155,7 +175,9 @@ function buildTrackerConfigFromPreferences(
       repoName,
       stateMode,
       ...(githubProjectNumber !== undefined && { githubProjectNumber }),
-      ...(githubPrefs.labelPrefix ? { labelPrefix: githubPrefs.labelPrefix } : {}),
+      ...(githubPrefs.labelPrefix
+        ? { labelPrefix: githubPrefs.labelPrefix }
+        : {}),
     },
     diagnostic: null,
   };
@@ -168,10 +190,15 @@ export function loadGithubTrackerConfig(
   workflowPath?: string,
   basePath?: string,
   loadedPreferences?: LoadedKataPreferences | null,
-): { config: GithubTrackerConfig | null; diagnostic: GithubConfigDiagnostic | null } {
+): {
+  config: GithubTrackerConfig | null;
+  diagnostic: GithubConfigDiagnostic | null;
+} {
   void workflowPath;
 
-  const effective = loadedPreferences ?? loadEffectiveKataPreferences(basePath ?? process.cwd());
+  const effective =
+    loadedPreferences ??
+    loadEffectiveKataPreferences(basePath ?? process.cwd());
   const githubPrefs = effective?.preferences.github;
   return buildTrackerConfigFromPreferences(githubPrefs);
 }
@@ -191,7 +218,8 @@ export function resolveGithubToken(authFilePath?: string): ResolvedGithubToken {
   const githubToken = process.env.GITHUB_TOKEN;
   if (githubToken) return { token: githubToken, source: "GITHUB_TOKEN" };
 
-  const authPath = authFilePath ?? join(homedir(), ".kata-cli", "agent", "auth.json");
+  const authPath =
+    authFilePath ?? join(homedir(), ".kata-cli", "agent", "auth.json");
   const authExists = existsSync(authPath);
   try {
     if (authExists) {
@@ -279,10 +307,14 @@ export function formatGithubConfigStatus(
   ];
 
   if (result.trackerConfig) {
-    lines.push(`github.repo: ${result.trackerConfig.repoOwner}/${result.trackerConfig.repoName}`);
+    lines.push(
+      `github.repo: ${result.trackerConfig.repoOwner}/${result.trackerConfig.repoName}`,
+    );
     lines.push(`github.state_mode: ${result.trackerConfig.stateMode}`);
     if (result.trackerConfig.githubProjectNumber !== undefined) {
-      lines.push(`github.githubProjectNumber: ${result.trackerConfig.githubProjectNumber}`);
+      lines.push(
+        `github.githubProjectNumber: ${result.trackerConfig.githubProjectNumber}`,
+      );
     }
     if (result.trackerConfig.labelPrefix !== undefined) {
       lines.push(`github.labelPrefix: ${result.trackerConfig.labelPrefix}`);

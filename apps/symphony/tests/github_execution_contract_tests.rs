@@ -57,11 +57,16 @@ fn projects_adapter(server: &ServerGuard) -> GithubAdapter {
 }
 
 fn issue_json(number: u64, title: &str, body: Option<&str>, labels: &[&str]) -> serde_json::Value {
-    let parent_issue_url = body
-        .and_then(parent_issue_number_from_body)
-        .map(|parent_number| {
-            format!("https://api.github.com/repos/kata-sh/kata-mono/issues/{parent_number}")
-        });
+    issue_json_with_parent_url(number, title, body, labels, None)
+}
+
+fn issue_json_with_parent_url(
+    number: u64,
+    title: &str,
+    body: Option<&str>,
+    labels: &[&str],
+    parent_issue_url: Option<String>,
+) -> serde_json::Value {
 
     json!({
         "number": number,
@@ -81,20 +86,6 @@ fn issue_json(number: u64, title: &str, body: Option<&str>, labels: &[&str]) -> 
         "parent_issue_url": parent_issue_url,
         "sub_issues_summary": { "total": 0, "completed": 0, "percent_completed": 0 }
     })
-}
-
-fn parent_issue_number_from_body(body: &str) -> Option<u64> {
-    let marker_index = body.find('#')?;
-    let digits: String = body[marker_index + 1..]
-        .chars()
-        .take_while(|ch| ch.is_ascii_digit())
-        .collect();
-
-    if digits.is_empty() {
-        return None;
-    }
-
-    digits.parse::<u64>().ok()
 }
 
 fn projects_field_payload(options: &[(&str, &str)]) -> serde_json::Value {

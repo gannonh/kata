@@ -14,7 +14,9 @@ fn sym_skills_do_not_instruct_backend_specific_tracker_ops_for_workers() {
         "linear_get_issue",
         "linear_update_issue",
         "linear_add_comment",
-        "IssueFilter.identifier",
+        "issuefilter.identifier",
+        "github_",
+        "gh issue",
     ];
 
     for skill in checked {
@@ -33,9 +35,11 @@ fn sym_skills_do_not_instruct_backend_specific_tracker_ops_for_workers() {
             continue;
         }
 
+        let content_lower = content.to_lowercase();
+
         for token in forbidden {
             assert!(
-                !content.contains(token),
+                !content_lower.contains(token),
                 "{skill} must not include backend-specific token {token}"
             );
         }

@@ -1229,25 +1229,38 @@ export class LinearClient {
   // ── Comments ────────────────────────────────────────────────────────────
 
   async listIssueComments(issueId: string): Promise<LinearComment[]> {
-    const data = await this.graphql<{
-      issue: { comments: { nodes: LinearComment[] } | null } | null;
-    }>(`
-      query ListIssueComments($id: String!) {
-        issue(id: $id) {
-          comments(first: 50) {
-            nodes {
-              id
-              body
-              createdAt
-              updatedAt
-              url
+    return this.paginate(async (cursor) => {
+      const data = await this.graphql<{
+        issue: { comments: { nodes: LinearComment[]; pageInfo: LinearPageInfo } | null } | null;
+      }>(`
+        query ListIssueComments($id: String!, $after: String) {
+          issue(id: $id) {
+            comments(first: 50, after: $after) {
+              nodes {
+                id
+                body
+                createdAt
+                updatedAt
+                url
+              }
+              pageInfo {
+                hasNextPage
+                endCursor
+              }
             }
           }
         }
-      }
-    `, { id: issueId });
+      `, { id: issueId, after: cursor });
 
-    return data.issue?.comments?.nodes ?? [];
+      if (!data.issue) {
+        throw new LinearGraphQLError(`Issue not found: ${issueId}`, []);
+      }
+
+      return data.issue.comments ?? {
+        nodes: [],
+        pageInfo: { hasNextPage: false, endCursor: null },
+      };
+    });
   }
 
   async createComment(issueId: string, body: string): Promise<{ id: string; body: string; createdAt: string; updatedAt?: string; url: string }> {

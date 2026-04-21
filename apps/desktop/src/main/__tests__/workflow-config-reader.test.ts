@@ -138,6 +138,28 @@ describe('readWorkspaceWorkflowTrackerConfig', () => {
     expect(result.error?.code).toBe('INVALID_CONFIG')
   })
 
+  test('returns INVALID_CONFIG when githubProjectNumber is not an integer', async () => {
+    const workspace = mkdtempSync(path.join(tmpdir(), 'workflow-config-decimal-project-'))
+    writePrefs(
+      workspace,
+      [
+        '---',
+        'workflow:',
+        '  mode: github',
+        'github:',
+        '  repoOwner: kata-sh',
+        '  repoName: kata-mono',
+        '  githubProjectNumber: 1.5',
+        '---',
+        '',
+      ],
+    )
+
+    const result = await readWorkspaceWorkflowTrackerConfig(workspace)
+    expect(result.config).toBeNull()
+    expect(result.error?.code).toBe('INVALID_CONFIG')
+  })
+
   test('returns INVALID_CONFIG when stateMode is invalid', async () => {
     const workspace = mkdtempSync(path.join(tmpdir(), 'workflow-config-invalid-state-mode-'))
     writePrefs(
@@ -219,7 +241,7 @@ describe('readWorkspaceWorkflowTrackerConfig', () => {
     expect(result.error?.code).toBe('UNKNOWN')
   })
 
-  test('parses github projects v2 mode when stateMode is set', async () => {
+  test('returns INVALID_CONFIG when projects_v2 mode is missing githubProjectNumber', async () => {
     const workspace = mkdtempSync(path.join(tmpdir(), 'workflow-config-github-projects-state-mode-'))
     writePrefs(
       workspace,
@@ -238,13 +260,37 @@ describe('readWorkspaceWorkflowTrackerConfig', () => {
 
     const result = await readWorkspaceWorkflowTrackerConfig(workspace)
 
+    expect(result.config).toBeNull()
+    expect(result.error?.code).toBe('INVALID_CONFIG')
+  })
+
+  test('parses github projects v2 mode when stateMode and githubProjectNumber are set', async () => {
+    const workspace = mkdtempSync(path.join(tmpdir(), 'workflow-config-github-projects-explicit-'))
+    writePrefs(
+      workspace,
+      [
+        '---',
+        'workflow:',
+        '  mode: github',
+        'github:',
+        '  repoOwner: kata-sh',
+        '  repoName: kata-mono',
+        '  stateMode: projects_v2',
+        '  githubProjectNumber: 7',
+        '---',
+        '',
+      ],
+    )
+
+    const result = await readWorkspaceWorkflowTrackerConfig(workspace)
+
     expect(result.error).toBeUndefined()
     expect(result.config).toEqual({
       kind: 'github',
       repoOwner: 'kata-sh',
       repoName: 'kata-mono',
       stateMode: 'projects_v2',
-      githubProjectNumber: undefined,
+      githubProjectNumber: 7,
       labelPrefix: undefined,
     })
   })

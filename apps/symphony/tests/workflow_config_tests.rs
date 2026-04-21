@@ -364,6 +364,24 @@ tracker:
 }
 
 #[test]
+fn test_github_tracker_config_falls_back_to_symphony_for_blank_label_prefix() {
+    let yaml_str = r#"
+tracker:
+  kind: github
+  api_key: github-test-token
+  repo_owner: kata-sh
+  repo_name: kata-mono
+  label_prefix: ':'
+"#;
+
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let config = from_workflow(&raw)
+        .expect("github tracker config with blank label prefix should parse");
+
+    assert_eq!(config.tracker.label_prefix.as_deref(), Some("symphony"));
+}
+
+#[test]
 fn test_linear_config_unaffected() {
     let yaml_str = r#"
 tracker:

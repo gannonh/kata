@@ -17,7 +17,7 @@ Symphony watches the file for changes and applies updates without a restart.
 
 ## Worker tracker contract
 
-Symphony worker prompts must use backend-neutral `kata_*` tools for tracker/artifact/state operations:
+You must use backend-neutral `kata_*` tools for tracker/artifact/state operations in Symphony worker prompts:
 
 - `kata_get_issue`
 - `kata_list_tasks`
@@ -27,7 +27,7 @@ Symphony worker prompts must use backend-neutral `kata_*` tools for tracker/arti
 - `kata_update_issue_state`
 - `kata_create_followup_issue`
 
-Backend-specific tracker operations inside worker prompts/skills are a policy violation.
+Do not use backend-specific tracker operations inside worker prompts or skills.
 
 ---
 

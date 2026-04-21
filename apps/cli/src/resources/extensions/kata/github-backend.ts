@@ -219,7 +219,7 @@ class GithubApiClient implements GithubBackendClient {
               login: string;
               projectV2: {
                 id: string;
-                field: { id: string; options: Array<{ id: string; name: string }> } | null;
+                field: { id?: string; options?: Array<{ id: string; name: string }> } | null;
               } | null;
             }
           | {
@@ -227,7 +227,7 @@ class GithubApiClient implements GithubBackendClient {
               login: string;
               projectV2: {
                 id: string;
-                field: { id: string; options: Array<{ id: string; name: string }> } | null;
+                field: { id?: string; options?: Array<{ id: string; name: string }> } | null;
               } | null;
             }
           | null;
@@ -270,8 +270,10 @@ class GithubApiClient implements GithubBackendClient {
     if (!project) {
       throw new Error(`GitHub Project #${projectNumber} not found for owner ${this.config.repoOwner}`);
     }
-    if (!project.field) {
-      throw new Error(`Status field not found on GitHub Project #${projectNumber}`);
+    if (!project.field?.id || !project.field.options?.length) {
+      throw new Error(
+        `Status field is not a single-select on GitHub Project #${projectNumber}`,
+      );
     }
 
     this.projectV2StatusFieldCache = {
@@ -286,15 +288,15 @@ class GithubApiClient implements GithubBackendClient {
     const statusField = await this.resolveProjectV2StatusField();
     let after: string | null = null;
 
-    for (let page = 0; page < 10; page++) {
-      const data = await this.graphqlRequest<{
+    for (;;) {
+      const payload: {
         node: {
           items: {
             nodes: Array<{ id: string; content: { number?: number } | null }>;
             pageInfo: { hasNextPage: boolean; endCursor: string | null };
           };
         } | null;
-      }>(
+      } = await this.graphqlRequest(
         `query($projectId: ID!, $first: Int!, $after: String) {
           node(id: $projectId) {
             ... on ProjectV2 {
@@ -311,7 +313,7 @@ class GithubApiClient implements GithubBackendClient {
         { projectId: statusField.projectId, first: 100, after },
       );
 
-      const items = data.node?.items;
+      const items = payload.node?.items;
       if (!items) break;
 
       for (const item of items.nodes) {
@@ -330,6 +332,11 @@ class GithubApiClient implements GithubBackendClient {
 
   async updateProjectV2ItemStatus(issueNumber: number, stateName: string): Promise<string> {
     const statusField = await this.resolveProjectV2StatusField();
+    if (!statusField.options.length) {
+      throw new Error(
+        `Status field is not a single-select on GitHub Project #${this.config.githubProjectNumber}`,
+      );
+    }
 
     const normalizedTarget = stateName.trim().toLowerCase().replace(/[_-]+/g, " ");
     const option = statusField.options.find(
@@ -667,7 +674,7 @@ class GithubApiClient implements GithubBackendClient {
     let after: string | null = null;
 
     for (;;) {
-      const data = await this.graphqlRequest<{
+      const payload: {
         repository: {
           issue: {
             subIssues: {
@@ -676,7 +683,7 @@ class GithubApiClient implements GithubBackendClient {
             };
           } | null;
         } | null;
-      }>(
+      } = await this.graphqlRequest(
         `query ListSubIssues($owner: String!, $repo: String!, $number: Int!, $after: String) {
           repository(owner: $owner, name: $repo) {
             issue(number: $number) {
@@ -695,7 +702,7 @@ class GithubApiClient implements GithubBackendClient {
         },
       );
 
-      const issue = data.repository?.issue;
+      const issue = payload.repository?.issue;
       if (!issue) return numbers;
 
       for (const node of issue.subIssues.nodes) {
@@ -778,12 +785,21 @@ class GithubApiClient implements GithubBackendClient {
   }
 
   async listIssueComments(issueNumber: number): Promise<GithubIssueComment[]> {
-    return this.request(
-      `/repos/${this.config.repoOwner}/${this.config.repoName}/issues/${issueNumber}/comments`,
-      {
-        query: { per_page: "100" },
-      },
-    );
+    const comments: GithubIssueComment[] = [];
+
+    for (let page = 1; ; page++) {
+      const pageComments = await this.request<GithubIssueComment[]>(
+        `/repos/${this.config.repoOwner}/${this.config.repoName}/issues/${issueNumber}/comments`,
+        {
+          query: { per_page: "100", page: String(page) },
+        },
+      );
+
+      comments.push(...pageComments);
+      if (pageComments.length < 100) {
+        return comments;
+      }
+    }
   }
 
   async createIssueComment(issueNumber: number, body: string): Promise<GithubIssueComment> {
@@ -1187,10 +1203,26 @@ export class GithubBackend implements KataBackend {
     return null;
   }
 
+  private hasCommentMarker(body: string, marker: string): boolean {
+    const normalized = marker.trim();
+    if (!normalized) return false;
+
+    if (this.extractCommentMarker(body) === normalized) {
+      return true;
+    }
+
+    const escaped = escapeRegex(normalized);
+    if (new RegExp(`^\\s*${escaped}\\s*$`, "im").test(body)) {
+      return true;
+    }
+
+    return new RegExp(`^\\s{0,3}#{1,6}\\s+${escaped}\\s*$`, "im").test(body);
+  }
+
   private withCommentMarker(body: string, marker?: string): string {
     const normalized = marker?.trim();
     if (!normalized) return body;
-    if (body.includes(normalized)) return body;
+    if (this.hasCommentMarker(body, normalized)) return body;
     return `<!-- ${normalized} -->\n\n${body}`;
   }
 
@@ -1672,20 +1704,20 @@ export class GithubBackend implements KataBackend {
       kind: "milestone",
       kataId: input.kataId.trim().toUpperCase(),
     };
+    const milestonePlainBody = [
+      input.description?.trim(),
+      input.targetDate ? `Target date: ${input.targetDate}` : undefined,
+    ].filter(Boolean).join("\n\n") || undefined;
 
     const issue = await this.ensureIssue(metadata, {
       title: `[${metadata.kataId}] ${input.title}`,
       labels: [primaryLabel(this.config.labelPrefix, "milestone")],
-      body: composeArtifactIssueBody(undefined, metadata, [
-        input.description?.trim(),
-        input.targetDate ? `Target date: ${input.targetDate}` : undefined,
-      ].filter(Boolean).join("\n\n")),
+      body: composeArtifactIssueBody(undefined, metadata, milestonePlainBody),
     });
 
-    const nextBody = composeArtifactIssueBody(issue.body, metadata, [
-      input.description?.trim(),
-      input.targetDate ? `Target date: ${input.targetDate}` : undefined,
-    ].filter(Boolean).join("\n\n"));
+    const nextBody = milestonePlainBody
+      ? composeArtifactIssueBody(issue.body, metadata, milestonePlainBody)
+      : issue.body ?? composeArtifactIssueBody(undefined, metadata, undefined);
 
     const updated = await this.updateIssue(issue.number, {
       title: `[${metadata.kataId}] ${input.title}`,
@@ -1872,6 +1904,7 @@ export class GithubBackend implements KataBackend {
       ? (await this.client.listIssueComments(issueNumber)).map((comment) => ({
           id: String(comment.id),
           issueId: String(issueNumber),
+          body: comment.body,
           marker: this.extractCommentMarker(comment.body),
           createdAt: comment.created_at,
           updatedAt: comment.updated_at,
@@ -1896,13 +1929,14 @@ export class GithubBackend implements KataBackend {
     if (marker) {
       const comments = await this.client.listIssueComments(issueNumber);
       const existing = comments
-        .filter((comment) => comment.body.includes(marker))
+        .filter((comment) => this.hasCommentMarker(comment.body, marker))
         .sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at))[0];
       if (existing) {
         const updated = await this.client.updateIssueComment(existing.id, nextBody);
         return {
           id: String(updated.id),
           issueId: String(issueNumber),
+          body: updated.body,
           marker,
           action: "updated",
           createdAt: updated.created_at,
@@ -1916,6 +1950,7 @@ export class GithubBackend implements KataBackend {
     return {
       id: String(created.id),
       issueId: String(issueNumber),
+      body: created.body,
       marker: marker ?? this.extractCommentMarker(created.body),
       action: "created",
       createdAt: created.created_at,
@@ -1929,21 +1964,33 @@ export class GithubBackend implements KataBackend {
       throw new Error("parentIssueId is required when relationType is provided");
     }
 
+    let parentIssueNumber: number | undefined;
+    if (input.parentIssueId) {
+      parentIssueNumber = requireGithubIssueNumber(input.parentIssueId, "issue");
+      const parentIssue = await this.findIssueByNumber(parentIssueNumber);
+      if (!parentIssue) {
+        throw new Error(`Parent GitHub issue not found: ${input.parentIssueId}`);
+      }
+    }
+
+    const phasePrefix = this.config.labelPrefix.endsWith(":")
+      ? this.config.labelPrefix
+      : `${this.config.labelPrefix}:`;
+
     const created = await this.createIssue({
       title: input.title,
       body: input.description,
-      labels: [primaryLabel(this.config.labelPrefix, "backlog")],
+      labels: [`${phasePrefix}backlog`],
     });
 
-    if (input.parentIssueId) {
-      const parentIssueNumber = requireGithubIssueNumber(input.parentIssueId, "issue");
+    if (parentIssueNumber && input.relationType !== "relates_to") {
       await this.client.addSubIssue(parentIssueNumber, created.number);
     }
 
     this.invalidateStateCache();
     return {
       ...this.toIssueRecord(created),
-      parentIdentifier: input.parentIssueId ? `#${requireGithubIssueNumber(input.parentIssueId, "issue")}` : null,
+      parentIdentifier: parentIssueNumber ? `#${parentIssueNumber}` : null,
     };
   }
 
@@ -2021,7 +2068,47 @@ export class GithubBackend implements KataBackend {
     if (!sliceIssue) return false;
 
     const existingSubIssueNumbers = await this.client.listSubIssueNumbers(sliceIssue.number);
-    return existingSubIssueNumbers.length > 0;
+    if (existingSubIssueNumbers.length > 0) return true;
+
+    const issues = await this.listIssues();
+    return issues.some((issue) => {
+      const metadata = inferMetadataFromIssue(issue);
+      const parsedTitle = parseGithubKataTitle(issue.title);
+      const isTask = metadata?.kind === "task" || /^T\d{2}$/.test(parsedTitle?.kataId ?? "");
+      if (!isTask) return false;
+      if (metadata?.milestoneId && metadata.milestoneId !== normalizedMilestoneId) return false;
+
+      const metadataSlice = metadata?.sliceId?.trim().toUpperCase();
+      if (metadataSlice === normalizedSliceId) {
+        return true;
+      }
+
+      const normalizedSliceLabel = normalizedSliceId.toLowerCase();
+      const labelPrefix = this.config.labelPrefix.endsWith(":")
+        ? this.config.labelPrefix.toLowerCase()
+        : `${this.config.labelPrefix.toLowerCase()}:`;
+      const labels = new Set(issue.labels.map((label) => label.trim().toLowerCase()));
+      if (
+        labels.has(`${labelPrefix}slice:${normalizedSliceLabel}`) ||
+        labels.has(`slice:${normalizedSliceLabel}`) ||
+        labels.has(`${labelPrefix}parent:${normalizedSliceLabel}`)
+      ) {
+        return true;
+      }
+
+      const body = issue.body ?? "";
+      const escapedMilestone = escapeRegex(normalizedMilestoneId);
+      const escapedSlice = escapeRegex(normalizedSliceId);
+      const milestoneField = new RegExp(
+        `^\\s*(?:\\*\\*)?Milestone:(?:\\*\\*)?\\s*${escapedMilestone}(?:\\b|\\s|$)`,
+        "im",
+      ).test(body);
+      const sliceField = new RegExp(
+        `^\\s*(?:\\*\\*)?Slice:(?:\\*\\*)?\\s*${escapedSlice}(?:\\b|\\s|$)`,
+        "im",
+      ).test(body);
+      return milestoneField && sliceField;
+    });
   }
 
   private buildGithubPlanMilestoneOps(mid: string): OpsBlock {
@@ -2102,7 +2189,7 @@ export class GithubBackend implements KataBackend {
       "   - PROJECT",
       "   - REQUIREMENTS",
       "   - DECISIONS",
-      "4. If you need raw content, use `gh issue view <number> --repo <owner>/<repo> --json body`.",
+      "4. If you need raw issue content, use `kata_get_issue({ issueId })` (and `kata_read_document(...)` for document artifacts).",
     ].join("\n");
 
     const ops = this.buildGithubPlanMilestoneOps(mid);
@@ -2138,7 +2225,7 @@ export class GithubBackend implements KataBackend {
       `   - ${sid}-RESEARCH`,
       "   - REQUIREMENTS",
       "   - DECISIONS",
-      "4. If you need raw content, use `gh issue view <number> --repo <owner>/<repo> --json body`.",
+      "4. If you need raw issue content, use `kata_get_issue({ issueId })` (and `kata_read_document(...)` for document artifacts)."
     ].join("\n");
 
     const ops = this.buildGithubPlanSliceOps(sid);

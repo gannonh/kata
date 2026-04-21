@@ -48,6 +48,7 @@ export interface KataIssueRecord {
 export interface KataIssueCommentRecord {
   id: string;
   issueId: string;
+  body?: string | null;
   marker?: string | null;
   action?: "created" | "updated";
   createdAt?: string | null;

@@ -161,6 +161,54 @@ test("loadGithubTrackerConfig validates stateMode and githubProjectNumber", () =
     },
   );
   assert.equal(invalidProjectNumber.diagnostic?.code, "invalid_github_project_number");
+
+  const missingProjectNumber = loadGithubTrackerConfig(
+    undefined,
+    dir,
+    {
+      path: join(dir, ".kata", "preferences.md"),
+      scope: "project",
+      preferences: {
+        workflow: { mode: "github" },
+        github: {
+          repoOwner: "kata-sh",
+          repoName: "kata-mono",
+          stateMode: "projects_v2",
+        },
+      },
+    },
+  );
+  assert.equal(missingProjectNumber.diagnostic?.code, "invalid_github_project_number");
+
+});
+
+test("loadGithubTrackerConfig infers projects_v2 when githubProjectNumber is set", () => {
+  const dir = makeProjectDir();
+
+  const { config, diagnostic } = loadGithubTrackerConfig(
+    undefined,
+    dir,
+    {
+      path: join(dir, ".kata", "preferences.md"),
+      scope: "project",
+      preferences: {
+        workflow: { mode: "github" },
+        github: {
+          repoOwner: "kata-sh",
+          repoName: "kata-mono",
+          githubProjectNumber: 5,
+        },
+      },
+    },
+  );
+
+  assert.equal(diagnostic, null);
+  assert.deepEqual(config, {
+    repoOwner: "kata-sh",
+    repoName: "kata-mono",
+    stateMode: "projects_v2",
+    githubProjectNumber: 5,
+  });
 });
 
 test("resolveGithubToken priority order", () => {

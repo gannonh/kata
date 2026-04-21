@@ -124,10 +124,13 @@ describe("LinearBackend canonical worker operations", () => {
         id: "task-linear-1",
         identifier: "KAT-43",
         title: "[T01] Task",
+        labels: ["kata:task"],
+        updatedAt: "2024-01-02T00:00:00.000Z",
       }],
       comments: [{
         id: "comment-1",
         issueId: "slice-linear-1",
+        body: "<!-- KATA:S01-SUMMARY -->\nsummary",
         marker: "KATA:S01-SUMMARY",
       }],
     });
@@ -182,8 +185,102 @@ describe("LinearBackend canonical worker operations", () => {
     expect(comment).toMatchObject({
       id: "comment-1",
       issueId: "slice-linear-1",
+      body: "<!-- KATA:S01-SUMMARY -->\nupdated summary",
       marker: "KATA:S01-SUMMARY",
       action: "updated",
+    });
+  });
+
+  it("upsertComment updates legacy plain-text marker comments before creating new comments", async () => {
+    const backend = makeBackend();
+    const calls: string[] = [];
+
+    (backend as any).client = {
+      async listIssueComments() {
+        calls.push("list");
+        return [{
+          id: "comment-2",
+          body: "## Agent Workpad\nold body",
+          createdAt: "2024-01-03T00:00:00.000Z",
+          updatedAt: "2024-01-04T00:00:00.000Z",
+          url: "https://linear.app/comment/2",
+        }];
+      },
+      async updateComment(id: string, body: string) {
+        calls.push(`update:${id}`);
+        return {
+          id,
+          body,
+          createdAt: "2024-01-03T00:00:00.000Z",
+          updatedAt: "2024-01-05T00:00:00.000Z",
+          url: "https://linear.app/comment/2",
+        };
+      },
+      async createComment() {
+        calls.push("create");
+        throw new Error("createComment should not be called when legacy marker match exists");
+      },
+    };
+
+    const comment = await backend.upsertComment({
+      issueId: "slice-linear-1",
+      marker: "## Agent Workpad",
+      body: "## Agent Workpad\nnew body",
+    });
+
+    expect(calls).toEqual(["list", "update:comment-2"]);
+    expect(comment).toMatchObject({
+      id: "comment-2",
+      issueId: "slice-linear-1",
+      body: "## Agent Workpad\nnew body",
+      marker: "## Agent Workpad",
+      action: "updated",
+    });
+  });
+
+  it("upsertComment does not match legacy headings that only start with the marker text", async () => {
+    const backend = makeBackend();
+    const calls: string[] = [];
+
+    (backend as any).client = {
+      async listIssueComments() {
+        calls.push("list");
+        return [{
+          id: "comment-3",
+          body: "## Agent Workpad migration notes\nold body",
+          createdAt: "2024-01-03T00:00:00.000Z",
+          updatedAt: "2024-01-04T00:00:00.000Z",
+          url: "https://linear.app/comment/3",
+        }];
+      },
+      async updateComment() {
+        calls.push("update");
+        throw new Error("updateComment should not be called for prefix-only heading matches");
+      },
+      async createComment(_issueId: string, body: string) {
+        calls.push("create");
+        return {
+          id: "comment-4",
+          body,
+          createdAt: "2024-01-03T00:00:00.000Z",
+          updatedAt: "2024-01-05T00:00:00.000Z",
+          url: "https://linear.app/comment/4",
+        };
+      },
+    };
+
+    const comment = await backend.upsertComment({
+      issueId: "slice-linear-1",
+      marker: "## Agent Workpad",
+      body: "## Agent Workpad\nnew body",
+    });
+
+    expect(calls).toEqual(["list", "create"]);
+    expect(comment).toMatchObject({
+      id: "comment-4",
+      issueId: "slice-linear-1",
+      body: "## Agent Workpad\nnew body",
+      action: "created",
     });
   });
 
@@ -332,6 +429,47 @@ describe("LinearBackend canonical worker operations", () => {
         input: { stateId: "human-review" },
       },
     ]);
+  });
+
+  it("updateIssueState allows slices to advance to done under the shared merge contract", async () => {
+    const backend = new LinearBackend("/tmp/test-project", {
+      ...TEST_CONFIG,
+      labelSet: {
+        ...TEST_CONFIG.labelSet,
+        slice: { id: "label-custom-slice", name: "custom:slice", color: "#2563EB", isGroup: false },
+      },
+    });
+
+    (backend as any).client = {
+      async listWorkflowStates() {
+        return [
+          { id: "done", name: "Done", type: "completed", color: "#000", position: 6 },
+        ];
+      },
+      async updateIssue(issueId: string, input: Record<string, unknown>) {
+        return {
+          id: issueId,
+          identifier: "KAT-42",
+          title: "Issue",
+          state: { id: String(input.stateId ?? "done"), name: "Done", type: "completed", color: "#000", position: 6 },
+          labels: [{ id: "label-custom-slice", name: "custom:slice", color: "#2563EB", isGroup: false }],
+          children: { nodes: [] },
+          project: null,
+          projectMilestone: null,
+          parent: null,
+          description: null,
+          createdAt: "2024-01-01T00:00:00.000Z",
+          updatedAt: "2024-01-02T00:00:00.000Z",
+        };
+      },
+    };
+
+    await expect(backend.updateIssueState("issue-1", "done")).resolves.toMatchObject({
+      issueId: "issue-1",
+      phase: "done",
+      stateId: "done",
+      state: "Done",
+    });
   });
 });
 
