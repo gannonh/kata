@@ -185,6 +185,8 @@ export function MessageInput({
         emitSlashDiagnostic('warn', 'SLASH_ACCEPT_NO_SELECTION', {
           key,
           prefix: slashPrefix,
+          selectedIndex,
+          suggestionCount: suggestions.length,
         })
         return
       }
@@ -201,6 +203,8 @@ export function MessageInput({
           key,
           prefix: slashPrefix,
           command: selectedSuggestion.name,
+          selectedIndex,
+          suggestionCount: suggestions.length,
         })
         return
       }
@@ -218,6 +222,8 @@ export function MessageInput({
           key,
           prefix: slashPrefix,
           command: selectedSuggestion.name,
+          selectedIndex,
+          suggestionCount: suggestions.length,
         },
       )
     },

@@ -204,6 +204,8 @@ describe('MessageInput slash acceptance', () => {
       expect.objectContaining({
         code: 'SLASH_ACCEPT_NO_SELECTION',
         key: 'Enter',
+        selectedIndex: 0,
+        suggestionCount: 0,
       }),
     )
   })
