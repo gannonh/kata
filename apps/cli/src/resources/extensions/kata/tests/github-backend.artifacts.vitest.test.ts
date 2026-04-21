@@ -419,7 +419,7 @@ describe("GithubBackend canonical worker operations", () => {
     expect(issue?.labels).not.toContain("kata:merging");
   });
 
-  it("updateIssueState in projects_v2 mode updates project status without label rewrites", async () => {
+  it("updateIssueState in projects_v2 mode updates project status and syncs canonical phase labels", async () => {
     const client = new FakeGithubClient([
       { number: 53, title: "[S05] Projects flow", state: "open", labels: ["kata:slice", "kata:in-progress"] },
     ]);
@@ -442,7 +442,9 @@ describe("GithubBackend canonical worker operations", () => {
 
     const issue = await client.getIssue(53);
     expect(issue?.state).toBe("open");
-    expect(issue?.labels).toEqual(["kata:slice", "kata:in-progress"]);
+    expect(issue?.labels).toContain("kata:slice");
+    expect(issue?.labels).toContain("kata:agent-review");
+    expect(issue?.labels).not.toContain("kata:in-progress");
   });
 
   it("isSlicePlanned falls back to metadata-linked tasks when no sub-issue links exist yet", async () => {

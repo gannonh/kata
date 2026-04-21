@@ -2005,18 +2005,28 @@ export class GithubBackend implements KataBackend {
       throw new Error(`GitHub issue not found: ${issueId}`);
     }
 
-    // Projects v2 mode: mutate the project board Status field directly.
+    const phasePrefix = this.config.labelPrefix.endsWith(":")
+      ? this.config.labelPrefix
+      : `${this.config.labelPrefix}:`;
+    const knownPhaseLabels = new Set(
+      KATA_STATE_LABEL_SUFFIXES.map((suffix) => `${phasePrefix}${suffix}`.toLowerCase()),
+    );
+    const preservedLabels = issue.labels.filter((label) => !knownPhaseLabels.has(label.toLowerCase()));
+    const labelSuffix = stateLabelSuffix(phase);
+    const nextPhaseLabel = `${phasePrefix}${labelSuffix}`;
+    const shouldClose = phase === "done" || phase === "closed";
+    const nextLabels = [...preservedLabels, nextPhaseLabel];
+
+    // Projects v2 mode: mutate the project board Status field directly and keep
+    // canonical phase labels synchronized so label-based state derivation stays accurate.
     if (this.config.stateMode === "projects_v2" && this.config.githubProjectNumber) {
       const displayName = phaseToProjectsV2StatusName(phase);
       const actualStatus = await this.client.updateProjectV2ItemStatus(number, displayName);
 
-      // Also close/reopen the issue if terminal
-      const shouldClose = phase === "done" || phase === "closed";
-      if (shouldClose && issue.state !== "closed") {
-        await this.updateIssue(number, { state: "closed" });
-      } else if (!shouldClose && issue.state !== "open") {
-        await this.updateIssue(number, { state: "open" });
-      }
+      await this.updateIssue(number, {
+        labels: nextLabels,
+        state: shouldClose ? "closed" : "open",
+      });
 
       this.invalidateStateCache();
       return {
@@ -2028,17 +2038,6 @@ export class GithubBackend implements KataBackend {
     }
 
     // Label mode: swap state labels.
-    const phasePrefix = this.config.labelPrefix.endsWith(":") ? this.config.labelPrefix : `${this.config.labelPrefix}:`;
-    const knownPhaseLabels = new Set(
-      KATA_STATE_LABEL_SUFFIXES.map((suffix) => `${phasePrefix}${suffix}`.toLowerCase()),
-    );
-
-    const preservedLabels = issue.labels.filter((label) => !knownPhaseLabels.has(label.toLowerCase()));
-    const labelSuffix = stateLabelSuffix(phase);
-    const nextPhaseLabel = `${phasePrefix}${labelSuffix}`;
-    const shouldClose = phase === "done" || phase === "closed";
-    const nextLabels = [...preservedLabels, nextPhaseLabel];
-
     const updated = await this.updateIssue(number, {
       labels: nextLabels,
       state: shouldClose ? "closed" : "open",
