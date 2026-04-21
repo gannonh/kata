@@ -10,16 +10,19 @@ const __dirname = path.dirname(__filename)
 test.describe('M009 desktop workflow evidence capture', () => {
   test('captures workflow board screenshot after live refresh', async ({ readyWindow, workspaceDir }) => {
     test.skip(!process.env.KATA_M009_EVIDENCE, 'M009 evidence capture runs only in the dedicated acceptance lane.')
-    // Keep the workspace configured for a GitHub tracker to mirror M009 expectations.
+    // Keep the workspace configured for GitHub workflow mode to mirror M009 expectations.
+    mkdirSync(path.join(workspaceDir, '.kata'), { recursive: true })
     writeFileSync(
-      path.join(workspaceDir, 'WORKFLOW.md'),
+      path.join(workspaceDir, '.kata', 'preferences.md'),
       [
         '---',
-        'tracker:',
-        '  kind: github',
-        '  repo_owner: kata-sh',
-        '  repo_name: kata-mono',
-        '  label_prefix: symphony',
+        'workflow:',
+        '  mode: github',
+        'github:',
+        '  repoOwner: kata-sh',
+        '  repoName: kata-mono',
+        '  stateMode: labels',
+        '  labelPrefix: symphony',
         '---',
         '',
       ].join('\n'),

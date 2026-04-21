@@ -170,6 +170,11 @@ fn issue_json_with_metadata(
     html_url: Option<&str>,
 ) -> serde_json::Value {
     let first_assignee = assignees.first().copied().unwrap_or(user_login);
+    let parent_issue_url = body
+        .and_then(parent_issue_number_from_body)
+        .map(|parent_number| {
+            format!("https://api.github.com/repos/kata-sh/kata-mono/issues/{parent_number}")
+        });
 
     json!({
         "number": number,
@@ -182,8 +187,24 @@ fn issue_json_with_metadata(
         "labels": labels.iter().map(|name| json!({ "name": name, "color": "ffffff", "description": null })).collect::<Vec<_>>(),
         "created_at": "2026-03-29T10:00:00Z",
         "updated_at": "2026-03-29T10:30:00Z",
-        "html_url": html_url
+        "html_url": html_url,
+        "parent_issue_url": parent_issue_url,
+        "sub_issues_summary": { "total": 0, "completed": 0, "percent_completed": 0 }
     })
+}
+
+fn parent_issue_number_from_body(body: &str) -> Option<u64> {
+    let marker_index = body.find('#')?;
+    let digits: String = body[marker_index + 1..]
+        .chars()
+        .take_while(|ch| ch.is_ascii_digit())
+        .collect();
+
+    if digits.is_empty() {
+        return None;
+    }
+
+    digits.parse::<u64>().ok()
 }
 
 fn issue_state_json(mut issue: serde_json::Value, state: &str) -> serde_json::Value {
@@ -251,6 +272,50 @@ async fn test_fetch_candidate_issues_returns_matching_issues() {
     assert_eq!(issues[0].identifier, "#1");
     assert_eq!(issues[0].state, "Todo");
     assert_eq!(issues[1].identifier, "#2");
+    assert_eq!(issues[1].state, "In Progress");
+}
+
+#[tokio::test]
+async fn test_fetch_candidate_issues_accepts_trailing_colon_label_prefix() {
+    let mut server = Server::new_async().await;
+
+    let mut config = test_config(None);
+    config.label_prefix = Some("symphony:".to_string());
+    let client = GithubClient::with_base_url(
+        "test-token",
+        "kata-sh",
+        "kata-mono",
+        "symphony",
+        server.url(),
+    );
+    let adapter = GithubAdapter::new(client, config);
+
+    let mock = server
+        .mock("GET", "/repos/kata-sh/kata-mono/issues")
+        .match_query(Matcher::AllOf(vec![
+            Matcher::UrlEncoded("state".into(), "open".into()),
+            Matcher::UrlEncoded("per_page".into(), "100".into()),
+        ]))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            json!([
+                issue_json(1, &["symphony:todo"], "alice", &["alice"], None),
+                issue_json(2, &["symphony:in-progress"], "bob", &["bob"], None)
+            ])
+            .to_string(),
+        )
+        .create_async()
+        .await;
+
+    let issues = adapter
+        .fetch_candidate_issues()
+        .await
+        .expect("fetch_candidate_issues should succeed with trailing-colon label prefix");
+
+    mock.assert_async().await;
+    assert_eq!(issues.len(), 2);
+    assert_eq!(issues[0].state, "Todo");
     assert_eq!(issues[1].state, "In Progress");
 }
 
@@ -566,6 +631,73 @@ async fn test_update_issue_state_swaps_labels() {
     get_mock.assert_async().await;
     remove_mock.assert_async().await;
     add_mock.assert_async().await;
+}
+
+#[tokio::test]
+async fn test_update_issue_state_preserves_prefixed_non_state_labels() {
+    let mut server = Server::new_async().await;
+    let adapter = test_adapter(&server, None);
+
+    let get_mock = server
+        .mock("GET", "/repos/kata-sh/kata-mono/issues/71")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            issue_json(
+                71,
+                &["symphony:todo", "symphony:slice", "bug"],
+                "alice",
+                &["alice"],
+                None,
+            )
+            .to_string(),
+        )
+        .create_async()
+        .await;
+
+    let remove_todo = server
+        .mock(
+            "DELETE",
+            "/repos/kata-sh/kata-mono/issues/71/labels/symphony:todo",
+        )
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body("{}")
+        .create_async()
+        .await;
+
+    let remove_slice = server
+        .mock(
+            "DELETE",
+            "/repos/kata-sh/kata-mono/issues/71/labels/symphony:slice",
+        )
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body("{}")
+        .expect(0)
+        .create_async()
+        .await;
+
+    let add_in_progress = server
+        .mock("POST", "/repos/kata-sh/kata-mono/issues/71/labels")
+        .match_body(Matcher::PartialJson(
+            json!({ "labels": ["symphony:in-progress"] }),
+        ))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body("[]")
+        .create_async()
+        .await;
+
+    adapter
+        .update_issue_state("71", "In Progress")
+        .await
+        .expect("update_issue_state should preserve non-state prefixed labels");
+
+    get_mock.assert_async().await;
+    remove_todo.assert_async().await;
+    remove_slice.assert_async().await;
+    add_in_progress.assert_async().await;
 }
 
 #[tokio::test]
@@ -906,6 +1038,89 @@ async fn test_issue_to_domain_enriches_kata_identifier_and_parent_reference() {
     );
     assert!(issues[0].assigned_to_worker);
     assert!(issues[0].labels.contains(&"kata:task".to_string()));
+}
+
+#[tokio::test]
+async fn test_issue_to_domain_does_not_infer_parent_from_body_without_parent_issue_url() {
+    let mut server = Server::new_async().await;
+    let adapter = test_adapter(&server, None);
+
+    let issue_without_parent_metadata = json!({
+        "number": 98,
+        "title": "[T01] Child task",
+        "body": "**Parent:** #10",
+        "state": "open",
+        "user": { "login": "alice" },
+        "assignee": { "login": "alice" },
+        "assignees": [{ "login": "alice" }],
+        "labels": [{ "name": "symphony:todo", "color": "ffffff", "description": null }],
+        "created_at": "2026-03-29T10:00:00Z",
+        "updated_at": "2026-03-29T10:30:00Z",
+        "html_url": "https://github.com/kata-sh/kata-mono/issues/98",
+        "parent_issue_url": null,
+        "sub_issues_summary": { "total": 0, "completed": 0, "percent_completed": 0 }
+    });
+
+    let mock = server
+        .mock("GET", "/repos/kata-sh/kata-mono/issues")
+        .match_query(Matcher::AllOf(vec![
+            Matcher::UrlEncoded("state".into(), "open".into()),
+            Matcher::UrlEncoded("per_page".into(), "100".into()),
+        ]))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(json!([issue_without_parent_metadata]).to_string())
+        .create_async()
+        .await;
+
+    let issues = adapter
+        .fetch_candidate_issues()
+        .await
+        .expect("fetch_candidate_issues should succeed");
+
+    mock.assert_async().await;
+    assert_eq!(issues.len(), 1);
+    assert!(issues[0].parent_identifier.is_none());
+}
+
+#[tokio::test]
+async fn test_issue_to_domain_maps_sub_issue_summary_total_to_children_count() {
+    let mut server = Server::new_async().await;
+    let adapter = test_adapter(&server, None);
+
+    let mut slice_issue = issue_json_with_metadata(
+        99,
+        "[S01] Slice with tasks",
+        Some("Slice body"),
+        &["symphony:todo", "kata:slice"],
+        "alice",
+        &["alice"],
+        Some("https://github.com/kata-sh/kata-mono/issues/99"),
+    );
+    slice_issue["sub_issues_summary"] =
+        json!({ "total": 7, "completed": 2, "percent_completed": 28 });
+
+    let mock = server
+        .mock("GET", "/repos/kata-sh/kata-mono/issues")
+        .match_query(Matcher::AllOf(vec![
+            Matcher::UrlEncoded("state".into(), "open".into()),
+            Matcher::UrlEncoded("per_page".into(), "100".into()),
+        ]))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(json!([slice_issue]).to_string())
+        .create_async()
+        .await;
+
+    let issues = adapter
+        .fetch_candidate_issues()
+        .await
+        .expect("fetch_candidate_issues should succeed");
+
+    mock.assert_async().await;
+    assert_eq!(issues.len(), 1);
+    assert_eq!(issues[0].identifier, "[S01]#99");
+    assert_eq!(issues[0].children_count, 7);
 }
 
 #[tokio::test]

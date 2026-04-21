@@ -21,7 +21,7 @@ Pay particular attention to **Forward Intelligence** sections — they contain h
 - For dependency handling, perform an explicit post-write readback so `depends:[]` wiring is deterministic on rerun.
 
 Then:
-0. If `REQUIREMENTS.md` was preloaded above, identify which Active requirements the roadmap says this slice owns or supports. These are the requirements this plan must deliver — every owned requirement needs at least one task that directly advances it, and verification must prove the requirement is met.
+0. If the `REQUIREMENTS` artifact was preloaded above, identify which Active requirements the roadmap says this slice owns or supports. These are the requirements this plan must deliver — every owned requirement needs at least one task that directly advances it, and verification must prove the requirement is met.
 1. Read the templates:
    - `~/.kata-cli/agent/extensions/kata/templates/plan.md`
    - `~/.kata-cli/agent/extensions/kata/templates/task-plan.md`

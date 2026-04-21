@@ -212,25 +212,6 @@ async function buildPlanningContext(
   return parts.join("\n");
 }
 
-// ─── Queue ──────────────────────────────────────────────────────────────────
-
-export async function showQueue(
-  ctx: ExtensionCommandContext,
-  _pi: ExtensionAPI,
-  _basePath: string,
-): Promise<void> {
-  const modeGate = getWorkflowEntrypointGuard("queue");
-  if (!modeGate.allow) {
-    ctx.ui.notify(
-      modeGate.notice ?? "Workflow mode is not supported here.",
-      modeGate.noticeLevel,
-    );
-    return;
-  }
-
-  ctx.ui.notify("/kata queue is not yet available in Linear mode.", "warning");
-}
-
 // ─── Discuss ────────────────────────────────────────────────────────────────
 
 async function buildDiscussSlicePrompt(
@@ -400,6 +381,8 @@ export async function showPlan(
   }
 
   const state = await backend.deriveState();
+  const isGithubPlanningMode = modeGate.mode === "github";
+
   if (state.phase === "blocked") {
     ctx.ui.notify(
       `Blocked: ${state.blockers?.join(", ")}. Fix and run /kata plan.`,
@@ -487,17 +470,30 @@ export async function showPlan(
     }
 
     if (choice === "discuss_planning") {
-      dispatchWorkflow(
-        ctx,
-        pi,
-        loadPrompt("guided-discuss-planning", {
-          milestoneId: discussionMilestoneId,
-          milestoneTitle: discussionMilestoneTitle,
-          currentState,
-        }),
-        "kata-plan",
-        "plan",
-      );
+      if (isGithubPlanningMode) {
+        dispatchWorkflow(
+          ctx,
+          pi,
+          backend.buildDiscussPrompt(
+            discussionMilestoneId,
+            `Discuss planning for ${discussionMilestoneId} (${discussionMilestoneTitle}).`,
+          ),
+          "kata-plan",
+          "plan",
+        );
+      } else {
+        dispatchWorkflow(
+          ctx,
+          pi,
+          loadPrompt("guided-discuss-planning", {
+            milestoneId: discussionMilestoneId,
+            milestoneTitle: discussionMilestoneTitle,
+            currentState,
+          }),
+          "kata-plan",
+          "plan",
+        );
+      }
     }
     return;
   }
@@ -537,6 +533,16 @@ export async function showPlan(
     });
 
     if (choice === "plan_milestone_roadmap") {
+      if (isGithubPlanningMode) {
+        const prompt = await backend.buildPrompt("pre-planning", {
+          ...state,
+          phase: "pre-planning",
+          activeTask: null,
+        });
+        dispatchWorkflow(ctx, pi, prompt, "kata-plan", "plan");
+        return;
+      }
+
       dispatchWorkflow(
         ctx,
         pi,
@@ -551,17 +557,27 @@ export async function showPlan(
     }
 
     if (choice === "discuss_planning") {
-      dispatchWorkflow(
-        ctx,
-        pi,
-        loadPrompt("guided-discuss-planning", {
-          milestoneId: mid,
-          milestoneTitle,
-          currentState,
-        }),
-        "kata-plan",
-        "plan",
-      );
+      if (isGithubPlanningMode) {
+        dispatchWorkflow(
+          ctx,
+          pi,
+          backend.buildDiscussPrompt(mid, `Discuss planning for ${mid} (${milestoneTitle}).`),
+          "kata-plan",
+          "plan",
+        );
+      } else {
+        dispatchWorkflow(
+          ctx,
+          pi,
+          loadPrompt("guided-discuss-planning", {
+            milestoneId: mid,
+            milestoneTitle,
+            currentState,
+          }),
+          "kata-plan",
+          "plan",
+        );
+      }
     }
     return;
   }
@@ -606,16 +622,20 @@ export async function showPlan(
           description: `Create and plan ${nextId}.`,
           recommended: true,
         },
-        {
-          id: "add_slice",
-          label: "Add slices to current milestone",
-          description: "Add new slices to this milestone roadmap.",
-        },
-        {
-          id: "revise_roadmap",
-          label: "Revise milestone roadmap",
-          description: "Reshape scope and slice structure.",
-        },
+        ...(!isGithubPlanningMode
+          ? [
+              {
+                id: "add_slice",
+                label: "Add slices to current milestone",
+                description: "Add new slices to this milestone roadmap.",
+              },
+              {
+                id: "revise_roadmap",
+                label: "Revise milestone roadmap",
+                description: "Reshape scope and slice structure.",
+              },
+            ]
+          : []),
         {
           id: "discuss_planning",
           label: "Discuss planning",
@@ -665,17 +685,27 @@ export async function showPlan(
     }
 
     if (choice === "discuss_planning") {
-      dispatchWorkflow(
-        ctx,
-        pi,
-        loadPrompt("guided-discuss-planning", {
-          milestoneId: mid,
-          milestoneTitle,
-          currentState,
-        }),
-        "kata-plan",
-        "plan",
-      );
+      if (isGithubPlanningMode) {
+        dispatchWorkflow(
+          ctx,
+          pi,
+          backend.buildDiscussPrompt(mid, `Discuss planning for ${mid} (${milestoneTitle}).`),
+          "kata-plan",
+          "plan",
+        );
+      } else {
+        dispatchWorkflow(
+          ctx,
+          pi,
+          loadPrompt("guided-discuss-planning", {
+            milestoneId: mid,
+            milestoneTitle,
+            currentState,
+          }),
+          "kata-plan",
+          "plan",
+        );
+      }
     }
     return;
   }
@@ -707,22 +737,27 @@ export async function showPlan(
     });
   }
 
+  if (!isGithubPlanningMode) {
+    actions.push(
+      {
+        id: "add_slice",
+        label: "Add a new slice",
+        description: "Append a new slice to this milestone roadmap.",
+      },
+      {
+        id: "resequence_slices",
+        label: "Resequence slices",
+        description: "Reorder slices and dependencies.",
+      },
+      {
+        id: "revise_roadmap",
+        label: "Revise milestone roadmap",
+        description: "Broader roadmap revision across slices/scope.",
+      },
+    );
+  }
+
   actions.push(
-    {
-      id: "add_slice",
-      label: "Add a new slice",
-      description: "Append a new slice to this milestone roadmap.",
-    },
-    {
-      id: "resequence_slices",
-      label: "Resequence slices",
-      description: "Reorder slices and dependencies.",
-    },
-    {
-      id: "revise_roadmap",
-      label: "Revise milestone roadmap",
-      description: "Broader roadmap revision across slices/scope.",
-    },
     {
       id: "plan_new_milestone",
       label: "Plan new milestone",
@@ -749,6 +784,21 @@ export async function showPlan(
 
   if (choice === "plan_next_unplanned" && unplannedSlices.length > 0) {
     const nextSlice = unplannedSlices[0]!;
+
+    if (isGithubPlanningMode) {
+      const prompt = await backend.buildPrompt("planning", {
+        ...state,
+        phase: "planning",
+        activeSlice: {
+          id: nextSlice.id,
+          title: nextSlice.title,
+        },
+        activeTask: null,
+      });
+      dispatchWorkflow(ctx, pi, prompt, "kata-plan", "plan");
+      return;
+    }
+
     dispatchWorkflow(
       ctx,
       pi,
@@ -784,6 +834,20 @@ export async function showPlan(
 
     const picked = pendingSlices.find((s) => s.id === sliceChoice);
     if (!picked) return;
+
+    if (isGithubPlanningMode) {
+      const prompt = await backend.buildPrompt("planning", {
+        ...state,
+        phase: "planning",
+        activeSlice: {
+          id: picked.id,
+          title: picked.title,
+        },
+        activeTask: null,
+      });
+      dispatchWorkflow(ctx, pi, prompt, "kata-plan", "plan");
+      return;
+    }
 
     dispatchWorkflow(
       ctx,
@@ -854,17 +918,27 @@ export async function showPlan(
   }
 
   if (choice === "discuss_planning") {
-    dispatchWorkflow(
-      ctx,
-      pi,
-      loadPrompt("guided-discuss-planning", {
-        milestoneId: mid,
-        milestoneTitle,
-        currentState,
-      }),
-      "kata-plan",
-      "plan",
-    );
+    if (isGithubPlanningMode) {
+      dispatchWorkflow(
+        ctx,
+        pi,
+        backend.buildDiscussPrompt(mid, `Discuss planning for ${mid} (${milestoneTitle}).`),
+        "kata-plan",
+        "plan",
+      );
+    } else {
+      dispatchWorkflow(
+        ctx,
+        pi,
+        loadPrompt("guided-discuss-planning", {
+          milestoneId: mid,
+          milestoneTitle,
+          currentState,
+        }),
+        "kata-plan",
+        "plan",
+      );
+    }
   }
 }
 
@@ -1243,17 +1317,26 @@ export async function showSmartEntry(
     });
 
     if (choice === "plan") {
-      dispatchWorkflow(
-        ctx,
-        pi,
-        loadPrompt("guided-plan-slice", {
-          milestoneId,
-          sliceId,
-          sliceTitle,
-        }),
-        "kata-run",
-        "smart-entry",
-      );
+      if (modeGate.mode === "github") {
+        const prompt = await backend.buildPrompt("planning", {
+          ...state,
+          phase: "planning",
+          activeTask: null,
+        });
+        dispatchWorkflow(ctx, pi, prompt, "kata-run", "smart-entry");
+      } else {
+        dispatchWorkflow(
+          ctx,
+          pi,
+          loadPrompt("guided-plan-slice", {
+            milestoneId,
+            sliceId,
+            sliceTitle,
+          }),
+          "kata-run",
+          "smart-entry",
+        );
+      }
       return;
     }
 

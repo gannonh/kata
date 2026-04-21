@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useAtomValue } from 'jotai'
+import { useAtomValue, useSetAtom } from 'jotai'
 import {
   type ExtensionUIConfirmRequest,
   type ExtensionUIInputRequest,
@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
+import { isStreamingAtom } from '@/atoms/chat'
 import { permissionModeAtom } from '@/atoms/permissions'
 import { ToolApprovalDialog } from './ToolApprovalDialog'
 
@@ -115,6 +116,7 @@ function getToastBadgeClass(level: ToastItem['level']): string {
 
 export function ExtensionUIHandler() {
   const permissionMode = useAtomValue(permissionModeAtom)
+  const setIsStreaming = useSetAtom(isStreamingAtom)
   const permissionModeRef = useRef(permissionMode)
   const [queue, setQueue] = useState<ExtensionUIRequest[]>([])
   const [activeRequest, setActiveRequest] = useState<ExtensionUIRequest | null>(null)
@@ -190,7 +192,12 @@ export function ExtensionUIHandler() {
           id: request.id,
           method: request.method,
         })
-        void sendResponse(request.id, { cancelled: true })
+        void (async () => {
+          const sent = await sendResponse(request.id, { cancelled: true })
+          if (sent) {
+            setIsStreaming(false)
+          }
+        })()
         return
       }
 
@@ -259,6 +266,7 @@ export function ExtensionUIHandler() {
           return
         }
 
+        setIsStreaming(false)
         pushToast({
           title: 'Request timed out',
           message: `${requestMethod} request expired without input.`,
@@ -382,6 +390,7 @@ export function ExtensionUIHandler() {
                     const requestId = activeSelectRequest.id
                     const sent = await sendResponse(requestId, { cancelled: true })
                     if (sent) {
+                      setIsStreaming(false)
                       setActiveRequest((current) => (current?.id === requestId ? null : current))
                     }
                   })()
@@ -441,6 +450,7 @@ export function ExtensionUIHandler() {
                     const requestId = activeInputRequest.id
                     const sent = await sendResponse(requestId, { cancelled: true })
                     if (sent) {
+                      setIsStreaming(false)
                       setActiveRequest((current) => (current?.id === requestId ? null : current))
                     }
                   })()

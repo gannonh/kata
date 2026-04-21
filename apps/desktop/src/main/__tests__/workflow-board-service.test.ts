@@ -918,9 +918,19 @@ describe('WorkflowBoardService', () => {
 
   test('correlates GitHub board cards with Symphony workers using GitHub issue-number keys', async () => {
     const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-github-correlation-'))
+    mkdirSync(path.join(workspacePath, '.kata'), { recursive: true })
     writeFileSync(
-      path.join(workspacePath, 'WORKFLOW.md'),
-      ['---', 'tracker:', '  kind: github', '  repo_owner: kata-sh', '  repo_name: kata-mono', '---', ''].join('\n'),
+      path.join(workspacePath, '.kata', 'preferences.md'),
+      [
+        '---',
+        'workflow:',
+        '  mode: github',
+        'github:',
+        '  repoOwner: kata-sh',
+        '  repoName: kata-mono',
+        '---',
+        '',
+      ].join('\n'),
       'utf8',
     )
 
@@ -1906,13 +1916,24 @@ describe('WorkflowBoardService', () => {
     expect(response.snapshot.status).toBe('fresh')
   })
 
-  test('uses github labels fixture in test mode when WORKFLOW tracker.kind=github labels', async () => {
+  test('uses github labels fixture in test mode when preferences workflow.mode=github labels', async () => {
     process.env.KATA_TEST_MODE = '1'
 
     const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-github-labels-'))
+    mkdirSync(path.join(workspacePath, '.kata'), { recursive: true })
     writeFileSync(
-      path.join(workspacePath, 'WORKFLOW.md'),
-      ['---', 'tracker:', '  kind: github', '  repo_owner: kata-sh', '  repo_name: kata-mono', '  label_prefix: symphony', '---', ''].join('\n'),
+      path.join(workspacePath, '.kata', 'preferences.md'),
+      [
+        '---',
+        'workflow:',
+        '  mode: github',
+        'github:',
+        '  repoOwner: kata-sh',
+        '  repoName: kata-mono',
+        '  labelPrefix: symphony',
+        '---',
+        '',
+      ].join('\n'),
       'utf8',
     )
 
@@ -1929,13 +1950,24 @@ describe('WorkflowBoardService', () => {
     expect(response.snapshot.status).toBe('fresh')
   })
 
-  test('uses github projects_v2 fixture in test mode when WORKFLOW project number is set', async () => {
+  test('uses github projects_v2 fixture in test mode when githubProjectNumber is set', async () => {
     process.env.KATA_TEST_MODE = '1'
 
     const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-github-projects-'))
+    mkdirSync(path.join(workspacePath, '.kata'), { recursive: true })
     writeFileSync(
-      path.join(workspacePath, 'WORKFLOW.md'),
-      ['---', 'tracker:', '  kind: github', '  repo_owner: kata-sh', '  repo_name: kata-mono', '  github_project_number: 7', '---', ''].join('\n'),
+      path.join(workspacePath, '.kata', 'preferences.md'),
+      [
+        '---',
+        'workflow:',
+        '  mode: github',
+        'github:',
+        '  repoOwner: kata-sh',
+        '  repoName: kata-mono',
+        '  githubProjectNumber: 7',
+        '---',
+        '',
+      ].join('\n'),
       'utf8',
     )
 
@@ -1952,9 +1984,14 @@ describe('WorkflowBoardService', () => {
     expect(response.snapshot.activeMilestone?.name).toContain('GitHub Project')
   })
 
-  test('returns INVALID_CONFIG when WORKFLOW frontmatter is malformed', async () => {
+  test('returns INVALID_CONFIG when github mode is configured without github block', async () => {
     const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-invalid-config-'))
-    writeFileSync(path.join(workspacePath, 'WORKFLOW.md'), '# no frontmatter\n', 'utf8')
+    mkdirSync(path.join(workspacePath, '.kata'), { recursive: true })
+    writeFileSync(
+      path.join(workspacePath, '.kata', 'preferences.md'),
+      ['---', 'workflow:', '  mode: github', '---', ''].join('\n'),
+      'utf8',
+    )
 
     const service = new WorkflowBoardService({
       authBridge: { getApiKey: vi.fn(async () => null) } as never,
@@ -1968,13 +2005,23 @@ describe('WorkflowBoardService', () => {
     expect(response.snapshot.lastError?.code).toBe('INVALID_CONFIG')
   })
 
-  test('refreshContext marks tracker configured for github tracker config', async () => {
+  test('refreshContext marks tracker configured for github preferences config', async () => {
     process.env.KATA_TEST_MODE = '1'
 
     const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-refresh-context-github-'))
+    mkdirSync(path.join(workspacePath, '.kata'), { recursive: true })
     writeFileSync(
-      path.join(workspacePath, 'WORKFLOW.md'),
-      ['---', 'tracker:', '  kind: github', '  repo_owner: kata-sh', '  repo_name: kata-mono', '---', ''].join('\n'),
+      path.join(workspacePath, '.kata', 'preferences.md'),
+      [
+        '---',
+        'workflow:',
+        '  mode: github',
+        'github:',
+        '  repoOwner: kata-sh',
+        '  repoName: kata-mono',
+        '---',
+        '',
+      ].join('\n'),
       'utf8',
     )
 
@@ -1988,9 +2035,8 @@ describe('WorkflowBoardService', () => {
     expect(context.mode).toBe('execution')
   })
 
-  test('returns UNKNOWN when WORKFLOW exists but preferences path is unreadable', async () => {
+  test('returns UNKNOWN when preferences path is unreadable', async () => {
     const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-preferences-unreadable-'))
-    writeFileSync(path.join(workspacePath, 'WORKFLOW.md'), ['---', 'project: demo', '---', ''].join('\n'), 'utf8')
     writeFileSync(path.join(workspacePath, '.kata'), 'not-a-directory', 'utf8')
 
     const service = new WorkflowBoardService({
@@ -2007,7 +2053,6 @@ describe('WorkflowBoardService', () => {
 
   test('treats preferences without frontmatter as not configured', async () => {
     const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-no-frontmatter-'))
-    writeFileSync(path.join(workspacePath, 'WORKFLOW.md'), ['---', 'project: demo', '---', ''].join('\n'), 'utf8')
     mkdirSync(path.join(workspacePath, '.kata'), { recursive: true })
     writeFileSync(path.join(workspacePath, '.kata', 'preferences.md'), 'projectId: demo\n', 'utf8')
 

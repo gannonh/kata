@@ -239,4 +239,56 @@ describe("LinearClient summary queries", () => {
     expect(Array.isArray(summaries[0].labels)).toBe(true);
     expect(summaries[0].labels).toEqual([label]);
   });
+
+  it("listIssueComments paginates through all comment pages", async () => {
+    const client = new LinearClient("test-key", "https://linear.test/graphql");
+    const graphqlCalls: Array<Record<string, unknown> | undefined> = [];
+
+    vi.spyOn(client, "graphql").mockImplementation(async <T>(
+      _query: string,
+      variables?: Record<string, unknown>,
+    ): Promise<T> => {
+      graphqlCalls.push(variables);
+
+      if (!variables?.after) {
+        return {
+          issue: {
+            comments: {
+              nodes: [{
+                id: "comment-1",
+                body: "first page",
+                createdAt: "2024-01-01T00:00:00.000Z",
+                updatedAt: "2024-01-01T00:00:00.000Z",
+                url: "https://linear.app/comment/1",
+              }],
+              pageInfo: { hasNextPage: true, endCursor: "cursor-1" },
+            },
+          },
+        } as T;
+      }
+
+      return {
+        issue: {
+          comments: {
+            nodes: [{
+              id: "comment-2",
+              body: "second page",
+              createdAt: "2024-01-02T00:00:00.000Z",
+              updatedAt: "2024-01-02T00:00:00.000Z",
+              url: "https://linear.app/comment/2",
+            }],
+            pageInfo: { hasNextPage: false, endCursor: null },
+          },
+        },
+      } as T;
+    });
+
+    const comments = await client.listIssueComments("issue-1");
+
+    expect(comments.map((comment) => comment.id)).toEqual(["comment-1", "comment-2"]);
+    expect(graphqlCalls).toEqual([
+      { id: "issue-1", after: undefined },
+      { id: "issue-1", after: "cursor-1" },
+    ]);
+  });
 });

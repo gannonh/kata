@@ -1,57 +1,62 @@
 ## Your job: Address PR feedback
 
-The issue is in `Agent Review`. A PR must exist for the current branch. Your job is to read all PR comments, address each one, push fixes, and move to `Human Review` when all feedback has been addressed.
+The issue is in `Agent Review`. A PR must exist for the current branch. Read all PR feedback, address actionable items, rerun validation, and move to `Human Review` only when the review bar is satisfied.
+
+## Canonical tracker contract (required)
+
+Use only backend-neutral tracker/artifact/state operations:
+- `kata_get_issue`
+- `kata_list_tasks`
+- `kata_read_document`
+- `kata_upsert_comment`
+- `kata_update_issue_state`
+- `kata_create_followup_issue`
 
 ## PR existence preflight (required)
 
-Before reading any comments, verify there is an open PR for the current branch:
-
+Before review work:
 - `git ls-remote --exit-code --heads origin "$(git branch --show-current)"`
 - `gh pr view --json url,state,headRefName,baseRefName`
 
-If no open PR exists for the current branch, do **not** continue the review workflow. Record the blocker in the workpad, move the issue back to `In Progress`, and stop.
+If no open PR exists for current branch:
+1. Upsert blocker in `## Agent Workpad`.
+2. Move issue back to execution with:
+   `kata_update_issue_state({ issueId: "<current-issue-id>", phase: "in-progress" })`.
+3. Stop.
 
-Read `.agents/skills/sym-address-comments/SKILL.md` if available and follow its steps.
+## Feedback sweep protocol
 
-### PR feedback sweep protocol
+Read `.agents/skills/sym-address-comments/SKILL.md` and execute it.
 
-1. Identify the PR number from issue links/attachments.
-2. Gather feedback from all channels:
-   - Top-level PR comments (`gh pr view --comments`).
-   - Inline review comments (`gh api repos/<owner>/<repo>/pulls/<pr>/comments`).
-   - Review summaries/states (`gh pr view --json reviews`).
-3. Treat every actionable reviewer comment (human or bot), including inline review comments, as blocking until one of these is true:
-   - Code/test/docs updated to address it, **or**
-   - Explicit, justified pushback reply posted on that thread.
-4. Update the workpad plan/checklist (using the Workpad search protocol from `prompts/system.md`) to include each feedback item and its resolution status.
-5. Re-run validation after feedback-driven changes and push updates.
-6. Repeat until there are no outstanding actionable comments.
+1. Enumerate all actionable feedback from:
+   - PR conversation comments
+   - Inline review threads
+   - Review summaries / requested changes
+2. Treat each actionable thread as blocking until either:
+   - code/docs/tests updated to address it, or
+   - explicit justified pushback reply is posted.
+3. Update `## Agent Workpad` checklist with each feedback item + resolution status.
+4. Re-run validation after feedback-driven changes.
+5. Push updates to same branch/PR.
 
-### No comments yet — do NOT advance
+## No feedback yet — do NOT advance
 
-If there are **zero** PR comments and **zero** reviews, it means reviewers haven't had time to look at the PR yet. This is normal — review agents or humans may still be spinning up.
+If there are zero reviews/comments, keep issue in `Agent Review` and stop without state change.
 
-**Do NOT move to `Human Review` when there are no comments.** Leave the issue in `Agent Review`. The orchestrator will dispatch another session later when comments arrive. End the turn without changing state.
+## CI gate
 
-### CI check gate
+Checks must be green on latest commit.
+If CI fails, run `.agents/skills/sym-fix-ci/SKILL.md`, fix failures, and re-run proofs.
 
-- Confirm PR checks are passing (green) after the latest changes.
-- If CI fails, read `.agents/skills/sym-fix-ci/SKILL.md` and follow its steps to diagnose and fix.
+## State transitions
 
-### State transition
+- If all actionable feedback is resolved and checks are green:
+  `kata_update_issue_state({ issueId: "<current-issue-id>", phase: "human-review" })`.
+- If PR missing for current branch: upsert blocker in workpad and move back to execution:
+  `kata_update_issue_state({ issueId: "<current-issue-id>", phase: "in-progress" })`.
 
-Move to `Human Review` only when **all** of these are true:
+## Guardrails
 
-- At least one review or comment exists on the PR (someone has actually reviewed it)
-- No unresolved actionable PR comments remain
-- PR checks are green
-- Workpad reflects completed status
-
-If no reviews or comments exist yet, **do not change state**. End the turn and let the orchestrator retry later.
-
-### Guardrails
-
-- Do not start new implementation work — only address existing feedback.
-- If review feedback rejects the entire approach, move to `Rework` instead of `Human Review`.
-- Push to the existing branch; do not create a new PR.
-- Do not treat "no comments" as "all comments addressed" — those are different states.
+- Do not start unrelated implementation work.
+- Push to existing branch; do not create a new PR.
+- Do not treat "no comments yet" as "all comments resolved".

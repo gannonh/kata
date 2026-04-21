@@ -21,6 +21,12 @@ const EXPECTED_PREFS_KEYS = [
   "linear.teamKey",
   "linear.projectSlug",
   "linear.teamId",
+  // GitHub
+  "github.repoOwner",
+  "github.repoName",
+  "github.stateMode",
+  "github.githubProjectNumber",
+  "github.labelPrefix",
   // PR
   "pr.enabled",
   "pr.auto_create",
@@ -52,8 +58,8 @@ const EXPECTED_PREFS_KEYS = [
 ];
 
 describe("PREFS_SECTION_DEFINITIONS", () => {
-  it("contains exactly 8 sections", () => {
-    expect(PREFS_SECTION_DEFINITIONS).toHaveLength(8);
+  it("contains exactly 9 sections", () => {
+    expect(PREFS_SECTION_DEFINITIONS).toHaveLength(9);
   });
 
   it("has all expected section keys", () => {
@@ -62,6 +68,7 @@ describe("PREFS_SECTION_DEFINITIONS", () => {
       "general",
       "workflow",
       "linear",
+      "github",
       "pr",
       "models",
       "symphony",
@@ -162,13 +169,14 @@ describe("field types", () => {
 });
 
 describe("buildPreferencesModel", () => {
-  it("returns a model with 8 sections from empty config", () => {
+  it("returns a model with 9 sections from empty config", () => {
     const model = buildPreferencesModel({});
-    expect(model.sections).toHaveLength(8);
+    expect(model.sections).toHaveLength(9);
     expect(model.sections.map((s) => s.key)).toEqual([
       "general",
       "workflow",
       "linear",
+      "github",
       "pr",
       "models",
       "symphony",
@@ -184,6 +192,7 @@ describe("buildPreferencesModel", () => {
       budget_ceiling: 50,
       workflow: { mode: "linear" },
       linear: { teamKey: "KAT", projectSlug: "abc123" },
+      github: { repoOwner: "kata-sh", repoName: "kata-mono", stateMode: "labels", labelPrefix: "kata:" },
       pr: { enabled: true, auto_create: false, base_branch: "main" },
       models: { research: "claude-sonnet-4-6", planning: "claude-opus-4-6" },
       symphony: { url: "http://localhost:8080", console_position: "below-output" },
@@ -211,6 +220,12 @@ describe("buildPreferencesModel", () => {
     const linear = model.sections.find((s) => s.key === "linear")!;
     expect(linear.fields.find((f) => f.key === "teamKey")?.value).toBe("KAT");
     expect(linear.fields.find((f) => f.key === "projectSlug")?.value).toBe("abc123");
+
+    // Check GitHub section
+    const github = model.sections.find((s) => s.key === "github")!;
+    expect(github.fields.find((f) => f.key === "repoOwner")?.value).toBe("kata-sh");
+    expect(github.fields.find((f) => f.key === "repoName")?.value).toBe("kata-mono");
+    expect(github.fields.find((f) => f.key === "stateMode")?.value).toBe("labels");
 
     // Check PR section
     const pr = model.sections.find((s) => s.key === "pr")!;

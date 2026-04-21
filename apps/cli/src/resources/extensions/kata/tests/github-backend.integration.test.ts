@@ -7,15 +7,14 @@ import test from "node:test";
 
 import { createBackend } from "../backend-factory.ts";
 
-function makeWorkspace(contents: { workflow: string; prefs?: string }): string {
+function makeWorkspace(contents: { github: string; prefs?: string }): string {
   const dir = mkdtempSync(join(tmpdir(), "kata-github-backend-"));
   mkdirSync(join(dir, ".kata"), { recursive: true });
   writeFileSync(
     join(dir, ".kata", "preferences.md"),
-    contents.prefs ?? "---\nworkflow:\n  mode: github\n---\n",
+    contents.prefs ?? `---\nworkflow:\n  mode: github\n${contents.github}\n---\n`,
     "utf-8",
   );
-  writeFileSync(join(dir, "WORKFLOW.md"), contents.workflow, "utf-8");
   return dir;
 }
 
@@ -172,18 +171,14 @@ function startSlowGithubServer(delayMs: number): Promise<{ server: Server; baseU
   });
 }
 
-const WORKFLOW = `---
-tracker:
-  kind: github
-  repo_owner: acme
-  repo_name: demo
-  label_prefix: kata:
----
-# Workflow
+const GITHUB = `github:
+  repoOwner: acme
+  repoName: demo
+  labelPrefix: kata:
 `;
 
 test("createBackend boots GitHub mode and derives active refs", async () => {
-  const workspace = makeWorkspace({ workflow: WORKFLOW });
+  const workspace = makeWorkspace({ github: GITHUB });
   const { server, baseUrl } = await startMockGithubServer();
 
   try {
@@ -217,7 +212,7 @@ test("createBackend boots GitHub mode and derives active refs", async () => {
 });
 
 test("createBackend returns actionable diagnostics when GitHub token is missing", async () => {
-  const workspace = makeWorkspace({ workflow: WORKFLOW });
+  const workspace = makeWorkspace({ github: GITHUB });
 
   try {
     await withEnv(
@@ -248,7 +243,7 @@ test("createBackend returns actionable diagnostics when GitHub token is missing"
 });
 
 test("createBackend fetches beyond 10 pages when GitHub issues exceed 1000", async () => {
-  const workspace = makeWorkspace({ workflow: WORKFLOW });
+  const workspace = makeWorkspace({ github: GITHUB });
   const { server, baseUrl } = await startDeepPaginationMockGithubServer();
 
   try {
@@ -274,7 +269,7 @@ test("createBackend fetches beyond 10 pages when GitHub issues exceed 1000", asy
 });
 
 test("createBackend surfaces timeout diagnostics when GitHub API calls hang", async () => {
-  const workspace = makeWorkspace({ workflow: WORKFLOW });
+  const workspace = makeWorkspace({ github: GITHUB });
   const { server, baseUrl } = await startSlowGithubServer(150);
 
   try {
@@ -317,15 +312,7 @@ test("runtime smoke: GitHub backend derives state against real GitHub API when t
   }
 
   const workspace = makeWorkspace({
-    workflow: `---
-tracker:
-  kind: github
-  repo_owner: gannonh
-  repo_name: kata
-  label_prefix: kata:
----
-# Runtime smoke
-`,
+    github: `github:\n  repoOwner: gannonh\n  repoName: kata\n  labelPrefix: kata:\n`,
   });
 
   try {

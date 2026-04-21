@@ -101,8 +101,6 @@ describe("workflow mode switching", () => {
       expect(guard.allow, `${entrypoint}: allow`).toBe(true);
     }
 
-    const queue = getWorkflowEntrypointGuard("queue", loaded);
-    expect(queue.allow, "queue remains blocked until Linear support lands").toBe(false);
   });
 
   it("github mode entrypoint guards allow supported entrypoints", () => {
@@ -122,10 +120,6 @@ describe("workflow mode switching", () => {
       expect(guard.isLinearMode, `${entrypoint}: isLinearMode`).toBe(false);
       expect(guard.allow, `${entrypoint}: allow`).toBe(true);
     }
-
-    const queue = getWorkflowEntrypointGuard("queue", loaded);
-    expect(queue.mode, "queue: mode").toBe("github");
-    expect(queue.allow, "queue blocked in github mode").toBe(false);
 
     const plan = getWorkflowEntrypointGuard("plan", loaded);
     expect(plan.mode, "plan: mode").toBe("github");

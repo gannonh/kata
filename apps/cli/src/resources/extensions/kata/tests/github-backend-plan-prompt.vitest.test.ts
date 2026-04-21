@@ -24,6 +24,12 @@ const NOOP_CLIENT: GithubBackendClient = {
   async updateIssue() {
     throw new Error("not expected");
   },
+  async listSubIssueNumbers() {
+    return [];
+  },
+  async addSubIssue() {
+    throw new Error("not expected");
+  },
 };
 
 function makeState(overrides: Partial<KataState> = {}): KataState {
@@ -49,6 +55,9 @@ describe("GithubBackend planning prompts", () => {
     expect(prompt).toMatch(/Idempotency check/i);
     expect(prompt).toMatch(/depends:\[/i);
     expect(prompt).toMatch(/dependency metadata/i);
+    expect(prompt).toMatch(/never use `linear_\*` tools/i);
+    expect(prompt).toMatch(/Use backend-aware `kata_\*` tools as the primary write path/i);
+    expect(prompt).toMatch(/Never read local `\.kata\/\*\.md` planning files/i);
   });
 
   it("plan slice prompt requires deterministic dependency readback and task upserts", async () => {
@@ -59,5 +68,7 @@ describe("GithubBackend planning prompts", () => {
     expect(prompt).toMatch(/existing task issues/i);
     expect(prompt).toMatch(/dependency readback/i);
     expect(prompt).toMatch(/stable IDs/i);
+    expect(prompt).toMatch(/Do not read\/write local `\.kata\/\*\.md` planning files/i);
+    expect(prompt).toMatch(/Link every task to the slice via real GitHub sub-issue relationships/i);
   });
 });

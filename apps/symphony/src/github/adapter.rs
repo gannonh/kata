@@ -4,8 +4,7 @@ use async_trait::async_trait;
 use tokio::sync::OnceCell;
 
 use crate::domain::{
-    canonical_kata_phase_name, parse_kata_identifier, parse_parent_issue_reference, Issue,
-    TrackerConfig, KATA_PHASE_NAMES,
+    canonical_kata_phase_name, parse_kata_identifier, Issue, TrackerConfig, KATA_PHASE_NAMES,
 };
 use crate::error::{Result, SymphonyError};
 use crate::github::client::{GithubClient, GithubIssue};
@@ -96,18 +95,22 @@ impl GithubAdapter {
         }
     }
 
-    fn state_prefix(&self) -> &str {
-        self.config
+    fn state_prefix(&self) -> String {
+        let raw = self
+            .config
             .label_prefix
             .as_deref()
-            .unwrap_or(self.client.label_prefix.as_str())
+            .unwrap_or(self.client.label_prefix.as_str());
+        normalize_label_prefix(raw)
     }
 
     fn issue_to_domain_with_state(&self, gh: &GithubIssue, state_override: Option<&str>) -> Issue {
+        let state_prefix = self.state_prefix();
+        let recognizable_states = self.recognizable_state_set();
         let state = state_override
             .map(normalize_state_for_display)
             .unwrap_or_else(|| {
-                extract_state_from_labels(&gh.labels, self.state_prefix())
+                extract_state_from_labels(&gh.labels, &state_prefix, Some(&recognizable_states))
                     .map(|(_, display)| display)
                     .unwrap_or_default()
             });
@@ -138,7 +141,17 @@ impl GithubAdapter {
             format!("#{}", gh.number)
         };
 
-        let parent_identifier = gh.body.as_deref().and_then(parse_parent_issue_reference);
+        let parent_identifier = gh
+            .parent_issue_url
+            .as_deref()
+            .and_then(parse_issue_number_from_url)
+            .map(|number| format!("#{number}"));
+
+        let children_count = gh
+            .sub_issues_summary
+            .as_ref()
+            .map(|summary| summary.total)
+            .unwrap_or(0);
 
         Issue {
             id: gh.number.to_string(),
@@ -155,7 +168,7 @@ impl GithubAdapter {
             assigned_to_worker: self.assigned_to_worker(gh),
             created_at: gh.created_at,
             updated_at: gh.updated_at,
-            children_count: 0,
+            children_count,
             parent_identifier,
         }
     }
@@ -170,6 +183,36 @@ impl GithubAdapter {
             .iter()
             .map(|state| normalize_state_for_label(state))
             .collect()
+    }
+
+    fn configured_state_set(&self) -> HashSet<String> {
+        self.config
+            .active_states
+            .iter()
+            .chain(self.config.terminal_states.iter())
+            .map(|state| normalize_state_for_label(state))
+            .collect()
+    }
+
+    fn recognizable_state_set(&self) -> HashSet<String> {
+        let mut states = self.configured_state_set();
+        for state in [
+            "backlog",
+            "todo",
+            "in progress",
+            "agent review",
+            "human review",
+            "merging",
+            "rework",
+            "planning",
+            "executing",
+            "verifying",
+            "done",
+            "closed",
+        ] {
+            states.insert(normalize_state_for_label(state));
+        }
+        states
     }
 
     fn assignee_filter(&self) -> Option<String> {
@@ -275,6 +318,7 @@ impl GithubAdapter {
         let issues = self.client.list_issues("open", &[]).await?;
         let allowed_states = self.candidate_state_set();
         let assignee_filter = self.assignee_filter();
+        let state_prefix = self.state_prefix();
 
         let filtered = issues
             .iter()
@@ -288,7 +332,7 @@ impl GithubAdapter {
                 }
 
                 let Some((normalized_state, _)) =
-                    extract_state_from_labels(&issue.labels, self.state_prefix())
+                    extract_state_from_labels(&issue.labels, &state_prefix, Some(&allowed_states))
                 else {
                     tracing::warn!(
                         issue_number = issue.number,
@@ -384,6 +428,7 @@ impl GithubAdapter {
             .iter()
             .map(|state| normalize_state_for_label(state))
             .collect();
+        let state_prefix = self.state_prefix();
 
         let filtered = issues
             .iter()
@@ -396,7 +441,7 @@ impl GithubAdapter {
                     return false;
                 }
 
-                extract_state_from_labels(&issue.labels, self.state_prefix())
+                extract_state_from_labels(&issue.labels, &state_prefix, Some(&state_filters))
                     .map(|(normalized, _)| state_filters.contains(&normalized))
                     .unwrap_or(false)
             })
@@ -668,11 +713,19 @@ impl TrackerAdapter for GithubAdapter {
                 let prefix = self.state_prefix();
 
                 let marker = format!("{}:", prefix.to_ascii_lowercase());
+                let recognizable_states = self.recognizable_state_set();
                 let old_labels: Vec<String> = issue
                     .labels
                     .iter()
                     .filter_map(|label| {
-                        if label.name.to_ascii_lowercase().starts_with(&marker) {
+                        let lower = label.name.to_ascii_lowercase();
+                        if !lower.starts_with(&marker) {
+                            return None;
+                        }
+
+                        let (_, raw_suffix) = label.name.split_once(':')?;
+                        let normalized = normalize_state_for_label(raw_suffix.trim());
+                        if recognizable_states.contains(&normalized) {
                             Some(label.name.clone())
                         } else {
                             None
@@ -716,26 +769,66 @@ impl TrackerAdapter for GithubAdapter {
     }
 }
 
+fn normalize_label_prefix(prefix: &str) -> String {
+    let normalized = prefix.trim().trim_end_matches(':');
+    if normalized.is_empty() {
+        "symphony".to_string()
+    } else {
+        normalized.to_string()
+    }
+}
+
+fn parse_issue_number_from_url(url: &str) -> Option<u64> {
+    let trimmed = url.trim().trim_end_matches('/');
+    let segment = trimmed.rsplit('/').next()?;
+    let segment = segment.split(&['?', '#'][..]).next()?;
+    segment.parse::<u64>().ok()
+}
+
 fn extract_state_from_labels(
     labels: &[crate::github::client::GithubLabel],
     prefix: &str,
+    accepted_states: Option<&HashSet<String>>,
 ) -> Option<(String, String)> {
     let marker = format!("{}:", prefix.to_ascii_lowercase());
+    let mut first_prefixed_label: Option<(String, String)> = None;
 
-    labels.iter().find_map(|label| {
+    for label in labels {
         let lower = label.name.to_ascii_lowercase();
         if !lower.starts_with(&marker) {
-            return None;
+            continue;
         }
 
-        let raw_state = label.name.split_once(':')?.1.trim();
+        let Some((_, raw_suffix)) = label.name.split_once(':') else {
+            continue;
+        };
+        let raw_state = raw_suffix.trim();
         if raw_state.is_empty() {
-            return None;
+            continue;
         }
 
         let normalized = normalize_state_for_label(raw_state);
-        Some((normalized.clone(), denormalize_label_state(&normalized)))
-    })
+        let display = denormalize_label_state(&normalized);
+
+        if first_prefixed_label.is_none() {
+            first_prefixed_label = Some((normalized.clone(), display.clone()));
+        }
+
+        if accepted_states
+            .map(|states| states.contains(&normalized))
+            .unwrap_or(true)
+        {
+            return Some((normalized, display));
+        }
+    }
+
+    // If no explicit accepted-state set was provided, keep backwards-compatible
+    // behavior: treat the first prefixed label as state-like metadata.
+    if accepted_states.is_none() {
+        return first_prefixed_label;
+    }
+
+    None
 }
 
 fn issue_matches_assignee(issue: &GithubIssue, expected: &str) -> bool {

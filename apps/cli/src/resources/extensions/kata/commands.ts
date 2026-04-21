@@ -14,7 +14,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { KataState } from "./types.js";
 import { KataDashboardOverlay } from "./dashboard-overlay.js";
-import { showSmartEntry, showQueue, showDiscuss, showPlan } from "./guided-flow.js";
+import { showSmartEntry, showDiscuss, showPlan } from "./guided-flow.js";
 import { startAuto, stopAuto, isAutoActive, isAutoPaused, setStepActive } from "./auto.js";
 import type { KataBackend } from "./backend.js";
 import { createBackend } from "./backend-factory.js";
@@ -162,7 +162,9 @@ export async function buildPrefsStatusReport(
   let resolvedMode: string = workflowMode;
 
   if (isGithubMode) {
-    const githubValidation = deps.validateGithubConfig();
+    const githubValidation = deps.validateGithubConfig({
+      loadedPreferences: effective,
+    });
     backendStatusLines = formatGithubConfigStatus(githubValidation).lines;
     backendValidationOk = githubValidation.ok;
     resolvedMode = githubValidation.mode;
@@ -257,7 +259,7 @@ function describeSkillResolution(
 export function registerKataCommand(pi: ExtensionAPI): void {
   pi.registerCommand("kata", {
     description:
-      "Kata — Kata Workflow: /kata step|auto|stop|status|queue|discuss|plan|config|prefs|pr",
+      "Kata — Kata Workflow: /kata step|auto|stop|status|discuss|plan|config|prefs|pr",
 
     getArgumentCompletions: (prefix: string) => {
       const subcommands = [
@@ -265,7 +267,6 @@ export function registerKataCommand(pi: ExtensionAPI): void {
         "auto",
         "stop",
         "status",
-        "queue",
         "discuss",
         "plan",
         "config",
@@ -340,12 +341,6 @@ export function registerKataCommand(pi: ExtensionAPI): void {
         return;
       }
 
-      if (trimmed === "queue") {
-        const cwd = process.cwd();
-        if (!await ensureOnboarding(ctx, cwd)) return;
-        await showQueue(ctx, pi, cwd);
-        return;
-      }
 
       if (trimmed === "discuss") {
         const cwd = process.cwd();
@@ -462,7 +457,7 @@ export function registerKataCommand(pi: ExtensionAPI): void {
       }
 
       ctx.ui.notify(
-        `Unknown: /kata ${trimmed}. Use /kata step, /kata auto, /kata stop, /kata status, /kata queue, /kata discuss, /kata plan, /kata config, /kata prefs [global|project|status], or /kata pr [status|create|review|address|merge].`,
+        `Unknown: /kata ${trimmed}. Use /kata step, /kata auto, /kata stop, /kata status, /kata discuss, /kata plan, /kata config, /kata prefs [global|project|status], or /kata pr [status|create|review|address|merge].`,
         "warning",
       );
     },

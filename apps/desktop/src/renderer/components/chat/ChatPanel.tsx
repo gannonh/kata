@@ -64,6 +64,7 @@ export function ChatPanel() {
   const appendUserMessage = useSetAtom(appendUserMessageAtom)
   const applyChatEvent = useSetAtom(applyChatEventAtom)
   const applyBridgeStatus = useSetAtom(applyBridgeStatusAtom)
+  const setIsStreaming = useSetAtom(isStreamingAtom)
   const refreshSessions = useSetAtom(refreshSessionListAtom)
 
   const scrollRef = useRef<HTMLDivElement | null>(null)
@@ -218,7 +219,7 @@ export function ChatPanel() {
             Unable to load session history: {sessionHistoryError}
           </div>
         )}
-        <MessageList messages={messages} tools={tools} />
+        <MessageList messages={messages} tools={tools} isStreaming={isStreaming} />
       </div>
 
       <MessageInput
@@ -232,6 +233,7 @@ export function ChatPanel() {
         )}
         onSubmit={async (value) => {
           appendUserMessage(value)
+          setIsStreaming(true)
 
           try {
             await window.api.sendMessage(value)

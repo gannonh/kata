@@ -24,8 +24,13 @@ beforeAll(() => {
   }
 })
 
+const originalInnerWidth = window.innerWidth
+const originalInnerHeight = window.innerHeight
+
 afterEach(() => {
   cleanup()
+  Object.defineProperty(window, 'innerWidth', { value: originalInnerWidth, configurable: true })
+  Object.defineProperty(window, 'innerHeight', { value: originalInnerHeight, configurable: true })
 })
 
 const SUGGESTIONS: SlashCommandEntry[] = [
@@ -118,5 +123,87 @@ describe('CommandSuggestionDropdown', () => {
 
     expect(onSelect).toHaveBeenCalledTimes(1)
     expect(onSelect).toHaveBeenCalledWith(SUGGESTIONS[1])
+  })
+
+  test('repositions above the composer when there is insufficient space below', () => {
+    Object.defineProperty(window, 'innerHeight', { value: 300, configurable: true })
+
+    const anchorRef = createRef<HTMLDivElement>()
+
+    render(
+      <>
+        <div ref={anchorRef} data-testid="anchor" />
+        <CommandSuggestionDropdown
+          suggestions={SUGGESTIONS}
+          selectedIndex={0}
+          isOpen
+          onSelect={() => {}}
+          anchorRef={anchorRef}
+        />
+      </>,
+    )
+
+    const anchor = screen.getByTestId('anchor')
+    Object.defineProperty(anchor, 'getBoundingClientRect', {
+      value: () => ({
+        x: 16,
+        y: 250,
+        top: 250,
+        left: 16,
+        bottom: 290,
+        right: 336,
+        width: 320,
+        height: 40,
+        toJSON: () => ({}),
+      }),
+      configurable: true,
+    })
+
+    fireEvent(window, new Event('resize'))
+
+    const dropdown = screen.getByTestId('command-suggestion-dropdown')
+    expect(dropdown.className).toContain('-translate-y-full')
+  })
+
+  test('clamps dropdown to viewport width and margin', () => {
+    Object.defineProperty(window, 'innerWidth', { value: 320, configurable: true })
+    Object.defineProperty(window, 'innerHeight', { value: 900, configurable: true })
+
+    const anchorRef = createRef<HTMLDivElement>()
+
+    render(
+      <>
+        <div ref={anchorRef} data-testid="anchor" />
+        <CommandSuggestionDropdown
+          suggestions={SUGGESTIONS}
+          selectedIndex={0}
+          isOpen
+          onSelect={() => {}}
+          anchorRef={anchorRef}
+        />
+      </>,
+    )
+
+    const anchor = screen.getByTestId('anchor')
+    Object.defineProperty(anchor, 'getBoundingClientRect', {
+      value: () => ({
+        x: 4,
+        y: 100,
+        top: 100,
+        left: 4,
+        bottom: 140,
+        right: 504,
+        width: 500,
+        height: 40,
+        toJSON: () => ({}),
+      }),
+      configurable: true,
+    })
+
+    fireEvent(window, new Event('resize'))
+
+    const dropdown = screen.getByTestId('command-suggestion-dropdown') as HTMLDivElement
+    expect(dropdown.style.width).toBe('304px')
+    expect(dropdown.style.left).toBe('8px')
   })
 })

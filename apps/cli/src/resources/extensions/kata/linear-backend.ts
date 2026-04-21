@@ -16,6 +16,15 @@ import type {
   DashboardData,
   PrContext,
   OpsBlock,
+  KataCommentUpsertInput,
+  KataFollowupIssueInput,
+  KataIssueCommentRecord,
+  KataIssueDetailRecord,
+  KataIssueRecord,
+  KataIssueStateUpdateResult,
+  KataMilestoneRecord,
+  KataWorkflowPhase,
+  KataIssueStatePhase,
 } from "./backend.js";
 import type { KataState, Phase } from "./types.js";
 
@@ -26,8 +35,17 @@ import {
   writeKataDocument,
   listKataDocuments,
 } from "../linear/linear-documents.js";
-import { listKataMilestones, listKataSlices, parseKataEntityTitle } from "../linear/linear-entities.js";
-import type { DocumentAttachment, LinearComment } from "../linear/linear-types.js";
+import {
+  createKataMilestone,
+  createKataSlice,
+  createKataTask,
+  getLinearStateForKataPhase,
+  listKataMilestones,
+  listKataSlices,
+  listKataTasks,
+  parseKataEntityTitle,
+} from "../linear/linear-entities.js";
+import type { DocumentAttachment, KataLabelSet, LinearComment, LinearWorkflowState } from "../linear/linear-types.js";
 import { ensureGitignore } from "./gitignore.js";
 import { loadPrompt } from "./prompt-loader.js";
 import { buildSkillDiscoveryVars } from "./preferences.js";
@@ -35,7 +53,7 @@ import { resolveGitRoot, ensureGitRepo } from "./git-utils.js";
 
 // ─── Prompt Constants ─────────────────────────────────────────────────────────
 
-const HARD_RULE = `Hard rule: In Linear mode, never use bash/read/find/rg/git to locate workflow artifacts. Milestone-level artifacts (M001-ROADMAP, M001-CONTEXT, M001-RESEARCH, M001-SUMMARY, PROJECT, REQUIREMENTS, DECISIONS) are LinearDocuments via kata_read_document/kata_write_document with { projectId }. Slice/task plans live in issue descriptions (slice issue + task sub-issue), read/write them via linear_get_issue / linear_update_issue or kata_create_slice / kata_create_task description fields. Backward compatibility: if a slice/task plan description is empty, fall back to legacy S01-PLAN/T01-PLAN docs via kata_read_document. Slice/task summaries are issue comments via linear_add_comment. List tools are for discovery; get tools are for full issue bodies. For Kata planning and milestone-scoped slice lookup, do NOT use linear_list_issues; it returns full issue payloads and can blow context. Use kata_list_slices({ projectId, teamId, milestoneId }) / kata_list_tasks({ sliceIssueId }) to enumerate, then linear_get_issue(id) for the specific issue you need.`;
+const HARD_RULE = `Hard rule: In Linear mode, never use bash/read/find/rg/git to locate workflow artifacts. Milestone-level artifacts (M001-ROADMAP, M001-CONTEXT, M001-RESEARCH, M001-SUMMARY, PROJECT, REQUIREMENTS, DECISIONS) are LinearDocuments via kata_read_document/kata_write_document with { projectId }. Read issue content through kata_get_issue (not linear_get_issue) and write summaries through kata_upsert_comment. Slice/task plans live in issue descriptions (slice issue + task sub-issue); create them with kata_create_slice / kata_create_task description fields, and update existing descriptions with linear_update_issue only when a backend-neutral update path is unavailable. Backward compatibility: if a slice/task plan description is empty, fall back to legacy S01-PLAN/T01-PLAN docs via kata_read_document. List tools are for discovery; get tools are for full issue bodies. For Kata planning and milestone-scoped slice lookup, do NOT use linear_list_issues; it returns full issue payloads and can blow context. Use kata_list_slices({ projectId, teamId, milestoneId }) / kata_list_tasks({ sliceIssueId }) to enumerate, then kata_get_issue({ issueId }) for the specific issue you need.`;
 
 const REFERENCE = `**Reference:** Consult \`KATA-WORKFLOW.md\` (injected into your system prompt) for full operation steps, entity conventions, artifact storage format, and phase transition rules.`;
 
@@ -48,13 +66,53 @@ const DISCOVER_SLICE_DOCS = [
   `   - For slice-scoped documents, also call \`kata_list_documents({ issueId: "<slice-issue-uuid>" })\`.`,
 ].join("\n");
 
+function normalizeStateKey(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ");
+}
+
+const LINEAR_STATE_PHASE_ALIASES: Record<string, string[]> = {
+  todo: ["todo", "to do"],
+  "in-progress": ["in progress"],
+  "agent-review": ["agent review"],
+  "human-review": ["human review"],
+  merging: ["merging"],
+  rework: ["rework"],
+  closed: ["closed", "done", "complete", "completed", "cancelled", "canceled"],
+};
+
+function resolveLinearWorkflowStateForPhase(
+  states: LinearWorkflowState[],
+  phase: KataIssueStatePhase,
+): LinearWorkflowState | null {
+  switch (phase) {
+    case "backlog":
+    case "planning":
+    case "executing":
+    case "verifying":
+    case "done":
+      return getLinearStateForKataPhase(states, phase);
+    default:
+      break;
+  }
+
+  const aliases = LINEAR_STATE_PHASE_ALIASES[phase] ?? [];
+  if (aliases.length === 0) return null;
+
+  const desired = new Set(aliases.map(normalizeStateKey));
+  return states.find((state) => desired.has(normalizeStateKey(state.name))) ?? null;
+}
+
 // ─── Config ──────────────────────────────────────────────────────────────────
 
 export interface LinearBackendConfig {
   apiKey: string;
   projectId: string;
   teamId: string;
-  sliceLabelId: string;
+  labelSet: KataLabelSet;
 }
 
 // ─── LinearBackend ───────────────────────────────────────────────────────────
@@ -87,7 +145,7 @@ export class LinearBackend implements KataBackend {
     const state = await deriveLinearState(this.client, {
       projectId: this.config.projectId,
       teamId: this.config.teamId,
-      sliceLabelId: this.config.sliceLabelId,
+      sliceLabelId: this.config.labelSet.slice.id,
       basePath: this.basePath,
     });
     this.stateCache = { state, timestamp: Date.now() };
@@ -113,25 +171,39 @@ export class LinearBackend implements KataBackend {
   }
 
   private async listIssueComments(issueId: string): Promise<LinearComment[]> {
-    const data = await this.client.graphql<{
-      issue: { comments: { nodes: LinearComment[] } | null } | null;
-    }>(`
-      query KataIssueComments($id: String!) {
-        issue(id: $id) {
-          comments(first: 50) {
-            nodes {
-              id
-              body
-              createdAt
-              updatedAt
-              url
-            }
-          }
-        }
-      }
-    `, { id: issueId });
+    return this.client.listIssueComments(issueId);
+  }
 
-    return data.issue?.comments?.nodes ?? [];
+  private static readonly MARKER_RE = /<!--\s*([A-Za-z0-9:_-]+)\s*-->/;
+
+  private extractMarker(body: string): string | null {
+    const markerMatch = LinearBackend.MARKER_RE.exec(body);
+    return markerMatch?.[1] ?? null;
+  }
+
+  private hasLegacyPlainTextMarker(body: string, marker: string): boolean {
+    const normalized = marker.trim();
+    if (!normalized) return false;
+
+    const escaped = normalized.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const headingRe = new RegExp(`^\\s{0,3}#{1,6}\\s+${escaped}\\s*$`, "im");
+    const exactLineRe = new RegExp(`^\\s*${escaped}\\s*$`, "im");
+    return headingRe.test(body) || exactLineRe.test(body);
+  }
+
+  private hasMarker(body: string, marker: string): boolean {
+    const normalized = marker.trim();
+    if (!normalized) return false;
+    if (body.includes(`<!-- ${normalized} -->`) || body.includes(`<!--${normalized}-->`)) return true;
+    if (this.extractMarker(body) === normalized) return true;
+    return this.hasLegacyPlainTextMarker(body, normalized);
+  }
+
+  private withMarker(body: string, marker?: string): string {
+    const normalized = marker?.trim();
+    if (!normalized) return body;
+    if (this.hasMarker(body, normalized)) return body;
+    return `<!-- ${normalized} -->\n${body}`;
   }
 
   private pickLatestSummaryComment(name: string, comments: LinearComment[]): string | null {
@@ -235,7 +307,7 @@ export class LinearBackend implements KataBackend {
       const slices = await listKataSlices(
         this.client,
         this.config.projectId,
-        this.config.sliceLabelId,
+        this.config.labelSet.slice.id,
         milestoneLinearId,
       );
       const sliceIssue = slices.find((slice) => parseKataEntityTitle(slice.title)?.kataId === sliceId);
@@ -256,7 +328,7 @@ export class LinearBackend implements KataBackend {
       const slices = await listKataSlices(
         this.client,
         this.config.projectId,
-        this.config.sliceLabelId,
+        this.config.labelSet.slice.id,
         milestoneLinearId,
       );
       const sliceIssue = slices.find((slice) => parseKataEntityTitle(slice.title)?.kataId === sliceId);
@@ -264,6 +336,242 @@ export class LinearBackend implements KataBackend {
     } catch {
       return false;
     }
+  }
+
+  private toMilestoneRecord(milestone: Awaited<ReturnType<typeof listKataMilestones>>[number]): KataMilestoneRecord {
+    return {
+      id: milestone.id,
+      name: milestone.name,
+      targetDate: milestone.targetDate ?? null,
+      updatedAt: milestone.updatedAt ?? null,
+    };
+  }
+
+  private toIssueRecord(issue: {
+    id: string;
+    identifier: string;
+    title: string;
+    state: { name: string };
+    labels?: Array<{ name: string }>;
+    updatedAt?: string;
+    project?: { name: string } | null;
+    projectMilestone?: { name: string } | null;
+    parent?: { identifier: string } | null;
+  }): KataIssueRecord {
+    return {
+      id: issue.id,
+      identifier: issue.identifier,
+      title: issue.title,
+      state: issue.state.name,
+      labels: issue.labels?.map((label) => label.name) ?? [],
+      updatedAt: issue.updatedAt ?? null,
+      projectName: issue.project?.name ?? null,
+      milestoneName: issue.projectMilestone?.name ?? null,
+      parentIdentifier: issue.parent?.identifier ?? null,
+    };
+  }
+
+  async createMilestone(input: {
+    kataId: string;
+    title: string;
+    description?: string;
+    targetDate?: string;
+  }): Promise<KataMilestoneRecord> {
+    const milestone = await createKataMilestone(
+      this.client,
+      { projectId: this.config.projectId },
+      input,
+    );
+    this.invalidateStateCache();
+    return this.toMilestoneRecord(milestone);
+  }
+
+  async createSlice(input: {
+    kataId: string;
+    title: string;
+    description?: string;
+    milestoneId?: string;
+    initialPhase?: KataWorkflowPhase;
+  }): Promise<KataIssueRecord> {
+    const states = input.initialPhase ? await this.client.listWorkflowStates(this.config.teamId) : undefined;
+    const issue = await createKataSlice(
+      this.client,
+      { teamId: this.config.teamId, projectId: this.config.projectId, labelSet: this.config.labelSet },
+      {
+        ...input,
+        states,
+      },
+    );
+    this.invalidateStateCache();
+    return this.toIssueRecord(issue);
+  }
+
+  async createTask(input: {
+    kataId: string;
+    title: string;
+    sliceIssueId: string;
+    description?: string;
+    initialPhase?: KataWorkflowPhase;
+  }): Promise<KataIssueRecord> {
+    const states = input.initialPhase ? await this.client.listWorkflowStates(this.config.teamId) : undefined;
+    const issue = await createKataTask(
+      this.client,
+      { teamId: this.config.teamId, projectId: this.config.projectId, labelSet: this.config.labelSet },
+      {
+        ...input,
+        states,
+      },
+    );
+    this.invalidateStateCache();
+    return this.toIssueRecord(issue);
+  }
+
+  async listMilestones(): Promise<KataMilestoneRecord[]> {
+    const milestones = await listKataMilestones(this.client, this.config.projectId);
+    return milestones.map((milestone) => this.toMilestoneRecord(milestone));
+  }
+
+  async listSlices(input: { milestoneId?: string } = {}): Promise<KataIssueRecord[]> {
+    const slices = await listKataSlices(
+      this.client,
+      this.config.projectId,
+      this.config.labelSet.slice.id,
+      input.milestoneId,
+    );
+    return slices.map((issue) => this.toIssueRecord(issue));
+  }
+
+  async listTasks(sliceIssueId: string): Promise<KataIssueRecord[]> {
+    const tasks = await listKataTasks(this.client, sliceIssueId);
+    return tasks.map((issue) => this.toIssueRecord(issue));
+  }
+
+  async getIssue(
+    issueId: string,
+    opts?: { includeChildren?: boolean; includeComments?: boolean },
+  ): Promise<KataIssueDetailRecord | null> {
+    const includeChildren = opts?.includeChildren ?? true;
+    const includeComments = opts?.includeComments ?? true;
+
+    const issue = await this.client.getIssue(issueId);
+    if (!issue) return null;
+
+    const children: KataIssueRecord[] = includeChildren
+      ? (issue.children?.nodes ?? []).map((child) => ({
+          id: child.id,
+          identifier: child.identifier,
+          title: child.title,
+          state: child.state.name,
+          labels: child.labels?.map((label) => label.name) ?? [],
+          updatedAt: child.updatedAt ?? null,
+          projectName: issue.project?.name ?? null,
+          milestoneName: issue.projectMilestone?.name ?? null,
+          parentIdentifier: issue.identifier,
+        }))
+      : [];
+
+    const comments: KataIssueCommentRecord[] = includeComments
+      ? (await this.client.listIssueComments(issueId)).map((comment) => ({
+          id: comment.id,
+          issueId,
+          body: comment.body,
+          marker: this.extractMarker(comment.body),
+          createdAt: comment.createdAt,
+          updatedAt: comment.updatedAt ?? null,
+          url: comment.url,
+        }))
+      : [];
+
+    return {
+      ...this.toIssueRecord(issue),
+      description: issue.description ?? null,
+      children,
+      comments,
+    };
+  }
+
+  async upsertComment(input: KataCommentUpsertInput): Promise<KataIssueCommentRecord> {
+    const marker = input.marker?.trim() || undefined;
+    const body = this.withMarker(input.body, marker);
+
+    if (marker) {
+      const comments = await this.client.listIssueComments(input.issueId);
+      const existing = comments.find((comment) => this.hasMarker(comment.body, marker));
+      if (existing) {
+        const updated = await this.client.updateComment(existing.id, body);
+        return {
+          id: updated.id,
+          issueId: input.issueId,
+          body: updated.body,
+          marker,
+          action: "updated",
+          createdAt: updated.createdAt ?? existing.createdAt ?? null,
+          updatedAt: updated.updatedAt ?? null,
+          url: updated.url ?? existing.url ?? null,
+        };
+      }
+    }
+
+    const created = await this.client.createComment(input.issueId, body);
+    return {
+      id: created.id,
+      issueId: input.issueId,
+      body: created.body,
+      marker: marker ?? this.extractMarker(created.body),
+      action: "created",
+      createdAt: created.createdAt,
+      updatedAt: created.updatedAt ?? null,
+      url: created.url,
+    };
+  }
+
+  async createFollowupIssue(input: KataFollowupIssueInput): Promise<KataIssueRecord> {
+    if (input.relationType && !input.parentIssueId) {
+      throw new Error("parentIssueId is required when relationType is provided");
+    }
+
+    const issue = await this.client.createIssue({
+      teamId: this.config.teamId,
+      projectId: this.config.projectId,
+      parentId: input.parentIssueId,
+      title: input.title,
+      description: input.description,
+    });
+
+    if (input.parentIssueId && input.relationType) {
+      await this.client.createRelation({
+        issueId: issue.id,
+        relatedIssueId: input.parentIssueId,
+        type: input.relationType,
+      });
+    }
+
+    this.invalidateStateCache();
+    return this.toIssueRecord(issue);
+  }
+
+  async updateIssueState(
+    issueId: string,
+    phase: KataIssueStatePhase,
+    teamId?: string,
+  ): Promise<KataIssueStateUpdateResult> {
+    const resolvedTeamId = teamId ?? this.config.teamId;
+
+    const states = await this.client.listWorkflowStates(resolvedTeamId);
+    const targetState = resolveLinearWorkflowStateForPhase(states, phase);
+    if (!targetState) {
+      throw new Error(`No workflow state found for phase: ${phase}`);
+    }
+
+    const issue = await this.client.updateIssue(issueId, { stateId: targetState.id });
+    this.invalidateStateCache();
+    return {
+      issueId: issue.id,
+      identifier: issue.identifier,
+      phase,
+      stateId: targetState.id,
+      state: issue.state.name,
+    };
   }
 
   // ── Lifecycle ─────────────────────────────────────────────────────────
@@ -289,7 +597,7 @@ export class LinearBackend implements KataBackend {
     // Fetch all slices for the current milestone so completed slices remain
     // visible in the dashboard and available for PR title resolution.
     try {
-      const allSlices = await listKataSlices(this.client, this.config.projectId, this.config.sliceLabelId);
+      const allSlices = await listKataSlices(this.client, this.config.projectId, this.config.labelSet.slice.id);
       const activeSliceId = state.activeSlice?.id;
 
       for (const issue of allSlices) {

@@ -5,6 +5,15 @@ import type {
   DashboardData,
   DocumentScope,
   KataBackend,
+  KataIssueRecord,
+  KataIssueDetailRecord,
+  KataIssueCommentRecord,
+  KataCommentUpsertInput,
+  KataFollowupIssueInput,
+  KataIssueStateUpdateResult,
+  KataMilestoneRecord,
+  KataWorkflowPhase,
+  KataIssueStatePhase,
   OpsBlock,
   PrContext,
   PromptOptions,
@@ -38,6 +47,7 @@ export interface GithubBackendConfig {
   repoName: string;
   stateMode: GithubStateMode;
   labelPrefix: string;
+  githubProjectNumber?: number;
   apiBaseUrl?: string;
 }
 
@@ -47,6 +57,7 @@ interface GithubApiIssue {
   state: "open" | "closed";
   labels: Array<{ name: string }>;
   body?: string | null;
+  updated_at?: string | null;
   pull_request?: unknown;
 }
 
@@ -57,13 +68,30 @@ interface GithubIssueMutation {
   labels?: string[];
 }
 
+interface GithubIssueComment {
+  id: number;
+  body: string;
+  created_at: string;
+  updated_at: string;
+  html_url: string;
+}
+
 export interface GithubBackendClient extends GithubStateClient {
   getIssue(number: number): Promise<GithubIssueSummary | null>;
   createIssue(payload: { title: string; body?: string; labels?: string[] }): Promise<GithubIssueSummary>;
   updateIssue(number: number, payload: GithubIssueMutation): Promise<GithubIssueSummary>;
+  listSubIssueNumbers(parentIssueNumber: number): Promise<number[]>;
+  addSubIssue(parentIssueNumber: number, subIssueNumber: number): Promise<void>;
+  listIssueComments(issueNumber: number): Promise<GithubIssueComment[]>;
+  createIssueComment(issueNumber: number, body: string): Promise<GithubIssueComment>;
+  updateIssueComment(commentId: number, body: string): Promise<GithubIssueComment>;
+  updateProjectV2ItemStatus(issueNumber: number, stateName: string): Promise<string>;
 }
 
 class GithubApiClient implements GithubBackendClient {
+  private repositoryIdCache: string | null = null;
+  private readonly labelIdCache = new Map<string, string>();
+
   constructor(private readonly config: GithubBackendConfig) {}
 
   private get apiBaseUrl(): string {
@@ -129,6 +157,231 @@ class GithubApiClient implements GithubBackendClient {
     return JSON.parse(text) as T;
   }
 
+  private async graphqlRequest<TData>(
+    query: string,
+    variables: Record<string, unknown>,
+  ): Promise<TData> {
+    const payload = await this.request<{ data?: TData; errors?: Array<{ message?: string }> }>(
+      "/graphql",
+      {
+        method: "POST",
+        body: {
+          query,
+          variables,
+        },
+      },
+    );
+
+    if (payload.errors && payload.errors.length > 0) {
+      const message = payload.errors
+        .map((entry) => entry.message)
+        .filter((msg): msg is string => Boolean(msg && msg.trim()))
+        .join("; ");
+      throw new Error(
+        `GitHub GraphQL request failed for ${this.config.repoOwner}/${this.config.repoName}: ${message || "unknown error"}`,
+      );
+    }
+
+    if (!payload.data) {
+      throw new Error(
+        `GitHub GraphQL request returned no data for ${this.config.repoOwner}/${this.config.repoName}`,
+      );
+    }
+
+    return payload.data;
+  }
+
+  // ── Projects v2 support ──────────────────────────────────────────────────
+
+  private projectV2StatusFieldCache: {
+    projectId: string;
+    fieldId: string;
+    options: Array<{ id: string; name: string }>;
+  } | null = null;
+
+  async resolveProjectV2StatusField(): Promise<{
+    projectId: string;
+    fieldId: string;
+    options: Array<{ id: string; name: string }>;
+  }> {
+    if (this.projectV2StatusFieldCache) return this.projectV2StatusFieldCache;
+
+    const projectNumber = this.config.githubProjectNumber;
+    if (!projectNumber) {
+      throw new Error("Projects v2 status field resolution requires githubProjectNumber in config");
+    }
+
+    const data = await this.graphqlRequest<{
+      repository: {
+        owner:
+          | {
+              __typename: "User";
+              login: string;
+              projectV2: {
+                id: string;
+                field: { id?: string; options?: Array<{ id: string; name: string }> } | null;
+              } | null;
+            }
+          | {
+              __typename: "Organization";
+              login: string;
+              projectV2: {
+                id: string;
+                field: { id?: string; options?: Array<{ id: string; name: string }> } | null;
+              } | null;
+            }
+          | null;
+      } | null;
+    }>(
+      `query($projectNumber: Int!, $owner: String!, $repo: String!) {
+        repository(owner: $owner, name: $repo) {
+          owner {
+            __typename
+            login
+            ... on User {
+              projectV2(number: $projectNumber) {
+                id
+                field(name: "Status") {
+                  ... on ProjectV2SingleSelectField {
+                    id
+                    options { id name }
+                  }
+                }
+              }
+            }
+            ... on Organization {
+              projectV2(number: $projectNumber) {
+                id
+                field(name: "Status") {
+                  ... on ProjectV2SingleSelectField {
+                    id
+                    options { id name }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }`,
+      { projectNumber, owner: this.config.repoOwner, repo: this.config.repoName },
+    );
+
+    const project = data.repository?.owner?.projectV2;
+    if (!project) {
+      throw new Error(`GitHub Project #${projectNumber} not found for owner ${this.config.repoOwner}`);
+    }
+    if (!project.field?.id || !project.field.options?.length) {
+      throw new Error(
+        `Status field is not a single-select on GitHub Project #${projectNumber}`,
+      );
+    }
+
+    this.projectV2StatusFieldCache = {
+      projectId: project.id,
+      fieldId: project.field.id,
+      options: project.field.options,
+    };
+    return this.projectV2StatusFieldCache;
+  }
+
+  async findProjectV2ItemId(issueNumber: number): Promise<string | null> {
+    const statusField = await this.resolveProjectV2StatusField();
+    let after: string | null = null;
+
+    for (;;) {
+      const payload: {
+        node: {
+          items: {
+            nodes: Array<{ id: string; content: { number?: number } | null }>;
+            pageInfo: { hasNextPage: boolean; endCursor: string | null };
+          };
+        } | null;
+      } = await this.graphqlRequest(
+        `query($projectId: ID!, $first: Int!, $after: String) {
+          node(id: $projectId) {
+            ... on ProjectV2 {
+              items(first: $first, after: $after) {
+                nodes {
+                  id
+                  content { ... on Issue { number } }
+                }
+                pageInfo { hasNextPage endCursor }
+              }
+            }
+          }
+        }`,
+        { projectId: statusField.projectId, first: 100, after },
+      );
+
+      const items = payload.node?.items;
+      if (!items) break;
+
+      for (const item of items.nodes) {
+        if (item.content?.number === issueNumber) return item.id;
+      }
+
+      if (items.pageInfo.hasNextPage && items.pageInfo.endCursor) {
+        after = items.pageInfo.endCursor;
+      } else {
+        break;
+      }
+    }
+
+    return null;
+  }
+
+  async updateProjectV2ItemStatus(issueNumber: number, stateName: string): Promise<string> {
+    const statusField = await this.resolveProjectV2StatusField();
+    if (!statusField.options.length) {
+      throw new Error(
+        `Status field is not a single-select on GitHub Project #${this.config.githubProjectNumber}`,
+      );
+    }
+
+    const normalizedTarget = stateName.trim().toLowerCase().replace(/[_-]+/g, " ");
+    const option = statusField.options.find(
+      (opt) => opt.name.trim().toLowerCase().replace(/[_-]+/g, " ") === normalizedTarget,
+    );
+    if (!option) {
+      const available = statusField.options.map((opt) => opt.name).join(", ");
+      throw new Error(
+        `Projects v2 status option '${stateName}' not found; available: [${available}]`,
+      );
+    }
+
+    const itemId = await this.findProjectV2ItemId(issueNumber);
+    if (!itemId) {
+      throw new Error(
+        `Issue #${issueNumber} is not on GitHub Project #${this.config.githubProjectNumber}`,
+      );
+    }
+
+    await this.graphqlRequest<{
+      updateProjectV2ItemFieldValue: { projectV2Item: { id: string } } | null;
+    }>(
+      `mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $singleSelectOptionId: String!) {
+        updateProjectV2ItemFieldValue(
+          input: {
+            projectId: $projectId
+            itemId: $itemId
+            fieldId: $fieldId
+            value: { singleSelectOptionId: $singleSelectOptionId }
+          }
+        ) {
+          projectV2Item { id }
+        }
+      }`,
+      {
+        projectId: statusField.projectId,
+        itemId,
+        fieldId: statusField.fieldId,
+        singleSelectOptionId: option.id,
+      },
+    );
+
+    return option.name;
+  }
+
   private toSummary(issue: GithubApiIssue): GithubIssueSummary {
     return {
       number: issue.number,
@@ -136,7 +389,130 @@ class GithubApiClient implements GithubBackendClient {
       state: issue.state,
       labels: issue.labels.map((label) => label.name),
       body: issue.body,
+      updatedAt: issue.updated_at ?? null,
     };
+  }
+
+  private async getRepositoryId(): Promise<string> {
+    if (this.repositoryIdCache) return this.repositoryIdCache;
+
+    const data = await this.graphqlRequest<{
+      repository: { id: string } | null;
+    }>(
+      `query RepositoryId($owner: String!, $repo: String!) {
+        repository(owner: $owner, name: $repo) {
+          id
+        }
+      }`,
+      {
+        owner: this.config.repoOwner,
+        repo: this.config.repoName,
+      },
+    );
+
+    const repositoryId = data.repository?.id;
+    if (!repositoryId) {
+      throw new Error(
+        `Unable to resolve repository id for ${this.config.repoOwner}/${this.config.repoName}`,
+      );
+    }
+
+    this.repositoryIdCache = repositoryId;
+    return repositoryId;
+  }
+
+  private async resolveIssueNodeId(number: number): Promise<string> {
+    const data = await this.graphqlRequest<{
+      repository: { issue: { id: string } | null } | null;
+    }>(
+      `query IssueNodeId($owner: String!, $repo: String!, $number: Int!) {
+        repository(owner: $owner, name: $repo) {
+          issue(number: $number) {
+            id
+          }
+        }
+      }`,
+      {
+        owner: this.config.repoOwner,
+        repo: this.config.repoName,
+        number,
+      },
+    );
+
+    const issueId = data.repository?.issue?.id;
+    if (!issueId) {
+      throw new Error(
+        `Unable to resolve issue node id for #${number} in ${this.config.repoOwner}/${this.config.repoName}`,
+      );
+    }
+
+    return issueId;
+  }
+
+  private async ensureLabelId(labelName: string): Promise<string> {
+    const normalized = labelName.trim();
+    if (!normalized) {
+      throw new Error("GitHub label names must be non-empty");
+    }
+
+    const cached = this.labelIdCache.get(normalized.toLowerCase());
+    if (cached) return cached;
+
+    const repositoryId = await this.getRepositoryId();
+    const safeAlias = `label_${this.labelIdCache.size + 1}`;
+    const queryData = await this.graphqlRequest<{
+      repository: Record<string, { id: string } | null> | null;
+    }>(
+      `query ResolveLabel($owner: String!, $repo: String!, $name: String!) {
+        repository(owner: $owner, name: $repo) {
+          ${safeAlias}: label(name: $name) { id }
+        }
+      }`,
+      {
+        owner: this.config.repoOwner,
+        repo: this.config.repoName,
+        name: normalized,
+      },
+    );
+
+    const existingId = queryData.repository?.[safeAlias]?.id;
+    if (existingId) {
+      this.labelIdCache.set(normalized.toLowerCase(), existingId);
+      return existingId;
+    }
+
+    const created = await this.graphqlRequest<{
+      createLabel: { label: { id: string } | null } | null;
+    }>(
+      `mutation CreateLabel($repositoryId: ID!, $name: String!, $color: String!) {
+        createLabel(input: { repositoryId: $repositoryId, name: $name, color: $color }) {
+          label { id }
+        }
+      }`,
+      {
+        repositoryId,
+        name: normalized,
+        color: defaultGithubLabelColor(normalized),
+      },
+    );
+
+    const createdId = created.createLabel?.label?.id;
+    if (!createdId) {
+      throw new Error(`Unable to create GitHub label \"${normalized}\"`);
+    }
+
+    this.labelIdCache.set(normalized.toLowerCase(), createdId);
+    return createdId;
+  }
+
+  private async ensureLabelIds(labelNames: string[] | undefined): Promise<string[] | undefined> {
+    if (!labelNames || labelNames.length === 0) return undefined;
+
+    const ids: string[] = [];
+    for (const labelName of labelNames) {
+      ids.push(await this.ensureLabelId(labelName));
+    }
+    return ids;
   }
 
   async listIssues(): Promise<GithubIssueSummary[]> {
@@ -183,31 +559,267 @@ class GithubApiClient implements GithubBackendClient {
     body?: string;
     labels?: string[];
   }): Promise<GithubIssueSummary> {
-    const issue = await this.request<GithubApiIssue>(
-      `/repos/${this.config.repoOwner}/${this.config.repoName}/issues`,
+    const repositoryId = await this.getRepositoryId();
+    const labelIds = await this.ensureLabelIds(payload.labels);
+
+    const data = await this.graphqlRequest<{
+      createIssue: {
+        issue: { number: number } | null;
+      } | null;
+    }>(
+      `mutation CreateIssue($repositoryId: ID!, $title: String!, $body: String, $labelIds: [ID!]) {
+        createIssue(input: { repositoryId: $repositoryId, title: $title, body: $body, labelIds: $labelIds }) {
+          issue { number }
+        }
+      }`,
       {
-        method: "POST",
-        body: {
-          title: payload.title,
-          body: payload.body ?? "",
-          ...(payload.labels ? { labels: payload.labels } : {}),
-        },
+        repositoryId,
+        title: payload.title,
+        body: payload.body ?? "",
+        labelIds,
       },
     );
 
-    return this.toSummary(issue);
+    const issueNumber = data.createIssue?.issue?.number;
+    if (!issueNumber) {
+      throw new Error(
+        `GitHub GraphQL createIssue returned no issue number for ${this.config.repoOwner}/${this.config.repoName}`,
+      );
+    }
+
+    const created = await this.getIssue(issueNumber);
+    if (!created) {
+      throw new Error(
+        `GitHub issue #${issueNumber} was created but could not be read back from ${this.config.repoOwner}/${this.config.repoName}`,
+      );
+    }
+
+    return created;
   }
 
   async updateIssue(number: number, payload: GithubIssueMutation): Promise<GithubIssueSummary> {
-    const issue = await this.request<GithubApiIssue>(
-      `/repos/${this.config.repoOwner}/${this.config.repoName}/issues/${number}`,
+    const issueId = await this.resolveIssueNodeId(number);
+    const labelIds = payload.labels !== undefined ? await this.ensureLabelIds(payload.labels) : undefined;
+
+    const data = await this.graphqlRequest<{
+      updateIssue: {
+        issue: { number: number } | null;
+      } | null;
+    }>(
+      `mutation UpdateIssue($id: ID!, $title: String, $body: String, $labelIds: [ID!]) {
+        updateIssue(input: { id: $id, title: $title, body: $body, labelIds: $labelIds }) {
+          issue { number }
+        }
+      }`,
       {
-        method: "PATCH",
-        body: payload,
+        id: issueId,
+        ...(payload.title !== undefined ? { title: payload.title } : {}),
+        ...(payload.body !== undefined ? { body: payload.body } : {}),
+        ...(labelIds !== undefined ? { labelIds } : {}),
       },
     );
 
-    return this.toSummary(issue);
+    const updatedNumber = data.updateIssue?.issue?.number;
+    if (!updatedNumber) {
+      throw new Error(
+        `GitHub GraphQL updateIssue returned no issue number for #${number} in ${this.config.repoOwner}/${this.config.repoName}`,
+      );
+    }
+
+    if (payload.state) {
+      await this.setIssueOpenState(updatedNumber, payload.state);
+    }
+
+    const updated = await this.getIssue(updatedNumber);
+    if (!updated) {
+      throw new Error(
+        `GitHub issue #${updatedNumber} was updated but could not be read back from ${this.config.repoOwner}/${this.config.repoName}`,
+      );
+    }
+
+    return updated;
+  }
+
+  private async setIssueOpenState(number: number, nextState: "open" | "closed"): Promise<void> {
+    const issueId = await this.resolveIssueNodeId(number);
+
+    if (nextState === "closed") {
+      await this.graphqlRequest<{
+        closeIssue: { issue: { number: number } | null } | null;
+      }>(
+        `mutation CloseIssue($issueId: ID!) {
+          closeIssue(input: { issueId: $issueId }) {
+            issue { number }
+          }
+        }`,
+        { issueId },
+      );
+      return;
+    }
+
+    await this.graphqlRequest<{
+      reopenIssue: { issue: { number: number } | null } | null;
+    }>(
+      `mutation ReopenIssue($issueId: ID!) {
+        reopenIssue(input: { issueId: $issueId }) {
+          issue { number }
+        }
+      }`,
+      { issueId },
+    );
+  }
+
+  async listSubIssueNumbers(parentIssueNumber: number): Promise<number[]> {
+    const numbers: number[] = [];
+    let after: string | null = null;
+
+    for (;;) {
+      const payload: {
+        repository: {
+          issue: {
+            subIssues: {
+              nodes: Array<{ number: number }>;
+              pageInfo: { hasNextPage: boolean; endCursor: string | null };
+            };
+          } | null;
+        } | null;
+      } = await this.graphqlRequest(
+        `query ListSubIssues($owner: String!, $repo: String!, $number: Int!, $after: String) {
+          repository(owner: $owner, name: $repo) {
+            issue(number: $number) {
+              subIssues(first: 100, after: $after) {
+                nodes { number }
+                pageInfo { hasNextPage endCursor }
+              }
+            }
+          }
+        }`,
+        {
+          owner: this.config.repoOwner,
+          repo: this.config.repoName,
+          number: parentIssueNumber,
+          after,
+        },
+      );
+
+      const issue = payload.repository?.issue;
+      if (!issue) return numbers;
+
+      for (const node of issue.subIssues.nodes) {
+        numbers.push(node.number);
+      }
+
+      if (!issue.subIssues.pageInfo.hasNextPage) {
+        return numbers;
+      }
+
+      after = issue.subIssues.pageInfo.endCursor;
+      if (!after) {
+        return numbers;
+      }
+    }
+  }
+
+  async addSubIssue(parentIssueNumber: number, subIssueNumber: number): Promise<void> {
+    if (parentIssueNumber === subIssueNumber) return;
+
+    const existingSubIssues = await this.listSubIssueNumbers(parentIssueNumber);
+    if (existingSubIssues.includes(subIssueNumber)) {
+      return;
+    }
+
+    const data = await this.graphqlRequest<{
+      repository: {
+        parentIssue: { id: string; number: number } | null;
+        childIssue: { id: string; number: number; parent: { number: number } | null } | null;
+      } | null;
+    }>(
+      `query ResolveIssueIds($owner: String!, $repo: String!, $parent: Int!, $child: Int!) {
+        repository(owner: $owner, name: $repo) {
+          parentIssue: issue(number: $parent) { id number }
+          childIssue: issue(number: $child) { id number parent { number } }
+        }
+      }`,
+      {
+        owner: this.config.repoOwner,
+        repo: this.config.repoName,
+        parent: parentIssueNumber,
+        child: subIssueNumber,
+      },
+    );
+
+    const parentIssue = data.repository?.parentIssue;
+    const childIssue = data.repository?.childIssue;
+    if (!parentIssue || !childIssue) {
+      throw new Error(
+        `Unable to resolve parent/child issues for sub-issue link (${parentIssueNumber} -> ${subIssueNumber})`,
+      );
+    }
+
+    if (childIssue.parent?.number === parentIssueNumber) {
+      return;
+    }
+    if (childIssue.parent && childIssue.parent.number !== parentIssueNumber) {
+      throw new Error(
+        `Task #${subIssueNumber} is already attached to parent #${childIssue.parent.number}; refusing to relink automatically.`,
+      );
+    }
+
+    await this.graphqlRequest<{
+      addSubIssue: {
+        issue: { number: number };
+        subIssue: { number: number };
+      };
+    }>(
+      `mutation AddSubIssue($issueId: ID!, $subIssueId: ID!) {
+        addSubIssue(input: { issueId: $issueId, subIssueId: $subIssueId }) {
+          issue { number }
+          subIssue { number }
+        }
+      }`,
+      {
+        issueId: parentIssue.id,
+        subIssueId: childIssue.id,
+      },
+    );
+  }
+
+  async listIssueComments(issueNumber: number): Promise<GithubIssueComment[]> {
+    const comments: GithubIssueComment[] = [];
+
+    for (let page = 1; ; page++) {
+      const pageComments = await this.request<GithubIssueComment[]>(
+        `/repos/${this.config.repoOwner}/${this.config.repoName}/issues/${issueNumber}/comments`,
+        {
+          query: { per_page: "100", page: String(page) },
+        },
+      );
+
+      comments.push(...pageComments);
+      if (pageComments.length < 100) {
+        return comments;
+      }
+    }
+  }
+
+  async createIssueComment(issueNumber: number, body: string): Promise<GithubIssueComment> {
+    return this.request(
+      `/repos/${this.config.repoOwner}/${this.config.repoName}/issues/${issueNumber}/comments`,
+      {
+        method: "POST",
+        body: { body },
+      },
+    );
+  }
+
+  async updateIssueComment(commentId: number, body: string): Promise<GithubIssueComment> {
+    return this.request(
+      `/repos/${this.config.repoOwner}/${this.config.repoName}/issues/comments/${commentId}`,
+      {
+        method: "PATCH",
+        body: { body },
+      },
+    );
   }
 }
 
@@ -246,6 +858,46 @@ function parseDocumentName(name: string): ParsedDocumentName {
   return { normalized, kind: "project" };
 }
 
+function compareGithubKataOrder(leftTitle: string, rightTitle: string): number {
+  const left = parseGithubKataTitle(leftTitle)?.kataId;
+  const right = parseGithubKataTitle(rightTitle)?.kataId;
+  if (!left && !right) return leftTitle.localeCompare(rightTitle);
+  if (!left) return 1;
+  if (!right) return -1;
+
+  const leftPrefix = left[0] ?? "";
+  const rightPrefix = right[0] ?? "";
+  if (leftPrefix !== rightPrefix) return leftPrefix.localeCompare(rightPrefix);
+
+  const leftOrdinal = Number.parseInt(left.slice(1), 10);
+  const rightOrdinal = Number.parseInt(right.slice(1), 10);
+  return leftOrdinal - rightOrdinal;
+}
+
+function composeArtifactIssueBody(
+  existingBody: string | null | undefined,
+  metadata: GithubArtifactMetadataV1,
+  plainBody?: string,
+): string {
+  const source = existingBody ?? "";
+  const preservedPlainBody = stripEmbeddedDocuments(stripGithubArtifactMetadata(source)).trim();
+  const nextPlainBody = plainBody !== undefined ? plainBody.trim() : preservedPlainBody;
+
+  let body = serializeGithubArtifactMetadata(metadata);
+  if (nextPlainBody.length > 0) {
+    body += `\n\n${nextPlainBody}`;
+  }
+
+  for (const documentName of listEmbeddedDocuments(source)) {
+    const embedded = readEmbeddedDocument(source, documentName);
+    if (embedded !== null) {
+      body = upsertEmbeddedDocument(body, documentName, embedded);
+    }
+  }
+
+  return body;
+}
+
 function defaultIssueTitle(kind: GithubArtifactKind, kataId: string): string {
   switch (kind) {
     case "milestone":
@@ -261,11 +913,95 @@ function defaultIssueTitle(kind: GithubArtifactKind, kataId: string): string {
   }
 }
 
+function parseGithubIssueNumber(input: string): number | null {
+  const normalized = input.trim();
+  if (!normalized) return null;
+
+  if (/^\d+$/.test(normalized)) {
+    const parsed = Number.parseInt(normalized, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }
+
+  const hashMatch = normalized.match(/#(\d+)\s*$/);
+  if (!hashMatch) return null;
+
+  const parsed = Number.parseInt(hashMatch[1] ?? "", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function requireGithubIssueNumber(input: string, kind: "issue" | "slice issue" = "issue"): number {
+  const parsed = parseGithubIssueNumber(input);
+  if (!parsed) {
+    throw new Error(`Invalid GitHub ${kind} id: ${input}`);
+  }
+  return parsed;
+}
+
 function issueNumberFromScope(scope: DocumentScope | undefined): number | undefined {
   if (!scope || !("issueId" in scope)) return undefined;
-  const parsed = Number.parseInt(scope.issueId, 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) return undefined;
-  return parsed;
+  return parseGithubIssueNumber(scope.issueId) ?? undefined;
+}
+
+const KATA_STATE_LABEL_SUFFIXES = [
+  "backlog",
+  "planning",
+  "executing",
+  "verifying",
+  "todo",
+  "in-progress",
+  "agent-review",
+  "human-review",
+  "merging",
+  "rework",
+  "done",
+  "closed",
+] as const;
+
+function stateLabelSuffix(phase: KataIssueStatePhase): string {
+  return phase;
+}
+
+/**
+ * Map a KataIssueStatePhase to the display name expected by GitHub Projects v2
+ * Status field options. These match the canonical Kata phase names used in
+ * Symphony WORKFLOW.md `active_states` / `terminal_states`.
+ */
+function phaseToProjectsV2StatusName(phase: KataIssueStatePhase): string {
+  switch (phase) {
+    case "backlog":      return "Backlog";
+    case "todo":         return "Todo";
+    case "planning":     return "Planning";
+    case "executing":    return "In Progress";
+    case "in-progress":  return "In Progress";
+    case "verifying":    return "In Progress";
+    case "agent-review": return "Agent Review";
+    case "human-review": return "Human Review";
+    case "merging":      return "Merging";
+    case "rework":       return "Rework";
+    case "done":         return "Done";
+    case "closed":       return "Closed";
+    default:             return phase;
+  }
+}
+
+function defaultGithubLabelColor(labelName: string): string {
+  const normalized = labelName.trim().toLowerCase();
+  if (normalized.endsWith("milestone")) return "7C3AED";
+  if (normalized.endsWith("slice")) return "2563EB";
+  if (normalized.endsWith("task")) return "16A34A";
+  if (normalized.endsWith("backlog")) return "94A3B8";
+  if (normalized.endsWith("planning")) return "0EA5E9";
+  if (normalized.endsWith("todo")) return "0EA5E9";
+  if (normalized.endsWith("executing")) return "F59E0B";
+  if (normalized.endsWith("in-progress")) return "F59E0B";
+  if (normalized.endsWith("agent-review")) return "8B5CF6";
+  if (normalized.endsWith("human-review")) return "6366F1";
+  if (normalized.endsWith("merging")) return "14B8A6";
+  if (normalized.endsWith("rework")) return "EF4444";
+  if (normalized.endsWith("verifying")) return "8B5CF6";
+  if (normalized.endsWith("done")) return "22C55E";
+  if (normalized.endsWith("closed")) return "64748B";
+  return "5319E7";
 }
 
 function primaryLabel(prefix: string, kind: GithubArtifactKind): string {
@@ -303,6 +1039,28 @@ function bodyFallbackDocumentName(metadata: GithubArtifactMetadataV1): string | 
   return null;
 }
 
+function titleFallbackDocumentName(issue: GithubIssueSummary): string | null {
+  const parsed = parseGithubKataTitle(issue.title);
+  if (!parsed) return null;
+
+  if (parsed.kataId.startsWith("M")) return `${parsed.kataId}-ROADMAP`;
+  if (parsed.kataId.startsWith("S")) return `${parsed.kataId}-PLAN`;
+  if (parsed.kataId.startsWith("T")) return `${parsed.kataId}-PLAN`;
+  return null;
+}
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function issueMentionsScopedId(issue: GithubIssueSummary, scopedId: string): boolean {
+  const normalized = scopedId.trim().toUpperCase();
+  if (!normalized) return false;
+  const text = `${issue.title}\n${issue.body ?? ""}`;
+  const matcher = new RegExp(`\\b${escapeRegex(normalized)}\\b`, "i");
+  return matcher.test(text);
+}
+
 function inferMetadataFromIssue(issue: GithubIssueSummary): GithubArtifactMetadataV1 | null {
   const fromBody = maybeParseGithubArtifactMetadata(issue.body ?? "");
   if (fromBody) return fromBody;
@@ -333,6 +1091,16 @@ function inferMetadataFromIssue(issue: GithubIssueSummary): GithubArtifactMetada
   }
 
   return null;
+}
+
+function extractPlainArtifactBody(issue: GithubIssueSummary): string {
+  return stripEmbeddedDocuments(stripGithubArtifactMetadata(issue.body ?? "")).trim();
+}
+
+function parseTargetDateFromIssue(issue: GithubIssueSummary): string | null {
+  const plainBody = extractPlainArtifactBody(issue);
+  const match = plainBody.match(/^Target date:\s*(.+)$/im);
+  return match?.[1]?.trim() || null;
 }
 
 export class GithubBackend implements KataBackend {
@@ -429,6 +1197,35 @@ export class GithubBackend implements KataBackend {
     return issue;
   }
 
+  private extractCommentMarker(body: string): string | null {
+    const htmlMarker = body.match(/^\s*<!--\s*([^>]+?)\s*-->/m)?.[1]?.trim();
+    if (htmlMarker) return htmlMarker;
+    return null;
+  }
+
+  private hasCommentMarker(body: string, marker: string): boolean {
+    const normalized = marker.trim();
+    if (!normalized) return false;
+
+    if (this.extractCommentMarker(body) === normalized) {
+      return true;
+    }
+
+    const escaped = escapeRegex(normalized);
+    if (new RegExp(`^\\s*${escaped}\\s*$`, "im").test(body)) {
+      return true;
+    }
+
+    return new RegExp(`^\\s{0,3}#{1,6}\\s+${escaped}\\s*$`, "im").test(body);
+  }
+
+  private withCommentMarker(body: string, marker?: string): string {
+    const normalized = marker?.trim();
+    if (!normalized) return body;
+    if (this.hasCommentMarker(body, normalized)) return body;
+    return `<!-- ${normalized} -->\n\n${body}`;
+  }
+
   private async findIssueByDocumentTitle(documentTitle: string): Promise<GithubIssueSummary | null> {
     const normalizedTitle = `KATA-DOC: ${documentTitle.trim().toUpperCase()}`;
     const issues = await this.listIssues();
@@ -458,18 +1255,38 @@ export class GithubBackend implements KataBackend {
       return candidates.sort((a, b) => a.number - b.number)[0] ?? null;
     }
 
-    const hasExplicitScope = Boolean(normalizedMilestoneId || normalizedSliceId);
-    if (hasExplicitScope) {
-      return null;
-    }
-
     const fallback = issues
       .map((issue) => ({ issue, parsed: parseGithubKataTitle(issue.title) }))
       .filter((entry) => entry.parsed?.kataId === normalizedKataId)
       .map((entry) => entry.issue)
       .sort((a, b) => a.number - b.number);
 
-    return fallback[0] ?? null;
+    const hasExplicitScope = Boolean(normalizedMilestoneId || normalizedSliceId);
+    if (!hasExplicitScope) {
+      return fallback[0] ?? null;
+    }
+
+    const scopedFallback = fallback.filter((issue) => {
+      if (normalizedMilestoneId && !issueMentionsScopedId(issue, normalizedMilestoneId)) {
+        return false;
+      }
+      if (normalizedSliceId && !issueMentionsScopedId(issue, normalizedSliceId)) {
+        return false;
+      }
+      return true;
+    });
+
+    if (scopedFallback.length > 0) {
+      return scopedFallback[0] ?? null;
+    }
+
+    // Backward compatibility: when there is only one title match, prefer it
+    // even if scoped metadata/text is missing.
+    if (fallback.length === 1) {
+      return fallback[0] ?? null;
+    }
+
+    return null;
   }
 
   private async ensureIssue(
@@ -562,10 +1379,18 @@ export class GithubBackend implements KataBackend {
     if (embedded !== null) return embedded;
 
     const metadata = maybeParseGithubArtifactMetadata(body);
-    if (!metadata) return null;
+    if (metadata) {
+      const fallbackName = bodyFallbackDocumentName(metadata);
+      if (fallbackName === normalizedName) {
+        const raw = stripEmbeddedDocuments(stripGithubArtifactMetadata(body)).trim();
+        return raw.length > 0 ? raw : null;
+      }
+    }
 
-    const fallbackName = bodyFallbackDocumentName(metadata);
-    if (fallbackName === normalizedName) {
+    // Backward compatibility for issues authored without explicit
+    // KATA:GITHUB_ARTIFACT metadata.
+    const titleFallback = titleFallbackDocumentName(issue);
+    if (titleFallback === normalizedName) {
       const raw = stripEmbeddedDocuments(stripGithubArtifactMetadata(body)).trim();
       return raw.length > 0 ? raw : null;
     }
@@ -691,6 +1516,14 @@ export class GithubBackend implements KataBackend {
       await this.updateIssue(issue.number, {
         body: nextBody,
         title: `[${normalizedTaskId}] ${task.title}`,
+      });
+
+      await this.client.addSubIssue(sliceIssue.number, issue.number);
+      emitPlanningSignal("github_planning_subissue_linked", {
+        sliceId,
+        sliceIssueNumber: sliceIssue.number,
+        taskId: normalizedTaskId,
+        taskIssueNumber: issue.number,
       });
 
       emitPlanningSignal("github_planning_artifact_upsert", {
@@ -835,6 +1668,389 @@ export class GithubBackend implements KataBackend {
     return [...docs].sort();
   }
 
+  private toMilestoneRecord(issue: GithubIssueSummary): KataMilestoneRecord {
+    return {
+      id: String(issue.number),
+      name: issue.title,
+      targetDate: parseTargetDateFromIssue(issue),
+      updatedAt: issue.updatedAt ?? null,
+      trackerIssueId: String(issue.number),
+    };
+  }
+
+  private toIssueRecord(issue: GithubIssueSummary): KataIssueRecord {
+    const metadata = inferMetadataFromIssue(issue);
+    return {
+      id: String(issue.number),
+      identifier: `#${issue.number}`,
+      title: issue.title,
+      state: issue.state,
+      labels: issue.labels,
+      updatedAt: issue.updatedAt ?? null,
+      projectName: `${this.config.repoOwner}/${this.config.repoName}`,
+      milestoneName: metadata?.kind === "slice" ? (metadata.milestoneId ?? null) : null,
+      parentIdentifier: null,
+    };
+  }
+
+  async createMilestone(input: {
+    kataId: string;
+    title: string;
+    description?: string;
+    targetDate?: string;
+  }): Promise<KataMilestoneRecord> {
+    const metadata: GithubArtifactMetadataV1 = {
+      schema: "kata/github-artifact/v1",
+      kind: "milestone",
+      kataId: input.kataId.trim().toUpperCase(),
+    };
+    const milestonePlainBody = [
+      input.description?.trim(),
+      input.targetDate ? `Target date: ${input.targetDate}` : undefined,
+    ].filter(Boolean).join("\n\n") || undefined;
+
+    const issue = await this.ensureIssue(metadata, {
+      title: `[${metadata.kataId}] ${input.title}`,
+      labels: [primaryLabel(this.config.labelPrefix, "milestone")],
+      body: composeArtifactIssueBody(undefined, metadata, milestonePlainBody),
+    });
+
+    const nextBody = milestonePlainBody
+      ? composeArtifactIssueBody(issue.body, metadata, milestonePlainBody)
+      : issue.body ?? composeArtifactIssueBody(undefined, metadata, undefined);
+
+    const updated = await this.updateIssue(issue.number, {
+      title: `[${metadata.kataId}] ${input.title}`,
+      body: nextBody,
+    });
+    this.invalidateStateCache();
+    return this.toMilestoneRecord(updated);
+  }
+
+  async createSlice(input: {
+    kataId: string;
+    title: string;
+    description?: string;
+    milestoneId?: string;
+    initialPhase?: KataWorkflowPhase;
+  }): Promise<KataIssueRecord> {
+    const metadata: GithubArtifactMetadataV1 = {
+      schema: "kata/github-artifact/v1",
+      kind: "slice",
+      kataId: input.kataId.trim().toUpperCase(),
+      ...(input.milestoneId ? { milestoneId: input.milestoneId.trim().toUpperCase() } : {}),
+    };
+
+    const phasePrefix = this.config.labelPrefix.endsWith(":") ? this.config.labelPrefix : `${this.config.labelPrefix}:`;
+    const phaseLabel = input.initialPhase ? `${phasePrefix}${input.initialPhase}` : undefined;
+    const issue = await this.ensureIssue(metadata, {
+      title: `[${metadata.kataId}] ${input.title}`,
+      labels: [primaryLabel(this.config.labelPrefix, "slice"), ...(phaseLabel ? [phaseLabel] : [])],
+      body: composeArtifactIssueBody(undefined, ensureMetadataDocumentTitle(metadata, `${metadata.kataId}-PLAN`), input.description),
+    });
+
+    const mergedMetadata = ensureMetadataDocumentTitle({
+      ...(maybeParseGithubArtifactMetadata(issue.body ?? "") ?? metadata),
+      ...(input.milestoneId ? { milestoneId: input.milestoneId.trim().toUpperCase() } : {}),
+    }, `${metadata.kataId}-PLAN`);
+    const nextBody = composeArtifactIssueBody(issue.body, mergedMetadata, input.description);
+    const updated = await this.updateIssue(issue.number, {
+      title: `[${metadata.kataId}] ${input.title}`,
+      body: nextBody,
+      ...(phaseLabel ? { labels: [primaryLabel(this.config.labelPrefix, "slice"), phaseLabel] } : {}),
+    });
+    this.invalidateStateCache();
+    return this.toIssueRecord(updated);
+  }
+
+  async createTask(input: {
+    kataId: string;
+    title: string;
+    sliceIssueId: string;
+    description?: string;
+    initialPhase?: KataWorkflowPhase;
+  }): Promise<KataIssueRecord> {
+    const parentIssueNumber = requireGithubIssueNumber(input.sliceIssueId, "slice issue");
+
+    const parentIssue = await this.findIssueByNumber(parentIssueNumber);
+    if (!parentIssue) {
+      throw new Error(`Slice issue not found: ${input.sliceIssueId}`);
+    }
+
+    const parentMetadata = maybeParseGithubArtifactMetadata(parentIssue.body ?? "");
+    const sliceId = parentMetadata?.kataId ?? parseGithubKataTitle(parentIssue.title)?.kataId;
+    if (!sliceId) {
+      throw new Error(`Unable to derive slice id from parent issue #${parentIssueNumber}`);
+    }
+
+    const metadata: GithubArtifactMetadataV1 = {
+      schema: "kata/github-artifact/v1",
+      kind: "task",
+      kataId: input.kataId.trim().toUpperCase(),
+      sliceId,
+      ...(parentMetadata?.milestoneId ? { milestoneId: parentMetadata.milestoneId } : {}),
+    };
+
+    const phasePrefix = this.config.labelPrefix.endsWith(":") ? this.config.labelPrefix : `${this.config.labelPrefix}:`;
+    const phaseLabel = input.initialPhase ? `${phasePrefix}${input.initialPhase}` : undefined;
+    const issue = await this.ensureIssue(metadata, {
+      title: `[${metadata.kataId}] ${input.title}`,
+      labels: [
+        primaryLabel(this.config.labelPrefix, "task"),
+        `${phasePrefix}slice:${sliceId.toLowerCase()}`,
+        ...(phaseLabel ? [phaseLabel] : []),
+      ],
+      body: composeArtifactIssueBody(undefined, ensureMetadataDocumentTitle(metadata, `${metadata.kataId}-PLAN`), input.description),
+    });
+
+    const mergedMetadata = ensureMetadataDocumentTitle({
+      ...(maybeParseGithubArtifactMetadata(issue.body ?? "") ?? metadata),
+      sliceId,
+      ...(parentMetadata?.milestoneId ? { milestoneId: parentMetadata.milestoneId } : {}),
+    }, `${metadata.kataId}-PLAN`);
+    const nextBody = composeArtifactIssueBody(issue.body, mergedMetadata, input.description);
+    const updated = await this.updateIssue(issue.number, {
+      title: `[${metadata.kataId}] ${input.title}`,
+      body: nextBody,
+      labels: [
+        primaryLabel(this.config.labelPrefix, "task"),
+        `${phasePrefix}slice:${sliceId.toLowerCase()}`,
+        ...(phaseLabel ? [phaseLabel] : []),
+      ],
+    });
+
+    await this.client.addSubIssue(parentIssueNumber, updated.number);
+    this.invalidateStateCache();
+    return this.toIssueRecord(updated);
+  }
+
+  async listMilestones(): Promise<KataMilestoneRecord[]> {
+    const issues = await this.listIssues();
+    return issues
+      .filter((issue) => inferMetadataFromIssue(issue)?.kind === "milestone")
+      .sort((a, b) => compareGithubKataOrder(a.title, b.title))
+      .map((issue) => this.toMilestoneRecord(issue));
+  }
+
+  private async getRoadmapSliceIds(milestoneId: string): Promise<Set<string> | null> {
+    const roadmap = await this.readDocument(`${milestoneId}-ROADMAP`);
+    if (!roadmap) return null;
+
+    try {
+      const parsed = parseRoadmap(roadmap);
+      return new Set(parsed.slices.map((slice) => slice.id.trim().toUpperCase()));
+    } catch {
+      return null;
+    }
+  }
+
+  async listSlices(input: { milestoneId?: string } = {}): Promise<KataIssueRecord[]> {
+    const milestoneId = input.milestoneId?.trim().toUpperCase();
+    const roadmapSliceIds = milestoneId ? await this.getRoadmapSliceIds(milestoneId) : null;
+    const issues = await this.listIssues();
+    return issues
+      .filter((issue) => {
+        const metadata = inferMetadataFromIssue(issue);
+        if (metadata?.kind !== "slice") return false;
+        if (!milestoneId) return true;
+        if (metadata.milestoneId === milestoneId) return true;
+
+        const parsedTitle = parseGithubKataTitle(issue.title);
+        return Boolean(parsedTitle?.kataId && roadmapSliceIds?.has(parsedTitle.kataId.trim().toUpperCase()));
+      })
+      .sort((a, b) => compareGithubKataOrder(a.title, b.title))
+      .map((issue) => this.toIssueRecord(issue));
+  }
+
+  async listTasks(sliceIssueId: string): Promise<KataIssueRecord[]> {
+    const parentIssueNumber = requireGithubIssueNumber(sliceIssueId, "slice issue");
+
+    const subIssueNumbers = await this.client.listSubIssueNumbers(parentIssueNumber);
+    const issues = await Promise.all(subIssueNumbers.map((number) => this.findIssueByNumber(number)));
+    return issues
+      .filter((issue): issue is GithubIssueSummary => issue !== null)
+      .sort((a, b) => compareGithubKataOrder(a.title, b.title))
+      .map((issue) => ({
+        ...this.toIssueRecord(issue),
+        parentIdentifier: sliceIssueId,
+      }));
+  }
+
+  async getIssue(
+    issueId: string,
+    opts: { includeChildren?: boolean; includeComments?: boolean } = {},
+  ): Promise<KataIssueDetailRecord | null> {
+    const issueNumber = requireGithubIssueNumber(issueId, "issue");
+
+    const includeChildren = opts.includeChildren ?? true;
+    const includeComments = opts.includeComments ?? true;
+
+    const issue = await this.findIssueByNumber(issueNumber);
+    if (!issue) return null;
+
+    const children = includeChildren
+      ? (await Promise.all(
+          (await this.client.listSubIssueNumbers(issueNumber))
+            .map((number) => this.findIssueByNumber(number)),
+        ))
+          .filter((child): child is GithubIssueSummary => child !== null)
+          .map((child) => ({
+            ...this.toIssueRecord(child),
+            parentIdentifier: `#${issueNumber}`,
+          }))
+      : [];
+
+    const comments = includeComments
+      ? (await this.client.listIssueComments(issueNumber)).map((comment) => ({
+          id: String(comment.id),
+          issueId: String(issueNumber),
+          body: comment.body,
+          marker: this.extractCommentMarker(comment.body),
+          createdAt: comment.created_at,
+          updatedAt: comment.updated_at,
+          url: comment.html_url,
+        }))
+      : [];
+
+    return {
+      ...this.toIssueRecord(issue),
+      description: issue.body ?? null,
+      children,
+      comments,
+    };
+  }
+
+  async upsertComment(input: KataCommentUpsertInput): Promise<KataIssueCommentRecord> {
+    const issueNumber = requireGithubIssueNumber(input.issueId, "issue");
+
+    const marker = input.marker?.trim() || undefined;
+    const nextBody = this.withCommentMarker(input.body, marker);
+
+    if (marker) {
+      const comments = await this.client.listIssueComments(issueNumber);
+      const existing = comments
+        .filter((comment) => this.hasCommentMarker(comment.body, marker))
+        .sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at))[0];
+      if (existing) {
+        const updated = await this.client.updateIssueComment(existing.id, nextBody);
+        return {
+          id: String(updated.id),
+          issueId: String(issueNumber),
+          body: updated.body,
+          marker,
+          action: "updated",
+          createdAt: updated.created_at,
+          updatedAt: updated.updated_at,
+          url: updated.html_url,
+        };
+      }
+    }
+
+    const created = await this.client.createIssueComment(issueNumber, nextBody);
+    return {
+      id: String(created.id),
+      issueId: String(issueNumber),
+      body: created.body,
+      marker: marker ?? this.extractCommentMarker(created.body),
+      action: "created",
+      createdAt: created.created_at,
+      updatedAt: created.updated_at,
+      url: created.html_url,
+    };
+  }
+
+  async createFollowupIssue(input: KataFollowupIssueInput): Promise<KataIssueRecord> {
+    if (input.relationType && !input.parentIssueId) {
+      throw new Error("parentIssueId is required when relationType is provided");
+    }
+
+    let parentIssueNumber: number | undefined;
+    if (input.parentIssueId) {
+      parentIssueNumber = requireGithubIssueNumber(input.parentIssueId, "issue");
+      const parentIssue = await this.findIssueByNumber(parentIssueNumber);
+      if (!parentIssue) {
+        throw new Error(`Parent GitHub issue not found: ${input.parentIssueId}`);
+      }
+    }
+
+    const phasePrefix = this.config.labelPrefix.endsWith(":")
+      ? this.config.labelPrefix
+      : `${this.config.labelPrefix}:`;
+
+    const created = await this.createIssue({
+      title: input.title,
+      body: input.description,
+      labels: [`${phasePrefix}backlog`],
+    });
+
+    if (parentIssueNumber && input.relationType !== "relates_to") {
+      await this.client.addSubIssue(parentIssueNumber, created.number);
+    }
+
+    this.invalidateStateCache();
+    return {
+      ...this.toIssueRecord(created),
+      parentIdentifier: parentIssueNumber ? `#${parentIssueNumber}` : null,
+    };
+  }
+
+  async updateIssueState(
+    issueId: string,
+    phase: KataIssueStatePhase,
+  ): Promise<KataIssueStateUpdateResult> {
+    const number = requireGithubIssueNumber(issueId, "issue");
+
+    const issue = await this.findIssueByNumber(number);
+    if (!issue) {
+      throw new Error(`GitHub issue not found: ${issueId}`);
+    }
+
+    const phasePrefix = this.config.labelPrefix.endsWith(":")
+      ? this.config.labelPrefix
+      : `${this.config.labelPrefix}:`;
+    const knownPhaseLabels = new Set(
+      KATA_STATE_LABEL_SUFFIXES.map((suffix) => `${phasePrefix}${suffix}`.toLowerCase()),
+    );
+    const preservedLabels = issue.labels.filter((label) => !knownPhaseLabels.has(label.toLowerCase()));
+    const labelSuffix = stateLabelSuffix(phase);
+    const nextPhaseLabel = `${phasePrefix}${labelSuffix}`;
+    const shouldClose = phase === "done" || phase === "closed";
+    const nextLabels = [...preservedLabels, nextPhaseLabel];
+
+    // Projects v2 mode: mutate the project board Status field directly and keep
+    // canonical phase labels synchronized so label-based state derivation stays accurate.
+    if (this.config.stateMode === "projects_v2" && this.config.githubProjectNumber) {
+      const displayName = phaseToProjectsV2StatusName(phase);
+      const actualStatus = await this.client.updateProjectV2ItemStatus(number, displayName);
+
+      await this.updateIssue(number, {
+        labels: nextLabels,
+        state: shouldClose ? "closed" : "open",
+      });
+
+      this.invalidateStateCache();
+      return {
+        issueId: String(number),
+        identifier: `#${number}`,
+        phase,
+        state: actualStatus,
+      };
+    }
+
+    // Label mode: swap state labels.
+    const updated = await this.updateIssue(number, {
+      labels: nextLabels,
+      state: shouldClose ? "closed" : "open",
+    });
+    this.invalidateStateCache();
+    return {
+      issueId: String(updated.number),
+      identifier: `#${updated.number}`,
+      phase,
+      state: shouldClose ? "closed" : nextPhaseLabel,
+    };
+  }
+
   async resolveSliceScope(milestoneId: string, sliceId: string): Promise<DocumentScope | undefined> {
     const issue = await this.findIssueByKataId(sliceId, "slice", { milestoneId });
     if (!issue) return undefined;
@@ -842,30 +2058,69 @@ export class GithubBackend implements KataBackend {
   }
 
   async isSlicePlanned(milestoneId: string, sliceId: string): Promise<boolean> {
-    const issues = await this.listIssues();
     const normalizedSliceId = sliceId.trim().toUpperCase();
     const normalizedMilestoneId = milestoneId.trim().toUpperCase();
 
+    const sliceIssue = await this.findIssueByKataId(normalizedSliceId, "slice", {
+      milestoneId: normalizedMilestoneId,
+    });
+    if (!sliceIssue) return false;
+
+    const existingSubIssueNumbers = await this.client.listSubIssueNumbers(sliceIssue.number);
+    if (existingSubIssueNumbers.length > 0) return true;
+
+    const issues = await this.listIssues();
     return issues.some((issue) => {
       const metadata = inferMetadataFromIssue(issue);
-      if (!metadata || metadata.kind !== "task") return false;
-      if (metadata.sliceId?.toUpperCase() !== normalizedSliceId) return false;
-      if (metadata.milestoneId && metadata.milestoneId.toUpperCase() !== normalizedMilestoneId) {
-        return false;
+      const parsedTitle = parseGithubKataTitle(issue.title);
+      const isTask = metadata?.kind === "task" || /^T\d{2}$/.test(parsedTitle?.kataId ?? "");
+      if (!isTask) return false;
+      if (metadata?.milestoneId && metadata.milestoneId !== normalizedMilestoneId) return false;
+
+      const metadataSlice = metadata?.sliceId?.trim().toUpperCase();
+      if (metadataSlice === normalizedSliceId) {
+        return true;
       }
-      return true;
+
+      const normalizedSliceLabel = normalizedSliceId.toLowerCase();
+      const labelPrefix = this.config.labelPrefix.endsWith(":")
+        ? this.config.labelPrefix.toLowerCase()
+        : `${this.config.labelPrefix.toLowerCase()}:`;
+      const labels = new Set(issue.labels.map((label) => label.trim().toLowerCase()));
+      if (
+        labels.has(`${labelPrefix}slice:${normalizedSliceLabel}`) ||
+        labels.has(`slice:${normalizedSliceLabel}`) ||
+        labels.has(`${labelPrefix}parent:${normalizedSliceLabel}`)
+      ) {
+        return true;
+      }
+
+      const body = issue.body ?? "";
+      const escapedMilestone = escapeRegex(normalizedMilestoneId);
+      const escapedSlice = escapeRegex(normalizedSliceId);
+      const milestoneField = new RegExp(
+        `^\\s*(?:\\*\\*)?Milestone:(?:\\*\\*)?\\s*${escapedMilestone}(?:\\b|\\s|$)`,
+        "im",
+      ).test(body);
+      const sliceField = new RegExp(
+        `^\\s*(?:\\*\\*)?Slice:(?:\\*\\*)?\\s*${escapedSlice}(?:\\b|\\s|$)`,
+        "im",
+      ).test(body);
+      return milestoneField && sliceField;
     });
   }
 
   private buildGithubPlanMilestoneOps(mid: string): OpsBlock {
     const backendRules = [
-      "Hard rule: In GitHub mode, never use Linear tools (`kata_*`, `linear_*`) to read or write planning artifacts.",
+      "Hard rule: In GitHub mode, never use `linear_*` tools to read or write planning artifacts.",
+      "Hard rule: Never read local `.kata/*.md` planning files in GitHub mode — they are not canonical and may not exist.",
+      "Use backend-aware `kata_*` tools as the primary write path for milestone/slice/task artifacts and documents.",
       "Use GitHub issues as the source of truth and include `KATA:GITHUB_ARTIFACT` metadata markers for every milestone/slice/task artifact.",
     ].join("\n");
 
     const backendOps = [
       "6. Idempotency check:",
-      "   - Use `github_issues` search/list to find existing `[M###]` and `[S##]` issues before creating anything.",
+      "   - Use GitHub backend list/search operations to find existing `[M###]` and `[S##]` issues before creating anything.",
       `   - If \`${mid}-ROADMAP\` already exists in the milestone issue metadata, update in place instead of creating duplicates.`,
       "7. Upsert milestone roadmap artifact:",
       "   - Ensure a milestone issue exists with stable kata ID in title (`[M###] ...`).",
@@ -889,7 +2144,9 @@ export class GithubBackend implements KataBackend {
 
   private buildGithubPlanSliceOps(sid: string): OpsBlock {
     const backendRules = [
-      "Hard rule: In GitHub mode, do not call Linear tools for planning writes.",
+      "Hard rule: In GitHub mode, do not call `linear_*` tools for planning writes.",
+      "Hard rule: Do not read/write local `.kata/*.md` planning files in GitHub mode.",
+      "Use backend-aware `kata_*` tools as the primary write path for slice/task planning artifacts.",
       "Slice and task planning artifacts must be GitHub issue-backed and include `KATA:GITHUB_ARTIFACT` metadata.",
     ].join("\n");
 
@@ -900,7 +2157,8 @@ export class GithubBackend implements KataBackend {
       "11. Upsert slice plan artifact:",
       "    - Persist the canonical slice plan artifact to the slice issue with stable metadata markers.",
       "12. Upsert task artifacts:",
-      "    - For each planned task (`T##`), create or update a GitHub issue with task metadata linking to the slice.",
+      "    - For each planned task (`T##`), create or update a GitHub issue with task metadata.",
+      "    - Link every task to the slice via real GitHub sub-issue relationships (parent = slice issue).",
       "    - Ensure reruns update existing task issues rather than creating duplicates.",
       "13. Dependency readback check:",
       "    - Read dependency metadata from the slice issue and confirm each referenced dependency is still resolvable.",
@@ -924,12 +2182,13 @@ export class GithubBackend implements KataBackend {
       "## Context Retrieval (read these before proceeding)",
       "",
       "1. Confirm active milestone from GitHub-backed state.",
-      "2. Read required context artifacts if present:",
+      "2. Read required context artifacts from GitHub issues (never from local `.kata/*.md` files):",
       `   - ${mid}-CONTEXT`,
-      "3. Read optional project artifacts when available:",
+      "3. Read optional project artifacts from GitHub issues when available:",
       "   - PROJECT",
       "   - REQUIREMENTS",
       "   - DECISIONS",
+      "4. If you need raw issue content, use `kata_get_issue({ issueId })` (and `kata_read_document(...)` for document artifacts).",
     ].join("\n");
 
     const ops = this.buildGithubPlanMilestoneOps(mid);
@@ -959,12 +2218,13 @@ export class GithubBackend implements KataBackend {
       "## Context Retrieval (read these before proceeding)",
       "",
       "1. Confirm active milestone/slice from GitHub-backed state.",
-      "2. Read required artifact:",
+      "2. Read required artifact from GitHub issues (never from local `.kata/*.md` files):",
       `   - ${mid}-ROADMAP`,
-      "3. Read optional artifacts when present:",
+      "3. Read optional artifacts from GitHub issues when present:",
       `   - ${sid}-RESEARCH`,
       "   - REQUIREMENTS",
       "   - DECISIONS",
+      "4. If you need raw issue content, use `kata_get_issue({ issueId })` (and `kata_read_document(...)` for document artifacts)."
     ].join("\n");
 
     const ops = this.buildGithubPlanSliceOps(sid);
@@ -1011,6 +2271,8 @@ export class GithubBackend implements KataBackend {
       "",
       "GitHub mode discussion is enabled.",
       "Persist planning artifacts to GitHub issues with stable Kata IDs and metadata markers.",
+      "Do not read or write local `.kata/*.md` planning artifacts.",
+      "Do not use `linear_*` tools in GitHub mode. Prefer backend-aware `kata_*` tools.",
     ].join("\n");
   }
 

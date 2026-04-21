@@ -22,7 +22,7 @@ verdict: {{no-change | modified}}
 
 ## Decision References
 
-<!-- D-numbers from DECISIONS.md that informed or resulted from this reassessment.
+<!-- D-numbers from the DECISIONS artifact that informed or resulted from this reassessment.
      Write "None." if no recorded decisions apply. -->
 
 {{placeholder}}

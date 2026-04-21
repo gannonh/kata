@@ -17,7 +17,7 @@ const SECTION_HEADING_PATTERN = /^##(?!#)\s+(.+)$/gm
 const CONTEXT_HEADING_PATTERN = /^(#{2,3})\s+(.+)$/gm
 
 export function detectArtifactType(title: string): ArtifactType | null {
-  const normalized = title.trim().toUpperCase()
+  const normalized = normalizeArtifactTitle(title)
 
   if (/-ROADMAP(?:\b|$)/.test(normalized) || normalized === 'ROADMAP') {
     return 'roadmap'
@@ -40,6 +40,10 @@ export function detectArtifactType(title: string): ArtifactType | null {
   }
 
   return null
+}
+
+function normalizeArtifactTitle(title: string): string {
+  return title.trim().toUpperCase().replace(/^KATA-DOC\s*:\s*/, '')
 }
 
 export function parseRoadmap(markdown: string): ParsedRoadmap | null {

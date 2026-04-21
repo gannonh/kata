@@ -45,6 +45,16 @@ pub struct GithubLabel {
     pub description: Option<String>,
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+pub struct GithubSubIssuesSummary {
+    #[serde(default)]
+    pub total: u32,
+    #[serde(default)]
+    pub completed: u32,
+    #[serde(default)]
+    pub percent_completed: u32,
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct GithubIssue {
     pub number: u64,
@@ -68,6 +78,10 @@ pub struct GithubIssue {
     pub html_url: Option<String>,
     #[serde(default)]
     pub pull_request: Option<Value>,
+    #[serde(default)]
+    pub sub_issues_summary: Option<GithubSubIssuesSummary>,
+    #[serde(default)]
+    pub parent_issue_url: Option<String>,
 }
 
 #[derive(Clone)]

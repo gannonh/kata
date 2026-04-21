@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'vitest'
 import type { WorkflowBoardSliceCard, WorkflowBoardTask } from '@shared/types'
-import { formatScopeStatus, formatSymphonyBoardStatus, formatWorkflowBoardStatus } from '../KanbanHeader'
+import {
+  formatActiveMilestoneHeader,
+  formatScopeStatus,
+  formatSymphonyBoardStatus,
+  formatWorkflowBoardStatus,
+} from '../KanbanHeader'
 import { summarizeColumnPresentation } from '../KanbanPane'
 import { formatWorkflowReliabilityNotice, formatWorkflowStabilityNotice } from '../BoardStateNotice'
 
@@ -74,6 +79,118 @@ describe('KanbanPane status formatting', () => {
         'active',
       ),
     ).toContain('Scope: Active → Project')
+  })
+
+  test('renders milestone label in header when milestone mode is selected', () => {
+    expect(
+      formatActiveMilestoneHeader(
+        {
+          backend: 'linear',
+          fetchedAt: '2026-04-04T00:00:00.000Z',
+          status: 'fresh',
+          source: { projectId: 'test-project' },
+          activeMilestone: {
+            id: 'm1',
+            name: '[M009] Workflow Kanban',
+          },
+          columns: [],
+          poll: {
+            status: 'success',
+            backend: 'linear',
+            lastAttemptAt: '2026-04-04T00:00:00.000Z',
+          },
+          scope: {
+            requested: 'milestone',
+            resolved: 'milestone',
+            reason: 'requested',
+          },
+        },
+        'milestone',
+      ),
+    ).toBe('Milestone Mode · [M009] Workflow Kanban')
+  })
+
+  test('falls back to plain milestone text outside milestone mode', () => {
+    expect(
+      formatActiveMilestoneHeader(
+        {
+          backend: 'linear',
+          fetchedAt: '2026-04-04T00:00:00.000Z',
+          status: 'fresh',
+          source: { projectId: 'test-project' },
+          activeMilestone: {
+            id: 'm1',
+            name: '[M009] Workflow Kanban',
+          },
+          columns: [],
+          poll: {
+            status: 'success',
+            backend: 'linear',
+            lastAttemptAt: '2026-04-04T00:00:00.000Z',
+          },
+          scope: {
+            requested: 'project',
+            resolved: 'project',
+            reason: 'requested',
+          },
+        },
+        'project',
+      ),
+    ).toBe('[M009] Workflow Kanban')
+  })
+
+  test('combines GitHub project and milestone title in milestone mode when available', () => {
+    expect(
+      formatActiveMilestoneHeader(
+        {
+          backend: 'github',
+          fetchedAt: '2026-04-04T00:00:00.000Z',
+          status: 'fresh',
+          source: {
+            projectId: 'github:gannonh/kata',
+            trackerKind: 'github',
+            githubStateMode: 'projects_v2',
+            repoOwner: 'gannonh',
+            repoName: 'kata',
+          },
+          activeMilestone: {
+            id: 'github-project:17',
+            name: 'GitHub Project #17',
+          },
+          columns: [
+            {
+              id: 'backlog',
+              title: 'Backlog',
+              cards: [
+                {
+                  id: '343',
+                  identifier: '#343',
+                  title: '[S03] Acceptance + insertion behavior',
+                  columnId: 'backlog',
+                  stateName: 'Backlog',
+                  stateType: 'projects_v2',
+                  milestoneId: 'github-milestone:340',
+                  milestoneName: '[M001] Desktop Slash Autocomplete Parity',
+                  taskCounts: { total: 0, done: 0 },
+                  tasks: [],
+                },
+              ],
+            },
+          ],
+          poll: {
+            status: 'success',
+            backend: 'github',
+            lastAttemptAt: '2026-04-04T00:00:00.000Z',
+          },
+          scope: {
+            requested: 'milestone',
+            resolved: 'project',
+            reason: 'milestone_scope_not_supported',
+          },
+        },
+        'milestone',
+      ),
+    ).toBe('GitHub Project #17 | [M001] Desktop Slash Autocomplete Parity')
   })
 
   test('renders symphony as unavailable when provenance is unavailable', () => {

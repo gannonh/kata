@@ -66,7 +66,7 @@ describe("parsePreferencesFile", () => {
   it("parses a realistic preferences.md", () => {
     const { model, body } = parsePreferencesFile(REALISTIC_FIXTURE);
 
-    expect(model.sections).toHaveLength(8);
+    expect(model.sections).toHaveLength(9);
     expect(body).toBe(REALISTIC_BODY);
 
     // Check workflow populated
@@ -100,7 +100,7 @@ Some body here.
 `;
     const { model, body } = parsePreferencesFile(content);
 
-    expect(model.sections).toHaveLength(8);
+    expect(model.sections).toHaveLength(9);
     expect(body).toBe("Some body here.\n");
 
     // All string fields default to ""

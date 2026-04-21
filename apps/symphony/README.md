@@ -128,7 +128,7 @@ Both use **per-state prompt injection** — the orchestrator selects a focused p
 
 | File | When used | Job |
 |------|-----------|-----|
-| `prompts/shared-*.md` | Every dispatch | Repo context, Linear tools, workpad protocol |
+| `prompts/shared-*.md` | Every dispatch | Repo context, backend-neutral `kata_*` tracker contract, workpad protocol |
 | `prompts/in-progress.md` | `Todo`, `In Progress` | Implement, test, push, open PR → Agent Review |
 | `prompts/agent-review.md` | `Agent Review` | Address PR comments → Human Review (only after an open PR exists for the current branch) |
 | `prompts/merging.md` | `Merging` | Land the PR → Done |

@@ -21,7 +21,7 @@ Pay particular attention to **Forward Intelligence** sections — they contain h
 - Do **not** use `linear_list_issues` to enumerate Kata slices during research.
 
 Then research what this slice needs:
-0. If `REQUIREMENTS.md` was preloaded above, identify which Active requirements this slice owns or supports. Research should target these requirements — surfacing risks, unknowns, and implementation constraints that could affect whether the slice actually delivers them.
+0. If the `REQUIREMENTS` artifact was preloaded above, identify which Active requirements this slice owns or supports. Research should target these requirements — surfacing risks, unknowns, and implementation constraints that could affect whether the slice actually delivers them.
 1. If a `Kata Skill Preferences` block is present in system context, use it to decide which skills to load and follow during research, without relaxing required verification or artifact rules
 2. **Skill Discovery ({{skillDiscoveryMode}}):**{{skillDiscoveryInstructions}}
 3. Explore relevant code for this slice's scope. For targeted exploration, use `rg`, `find`, and reads. For broad or unfamiliar subsystems, use `scout` to map the relevant area first.
