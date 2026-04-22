@@ -183,7 +183,7 @@ Minimal GitHub tracker configuration:
 ```yaml
 tracker:
   kind: github
-  api_key: $GH_TOKEN          # or $GITHUB_TOKEN
+  api_key: $GH_TOKEN          # or $GITHUB_TOKEN (recommended for cloud/VPS)
   repo_owner: your-org
   repo_name: your-repo
 
@@ -200,9 +200,16 @@ tracker:
     - Done
 ```
 
-Authentication:
+Authentication (source order):
 
-- Use a GitHub **PAT** (personal access token) via `GH_TOKEN` or `GITHUB_TOKEN`.
+1. `tracker.api_key`
+2. `GH_TOKEN`
+3. `GITHUB_TOKEN`
+4. `gh auth token` (local fallback only; requires `gh auth login`)
+
+Notes:
+
+- For cloud/VPS deployments, use explicit env secrets (`GH_TOKEN`/`GITHUB_TOKEN`) and do not rely on `gh` CLI fallback.
 - `tracker.api_key` supports `$VAR` indirection like other secrets.
 
 State management modes:

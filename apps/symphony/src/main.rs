@@ -26,6 +26,10 @@ use symphony::domain::Issue;
 #[cfg(not(test))]
 use symphony::github::adapter::GithubAdapter;
 #[cfg(not(test))]
+use symphony::github::auth::{
+    github_token_missing_message, github_token_source_name, resolve_github_token,
+};
+#[cfg(not(test))]
 use symphony::github::client::GithubClient;
 #[cfg(not(test))]
 use symphony::http_server::{
@@ -196,28 +200,11 @@ struct GithubAdapterInputs {
 fn github_adapter_inputs(
     tracker: &symphony::domain::TrackerConfig,
 ) -> error::Result<GithubAdapterInputs> {
-    let token = tracker
-        .api_key
-        .as_ref()
-        .map(|api_key| api_key.as_str().trim().to_string())
-        .filter(|value| !value.is_empty())
-        .or_else(|| {
-            std::env::var("GH_TOKEN")
-                .ok()
-                .map(|value| value.trim().to_string())
-                .filter(|value| !value.is_empty())
-        })
-        .or_else(|| {
-            std::env::var("GITHUB_TOKEN")
-                .ok()
-                .map(|value| value.trim().to_string())
-                .filter(|value| !value.is_empty())
-        })
-        .ok_or_else(|| {
-            error::SymphonyError::InvalidWorkflowConfig(
-                "GH_TOKEN or GITHUB_TOKEN is required when tracker.kind is github".to_string(),
-            )
-        })?;
+    let resolved = resolve_github_token(tracker).ok_or_else(|| {
+        error::SymphonyError::InvalidWorkflowConfig(github_token_missing_message().to_string())
+    })?;
+    let token_source = resolved.source;
+    let token = resolved.token;
 
     let repo_owner = tracker
         .repo_owner
@@ -254,6 +241,11 @@ fn github_adapter_inputs(
     } else {
         endpoint.to_string()
     };
+
+    tracing::debug!(
+        token_source = github_token_source_name(token_source),
+        "resolved GitHub tracker token source"
+    );
 
     Ok(GithubAdapterInputs {
         token,
