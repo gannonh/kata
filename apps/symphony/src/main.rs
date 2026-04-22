@@ -16,6 +16,8 @@ use symphony::{config, error};
 #[cfg(not(test))]
 use std::future::{pending, Future};
 #[cfg(not(test))]
+use std::process::Command;
+#[cfg(not(test))]
 use std::io::Write;
 #[cfg(not(test))]
 use std::sync::{Arc, Mutex, Once};
@@ -1100,10 +1102,76 @@ fn run_entrypoint(args: impl IntoIterator<Item = OsString>) -> i32 {
 }
 
 #[cfg(not(test))]
+fn resolve_git_common_root(start_dir: &Path) -> Option<PathBuf> {
+    let output = Command::new("git")
+        .args(["rev-parse", "--git-common-dir"])
+        .current_dir(start_dir)
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    let raw = String::from_utf8(output.stdout).ok()?;
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let common_dir = PathBuf::from(trimmed);
+    let absolute_common_dir = if common_dir.is_absolute() {
+        common_dir
+    } else {
+        start_dir.join(common_dir)
+    };
+
+    absolute_common_dir.parent().map(Path::to_path_buf)
+}
+
+#[cfg(not(test))]
+fn load_canonical_project_env() {
+    let cwd = match std::env::current_dir() {
+        Ok(cwd) => cwd,
+        Err(_) => {
+            let _ = dotenvy::dotenv();
+            return;
+        }
+    };
+
+    if let Some(common_root) = resolve_git_common_root(&cwd) {
+        let env_path = common_root.join(".env");
+        if env_path.is_file() {
+            let _ = dotenvy::from_path(&env_path);
+            return;
+        }
+    }
+
+    // Backward-compatible fallback outside git repos.
+    let _ = dotenvy::dotenv();
+}
+
+#[cfg(not(test))]
+fn apply_github_token_aliases() {
+    let gh_token = match std::env::var("GH_TOKEN") {
+        Ok(value) if !value.trim().is_empty() => value,
+        _ => return,
+    };
+
+    if std::env::var("GITHUB_TOKEN").map(|v| v.trim().is_empty()).unwrap_or(true) {
+        std::env::set_var("GITHUB_TOKEN", &gh_token);
+    }
+
+    if std::env::var("KATA_GITHUB_TOKEN").map(|v| v.trim().is_empty()).unwrap_or(true) {
+        std::env::set_var("KATA_GITHUB_TOKEN", &gh_token);
+    }
+}
+
+#[cfg(not(test))]
 #[tokio::main]
 async fn main() {
-    // Load .env file if present (silently ignore if missing)
-    let _ = dotenvy::dotenv();
+    load_canonical_project_env();
+    apply_github_token_aliases();
 
     let code = run_entrypoint(std::env::args_os());
     flush_file_logs();
