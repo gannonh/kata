@@ -16,9 +16,16 @@ interface MessageInputProps {
 type SlashAcceptDiagnosticCode =
   | 'SLASH_ACCEPTED'
   | 'SLASH_ACCEPT_NO_SELECTION'
+  | 'SLASH_ACCEPT_NO_OP'
   | 'SLASH_ACCEPT_SUPPRESSED_DUPLICATE'
 
 type SlashAcceptTriggerKey = 'Enter' | 'Tab' | 'Pointer'
+
+interface LastAcceptedSuggestion {
+  commandName: string
+  acceptedAt: number
+  valueAfterAccept: string
+}
 
 const SLASH_DUPLICATE_SUPPRESSION_WINDOW_MS = 64
 
@@ -50,14 +57,25 @@ function emitSlashDiagnostic(
 
 function extractSlashPrefix(value: string, caret: number): string {
   const boundedCaret = Math.max(0, Math.min(caret, value.length))
-  const tokenStart = value.lastIndexOf('/', boundedCaret)
+  const tokenStart = value.lastIndexOf('/', Math.max(0, boundedCaret - 1))
 
-  if (tokenStart < 0) {
+  if (tokenStart < 0 || tokenStart >= boundedCaret) {
+    return ''
+  }
+
+  const tokenBody = value.slice(tokenStart + 1, boundedCaret)
+  if (/\s/.test(tokenBody)) {
     return ''
   }
 
   const tokenEnd = value.indexOf(' ', tokenStart)
-  return tokenEnd === -1 ? value.slice(tokenStart) : value.slice(tokenStart, tokenEnd)
+  const end = tokenEnd === -1 ? value.length : tokenEnd
+
+  if (boundedCaret > end) {
+    return ''
+  }
+
+  return value.slice(tokenStart, end)
 }
 
 export function MessageInput({
@@ -73,7 +91,7 @@ export function MessageInput({
   const sendingRef = useRef(false)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const composerRef = useRef<HTMLDivElement | null>(null)
-  const lastAcceptedSuggestionRef = useRef<{ commandName: string; acceptedAt: number } | null>(null)
+  const lastAcceptedSuggestionRef = useRef<LastAcceptedSuggestion | null>(null)
 
   const {
     suggestions,
@@ -101,7 +119,11 @@ export function MessageInput({
 
   useEffect(() => {
     setIsSuggestionDismissed(false)
-    lastAcceptedSuggestionRef.current = null
+
+    const lastAccepted = lastAcceptedSuggestionRef.current
+    if (!lastAccepted || value !== lastAccepted.valueAfterAccept) {
+      lastAcceptedSuggestionRef.current = null
+    }
   }, [value])
 
   const send = async (): Promise<void> => {
@@ -141,7 +163,7 @@ export function MessageInput({
       ? `command-suggestion-${selectedIndex}`
       : undefined
 
-  const applyCommandSuggestion = useCallback((command: SlashCommandEntry): boolean => {
+  const applyCommandSuggestion = useCallback((command: SlashCommandEntry): { status: 'inserted' | 'no-op'; nextValue: string } => {
     const textarea = textareaRef.current
     const selectionStart = textarea?.selectionStart ?? value.length
     const selectionEnd = textarea?.selectionEnd ?? value.length
@@ -156,7 +178,7 @@ export function MessageInput({
 
     if (nextValue === value) {
       setIsSuggestionDismissed(true)
-      return false
+      return { status: 'no-op', nextValue }
     }
 
     setValue(nextValue)
@@ -173,7 +195,7 @@ export function MessageInput({
       element.setSelectionRange(nextCaret, nextCaret)
     })
 
-    return true
+    return { status: 'inserted', nextValue }
   }, [setSelectedIndex, value])
 
   const acceptSuggestion = useCallback(
@@ -210,23 +232,32 @@ export function MessageInput({
         return
       }
 
-      lastAcceptedSuggestionRef.current = {
-        commandName: selectedSuggestion.name,
-        acceptedAt: now,
-      }
+      const result = applyCommandSuggestion(selectedSuggestion)
 
-      const inserted = applyCommandSuggestion(selectedSuggestion)
-      emitSlashDiagnostic(
-        'debug',
-        inserted ? 'SLASH_ACCEPTED' : 'SLASH_ACCEPT_SUPPRESSED_DUPLICATE',
-        {
+      if (result.status === 'inserted') {
+        lastAcceptedSuggestionRef.current = {
+          commandName: selectedSuggestion.name,
+          acceptedAt: now,
+          valueAfterAccept: result.nextValue,
+        }
+
+        emitSlashDiagnostic('debug', 'SLASH_ACCEPTED', {
           key,
           prefix: slashPrefix,
           command: selectedSuggestion.name,
           selectedIndex,
           suggestionCount: suggestions.length,
-        },
-      )
+        })
+        return
+      }
+
+      emitSlashDiagnostic('debug', 'SLASH_ACCEPT_NO_OP', {
+        key,
+        prefix: slashPrefix,
+        command: selectedSuggestion.name,
+        selectedIndex,
+        suggestionCount: suggestions.length,
+      })
     },
     [applyCommandSuggestion, selectedIndex, suggestions, value],
   )
