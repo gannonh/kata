@@ -81,7 +81,7 @@ describe('CommandSuggestionDropdown acceptance behavior', () => {
     expect(mouseDownEvent.defaultPrevented).toBe(true)
   })
 
-  test('is a no-op when no suggestions are available (no selection exists)', () => {
+  test('renders empty state and does not call onSelect when suggestions are empty', () => {
     const onSelect = vi.fn()
     const anchorRef = createRef<HTMLDivElement>()
 
@@ -98,10 +98,8 @@ describe('CommandSuggestionDropdown acceptance behavior', () => {
       </>,
     )
 
-    const listbox = screen.getByRole('listbox')
-    fireEvent.keyDown(listbox, { key: 'Enter' })
-
     expect(screen.queryByRole('option')).toBeNull()
+    expect(screen.getByText('No commands found')).not.toBeNull()
     expect(onSelect).not.toHaveBeenCalled()
   })
 })

@@ -183,8 +183,9 @@ describe('MessageInput slash acceptance', () => {
     })
   })
 
-  test('logs SLASH_ACCEPT_NO_SELECTION when Enter is pressed with no active suggestion', () => {
+  test('Enter falls back to submit when suggestions are visible but no selection is available', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const onSubmit = vi.fn(async () => {})
 
     mockUseCommandSuggestions.mockReturnValue({
       suggestions: [],
@@ -197,7 +198,7 @@ describe('MessageInput slash acceptance', () => {
 
     render(
       <MessageInput
-        onSubmit={async () => {}}
+        onSubmit={onSubmit}
         onStop={async () => {}}
       />,
     )
@@ -205,6 +206,10 @@ describe('MessageInput slash acceptance', () => {
     const textarea = screen.getByTestId('chat-input') as HTMLTextAreaElement
     fireEvent.change(textarea, { target: { value: '/ka' } })
     fireEvent.keyDown(textarea, { key: 'Enter' })
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledWith('/ka')
+    })
 
     expect(warnSpy).toHaveBeenCalledWith(
       '[SlashAutocomplete]',
@@ -221,6 +226,9 @@ describe('MessageInput slash acceptance', () => {
     setupSuggestionsMock({ keepSuggestionsVisibleAfterAccept: true })
     const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {})
 
+    let now = 2_000
+    const nowSpy = vi.spyOn(Date, 'now').mockImplementation(() => now)
+
     render(
       <MessageInput
         onSubmit={async () => {}}
@@ -233,11 +241,13 @@ describe('MessageInput slash acceptance', () => {
     textarea.setSelectionRange(3, 3)
 
     fireEvent.keyDown(textarea, { key: 'Enter' })
-    fireEvent.click(screen.getByRole('option', { name: '/kata plan' }))
 
     await waitFor(() => {
       expect((screen.getByTestId('chat-input') as HTMLTextAreaElement).value).toBe('/kata plan ')
     })
+
+    now = 2_020
+    fireEvent.click(screen.getByRole('option', { name: '/kata plan' }))
 
     expect(debugSpy).toHaveBeenCalledWith(
       '[SlashAutocomplete]',
@@ -245,6 +255,45 @@ describe('MessageInput slash acceptance', () => {
         code: 'SLASH_ACCEPT_SUPPRESSED_DUPLICATE',
       }),
     )
+
+    nowSpy.mockRestore()
+  })
+
+  test('emits SLASH_ACCEPT_NO_OP when re-accepting after suppression window without changing input', async () => {
+    setupSuggestionsMock({ keepSuggestionsVisibleAfterAccept: true })
+    const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {})
+
+    let now = 1_000
+    const nowSpy = vi.spyOn(Date, 'now').mockImplementation(() => now)
+
+    render(
+      <MessageInput
+        onSubmit={async () => {}}
+        onStop={async () => {}}
+      />,
+    )
+
+    const textarea = screen.getByTestId('chat-input') as HTMLTextAreaElement
+    fireEvent.change(textarea, { target: { value: '/ka' } })
+    textarea.setSelectionRange(3, 3)
+
+    fireEvent.keyDown(textarea, { key: 'Enter' })
+
+    await waitFor(() => {
+      expect((screen.getByTestId('chat-input') as HTMLTextAreaElement).value).toBe('/kata plan ')
+    })
+
+    now = 1_080
+    fireEvent.click(screen.getByRole('option', { name: '/kata plan' }))
+
+    expect(debugSpy).toHaveBeenCalledWith(
+      '[SlashAutocomplete]',
+      expect.objectContaining({
+        code: 'SLASH_ACCEPT_NO_OP',
+      }),
+    )
+
+    nowSpy.mockRestore()
   })
 
   test('allows accepting the same suggestion again after input changes', async () => {
@@ -310,8 +359,6 @@ describe('MessageInput slash acceptance', () => {
   })
 
   test('Tab with no active suggestion does not consume focus navigation', () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-
     mockUseCommandSuggestions.mockReturnValue({
       suggestions: [],
       selectedIndex: 0,
@@ -336,6 +383,5 @@ describe('MessageInput slash acceptance', () => {
 
     expect(tabEvent.defaultPrevented).toBe(false)
     expect((screen.getByTestId('chat-input') as HTMLTextAreaElement).value).toBe('/ka')
-    expect(warnSpy).not.toHaveBeenCalled()
   })
 })

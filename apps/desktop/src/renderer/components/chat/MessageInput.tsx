@@ -16,6 +16,7 @@ interface MessageInputProps {
 type SlashAcceptDiagnosticCode =
   | 'SLASH_ACCEPTED'
   | 'SLASH_ACCEPT_NO_SELECTION'
+  | 'SLASH_ACCEPT_NO_OP'
   | 'SLASH_ACCEPT_SUPPRESSED_DUPLICATE'
 
 type SlashAcceptTriggerKey = 'Enter' | 'Tab' | 'Pointer'
@@ -69,10 +70,6 @@ function extractSlashPrefix(value: string, caret: number): string {
 
   const tokenEnd = value.indexOf(' ', tokenStart)
   const end = tokenEnd === -1 ? value.length : tokenEnd
-
-  if (boundedCaret > end) {
-    return ''
-  }
 
   return value.slice(tokenStart, end)
 }
@@ -162,40 +159,43 @@ export function MessageInput({
       ? `command-suggestion-${selectedIndex}`
       : undefined
 
-  const applyCommandSuggestion = useCallback((command: SlashCommandEntry): { status: 'inserted' | 'no-op'; nextValue: string } => {
-    const textarea = textareaRef.current
-    const selectionStart = textarea?.selectionStart ?? value.length
-    const selectionEnd = textarea?.selectionEnd ?? value.length
-    const tokenStart = value.lastIndexOf('/', selectionStart)
+  const applyCommandSuggestion = useCallback(
+    (command: SlashCommandEntry): { status: 'inserted' | 'no-op'; nextValue: string } => {
+      const textarea = textareaRef.current
+      const selectionStart = textarea?.selectionStart ?? value.length
+      const selectionEnd = textarea?.selectionEnd ?? value.length
+      const tokenStart = value.lastIndexOf('/', selectionStart)
 
-    const replaceStart = tokenStart >= 0 ? tokenStart : 0
-    const tokenEnd = value.indexOf(' ', Math.max(selectionEnd, replaceStart))
-    const replaceEnd = tokenStart >= 0 ? (tokenEnd === -1 ? value.length : tokenEnd) : value.length
+      const replaceStart = tokenStart >= 0 ? tokenStart : 0
+      const tokenEnd = value.indexOf(' ', Math.max(selectionEnd, replaceStart))
+      const replaceEnd = tokenStart >= 0 ? (tokenEnd === -1 ? value.length : tokenEnd) : value.length
 
-    const nextValue = `${value.slice(0, replaceStart)}${command.name} ${value.slice(replaceEnd)}`
-    const nextCaret = replaceStart + command.name.length + 1
+      const nextValue = `${value.slice(0, replaceStart)}${command.name} ${value.slice(replaceEnd)}`
+      const nextCaret = replaceStart + command.name.length + 1
 
-    if (nextValue === value) {
-      setIsSuggestionDismissed(true)
-      return { status: 'no-op', nextValue }
-    }
-
-    setValue(nextValue)
-    setSelectedIndex(0)
-    setIsSuggestionDismissed(true)
-
-    queueMicrotask(() => {
-      const element = textareaRef.current
-      if (!element) {
-        return
+      if (nextValue === value) {
+        setIsSuggestionDismissed(true)
+        return { status: 'no-op', nextValue }
       }
 
-      element.focus()
-      element.setSelectionRange(nextCaret, nextCaret)
-    })
+      setValue(nextValue)
+      setSelectedIndex(0)
+      setIsSuggestionDismissed(true)
 
-    return { status: 'inserted', nextValue }
-  }, [setSelectedIndex, value])
+      queueMicrotask(() => {
+        const element = textareaRef.current
+        if (!element) {
+          return
+        }
+
+        element.focus()
+        element.setSelectionRange(nextCaret, nextCaret)
+      })
+
+      return { status: 'inserted', nextValue }
+    },
+    [setSelectedIndex, value],
+  )
 
   const acceptSuggestion = useCallback(
     (key: SlashAcceptTriggerKey, command?: SlashCommandEntry): void => {
@@ -250,7 +250,7 @@ export function MessageInput({
         return
       }
 
-      emitSlashDiagnostic('debug', 'SLASH_ACCEPT_SUPPRESSED_DUPLICATE', {
+      emitSlashDiagnostic('debug', 'SLASH_ACCEPT_NO_OP', {
         key,
         prefix: slashPrefix,
         command: selectedSuggestion.name,
@@ -303,11 +303,21 @@ export function MessageInput({
             const hasSelectableSuggestion =
               suggestions.length > 0 && selectedIndex >= 0 && selectedIndex < suggestions.length
 
-            if (showSuggestions && shouldAcceptWithEnter) {
+            if (showSuggestions && shouldAcceptWithEnter && hasSelectableSuggestion) {
               event.preventDefault()
               event.stopPropagation()
               acceptSuggestion('Enter')
               return
+            }
+
+            if (showSuggestions && shouldAcceptWithEnter && !hasSelectableSuggestion) {
+              const caret = textareaRef.current?.selectionStart ?? value.length
+              emitSlashDiagnostic('warn', 'SLASH_ACCEPT_NO_SELECTION', {
+                key: 'Enter',
+                prefix: extractSlashPrefix(value, caret),
+                selectedIndex,
+                suggestionCount: suggestions.length,
+              })
             }
 
             if (showSuggestions && shouldAcceptWithTab && hasSelectableSuggestion) {
