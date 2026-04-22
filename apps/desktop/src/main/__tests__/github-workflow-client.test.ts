@@ -152,6 +152,16 @@ describe('GithubWorkflowClient', () => {
                         number: 2249,
                         title: '[S02] GitHub Workflow Board Parity',
                         url: 'https://github.com/kata-sh/kata/issues/2249',
+                        subIssues: {
+                          nodes: [
+                            {
+                              number: 2250,
+                              title: '[T01] Subtask on board',
+                              url: 'https://github.com/kata-sh/kata/issues/2250',
+                              state: 'CLOSED',
+                            },
+                          ],
+                        },
                       },
                       fieldValueByName: {
                         name: 'Agent Review',
@@ -249,9 +259,102 @@ describe('GithubWorkflowClient', () => {
         title: '[T01] Subtask on board',
         columnId: 'done',
         parentSliceId: '2249',
-        stateType: 'projects_v2',
+        stateType: 'issue_state',
       }),
     ])
+  })
+
+  test('projects_v2 never renders orphan task items without a parent relationship', async () => {
+    process.env.GH_TOKEN = 'ghp_test'
+
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              repository: {
+                owner: {
+                  __typename: 'User',
+                  login: 'kata-sh',
+                  projectV2: {
+                    id: 'PVT_kwDOG7',
+                    field: { id: 'PVTSSF_kwDOG7_status' },
+                  },
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              node: {
+                items: {
+                  nodes: [
+                    {
+                      id: 'PVTI_slice',
+                      content: {
+                        id: 'I_kwDOA',
+                        number: 2249,
+                        title: '[S02] GitHub Workflow Board Parity',
+                        url: 'https://github.com/kata-sh/kata/issues/2249',
+                        subIssues: { nodes: [] },
+                      },
+                      fieldValueByName: {
+                        name: 'Backlog',
+                        optionId: 'opt_backlog',
+                      },
+                    },
+                    {
+                      id: 'PVTI_task_orphan',
+                      content: {
+                        id: 'I_kwDOT',
+                        number: 2255,
+                        title: '[T99] Orphan task item',
+                        url: 'https://github.com/kata-sh/kata/issues/2255',
+                        labels: {
+                          nodes: [{ name: 'kata:task' }],
+                        },
+                      },
+                      fieldValueByName: {
+                        name: 'Done',
+                        optionId: 'opt_done',
+                      },
+                    },
+                  ],
+                  pageInfo: {
+                    hasNextPage: false,
+                    endCursor: null,
+                  },
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify([]), { status: 200 })) as unknown as typeof fetch
+
+    const client = new GithubWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
+
+    const snapshot = await client.fetchSnapshot({
+      config: {
+        kind: 'github',
+        repoOwner: 'kata-sh',
+        repoName: 'kata',
+        stateMode: 'projects_v2',
+        githubProjectNumber: 7,
+      },
+    })
+
+    const allCards = snapshot.columns.flatMap((column) => column.cards)
+    expect(allCards).toHaveLength(1)
+    expect(allCards[0]?.id).toBe('2249')
+    expect(allCards[0]?.tasks).toEqual([])
   })
 
   test('projects_v2 owner resolution uses repository owner union (no org-only lookup)', async () => {
