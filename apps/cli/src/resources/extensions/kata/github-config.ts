@@ -218,6 +218,7 @@ const GH_CLI_FALLBACK_DISABLE_VALUES = new Set([
 ]);
 
 const ghCliTokenCache = new Map<string, ResolvedGithubToken>();
+let warnedInvalidGhCliApiBase = false;
 
 function isGhCliFallbackEnabled(): boolean {
   const raw = (process.env.KATA_GITHUB_ENABLE_GH_CLI_FALLBACK ?? "")
@@ -234,11 +235,18 @@ function resolveGithubHostnameForGhCli(): string {
     const parsed = new URL(apiBase);
     return parsed.hostname || "github.com";
   } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
     debug(
       "Invalid KATA_GITHUB_API_BASE_URL for gh CLI host resolution (%s): %s",
       apiBase,
-      err instanceof Error ? err.message : String(err),
+      message,
     );
+    if (!warnedInvalidGhCliApiBase) {
+      warnedInvalidGhCliApiBase = true;
+      console.warn(
+        `[kata:github-config] Invalid KATA_GITHUB_API_BASE_URL for gh CLI host resolution (${apiBase}): ${message}. Falling back to github.com.`,
+      );
+    }
     return "github.com";
   }
 }

@@ -16,9 +16,9 @@ use symphony::{config, error};
 #[cfg(not(test))]
 use std::future::{pending, Future};
 #[cfg(not(test))]
-use std::process::Command;
-#[cfg(not(test))]
 use std::io::Write;
+#[cfg(not(test))]
+use std::process::Command;
 #[cfg(not(test))]
 use std::sync::{Arc, Mutex, Once};
 #[cfg(not(test))]
@@ -1143,8 +1143,9 @@ fn load_canonical_project_env() {
         let env_path = common_root.join(".env");
         if env_path.is_file() {
             let _ = dotenvy::from_path(&env_path);
-            return;
         }
+        // Inside a git repo we only load the canonical <repo-root>/.env.
+        return;
     }
 
     // Backward-compatible fallback outside git repos.
@@ -1158,11 +1159,17 @@ fn apply_github_token_aliases() {
         _ => return,
     };
 
-    if std::env::var("GITHUB_TOKEN").map(|v| v.trim().is_empty()).unwrap_or(true) {
+    if std::env::var("GITHUB_TOKEN")
+        .map(|v| v.trim().is_empty())
+        .unwrap_or(true)
+    {
         std::env::set_var("GITHUB_TOKEN", &gh_token);
     }
 
-    if std::env::var("KATA_GITHUB_TOKEN").map(|v| v.trim().is_empty()).unwrap_or(true) {
+    if std::env::var("KATA_GITHUB_TOKEN")
+        .map(|v| v.trim().is_empty())
+        .unwrap_or(true)
+    {
         std::env::set_var("KATA_GITHUB_TOKEN", &gh_token);
     }
 }

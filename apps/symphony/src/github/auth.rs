@@ -1,4 +1,7 @@
-use std::process::Command;
+use std::io::Read;
+use std::process::{Command, Stdio};
+use std::thread;
+use std::time::{Duration, Instant};
 
 use crate::domain::TrackerConfig;
 
@@ -18,6 +21,8 @@ pub struct ResolvedGithubToken {
 
 const GITHUB_TOKEN_MISSING_MESSAGE: &str =
     "GitHub token required when tracker.kind is github. Set tracker.api_key, GH_TOKEN/GITHUB_TOKEN, or authenticate gh CLI via `gh auth login` (local fallback).";
+const GH_CLI_FALLBACK_DISABLE_VALUES: [&str; 5] = ["0", "false", "no", "off", "disabled"];
+const GH_CLI_FALLBACK_TIMEOUT: Duration = Duration::from_secs(2);
 
 pub fn github_token_missing_message() -> &'static str {
     GITHUB_TOKEN_MISSING_MESSAGE
@@ -54,7 +59,7 @@ pub fn resolve_github_token(tracker: &TrackerConfig) -> Option<ResolvedGithubTok
                 })
         })
         .or_else(|| {
-            resolve_github_token_from_gh_cli().map(|token| ResolvedGithubToken {
+            resolve_github_token_from_gh_cli(&tracker.endpoint).map(|token| ResolvedGithubToken {
                 token,
                 source: GithubTokenSource::GhCli,
             })
@@ -70,37 +75,88 @@ pub fn github_token_source_name(source: GithubTokenSource) -> &'static str {
     }
 }
 
-fn resolve_github_token_from_gh_cli() -> Option<String> {
-    if std::env::var("SYMPHONY_GITHUB_ENABLE_GH_CLI_FALLBACK")
+fn is_gh_cli_fallback_enabled() -> bool {
+    let raw = std::env::var("SYMPHONY_GITHUB_ENABLE_GH_CLI_FALLBACK")
+        .unwrap_or_default()
+        .trim()
+        .to_ascii_lowercase();
+    !GH_CLI_FALLBACK_DISABLE_VALUES.contains(&raw.as_str())
+}
+
+fn resolve_github_hostname_for_gh_cli(endpoint: &str) -> String {
+    let trimmed = endpoint.trim();
+    if trimmed.is_empty() {
+        return "github.com".to_string();
+    }
+
+    reqwest::Url::parse(trimmed)
         .ok()
-        .as_deref()
-        == Some("0")
-    {
+        .and_then(|url| {
+            url.host_str()
+                .map(str::trim)
+                .filter(|host| !host.is_empty())
+                .map(ToString::to_string)
+        })
+        .unwrap_or_else(|| "github.com".to_string())
+}
+
+fn resolve_github_token_from_gh_cli(endpoint: &str) -> Option<String> {
+    if !is_gh_cli_fallback_enabled() {
         return None;
     }
 
-    let output = Command::new("gh")
-        .args(["auth", "token"])
+    let hostname = resolve_github_hostname_for_gh_cli(endpoint);
+    let mut child = Command::new("gh")
+        .args(["auth", "token", "--hostname", hostname.as_str()])
         .env("GH_PROMPT_DISABLED", "1")
-        .output()
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
         .ok()?;
 
-    if !output.status.success() {
-        return None;
-    }
+    let started = Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                if !status.success() {
+                    return None;
+                }
 
-    let token = String::from_utf8(output.stdout).ok()?.trim().to_string();
-    if token.is_empty() {
-        return None;
-    }
+                let mut stdout = Vec::new();
+                if let Some(mut pipe) = child.stdout.take() {
+                    if pipe.read_to_end(&mut stdout).is_err() {
+                        return None;
+                    }
+                }
 
-    Some(token)
+                let token = String::from_utf8(stdout).ok()?.trim().to_string();
+                if token.is_empty() {
+                    return None;
+                }
+
+                return Some(token);
+            }
+            Ok(None) => {
+                if started.elapsed() >= GH_CLI_FALLBACK_TIMEOUT {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return None;
+                }
+                thread::sleep(Duration::from_millis(25));
+            }
+            Err(_) => return None,
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{resolve_github_token, GithubTokenSource};
+    use super::{
+        is_gh_cli_fallback_enabled, resolve_github_hostname_for_gh_cli, resolve_github_token,
+        GithubTokenSource,
+    };
     use crate::domain::{ApiKey, TrackerConfig};
+    use serial_test::serial;
 
     fn with_env<T>(values: &[(&str, Option<&str>)], f: impl FnOnce() -> T) -> T {
         let mut previous: Vec<(String, Option<String>)> = Vec::with_capacity(values.len());
@@ -125,6 +181,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn resolve_github_token_prefers_tracker_api_key() {
         with_env(
             &[
@@ -143,6 +200,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn resolve_github_token_prefers_gh_token_over_github_token() {
         with_env(
             &[
@@ -160,6 +218,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn resolve_github_token_returns_none_when_no_sources_available() {
         with_env(
             &[
@@ -172,6 +231,43 @@ mod tests {
                 let resolved = resolve_github_token(&tracker);
                 assert!(resolved.is_none());
             },
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn gh_cli_fallback_disable_values_match_cli_behavior() {
+        with_env(
+            &[("SYMPHONY_GITHUB_ENABLE_GH_CLI_FALLBACK", Some("false"))],
+            || {
+                assert!(!is_gh_cli_fallback_enabled());
+            },
+        );
+
+        with_env(
+            &[("SYMPHONY_GITHUB_ENABLE_GH_CLI_FALLBACK", Some("disabled"))],
+            || {
+                assert!(!is_gh_cli_fallback_enabled());
+            },
+        );
+
+        with_env(
+            &[("SYMPHONY_GITHUB_ENABLE_GH_CLI_FALLBACK", Some(""))],
+            || {
+                assert!(is_gh_cli_fallback_enabled());
+            },
+        );
+    }
+
+    #[test]
+    fn resolve_github_hostname_for_gh_cli_prefers_endpoint_host() {
+        assert_eq!(
+            resolve_github_hostname_for_gh_cli("https://ghe.example.com/api/v3/graphql"),
+            "ghe.example.com"
+        );
+        assert_eq!(
+            resolve_github_hostname_for_gh_cli("not-a-url"),
+            "github.com"
         );
     }
 }
