@@ -269,12 +269,21 @@ export function MessageInput({
             }
 
             const shouldAcceptWithEnter = event.key === 'Enter' && !event.shiftKey
-            const shouldAcceptWithTab = event.key === 'Tab'
+            const shouldAcceptWithTab = event.key === 'Tab' && !event.shiftKey
+            const hasSelectableSuggestion =
+              suggestions.length > 0 && selectedIndex >= 0 && selectedIndex < suggestions.length
 
-            if (showSuggestions && (shouldAcceptWithEnter || shouldAcceptWithTab)) {
+            if (showSuggestions && shouldAcceptWithEnter) {
               event.preventDefault()
               event.stopPropagation()
-              acceptSuggestion(shouldAcceptWithTab ? 'Tab' : 'Enter')
+              acceptSuggestion('Enter')
+              return
+            }
+
+            if (showSuggestions && shouldAcceptWithTab && hasSelectableSuggestion) {
+              event.preventDefault()
+              event.stopPropagation()
+              acceptSuggestion('Tab')
               return
             }
 

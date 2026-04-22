@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, createEvent, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest'
 import type { SlashCommandEntry } from '@shared/types'
 import { useCommandSuggestions } from '@/hooks/useCommandSuggestions'
@@ -57,7 +57,14 @@ function setupSuggestionsMock({
       },
       isOpen: slashTriggered,
       isLoading: false,
-      moveSelection: vi.fn(),
+      moveSelection: (delta: number) => {
+        const total = showSuggestionEntries ? SUGGESTIONS.length : 0
+        if (total === 0) {
+          return
+        }
+
+        currentIndex = ((currentIndex + delta) % total + total) % total
+      },
     }
   })
 }
@@ -68,7 +75,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
-  vi.clearAllMocks()
+  vi.restoreAllMocks()
 })
 
 describe('MessageInput slash acceptance', () => {
@@ -241,6 +248,7 @@ describe('MessageInput slash acceptance', () => {
   })
 
   test('allows accepting the same suggestion again after input changes', async () => {
+    setupSuggestionsMock({ selectedIndex: 0 })
     const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {})
 
     render(
@@ -254,16 +262,14 @@ describe('MessageInput slash acceptance', () => {
 
     fireEvent.change(textarea, { target: { value: '/ka' } })
     textarea.setSelectionRange(3, 3)
-    fireEvent.keyDown(textarea, { key: 'ArrowDown' })
     fireEvent.keyDown(textarea, { key: 'Enter' })
 
     await waitFor(() => {
-      expect((screen.getByTestId('chat-input') as HTMLTextAreaElement).value).toBe('/kata plan ')
+      expect((screen.getByTestId('chat-input') as HTMLTextAreaElement).value).toBe('/kata ')
     })
 
     fireEvent.change(textarea, { target: { value: '/ka' } })
     textarea.setSelectionRange(3, 3)
-    fireEvent.keyDown(textarea, { key: 'ArrowDown' })
     fireEvent.keyDown(textarea, { key: 'Enter' })
 
     await waitFor(() => {
@@ -280,5 +286,56 @@ describe('MessageInput slash acceptance', () => {
     )
 
     expect(suppressedDuplicateEvents).toHaveLength(0)
+  })
+
+  test('Shift+Tab does not trigger slash acceptance', () => {
+    const onSubmit = vi.fn(async () => {})
+
+    render(
+      <MessageInput
+        onSubmit={onSubmit}
+        onStop={async () => {}}
+      />,
+    )
+
+    const textarea = screen.getByTestId('chat-input') as HTMLTextAreaElement
+    fireEvent.change(textarea, { target: { value: '/ka' } })
+
+    const shiftTabEvent = createEvent.keyDown(textarea, { key: 'Tab', shiftKey: true })
+    fireEvent(textarea, shiftTabEvent)
+
+    expect(shiftTabEvent.defaultPrevented).toBe(false)
+    expect((screen.getByTestId('chat-input') as HTMLTextAreaElement).value).toBe('/ka')
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+
+  test('Tab with no active suggestion does not consume focus navigation', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    mockUseCommandSuggestions.mockReturnValue({
+      suggestions: [],
+      selectedIndex: 0,
+      setSelectedIndex: vi.fn(),
+      isOpen: true,
+      isLoading: true,
+      moveSelection: vi.fn(),
+    })
+
+    render(
+      <MessageInput
+        onSubmit={async () => {}}
+        onStop={async () => {}}
+      />,
+    )
+
+    const textarea = screen.getByTestId('chat-input') as HTMLTextAreaElement
+    fireEvent.change(textarea, { target: { value: '/ka' } })
+
+    const tabEvent = createEvent.keyDown(textarea, { key: 'Tab' })
+    fireEvent(textarea, tabEvent)
+
+    expect(tabEvent.defaultPrevented).toBe(false)
+    expect((screen.getByTestId('chat-input') as HTMLTextAreaElement).value).toBe('/ka')
+    expect(warnSpy).not.toHaveBeenCalled()
   })
 })
