@@ -300,6 +300,38 @@ test("resolveGithubToken falls back to auth.json when gh-cli fallback fails", ()
   );
 });
 
+test("resolveGithubToken caches unresolved gh-cli fallback results per host", () => {
+  const dir = makeProjectDir();
+  const authPath = join(dir, "auth.json");
+  writeFileSync(
+    authPath,
+    JSON.stringify({ github: { type: "api_key", key: "from-auth-json" } }, null, 2),
+    "utf-8",
+  );
+
+  withEnv(
+    {
+      KATA_GITHUB_TOKEN: undefined,
+      GH_TOKEN: undefined,
+      GITHUB_TOKEN: undefined,
+      KATA_GITHUB_ENABLE_GH_CLI_FALLBACK: "1",
+      KATA_TEST_GH_AUTH_TOKEN_OUTPUT: "__THROW__",
+      KATA_GITHUB_API_BASE_URL: "https://ghe.example.com/api/v3",
+    },
+    () => {
+      const first = resolveGithubToken(authPath);
+      assert.equal(first.token, "from-auth-json");
+      assert.equal(first.source, "auth.json (github provider)");
+
+      process.env.KATA_TEST_GH_AUTH_TOKEN_OUTPUT = "from-gh";
+
+      const second = resolveGithubToken(authPath);
+      assert.equal(second.token, "from-auth-json");
+      assert.equal(second.source, "auth.json (github provider)");
+    },
+  );
+});
+
 test("resolveGithubToken disables gh-cli fallback for false/no values", () => {
   const dir = makeProjectDir();
   const authPath = join(dir, "auth.json");

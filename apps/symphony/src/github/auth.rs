@@ -94,8 +94,15 @@ fn resolve_github_hostname_for_gh_cli(endpoint: &str) -> String {
         .and_then(|url| {
             url.host_str()
                 .map(str::trim)
+                .map(|host| host.trim_end_matches('.').to_ascii_lowercase())
                 .filter(|host| !host.is_empty())
-                .map(ToString::to_string)
+                .map(|host| {
+                    if host == "api.github.com" {
+                        "github.com".to_string()
+                    } else {
+                        host
+                    }
+                })
         })
         .unwrap_or_else(|| "github.com".to_string())
 }
@@ -264,6 +271,14 @@ mod tests {
         assert_eq!(
             resolve_github_hostname_for_gh_cli("https://ghe.example.com/api/v3/graphql"),
             "ghe.example.com"
+        );
+        assert_eq!(
+            resolve_github_hostname_for_gh_cli("https://api.github.com"),
+            "github.com"
+        );
+        assert_eq!(
+            resolve_github_hostname_for_gh_cli("https://api.github.com./graphql"),
+            "github.com"
         );
         assert_eq!(
             resolve_github_hostname_for_gh_cli("not-a-url"),

@@ -160,6 +160,17 @@ describe('GithubWorkflowClient', () => {
                               url: 'https://github.com/kata-sh/kata/issues/2250',
                               state: 'CLOSED',
                             },
+                            {
+                              number: 991,
+                              title: '[T99] Foreign sub-issue',
+                              url: 'https://github.com/other-org/other-repo/issues/991',
+                              state: 'OPEN',
+                            },
+                            {
+                              number: 992,
+                              title: '[T98] Missing URL sub-issue',
+                              state: 'OPEN',
+                            },
                           ],
                         },
                       },

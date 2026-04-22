@@ -270,10 +270,16 @@ function resolveGithubTokenFromGhCli(): ResolvedGithubToken {
   const forcedOutput = process.env.KATA_TEST_GH_AUTH_TOKEN_OUTPUT;
   if (forcedOutput !== undefined) {
     if (forcedOutput === "__THROW__") {
-      return { token: null, source: null };
+      const unresolved = { token: null, source: null };
+      ghCliTokenCache.set(hostname, unresolved);
+      return unresolved;
     }
     const value = forcedOutput.trim();
-    if (!value) return { token: null, source: null };
+    if (!value) {
+      const unresolved = { token: null, source: null };
+      ghCliTokenCache.set(hostname, unresolved);
+      return unresolved;
+    }
     const resolved = {
       token: value,
       source: `gh auth token (${hostname})`,
@@ -289,7 +295,11 @@ function resolveGithubTokenFromGhCli(): ResolvedGithubToken {
       timeout: 2000,
       windowsHide: true,
     }).trim();
-    if (!output) return { token: null, source: null };
+    if (!output) {
+      const unresolved = { token: null, source: null };
+      ghCliTokenCache.set(hostname, unresolved);
+      return unresolved;
+    }
     const resolved = {
       token: output,
       source: `gh auth token (${hostname})`,
@@ -302,7 +312,9 @@ function resolveGithubTokenFromGhCli(): ResolvedGithubToken {
       hostname,
       err instanceof Error ? err.message : String(err),
     );
-    return { token: null, source: null };
+    const unresolved = { token: null, source: null };
+    ghCliTokenCache.set(hostname, unresolved);
+    return unresolved;
   }
 }
 

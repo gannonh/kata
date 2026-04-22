@@ -285,7 +285,7 @@ export class GithubWorkflowClient {
       subIssues: Array<{
         issueNumber: number
         issueTitle: string
-        issueUrl: string | null
+        issueUrl: string
         issueState: string | undefined
       }>
     }> = []
@@ -316,19 +316,34 @@ export class GithubWorkflowClient {
       const isTask = hasTaskLabel || Boolean(parentIssueNumber) || hasTaskTitlePrefix
       const isSlice = !isTask && (hasSliceLabel || !hasTaskLabel)
       const subIssues = (item.content?.subIssues?.nodes ?? [])
-        .map((subIssue) => ({
-          issueNumber: subIssue.number,
-          issueTitle: subIssue.title?.trim(),
-          issueUrl: subIssue.url?.trim() || null,
-          issueState: subIssue.state?.trim(),
-        }))
+        .map((subIssue) => {
+          const issueNumber = subIssue.number
+          const issueTitle = subIssue.title?.trim()
+          const issueUrl = subIssue.url?.trim()
+          const issueState = subIssue.state?.trim()
+
+          if (!issueNumber || !issueTitle || !issueUrl) {
+            return null
+          }
+
+          if (!isIssueInRepository(issueUrl, config.repoOwner, config.repoName)) {
+            return null
+          }
+
+          return {
+            issueNumber,
+            issueTitle,
+            issueUrl,
+            issueState,
+          }
+        })
         .filter(
           (subIssue): subIssue is {
             issueNumber: number
             issueTitle: string
-            issueUrl: string | null
+            issueUrl: string
             issueState: string | undefined
-          } => Boolean(subIssue.issueNumber && subIssue.issueTitle),
+          } => Boolean(subIssue),
         )
 
       normalizedIssues.push({
@@ -348,10 +363,6 @@ export class GithubWorkflowClient {
         const tasks = issue.subIssues
           .map((subIssue) => {
             const mappedTaskState = mapGithubIssueStateToTaskColumn(subIssue.issueState)
-            const taskUrl =
-              subIssue.issueUrl ??
-              `https://github.com/${config.repoOwner}/${config.repoName}/issues/${subIssue.issueNumber}`
-
             return {
               id: String(subIssue.issueNumber),
               identifier: `#${subIssue.issueNumber}`,
@@ -360,7 +371,7 @@ export class GithubWorkflowClient {
               stateName: mappedTaskState.stateName,
               stateType: 'issue_state',
               parentSliceId: String(issue.issueNumber),
-              url: taskUrl,
+              url: subIssue.issueUrl,
             } satisfies WorkflowBoardTask
           })
           .sort((left, right) => left.identifier.localeCompare(right.identifier))
