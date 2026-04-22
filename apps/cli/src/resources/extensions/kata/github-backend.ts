@@ -990,7 +990,7 @@ function isProjectsV2PermissionError(error: unknown): boolean {
   return (
     normalized.includes("resource not accessible by personal access token") ||
     normalized.includes("resource not accessible by integration") ||
-    normalized.includes("not authorized") ||
+    (normalized.includes("not authorized to") && normalized.includes("project")) ||
     (normalized.includes("forbidden") && normalized.includes("project"))
   );
 }
@@ -1003,7 +1003,7 @@ function formatProjectsV2PermissionErrorMessage(
     `GitHub Projects v2 status update failed for issue #${issueNumber}.`,
     "The token used by Kata does not have permission to mutate GitHub Projects v2 fields.",
     "Grant Projects write access (classic PAT: `project` scope) to the token used by Kata, then retry.",
-    "Token resolution order: KATA_GITHUB_TOKEN -> GH_TOKEN -> GITHUB_TOKEN -> ~/.kata-cli/agent/auth.json (github.key).",
+    "Token resolution order: KATA_GITHUB_TOKEN -> GH_TOKEN -> GITHUB_TOKEN -> gh auth token (when KATA_GITHUB_ENABLE_GH_CLI_FALLBACK is enabled) -> ~/.kata-cli/agent/auth.json (github.key).",
     `Original error: ${originalMessage}`,
   ].join(" ");
 }

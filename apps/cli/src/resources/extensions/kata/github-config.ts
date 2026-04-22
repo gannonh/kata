@@ -209,22 +209,89 @@ export interface ResolvedGithubToken {
   source: string | null;
 }
 
+const GH_CLI_FALLBACK_DISABLE_VALUES = new Set([
+  "0",
+  "false",
+  "no",
+  "off",
+  "disabled",
+]);
+
+const ghCliTokenCache = new Map<string, ResolvedGithubToken>();
+
+function isGhCliFallbackEnabled(): boolean {
+  const raw = (process.env.KATA_GITHUB_ENABLE_GH_CLI_FALLBACK ?? "")
+    .trim()
+    .toLowerCase();
+  return !GH_CLI_FALLBACK_DISABLE_VALUES.has(raw);
+}
+
+function resolveGithubHostnameForGhCli(): string {
+  const apiBase = process.env.KATA_GITHUB_API_BASE_URL?.trim();
+  if (!apiBase) return "github.com";
+
+  try {
+    const parsed = new URL(apiBase);
+    return parsed.hostname || "github.com";
+  } catch (err) {
+    debug(
+      "Invalid KATA_GITHUB_API_BASE_URL for gh CLI host resolution (%s): %s",
+      apiBase,
+      err instanceof Error ? err.message : String(err),
+    );
+    return "github.com";
+  }
+}
+
+/**
+ * Test-only hook for deterministic gh-cli fallback tests.
+ */
+export function resetGithubTokenResolutionCacheForTests(): void {
+  ghCliTokenCache.clear();
+}
+
 function resolveGithubTokenFromGhCli(): ResolvedGithubToken {
-  if (process.env.KATA_GITHUB_ENABLE_GH_CLI_FALLBACK === "0") {
+  if (!isGhCliFallbackEnabled()) {
     return { token: null, source: null };
   }
 
+  const hostname = resolveGithubHostnameForGhCli();
+  const cached = ghCliTokenCache.get(hostname);
+  if (cached) return cached;
+
+  const forcedOutput = process.env.KATA_TEST_GH_AUTH_TOKEN_OUTPUT;
+  if (forcedOutput !== undefined) {
+    if (forcedOutput === "__THROW__") {
+      return { token: null, source: null };
+    }
+    const value = forcedOutput.trim();
+    if (!value) return { token: null, source: null };
+    const resolved = {
+      token: value,
+      source: `gh auth token (${hostname})`,
+    };
+    ghCliTokenCache.set(hostname, resolved);
+    return resolved;
+  }
+
   try {
-    const output = execFileSync("gh", ["auth", "token"], {
+    const output = execFileSync("gh", ["auth", "token", "--hostname", hostname], {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
       timeout: 2000,
+      windowsHide: true,
     }).trim();
     if (!output) return { token: null, source: null };
-    return { token: output, source: "gh auth token" };
+    const resolved = {
+      token: output,
+      source: `gh auth token (${hostname})`,
+    };
+    ghCliTokenCache.set(hostname, resolved);
+    return resolved;
   } catch (err) {
     debug(
-      "Unable to resolve token from gh auth token: %s",
+      "Unable to resolve token from gh auth token for host %s: %s",
+      hostname,
       err instanceof Error ? err.message : String(err),
     );
     return { token: null, source: null };
@@ -305,10 +372,13 @@ export function validateGithubConfig(
   if (trackerDiagnostic) diagnostics.push(trackerDiagnostic);
 
   if (!tokenPresent) {
+    const loginHint = isGhCliFallbackEnabled()
+      ? "; run `gh auth login`"
+      : "";
     diagnostics.push({
       code: "missing_github_token",
       message:
-        "No GitHub token found. Set KATA_GITHUB_TOKEN, GH_TOKEN, or GITHUB_TOKEN; run `gh auth login`; or add a github credential entry to ~/.kata-cli/agent/auth.json.",
+        `No GitHub token found. Set KATA_GITHUB_TOKEN, GH_TOKEN, or GITHUB_TOKEN${loginHint}; or add a github credential entry to ~/.kata-cli/agent/auth.json.`,
       field: "KATA_GITHUB_TOKEN",
       retryable: false,
     });
@@ -368,7 +438,9 @@ function getGithubDiagnosticAction(
 ): string | null {
   switch (diagnostic.code) {
     case "missing_github_token":
-      return "set KATA_GITHUB_TOKEN/GH_TOKEN/GITHUB_TOKEN, or run `gh auth login` (Kata auto-reads `gh auth token`).";
+      return isGhCliFallbackEnabled()
+        ? "set KATA_GITHUB_TOKEN/GH_TOKEN/GITHUB_TOKEN, or run `gh auth login` (Kata auto-reads `gh auth token`)."
+        : "set KATA_GITHUB_TOKEN/GH_TOKEN/GITHUB_TOKEN in your environment or auth.json.";
     case "missing_github_config":
       return "add a github: block to .kata/preferences.md with repoOwner and repoName.";
     case "missing_repo_owner":
