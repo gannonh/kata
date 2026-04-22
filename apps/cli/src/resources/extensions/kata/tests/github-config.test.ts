@@ -26,7 +26,13 @@ function writePrefs(dir: string, yaml: string): string {
 
 function withEnv<T>(values: Record<string, string | undefined>, fn: () => T): T {
   const previous: Record<string, string | undefined> = {};
-  for (const [key, value] of Object.entries(values)) {
+  const effectiveValues = {
+    KATA_GITHUB_ENABLE_GH_CLI_FALLBACK:
+      values.KATA_GITHUB_ENABLE_GH_CLI_FALLBACK ?? "0",
+    ...values,
+  };
+
+  for (const [key, value] of Object.entries(effectiveValues)) {
     previous[key] = process.env[key];
     if (value === undefined) {
       delete process.env[key];
@@ -260,7 +266,11 @@ test("validateGithubConfig includes token and github diagnostics", () => {
       GH_TOKEN: undefined,
       GITHUB_TOKEN: undefined,
     },
-    () => validateGithubConfig({ basePath: dir }),
+    () =>
+      validateGithubConfig({
+        basePath: dir,
+        authFilePath: join(dir, "missing-auth.json"),
+      }),
   );
 
   assert.equal(result.ok, false);
@@ -291,7 +301,11 @@ test("validateGithubConfig succeeds with github prefs + token", () => {
       GH_TOKEN: undefined,
       GITHUB_TOKEN: undefined,
     },
-    () => validateGithubConfig({ basePath: dir }),
+    () =>
+      validateGithubConfig({
+        basePath: dir,
+        authFilePath: join(dir, "missing-auth.json"),
+      }),
   );
 
   assert.equal(result.ok, true);

@@ -6,6 +6,7 @@
  * redacted diagnostics when configuration is incomplete.
  */
 
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -208,6 +209,28 @@ export interface ResolvedGithubToken {
   source: string | null;
 }
 
+function resolveGithubTokenFromGhCli(): ResolvedGithubToken {
+  if (process.env.KATA_GITHUB_ENABLE_GH_CLI_FALLBACK === "0") {
+    return { token: null, source: null };
+  }
+
+  try {
+    const output = execFileSync("gh", ["auth", "token"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+      timeout: 2000,
+    }).trim();
+    if (!output) return { token: null, source: null };
+    return { token: output, source: "gh auth token" };
+  } catch (err) {
+    debug(
+      "Unable to resolve token from gh auth token: %s",
+      err instanceof Error ? err.message : String(err),
+    );
+    return { token: null, source: null };
+  }
+}
+
 export function resolveGithubToken(authFilePath?: string): ResolvedGithubToken {
   const kataToken = process.env.KATA_GITHUB_TOKEN;
   if (kataToken) return { token: kataToken, source: "KATA_GITHUB_TOKEN" };
@@ -217,6 +240,11 @@ export function resolveGithubToken(authFilePath?: string): ResolvedGithubToken {
 
   const githubToken = process.env.GITHUB_TOKEN;
   if (githubToken) return { token: githubToken, source: "GITHUB_TOKEN" };
+
+  // Prefer the authenticated GitHub CLI token over stale persisted keys so
+  // projects-v2 updates keep working without manual exports.
+  const ghCliToken = resolveGithubTokenFromGhCli();
+  if (ghCliToken.token) return ghCliToken;
 
   const authPath =
     authFilePath ?? join(homedir(), ".kata-cli", "agent", "auth.json");
@@ -280,7 +308,7 @@ export function validateGithubConfig(
     diagnostics.push({
       code: "missing_github_token",
       message:
-        "No GitHub token found. Set KATA_GITHUB_TOKEN, GH_TOKEN, GITHUB_TOKEN, or add a github credential entry to ~/.kata-cli/agent/auth.json.",
+        "No GitHub token found. Set KATA_GITHUB_TOKEN, GH_TOKEN, or GITHUB_TOKEN; run `gh auth login`; or add a github credential entry to ~/.kata-cli/agent/auth.json.",
       field: "KATA_GITHUB_TOKEN",
       retryable: false,
     });
@@ -340,7 +368,7 @@ function getGithubDiagnosticAction(
 ): string | null {
   switch (diagnostic.code) {
     case "missing_github_token":
-      return "set KATA_GITHUB_TOKEN, GH_TOKEN, or GITHUB_TOKEN in your environment.";
+      return "set KATA_GITHUB_TOKEN/GH_TOKEN/GITHUB_TOKEN, or run `gh auth login` (Kata auto-reads `gh auth token`).";
     case "missing_github_config":
       return "add a github: block to .kata/preferences.md with repoOwner and repoName.";
     case "missing_repo_owner":

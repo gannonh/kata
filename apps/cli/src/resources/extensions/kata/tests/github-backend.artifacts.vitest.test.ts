@@ -30,6 +30,7 @@ class FakeGithubClient implements GithubBackendClient {
   }>>();
   private nextCommentId = 1;
   private projectStatusUpdates: Array<{ issueNumber: number; stateName: string }> = [];
+  private projectStatusError: Error | null = null;
 
   constructor(seed: MutableIssue[] = []) {
     this.issues = seed.map((issue) => ({ ...issue, labels: [...issue.labels], updatedAt: issue.updatedAt ?? "2026-04-12T00:00:00.000Z" }));
@@ -160,11 +161,22 @@ class FakeGithubClient implements GithubBackendClient {
 
   async updateProjectV2ItemStatus(issueNumber: number, stateName: string): Promise<string> {
     this.projectStatusUpdates.push({ issueNumber, stateName });
+    if (this.projectStatusError) {
+      throw this.projectStatusError;
+    }
     return stateName;
   }
 
   getProjectStatusUpdates(): Array<{ issueNumber: number; stateName: string }> {
     return [...this.projectStatusUpdates];
+  }
+
+  setProjectStatusError(error: Error | string | null): void {
+    if (!error) {
+      this.projectStatusError = null;
+      return;
+    }
+    this.projectStatusError = error instanceof Error ? error : new Error(error);
   }
 
   updatedCommentBodies(): string[] {
@@ -445,6 +457,50 @@ describe("GithubBackend canonical worker operations", () => {
     expect(issue?.labels).toContain("kata:slice");
     expect(issue?.labels).toContain("kata:agent-review");
     expect(issue?.labels).not.toContain("kata:in-progress");
+  });
+
+  it("updateIssueState in projects_v2 mode returns actionable error when project status mutation is forbidden", async () => {
+    const client = new FakeGithubClient([
+      { number: 54, title: "[S06] Projects permissions", state: "open", labels: ["kata:slice", "kata:in-progress"] },
+    ]);
+    client.setProjectStatusError(
+      "GitHub GraphQL request failed for gannonh/kata: Resource not accessible by personal access token",
+    );
+
+    const backend = makeBackend(client, {
+      ...CONFIG,
+      stateMode: "projects_v2",
+      githubProjectNumber: 17,
+    });
+
+    await expect(backend.updateIssueState("54", "agent-review")).rejects.toThrow(
+      "Grant Projects write access (classic PAT: `project` scope)",
+    );
+
+    const issue = await client.getIssue(54);
+    expect(issue?.labels).toContain("kata:in-progress");
+    expect(issue?.labels).not.toContain("kata:agent-review");
+  });
+
+  it("updateIssueState in projects_v2 mode still throws for non-permission project status errors", async () => {
+    const client = new FakeGithubClient([
+      { number: 55, title: "[S07] Projects strict", state: "open", labels: ["kata:slice", "kata:in-progress"] },
+    ]);
+    client.setProjectStatusError("Projects v2 status option 'Agent Review' not found");
+
+    const backend = makeBackend(client, {
+      ...CONFIG,
+      stateMode: "projects_v2",
+      githubProjectNumber: 17,
+    });
+
+    await expect(backend.updateIssueState("55", "agent-review")).rejects.toThrow(
+      "Projects v2 status option 'Agent Review' not found",
+    );
+
+    const issue = await client.getIssue(55);
+    expect(issue?.labels).toContain("kata:in-progress");
+    expect(issue?.labels).not.toContain("kata:agent-review");
   });
 
   it("isSlicePlanned falls back to metadata-linked tasks when no sub-issue links exist yet", async () => {

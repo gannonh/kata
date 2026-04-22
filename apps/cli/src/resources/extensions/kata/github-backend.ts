@@ -984,6 +984,30 @@ function phaseToProjectsV2StatusName(phase: KataIssueStatePhase): string {
   }
 }
 
+function isProjectsV2PermissionError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("resource not accessible by personal access token") ||
+    normalized.includes("resource not accessible by integration") ||
+    normalized.includes("not authorized") ||
+    (normalized.includes("forbidden") && normalized.includes("project"))
+  );
+}
+
+function formatProjectsV2PermissionErrorMessage(
+  issueNumber: number,
+  originalMessage: string,
+): string {
+  return [
+    `GitHub Projects v2 status update failed for issue #${issueNumber}.`,
+    "The token used by Kata does not have permission to mutate GitHub Projects v2 fields.",
+    "Grant Projects write access (classic PAT: `project` scope) to the token used by Kata, then retry.",
+    "Token resolution order: KATA_GITHUB_TOKEN -> GH_TOKEN -> GITHUB_TOKEN -> ~/.kata-cli/agent/auth.json (github.key).",
+    `Original error: ${originalMessage}`,
+  ].join(" ");
+}
+
 function defaultGithubLabelColor(labelName: string): string {
   const normalized = labelName.trim().toLowerCase();
   if (normalized.endsWith("milestone")) return "7C3AED";
@@ -2017,21 +2041,32 @@ export class GithubBackend implements KataBackend {
     const shouldClose = phase === "done" || phase === "closed";
     const nextLabels = [...preservedLabels, nextPhaseLabel];
 
-    // Projects v2 mode: mutate the project board Status field directly and keep
-    // canonical phase labels synchronized so label-based state derivation stays accurate.
+    // Projects v2 mode: mutate the project board Status field and keep
+    // canonical phase labels synchronized. If Projects permissions are missing,
+    // fail with an explicit actionable diagnostic.
     if (this.config.stateMode === "projects_v2" && this.config.githubProjectNumber) {
       const displayName = phaseToProjectsV2StatusName(phase);
-      const actualStatus = await this.client.updateProjectV2ItemStatus(number, displayName);
+      let actualStatus: string;
 
-      await this.updateIssue(number, {
+      try {
+        actualStatus = await this.client.updateProjectV2ItemStatus(number, displayName);
+      } catch (error) {
+        if (!isProjectsV2PermissionError(error)) {
+          throw error;
+        }
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(formatProjectsV2PermissionErrorMessage(number, message));
+      }
+
+      const updated = await this.updateIssue(number, {
         labels: nextLabels,
         state: shouldClose ? "closed" : "open",
       });
 
       this.invalidateStateCache();
       return {
-        issueId: String(number),
-        identifier: `#${number}`,
+        issueId: String(updated.number),
+        identifier: `#${updated.number}`,
         phase,
         state: actualStatus,
       };

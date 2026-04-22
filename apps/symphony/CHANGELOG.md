@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.2.2
+
+### Improvements
+
+- **Align GitHub execution contract with Kata CLI semantics** — harmonized state/transition behavior and workspace prompt shaping so Symphony and Kata CLI interpret GitHub issue workflows consistently.
+- **Backend-neutral worker contract support** — updated prompts, adapter/config plumbing, and tests to operate cleanly across Linear and GitHub backends via shared `kata_*` abstractions.
+
 ## 2.2.1
 
 ### Bug Fixes
