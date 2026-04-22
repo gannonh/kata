@@ -16,7 +16,6 @@ interface MessageInputProps {
 type SlashAcceptDiagnosticCode =
   | 'SLASH_ACCEPTED'
   | 'SLASH_ACCEPT_NO_SELECTION'
-  | 'SLASH_ACCEPT_NO_OP'
   | 'SLASH_ACCEPT_SUPPRESSED_DUPLICATE'
 
 type SlashAcceptTriggerKey = 'Enter' | 'Tab' | 'Pointer'
@@ -251,7 +250,7 @@ export function MessageInput({
         return
       }
 
-      emitSlashDiagnostic('debug', 'SLASH_ACCEPT_NO_OP', {
+      emitSlashDiagnostic('debug', 'SLASH_ACCEPT_SUPPRESSED_DUPLICATE', {
         key,
         prefix: slashPrefix,
         command: selectedSuggestion.name,
