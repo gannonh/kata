@@ -873,6 +873,8 @@ function mapGithubIssueStateToTaskColumn(issueState: string | undefined): {
   columnId: 'todo' | 'done'
   stateName: string
 } {
+  // Task cards intentionally follow canonical GitHub issue lifecycle (OPEN/CLOSED),
+  // not per-item Projects v2 "Status", so task state is consistent across boards.
   const normalized = issueState?.trim().toUpperCase()
   if (normalized === 'CLOSED') {
     return {
