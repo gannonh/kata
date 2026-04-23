@@ -111,6 +111,39 @@ describe('symphony ipc handlers', () => {
       respondToEscalation: vi.fn(async () => ({ success: true, snapshot: dashboardSnapshot })),
     } as any
 
+    const agentActivitySnapshot = {
+      generatedAt: new Date().toISOString(),
+      events: [],
+      verbose: [],
+      pinnedErrors: [
+        {
+          incidentId: 'incident-1',
+          fingerprint: 'system|error|x',
+          source: 'system',
+          kind: 'system.error',
+          message: 'Symphony service unavailable.',
+          severity: 'error',
+          firstSeenAt: new Date().toISOString(),
+          lastSeenAt: new Date().toISOString(),
+          occurrences: 1,
+          lastEventId: 'evt-1',
+        },
+      ],
+    }
+
+    const agentActivityJournal = Object.assign(new EventEmitter(), {
+      getSnapshot: vi.fn(() => agentActivitySnapshot),
+      dismissPinnedError: vi.fn((incidentId: string) => ({
+        ...agentActivitySnapshot,
+        pinnedErrors: agentActivitySnapshot.pinnedErrors.filter((incident) => incident.incidentId !== incidentId),
+      })),
+      ingestRuntimeStatus: vi.fn(),
+      ingestOperatorSnapshot: vi.fn(),
+      ingestEscalationResponse: vi.fn(),
+      recordSystemError: vi.fn(),
+    }) as any
+    const windowStub = createWindowStub()
+
     const unregister = registerSessionIpc({
       bridge,
       authBridge: {
@@ -124,9 +157,10 @@ describe('symphony ipc handlers', () => {
         getSessionInfo: vi.fn(),
         resolveSessionPathById: vi.fn(async () => null),
       } as any,
-      window: createWindowStub(),
+      window: windowStub,
       symphonySupervisor: supervisor,
       symphonyOperatorService: operatorService,
+      agentActivityJournal,
     })
 
     await handlers.get(IPC_CHANNELS.symphonyStart)?.({})
@@ -139,6 +173,11 @@ describe('symphony ipc handlers', () => {
       {},
       'req-1',
       'Proceed',
+    )
+    const agentActivityResponse = await handlers.get(IPC_CHANNELS.agentActivityGetSnapshot)?.({})
+    const dismissPinnedResponse = await handlers.get(IPC_CHANNELS.agentActivityDismissPinnedError)?.(
+      {},
+      'incident-1',
     )
     const workflowRespondResult = await handlers.get(IPC_CHANNELS.workflowRespondEscalation)?.({}, {
       cardId: 'slice-1',
@@ -160,6 +199,11 @@ describe('symphony ipc handlers', () => {
     expect(operatorService.refreshBaseline).toHaveBeenCalledTimes(1)
     expect(operatorService.respondToEscalation).toHaveBeenCalledWith('req-1', 'Proceed')
     expect(respondResult.success).toBe(true)
+    expect(agentActivityResponse.success).toBe(true)
+    expect(agentActivityResponse.snapshot).toEqual(agentActivitySnapshot)
+    expect(dismissPinnedResponse.success).toBe(true)
+    expect(agentActivityJournal.dismissPinnedError).toHaveBeenCalledWith('incident-1')
+    expect(Array.isArray(dismissPinnedResponse.snapshot.pinnedErrors)).toBe(true)
     expect(workflowRespondResult.success).toBe(true)
     expect(workflowRespondResult.code).toBe('SUBMITTED')
 
@@ -168,6 +212,15 @@ describe('symphony ipc handlers', () => {
     )
     expect(workflowOpenIssueResult.success).toBe(true)
     expect(workflowOpenIssueResult.code).toBe('OPENED')
+
+    agentActivityJournal.emit('update', {
+      generatedAt: new Date().toISOString(),
+      appendedEvents: [],
+    })
+    expect(windowStub.webContents.send).toHaveBeenCalledWith(
+      IPC_CHANNELS.agentActivityUpdate,
+      expect.objectContaining({ appendedEvents: [] }),
+    )
 
     unregister()
   })

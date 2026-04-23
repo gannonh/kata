@@ -28,4 +28,13 @@ describe('workflow board scope sync refresh guard', () => {
       }),
     ).toBe(false)
   })
+
+  test('never refreshes for agent activity mode', () => {
+    expect(
+      shouldRefreshAfterScopeSync({
+        rightPaneMode: 'agent_activity',
+        boardActivationReady: true,
+      }),
+    ).toBe(false)
+  })
 })

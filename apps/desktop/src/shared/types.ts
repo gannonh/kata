@@ -50,6 +50,9 @@ export const IPC_CHANNELS = {
   symphonyRefreshDashboard: 'symphony:refresh-dashboard',
   symphonyRespondEscalation: 'symphony:respond-escalation',
   symphonyDashboardSnapshot: 'symphony:dashboard-snapshot',
+  agentActivityGetSnapshot: 'agentActivity:get-snapshot',
+  agentActivityUpdate: 'agentActivity:update',
+  agentActivityDismissPinnedError: 'agentActivity:dismiss-pinned-error',
   mcpListServers: 'mcp:list-servers',
   mcpGetServer: 'mcp:get-server',
   mcpSaveServer: 'mcp:save-server',
@@ -696,7 +699,7 @@ export interface WorkflowContextSnapshot {
   updatedAt: string
 }
 
-export type RightPaneMode = 'planning' | 'kanban'
+export type RightPaneMode = 'planning' | 'kanban' | 'agent_activity'
 
 export type RightPaneOverride = RightPaneMode | null
 
@@ -1215,6 +1218,67 @@ export interface SymphonyEscalationResponseCommandResult {
   success: boolean
   snapshot: SymphonyOperatorSnapshot
   result?: SymphonyEscalationResponseResult
+}
+
+export type AgentActivityStream = 'events' | 'verbose'
+
+export type AgentActivitySource = 'runtime' | 'worker' | 'escalation' | 'connection' | 'system'
+
+export type AgentActivitySeverity = 'info' | 'warning' | 'error'
+
+export interface AgentActivityEvent {
+  id: string
+  timestamp: string
+  stream: AgentActivityStream
+  source: AgentActivitySource
+  severity: AgentActivitySeverity
+  kind: string
+  message: string
+  workerId?: string
+  issueId?: string
+  issueIdentifier?: string
+  requestId?: string
+  connectionState?: SymphonyOperatorConnectionState
+  details?: Record<string, unknown>
+}
+
+export interface AgentPinnedErrorIncident {
+  incidentId: string
+  fingerprint: string
+  source: AgentActivitySource
+  kind: string
+  message: string
+  severity: 'error'
+  firstSeenAt: string
+  lastSeenAt: string
+  occurrences: number
+  lastEventId: string
+}
+
+export interface AgentActivitySnapshot {
+  generatedAt: string
+  events: AgentActivityEvent[]
+  verbose: AgentActivityEvent[]
+  pinnedErrors: AgentPinnedErrorIncident[]
+}
+
+export interface AgentActivityUpdate {
+  generatedAt: string
+  appendedEvents?: AgentActivityEvent[]
+  appendedVerbose?: AgentActivityEvent[]
+  upsertedPinnedErrors?: AgentPinnedErrorIncident[]
+  removedPinnedErrorIds?: string[]
+}
+
+export interface AgentActivitySnapshotResponse {
+  success: boolean
+  snapshot: AgentActivitySnapshot
+}
+
+export interface AgentActivityDismissPinnedErrorResponse {
+  success: boolean
+  incidentId: string
+  snapshot: AgentActivitySnapshot
 }
 
 export type McpServerTransport = 'stdio' | 'http'
@@ -1755,6 +1819,11 @@ export interface DesktopApi {
       responseText: string,
     ) => Promise<SymphonyEscalationResponseCommandResult>
     onDashboardSnapshot: (listener: (snapshot: SymphonyOperatorSnapshot) => void) => () => void
+  }
+  agentActivity: {
+    getSnapshot: () => Promise<AgentActivitySnapshotResponse>
+    dismissPinnedError: (incidentId: string) => Promise<AgentActivityDismissPinnedErrorResponse>
+    onUpdate: (listener: (update: AgentActivityUpdate) => void) => () => void
   }
   mcp: {
     listServers: () => Promise<McpConfigReadResponse>

@@ -1,0 +1,176 @@
+import { describe, expect, test } from 'vitest'
+import { createStore } from 'jotai'
+import {
+  agentActivitySnapshotAtom,
+  agentActivityUnseenCountAtom,
+  applyAgentActivityUpdateAtom,
+  filteredAgentActivityEventsAtom,
+  setAgentActivityAutoFollowAtom,
+  setAgentActivityModeAtom,
+  agentActivitySourceFilterAtom,
+  agentActivitySeverityFilterAtom,
+} from '../agent-activity'
+
+describe('agent-activity atoms', () => {
+  test('applies incremental updates by appending events and verbose entries', () => {
+    const store = createStore()
+
+    store.set(applyAgentActivityUpdateAtom, {
+      generatedAt: '2026-04-23T16:00:00.000Z',
+      appendedEvents: [
+        {
+          id: 'evt-1',
+          timestamp: '2026-04-23T16:00:00.000Z',
+          stream: 'events',
+          source: 'runtime',
+          severity: 'info',
+          kind: 'runtime.phase_changed',
+          message: 'Runtime ready.',
+        },
+      ],
+      appendedVerbose: [
+        {
+          id: 'verb-1',
+          timestamp: '2026-04-23T16:00:00.000Z',
+          stream: 'verbose',
+          source: 'runtime',
+          severity: 'info',
+          kind: 'runtime.diagnostics_updated',
+          message: 'Diagnostics updated.',
+        },
+      ],
+    })
+
+    const snapshot = store.get(agentActivitySnapshotAtom)
+    expect(snapshot.events).toHaveLength(1)
+    expect(snapshot.verbose).toHaveLength(1)
+  })
+
+  test('upserts and removes pinned incidents through update deltas', () => {
+    const store = createStore()
+
+    store.set(applyAgentActivityUpdateAtom, {
+      generatedAt: '2026-04-23T16:01:00.000Z',
+      upsertedPinnedErrors: [
+        {
+          incidentId: 'incident-1',
+          fingerprint: 'runtime|error|x',
+          source: 'runtime',
+          kind: 'runtime.error',
+          message: 'Runtime crashed.',
+          severity: 'error',
+          firstSeenAt: '2026-04-23T16:01:00.000Z',
+          lastSeenAt: '2026-04-23T16:01:00.000Z',
+          occurrences: 1,
+          lastEventId: 'evt-err-1',
+        },
+      ],
+    })
+
+    expect(store.get(agentActivitySnapshotAtom).pinnedErrors).toHaveLength(1)
+
+    store.set(applyAgentActivityUpdateAtom, {
+      generatedAt: '2026-04-23T16:02:00.000Z',
+      removedPinnedErrorIds: ['incident-1'],
+    })
+
+    expect(store.get(agentActivitySnapshotAtom).pinnedErrors).toHaveLength(0)
+  })
+
+  test('increments unseen count only when auto-follow is paused', () => {
+    const store = createStore()
+
+    store.set(setAgentActivityAutoFollowAtom, false)
+    store.set(applyAgentActivityUpdateAtom, {
+      generatedAt: '2026-04-23T16:03:00.000Z',
+      appendedEvents: [
+        {
+          id: 'evt-2',
+          timestamp: '2026-04-23T16:03:00.000Z',
+          stream: 'events',
+          source: 'worker',
+          severity: 'info',
+          kind: 'worker.state_changed',
+          message: 'Worker moved.',
+        },
+        {
+          id: 'evt-3',
+          timestamp: '2026-04-23T16:03:01.000Z',
+          stream: 'events',
+          source: 'worker',
+          severity: 'info',
+          kind: 'worker.tool_changed',
+          message: 'Tool switched.',
+        },
+      ],
+      appendedVerbose: [
+        {
+          id: 'verb-2',
+          timestamp: '2026-04-23T16:03:00.000Z',
+          stream: 'verbose',
+          source: 'worker',
+          severity: 'info',
+          kind: 'worker.trace',
+          message: 'trace',
+        },
+      ],
+    })
+    expect(store.get(agentActivityUnseenCountAtom)).toBe(2)
+
+    store.set(setAgentActivityModeAtom, 'verbose')
+    store.set(setAgentActivityAutoFollowAtom, false)
+    store.set(applyAgentActivityUpdateAtom, {
+      generatedAt: '2026-04-23T16:04:00.000Z',
+      appendedVerbose: [
+        {
+          id: 'verb-3',
+          timestamp: '2026-04-23T16:04:00.000Z',
+          stream: 'verbose',
+          source: 'system',
+          severity: 'warning',
+          kind: 'system.warning',
+          message: 'warning',
+        },
+      ],
+    })
+    expect(store.get(agentActivityUnseenCountAtom)).toBe(1)
+
+    store.set(setAgentActivityAutoFollowAtom, true)
+    expect(store.get(agentActivityUnseenCountAtom)).toBe(0)
+  })
+
+  test('filters rendered stream by source and severity', () => {
+    const store = createStore()
+
+    store.set(applyAgentActivityUpdateAtom, {
+      generatedAt: '2026-04-23T16:05:00.000Z',
+      appendedEvents: [
+        {
+          id: 'evt-4',
+          timestamp: '2026-04-23T16:05:00.000Z',
+          stream: 'events',
+          source: 'runtime',
+          severity: 'error',
+          kind: 'runtime.error',
+          message: 'Runtime error.',
+        },
+        {
+          id: 'evt-5',
+          timestamp: '2026-04-23T16:05:01.000Z',
+          stream: 'events',
+          source: 'worker',
+          severity: 'info',
+          kind: 'worker.state_changed',
+          message: 'Worker info.',
+        },
+      ],
+    })
+
+    store.set(agentActivitySourceFilterAtom, 'runtime')
+    store.set(agentActivitySeverityFilterAtom, 'error')
+
+    const filtered = store.get(filteredAgentActivityEventsAtom)
+    expect(filtered).toHaveLength(1)
+    expect(filtered[0]?.id).toBe('evt-4')
+  })
+})

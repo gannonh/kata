@@ -130,6 +130,7 @@ import { registerSessionIpc } from './ipc'
 import { DesktopSessionManager } from './session-manager'
 import { SymphonySupervisor } from './symphony-supervisor'
 import { SymphonyOperatorService } from './symphony-operator-service'
+import { AgentActivityJournal } from './agent-activity-journal'
 
 const SETTINGS_PATH = path.join(homedir(), '.kata-cli', 'agent', 'settings.json')
 
@@ -137,6 +138,7 @@ let mainWindow: BrowserWindow | null = null
 let bridge: PiAgentBridge | null = null
 let symphonySupervisor: SymphonySupervisor | null = null
 let symphonyOperatorService: SymphonyOperatorService | null = null
+let agentActivityJournal: AgentActivityJournal | null = null
 let unregisterSessionIpc: (() => void) | null = null
 
 function createWindow(): BrowserWindow {
@@ -326,6 +328,7 @@ app.whenReady().then(async () => {
     resourcesPath: process.resourcesPath,
   })
   symphonyOperatorService = new SymphonyOperatorService({ env: process.env })
+  agentActivityJournal = new AgentActivityJournal()
 
   const authBridge = new AuthBridge()
   const sessionManager = new DesktopSessionManager()
@@ -347,6 +350,7 @@ app.whenReady().then(async () => {
     onWorkspaceSelected: persistWorkspacePath,
     symphonySupervisor,
     symphonyOperatorService,
+    agentActivityJournal,
   })
 
   mainWindow.on('closed', () => {
