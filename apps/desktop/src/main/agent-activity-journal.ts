@@ -6,6 +6,7 @@ import type {
   AgentActivitySource,
   AgentActivityUpdate,
   AgentPinnedErrorIncident,
+  ChatEvent,
   SymphonyEscalationResponseCommandResult,
   SymphonyOperatorSnapshot,
   SymphonyOperatorWorkerRow,
@@ -44,6 +45,12 @@ interface EventInput {
   requestId?: string
   connectionState?: AgentActivityEvent['connectionState']
   details?: Record<string, unknown>
+}
+
+interface CliEventContext {
+  workerId?: string
+  issueId?: string
+  issueIdentifier?: string
 }
 
 export class AgentActivityJournal extends EventEmitter {
@@ -425,6 +432,221 @@ export class AgentActivityJournal extends EventEmitter {
     this.flushDelta(delta)
   }
 
+  public ingestCliChatEvent(chatEvent: ChatEvent, context: CliEventContext = {}): void {
+    const delta = this.createDelta()
+    const timestamp = new Date().toISOString()
+    const issuePrefix = context.issueIdentifier ? `[${context.issueIdentifier}] ` : ''
+    const workerId = context.workerId ?? context.issueIdentifier
+
+    switch (chatEvent.type) {
+      case 'agent_start':
+        this.recordEvent(
+          {
+            timestamp,
+            source: 'runtime',
+            severity: 'info',
+            kind: 'cli.agent_start',
+            message: `${issuePrefix}CLI agent started.`,
+            workerId,
+            issueId: context.issueId,
+            issueIdentifier: context.issueIdentifier,
+          },
+          delta,
+          { toEvents: true, toVerbose: true },
+        )
+        break
+
+      case 'agent_end':
+        this.recordEvent(
+          {
+            timestamp,
+            source: 'runtime',
+            severity: 'info',
+            kind: 'cli.agent_end',
+            message: `${issuePrefix}CLI agent ended.`,
+            workerId,
+            issueId: context.issueId,
+            issueIdentifier: context.issueIdentifier,
+          },
+          delta,
+          { toEvents: true, toVerbose: true },
+        )
+        break
+
+      case 'turn_start':
+        this.recordEvent(
+          {
+            timestamp,
+            source: 'worker',
+            severity: 'info',
+            kind: 'cli.turn_start',
+            message: `${issuePrefix}Worker turn started.`,
+            workerId,
+            issueId: context.issueId,
+            issueIdentifier: context.issueIdentifier,
+          },
+          delta,
+          { toEvents: true, toVerbose: true },
+        )
+        break
+
+      case 'turn_end':
+        this.recordEvent(
+          {
+            timestamp,
+            source: 'worker',
+            severity: 'info',
+            kind: 'cli.turn_end',
+            message: `${issuePrefix}Worker turn ended.`,
+            workerId,
+            issueId: context.issueId,
+            issueIdentifier: context.issueIdentifier,
+          },
+          delta,
+          { toEvents: true, toVerbose: true },
+        )
+        break
+
+      case 'tool_start':
+        this.recordEvent(
+          {
+            timestamp,
+            source: 'worker',
+            severity: 'info',
+            kind: 'cli.tool_start',
+            message: `${issuePrefix}Tool started: ${chatEvent.toolName}.`,
+            workerId,
+            issueId: context.issueId,
+            issueIdentifier: context.issueIdentifier,
+            details: {
+              toolCallId: chatEvent.toolCallId,
+              toolName: chatEvent.toolName,
+              args: chatEvent.args,
+            },
+          },
+          delta,
+          { toEvents: true, toVerbose: true },
+        )
+        break
+
+      case 'tool_update':
+        this.recordEvent(
+          {
+            timestamp,
+            source: 'worker',
+            severity: toCliToolUpdateSeverity(chatEvent.status),
+            kind: 'cli.tool_update',
+            message: `${issuePrefix}Tool update: ${chatEvent.toolName}${chatEvent.status ? ` (${chatEvent.status})` : ''}.`,
+            workerId,
+            issueId: context.issueId,
+            issueIdentifier: context.issueIdentifier,
+            details: {
+              toolCallId: chatEvent.toolCallId,
+              toolName: chatEvent.toolName,
+              status: chatEvent.status ?? null,
+              partialStdout: chatEvent.partialStdout ?? null,
+              partialResult: chatEvent.partialResult ?? null,
+            },
+          },
+          delta,
+          { toEvents: false, toVerbose: true },
+        )
+        break
+
+      case 'tool_end':
+        this.recordEvent(
+          {
+            timestamp,
+            source: 'worker',
+            severity: chatEvent.isError ? 'error' : 'info',
+            kind: chatEvent.isError ? 'cli.tool_error' : 'cli.tool_end',
+            message: chatEvent.isError
+              ? `${issuePrefix}${chatEvent.error || `Tool failed: ${chatEvent.toolName}.`}`
+              : `${issuePrefix}Tool completed: ${chatEvent.toolName}.`,
+            workerId,
+            issueId: context.issueId,
+            issueIdentifier: context.issueIdentifier,
+            details: {
+              toolCallId: chatEvent.toolCallId,
+              toolName: chatEvent.toolName,
+              isError: chatEvent.isError,
+              result: chatEvent.result ?? null,
+            },
+          },
+          delta,
+          { toEvents: true, toVerbose: true },
+        )
+        break
+
+      case 'agent_error':
+        this.recordEvent(
+          {
+            timestamp,
+            source: 'runtime',
+            severity: 'error',
+            kind: 'cli.agent_error',
+            message: `${issuePrefix}${chatEvent.message}`,
+            workerId,
+            issueId: context.issueId,
+            issueIdentifier: context.issueIdentifier,
+          },
+          delta,
+          { toEvents: true, toVerbose: true },
+        )
+        break
+
+      case 'subprocess_crash':
+        this.recordEvent(
+          {
+            timestamp,
+            source: 'runtime',
+            severity: 'error',
+            kind: 'cli.subprocess_crash',
+            message: `${issuePrefix}${chatEvent.message}`,
+            workerId,
+            issueId: context.issueId,
+            issueIdentifier: context.issueIdentifier,
+            details: {
+              exitCode: chatEvent.exitCode,
+              signal: chatEvent.signal,
+              stderrLines: chatEvent.stderrLines,
+            },
+          },
+          delta,
+          { toEvents: true, toVerbose: true },
+        )
+        break
+
+      case 'thinking_start':
+      case 'thinking_delta':
+      case 'thinking_end':
+      case 'message_start':
+      case 'text_delta':
+      case 'message_end':
+      case 'history_user_message':
+        this.recordEvent(
+          {
+            timestamp,
+            source: 'worker',
+            severity: 'info',
+            kind: `cli.${chatEvent.type}`,
+            message: `${issuePrefix}CLI event: ${chatEvent.type}.`,
+            workerId,
+            issueId: context.issueId,
+            issueIdentifier: context.issueIdentifier,
+          },
+          delta,
+          { toEvents: false, toVerbose: true },
+        )
+        break
+
+      default:
+        break
+    }
+
+    this.flushDelta(delta)
+  }
+
   private recordWorkerAdded(worker: SymphonyOperatorWorkerRow, timestamp: string, delta: DeltaAccumulator): void {
     this.recordEvent(
       {
@@ -582,4 +804,22 @@ function buildFingerprint(event: AgentActivityEvent): string {
   const issue = event.issueIdentifier ?? event.issueId ?? ''
   const request = event.requestId ?? ''
   return `${event.source}|${event.kind}|${issue}|${request}|${normalizedMessage}`
+}
+
+function toCliToolUpdateSeverity(status: string | undefined): AgentActivitySeverity {
+  const normalized = status?.trim().toLowerCase()
+  if (!normalized) {
+    return 'info'
+  }
+
+  if (
+    normalized.includes('error') ||
+    normalized.includes('failed') ||
+    normalized.includes('cancel') ||
+    normalized.includes('denied')
+  ) {
+    return 'warning'
+  }
+
+  return 'info'
 }

@@ -1163,6 +1163,8 @@ export interface SymphonyOperatorWorkerRow {
   state: string
   toolName: string
   model: string
+  sessionId?: string
+  workspacePath?: string
   lastActivityAt?: string
   lastError?: string
 }

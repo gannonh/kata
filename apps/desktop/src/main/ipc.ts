@@ -86,6 +86,7 @@ import {
   type SymphonyRuntimeCommandResult,
   type SymphonyRuntimeStatusResponse,
   type SymphonyOperatorSnapshot,
+  type SymphonyOperatorWorkerRow,
   type SymphonyOperatorSnapshotResponse,
   type SymphonyEscalationResponseCommandResult,
   type AgentActivityUpdate,
@@ -482,6 +483,177 @@ export function registerSessionIpc({
     })
   }
 
+  interface WorkerSessionActivityCursor {
+    sessionId: string
+    sessionPath: string | null
+    workspacePath: string | null
+    lastEventCount: number
+    lastMtimeMs: number | null
+    lastSize: number | null
+  }
+
+  const workerSessionActivityCursors = new Map<string, WorkerSessionActivityCursor>()
+  let pendingWorkerActivityWorkers: SymphonyOperatorWorkerRow[] | null = null
+  let workerActivitySyncInFlight = false
+
+  const getWorkerSessionActivityKey = (worker: SymphonyOperatorWorkerRow): string | null => {
+    const sessionId = worker.sessionId?.trim()
+    if (!sessionId) {
+      return null
+    }
+    return `${worker.issueId}:${sessionId}`
+  }
+
+  const resolveWorkerSessionPath = async (worker: SymphonyOperatorWorkerRow, sessionId: string): Promise<string | null> => {
+    const candidateWorkspaces = [worker.workspacePath?.trim(), bridge.getWorkspacePath()]
+      .filter((candidate): candidate is string => Boolean(candidate && candidate.length > 0))
+
+    const dedupedWorkspaces = Array.from(new Set(candidateWorkspaces))
+    for (const workspacePath of dedupedWorkspaces) {
+      const resolvedPath = await sessionManager.resolveSessionPathById(sessionId, workspacePath)
+      if (resolvedPath) {
+        return resolvedPath
+      }
+    }
+
+    return null
+  }
+
+  const syncWorkerSessionActivityForWorker = async (worker: SymphonyOperatorWorkerRow): Promise<void> => {
+    if (!agentActivityJournal) {
+      return
+    }
+
+    const sessionId = worker.sessionId?.trim()
+    if (!sessionId) {
+      return
+    }
+
+    const key = getWorkerSessionActivityKey(worker)
+    if (!key) {
+      return
+    }
+
+    let cursor = workerSessionActivityCursors.get(key)
+    if (!cursor) {
+      cursor = {
+        sessionId,
+        sessionPath: null,
+        workspacePath: worker.workspacePath?.trim() || null,
+        lastEventCount: 0,
+        lastMtimeMs: null,
+        lastSize: null,
+      }
+      workerSessionActivityCursors.set(key, cursor)
+    } else if (worker.workspacePath?.trim()) {
+      cursor.workspacePath = worker.workspacePath.trim()
+    }
+
+    if (!cursor.sessionPath) {
+      cursor.sessionPath = await resolveWorkerSessionPath(worker, sessionId)
+      if (!cursor.sessionPath) {
+        return
+      }
+    }
+
+    let stat
+    try {
+      stat = await fs.stat(cursor.sessionPath)
+    } catch {
+      // Session files can rotate while workers restart; retry path discovery.
+      cursor.sessionPath = await resolveWorkerSessionPath(worker, sessionId)
+      if (!cursor.sessionPath) {
+        return
+      }
+      stat = await fs.stat(cursor.sessionPath)
+    }
+
+    if (
+      cursor.lastMtimeMs !== null &&
+      cursor.lastSize !== null &&
+      stat.mtimeMs === cursor.lastMtimeMs &&
+      stat.size === cursor.lastSize
+    ) {
+      return
+    }
+
+    const loaded = await sessionHistoryLoader.load(cursor.sessionPath)
+    if (loaded.warnings.length > 0) {
+      log.debug('[desktop-ipc] worker session history warnings', {
+        issueId: worker.issueId,
+        sessionId,
+        warningCount: loaded.warnings.length,
+      })
+    }
+
+    const startIndex = Math.min(cursor.lastEventCount, loaded.events.length)
+    for (const event of loaded.events.slice(startIndex)) {
+      agentActivityJournal.ingestCliChatEvent(event, {
+        workerId: worker.identifier,
+        issueId: worker.issueId,
+        issueIdentifier: worker.identifier,
+      })
+    }
+
+    cursor.lastEventCount = loaded.events.length
+    cursor.lastMtimeMs = stat.mtimeMs
+    cursor.lastSize = stat.size
+  }
+
+  const syncWorkerSessionActivity = async (workers: SymphonyOperatorWorkerRow[]): Promise<void> => {
+    const activeKeys = new Set<string>()
+
+    for (const worker of workers) {
+      const key = getWorkerSessionActivityKey(worker)
+      if (!key) {
+        continue
+      }
+
+      activeKeys.add(key)
+
+      try {
+        await syncWorkerSessionActivityForWorker(worker)
+      } catch (error) {
+        log.warn('[desktop-ipc] worker session activity sync failed', {
+          issueId: worker.issueId,
+          sessionId: worker.sessionId ?? null,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+    }
+
+    for (const existingKey of workerSessionActivityCursors.keys()) {
+      if (!activeKeys.has(existingKey)) {
+        workerSessionActivityCursors.delete(existingKey)
+      }
+    }
+  }
+
+  const processWorkerSessionActivityQueue = async (): Promise<void> => {
+    if (workerActivitySyncInFlight) {
+      return
+    }
+
+    workerActivitySyncInFlight = true
+    try {
+      while (pendingWorkerActivityWorkers) {
+        const workers = pendingWorkerActivityWorkers
+        pendingWorkerActivityWorkers = null
+        await syncWorkerSessionActivity(workers)
+      }
+    } finally {
+      workerActivitySyncInFlight = false
+      if (pendingWorkerActivityWorkers) {
+        void processWorkerSessionActivityQueue()
+      }
+    }
+  }
+
+  const enqueueWorkerSessionActivitySync = (snapshot: SymphonyOperatorSnapshot): void => {
+    pendingWorkerActivityWorkers = snapshot.workers.map((worker) => ({ ...worker }))
+    void processWorkerSessionActivityQueue()
+  }
+
   const getPlanningFetchContext = (
     title: string,
     artifactKey?: string,
@@ -804,6 +976,7 @@ export function registerSessionIpc({
     log.debug('[desktop-ipc] inbound rpc event', rpcEvent)
     for (const chatEvent of adapter.adapt(rpcEvent)) {
       sendEventToRenderer(chatEvent)
+      agentActivityJournal?.ingestCliChatEvent(chatEvent)
       planningToolDetector.handleChatEvent(chatEvent)
 
       if (chatEvent.type === 'agent_end') {
@@ -866,6 +1039,7 @@ export function registerSessionIpc({
   const onSymphonyDashboardSnapshot = (snapshot: SymphonyOperatorSnapshot): void => {
     sendSymphonyDashboardSnapshot(snapshot)
     agentActivityJournal?.ingestOperatorSnapshot(snapshot)
+    enqueueWorkerSessionActivitySync(snapshot)
     syncStabilityMetricsFromServices()
     reliabilityAggregator.ingestSymphonyOperatorSnapshot(snapshot)
   }
@@ -927,6 +1101,7 @@ export function registerSessionIpc({
     const initialDashboardSnapshot = symphonyOperatorService.getSnapshot()
     sendSymphonyDashboardSnapshot(initialDashboardSnapshot)
     agentActivityJournal?.ingestOperatorSnapshot(initialDashboardSnapshot)
+    enqueueWorkerSessionActivitySync(initialDashboardSnapshot)
     syncStabilityMetricsFromServices()
     reliabilityAggregator.ingestSymphonyOperatorSnapshot(initialDashboardSnapshot)
   }
