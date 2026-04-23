@@ -104,6 +104,7 @@ describe('slash-autocomplete regression matrix', () => {
 
   test('[R004] command refresh picks up newly discovered /skill:* entries', async () => {
     getSlashCommandsMock
+      .mockReset()
       .mockResolvedValueOnce({
         success: true,
         commands: BASE_COMMANDS.filter((entry) => entry.category === 'builtin'),
@@ -111,6 +112,9 @@ describe('slash-autocomplete regression matrix', () => {
       .mockResolvedValueOnce({
         success: true,
         commands: BASE_COMMANDS,
+      })
+      .mockImplementation(() => {
+        throw new Error('Unexpected extra getSlashCommands call in [R004] refresh test')
       })
 
     const { result } = renderHook(
@@ -145,6 +149,8 @@ describe('slash-autocomplete regression matrix', () => {
       expect(names).toContain('/symphony')
       expect(names).toContain('/skill:frontend-design')
     })
+
+    expect(getSlashCommandsMock).toHaveBeenCalledTimes(2)
   })
 
   test('[R005] ArrowUp/ArrowDown route selection through suggestions without moving caret', async () => {
@@ -162,16 +168,23 @@ describe('slash-autocomplete regression matrix', () => {
       expect(screen.getByRole('option', { name: '/kata' }).getAttribute('aria-selected')).toBe('true')
     })
 
+    const initialSelectionStart = input.selectionStart
+    const initialSelectionEnd = input.selectionEnd
+
     fireEvent.keyDown(input, { key: 'ArrowDown' })
 
     await waitFor(() => {
       expect(screen.getByRole('option', { name: '/kata plan' }).getAttribute('aria-selected')).toBe('true')
+      expect(input.selectionStart).toBe(initialSelectionStart)
+      expect(input.selectionEnd).toBe(initialSelectionEnd)
     })
 
     fireEvent.keyDown(input, { key: 'ArrowUp' })
 
     await waitFor(() => {
       expect(screen.getByRole('option', { name: '/kata' }).getAttribute('aria-selected')).toBe('true')
+      expect(input.selectionStart).toBe(initialSelectionStart)
+      expect(input.selectionEnd).toBe(initialSelectionEnd)
     })
   })
 

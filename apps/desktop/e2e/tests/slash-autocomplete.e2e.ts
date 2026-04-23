@@ -1,19 +1,13 @@
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import type { Page } from '@playwright/test'
 import { test, expect } from '../fixtures/electron.fixture'
 
-const UAT_EVIDENCE_DIR = path.join(process.cwd(), 'docs', 'uat', 'm001')
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
-async function seedWorkspaceSkill(workspaceDir: string): Promise<void> {
-  const skillDir = path.join(workspaceDir, '.agents', 'skills', 's04-proof-skill')
-  await mkdir(skillDir, { recursive: true })
-  await writeFile(
-    path.join(skillDir, 'SKILL.md'),
-    ['---', 'name: s04-proof-skill', 'description: workspace skill fixture for slash e2e', '---'].join('\n'),
-    'utf8',
-  )
-}
+const UAT_EVIDENCE_DIR = path.resolve(__dirname, '../../docs/uat/M001')
 
 async function captureEvidence(page: Page, filename: string): Promise<void> {
   await mkdir(UAT_EVIDENCE_DIR, { recursive: true })
@@ -26,13 +20,7 @@ async function captureEvidence(page: Page, filename: string): Promise<void> {
 test.describe('slash autocomplete e2e', () => {
   test('[R001][R002][R005][R007] slash trigger, builtin discovery, navigation, and Esc dismissal', async ({
     readyWindow,
-    workspaceDir,
   }) => {
-    await seedWorkspaceSkill(workspaceDir)
-
-    // refreshSkillCache debounces within 2s; use a wider margin to avoid CI timing flakes.
-    await readyWindow.waitForTimeout(3000)
-
     const input = readyWindow.getByTestId('chat-input')
 
     await input.fill('/')
