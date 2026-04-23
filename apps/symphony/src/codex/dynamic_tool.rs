@@ -269,7 +269,7 @@ fn tool_error_payload(err: &SymphonyError) -> Value {
         }),
         SymphonyError::MissingGithubApiToken => json!({
             "error": {
-                "message": "Symphony is missing GitHub auth. Set `tracker.api_key` in `WORKFLOW.md` or export `GITHUB_TOKEN`/`GH_TOKEN`."
+                "message": "Symphony is missing GitHub auth. Set `tracker.api_key` in `WORKFLOW.md`, export `GITHUB_TOKEN`/`GH_TOKEN` (cloud), or run `gh auth login` for local fallback."
             }
         }),
         SymphonyError::GithubApiStatus { status, message } => json!({

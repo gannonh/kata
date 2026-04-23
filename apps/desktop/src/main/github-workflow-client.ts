@@ -67,6 +67,14 @@ interface GithubProjectItemNode {
     parent?: {
       number?: number
     } | null
+    subIssues?: {
+      nodes?: Array<{
+        number?: number
+        title?: string
+        url?: string
+        state?: string
+      }>
+    } | null
   } | null
   fieldValueByName?: {
     name?: string
@@ -272,9 +280,14 @@ export class GithubWorkflowClient {
       issueTitle: string
       issueUrl: string
       stateName: string
-      parentIssueNumber: number | null
       isTask: boolean
       isSlice: boolean
+      subIssues: Array<{
+        issueNumber: number
+        issueTitle: string
+        issueUrl: string
+        issueState: string | undefined
+      }>
     }> = []
 
     for (const item of items) {
@@ -299,46 +312,70 @@ export class GithubWorkflowClient {
       const parentIssueNumber = item.content?.parent?.number ?? null
       const hasTaskLabel = labelNames.some((label) => label.endsWith(':task'))
       const hasSliceLabel = labelNames.some((label) => label.endsWith(':slice'))
-      const isTask = hasTaskLabel || Boolean(parentIssueNumber)
+      const hasTaskTitlePrefix = /^\s*\[T\d+\]/i.test(issueTitle)
+      const isTask = hasTaskLabel || Boolean(parentIssueNumber) || hasTaskTitlePrefix
       const isSlice = !isTask && (hasSliceLabel || !hasTaskLabel)
+      const subIssues = (item.content?.subIssues?.nodes ?? [])
+        .map((subIssue) => {
+          const issueNumber = subIssue.number
+          const issueTitle = subIssue.title?.trim()
+          const issueUrl = subIssue.url?.trim()
+          const issueState = subIssue.state?.trim()
+
+          if (!issueNumber || !issueTitle || !issueUrl) {
+            return null
+          }
+
+          if (!isIssueInRepository(issueUrl, config.repoOwner, config.repoName)) {
+            return null
+          }
+
+          return {
+            issueNumber,
+            issueTitle,
+            issueUrl,
+            issueState,
+          }
+        })
+        .filter(
+          (subIssue): subIssue is {
+            issueNumber: number
+            issueTitle: string
+            issueUrl: string
+            issueState: string | undefined
+          } => Boolean(subIssue),
+        )
 
       normalizedIssues.push({
         issueNumber,
         issueTitle,
         issueUrl,
         stateName,
-        parentIssueNumber,
         isTask,
         isSlice,
+        subIssues,
       })
-    }
-
-    const tasksByParent = new Map<number, WorkflowBoardTask[]>()
-    for (const issue of normalizedIssues) {
-      if (!issue.isTask || !issue.parentIssueNumber) {
-        continue
-      }
-
-      const nextTask = {
-        id: String(issue.issueNumber),
-        identifier: `#${issue.issueNumber}`,
-        title: issue.issueTitle,
-        columnId: mapLinearStateToColumnId(issue.stateName, undefined),
-        stateName: issue.stateName,
-        stateType: 'projects_v2',
-        parentSliceId: String(issue.parentIssueNumber),
-        url: issue.issueUrl,
-      } satisfies WorkflowBoardTask
-
-      const currentTasks = tasksByParent.get(issue.parentIssueNumber) ?? []
-      currentTasks.push(nextTask)
-      tasksByParent.set(issue.parentIssueNumber, currentTasks)
     }
 
     const cards: WorkflowBoardSliceCard[] = normalizedIssues
       .filter((issue) => issue.isSlice)
       .map((issue) => {
-        const tasks = tasksByParent.get(issue.issueNumber) ?? []
+        const tasks = issue.subIssues
+          .map((subIssue) => {
+            const mappedTaskState = mapGithubIssueStateToTaskColumn(subIssue.issueState)
+            return {
+              id: String(subIssue.issueNumber),
+              identifier: `#${subIssue.issueNumber}`,
+              title: subIssue.issueTitle,
+              columnId: mappedTaskState.columnId,
+              stateName: mappedTaskState.stateName,
+              stateType: 'issue_state',
+              parentSliceId: String(issue.issueNumber),
+              url: subIssue.issueUrl,
+            } satisfies WorkflowBoardTask
+          })
+          .sort((left, right) => left.identifier.localeCompare(right.identifier))
+
         const doneCount = tasks.filter((task) => task.columnId === 'done').length
 
         return {
@@ -361,7 +398,7 @@ export class GithubWorkflowClient {
       itemCount: items.length,
       issueCount: normalizedIssues.length,
       cardCount: cards.length,
-      attachedTaskCount: Array.from(tasksByParent.values()).reduce((count, tasks) => count + tasks.length, 0),
+      attachedTaskCount: cards.reduce((count, card) => count + card.tasks.length, 0),
     })
 
     const hasCards = cards.length > 0
@@ -475,6 +512,14 @@ export class GithubWorkflowClient {
                     }
                     parent {
                       number
+                    }
+                    subIssues(first: 100) {
+                      nodes {
+                        number
+                        title
+                        url
+                        state
+                      }
                     }
                   }
                 }
@@ -822,6 +867,26 @@ function parseKataMilestoneOrdinal(title: string): number | null {
 
   const ordinal = Number(match[1])
   return Number.isFinite(ordinal) ? ordinal : null
+}
+
+function mapGithubIssueStateToTaskColumn(issueState: string | undefined): {
+  columnId: 'todo' | 'done'
+  stateName: string
+} {
+  // Task cards intentionally follow canonical GitHub issue lifecycle (OPEN/CLOSED),
+  // not per-item Projects v2 "Status", so task state is consistent across boards.
+  const normalized = issueState?.trim().toUpperCase()
+  if (normalized === 'CLOSED') {
+    return {
+      columnId: 'done',
+      stateName: 'Closed',
+    }
+  }
+
+  return {
+    columnId: 'todo',
+    stateName: 'Open',
+  }
 }
 
 function isIssueInRepository(issueUrl: string, repoOwner: string, repoName: string): boolean {

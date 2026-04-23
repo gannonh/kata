@@ -101,7 +101,7 @@ async function createGithubBackend(
         {
           code: "missing_github_token",
           message:
-            "No GitHub token found. Set KATA_GITHUB_TOKEN, GH_TOKEN, GITHUB_TOKEN, or add a github credential entry to ~/.kata-cli/agent/auth.json.",
+            "No GitHub token found. Token resolution order is KATA_GITHUB_TOKEN -> GH_TOKEN -> GITHUB_TOKEN -> gh auth token (when KATA_GITHUB_ENABLE_GH_CLI_FALLBACK is enabled) -> ~/.kata-cli/agent/auth.json (github.key). Set KATA_GITHUB_TOKEN/GH_TOKEN/GITHUB_TOKEN, run `gh auth login`, or add a github credential entry to ~/.kata-cli/agent/auth.json. Set KATA_GITHUB_ENABLE_GH_CLI_FALLBACK=false to skip gh CLI fallback.",
           field: "KATA_GITHUB_TOKEN",
           retryable: false,
         },

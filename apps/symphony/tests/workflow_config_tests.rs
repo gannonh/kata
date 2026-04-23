@@ -1504,6 +1504,8 @@ fn test_config_validation_github_valid() {
 fn test_config_validation_github_missing_token_errors() {
     let previous_gh_token = std::env::var("GH_TOKEN").ok();
     let previous_github_token = std::env::var("GITHUB_TOKEN").ok();
+    let previous_gh_cli_fallback = std::env::var("SYMPHONY_GITHUB_ENABLE_GH_CLI_FALLBACK").ok();
+    std::env::set_var("SYMPHONY_GITHUB_ENABLE_GH_CLI_FALLBACK", "0");
     std::env::remove_var("GH_TOKEN");
     std::env::remove_var("GITHUB_TOKEN");
 
@@ -1522,7 +1524,7 @@ fn test_config_validation_github_missing_token_errors() {
     let validation_failed_for_missing_token = matches!(
         result,
         Err(SymphonyError::InvalidWorkflowConfig(ref msg))
-            if msg == "GH_TOKEN or GITHUB_TOKEN is required when tracker.kind is github"
+            if msg.contains("GitHub token required when tracker.kind is github")
     );
 
     match previous_gh_token {
@@ -1532,6 +1534,10 @@ fn test_config_validation_github_missing_token_errors() {
     match previous_github_token {
         Some(value) => std::env::set_var("GITHUB_TOKEN", value),
         None => std::env::remove_var("GITHUB_TOKEN"),
+    }
+    match previous_gh_cli_fallback {
+        Some(value) => std::env::set_var("SYMPHONY_GITHUB_ENABLE_GH_CLI_FALLBACK", value),
+        None => std::env::remove_var("SYMPHONY_GITHUB_ENABLE_GH_CLI_FALLBACK"),
     }
 
     assert!(

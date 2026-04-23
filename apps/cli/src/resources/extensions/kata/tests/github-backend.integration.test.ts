@@ -220,8 +220,10 @@ test("createBackend returns actionable diagnostics when GitHub token is missing"
         KATA_GITHUB_TOKEN: undefined,
         GH_TOKEN: undefined,
         GITHUB_TOKEN: undefined,
+        KATA_GITHUB_ENABLE_GH_CLI_FALLBACK: "0",
         KATA_GITHUB_API_BASE_URL: undefined,
         KATA_GITHUB_WORKFLOW_PATH: undefined,
+        HOME: workspace,
       },
       async () => {
         await assert.rejects(
@@ -230,7 +232,10 @@ test("createBackend returns actionable diagnostics when GitHub token is missing"
             assert.ok(err instanceof Error);
             assert.match(err.message, /GitHub backend is not ready/);
             assert.match(err.message, /diagnostic: missing_github_token/);
-            assert.match(err.message, /action: set KATA_GITHUB_TOKEN, GH_TOKEN, or GITHUB_TOKEN/);
+            assert.match(
+              err.message,
+              /action: set KATA_GITHUB_TOKEN\/GH_TOKEN\/GITHUB_TOKEN/,
+            );
             assert.match(err.message, /\/kata prefs status/);
             return true;
           },

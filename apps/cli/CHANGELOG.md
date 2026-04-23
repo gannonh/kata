@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.15.7
+
+### Features
+
+- **Backend-neutral Kata workflow contract for Symphony and GitHub mode** — expanded `kata_*` backend abstractions so worker prompts, planning flows, and artifact handling are aligned across Linear and GitHub-backed projects.
+- **GitHub planning artifact authoring parity** — milestone and slice planning paths now materialize GitHub-native artifact content and dependency wiring with stronger contract coverage.
+
+### Improvements
+
+- **Upgrade to latest pi agent runtime packages** — bumped `@mariozechner/pi-coding-agent` and `@mariozechner/pi-tui` to `0.67.6`.
+
+### Bug Fixes
+
+- **Actionable Projects v2 permission diagnostics for `kata_update_issue_state`** — in `projects_v2` mode, permission-denied project status mutations now fail with a clear scope diagnosis and token-resolution hint (instead of a generic GraphQL error), making it explicit that the GitHub token needs Projects write access.
+- **Harden GitHub token resolution to use `gh auth token` automatically** — when env tokens are unset, Kata now prefers the authenticated GitHub CLI token before falling back to persisted auth.json credentials. This reduces breakage across worktrees without requiring manual token exports.
+
 ## 0.15.6
 
 ### Bug Fixes

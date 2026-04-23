@@ -21,6 +21,7 @@ use crate::domain::{
 };
 use crate::error::{Result, SymphonyError};
 use crate::event_stream::EventHub;
+use crate::github::auth::{github_token_source_name, resolve_github_token};
 use crate::linear::adapter::TrackerAdapter;
 use crate::notifications;
 use crate::pi_agent::rpc_bridge;
@@ -541,28 +542,33 @@ fn should_continue_issue_in_session(
 
 /// Build a boxed `TrackerAdapter` appropriate for the given `TrackerConfig`.
 /// Used for inter-turn issue state refresh — routes to GitHub or Linear based on `tracker.kind`.
-fn build_tracker_adapter(tracker_config: &TrackerConfig) -> Box<dyn TrackerAdapter> {
+async fn build_tracker_adapter(tracker_config: &TrackerConfig) -> Box<dyn TrackerAdapter> {
     let kind = tracker_config.kind.as_deref().unwrap_or("linear");
     if kind.eq_ignore_ascii_case("github") {
         use crate::github::adapter::GithubAdapter;
         use crate::github::client::GithubClient;
-        let token = tracker_config
-            .api_key
-            .as_deref()
-            .map(str::trim)
-            .filter(|v| !v.is_empty())
-            .map(str::to_string)
-            .or_else(|| {
-                std::env::var("GH_TOKEN")
-                    .ok()
-                    .map(|v| v.trim().to_string())
-                    .filter(|v| !v.is_empty())
-            })
-            .or_else(|| {
-                std::env::var("GITHUB_TOKEN")
-                    .ok()
-                    .map(|v| v.trim().to_string())
-                    .filter(|v| !v.is_empty())
+        let resolved_token = match tokio::task::spawn_blocking({
+            let tracker_config = tracker_config.clone();
+            move || resolve_github_token(&tracker_config)
+        })
+        .await
+        {
+            Ok(resolved) => resolved,
+            Err(err) => {
+                tracing::warn!(
+                    error = %err,
+                    "failed to join blocking GitHub token resolution task for inter-turn refresh"
+                );
+                None
+            }
+        };
+        let token = resolved_token
+            .map(|resolved| {
+                tracing::debug!(
+                    token_source = github_token_source_name(resolved.source),
+                    "resolved GitHub token source for inter-turn refresh"
+                );
+                resolved.token
             })
             .unwrap_or_else(|| {
                 tracing::warn!(
@@ -647,7 +653,7 @@ where
     let capped_max_turns = max_turns.max(1);
     let mut turn_number: u32 = 1;
     let mut current_issue = issue.clone();
-    let issue_state_client = build_tracker_adapter(tracker_config);
+    let issue_state_client = build_tracker_adapter(tracker_config).await;
     let mut observed_events: Vec<AgentEvent> = Vec::new();
     let mut metrics: Option<TurnMetrics> = None;
     let mut schedule_continuation = true;
@@ -750,7 +756,7 @@ where
     let capped_max_turns = max_turns.max(1);
     let mut turn_number: u32 = 1;
     let mut current_issue = issue.clone();
-    let issue_state_client = build_tracker_adapter(tracker_config);
+    let issue_state_client = build_tracker_adapter(tracker_config).await;
     let mut observed_events: Vec<AgentEvent> = Vec::new();
     let mut metrics: Option<TurnMetrics> = None;
     let mut schedule_continuation = true;

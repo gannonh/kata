@@ -17,6 +17,7 @@ use crate::domain::{
     WorkerConfig, WorkspaceConfig, WorkspaceIsolation, WorkspaceRepoStrategy, KATA_PHASE_NAMES,
 };
 use crate::error::{Result, SymphonyError};
+use crate::github::auth::{github_token_missing_message, resolve_github_token};
 use crate::notifications;
 use crate::repo_url::repo_is_remote;
 
@@ -1182,22 +1183,9 @@ pub fn validate(config: &ServiceConfig) -> Result<ValidatedServiceConfig> {
     }
 
     if tracker_kind == "github" {
-        let has_config_token = config
-            .tracker
-            .api_key
-            .as_deref()
-            .map(|key| !key.trim().is_empty())
-            .unwrap_or(false);
-        let has_env_token = ["GH_TOKEN", "GITHUB_TOKEN"].iter().any(|name| {
-            std::env::var(name)
-                .ok()
-                .map(|value| !value.trim().is_empty())
-                .unwrap_or(false)
-        });
-
-        if !(has_config_token || has_env_token) {
+        if resolve_github_token(&config.tracker).is_none() {
             return Err(SymphonyError::InvalidWorkflowConfig(
-                "GH_TOKEN or GITHUB_TOKEN is required when tracker.kind is github".to_string(),
+                github_token_missing_message().to_string(),
             ));
         }
 
