@@ -11,6 +11,7 @@ import {
   type WorkflowMoveEntityResult,
   type WorkflowTaskDetailResponse,
   type WorkflowUpdateTaskResult,
+  type RightPaneMode,
 } from '@shared/types'
 import { currentSessionIdAtom, workingDirectoryAtom } from './session'
 import { rightPaneModeAtom, setWorkflowContextAtom } from './right-pane'
@@ -666,7 +667,7 @@ function buildScopeKey(params: {
 }
 
 export function shouldRefreshAfterScopeSync(params: {
-  rightPaneMode: 'planning' | 'kanban'
+  rightPaneMode: RightPaneMode
   boardActivationReady: boolean
 }): boolean {
   return params.rightPaneMode === 'kanban' && params.boardActivationReady

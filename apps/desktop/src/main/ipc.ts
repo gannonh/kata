@@ -19,6 +19,7 @@ import { WorkflowBoardService } from './workflow-board-service'
 import { McpConfigBridge } from './mcp-config-bridge'
 import { McpService } from './mcp-service'
 import { RuntimeHealthAggregator } from './runtime-health-aggregator'
+import { AgentActivityJournal } from './agent-activity-journal'
 import {
   isReliabilitySourceSurface,
   mapSymphonyOperatorSnapshotToReliability,
@@ -85,8 +86,12 @@ import {
   type SymphonyRuntimeCommandResult,
   type SymphonyRuntimeStatusResponse,
   type SymphonyOperatorSnapshot,
+  type SymphonyOperatorWorkerRow,
   type SymphonyOperatorSnapshotResponse,
   type SymphonyEscalationResponseCommandResult,
+  type AgentActivityUpdate,
+  type AgentActivitySnapshotResponse,
+  type AgentActivitySetPinnedEventResponse,
   type McpConfigReadResponse,
   type McpServerDeleteResponse,
   type McpServerInput,
@@ -111,6 +116,7 @@ interface RegisterIpcOptions {
   onWorkspaceSelected?: (workspacePath: string) => Promise<void> | void
   symphonySupervisor?: SymphonySupervisor
   symphonyOperatorService?: SymphonyOperatorService
+  agentActivityJournal?: AgentActivityJournal
   mcpConfigBridge?: McpConfigBridge
   mcpService?: McpService
 }
@@ -123,6 +129,7 @@ export function registerSessionIpc({
   onWorkspaceSelected,
   symphonySupervisor,
   symphonyOperatorService,
+  agentActivityJournal,
   mcpConfigBridge,
   mcpService,
 }: RegisterIpcOptions): () => void {
@@ -417,6 +424,19 @@ export function registerSessionIpc({
     })
   }
 
+  const sendAgentActivityUpdate = (update: AgentActivityUpdate): void => {
+    if (!safeSend(IPC_CHANNELS.agentActivityUpdate, update)) {
+      return
+    }
+
+    log.debug('[desktop-ipc] agent activity update', {
+      events: update.appendedEvents?.length ?? 0,
+      verbose: update.appendedVerbose?.length ?? 0,
+      pinnedUpserts: update.upsertedPinnedEvents?.length ?? 0,
+      pinnedRemovals: update.removedPinnedEventIds?.length ?? 0,
+    })
+  }
+
   const syncStabilityMetricsFromServices = (): StabilitySnapshot => {
     reliabilityAggregator.ingestStabilityMetrics('chat_runtime', bridge.getStabilityMetrics(), {
       publish: false,
@@ -461,6 +481,192 @@ export function registerSessionIpc({
       breachCount: snapshot.breaches.length,
       thresholdVersion: snapshot.version,
     })
+  }
+
+  interface WorkerSessionActivityCursor {
+    sessionId: string
+    sessionPath: string | null
+    workspacePath: string | null
+    lastEventCount: number
+    lastMtimeMs: number | null
+    lastSize: number | null
+  }
+
+  const workerSessionActivityCursors = new Map<string, WorkerSessionActivityCursor>()
+  let pendingWorkerActivityWorkers: SymphonyOperatorWorkerRow[] | null = null
+  let workerActivitySyncInFlight = false
+
+  const getWorkerSessionActivityKey = (worker: SymphonyOperatorWorkerRow): string | null => {
+    const sessionId = worker.sessionId?.trim()
+    if (!sessionId) {
+      return null
+    }
+    return `${worker.issueId}:${sessionId}`
+  }
+
+  const resolveWorkerSessionPath = async (worker: SymphonyOperatorWorkerRow, sessionId: string): Promise<string | null> => {
+    const candidateWorkspaces = [worker.workspacePath?.trim(), bridge.getWorkspacePath()]
+      .filter((candidate): candidate is string => Boolean(candidate && candidate.length > 0))
+
+    const dedupedWorkspaces = Array.from(new Set(candidateWorkspaces))
+    for (const workspacePath of dedupedWorkspaces) {
+      const resolvedPath = await sessionManager.resolveSessionPathById(sessionId, workspacePath)
+      if (resolvedPath) {
+        return resolvedPath
+      }
+    }
+
+    return null
+  }
+
+  const syncWorkerSessionActivityForWorker = async (worker: SymphonyOperatorWorkerRow): Promise<void> => {
+    if (!agentActivityJournal) {
+      return
+    }
+
+    const sessionId = worker.sessionId?.trim()
+    if (!sessionId) {
+      return
+    }
+
+    const key = getWorkerSessionActivityKey(worker)
+    if (!key) {
+      return
+    }
+
+    let cursor = workerSessionActivityCursors.get(key)
+    if (!cursor) {
+      cursor = {
+        sessionId,
+        sessionPath: null,
+        workspacePath: worker.workspacePath?.trim() || null,
+        lastEventCount: 0,
+        lastMtimeMs: null,
+        lastSize: null,
+      }
+      workerSessionActivityCursors.set(key, cursor)
+    } else if (worker.workspacePath?.trim()) {
+      cursor.workspacePath = worker.workspacePath.trim()
+    }
+
+    if (!cursor.sessionPath) {
+      cursor.sessionPath = await resolveWorkerSessionPath(worker, sessionId)
+      if (!cursor.sessionPath) {
+        return
+      }
+    }
+
+    let stat
+    try {
+      stat = await fs.stat(cursor.sessionPath)
+    } catch {
+      // Session files can rotate while workers restart; retry path discovery.
+      cursor.sessionPath = await resolveWorkerSessionPath(worker, sessionId)
+      if (!cursor.sessionPath) {
+        return
+      }
+      stat = await fs.stat(cursor.sessionPath)
+    }
+
+    if (
+      cursor.lastMtimeMs !== null &&
+      cursor.lastSize !== null &&
+      stat.mtimeMs === cursor.lastMtimeMs &&
+      stat.size === cursor.lastSize
+    ) {
+      return
+    }
+
+    const loaded = await sessionHistoryLoader.load(cursor.sessionPath)
+    if (loaded.warnings.length > 0) {
+      log.debug('[desktop-ipc] worker session history warnings', {
+        issueId: worker.issueId,
+        sessionId,
+        warningCount: loaded.warnings.length,
+      })
+    }
+
+    if (
+      (cursor.lastSize !== null && stat.size < cursor.lastSize) ||
+      loaded.events.length < cursor.lastEventCount
+    ) {
+      log.info('[desktop-ipc] worker session history appears truncated; resetting cursor', {
+        issueId: worker.issueId,
+        sessionId,
+        previousEventCount: cursor.lastEventCount,
+        nextEventCount: loaded.events.length,
+        previousSize: cursor.lastSize,
+        nextSize: stat.size,
+      })
+      cursor.lastEventCount = 0
+    }
+
+    const startIndex = Math.min(cursor.lastEventCount, loaded.events.length)
+    for (const event of loaded.events.slice(startIndex)) {
+      agentActivityJournal.ingestCliChatEvent(event, {
+        workerId: worker.identifier,
+        issueId: worker.issueId,
+        issueIdentifier: worker.identifier,
+      })
+    }
+
+    cursor.lastEventCount = loaded.events.length
+    cursor.lastMtimeMs = stat.mtimeMs
+    cursor.lastSize = stat.size
+  }
+
+  const syncWorkerSessionActivity = async (workers: SymphonyOperatorWorkerRow[]): Promise<void> => {
+    const activeKeys = new Set<string>()
+
+    for (const worker of workers) {
+      const key = getWorkerSessionActivityKey(worker)
+      if (!key) {
+        continue
+      }
+
+      activeKeys.add(key)
+
+      try {
+        await syncWorkerSessionActivityForWorker(worker)
+      } catch (error) {
+        log.warn('[desktop-ipc] worker session activity sync failed', {
+          issueId: worker.issueId,
+          sessionId: worker.sessionId ?? null,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+    }
+
+    for (const existingKey of workerSessionActivityCursors.keys()) {
+      if (!activeKeys.has(existingKey)) {
+        workerSessionActivityCursors.delete(existingKey)
+      }
+    }
+  }
+
+  const processWorkerSessionActivityQueue = async (): Promise<void> => {
+    if (workerActivitySyncInFlight) {
+      return
+    }
+
+    workerActivitySyncInFlight = true
+    try {
+      while (pendingWorkerActivityWorkers) {
+        const workers = pendingWorkerActivityWorkers
+        pendingWorkerActivityWorkers = null
+        await syncWorkerSessionActivity(workers)
+      }
+    } finally {
+      workerActivitySyncInFlight = false
+      if (pendingWorkerActivityWorkers) {
+        void processWorkerSessionActivityQueue()
+      }
+    }
+  }
+
+  const enqueueWorkerSessionActivitySync = (snapshot: SymphonyOperatorSnapshot): void => {
+    pendingWorkerActivityWorkers = snapshot.workers.map((worker) => ({ ...worker }))
+    void processWorkerSessionActivityQueue()
   }
 
   const getPlanningFetchContext = (
@@ -785,6 +991,7 @@ export function registerSessionIpc({
     log.debug('[desktop-ipc] inbound rpc event', rpcEvent)
     for (const chatEvent of adapter.adapt(rpcEvent)) {
       sendEventToRenderer(chatEvent)
+      agentActivityJournal?.ingestCliChatEvent(chatEvent)
       planningToolDetector.handleChatEvent(chatEvent)
 
       if (chatEvent.type === 'agent_end') {
@@ -814,13 +1021,15 @@ export function registerSessionIpc({
 
   const onCrash = ({ exitCode, signal, stderrLines }: { exitCode: number | null; signal: NodeJS.Signals | null; stderrLines: string[] }): void => {
     const lastLine = stderrLines[stderrLines.length - 1] ?? 'kata subprocess exited unexpectedly'
-    sendEventToRenderer({
+    const crashEvent = {
       type: 'subprocess_crash',
       message: lastLine,
       exitCode,
       signal,
       stderrLines,
-    })
+    } as const
+    sendEventToRenderer(crashEvent)
+    agentActivityJournal?.ingestCliChatEvent(crashEvent)
     syncStabilityMetricsFromServices()
     reliabilityAggregator.ingestChatSubprocessCrash({
       message: lastLine,
@@ -838,6 +1047,7 @@ export function registerSessionIpc({
 
   const onSymphonyStatus = (status: SymphonyRuntimeStatus): void => {
     sendSymphonyStatusToRenderer(status)
+    agentActivityJournal?.ingestRuntimeStatus(status)
     syncStabilityMetricsFromServices()
     reliabilityAggregator.ingestSymphonyRuntimeStatus(status)
     void symphonyOperatorService?.syncRuntimeStatus(status)
@@ -845,6 +1055,8 @@ export function registerSessionIpc({
 
   const onSymphonyDashboardSnapshot = (snapshot: SymphonyOperatorSnapshot): void => {
     sendSymphonyDashboardSnapshot(snapshot)
+    agentActivityJournal?.ingestOperatorSnapshot(snapshot)
+    enqueueWorkerSessionActivitySync(snapshot)
     syncStabilityMetricsFromServices()
     reliabilityAggregator.ingestSymphonyOperatorSnapshot(snapshot)
   }
@@ -857,8 +1069,13 @@ export function registerSessionIpc({
     sendStabilitySnapshot(snapshot)
   }
 
+  const onAgentActivityUpdate = (update: AgentActivityUpdate): void => {
+    sendAgentActivityUpdate(update)
+  }
+
   symphonySupervisor?.on('status', onSymphonyStatus)
   symphonyOperatorService?.on('snapshot', onSymphonyDashboardSnapshot)
+  agentActivityJournal?.on('update', onAgentActivityUpdate)
   reliabilityAggregator.on('snapshot', onReliabilitySnapshot)
   reliabilityAggregator.on('stability', onStabilitySnapshot)
 
@@ -891,6 +1108,7 @@ export function registerSessionIpc({
   if (symphonySupervisor) {
     const initialSymphonyStatus = symphonySupervisor.getStatus()
     sendSymphonyStatusToRenderer(initialSymphonyStatus)
+    agentActivityJournal?.ingestRuntimeStatus(initialSymphonyStatus)
     syncStabilityMetricsFromServices()
     reliabilityAggregator.ingestSymphonyRuntimeStatus(initialSymphonyStatus)
     void symphonyOperatorService?.syncRuntimeStatus(initialSymphonyStatus)
@@ -899,6 +1117,8 @@ export function registerSessionIpc({
   if (symphonyOperatorService) {
     const initialDashboardSnapshot = symphonyOperatorService.getSnapshot()
     sendSymphonyDashboardSnapshot(initialDashboardSnapshot)
+    agentActivityJournal?.ingestOperatorSnapshot(initialDashboardSnapshot)
+    enqueueWorkerSessionActivitySync(initialDashboardSnapshot)
     syncStabilityMetricsFromServices()
     reliabilityAggregator.ingestSymphonyOperatorSnapshot(initialDashboardSnapshot)
   }
@@ -986,6 +1206,8 @@ export function registerSessionIpc({
   ipcMain.removeHandler(IPC_CHANNELS.symphonyGetDashboard)
   ipcMain.removeHandler(IPC_CHANNELS.symphonyRefreshDashboard)
   ipcMain.removeHandler(IPC_CHANNELS.symphonyRespondEscalation)
+  ipcMain.removeHandler(IPC_CHANNELS.agentActivityGetSnapshot)
+  ipcMain.removeHandler(IPC_CHANNELS.agentActivitySetPinnedEvent)
   ipcMain.removeHandler(IPC_CHANNELS.mcpListServers)
   ipcMain.removeHandler(IPC_CHANNELS.mcpGetServer)
   ipcMain.removeHandler(IPC_CHANNELS.mcpSaveServer)
@@ -1919,6 +2141,13 @@ export function registerSessionIpc({
     response: {},
   })
 
+  const createEmptyAgentActivitySnapshot = () => ({
+    generatedAt: new Date(0).toISOString(),
+    events: [],
+    verbose: [],
+    pinnedEvents: [],
+  })
+
   ipcMain.handle(IPC_CHANNELS.symphonyGetStatus, async (): Promise<SymphonyRuntimeStatusResponse> => {
     if (!symphonySupervisor) {
       const fallback = createSymphonyDisconnectedResult()
@@ -1995,6 +2224,7 @@ export function registerSessionIpc({
     IPC_CHANNELS.symphonyRespondEscalation,
     async (_event, requestId: string, responseText: string): Promise<SymphonyEscalationResponseCommandResult> => {
       if (!symphonyOperatorService) {
+        agentActivityJournal?.recordSystemError('Symphony operator service is unavailable for escalation response.')
         const snapshot = createUnavailableDashboardSnapshot()
         syncStabilityMetricsFromServices()
         reliabilityAggregator.ingestSymphonyOperatorSnapshot(snapshot)
@@ -2005,9 +2235,41 @@ export function registerSessionIpc({
       }
 
       const response = await symphonyOperatorService.respondToEscalation(requestId, responseText)
+      agentActivityJournal?.ingestEscalationResponse(response)
       syncStabilityMetricsFromServices()
       reliabilityAggregator.ingestSymphonyOperatorSnapshot(response.snapshot)
       return response
+    },
+  )
+
+  ipcMain.handle(
+    IPC_CHANNELS.agentActivityGetSnapshot,
+    async (): Promise<AgentActivitySnapshotResponse> => {
+      return {
+        success: true,
+        snapshot: agentActivityJournal?.getSnapshot() ?? createEmptyAgentActivitySnapshot(),
+      }
+    },
+  )
+
+  ipcMain.handle(
+    IPC_CHANNELS.agentActivitySetPinnedEvent,
+    async (_event, eventId: string, pinned: boolean): Promise<AgentActivitySetPinnedEventResponse> => {
+      if (!agentActivityJournal) {
+        return {
+          success: false,
+          eventId,
+          pinned,
+          snapshot: createEmptyAgentActivitySnapshot(),
+        }
+      }
+
+      return {
+        success: true,
+        eventId,
+        pinned,
+        snapshot: agentActivityJournal.setPinnedEvent(eventId, pinned),
+      }
     },
   )
 
@@ -2108,6 +2370,7 @@ export function registerSessionIpc({
     bridge.off('crash', onCrash)
     symphonySupervisor?.off('status', onSymphonyStatus)
     symphonyOperatorService?.off('snapshot', onSymphonyDashboardSnapshot)
+    agentActivityJournal?.off('update', onAgentActivityUpdate)
     reliabilityAggregator.off('snapshot', onReliabilitySnapshot)
     reliabilityAggregator.off('stability', onStabilitySnapshot)
     planningToolDetector.off('artifact', onPlanningArtifactEvent)
@@ -2156,6 +2419,8 @@ export function registerSessionIpc({
     ipcMain.removeHandler(IPC_CHANNELS.symphonyGetDashboard)
     ipcMain.removeHandler(IPC_CHANNELS.symphonyRefreshDashboard)
     ipcMain.removeHandler(IPC_CHANNELS.symphonyRespondEscalation)
+    ipcMain.removeHandler(IPC_CHANNELS.agentActivityGetSnapshot)
+    ipcMain.removeHandler(IPC_CHANNELS.agentActivitySetPinnedEvent)
     ipcMain.removeHandler(IPC_CHANNELS.mcpListServers)
     ipcMain.removeHandler(IPC_CHANNELS.mcpGetServer)
     ipcMain.removeHandler(IPC_CHANNELS.mcpSaveServer)

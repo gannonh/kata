@@ -53,4 +53,14 @@ describe('right-pane mode resolver', () => {
     expect(store.get(rightPaneModeAtom)).toBe('planning')
     expect(store.get(rightPaneResolutionAtom).source).toBe('automatic')
   })
+
+  test('supports manual agent activity override', () => {
+    const store = createStore()
+    store.set(setWorkflowContextAtom, context('execution'))
+    store.set(setRightPaneOverrideAtom, 'agent_activity')
+
+    expect(store.get(rightPaneOverrideAtom)).toBe('agent_activity')
+    expect(store.get(rightPaneModeAtom)).toBe('agent_activity')
+    expect(store.get(rightPaneResolutionAtom).source).toBe('manual')
+  })
 })

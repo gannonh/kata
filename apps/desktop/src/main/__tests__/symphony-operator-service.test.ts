@@ -78,6 +78,7 @@ describe('SymphonyOperatorService', () => {
                 issue_title: 'Dashboard work',
                 status: 'in_progress',
                 model: 'claude-sonnet-4-6',
+                workspace_path: '/tmp/symphony/issue-1',
               },
             },
             retry_queue: [{ id: 'r1' }],
@@ -87,6 +88,11 @@ describe('SymphonyOperatorService', () => {
               '1': {
                 current_tool_name: 'edit',
                 last_activity_ms: Date.now(),
+              },
+            },
+            running_sessions: {
+              '1': {
+                session_id: 'session-worker-1',
               },
             },
           }),
@@ -122,6 +128,8 @@ describe('SymphonyOperatorService', () => {
     expect(snapshot.completedCount).toBe(2)
     expect(snapshot.workers).toHaveLength(1)
     expect(snapshot.workers[0]?.toolName).toBe('edit')
+    expect(snapshot.workers[0]?.sessionId).toBe('session-worker-1')
+    expect(snapshot.workers[0]?.workspacePath).toBe('/tmp/symphony/issue-1')
     expect(snapshot.escalations).toHaveLength(1)
     expect(snapshot.connection.state).toBe('connected')
     expect(snapshot.connection.lastBaselineRefreshAt).toBeTruthy()

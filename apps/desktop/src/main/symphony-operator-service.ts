@@ -27,6 +27,7 @@ type WebSocketLike = {
 
 interface SymphonyStatePayload {
   running?: Record<string, Record<string, unknown>>
+  running_sessions?: Record<string, Record<string, unknown>>
   retry_queue?: unknown[]
   completed?: unknown[]
   pending_escalations?: Array<Record<string, unknown>>
@@ -521,10 +522,17 @@ export class SymphonyOperatorService extends EventEmitter {
   ): void {
     const nowIso = new Date().toISOString()
     const running = payload.running ?? {}
+    const runningSessions = payload.running_sessions ?? {}
     const sessionInfo = payload.running_session_info ?? {}
 
     this.snapshot.workers = Object.values(running)
-      .map((run) => this.mapWorker(run, sessionInfo[String(run.issue_id ?? '')]))
+      .map((run) =>
+        this.mapWorker(
+          run,
+          sessionInfo[String(run.issue_id ?? '')],
+          runningSessions[String(run.issue_id ?? '')],
+        ),
+      )
       .filter((worker): worker is SymphonyOperatorWorkerRow => Boolean(worker))
       .sort((left, right) => left.identifier.localeCompare(right.identifier))
 
@@ -682,6 +690,7 @@ export class SymphonyOperatorService extends EventEmitter {
   private mapWorker(
     run: Record<string, unknown>,
     info: Record<string, unknown> | undefined,
+    runningSession: Record<string, unknown> | undefined,
   ): SymphonyOperatorWorkerRow | null {
     const issueId = String(run.issue_id ?? '').trim()
     const identifier = String(run.issue_identifier ?? '').trim()
@@ -699,6 +708,12 @@ export class SymphonyOperatorService extends EventEmitter {
       state: String(run.linear_state ?? run.status ?? 'unknown').trim(),
       toolName: String(info?.current_tool_name ?? 'idle').trim() || 'idle',
       model: String(run.model ?? 'default').trim() || 'default',
+      ...(typeof runningSession?.session_id === 'string' && runningSession.session_id.trim()
+        ? { sessionId: runningSession.session_id.trim() }
+        : {}),
+      ...(typeof run.workspace_path === 'string' && run.workspace_path.trim()
+        ? { workspacePath: run.workspace_path.trim() }
+        : {}),
       ...(activityMs ? { lastActivityAt: new Date(activityMs).toISOString() } : startedAt ? { lastActivityAt: startedAt } : {}),
       ...(typeof run.error === 'string' && run.error.trim() ? { lastError: run.error.trim() } : {}),
     }

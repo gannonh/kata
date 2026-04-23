@@ -50,6 +50,9 @@ export const IPC_CHANNELS = {
   symphonyRefreshDashboard: 'symphony:refresh-dashboard',
   symphonyRespondEscalation: 'symphony:respond-escalation',
   symphonyDashboardSnapshot: 'symphony:dashboard-snapshot',
+  agentActivityGetSnapshot: 'agentActivity:get-snapshot',
+  agentActivityUpdate: 'agentActivity:update',
+  agentActivitySetPinnedEvent: 'agentActivity:set-pinned-event',
   mcpListServers: 'mcp:list-servers',
   mcpGetServer: 'mcp:get-server',
   mcpSaveServer: 'mcp:save-server',
@@ -696,7 +699,7 @@ export interface WorkflowContextSnapshot {
   updatedAt: string
 }
 
-export type RightPaneMode = 'planning' | 'kanban'
+export type RightPaneMode = 'planning' | 'kanban' | 'agent_activity'
 
 export type RightPaneOverride = RightPaneMode | null
 
@@ -1160,6 +1163,8 @@ export interface SymphonyOperatorWorkerRow {
   state: string
   toolName: string
   model: string
+  sessionId?: string
+  workspacePath?: string
   lastActivityAt?: string
   lastError?: string
 }
@@ -1215,6 +1220,75 @@ export interface SymphonyEscalationResponseCommandResult {
   success: boolean
   snapshot: SymphonyOperatorSnapshot
   result?: SymphonyEscalationResponseResult
+}
+
+export type AgentActivityStream = 'events' | 'verbose'
+
+export type AgentActivitySource = 'runtime' | 'worker' | 'escalation' | 'connection' | 'system'
+
+export type AgentActivitySeverity = 'info' | 'warning' | 'error'
+
+export const AGENT_ACTIVITY_EVENT_CAP = 2_000
+export const AGENT_ACTIVITY_VERBOSE_CAP = 20_000
+
+export interface AgentActivityEvent {
+  id: string
+  timestamp: string
+  stream: AgentActivityStream
+  source: AgentActivitySource
+  severity: AgentActivitySeverity
+  kind: string
+  message: string
+  workerId?: string
+  issueId?: string
+  issueIdentifier?: string
+  requestId?: string
+  connectionState?: SymphonyOperatorConnectionState
+  details?: Record<string, unknown>
+}
+
+export interface AgentPinnedEvent {
+  eventId: string
+  pinnedAt: string
+  automatic: boolean
+  timestamp: string
+  source: AgentActivitySource
+  severity: AgentActivitySeverity
+  kind: string
+  message: string
+  workerId?: string
+  issueId?: string
+  issueIdentifier?: string
+  requestId?: string
+  connectionState?: SymphonyOperatorConnectionState
+  details?: Record<string, unknown>
+}
+
+export interface AgentActivitySnapshot {
+  generatedAt: string
+  events: AgentActivityEvent[]
+  verbose: AgentActivityEvent[]
+  pinnedEvents: AgentPinnedEvent[]
+}
+
+export interface AgentActivityUpdate {
+  generatedAt: string
+  appendedEvents?: AgentActivityEvent[]
+  appendedVerbose?: AgentActivityEvent[]
+  upsertedPinnedEvents?: AgentPinnedEvent[]
+  removedPinnedEventIds?: string[]
+}
+
+export interface AgentActivitySnapshotResponse {
+  success: boolean
+  snapshot: AgentActivitySnapshot
+}
+
+export interface AgentActivitySetPinnedEventResponse {
+  success: boolean
+  eventId: string
+  pinned: boolean
+  snapshot: AgentActivitySnapshot
 }
 
 export type McpServerTransport = 'stdio' | 'http'
@@ -1755,6 +1829,11 @@ export interface DesktopApi {
       responseText: string,
     ) => Promise<SymphonyEscalationResponseCommandResult>
     onDashboardSnapshot: (listener: (snapshot: SymphonyOperatorSnapshot) => void) => () => void
+  }
+  agentActivity: {
+    getSnapshot: () => Promise<AgentActivitySnapshotResponse>
+    setPinnedEvent: (eventId: string, pinned: boolean) => Promise<AgentActivitySetPinnedEventResponse>
+    onUpdate: (listener: (update: AgentActivityUpdate) => void) => () => void
   }
   mcp: {
     listServers: () => Promise<McpConfigReadResponse>
