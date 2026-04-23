@@ -1,9 +1,96 @@
 #!/usr/bin/env node
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "url";
-import { dirname, resolve, join } from "path";
+import { dirname, resolve, join, isAbsolute } from "path";
 import { existsSync, readFileSync } from "fs";
 import { agentDir, appRoot } from "./app-paths.js";
 import { resolveEffectiveMcpConfigPath } from "./mcp-config.js";
+
+function stripWrappingQuotes(value: string): string {
+  const trimmed = value.trim();
+  if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+}
+
+function expandEnvReferences(value: string, loadedValues: Map<string, string>): string {
+  return value.replace(/\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g, (_match, name: string) => {
+    const fromProcess = process.env[name];
+    if (fromProcess !== undefined) return fromProcess;
+    const fromLoaded = loadedValues.get(name);
+    return fromLoaded ?? "";
+  });
+}
+
+function loadEnvFileIfPresent(filePath: string): void {
+  if (!existsSync(filePath)) return;
+
+  const content = readFileSync(filePath, "utf8");
+  const loadedValues = new Map<string, string>();
+
+  for (const rawLine of content.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) continue;
+
+    const match = rawLine.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/);
+    if (!match) continue;
+
+    const key = match[1];
+    const rawValue = match[2] ?? "";
+    const value = expandEnvReferences(stripWrappingQuotes(rawValue), loadedValues);
+    loadedValues.set(key, value);
+
+    if (process.env[key] === undefined || process.env[key] === "") {
+      process.env[key] = value;
+    }
+  }
+}
+
+function resolveGitCommonRoot(startDir: string): string | null {
+  try {
+    const commonDirRaw = execFileSync("git", ["rev-parse", "--git-common-dir"], {
+      cwd: startDir,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+      timeout: 1500,
+      windowsHide: true,
+    }).trim();
+
+    if (!commonDirRaw) return null;
+
+    const absoluteCommonDir = isAbsolute(commonDirRaw)
+      ? commonDirRaw
+      : resolve(startDir, commonDirRaw);
+
+    return dirname(absoluteCommonDir);
+  } catch {
+    return null;
+  }
+}
+
+function loadCanonicalProjectEnv(): void {
+  const root = resolveGitCommonRoot(process.cwd());
+  if (!root) return;
+
+  loadEnvFileIfPresent(join(root, ".env"));
+}
+
+function applyGithubTokenAliases(): void {
+  const ghToken = process.env.GH_TOKEN?.trim();
+  if (!ghToken) return;
+
+  if (!process.env.GITHUB_TOKEN) {
+    process.env.GITHUB_TOKEN = ghToken;
+  }
+
+  if (!process.env.KATA_GITHUB_TOKEN) {
+    process.env.KATA_GITHUB_TOKEN = ghToken;
+  }
+}
+
+loadCanonicalProjectEnv();
+applyGithubTokenAliases();
 
 // pkg/ is a shim directory: contains kata's piConfig (package.json) and pi's
 // theme assets (dist/modes/interactive/theme/) without a src/ directory.

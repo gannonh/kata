@@ -141,6 +141,30 @@ fn test_repo_workflow_requires_publish_gate_before_agent_review() {
         content.contains("Agent Review"),
         "in-progress.md must transition to Agent Review (not Human Review)"
     );
+    assert!(
+        content.contains("phase: \"agent-review\""),
+        "in-progress.md must move state via kata_update_issue_state(... phase: \"agent-review\")"
+    );
+    assert!(
+        !content.contains("phase: \"verifying\""),
+        "in-progress.md must not use verifying as a PR-review handoff phase"
+    );
+}
+
+#[test]
+fn test_agent_review_prompt_transitions_to_human_review() {
+    let prompt_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("prompts/agent-review.md");
+    let content = std::fs::read_to_string(&prompt_path)
+        .expect("prompts/agent-review.md should exist for review-transition assertions");
+
+    assert!(
+        content.contains("phase: \"human-review\""),
+        "agent-review.md must advance to human-review after feedback is resolved"
+    );
+    assert!(
+        !content.contains("phase: \"verifying\""),
+        "agent-review.md must not use verifying as a human-review handoff phase"
+    );
 }
 
 #[test]
@@ -170,6 +194,53 @@ fn test_repo_workflow_example_uses_per_state_prompts() {
         prompts.by_state.contains_key("agent review"),
         "should map 'agent review' state"
     );
+}
+
+#[test]
+fn test_worker_prompts_use_backend_neutral_kata_contract() {
+    let prompts_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("prompts");
+    let files = [
+        "system.md",
+        "in-progress.md",
+        "agent-review.md",
+        "rework.md",
+        "merging.md",
+    ];
+
+    let required = [
+        "kata_get_issue",
+        "kata_list_tasks",
+        "kata_read_document",
+        "kata_upsert_comment",
+        "kata_update_issue_state",
+    ];
+
+    let forbidden = [
+        "linear_get_issue",
+        "linear_update_issue",
+        "linear_add_comment",
+        "linear_graphql",
+        "You are working on a Linear ticket",
+    ];
+
+    for file in files {
+        let content =
+            std::fs::read_to_string(prompts_dir.join(file)).expect("prompt file should exist");
+
+        for needle in required {
+            assert!(
+                content.contains(needle),
+                "{file} must include required operation {needle}"
+            );
+        }
+
+        for needle in forbidden {
+            assert!(
+                !content.contains(needle),
+                "{file} must not include backend-specific token {needle}"
+            );
+        }
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -272,6 +343,42 @@ tracker:
         config.tracker.label_prefix.as_deref(),
         Some("orchestration")
     );
+}
+
+#[test]
+fn test_github_tracker_config_trims_trailing_colon_from_label_prefix() {
+    let yaml_str = r#"
+tracker:
+  kind: github
+  api_key: github-test-token
+  repo_owner: kata-sh
+  repo_name: kata-mono
+  label_prefix: 'kata:'
+"#;
+
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let config = from_workflow(&raw)
+        .expect("github tracker config with trailing-colon label prefix should parse");
+
+    assert_eq!(config.tracker.label_prefix.as_deref(), Some("kata"));
+}
+
+#[test]
+fn test_github_tracker_config_falls_back_to_symphony_for_blank_label_prefix() {
+    let yaml_str = r#"
+tracker:
+  kind: github
+  api_key: github-test-token
+  repo_owner: kata-sh
+  repo_name: kata-mono
+  label_prefix: ':'
+"#;
+
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let config =
+        from_workflow(&raw).expect("github tracker config with blank label prefix should parse");
+
+    assert_eq!(config.tracker.label_prefix.as_deref(), Some("symphony"));
 }
 
 #[test]
@@ -1397,6 +1504,8 @@ fn test_config_validation_github_valid() {
 fn test_config_validation_github_missing_token_errors() {
     let previous_gh_token = std::env::var("GH_TOKEN").ok();
     let previous_github_token = std::env::var("GITHUB_TOKEN").ok();
+    let previous_gh_cli_fallback = std::env::var("SYMPHONY_GITHUB_ENABLE_GH_CLI_FALLBACK").ok();
+    std::env::set_var("SYMPHONY_GITHUB_ENABLE_GH_CLI_FALLBACK", "0");
     std::env::remove_var("GH_TOKEN");
     std::env::remove_var("GITHUB_TOKEN");
 
@@ -1415,7 +1524,7 @@ fn test_config_validation_github_missing_token_errors() {
     let validation_failed_for_missing_token = matches!(
         result,
         Err(SymphonyError::InvalidWorkflowConfig(ref msg))
-            if msg == "GH_TOKEN or GITHUB_TOKEN is required when tracker.kind is github"
+            if msg.contains("GitHub token required when tracker.kind is github")
     );
 
     match previous_gh_token {
@@ -1425,6 +1534,10 @@ fn test_config_validation_github_missing_token_errors() {
     match previous_github_token {
         Some(value) => std::env::set_var("GITHUB_TOKEN", value),
         None => std::env::remove_var("GITHUB_TOKEN"),
+    }
+    match previous_gh_cli_fallback {
+        Some(value) => std::env::set_var("SYMPHONY_GITHUB_ENABLE_GH_CLI_FALLBACK", value),
+        None => std::env::remove_var("SYMPHONY_GITHUB_ENABLE_GH_CLI_FALLBACK"),
     }
 
     assert!(

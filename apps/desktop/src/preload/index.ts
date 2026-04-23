@@ -8,6 +8,7 @@ import {
   type ExtensionUIRequest,
   type PermissionMode,
   type PlanningArtifact,
+  type AgentActivityUpdate,
   type PlanningArtifactFetchStateEvent,
   type ThinkingLevel,
   type SymphonyRuntimeStatus,
@@ -248,6 +249,25 @@ const api: DesktopApi = {
 
       return () => {
         ipcRenderer.removeListener(IPC_CHANNELS.symphonyDashboardSnapshot, wrapped)
+      }
+    },
+  },
+  agentActivity: {
+    getSnapshot: async () => {
+      return ipcRenderer.invoke(IPC_CHANNELS.agentActivityGetSnapshot)
+    },
+    setPinnedEvent: async (eventId: string, pinned: boolean) => {
+      return ipcRenderer.invoke(IPC_CHANNELS.agentActivitySetPinnedEvent, eventId, pinned)
+    },
+    onUpdate: (listener: (update: AgentActivityUpdate) => void) => {
+      const wrapped = (_event: Electron.IpcRendererEvent, update: AgentActivityUpdate) => {
+        listener(update)
+      }
+
+      ipcRenderer.on(IPC_CHANNELS.agentActivityUpdate, wrapped)
+
+      return () => {
+        ipcRenderer.removeListener(IPC_CHANNELS.agentActivityUpdate, wrapped)
       }
     },
   },

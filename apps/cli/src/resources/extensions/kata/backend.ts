@@ -7,6 +7,82 @@
 
 import type { KataState, Phase } from "./types.js";
 
+export type KataWorkflowPhase = "backlog" | "planning" | "executing" | "verifying" | "done";
+
+/**
+ * Canonical backend-neutral issue lifecycle states used by worker orchestration.
+ *
+ * Includes Kata planning phases (for /kata flows) plus PR lifecycle phases
+ * (for Symphony tracker workflows).
+ */
+export type KataIssueStatePhase =
+  | KataWorkflowPhase
+  | "todo"
+  | "in-progress"
+  | "agent-review"
+  | "human-review"
+  | "merging"
+  | "rework"
+  | "closed";
+
+export interface KataMilestoneRecord {
+  id: string;
+  name: string;
+  targetDate?: string | null;
+  updatedAt?: string | null;
+  trackerIssueId?: string;
+}
+
+export interface KataIssueRecord {
+  id: string;
+  identifier: string;
+  title: string;
+  state: string;
+  labels: string[];
+  updatedAt?: string | null;
+  projectName?: string | null;
+  milestoneName?: string | null;
+  parentIdentifier?: string | null;
+}
+
+export interface KataIssueCommentRecord {
+  id: string;
+  issueId: string;
+  body?: string | null;
+  marker?: string | null;
+  action?: "created" | "updated";
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  url?: string | null;
+}
+
+export interface KataIssueDetailRecord extends KataIssueRecord {
+  description?: string | null;
+  children: KataIssueRecord[];
+  comments: KataIssueCommentRecord[];
+}
+
+export interface KataCommentUpsertInput {
+  issueId: string;
+  body: string;
+  marker?: string;
+}
+
+export interface KataFollowupIssueInput {
+  parentIssueId?: string;
+  relationType?: "relates_to" | "blocked_by";
+  title: string;
+  description: string;
+}
+
+export interface KataIssueStateUpdateResult {
+  issueId: string;
+  identifier?: string;
+  phase: KataIssueStatePhase;
+  state: string;
+  stateId?: string;
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type DocumentScope =
@@ -94,6 +170,34 @@ export interface KataBackend {
   checkMilestoneCreated(milestoneId: string): Promise<boolean>;
   loadDashboardData(): Promise<DashboardData>;
   preparePrContext(milestoneId: string, sliceId: string): Promise<PrContext>;
+  createMilestone(input: {
+    kataId: string;
+    title: string;
+    description?: string;
+    targetDate?: string;
+  }): Promise<KataMilestoneRecord>;
+  createSlice(input: {
+    kataId: string;
+    title: string;
+    description?: string;
+    milestoneId?: string;
+    initialPhase?: KataWorkflowPhase;
+  }): Promise<KataIssueRecord>;
+  createTask(input: {
+    kataId: string;
+    title: string;
+    sliceIssueId: string;
+    description?: string;
+    initialPhase?: KataWorkflowPhase;
+  }): Promise<KataIssueRecord>;
+  listMilestones(): Promise<KataMilestoneRecord[]>;
+  listSlices(input?: { milestoneId?: string }): Promise<KataIssueRecord[]>;
+  listTasks(sliceIssueId: string): Promise<KataIssueRecord[]>;
+  /** Tool layer defaults includeChildren/includeComments to true when omitted. */
+  getIssue(issueId: string, opts?: { includeChildren?: boolean; includeComments?: boolean }): Promise<KataIssueDetailRecord | null>;
+  upsertComment(input: KataCommentUpsertInput): Promise<KataIssueCommentRecord>;
+  createFollowupIssue(input: KataFollowupIssueInput): Promise<KataIssueRecord>;
+  updateIssueState(issueId: string, phase: KataIssueStatePhase, teamId?: string): Promise<KataIssueStateUpdateResult>;
 }
 
 // ─── Factory ──────────────────────────────────────────────────────────────────

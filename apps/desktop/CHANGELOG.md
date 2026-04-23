@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.2.6
+
+### Features
+
+- **Agent Activity event pinning** — all timeline events now expose pin/unpin controls, errors auto-pin by default, and pinned entries can be manually unpinned.
+- **Agent Activity runtime overview** — added a dashboard summary panel with runtime/session health context before the event timeline.
+- **Observability terminology update** — renamed "Pinned Errors" to "Pinned Events" and the verbose timeline mode to "Event Log" for clearer behavior.
+
+## 0.2.5
+
+### Features
+
+- **Chat composer slash-command autocomplete** — added in-composer command suggestions with keyboard-friendly selection and supporting command UI primitives.
+- **Slash command + skill discovery substrate** — introduced desktop-side command registry and skill scanning plumbing for richer command discovery.
+- **GitHub planning/execution parity surface** — improved workflow board behavior for GitHub-backed Kata planning and execution flows.
+
+### Improvements
+
+- **Cross-suite GitHub acceptance bundle** — added M009 UAT runbook, evidence bundle, and end-to-end coverage for GitHub workflow parity.
+
 ## 0.2.4
 
 ### Features

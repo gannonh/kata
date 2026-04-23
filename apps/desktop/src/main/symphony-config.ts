@@ -74,6 +74,7 @@ export async function resolveSymphonyLaunch(
     resourcesPath: options.resourcesPath,
     env,
     workspacePath: options.workspacePath,
+    workflowPath: resolvedWorkflowPath.workflowPath,
   })
   if (!resolvedBinary.ok) {
     return resolvedBinary
@@ -260,6 +261,7 @@ function resolveBinaryPath(options: {
   resourcesPath?: string
   env: NodeJS.ProcessEnv
   workspacePath: string
+  workflowPath: string
 }):
   | { ok: true; command: string; source: SymphonyLaunchSource }
   | { ok: false; error: SymphonyRuntimeError } {
@@ -291,6 +293,26 @@ function resolveBinaryPath(options: {
       if (isExecutableFile(bundledPath)) {
         return { ok: true, command: bundledPath, source: 'bundled' }
       }
+    }
+  }
+
+  // Dev-mode default: if workflow_path points at an apps/symphony WORKFLOW file,
+  // prefer the sibling target/release binary before PATH lookup.
+  const workflowDir = path.dirname(options.workflowPath)
+  const workflowBinaryCandidates =
+    process.platform === 'win32'
+      ? [
+          path.join(workflowDir, 'target', 'release', 'symphony.exe'),
+          path.join(workflowDir, 'target', 'debug', 'symphony.exe'),
+        ]
+      : [
+          path.join(workflowDir, 'target', 'release', 'symphony'),
+          path.join(workflowDir, 'target', 'debug', 'symphony'),
+        ]
+
+  for (const candidate of workflowBinaryCandidates) {
+    if (isExecutableFile(candidate)) {
+      return { ok: true, command: candidate, source: 'path' }
     }
   }
 

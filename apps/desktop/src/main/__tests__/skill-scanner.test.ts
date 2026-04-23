@@ -120,7 +120,7 @@ describe('skill-scanner', () => {
     expect(skills).toEqual([])
   })
 
-  test('scanAllSkillDirectories dedupes by skill name across configured locations', async () => {
+  test('[R003] scanAllSkillDirectories discovers and dedupes /skill:* entries across configured locations', async () => {
     const kataSkillsDir = path.join(fakeHome, '.kata-cli', 'agent', 'skills')
     const userSkillsDir = path.join(fakeHome, '.agents', 'skills')
     const workspaceSkillsDir = path.join(fakeWorkspace, '.agents', 'skills')
@@ -167,7 +167,7 @@ describe('skill-scanner', () => {
     ])
   })
 
-  test('refreshSkillCache debounces rescans for 2 seconds and caches results', async () => {
+  test('[R004] refreshSkillCache debounces rescans for 2 seconds and eventually includes refreshed skills', async () => {
     const workspaceSkillsDir = path.join(fakeWorkspace, '.agents', 'skills')
     await writeSkill(workspaceSkillsDir, 'initial-skill')
 
@@ -192,7 +192,7 @@ describe('skill-scanner', () => {
     expect(third.map((entry) => entry.name)).toEqual(['/skill:added-later', '/skill:initial-skill'])
   })
 
-  test('refreshSkillCache reuses in-flight scan for concurrent callers', async () => {
+  test('[R004] refreshSkillCache reuses in-flight scan for concurrent callers', async () => {
     const workspaceSkillsDir = path.join(fakeWorkspace, '.agents', 'skills')
     await writeSkill(workspaceSkillsDir, 'initial-skill')
 

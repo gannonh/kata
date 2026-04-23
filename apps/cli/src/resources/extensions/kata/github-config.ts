@@ -1,38 +1,28 @@
 /**
  * GitHub Tracker Config Resolver
  *
- * Reads GitHub tracker settings from WORKFLOW.md frontmatter,
- * resolves auth token from environment / auth store, and emits
- * actionable, redacted diagnostics when configuration is incomplete.
- *
- * Field contract (matches Symphony config.rs `RawTrackerConfig` + Desktop workflow-config-reader):
- *   tracker:
- *     kind: github
- *     repo_owner: <org-or-user>
- *     repo_name: <repo>
- *     github_project_number: <positive-integer>   (optional; enables Projects v2 mode)
- *     label_prefix: kata:                          (optional; defaults to "kata:")
- *
- * Token resolution order:
- *   KATA_GITHUB_TOKEN → GH_TOKEN → GITHUB_TOKEN → auth.json "github" provider
- *
- * Redaction constraint: diagnostics reference key names only — never token values.
+ * Reads GitHub tracker settings from `.kata/preferences.md` (`github` block),
+ * resolves auth token from environment / auth store, and emits actionable,
+ * redacted diagnostics when configuration is incomplete.
  */
 
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { debuglog } from "node:util";
 
-import type { WorkflowMode } from "./preferences.js";
+import {
+  loadEffectiveKataPreferences,
+  type KataGithubPreferences,
+  type LoadedKataPreferences,
+  type WorkflowMode,
+} from "./preferences.js";
 
 const debug = debuglog("kata:github-config");
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 export type GithubStateMode = "projects_v2" | "labels";
 
-/** Parsed GitHub tracker configuration from WORKFLOW.md frontmatter. */
 export interface GithubTrackerConfig {
   repoOwner: string;
   repoName: string;
@@ -42,12 +32,11 @@ export interface GithubTrackerConfig {
 }
 
 export type GithubConfigDiagnosticCode =
-  | "missing_workflow_file"
-  | "invalid_workflow_file"
-  | "unsupported_tracker_kind"
+  | "missing_github_config"
   | "missing_repo_owner"
   | "missing_repo_name"
   | "invalid_github_project_number"
+  | "invalid_state_mode"
   | "missing_github_token";
 
 export interface GithubConfigDiagnostic {
@@ -67,202 +56,285 @@ export interface GithubConfigValidationResult {
   status: "valid" | "invalid" | "skipped";
   mode: WorkflowMode;
   tokenPresent: boolean;
-  /** Key name of the token source, never the value (e.g. "KATA_GITHUB_TOKEN"). */
   tokenSource: string | null;
   trackerConfig: GithubTrackerConfig | null;
   diagnostics: GithubConfigDiagnostic[];
 }
 
-// ─── WORKFLOW.md parsing ──────────────────────────────────────────────────────
-
 /**
- * Resolve the WORKFLOW.md path for the given base directory.
- * Checks KATA_GITHUB_WORKFLOW_PATH env var first (enables testing override).
- * Falls back to `<basePath>/WORKFLOW.md`.
+ * Legacy export kept for compatibility with existing callers/tests.
+ * GitHub tracker config now lives in `.kata/preferences.md`.
  */
-export function resolveGithubWorkflowPath(basePath: string = process.cwd()): string {
-  return process.env.KATA_GITHUB_WORKFLOW_PATH ?? join(basePath, "WORKFLOW.md");
+export function resolveGithubWorkflowPath(
+  basePath: string = process.cwd(),
+): string {
+  return join(basePath, ".kata", "preferences.md");
 }
 
-/**
- * Parse WORKFLOW.md frontmatter and extract GitHub tracker configuration.
- * Returns a diagnostic on every error so callers get field-specific feedback.
- */
-export function loadGithubTrackerConfig(
-  workflowPath?: string,
-  basePath?: string,
-): { config: GithubTrackerConfig | null; diagnostic: GithubConfigDiagnostic | null } {
-  const resolvedPath = workflowPath ?? resolveGithubWorkflowPath(basePath);
-
-  if (!existsSync(resolvedPath)) {
+function buildTrackerConfigFromPreferences(
+  githubPrefs: KataGithubPreferences | undefined,
+): {
+  config: GithubTrackerConfig | null;
+  diagnostic: GithubConfigDiagnostic | null;
+} {
+  if (!githubPrefs) {
     return {
       config: null,
       diagnostic: {
-        code: "missing_workflow_file",
-        message: `WORKFLOW.md not found at ${resolvedPath}. Create it with a tracker: block to configure GitHub mode.`,
-        field: "WORKFLOW.md",
-        retryable: false,
-      },
-    };
-  }
-
-  let content: string;
-  try {
-    content = readFileSync(resolvedPath, "utf-8");
-  } catch (err) {
-    return {
-      config: null,
-      diagnostic: {
-        code: "invalid_workflow_file",
-        message: `Unable to read WORKFLOW.md: ${err instanceof Error ? err.message : String(err)}`,
-        field: "WORKFLOW.md",
-        retryable: false,
-      },
-    };
-  }
-
-  // Strip optional BOM, extract YAML frontmatter
-  const frontmatterMatch = content.replace(/^\uFEFF/, "").match(/^---\s*\r?\n([\s\S]*?)\r?\n---/);
-  if (!frontmatterMatch?.[1]) {
-    return {
-      config: null,
-      diagnostic: {
-        code: "invalid_workflow_file",
-        message: "WORKFLOW.md is missing YAML frontmatter (---). Add a tracker: block at the top.",
-        field: "WORKFLOW.md",
-        retryable: false,
-      },
-    };
-  }
-
-  const frontmatter = frontmatterMatch[1];
-  const trackerBlock = extractNestedBlock(frontmatter, "tracker");
-
-  if (!trackerBlock) {
-    // No tracker block means default Linear — but caller is in GitHub mode,
-    // so this is a missing-config situation.
-    return {
-      config: null,
-      diagnostic: {
-        code: "unsupported_tracker_kind",
+        code: "missing_github_config",
         message:
-          "No tracker: block found in WORKFLOW.md. Add `tracker:\\n  kind: github` (plus repo_owner and repo_name) to configure GitHub mode.",
-        field: "tracker.kind",
+          "GitHub workflow mode requires a `github:` block in .kata/preferences.md.",
+        field: "github",
         retryable: false,
       },
     };
   }
 
-  const fields = parseSimpleYamlObject(trackerBlock);
-  const kind = stripYamlWrapping(fields.kind ?? "").toLowerCase();
-
-  if (kind !== "github") {
-    return {
-      config: null,
-      diagnostic: {
-        code: "unsupported_tracker_kind",
-        message: `tracker.kind is "${kind || "(unset)"}" but workflow.mode is "github". Set tracker.kind: github in WORKFLOW.md.`,
-        field: "tracker.kind",
-        retryable: false,
-      },
-    };
-  }
-
-  const repoOwner = stripYamlWrapping(fields.repo_owner ?? "");
+  const repoOwner = githubPrefs.repoOwner?.trim() ?? "";
   if (!repoOwner) {
     return {
       config: null,
       diagnostic: {
         code: "missing_repo_owner",
         message:
-          "tracker.repo_owner is required when tracker.kind is github. Add it to WORKFLOW.md.",
-        field: "tracker.repo_owner",
+          "github.repoOwner is required when workflow.mode is github. Add it to .kata/preferences.md.",
+        field: "github.repoOwner",
         retryable: false,
       },
     };
   }
 
-  const repoName = stripYamlWrapping(fields.repo_name ?? "");
+  const repoName = githubPrefs.repoName?.trim() ?? "";
   if (!repoName) {
     return {
       config: null,
       diagnostic: {
         code: "missing_repo_name",
         message:
-          "tracker.repo_name is required when tracker.kind is github. Add it to WORKFLOW.md.",
-        field: "tracker.repo_name",
+          "github.repoName is required when workflow.mode is github. Add it to .kata/preferences.md.",
+        field: "github.repoName",
         retryable: false,
       },
     };
   }
 
-  const projectNumberRaw = stripYamlWrapping(fields.github_project_number ?? "");
-  let githubProjectNumber: number | undefined;
-  if (projectNumberRaw) {
-    const parsed = Number(projectNumberRaw);
-    if (!Number.isFinite(parsed) || parsed <= 0 || !Number.isInteger(parsed)) {
-      return {
-        config: null,
-        diagnostic: {
-          code: "invalid_github_project_number",
-          message:
-            "tracker.github_project_number must be a positive integer in WORKFLOW.md.",
-          field: "tracker.github_project_number",
-          retryable: false,
-        },
-      };
-    }
-    githubProjectNumber = parsed;
+  const githubProjectNumber = githubPrefs.githubProjectNumber;
+  if (
+    githubProjectNumber !== undefined &&
+    (!Number.isFinite(githubProjectNumber) ||
+      githubProjectNumber <= 0 ||
+      !Number.isInteger(githubProjectNumber))
+  ) {
+    return {
+      config: null,
+      diagnostic: {
+        code: "invalid_github_project_number",
+        message: "github.githubProjectNumber must be a positive integer.",
+        field: "github.githubProjectNumber",
+        retryable: false,
+      },
+    };
   }
 
-  const labelPrefix =
-    stripYamlWrapping(fields.label_prefix ?? "") || undefined;
+  const rawStateMode = githubPrefs.stateMode?.trim().toLowerCase();
+  if (
+    rawStateMode !== undefined &&
+    rawStateMode !== "labels" &&
+    rawStateMode !== "projects_v2"
+  ) {
+    return {
+      config: null,
+      diagnostic: {
+        code: "invalid_state_mode",
+        message: 'github.stateMode must be "labels" or "projects_v2".',
+        field: "github.stateMode",
+        retryable: false,
+      },
+    };
+  }
+
+  if (rawStateMode === "projects_v2" && githubProjectNumber === undefined) {
+    return {
+      config: null,
+      diagnostic: {
+        code: "invalid_github_project_number",
+        message:
+          "github.githubProjectNumber is required when github.stateMode is \"projects_v2\".",
+        field: "github.githubProjectNumber",
+        retryable: false,
+      },
+    };
+  }
+
+  const stateMode: GithubStateMode =
+    (rawStateMode as GithubStateMode | undefined) ??
+    (githubProjectNumber !== undefined ? "projects_v2" : "labels");
 
   return {
     config: {
       repoOwner,
       repoName,
-      // Projects v2 phase derivation is not implemented yet. Keep label-based
-      // state derivation active even when a project number is configured.
-      stateMode: "labels",
+      stateMode,
       ...(githubProjectNumber !== undefined && { githubProjectNumber }),
-      ...(labelPrefix !== undefined && { labelPrefix }),
+      ...(githubPrefs.labelPrefix
+        ? { labelPrefix: githubPrefs.labelPrefix }
+        : {}),
     },
     diagnostic: null,
   };
 }
 
-// ─── Token resolution ─────────────────────────────────────────────────────────
+/**
+ * Legacy signature preserved. `workflowPath` is ignored.
+ */
+export function loadGithubTrackerConfig(
+  workflowPath?: string,
+  basePath?: string,
+  loadedPreferences?: LoadedKataPreferences | null,
+): {
+  config: GithubTrackerConfig | null;
+  diagnostic: GithubConfigDiagnostic | null;
+} {
+  void workflowPath;
+
+  const effective =
+    loadedPreferences ??
+    loadEffectiveKataPreferences(basePath ?? process.cwd());
+  const githubPrefs = effective?.preferences.github;
+  return buildTrackerConfigFromPreferences(githubPrefs);
+}
 
 export interface ResolvedGithubToken {
-  /** The token value, or null if not found. Never log or display this. */
   token: string | null;
-  /** Human-readable key name of the token source (safe to display). */
   source: string | null;
 }
 
+const GH_CLI_FALLBACK_DISABLE_VALUES = new Set([
+  "0",
+  "false",
+  "no",
+  "off",
+  "disabled",
+]);
+
+const ghCliTokenCache = new Map<string, ResolvedGithubToken>();
+let warnedInvalidGhCliApiBase = false;
+
+function isGhCliFallbackEnabled(): boolean {
+  const raw = (process.env.KATA_GITHUB_ENABLE_GH_CLI_FALLBACK ?? "")
+    .trim()
+    .toLowerCase();
+  return !GH_CLI_FALLBACK_DISABLE_VALUES.has(raw);
+}
+
+function resolveGithubHostnameForGhCli(): string {
+  const apiBase = process.env.KATA_GITHUB_API_BASE_URL?.trim();
+  if (!apiBase) return "github.com";
+
+  try {
+    const parsed = new URL(apiBase);
+    return parsed.hostname || "github.com";
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    debug(
+      "Invalid KATA_GITHUB_API_BASE_URL for gh CLI host resolution (%s): %s",
+      apiBase,
+      message,
+    );
+    if (!warnedInvalidGhCliApiBase) {
+      warnedInvalidGhCliApiBase = true;
+      console.warn(
+        `[kata:github-config] Invalid KATA_GITHUB_API_BASE_URL for gh CLI host resolution (${apiBase}): ${message}. Falling back to github.com.`,
+      );
+    }
+    return "github.com";
+  }
+}
+
 /**
- * Resolve GitHub auth token using the canonical priority order:
- *   KATA_GITHUB_TOKEN → GH_TOKEN → GITHUB_TOKEN → auth.json "github" provider
- *
- * Returns { token, source } where token is null when not found.
- * Safe to call without an auth store — auth.json lookup is best-effort.
+ * Test-only hook for deterministic gh-cli fallback tests.
  */
+export function resetGithubTokenResolutionCacheForTests(): void {
+  ghCliTokenCache.clear();
+}
+
+function resolveGithubTokenFromGhCli(): ResolvedGithubToken {
+  if (!isGhCliFallbackEnabled()) {
+    return { token: null, source: null };
+  }
+
+  const hostname = resolveGithubHostnameForGhCli();
+  const cached = ghCliTokenCache.get(hostname);
+  if (cached) return cached;
+
+  const forcedOutput = process.env.KATA_TEST_GH_AUTH_TOKEN_OUTPUT;
+  if (forcedOutput !== undefined) {
+    if (forcedOutput === "__THROW__") {
+      const unresolved = { token: null, source: null };
+      ghCliTokenCache.set(hostname, unresolved);
+      return unresolved;
+    }
+    const value = forcedOutput.trim();
+    if (!value) {
+      const unresolved = { token: null, source: null };
+      ghCliTokenCache.set(hostname, unresolved);
+      return unresolved;
+    }
+    const resolved = {
+      token: value,
+      source: `gh auth token (${hostname})`,
+    };
+    ghCliTokenCache.set(hostname, resolved);
+    return resolved;
+  }
+
+  try {
+    const output = execFileSync("gh", ["auth", "token", "--hostname", hostname], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+      timeout: 2000,
+      windowsHide: true,
+    }).trim();
+    if (!output) {
+      const unresolved = { token: null, source: null };
+      ghCliTokenCache.set(hostname, unresolved);
+      return unresolved;
+    }
+    const resolved = {
+      token: output,
+      source: `gh auth token (${hostname})`,
+    };
+    ghCliTokenCache.set(hostname, resolved);
+    return resolved;
+  } catch (err) {
+    debug(
+      "Unable to resolve token from gh auth token for host %s: %s",
+      hostname,
+      err instanceof Error ? err.message : String(err),
+    );
+    const unresolved = { token: null, source: null };
+    ghCliTokenCache.set(hostname, unresolved);
+    return unresolved;
+  }
+}
+
 export function resolveGithubToken(authFilePath?: string): ResolvedGithubToken {
-  // 1. KATA_GITHUB_TOKEN — Kata-specific override
   const kataToken = process.env.KATA_GITHUB_TOKEN;
   if (kataToken) return { token: kataToken, source: "KATA_GITHUB_TOKEN" };
 
-  // 2. GH_TOKEN — gh CLI standard
   const ghToken = process.env.GH_TOKEN;
   if (ghToken) return { token: ghToken, source: "GH_TOKEN" };
 
-  // 3. GITHUB_TOKEN — broad GitHub convention
   const githubToken = process.env.GITHUB_TOKEN;
   if (githubToken) return { token: githubToken, source: "GITHUB_TOKEN" };
 
-  // 4. auth.json "github" provider — Kata auth store
-  const authPath = authFilePath ?? join(homedir(), ".kata-cli", "agent", "auth.json");
+  // Prefer the authenticated GitHub CLI token over stale persisted keys so
+  // projects-v2 updates keep working without manual exports.
+  const ghCliToken = resolveGithubTokenFromGhCli();
+  if (ghCliToken.token) return ghCliToken;
+
+  const authPath =
+    authFilePath ?? join(homedir(), ".kata-cli", "agent", "auth.json");
   const authExists = existsSync(authPath);
   try {
     if (authExists) {
@@ -290,51 +362,43 @@ export function resolveGithubToken(authFilePath?: string): ResolvedGithubToken {
         err instanceof Error ? err.message : String(err),
       );
     }
-    // auth.json read/parse failure is non-fatal — fall through to not-found
   }
 
   return { token: null, source: null };
 }
 
-// ─── Validation ───────────────────────────────────────────────────────────────
-
 export interface ValidateGithubConfigOptions {
-  workflowPath?: string;
   basePath?: string;
   authFilePath?: string;
+  loadedPreferences?: LoadedKataPreferences | null;
 }
 
-/**
- * Validate the full GitHub configuration (tracker config + token).
- * Returns a structured result with diagnostics for every failure mode.
- *
- * This is the single entry point for GitHub config readiness checks,
- * consumed by `/kata prefs status` and backend initialization.
- */
 export function validateGithubConfig(
   options: ValidateGithubConfigOptions = {},
 ): GithubConfigValidationResult {
-  const { workflowPath, basePath, authFilePath } = options;
+  const { basePath, authFilePath, loadedPreferences } = options;
 
   const { token, source } = resolveGithubToken(authFilePath);
   const tokenPresent = token !== null;
 
   const { config, diagnostic: trackerDiagnostic } = loadGithubTrackerConfig(
-    workflowPath,
+    undefined,
     basePath,
+    loadedPreferences,
   );
 
   const diagnostics: GithubConfigDiagnostic[] = [];
 
-  if (trackerDiagnostic) {
-    diagnostics.push(trackerDiagnostic);
-  }
+  if (trackerDiagnostic) diagnostics.push(trackerDiagnostic);
 
   if (!tokenPresent) {
+    const loginHint = isGhCliFallbackEnabled()
+      ? "; run `gh auth login`"
+      : "";
     diagnostics.push({
       code: "missing_github_token",
       message:
-        "No GitHub token found. Set KATA_GITHUB_TOKEN, GH_TOKEN, GITHUB_TOKEN, or add a github credential entry to ~/.kata-cli/agent/auth.json.",
+        `No GitHub token found. Set KATA_GITHUB_TOKEN, GH_TOKEN, or GITHUB_TOKEN${loginHint}; or add a github credential entry to ~/.kata-cli/agent/auth.json.`,
       field: "KATA_GITHUB_TOKEN",
       retryable: false,
     });
@@ -353,12 +417,6 @@ export function validateGithubConfig(
   };
 }
 
-// ─── Status formatting ────────────────────────────────────────────────────────
-
-/**
- * Format a GitHub config validation result into human-readable status lines.
- * Mirrors `formatLinearConfigStatus` — safe to display, no secret values.
- */
 export function formatGithubConfigStatus(
   result: GithubConfigValidationResult,
 ): GithubConfigStatusReport {
@@ -367,13 +425,17 @@ export function formatGithubConfigStatus(
   ];
 
   if (result.trackerConfig) {
-    lines.push(`tracker.repo: ${result.trackerConfig.repoOwner}/${result.trackerConfig.repoName}`);
-    lines.push(`tracker.state_mode: ${result.trackerConfig.stateMode}`);
+    lines.push(
+      `github.repo: ${result.trackerConfig.repoOwner}/${result.trackerConfig.repoName}`,
+    );
+    lines.push(`github.state_mode: ${result.trackerConfig.stateMode}`);
     if (result.trackerConfig.githubProjectNumber !== undefined) {
-      lines.push(`tracker.github_project_number: ${result.trackerConfig.githubProjectNumber}`);
+      lines.push(
+        `github.githubProjectNumber: ${result.trackerConfig.githubProjectNumber}`,
+      );
     }
     if (result.trackerConfig.labelPrefix !== undefined) {
-      lines.push(`tracker.label_prefix: ${result.trackerConfig.labelPrefix}`);
+      lines.push(`github.labelPrefix: ${result.trackerConfig.labelPrefix}`);
     }
   }
 
@@ -396,87 +458,20 @@ function getGithubDiagnosticAction(
 ): string | null {
   switch (diagnostic.code) {
     case "missing_github_token":
-      return "set KATA_GITHUB_TOKEN, GH_TOKEN, or GITHUB_TOKEN in your environment.";
-    case "missing_workflow_file":
-      return "create WORKFLOW.md in the project root with a tracker: block.";
-    case "invalid_workflow_file":
-      return "check WORKFLOW.md for valid YAML frontmatter (--- delimiters).";
-    case "unsupported_tracker_kind":
-      return "set tracker.kind: github in WORKFLOW.md.";
+      return isGhCliFallbackEnabled()
+        ? "set KATA_GITHUB_TOKEN/GH_TOKEN/GITHUB_TOKEN, or run `gh auth login` (Kata auto-reads `gh auth token`)."
+        : "set KATA_GITHUB_TOKEN/GH_TOKEN/GITHUB_TOKEN in your environment or auth.json.";
+    case "missing_github_config":
+      return "add a github: block to .kata/preferences.md with repoOwner and repoName.";
     case "missing_repo_owner":
-      return "add tracker.repo_owner: <org-or-user> to WORKFLOW.md.";
+      return "set github.repoOwner in .kata/preferences.md.";
     case "missing_repo_name":
-      return "add tracker.repo_name: <repo> to WORKFLOW.md.";
+      return "set github.repoName in .kata/preferences.md.";
     case "invalid_github_project_number":
-      return "set tracker.github_project_number to a positive integer, or remove it to use label mode.";
+      return "set github.githubProjectNumber to a positive integer, or remove it.";
+    case "invalid_state_mode":
+      return 'set github.stateMode to "labels" or "projects_v2".';
     default:
       return null;
   }
-}
-
-// ─── YAML parsing helpers ─────────────────────────────────────────────────────
-// Minimal YAML parsers — handles only the simple key: value structure
-// used in WORKFLOW.md tracker blocks. No dependency on a full YAML library.
-
-function extractNestedBlock(frontmatter: string, key: string): string | null {
-  const lines = frontmatter.split(/\r?\n/);
-  const anchorIndex = lines.findIndex((line) =>
-    new RegExp(`^\\s*${escapeRegex(key)}:\\s*$`).test(line),
-  );
-
-  if (anchorIndex === -1) return null;
-
-  const anchorIndent = indentationOf(lines[anchorIndex] ?? "");
-  const nested: string[] = [];
-
-  for (let i = anchorIndex + 1; i < lines.length; i++) {
-    const line = lines[i] ?? "";
-    if (!line.trim()) {
-      nested.push(line);
-      continue;
-    }
-    const indent = indentationOf(line);
-    if (indent <= anchorIndent) break;
-    nested.push(line.slice(anchorIndent + 2));
-  }
-
-  return nested.join("\n");
-}
-
-function parseSimpleYamlObject(block: string): Record<string, string> {
-  const result: Record<string, string> = {};
-  for (const rawLine of block.split(/\r?\n/)) {
-    const line = rawLine.trim();
-    if (!line || line.startsWith("#")) continue;
-    const match = line.match(/^([a-zA-Z0-9_]+)\s*:\s*(.*)$/);
-    if (!match) continue;
-    const key = match[1] ?? "";
-    const raw = match[2] ?? "";
-    result[key] = stripInlineComment(raw).trim();
-  }
-  return result;
-}
-
-function stripInlineComment(value: string): string {
-  let inSingle = false;
-  let inDouble = false;
-  for (let i = 0; i < value.length; i++) {
-    const ch = value[i];
-    if (ch === "'" && !inDouble) { inSingle = !inSingle; continue; }
-    if (ch === '"' && !inSingle) { inDouble = !inDouble; continue; }
-    if (ch === "#" && !inSingle && !inDouble) return value.slice(0, i);
-  }
-  return value;
-}
-
-function stripYamlWrapping(value: string): string {
-  return value.replace(/^['"]/, "").replace(/['"]$/, "").trim();
-}
-
-function indentationOf(line: string): number {
-  return (line.match(/^\s*/)?.[0].length) ?? 0;
-}
-
-function escapeRegex(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

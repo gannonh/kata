@@ -1,17 +1,34 @@
 ## Your job: Merge the PR
 
-The issue is in `Merging`. The PR has been approved by a human. Your job is to land it.
+The issue is in `Merging`. The PR has human approval. Land it cleanly.
 
-1. Read `.agents/skills/sym-land/SKILL.md` and follow its steps directly in this session. Do not call `gh pr merge` directly.
-2. Run the land skill in a loop until the PR is merged.
-3. After merge is complete, move the issue to `Done`.
+## Canonical tracker contract (required)
+
+Use only backend-neutral tracker/artifact/state operations:
+- `kata_get_issue`
+- `kata_list_tasks`
+- `kata_read_document`
+- `kata_upsert_comment`
+- `kata_update_issue_state`
+- `kata_create_followup_issue`
+
+## Merge flow
+
+1. Read `.agents/skills/sym-land/SKILL.md`.
+2. Execute the `sym-land` flow until merge succeeds.
+3. Confirm target branch contains merged changes.
+4. Upsert `## Agent Workpad` with merge proof + cleanup notes.
+
+## State transition
+
+After successful merge:
+- `kata_update_issue_state({ issueId: "<current-issue-id>", phase: "done" })`.
+
 {% if issue.children_count > 0 %}
-4. Verify all child task issues are already `Done`. If any are not, move them to `Done` before marking the slice done.
+Also verify child task issues are done before finalizing slice completion.
 {% endif %}
 
-### Guardrails
+## Guardrails
 
-- Use the `sym-land` skill exclusively — it handles merge strategy, branch cleanup, and post-merge checks.
-- Do NOT use `kata_merge_pr` or `kata_create_pr` — those tools expect Kata branch naming (`kata/M001/S01`) which Symphony does not use.
-- Do NOT delegate landing to a `subagent` — execute the skill steps directly in this session.
-- If merge fails due to CI, fix the issue and retry. Do not move to `Done` until the merge succeeds.
+- Use `sym-land` for merge orchestration.
+- Do not mark done until merge proof is complete.

@@ -14,6 +14,8 @@ interface IssueRecord {
 class MemoryGithubClient implements GithubBackendClient {
   private issues: IssueRecord[] = [];
   private nextNumber = 1;
+  private parentByChild = new Map<number, number>();
+  private childrenByParent = new Map<number, Set<number>>();
 
   async listIssues() {
     return this.issues.map((issue) => ({ ...issue, labels: [...issue.labels] }));
@@ -48,6 +50,22 @@ class MemoryGithubClient implements GithubBackendClient {
 
   findByKataId(kataId: string): IssueRecord | undefined {
     return this.issues.find((issue) => issue.title.startsWith(`[${kataId}]`));
+  }
+
+  async listSubIssueNumbers(parentIssueNumber: number): Promise<number[]> {
+    return [...(this.childrenByParent.get(parentIssueNumber) ?? new Set<number>())].sort((a, b) => a - b);
+  }
+
+  async addSubIssue(parentIssueNumber: number, subIssueNumber: number): Promise<void> {
+    if (parentIssueNumber === subIssueNumber) return;
+    const existingParent = this.parentByChild.get(subIssueNumber);
+    if (existingParent && existingParent !== parentIssueNumber) {
+      throw new Error(`Task #${subIssueNumber} already linked to parent #${existingParent}`);
+    }
+    this.parentByChild.set(subIssueNumber, parentIssueNumber);
+    const children = this.childrenByParent.get(parentIssueNumber) ?? new Set<number>();
+    children.add(subIssueNumber);
+    this.childrenByParent.set(parentIssueNumber, children);
   }
 }
 

@@ -23,12 +23,21 @@ interface AnchorPosition {
   top: number
   left: number
   width: number
+  maxHeight: number
+  placement: 'above' | 'below'
 }
+
+const VIEWPORT_MARGIN = 8
+const DROPDOWN_OFFSET = 4
+const MAX_DROPDOWN_HEIGHT = 288
+const MIN_DROPDOWN_HEIGHT = 120
 
 const DEFAULT_POSITION: AnchorPosition = {
   top: 0,
   left: 0,
   width: 320,
+  maxHeight: MAX_DROPDOWN_HEIGHT,
+  placement: 'below',
 }
 
 export function CommandSuggestionDropdown({
@@ -56,10 +65,37 @@ export function CommandSuggestionDropdown({
       }
 
       const rect = anchor.getBoundingClientRect()
+      const viewportWidth = window.innerWidth || document.documentElement.clientWidth
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight
+
+      const width = Math.min(rect.width, Math.max(240, viewportWidth - VIEWPORT_MARGIN * 2))
+      const left = Math.min(
+        Math.max(rect.left, VIEWPORT_MARGIN),
+        viewportWidth - width - VIEWPORT_MARGIN,
+      )
+
+      const desiredHeight = Math.min(
+        MAX_DROPDOWN_HEIGHT,
+        Math.max(MIN_DROPDOWN_HEIGHT, (isLoading ? 1 : Math.max(suggestions.length, 1)) * 40 + 16),
+      )
+      const spaceBelow = viewportHeight - rect.bottom - VIEWPORT_MARGIN - DROPDOWN_OFFSET
+      const spaceAbove = rect.top - VIEWPORT_MARGIN - DROPDOWN_OFFSET
+
+      const placement: AnchorPosition['placement'] =
+        spaceBelow >= desiredHeight || spaceBelow >= spaceAbove ? 'below' : 'above'
+
+      const availableHeight = placement === 'below' ? spaceBelow : spaceAbove
+      const maxHeight = Math.max(
+        MIN_DROPDOWN_HEIGHT,
+        Math.min(MAX_DROPDOWN_HEIGHT, availableHeight),
+      )
+
       setPosition({
-        top: rect.bottom + 4,
-        left: rect.left,
-        width: rect.width,
+        top: placement === 'below' ? rect.bottom + DROPDOWN_OFFSET : rect.top - DROPDOWN_OFFSET,
+        left,
+        width,
+        maxHeight,
+        placement,
       })
     }
 
@@ -80,7 +116,7 @@ export function CommandSuggestionDropdown({
       window.removeEventListener('scroll', updatePosition, true)
       resizeObserver?.disconnect()
     }
-  }, [anchorRef, visible])
+  }, [anchorRef, isLoading, suggestions.length, visible])
 
   if (!visible) {
     return null
@@ -88,7 +124,8 @@ export function CommandSuggestionDropdown({
 
   return (
     <div
-      className="z-50"
+      data-testid="command-suggestion-dropdown"
+      className={cn('z-50', position.placement === 'above' && '-translate-y-full')}
       style={{
         position: 'fixed',
         top: `${position.top}px`,
@@ -101,7 +138,7 @@ export function CommandSuggestionDropdown({
         value={suggestions[selectedIndex]?.name ?? ''}
         onValueChange={() => {}}
       >
-        <CommandList id="command-suggestion-listbox">
+        <CommandList id="command-suggestion-listbox" style={{ maxHeight: `${position.maxHeight}px` }}>
           {isLoading ? (
             <div role="status" className="px-2 py-4 text-center text-sm text-muted-foreground">
               Loading commands…

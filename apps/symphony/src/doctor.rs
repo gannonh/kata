@@ -13,6 +13,9 @@ use crate::domain::{
     WorkspaceRepoStrategy,
 };
 use crate::error::SymphonyError;
+use crate::github::auth::{
+    github_token_missing_message, github_token_source_name, resolve_github_token,
+};
 use crate::github::client::GithubClient;
 use crate::github::projects_v2::ProjectsV2Client;
 use crate::linear::adapter::TrackerAdapter;
@@ -250,32 +253,15 @@ pub fn check_config(workflow_path: &Path) -> Vec<DoctorCheckResult> {
 pub async fn check_github(config: &TrackerConfig) -> Vec<DoctorCheckResult> {
     let mut results = Vec::new();
 
-    let token = config
-        .api_key
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(str::to_string)
-        .or_else(|| {
-            std::env::var("GH_TOKEN")
-                .ok()
-                .map(|value| value.trim().to_string())
-                .filter(|value| !value.is_empty())
-        })
-        .or_else(|| {
-            std::env::var("GITHUB_TOKEN")
-                .ok()
-                .map(|value| value.trim().to_string())
-                .filter(|value| !value.is_empty())
-        });
-
-    let Some(token) = token else {
+    let Some(resolved_token) = resolve_github_token(config) else {
         results.push(DoctorCheckResult::error(
             "GitHub PAT",
-            "GH_TOKEN or GITHUB_TOKEN is required when tracker.kind is github",
+            github_token_missing_message(),
         ));
         return results;
     };
+    let token_source = resolved_token.source;
+    let token = resolved_token.token;
 
     let Some(repo_owner) = config
         .repo_owner
@@ -337,7 +323,10 @@ pub async fn check_github(config: &TrackerConfig) -> Vec<DoctorCheckResult> {
                         .unwrap_or("authenticated");
                     results.push(DoctorCheckResult::pass(
                         "GitHub PAT",
-                        format!("PAT authenticated as {login}"),
+                        format!(
+                            "PAT authenticated as {login} (source: {})",
+                            github_token_source_name(token_source)
+                        ),
                     ));
                 }
                 Err(err) => {

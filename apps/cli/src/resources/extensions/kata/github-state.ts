@@ -13,6 +13,7 @@ export interface GithubIssueSummary {
   state: "open" | "closed";
   labels: string[];
   body?: string | null;
+  updatedAt?: string | null;
 }
 
 export interface GithubStateClient {

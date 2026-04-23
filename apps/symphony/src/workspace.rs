@@ -358,6 +358,11 @@ fn bootstrap_repository(
                 .arg(&workspace_str)
                 .arg("-b")
                 .arg(&branch_name);
+            if let Some(clone_branch) = config.clone_branch.as_deref() {
+                // Start point: create the worktree branch from this ref
+                // instead of the repo's current HEAD.
+                worktree_cmd.arg(clone_branch);
+            }
             run_git_command(worktree_cmd, "workspace worktree bootstrap")
         }
         WorkspaceRepoStrategy::Auto => unreachable!("auto strategy must resolve before bootstrap"),

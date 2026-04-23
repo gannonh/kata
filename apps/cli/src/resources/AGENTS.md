@@ -78,7 +78,6 @@ The main extension registers the `/kata` slash command with subcommands:
 - `/kata auto` — Start auto-mode (loops fresh sessions until milestone complete)
 - `/kata stop` — Stop auto-mode gracefully
 - `/kata status` — Progress dashboard
-- `/kata queue` — View/manage work queue
 - `/kata discuss` — Discuss gray areas before planning
 - `/kata plan` — Enriched planning mode (plan next slice, pick slice, add slice, resequence slices, revise roadmap, discuss planning)
 - `/kata prefs [global|project|status]` — Manage preferences

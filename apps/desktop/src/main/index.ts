@@ -1,29 +1,126 @@
+import { execFileSync } from 'node:child_process'
 import { readFileSync, existsSync } from 'node:fs'
 import { promises as fs } from 'node:fs'
 import { homedir } from 'node:os'
 import path from 'node:path'
 import { app, BrowserWindow, nativeImage } from 'electron'
 
-// Load .env.development in dev mode — provides KATA_BIN_PATH for monorepo dev.
+function stripWrappingQuotes(value: string): string {
+  const trimmed = value.trim()
+  if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+    return trimmed.slice(1, -1)
+  }
+  return trimmed
+}
+
+function expandEnvReferences(value: string, loadedValues: Map<string, string>): string {
+  return value.replace(/\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g, (_match, name: string) => {
+    const fromProcess = process.env[name]
+    if (fromProcess !== undefined) {
+      return fromProcess
+    }
+
+    const fromLoaded = loadedValues.get(name)
+    return fromLoaded ?? ''
+  })
+}
+
+function loadEnvFileIfPresent(envPath: string): void {
+  if (!existsSync(envPath)) {
+    return
+  }
+
+  const envContent = readFileSync(envPath, 'utf8')
+  const loadedValues = new Map<string, string>()
+
+  for (const rawLine of envContent.split(/\r?\n/)) {
+    const trimmed = rawLine.trim()
+    if (!trimmed || trimmed.startsWith('#')) continue
+
+    const match = rawLine.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/)
+    if (!match) continue
+
+    const key = match[1]?.trim()
+    if (!key) continue
+
+    const rawValue = match[2] ?? ''
+    const value = expandEnvReferences(stripWrappingQuotes(rawValue), loadedValues)
+    loadedValues.set(key, value)
+
+    if (!process.env[key]) {
+      process.env[key] = value
+    }
+  }
+}
+
+function resolveGitCommonRoot(startDir: string): string | null {
+  try {
+    const commonDirRaw = execFileSync('git', ['rev-parse', '--git-common-dir'], {
+      cwd: startDir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: 1500,
+      windowsHide: true,
+    }).trim()
+
+    if (!commonDirRaw) return null
+
+    const absoluteCommonDir = path.isAbsolute(commonDirRaw)
+      ? commonDirRaw
+      : path.resolve(startDir, commonDirRaw)
+
+    return path.dirname(absoluteCommonDir)
+  } catch {
+    return null
+  }
+}
+
+function applyGithubTokenAliases(): void {
+  const ghToken = process.env.GH_TOKEN?.trim()
+  if (!ghToken) return
+
+  if (!process.env.GITHUB_TOKEN) {
+    process.env.GITHUB_TOKEN = ghToken
+  }
+
+  if (!process.env.KATA_GITHUB_TOKEN) {
+    process.env.KATA_GITHUB_TOKEN = ghToken
+  }
+}
+
+function loadDevEnvironment(): void {
+  // Canonical project secrets live in <repo-root>/.env.
+  // Resolve git common root so worktrees still use one shared secret location.
+  const commonRoot =
+    resolveGitCommonRoot(process.cwd()) ??
+    resolveGitCommonRoot(path.resolve(__dirname, '..')) ??
+    resolveGitCommonRoot(path.resolve(__dirname, '..', '..'))
+
+  if (commonRoot) {
+    loadEnvFileIfPresent(path.join(commonRoot, '.env'))
+  }
+
+  // Keep local desktop-only dev overrides (non-secret machine config) in
+  // .env.development for convenience.
+  const desktopEnvCandidates = [
+    path.join(__dirname, '..', '.env.development'),
+    path.resolve(process.cwd(), 'apps', 'desktop', '.env.development'),
+    path.resolve(process.cwd(), '.env.development'),
+  ]
+
+  for (const candidate of desktopEnvCandidates) {
+    if (existsSync(candidate)) {
+      loadEnvFileIfPresent(candidate)
+      break
+    }
+  }
+
+  applyGithubTokenAliases()
+}
+
 // Must run before any code reads process.env.
 if (!app.isPackaged) {
-  try {
-    const envPath = path.join(__dirname, '..', '.env.development')
-    const envContent = readFileSync(envPath, 'utf8')
-    for (const line of envContent.split('\n')) {
-      const trimmed = line.trim()
-      if (!trimmed || trimmed.startsWith('#')) continue
-      const eqIndex = trimmed.indexOf('=')
-      if (eqIndex <= 0) continue
-      const key = trimmed.slice(0, eqIndex).trim()
-      const value = trimmed.slice(eqIndex + 1).trim()
-      if (!process.env[key]) {
-        process.env[key] = value
-      }
-    }
-  } catch {
-    // No .env.development — that's fine, KATA_BIN_PATH can be set externally
-  }
+  loadDevEnvironment()
 }
 import { AuthBridge } from './auth-bridge'
 import log from './logger'
@@ -33,6 +130,7 @@ import { registerSessionIpc } from './ipc'
 import { DesktopSessionManager } from './session-manager'
 import { SymphonySupervisor } from './symphony-supervisor'
 import { SymphonyOperatorService } from './symphony-operator-service'
+import { AgentActivityJournal } from './agent-activity-journal'
 
 const SETTINGS_PATH = path.join(homedir(), '.kata-cli', 'agent', 'settings.json')
 
@@ -40,6 +138,7 @@ let mainWindow: BrowserWindow | null = null
 let bridge: PiAgentBridge | null = null
 let symphonySupervisor: SymphonySupervisor | null = null
 let symphonyOperatorService: SymphonyOperatorService | null = null
+let agentActivityJournal: AgentActivityJournal | null = null
 let unregisterSessionIpc: (() => void) | null = null
 
 function createWindow(): BrowserWindow {
@@ -229,6 +328,7 @@ app.whenReady().then(async () => {
     resourcesPath: process.resourcesPath,
   })
   symphonyOperatorService = new SymphonyOperatorService({ env: process.env })
+  agentActivityJournal = new AgentActivityJournal()
 
   const authBridge = new AuthBridge()
   const sessionManager = new DesktopSessionManager()
@@ -250,6 +350,7 @@ app.whenReady().then(async () => {
     onWorkspaceSelected: persistWorkspacePath,
     symphonySupervisor,
     symphonyOperatorService,
+    agentActivityJournal,
   })
 
   mainWindow.on('closed', () => {

@@ -1,5 +1,5 @@
 import { DefaultResourceLoader } from '@mariozechner/pi-coding-agent'
-import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -26,6 +26,10 @@ const STARTER_MCP_JSON = JSON.stringify(
 const resourcesDir = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'resources')
 const bundledExtensionsDir = join(resourcesDir, 'extensions')
 
+// Bundled extension directories removed from source but potentially present in
+// existing ~/.kata-cli/agent/extensions installs from older versions.
+const REMOVED_BUNDLED_EXTENSION_DIRS = ['github']
+
 /**
  * Syncs all bundled resources to agentDir (~/.kata-cli/agent/) on every launch.
  *
@@ -41,6 +45,13 @@ export function initResources(agentDir: string): void {
 
   // Sync extensions — always overwrite so updates land on next launch
   const destExtensions = join(agentDir, 'extensions')
+
+  // Prune removed bundled extensions from prior installs so stale tools don't
+  // keep loading after an upgrade.
+  for (const dir of REMOVED_BUNDLED_EXTENSION_DIRS) {
+    rmSync(join(destExtensions, dir), { recursive: true, force: true })
+  }
+
   cpSync(bundledExtensionsDir, destExtensions, { recursive: true, force: true })
 
   // Sync agents

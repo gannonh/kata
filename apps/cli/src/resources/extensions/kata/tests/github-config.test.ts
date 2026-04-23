@@ -1,480 +1,457 @@
-/**
- * Tests for github-config.ts
- *
- * Covers:
- * - WORKFLOW.md parsing (valid, missing, malformed, wrong kind, missing required fields)
- * - Token resolution order (KATA_GITHUB_TOKEN > GH_TOKEN > GITHUB_TOKEN > auth.json)
- * - Full validation result (ok/invalid, diagnostics, tokenPresent, trackerConfig)
- * - formatGithubConfigStatus output
- * - Redaction: token values never appear in diagnostic output
- */
-
-import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test, before, after, beforeEach, afterEach } from "node:test";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 
 import {
-  loadGithubTrackerConfig,
-  resolveGithubToken,
-  validateGithubConfig,
   formatGithubConfigStatus,
+  loadGithubTrackerConfig,
+  resetGithubTokenResolutionCacheForTests,
+  resolveGithubToken,
   resolveGithubWorkflowPath,
-} from "../github-config.ts";
+  validateGithubConfig,
+} from "../github-config.js";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function makeTmpDir(): string {
-  return mkdtempSync(join(tmpdir(), "kata-github-config-"));
+function makeProjectDir(): string {
+  return mkdtempSync(join(tmpdir(), "kata-gh-config-"));
 }
 
-function writeWorkflowMd(dir: string, content: string): string {
-  const path = join(dir, "WORKFLOW.md");
-  writeFileSync(path, content, "utf-8");
+function writePrefs(dir: string, yaml: string): string {
+  const prefsDir = join(dir, ".kata");
+  mkdirSync(prefsDir, { recursive: true });
+  const path = join(prefsDir, "preferences.md");
+  writeFileSync(path, yaml, "utf-8");
   return path;
 }
 
-function makeValidWorkflowMd(extras: Record<string, string> = {}): string {
-  const extraLines = Object.entries(extras)
-    .map(([k, v]) => `    ${k}: ${v}`)
-    .join("\n");
-  return `---\ntracker:\n  kind: github\n  repo_owner: kata-sh\n  repo_name: kata-mono${extraLines ? "\n" + extraLines : ""}\n---\n# Project\n`;
-}
+function withEnv<T>(values: Record<string, string | undefined>, fn: () => T): T {
+  const previous: Record<string, string | undefined> = {};
+  const effectiveValues = {
+    KATA_GITHUB_ENABLE_GH_CLI_FALLBACK:
+      values.KATA_GITHUB_ENABLE_GH_CLI_FALLBACK ?? "0",
+    ...values,
+  };
 
-/** Save and restore env vars across a test. */
-function withEnv<T>(
-  vars: Partial<Record<string, string | undefined>>,
-  fn: () => T,
-): T {
-  const saved: Record<string, string | undefined> = {};
-  for (const [k, v] of Object.entries(vars)) {
-    saved[k] = process.env[k];
-    if (v === undefined) {
-      delete process.env[k];
+  for (const [key, value] of Object.entries(effectiveValues)) {
+    previous[key] = process.env[key];
+    if (value === undefined) {
+      delete process.env[key];
     } else {
-      process.env[k] = v;
+      process.env[key] = value;
     }
   }
+  resetGithubTokenResolutionCacheForTests();
   try {
     return fn();
   } finally {
-    for (const [k, v] of Object.entries(saved)) {
-      if (v === undefined) {
-        delete process.env[k];
-      } else {
-        process.env[k] = v;
-      }
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
     }
+    resetGithubTokenResolutionCacheForTests();
   }
 }
 
-// Save env vars that could bleed from the host environment
-let savedEnv: Record<string, string | undefined> = {};
 
-before(() => {
-  for (const k of ["KATA_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN", "KATA_GITHUB_WORKFLOW_PATH"]) {
-    savedEnv[k] = process.env[k];
-    delete process.env[k];
-  }
+test("resolveGithubWorkflowPath now points to .kata/preferences.md", () => {
+  assert.equal(resolveGithubWorkflowPath("/project"), "/project/.kata/preferences.md");
 });
 
-after(() => {
-  for (const [k, v] of Object.entries(savedEnv)) {
-    if (v === undefined) {
-      delete process.env[k];
-    } else {
-      process.env[k] = v;
-    }
-  }
+test("loadGithubTrackerConfig returns missing_github_config when github block absent", () => {
+  const dir = makeProjectDir();
+  writePrefs(
+    dir,
+    ["---", "workflow:", "  mode: github", "---", ""].join("\n"),
+  );
+
+  const { config, diagnostic } = loadGithubTrackerConfig(undefined, dir);
+  assert.equal(config, null);
+  assert.equal(diagnostic?.code, "missing_github_config");
+  assert.equal(diagnostic?.field, "github");
 });
 
-// ─── resolveGithubWorkflowPath ────────────────────────────────────────────────
+test("loadGithubTrackerConfig returns config from github preferences", () => {
+  const dir = makeProjectDir();
+  writePrefs(
+    dir,
+    [
+      "---",
+      "workflow:",
+      "  mode: github",
+      "github:",
+      "  repoOwner: kata-sh",
+      "  repoName: kata-mono",
+      "  stateMode: labels",
+      "  labelPrefix: kata:",
+      "---",
+      "",
+    ].join("\n"),
+  );
 
-test("resolveGithubWorkflowPath uses KATA_GITHUB_WORKFLOW_PATH when set", () => {
-  withEnv({ KATA_GITHUB_WORKFLOW_PATH: "/override/WORKFLOW.md" }, () => {
-    assert.equal(resolveGithubWorkflowPath("/some/dir"), "/override/WORKFLOW.md");
-  });
-});
-
-test("resolveGithubWorkflowPath falls back to basePath/WORKFLOW.md", () => {
-  withEnv({ KATA_GITHUB_WORKFLOW_PATH: undefined }, () => {
-    assert.equal(resolveGithubWorkflowPath("/project"), "/project/WORKFLOW.md");
-  });
-});
-
-// ─── loadGithubTrackerConfig ──────────────────────────────────────────────────
-
-test("loadGithubTrackerConfig returns config for valid minimal WORKFLOW.md", () => {
-  const dir = makeTmpDir();
-  const path = writeWorkflowMd(dir, makeValidWorkflowMd());
-
-  const { config, diagnostic } = loadGithubTrackerConfig(path);
+  const { config, diagnostic } = loadGithubTrackerConfig(undefined, dir);
   assert.equal(diagnostic, null);
   assert.deepEqual(config, {
     repoOwner: "kata-sh",
     repoName: "kata-mono",
     stateMode: "labels",
+    labelPrefix: "kata:",
   });
 });
 
-test("loadGithubTrackerConfig includes githubProjectNumber and keeps label-based stateMode", () => {
-  const dir = makeTmpDir();
-  const path = writeWorkflowMd(
+test("loadGithubTrackerConfig validates repoOwner and repoName", () => {
+  const dir = makeProjectDir();
+  writePrefs(
     dir,
-    makeValidWorkflowMd({ github_project_number: "42" }),
+    [
+      "---",
+      "workflow:",
+      "  mode: github",
+      "github:",
+      "  repoName: kata-mono",
+      "---",
+      "",
+    ].join("\n"),
   );
 
-  const { config, diagnostic } = loadGithubTrackerConfig(path);
+  const missingOwner = loadGithubTrackerConfig(undefined, dir);
+  assert.equal(missingOwner.diagnostic?.code, "missing_repo_owner");
+
+  writePrefs(
+    dir,
+    [
+      "---",
+      "workflow:",
+      "  mode: github",
+      "github:",
+      "  repoOwner: kata-sh",
+      "---",
+      "",
+    ].join("\n"),
+  );
+  const missingName = loadGithubTrackerConfig(undefined, dir);
+  assert.equal(missingName.diagnostic?.code, "missing_repo_name");
+});
+
+test("loadGithubTrackerConfig validates stateMode and githubProjectNumber", () => {
+  const dir = makeProjectDir();
+
+  const invalidState = loadGithubTrackerConfig(
+    undefined,
+    dir,
+    {
+      path: join(dir, ".kata", "preferences.md"),
+      scope: "project",
+      preferences: {
+        workflow: { mode: "github" },
+        github: {
+          repoOwner: "kata-sh",
+          repoName: "kata-mono",
+          stateMode: "invalid" as never,
+        },
+      },
+    },
+  );
+  assert.equal(invalidState.diagnostic?.code, "invalid_state_mode");
+
+  const invalidProjectNumber = loadGithubTrackerConfig(
+    undefined,
+    dir,
+    {
+      path: join(dir, ".kata", "preferences.md"),
+      scope: "project",
+      preferences: {
+        workflow: { mode: "github" },
+        github: {
+          repoOwner: "kata-sh",
+          repoName: "kata-mono",
+          githubProjectNumber: -1,
+        },
+      },
+    },
+  );
+  assert.equal(invalidProjectNumber.diagnostic?.code, "invalid_github_project_number");
+
+  const missingProjectNumber = loadGithubTrackerConfig(
+    undefined,
+    dir,
+    {
+      path: join(dir, ".kata", "preferences.md"),
+      scope: "project",
+      preferences: {
+        workflow: { mode: "github" },
+        github: {
+          repoOwner: "kata-sh",
+          repoName: "kata-mono",
+          stateMode: "projects_v2",
+        },
+      },
+    },
+  );
+  assert.equal(missingProjectNumber.diagnostic?.code, "invalid_github_project_number");
+
+});
+
+test("loadGithubTrackerConfig infers projects_v2 when githubProjectNumber is set", () => {
+  const dir = makeProjectDir();
+
+  const { config, diagnostic } = loadGithubTrackerConfig(
+    undefined,
+    dir,
+    {
+      path: join(dir, ".kata", "preferences.md"),
+      scope: "project",
+      preferences: {
+        workflow: { mode: "github" },
+        github: {
+          repoOwner: "kata-sh",
+          repoName: "kata-mono",
+          githubProjectNumber: 5,
+        },
+      },
+    },
+  );
+
   assert.equal(diagnostic, null);
   assert.deepEqual(config, {
     repoOwner: "kata-sh",
     repoName: "kata-mono",
-    stateMode: "labels",
-    githubProjectNumber: 42,
+    stateMode: "projects_v2",
+    githubProjectNumber: 5,
   });
 });
 
-test("loadGithubTrackerConfig includes optional labelPrefix", () => {
-  const dir = makeTmpDir();
-  const path = writeWorkflowMd(dir, makeValidWorkflowMd({ label_prefix: "kata:" }));
-
-  const { config, diagnostic } = loadGithubTrackerConfig(path);
-  assert.equal(diagnostic, null);
-  assert.equal(config?.labelPrefix, "kata:");
-});
-
-test("loadGithubTrackerConfig returns missing_workflow_file when WORKFLOW.md absent", () => {
-  const { config, diagnostic } = loadGithubTrackerConfig("/nonexistent/path/WORKFLOW.md");
-  assert.equal(config, null);
-  assert.equal(diagnostic?.code, "missing_workflow_file");
-  assert.equal(diagnostic?.retryable, false);
-});
-
-test("loadGithubTrackerConfig returns invalid_workflow_file for missing frontmatter", () => {
-  const dir = makeTmpDir();
-  const path = writeWorkflowMd(dir, "# No frontmatter here\n");
-
-  const { config, diagnostic } = loadGithubTrackerConfig(path);
-  assert.equal(config, null);
-  assert.equal(diagnostic?.code, "invalid_workflow_file");
-});
-
-test("loadGithubTrackerConfig returns unsupported_tracker_kind when tracker block is absent", () => {
-  const dir = makeTmpDir();
-  const path = writeWorkflowMd(dir, "---\nversion: 1\n---\n# no tracker\n");
-
-  const { config, diagnostic } = loadGithubTrackerConfig(path);
-  assert.equal(config, null);
-  assert.equal(diagnostic?.code, "unsupported_tracker_kind");
-});
-
-test("loadGithubTrackerConfig returns unsupported_tracker_kind when kind is not github", () => {
-  const dir = makeTmpDir();
-  const path = writeWorkflowMd(
-    dir,
-    "---\ntracker:\n  kind: linear\n  repo_owner: kata-sh\n  repo_name: kata-mono\n---\n",
-  );
-
-  const { config, diagnostic } = loadGithubTrackerConfig(path);
-  assert.equal(config, null);
-  assert.equal(diagnostic?.code, "unsupported_tracker_kind");
-  assert.equal(diagnostic?.field, "tracker.kind");
-});
-
-test("loadGithubTrackerConfig returns missing_repo_owner when repo_owner absent", () => {
-  const dir = makeTmpDir();
-  const path = writeWorkflowMd(
-    dir,
-    "---\ntracker:\n  kind: github\n  repo_name: kata-mono\n---\n",
-  );
-
-  const { config, diagnostic } = loadGithubTrackerConfig(path);
-  assert.equal(config, null);
-  assert.equal(diagnostic?.code, "missing_repo_owner");
-  assert.equal(diagnostic?.field, "tracker.repo_owner");
-});
-
-test("loadGithubTrackerConfig returns missing_repo_name when repo_name absent", () => {
-  const dir = makeTmpDir();
-  const path = writeWorkflowMd(
-    dir,
-    "---\ntracker:\n  kind: github\n  repo_owner: kata-sh\n---\n",
-  );
-
-  const { config, diagnostic } = loadGithubTrackerConfig(path);
-  assert.equal(config, null);
-  assert.equal(diagnostic?.code, "missing_repo_name");
-  assert.equal(diagnostic?.field, "tracker.repo_name");
-});
-
-test("loadGithubTrackerConfig returns invalid_github_project_number for non-integer value", () => {
-  const dir = makeTmpDir();
-  const path = writeWorkflowMd(
-    dir,
-    makeValidWorkflowMd({ github_project_number: "not-a-number" }),
-  );
-
-  const { config, diagnostic } = loadGithubTrackerConfig(path);
-  assert.equal(config, null);
-  assert.equal(diagnostic?.code, "invalid_github_project_number");
-});
-
-test("loadGithubTrackerConfig returns invalid_github_project_number for zero", () => {
-  const dir = makeTmpDir();
-  const path = writeWorkflowMd(dir, makeValidWorkflowMd({ github_project_number: "0" }));
-
-  const { config, diagnostic } = loadGithubTrackerConfig(path);
-  assert.equal(config, null);
-  assert.equal(diagnostic?.code, "invalid_github_project_number");
-});
-
-test("loadGithubTrackerConfig returns invalid_github_project_number for negative value", () => {
-  const dir = makeTmpDir();
-  const path = writeWorkflowMd(dir, makeValidWorkflowMd({ github_project_number: "-5" }));
-
-  const { config, diagnostic } = loadGithubTrackerConfig(path);
-  assert.equal(config, null);
-  assert.equal(diagnostic?.code, "invalid_github_project_number");
-});
-
-test("loadGithubTrackerConfig handles KATA_GITHUB_WORKFLOW_PATH env override", () => {
-  const dir = makeTmpDir();
-  const path = writeWorkflowMd(dir, makeValidWorkflowMd());
-
-  withEnv({ KATA_GITHUB_WORKFLOW_PATH: path }, () => {
-    // No explicit path passed — relies on env var
-    const { config, diagnostic } = loadGithubTrackerConfig(undefined, "/wrong/basepath");
-    assert.equal(diagnostic, null);
-    assert.equal(config?.repoOwner, "kata-sh");
-  });
-});
-
-test("loadGithubTrackerConfig strips YAML inline comments and quotes", () => {
-  const dir = makeTmpDir();
-  const path = writeWorkflowMd(
-    dir,
-    '---\ntracker:\n  kind: "github"\n  repo_owner: "kata-sh" # org\n  repo_name: kata-mono\n---\n',
-  );
-
-  const { config, diagnostic } = loadGithubTrackerConfig(path);
-  assert.equal(diagnostic, null);
-  assert.equal(config?.repoOwner, "kata-sh");
-  assert.equal(config?.repoName, "kata-mono");
-});
-
-// ─── resolveGithubToken ───────────────────────────────────────────────────────
-
-test("resolveGithubToken returns KATA_GITHUB_TOKEN with correct source", () => {
+test("resolveGithubToken priority order", () => {
   withEnv(
-    { KATA_GITHUB_TOKEN: "secret-kata", GH_TOKEN: "secret-gh", GITHUB_TOKEN: "secret-github" },
+    {
+      KATA_GITHUB_TOKEN: "kata",
+      GH_TOKEN: "gh",
+      GITHUB_TOKEN: "github",
+    },
     () => {
-      const { token, source } = resolveGithubToken("/nonexistent/auth.json");
-      assert.equal(token, "secret-kata");
-      assert.equal(source, "KATA_GITHUB_TOKEN");
+      const token = resolveGithubToken();
+      assert.equal(token.token, "kata");
+      assert.equal(token.source, "KATA_GITHUB_TOKEN");
+    },
+  );
+
+  withEnv(
+    {
+      KATA_GITHUB_TOKEN: undefined,
+      GH_TOKEN: "gh",
+      GITHUB_TOKEN: "github",
+    },
+    () => {
+      const token = resolveGithubToken();
+      assert.equal(token.token, "gh");
+      assert.equal(token.source, "GH_TOKEN");
     },
   );
 });
 
-test("resolveGithubToken falls through to GH_TOKEN when KATA_GITHUB_TOKEN absent", () => {
-  withEnv(
-    { KATA_GITHUB_TOKEN: undefined, GH_TOKEN: "secret-gh", GITHUB_TOKEN: "secret-github" },
-    () => {
-      const { token, source } = resolveGithubToken("/nonexistent/auth.json");
-      assert.equal(token, "secret-gh");
-      assert.equal(source, "GH_TOKEN");
-    },
-  );
-});
-
-test("resolveGithubToken falls through to GITHUB_TOKEN when both KATA and GH absent", () => {
-  withEnv(
-    { KATA_GITHUB_TOKEN: undefined, GH_TOKEN: undefined, GITHUB_TOKEN: "secret-github" },
-    () => {
-      const { token, source } = resolveGithubToken("/nonexistent/auth.json");
-      assert.equal(token, "secret-github");
-      assert.equal(source, "GITHUB_TOKEN");
-    },
-  );
-});
-
-test("resolveGithubToken reads auth.json github provider when all env vars absent", () => {
-  const dir = makeTmpDir();
+test("resolveGithubToken prefers gh-cli fallback over auth.json and uses configured hostname", () => {
+  const dir = makeProjectDir();
   const authPath = join(dir, "auth.json");
   writeFileSync(
     authPath,
-    JSON.stringify({ github: { type: "api_key", key: "secret-from-auth" } }),
+    JSON.stringify({ github: { type: "api_key", key: "from-auth-json" } }, null, 2),
     "utf-8",
   );
 
   withEnv(
-    { KATA_GITHUB_TOKEN: undefined, GH_TOKEN: undefined, GITHUB_TOKEN: undefined },
+    {
+      KATA_GITHUB_TOKEN: undefined,
+      GH_TOKEN: undefined,
+      GITHUB_TOKEN: undefined,
+      KATA_GITHUB_ENABLE_GH_CLI_FALLBACK: "1",
+      KATA_GITHUB_API_BASE_URL: "https://ghe.example.com/api/v3",
+      KATA_TEST_GH_AUTH_TOKEN_OUTPUT: "from-gh",
+    },
     () => {
-      const { token, source } = resolveGithubToken(authPath);
-      assert.equal(token, "secret-from-auth");
-      assert.equal(source, "auth.json (github provider)");
+      const resolved = resolveGithubToken(authPath);
+      assert.equal(resolved.token, "from-gh");
+      assert.equal(resolved.source, "gh auth token (ghe.example.com)");
     },
   );
 });
 
-test("resolveGithubToken returns null when no sources available", () => {
-  withEnv(
-    { KATA_GITHUB_TOKEN: undefined, GH_TOKEN: undefined, GITHUB_TOKEN: undefined },
-    () => {
-      const { token, source } = resolveGithubToken("/nonexistent/auth.json");
-      assert.equal(token, null);
-      assert.equal(source, null);
-    },
-  );
-});
-
-test("resolveGithubToken returns null when auth.json exists but is malformed", () => {
-  const dir = makeTmpDir();
+test("resolveGithubToken falls back to auth.json when gh-cli fallback fails", () => {
+  const dir = makeProjectDir();
   const authPath = join(dir, "auth.json");
-  writeFileSync(authPath, "{not-valid-json", "utf-8");
+  writeFileSync(
+    authPath,
+    JSON.stringify({ github: { type: "api_key", key: "from-auth-json" } }, null, 2),
+    "utf-8",
+  );
 
   withEnv(
-    { KATA_GITHUB_TOKEN: undefined, GH_TOKEN: undefined, GITHUB_TOKEN: undefined },
+    {
+      KATA_GITHUB_TOKEN: undefined,
+      GH_TOKEN: undefined,
+      GITHUB_TOKEN: undefined,
+      KATA_GITHUB_ENABLE_GH_CLI_FALLBACK: "1",
+      KATA_TEST_GH_AUTH_TOKEN_OUTPUT: "__THROW__",
+    },
     () => {
-      const { token, source } = resolveGithubToken(authPath);
-      assert.equal(token, null);
-      assert.equal(source, null);
+      const resolved = resolveGithubToken(authPath);
+      assert.equal(resolved.token, "from-auth-json");
+      assert.equal(resolved.source, "auth.json (github provider)");
     },
   );
 });
 
-// ─── validateGithubConfig ─────────────────────────────────────────────────────
+test("resolveGithubToken caches unresolved gh-cli fallback results per host", () => {
+  const dir = makeProjectDir();
+  const authPath = join(dir, "auth.json");
+  writeFileSync(
+    authPath,
+    JSON.stringify({ github: { type: "api_key", key: "from-auth-json" } }, null, 2),
+    "utf-8",
+  );
 
-test("validateGithubConfig returns ok:true when token and tracker config are valid", () => {
-  const dir = makeTmpDir();
-  const wfPath = writeWorkflowMd(dir, makeValidWorkflowMd());
+  withEnv(
+    {
+      KATA_GITHUB_TOKEN: undefined,
+      GH_TOKEN: undefined,
+      GITHUB_TOKEN: undefined,
+      KATA_GITHUB_ENABLE_GH_CLI_FALLBACK: "1",
+      KATA_TEST_GH_AUTH_TOKEN_OUTPUT: "__THROW__",
+      KATA_GITHUB_API_BASE_URL: "https://ghe.example.com/api/v3",
+    },
+    () => {
+      const first = resolveGithubToken(authPath);
+      assert.equal(first.token, "from-auth-json");
+      assert.equal(first.source, "auth.json (github provider)");
 
-  withEnv({ KATA_GITHUB_TOKEN: "secret", GH_TOKEN: undefined, GITHUB_TOKEN: undefined }, () => {
-    const result = validateGithubConfig({
-      workflowPath: wfPath,
-      authFilePath: "/nonexistent/auth.json",
-    });
-    assert.equal(result.ok, true);
-    assert.equal(result.status, "valid");
-    assert.equal(result.tokenPresent, true);
-    assert.equal(result.tokenSource, "KATA_GITHUB_TOKEN");
-    assert.ok(result.trackerConfig);
-    assert.equal(result.diagnostics.length, 0);
+      process.env.KATA_TEST_GH_AUTH_TOKEN_OUTPUT = "from-gh";
+
+      const second = resolveGithubToken(authPath);
+      assert.equal(second.token, "from-auth-json");
+      assert.equal(second.source, "auth.json (github provider)");
+    },
+  );
+});
+
+test("resolveGithubToken disables gh-cli fallback for false/no values", () => {
+  const dir = makeProjectDir();
+  const authPath = join(dir, "auth.json");
+  writeFileSync(
+    authPath,
+    JSON.stringify({ github: { type: "api_key", key: "from-auth-json" } }, null, 2),
+    "utf-8",
+  );
+
+  for (const disabled of ["false", "no"]) {
+    withEnv(
+      {
+        KATA_GITHUB_TOKEN: undefined,
+        GH_TOKEN: undefined,
+        GITHUB_TOKEN: undefined,
+        KATA_GITHUB_ENABLE_GH_CLI_FALLBACK: disabled,
+        KATA_TEST_GH_AUTH_TOKEN_OUTPUT: "from-gh",
+      },
+      () => {
+        const resolved = resolveGithubToken(authPath);
+        assert.equal(resolved.token, "from-auth-json");
+        assert.equal(resolved.source, "auth.json (github provider)");
+      },
+    );
+  }
+});
+
+test("validateGithubConfig includes token and github diagnostics", () => {
+  const dir = makeProjectDir();
+  writePrefs(
+    dir,
+    [
+      "---",
+      "workflow:",
+      "  mode: github",
+      "github:",
+      "  repoOwner: kata-sh",
+      "---",
+      "",
+    ].join("\n"),
+  );
+
+  const result = withEnv(
+    {
+      KATA_GITHUB_TOKEN: undefined,
+      GH_TOKEN: undefined,
+      GITHUB_TOKEN: undefined,
+    },
+    () =>
+      validateGithubConfig({
+        basePath: dir,
+        authFilePath: join(dir, "missing-auth.json"),
+      }),
+  );
+
+  assert.equal(result.ok, false);
+  const codes = result.diagnostics.map((d) => d.code);
+  assert.ok(codes.includes("missing_repo_name"));
+  assert.ok(codes.includes("missing_github_token"));
+});
+
+test("validateGithubConfig succeeds with github prefs + token", () => {
+  const dir = makeProjectDir();
+  writePrefs(
+    dir,
+    [
+      "---",
+      "workflow:",
+      "  mode: github",
+      "github:",
+      "  repoOwner: kata-sh",
+      "  repoName: kata-mono",
+      "---",
+      "",
+    ].join("\n"),
+  );
+
+  const result = withEnv(
+    {
+      KATA_GITHUB_TOKEN: "token",
+      GH_TOKEN: undefined,
+      GITHUB_TOKEN: undefined,
+    },
+    () =>
+      validateGithubConfig({
+        basePath: dir,
+        authFilePath: join(dir, "missing-auth.json"),
+      }),
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(result.trackerConfig?.repoOwner, "kata-sh");
+  assert.equal(result.trackerConfig?.repoName, "kata-mono");
+});
+
+test("formatGithubConfigStatus renders github.* lines", () => {
+  const report = formatGithubConfigStatus({
+    ok: false,
+    status: "invalid",
+    mode: "github",
+    tokenPresent: false,
+    tokenSource: null,
+    trackerConfig: {
+      repoOwner: "kata-sh",
+      repoName: "kata-mono",
+      stateMode: "labels",
+      labelPrefix: "kata:",
+    },
+    diagnostics: [
+      {
+        code: "missing_github_token",
+        message: "missing token",
+        field: "KATA_GITHUB_TOKEN",
+        retryable: false,
+      },
+    ],
   });
-});
 
-test("validateGithubConfig collects both tracker and token diagnostics", () => {
-  withEnv(
-    { KATA_GITHUB_TOKEN: undefined, GH_TOKEN: undefined, GITHUB_TOKEN: undefined },
-    () => {
-      const result = validateGithubConfig({
-        workflowPath: "/nonexistent/WORKFLOW.md",
-        authFilePath: "/nonexistent/auth.json",
-      });
-      assert.equal(result.ok, false);
-      assert.equal(result.status, "invalid");
-      assert.equal(result.tokenPresent, false);
-
-      const codes = result.diagnostics.map((d) => d.code);
-      assert.ok(codes.includes("missing_workflow_file"), "missing_workflow_file expected");
-      assert.ok(codes.includes("missing_github_token"), "missing_github_token expected");
-    },
-  );
-});
-
-test("validateGithubConfig reports only token diagnostic when tracker config is valid", () => {
-  const dir = makeTmpDir();
-  const wfPath = writeWorkflowMd(dir, makeValidWorkflowMd());
-
-  withEnv(
-    { KATA_GITHUB_TOKEN: undefined, GH_TOKEN: undefined, GITHUB_TOKEN: undefined },
-    () => {
-      const result = validateGithubConfig({
-        workflowPath: wfPath,
-        authFilePath: "/nonexistent/auth.json",
-      });
-      assert.equal(result.ok, false);
-      assert.equal(result.diagnostics.length, 1);
-      assert.equal(result.diagnostics[0]?.code, "missing_github_token");
-      assert.ok(result.trackerConfig); // tracker parsed successfully
-    },
-  );
-});
-
-// ─── Redaction check ──────────────────────────────────────────────────────────
-
-test("token values never appear in diagnostic messages (redaction)", () => {
-  const secretToken = "ghp_super_secret_value_12345";
-  const dir = makeTmpDir();
-  const wfPath = writeWorkflowMd(dir, makeValidWorkflowMd());
-
-  withEnv(
-    { KATA_GITHUB_TOKEN: secretToken, GH_TOKEN: undefined, GITHUB_TOKEN: undefined },
-    () => {
-      const result = validateGithubConfig({ workflowPath: wfPath });
-      const allText = JSON.stringify(result);
-      assert.equal(
-        allText.includes(secretToken),
-        false,
-        "Token value must not appear in validation result",
-      );
-    },
-  );
-});
-
-test("formatGithubConfigStatus output never contains token values", () => {
-  const secretToken = "ghp_super_secret_value_12345";
-  const dir = makeTmpDir();
-  const wfPath = writeWorkflowMd(dir, makeValidWorkflowMd());
-
-  withEnv(
-    { KATA_GITHUB_TOKEN: secretToken, GH_TOKEN: undefined, GITHUB_TOKEN: undefined },
-    () => {
-      const result = validateGithubConfig({ workflowPath: wfPath });
-      const report = formatGithubConfigStatus(result);
-      const allOutput = report.lines.join("\n");
-      assert.equal(
-        allOutput.includes(secretToken),
-        false,
-        "Token value must not appear in status lines",
-      );
-    },
-  );
-});
-
-// ─── formatGithubConfigStatus ─────────────────────────────────────────────────
-
-test("formatGithubConfigStatus shows valid status for complete config", () => {
-  const dir = makeTmpDir();
-  const wfPath = writeWorkflowMd(dir, makeValidWorkflowMd({ github_project_number: "7" }));
-
-  withEnv({ KATA_GITHUB_TOKEN: "token", GH_TOKEN: undefined, GITHUB_TOKEN: undefined }, () => {
-    const result = validateGithubConfig({ workflowPath: wfPath });
-    const { lines, level } = formatGithubConfigStatus(result);
-
-    assert.equal(level, "info");
-    assert.ok(lines.some((l) => l.includes("present")), "token presence expected");
-    assert.ok(lines.some((l) => l.includes("kata-sh/kata-mono")), "repo expected");
-    assert.ok(lines.some((l) => l.includes("labels")), "state mode expected");
-    assert.ok(lines.some((l) => l.includes("7")), "project number expected");
-    assert.ok(lines.some((l) => l.includes("valid")), "validation status expected");
-  });
-});
-
-test("formatGithubConfigStatus shows warning level and diagnostics on failure", () => {
-  withEnv(
-    { KATA_GITHUB_TOKEN: undefined, GH_TOKEN: undefined, GITHUB_TOKEN: undefined },
-    () => {
-      const result = validateGithubConfig({
-        workflowPath: "/nonexistent/WORKFLOW.md",
-        authFilePath: "/nonexistent/auth.json",
-      });
-      const { lines, level } = formatGithubConfigStatus(result);
-
-      assert.equal(level, "warning");
-      assert.ok(lines.some((l) => l.includes("missing")), "missing token expected");
-      assert.ok(lines.some((l) => l.includes("diagnostic:")), "diagnostic line expected");
-      assert.ok(lines.some((l) => l.includes("action:")), "action line expected");
-    },
-  );
+  assert.equal(report.level, "warning");
+  assert.ok(report.lines.some((line) => line.startsWith("github.repo:")));
+  assert.ok(report.lines.some((line) => line.startsWith("github.state_mode:")));
+  assert.ok(report.lines.some((line) => line.startsWith("action:")));
 });

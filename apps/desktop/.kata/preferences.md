@@ -1,10 +1,16 @@
 ---
 version: 1
 workflow:
-  mode: linear
+  mode: github
 linear:
   teamKey: KAT
   projectSlug: b0f5a7be6537
+github:
+  repoOwner: gannonh
+  repoName: kata
+  stateMode: projects_v2
+  githubProjectNumber: 17
+  labelPrefix: kata:
 pr:
   enabled: false
   auto_create: false
@@ -23,7 +29,7 @@ skill_discovery: suggest
 auto_supervisor: {}
 symphony:
   url: http://localhost:8080
-  workflow_path: /Volumes/EVO/kata/kata-mono.worktrees/wt-desktop/apps/symphony/WORKFLOW-desktop.md
+  workflow_path: ../symphony/WORKFLOW-desktop-github.md
 ---
 
 # Kata Preferences
@@ -34,8 +40,8 @@ See `~/.kata-cli/agent/extensions/kata/docs/preferences-reference.md` for full f
 
 ## Quick start
 
-- `workflow.mode` is Linear-only. Keep `workflow.mode: linear`.
-- Fill in the `linear` block to bind this project to a Linear team/project.
+- Choose a workflow backend with `workflow.mode` (`linear` or `github`).
+- Fill in the backend block (`linear` or `github`) to bind this project.
 - Keep secrets out of this file. Store credentials in `~/.kata-cli/agent/auth.json` (preferred) or env vars (`LINEAR_API_KEY`, etc.). `.env` is optional.
 - Set `pr.enabled: true` to activate the PR lifecycle (create, review, address, merge via `gh` CLI).
 

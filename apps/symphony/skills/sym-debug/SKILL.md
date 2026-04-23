@@ -11,7 +11,7 @@ description:
 ## Goals
 
 - Find why a run is stuck, retrying, or failing.
-- Correlate Linear issue identity to a Codex session quickly.
+- Correlate tracker issue identity to a Codex session quickly.
 - Read the right logs in the right order to isolate root cause.
 
 ## Log Sources
@@ -28,7 +28,7 @@ description:
 ## Correlation Keys
 
 - `issue_identifier`: human ticket key (example: `MT-625`)
-- `issue_id`: Linear UUID (stable internal ID)
+- `issue_id`: tracker internal ID (stable backend identifier)
 - `session_id`: Codex thread-turn pair (`<thread_id>-<turn_id>`)
 
 These fields are emitted by Symphony runtime lifecycle logs (notably in

@@ -64,7 +64,6 @@ Tell Kata what you want to build. Kata has three modes of operation:
 # Terminal 2: observe and steer
 /kata status          — check progress
 /kata discuss         — discuss decisions
-/kata queue           — manage upcoming work
 
 # When you need to interrupt and redirect:
 # Terminal 1:
@@ -104,7 +103,6 @@ Kata workflow state is Linear-backed: milestones, slices, tasks, plans, and summ
 | `/kata auto` | Start autonomous mode |
 | `/kata stop` | Stop auto-mode after current task |
 | `/kata status` | Progress dashboard |
-| `/kata queue` | View/manage milestone queue |
 | `/kata discuss` | Discuss gray areas before planning |
 | `/kata plan` | Enriched planning mode (plan/pick/add/resequence/revise/discuss) |
 | `/kata prefs` | Manage preferences (global/project) |
@@ -130,7 +128,6 @@ Kata workflow state is Linear-backed: milestones, slices, tasks, plans, and summ
 | Command | Description |
 |---------|-------------|
 | `/mcp` | Show MCP server status and tools |
-| `/gh` | GitHub helper — issues, PRs, labels, milestones, status |
 | `/symphony` | Symphony operator workflows (`status`, `watch`, `console`, `config`) |
 | `/subagent` | List available subagents |
 | `/export` | Export session to HTML file |

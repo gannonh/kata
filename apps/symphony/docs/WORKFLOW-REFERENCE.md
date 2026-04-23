@@ -51,6 +51,14 @@ tracker:
   # Tracker API token (supports $VAR indirection).
   # - Linear: personal API key (for example $LINEAR_API_KEY)
   # - GitHub: PAT (for example $GH_TOKEN or $GITHUB_TOKEN)
+  #
+  # GitHub token source order:
+  #   1) tracker.api_key
+  #   2) GH_TOKEN
+  #   3) GITHUB_TOKEN
+  #   4) `gh auth token` (local fallback only; requires `gh auth login`)
+  #
+  # For cloud/VPS, prefer explicit env secrets (GH_TOKEN/GITHUB_TOKEN).
   api_key: $LINEAR_API_KEY
 
   # Optional tracker endpoint override.

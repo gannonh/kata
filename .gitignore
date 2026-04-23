@@ -138,3 +138,4 @@ apps/context/docs/superpowers/
 
 apps/desktop/.env.development
 apps/desktop/.claude/scheduled_tasks.lock
+apps/desktop/bin/pi-mcp-adapter

@@ -1,17 +1,35 @@
 ## Your job: Start over with a new approach
 
-The issue is in `Rework`. The reviewer rejected the current approach. Your job is to close the existing PR, start fresh, and re-implement.
+The issue is in `Rework`. The current approach was rejected. Close/replace the old approach, rebuild with a new plan, and re-enter review flow.
 
-1. Re-read the full issue body and all human comments. Explicitly identify what will be done differently this attempt.
-2. Close the existing PR tied to the issue.
-3. Locate the existing `## Agent Workpad` using the **Workpad search protocol in `prompts/system.md`**, then remove the currently active workpad before restarting.
-4. Create a fresh branch from `origin/{{ workspace.base_branch }}`.
-5. Create a new `## Agent Workpad` comment with a fresh plan (again following the system workpad search protocol to avoid duplicates).
-6. Implement the new approach from scratch.
-7. Follow the same validation and publish flow as a normal In Progress execution.
-8. Move issue to `Agent Review` when the new PR is ready.
+## Canonical tracker contract (required)
 
-### Guardrails
+Use only backend-neutral tracker/artifact/state operations:
+- `kata_get_issue`
+- `kata_list_tasks`
+- `kata_read_document`
+- `kata_upsert_comment`
+- `kata_update_issue_state`
+- `kata_create_followup_issue`
 
-- Do not reuse code from the rejected branch unless the reviewer explicitly said parts were acceptable.
-- Do not skip the planning step — the whole point of rework is a different approach.
+## Rework flow
+
+1. Re-read issue, PR discussion, and rejection rationale.
+2. Close old PR if still open.
+3. Upsert `## Agent Workpad` via `kata_upsert_comment` with:
+   - rejected approach summary
+   - replacement plan
+   - validation checklist
+4. Rebase from `origin/{{ workspace.base_branch }}` and implement the replacement approach.
+5. Validate, push, and open/update PR.
+6. Upsert workpad with final evidence + publish proofs.
+
+## State transition
+
+When replacement implementation + publish proofs are complete:
+- `kata_update_issue_state({ issueId: "<current-issue-id>", phase: "agent-review" })`.
+
+## Guardrails
+
+- Do not reuse rejected approach blindly.
+- Do not skip planning — rework requires explicit new approach.

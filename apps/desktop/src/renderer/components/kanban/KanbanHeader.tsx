@@ -1,4 +1,4 @@
-import { LayoutGrid, RefreshCcw } from 'lucide-react'
+import { Activity, LayoutGrid, RefreshCcw } from 'lucide-react'
 import type {
   RightPaneResolution,
   RightPaneOverride,
@@ -89,6 +89,54 @@ export function formatScopeStatus(board: WorkflowBoardSnapshot | null, selectedS
   return `Scope: ${scopeLabel(scope.requested)} → ${scopeLabel(scope.resolved)} (${formatScopeReason(scope.reason)})`
 }
 
+export function formatActiveMilestoneHeader(board: WorkflowBoardSnapshot | null, selectedScope: WorkflowBoardScope): string {
+  const milestoneName = board?.activeMilestone?.name?.trim()
+  const scope = board?.scope
+  const requestedScope = scope?.requested ?? selectedScope
+  const resolvedScope = scope?.resolved ?? selectedScope
+  const isMilestoneMode = requestedScope === 'milestone' || resolvedScope === 'milestone'
+
+  const githubMilestoneName =
+    board?.backend === 'github' && milestoneName
+      ? getUniqueGithubKataMilestoneName(board, milestoneName)
+      : undefined
+
+  if (isMilestoneMode) {
+    if (milestoneName && githubMilestoneName) {
+      return `${milestoneName} | ${githubMilestoneName}`
+    }
+
+    return milestoneName ? `Milestone Mode · ${milestoneName}` : 'Milestone Mode · No active milestone'
+  }
+
+  return milestoneName ?? 'No active milestone'
+}
+
+function getUniqueGithubKataMilestoneName(board: WorkflowBoardSnapshot, projectLabel: string): string | undefined {
+  const uniqueNames = new Set<string>()
+
+  for (const column of board.columns) {
+    for (const card of column.cards) {
+      const cardMilestoneName = card.milestoneName?.trim()
+      if (!cardMilestoneName || cardMilestoneName === projectLabel) {
+        continue
+      }
+
+      if (!/^\[M\d+\]/i.test(cardMilestoneName)) {
+        continue
+      }
+
+      uniqueNames.add(cardMilestoneName)
+    }
+  }
+
+  if (uniqueNames.size !== 1) {
+    return undefined
+  }
+
+  return Array.from(uniqueNames)[0]
+}
+
 export function formatWorkflowBoardStatus(input: {
   loading: boolean
   boardStatus?: 'fresh' | 'stale' | 'empty' | 'error'
@@ -165,6 +213,7 @@ interface KanbanHeaderProps {
   onExpandAllCards: () => void
   onCollapseAllCards: () => void
   onOpenPlanningView: () => void
+  onOpenAgentActivityView: () => void
   onRefresh: () => void
   onClearOverride: () => void
 }
@@ -188,6 +237,7 @@ export function KanbanHeader({
   onExpandAllCards,
   onCollapseAllCards,
   onOpenPlanningView,
+  onOpenAgentActivityView,
   onRefresh,
   onClearOverride,
 }: KanbanHeaderProps) {
@@ -197,7 +247,7 @@ export function KanbanHeader({
         <div className="min-w-0">
           <h2 className="text-xs font-semibold tracking-wide uppercase text-muted-foreground">Workflow Board</h2>
           <p className="truncate text-sm font-medium text-foreground">
-            {board?.activeMilestone?.name ?? 'No active milestone'}
+            {formatActiveMilestoneHeader(board, selectedScope)}
           </p>
         </div>
 
@@ -266,6 +316,17 @@ export function KanbanHeader({
 
           <Button type="button" size="icon" variant="ghost" aria-label="Open planning view" onClick={onOpenPlanningView}>
             <LayoutGrid className="size-4" />
+          </Button>
+
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            aria-label="Open agent activity view"
+            onClick={onOpenAgentActivityView}
+            data-testid="kanban-open-agent-activity"
+          >
+            <Activity className="size-4" />
           </Button>
 
           <Button

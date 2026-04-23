@@ -11,7 +11,11 @@ const TEST_CONFIG: LinearBackendConfig = {
   apiKey: "test-key",
   projectId: "proj-123",
   teamId: "team-456",
-  sliceLabelId: "label-789",
+  labelSet: {
+    milestone: { id: "label-788", name: "kata:milestone", color: "#7C3AED", isGroup: false },
+    slice: { id: "label-789", name: "kata:slice", color: "#2563EB", isGroup: false },
+    task: { id: "label-790", name: "kata:task", color: "#16A34A", isGroup: false },
+  },
 };
 
 function makeBackend(): LinearBackend {
@@ -61,6 +65,411 @@ describe("LinearBackend interface", () => {
   it("sets basePath from constructor", () => {
     const backend = new LinearBackend("/tmp/test-project", TEST_CONFIG);
     expect(backend.basePath).toBe("/tmp/test-project");
+  });
+});
+
+describe("LinearBackend canonical worker operations", () => {
+  it("getIssue returns issue detail with optional children/comments", async () => {
+    const backend = makeBackend();
+    let listIssueCommentsCalls = 0;
+
+    (backend as any).client = {
+      async getIssue(issueId: string) {
+        return {
+          id: issueId,
+          identifier: "KAT-42",
+          title: "[S01] Test Slice",
+          state: { id: "state-started", name: "In Progress", type: "started", color: "#000", position: 0 },
+          labels: [{ id: "label-789", name: "kata:slice", color: "#2563EB", isGroup: false }],
+          children: {
+            nodes: [{
+              id: "task-linear-1",
+              identifier: "KAT-43",
+              title: "[T01] Task",
+              state: { id: "state-started", name: "In Progress", type: "started", color: "#000", position: 1 },
+              labels: [{ id: "label-790", name: "kata:task", color: "#16A34A", isGroup: false }],
+              createdAt: "2024-01-01T00:00:00.000Z",
+              updatedAt: "2024-01-02T00:00:00.000Z",
+            }],
+          },
+          project: { id: "proj-123", name: "Test Project" },
+          projectMilestone: { id: "mile-1", name: "[M001] Milestone" },
+          parent: null,
+          description: "Slice description",
+          createdAt: "2024-01-01T00:00:00.000Z",
+          updatedAt: "2024-01-02T00:00:00.000Z",
+        };
+      },
+      async listIssueComments(issueId: string) {
+        listIssueCommentsCalls++;
+        return [{
+          id: "comment-1",
+          body: "<!-- KATA:S01-SUMMARY -->\nsummary",
+          createdAt: "2024-01-03T00:00:00.000Z",
+          updatedAt: "2024-01-04T00:00:00.000Z",
+          url: `https://linear.app/comment/${issueId}`,
+        }];
+      },
+    };
+
+    const detail = await backend.getIssue("slice-linear-1");
+    expect(detail).toMatchObject({
+      id: "slice-linear-1",
+      identifier: "KAT-42",
+      title: "[S01] Test Slice",
+      state: "In Progress",
+      labels: ["kata:slice"],
+      description: "Slice description",
+      children: [{
+        id: "task-linear-1",
+        identifier: "KAT-43",
+        title: "[T01] Task",
+        labels: ["kata:task"],
+        updatedAt: "2024-01-02T00:00:00.000Z",
+      }],
+      comments: [{
+        id: "comment-1",
+        issueId: "slice-linear-1",
+        body: "<!-- KATA:S01-SUMMARY -->\nsummary",
+        marker: "KATA:S01-SUMMARY",
+      }],
+    });
+
+    const compact = await backend.getIssue("slice-linear-1", {
+      includeChildren: false,
+      includeComments: false,
+    });
+    expect(compact?.children).toEqual([]);
+    expect(compact?.comments).toEqual([]);
+    expect(listIssueCommentsCalls).toBe(1);
+  });
+
+  it("upsertComment updates marker-matched comments before creating new comments", async () => {
+    const backend = makeBackend();
+    const calls: string[] = [];
+
+    (backend as any).client = {
+      async listIssueComments() {
+        calls.push("list");
+        return [{
+          id: "comment-1",
+          body: "<!-- KATA:S01-SUMMARY -->\nold body",
+          createdAt: "2024-01-03T00:00:00.000Z",
+          updatedAt: "2024-01-04T00:00:00.000Z",
+          url: "https://linear.app/comment/1",
+        }];
+      },
+      async updateComment(id: string, body: string) {
+        calls.push(`update:${id}`);
+        return {
+          id,
+          body,
+          createdAt: "2024-01-03T00:00:00.000Z",
+          updatedAt: "2024-01-05T00:00:00.000Z",
+          url: "https://linear.app/comment/1",
+        };
+      },
+      async createComment() {
+        calls.push("create");
+        throw new Error("createComment should not be called when marker match exists");
+      },
+    };
+
+    const comment = await backend.upsertComment({
+      issueId: "slice-linear-1",
+      marker: "KATA:S01-SUMMARY",
+      body: "updated summary",
+    });
+
+    expect(calls).toEqual(["list", "update:comment-1"]);
+    expect(comment).toMatchObject({
+      id: "comment-1",
+      issueId: "slice-linear-1",
+      body: "<!-- KATA:S01-SUMMARY -->\nupdated summary",
+      marker: "KATA:S01-SUMMARY",
+      action: "updated",
+    });
+  });
+
+  it("upsertComment updates legacy plain-text marker comments before creating new comments", async () => {
+    const backend = makeBackend();
+    const calls: string[] = [];
+
+    (backend as any).client = {
+      async listIssueComments() {
+        calls.push("list");
+        return [{
+          id: "comment-2",
+          body: "## Agent Workpad\nold body",
+          createdAt: "2024-01-03T00:00:00.000Z",
+          updatedAt: "2024-01-04T00:00:00.000Z",
+          url: "https://linear.app/comment/2",
+        }];
+      },
+      async updateComment(id: string, body: string) {
+        calls.push(`update:${id}`);
+        return {
+          id,
+          body,
+          createdAt: "2024-01-03T00:00:00.000Z",
+          updatedAt: "2024-01-05T00:00:00.000Z",
+          url: "https://linear.app/comment/2",
+        };
+      },
+      async createComment() {
+        calls.push("create");
+        throw new Error("createComment should not be called when legacy marker match exists");
+      },
+    };
+
+    const comment = await backend.upsertComment({
+      issueId: "slice-linear-1",
+      marker: "## Agent Workpad",
+      body: "## Agent Workpad\nnew body",
+    });
+
+    expect(calls).toEqual(["list", "update:comment-2"]);
+    expect(comment).toMatchObject({
+      id: "comment-2",
+      issueId: "slice-linear-1",
+      body: "## Agent Workpad\nnew body",
+      marker: "## Agent Workpad",
+      action: "updated",
+    });
+  });
+
+  it("upsertComment does not match legacy headings that only start with the marker text", async () => {
+    const backend = makeBackend();
+    const calls: string[] = [];
+
+    (backend as any).client = {
+      async listIssueComments() {
+        calls.push("list");
+        return [{
+          id: "comment-3",
+          body: "## Agent Workpad migration notes\nold body",
+          createdAt: "2024-01-03T00:00:00.000Z",
+          updatedAt: "2024-01-04T00:00:00.000Z",
+          url: "https://linear.app/comment/3",
+        }];
+      },
+      async updateComment() {
+        calls.push("update");
+        throw new Error("updateComment should not be called for prefix-only heading matches");
+      },
+      async createComment(_issueId: string, body: string) {
+        calls.push("create");
+        return {
+          id: "comment-4",
+          body,
+          createdAt: "2024-01-03T00:00:00.000Z",
+          updatedAt: "2024-01-05T00:00:00.000Z",
+          url: "https://linear.app/comment/4",
+        };
+      },
+    };
+
+    const comment = await backend.upsertComment({
+      issueId: "slice-linear-1",
+      marker: "## Agent Workpad",
+      body: "## Agent Workpad\nnew body",
+    });
+
+    expect(calls).toEqual(["list", "create"]);
+    expect(comment).toMatchObject({
+      id: "comment-4",
+      issueId: "slice-linear-1",
+      body: "## Agent Workpad\nnew body",
+      action: "created",
+    });
+  });
+
+  it("createFollowupIssue creates a relation when parent+relationType are provided", async () => {
+    const backend = makeBackend();
+    const calls: Array<Record<string, unknown>> = [];
+
+    (backend as any).client = {
+      async createIssue(input: Record<string, unknown>) {
+        calls.push({ type: "createIssue", input });
+        return {
+          id: "followup-1",
+          identifier: "KAT-99",
+          title: String(input.title ?? ""),
+          state: { id: "state-backlog", name: "Backlog", type: "backlog", color: "#777", position: 0 },
+          labels: [],
+          children: { nodes: [] },
+          project: { id: "proj-123", name: "Test Project" },
+          projectMilestone: null,
+          parent: input.parentId ? { id: String(input.parentId), identifier: "KAT-42", title: "Parent" } : null,
+          createdAt: "2024-01-01T00:00:00.000Z",
+          updatedAt: "2024-01-02T00:00:00.000Z",
+        };
+      },
+      async createRelation(input: Record<string, unknown>) {
+        calls.push({ type: "createRelation", input });
+        return {
+          id: "rel-1",
+          type: "blocked_by",
+          direction: "inbound",
+          issue: { id: "parent-1", identifier: "KAT-42", title: "Parent" },
+          relatedIssue: { id: "followup-1", identifier: "KAT-99", title: "Investigate regression" },
+          otherIssue: { id: "parent-1", identifier: "KAT-42", title: "Parent" },
+        };
+      },
+    };
+
+    const issue = await backend.createFollowupIssue({
+      parentIssueId: "parent-1",
+      relationType: "blocked_by",
+      title: "Investigate regression",
+      description: "Detailed follow-up",
+    });
+
+    expect(issue).toMatchObject({
+      id: "followup-1",
+      identifier: "KAT-99",
+      title: "Investigate regression",
+      parentIdentifier: "KAT-42",
+    });
+    expect(calls).toEqual([
+      {
+        type: "createIssue",
+        input: {
+          teamId: "team-456",
+          projectId: "proj-123",
+          parentId: "parent-1",
+          title: "Investigate regression",
+          description: "Detailed follow-up",
+        },
+      },
+      {
+        type: "createRelation",
+        input: {
+          issueId: "followup-1",
+          relatedIssueId: "parent-1",
+          type: "blocked_by",
+        },
+      },
+    ]);
+  });
+
+  it("updateIssueState resolves PR lifecycle phases by workflow state name", async () => {
+    const backend = makeBackend();
+    const calls: Array<Record<string, unknown>> = [];
+
+    (backend as any).client = {
+      async listWorkflowStates() {
+        return [
+          { id: "todo", name: "Todo", type: "unstarted", color: "#000", position: 0 },
+          { id: "in-progress", name: "In Progress", type: "started", color: "#000", position: 1 },
+          { id: "agent-review", name: "Agent Review", type: "started", color: "#000", position: 2 },
+          { id: "human-review", name: "Human Review", type: "started", color: "#000", position: 3 },
+          { id: "merging", name: "Merging", type: "started", color: "#000", position: 4 },
+          { id: "rework", name: "Rework", type: "started", color: "#000", position: 5 },
+          { id: "done", name: "Done", type: "completed", color: "#000", position: 6 },
+        ];
+      },
+      async updateIssue(issueId: string, input: Record<string, unknown>) {
+        calls.push({ type: "updateIssue", issueId, input });
+        const stateId = String(input.stateId ?? "unknown");
+        const stateNameById: Record<string, string> = {
+          todo: "Todo",
+          "in-progress": "In Progress",
+          "agent-review": "Agent Review",
+          "human-review": "Human Review",
+          merging: "Merging",
+          rework: "Rework",
+          done: "Done",
+        };
+        return {
+          id: issueId,
+          identifier: "KAT-42",
+          title: "Issue",
+          state: { id: stateId, name: stateNameById[stateId] ?? "Unknown", type: "started", color: "#000", position: 0 },
+          labels: [],
+          children: { nodes: [] },
+          project: null,
+          projectMilestone: null,
+          parent: null,
+          description: null,
+          createdAt: "2024-01-01T00:00:00.000Z",
+          updatedAt: "2024-01-02T00:00:00.000Z",
+        };
+      },
+      async getIssue() {
+        return {
+          id: "issue-1",
+          identifier: "KAT-42",
+          title: "Issue",
+          state: { id: "in-progress", name: "In Progress", type: "started", color: "#000", position: 1 },
+          labels: [],
+          children: { nodes: [] },
+          project: null,
+          projectMilestone: null,
+          parent: null,
+          description: null,
+          createdAt: "2024-01-01T00:00:00.000Z",
+          updatedAt: "2024-01-02T00:00:00.000Z",
+        };
+      },
+    };
+
+    const result = await backend.updateIssueState("issue-1", "human-review");
+
+    expect(result).toMatchObject({
+      issueId: "issue-1",
+      phase: "human-review",
+      stateId: "human-review",
+      state: "Human Review",
+    });
+    expect(calls).toEqual([
+      {
+        type: "updateIssue",
+        issueId: "issue-1",
+        input: { stateId: "human-review" },
+      },
+    ]);
+  });
+
+  it("updateIssueState allows slices to advance to done under the shared merge contract", async () => {
+    const backend = new LinearBackend("/tmp/test-project", {
+      ...TEST_CONFIG,
+      labelSet: {
+        ...TEST_CONFIG.labelSet,
+        slice: { id: "label-custom-slice", name: "custom:slice", color: "#2563EB", isGroup: false },
+      },
+    });
+
+    (backend as any).client = {
+      async listWorkflowStates() {
+        return [
+          { id: "done", name: "Done", type: "completed", color: "#000", position: 6 },
+        ];
+      },
+      async updateIssue(issueId: string, input: Record<string, unknown>) {
+        return {
+          id: issueId,
+          identifier: "KAT-42",
+          title: "Issue",
+          state: { id: String(input.stateId ?? "done"), name: "Done", type: "completed", color: "#000", position: 6 },
+          labels: [{ id: "label-custom-slice", name: "custom:slice", color: "#2563EB", isGroup: false }],
+          children: { nodes: [] },
+          project: null,
+          projectMilestone: null,
+          parent: null,
+          description: null,
+          createdAt: "2024-01-01T00:00:00.000Z",
+          updatedAt: "2024-01-02T00:00:00.000Z",
+        };
+      },
+    };
+
+    await expect(backend.updateIssueState("issue-1", "done")).resolves.toMatchObject({
+      issueId: "issue-1",
+      phase: "done",
+      stateId: "done",
+      state: "Done",
+    });
   });
 });
 

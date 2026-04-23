@@ -6,13 +6,13 @@ import { describe, expect, it } from "vitest";
 
 import { createBackend } from "../backend-factory.ts";
 
-function makeWorkspace(workflowContent?: string): string {
+function makeWorkspace(githubBlock?: string): string {
   const dir = mkdtempSync(join(tmpdir(), "kata-github-config-int-"));
   mkdirSync(join(dir, ".kata"), { recursive: true });
-  writeFileSync(join(dir, ".kata", "preferences.md"), "---\nworkflow:\n  mode: github\n---\n", "utf-8");
-  if (workflowContent !== undefined) {
-    writeFileSync(join(dir, "WORKFLOW.md"), workflowContent, "utf-8");
-  }
+  const lines = ["---", "workflow:", "  mode: github"];
+  if (githubBlock) lines.push(...githubBlock.trim().split(/\r?\n/));
+  lines.push("---", "");
+  writeFileSync(join(dir, ".kata", "preferences.md"), lines.join("\n"), "utf-8");
   return dir;
 }
 
@@ -34,14 +34,9 @@ function withEnv<T>(vars: Partial<Record<string, string | undefined>>, run: () =
 
 describe("github backend config integration", () => {
   it("surfaces missing token diagnostics without secret leakage", async () => {
-    const workspace = makeWorkspace(`---
-tracker:
-  kind: github
-  repo_owner: kata-sh
-  repo_name: kata-mono
----
-# Workflow
-`);
+    const workspace = makeWorkspace(`github:
+  repoOwner: kata-sh
+  repoName: kata-mono`);
 
     try {
       await withEnv(
@@ -49,6 +44,7 @@ tracker:
           KATA_GITHUB_TOKEN: undefined,
           GH_TOKEN: undefined,
           GITHUB_TOKEN: undefined,
+          HOME: workspace,
         },
         async () => {
           let errorMessage = "";
@@ -69,13 +65,8 @@ tracker:
   });
 
   it("surfaces missing tracker config diagnostics", async () => {
-    const workspace = makeWorkspace(`---
-tracker:
-  kind: github
-  repo_owner: kata-sh
----
-# Workflow
-`);
+    const workspace = makeWorkspace(`github:
+  repoOwner: kata-sh`);
 
     try {
       await withEnv(
@@ -93,7 +84,7 @@ tracker:
           }
 
           expect(errorMessage).toMatch(/missing_repo_name/);
-          expect(errorMessage).toMatch(/tracker\.repo_name/);
+          expect(errorMessage).toMatch(/github\.repoName/);
         },
       );
     } finally {

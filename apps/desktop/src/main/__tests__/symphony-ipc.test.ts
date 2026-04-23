@@ -1,6 +1,10 @@
 import { EventEmitter } from 'node:events'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { promises as fs } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { IPC_CHANNELS } from '@shared/types'
+import { ALL_AUTH_PROVIDERS, IPC_CHANNELS } from '@shared/types'
 
 const handlers = new Map<string, (...args: any[]) => any>()
 
@@ -61,6 +65,22 @@ function createWindowStub() {
   } as any
 }
 
+function createAuthProvidersResponse() {
+  return {
+    success: true,
+    providers: Object.fromEntries(
+      ALL_AUTH_PROVIDERS.map((provider) => [
+        provider,
+        {
+          provider,
+          status: 'valid',
+          authType: provider === 'github-copilot' ? 'oauth' : 'api_key',
+        },
+      ]),
+    ),
+  }
+}
+
 describe('symphony ipc handlers', () => {
   beforeEach(() => {
     handlers.clear()
@@ -111,10 +131,44 @@ describe('symphony ipc handlers', () => {
       respondToEscalation: vi.fn(async () => ({ success: true, snapshot: dashboardSnapshot })),
     } as any
 
+    const agentActivitySnapshot = {
+      generatedAt: new Date().toISOString(),
+      events: [],
+      verbose: [],
+      pinnedEvents: [
+        {
+          eventId: 'evt-1',
+          pinnedAt: new Date().toISOString(),
+          automatic: true,
+          timestamp: new Date().toISOString(),
+          source: 'system',
+          kind: 'system.error',
+          message: 'Symphony service unavailable.',
+          severity: 'error',
+        },
+      ],
+    }
+
+    const agentActivityJournal = Object.assign(new EventEmitter(), {
+      getSnapshot: vi.fn(() => agentActivitySnapshot),
+      setPinnedEvent: vi.fn((eventId: string, pinned: boolean) => ({
+        ...agentActivitySnapshot,
+        pinnedEvents: pinned
+          ? agentActivitySnapshot.pinnedEvents
+          : agentActivitySnapshot.pinnedEvents.filter((event) => event.eventId !== eventId),
+      })),
+      ingestRuntimeStatus: vi.fn(),
+      ingestOperatorSnapshot: vi.fn(),
+      ingestEscalationResponse: vi.fn(),
+      ingestCliChatEvent: vi.fn(),
+      recordSystemError: vi.fn(),
+    }) as any
+    const windowStub = createWindowStub()
+
     const unregister = registerSessionIpc({
       bridge,
       authBridge: {
-        getProviders: vi.fn(async () => ({ success: true, providers: {} })),
+        getProviders: vi.fn(async () => createAuthProvidersResponse()),
         setProviderKey: vi.fn(),
         removeProviderKey: vi.fn(),
         validateKey: vi.fn(),
@@ -124,9 +178,10 @@ describe('symphony ipc handlers', () => {
         getSessionInfo: vi.fn(),
         resolveSessionPathById: vi.fn(async () => null),
       } as any,
-      window: createWindowStub(),
+      window: windowStub,
       symphonySupervisor: supervisor,
       symphonyOperatorService: operatorService,
+      agentActivityJournal,
     })
 
     await handlers.get(IPC_CHANNELS.symphonyStart)?.({})
@@ -139,6 +194,12 @@ describe('symphony ipc handlers', () => {
       {},
       'req-1',
       'Proceed',
+    )
+    const agentActivityResponse = await handlers.get(IPC_CHANNELS.agentActivityGetSnapshot)?.({})
+    const setPinnedResponse = await handlers.get(IPC_CHANNELS.agentActivitySetPinnedEvent)?.(
+      {},
+      'evt-1',
+      false,
     )
     const workflowRespondResult = await handlers.get(IPC_CHANNELS.workflowRespondEscalation)?.({}, {
       cardId: 'slice-1',
@@ -160,6 +221,11 @@ describe('symphony ipc handlers', () => {
     expect(operatorService.refreshBaseline).toHaveBeenCalledTimes(1)
     expect(operatorService.respondToEscalation).toHaveBeenCalledWith('req-1', 'Proceed')
     expect(respondResult.success).toBe(true)
+    expect(agentActivityResponse.success).toBe(true)
+    expect(agentActivityResponse.snapshot).toEqual(agentActivitySnapshot)
+    expect(setPinnedResponse.success).toBe(true)
+    expect(agentActivityJournal.setPinnedEvent).toHaveBeenCalledWith('evt-1', false)
+    expect(Array.isArray(setPinnedResponse.snapshot.pinnedEvents)).toBe(true)
     expect(workflowRespondResult.success).toBe(true)
     expect(workflowRespondResult.code).toBe('SUBMITTED')
 
@@ -169,6 +235,241 @@ describe('symphony ipc handlers', () => {
     expect(workflowOpenIssueResult.success).toBe(true)
     expect(workflowOpenIssueResult.code).toBe('OPENED')
 
+    bridge.emit('rpc-event', {
+      type: 'tool_execution_start',
+      toolCallId: 'tool-1',
+      toolName: 'bash',
+      args: { command: 'echo hello' },
+    })
+    expect(agentActivityJournal.ingestCliChatEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'tool_start',
+        toolCallId: 'tool-1',
+        toolName: 'bash',
+      }),
+    )
+
+    bridge.emit('crash', {
+      exitCode: 1,
+      signal: null,
+      stderrLines: ['bridge crashed'],
+    })
+    expect(agentActivityJournal.ingestCliChatEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'subprocess_crash',
+        message: 'bridge crashed',
+      }),
+    )
+
+    agentActivityJournal.emit('update', {
+      generatedAt: new Date().toISOString(),
+      appendedEvents: [],
+    })
+    expect(windowStub.webContents.send).toHaveBeenCalledWith(
+      IPC_CHANNELS.agentActivityUpdate,
+      expect.objectContaining({ appendedEvents: [] }),
+    )
+
     unregister()
+  })
+
+  test('ingests worker CLI activity from Symphony session logs', async () => {
+    const bridge = createBridgeStub()
+    const workerWorkspace = path.join(tmpdir(), 'kata-worker-workspace')
+    bridge.getWorkspacePath.mockReturnValue(path.join(tmpdir(), 'kata-main-workspace'))
+
+    const tempDir = mkdtempSync(path.join(tmpdir(), 'kata-desktop-worker-history-'))
+    const sessionPath = path.join(tempDir, '2026-04-23_worker-session.jsonl')
+
+    await fs.writeFile(
+      sessionPath,
+      `${JSON.stringify({ type: 'session', id: 'worker-session', cwd: workerWorkspace })}\n` +
+        `${JSON.stringify({
+          type: 'message',
+          message: {
+            role: 'assistant',
+            content: [{ type: 'tool_use', id: 'tool-1', name: 'bash', input: { command: 'echo hi' } }],
+          },
+        })}\n` +
+        `${JSON.stringify({
+          type: 'message',
+          message: {
+            role: 'toolResult',
+            toolCallId: 'tool-1',
+            toolName: 'bash',
+            toolResult: 'hi\n',
+            isError: false,
+          },
+        })}\n`,
+      'utf8',
+    )
+
+    const supervisor = {
+      on: vi.fn(),
+      off: vi.fn(),
+      getStatus: vi.fn(() => ({
+        phase: 'idle',
+        managedProcessRunning: false,
+        pid: null,
+        url: null,
+        diagnostics: { stdout: [], stderr: [] },
+        updatedAt: new Date().toISOString(),
+        restartCount: 0,
+      })),
+    } as any
+
+    const operatorService = Object.assign(new EventEmitter(), {
+      on: EventEmitter.prototype.on,
+      off: EventEmitter.prototype.off,
+      syncRuntimeStatus: vi.fn(async () => undefined),
+      getSnapshot: vi.fn(() => ({
+        fetchedAt: new Date().toISOString(),
+        queueCount: 0,
+        completedCount: 0,
+        workers: [],
+        escalations: [],
+        connection: { state: 'connected', updatedAt: new Date().toISOString() },
+        freshness: { status: 'fresh' },
+        response: {},
+      })),
+      getStabilityMetrics: vi.fn(() => ({
+        reconnectSuccessRate: 1,
+        recoveryLatencyMs: 0,
+        collectedAt: new Date().toISOString(),
+      })),
+      refreshBaseline: vi.fn(async () => ({
+        fetchedAt: new Date().toISOString(),
+        queueCount: 0,
+        completedCount: 0,
+        workers: [],
+        escalations: [],
+        connection: { state: 'connected', updatedAt: new Date().toISOString() },
+        freshness: { status: 'fresh' },
+        response: {},
+      })),
+      respondToEscalation: vi.fn(async () => ({ success: true, snapshot: null })),
+    }) as any
+
+    const agentActivityJournal = Object.assign(new EventEmitter(), {
+      getSnapshot: vi.fn(() => ({ generatedAt: new Date().toISOString(), events: [], verbose: [], pinnedEvents: [] })),
+      setPinnedEvent: vi.fn(),
+      ingestRuntimeStatus: vi.fn(),
+      ingestOperatorSnapshot: vi.fn(),
+      ingestEscalationResponse: vi.fn(),
+      ingestCliChatEvent: vi.fn(),
+      recordSystemError: vi.fn(),
+    }) as any
+
+    const unregister = registerSessionIpc({
+      bridge,
+      authBridge: {
+        getProviders: vi.fn(async () => createAuthProvidersResponse()),
+        setProviderKey: vi.fn(),
+        removeProviderKey: vi.fn(),
+        validateKey: vi.fn(),
+      } as any,
+      sessionManager: {
+        listSessions: vi.fn(async () => ({ sessions: [], warnings: [], directory: process.cwd() })),
+        getSessionInfo: vi.fn(),
+        resolveSessionPathById: vi.fn(async (sessionId: string, cwd: string) => {
+          if (sessionId === 'worker-session' && cwd === workerWorkspace) {
+            return sessionPath
+          }
+          return null
+        }),
+      } as any,
+      window: createWindowStub(),
+      symphonySupervisor: supervisor,
+      symphonyOperatorService: operatorService,
+      agentActivityJournal,
+    })
+
+    operatorService.emit('snapshot', {
+      fetchedAt: new Date().toISOString(),
+      queueCount: 0,
+      completedCount: 0,
+      workers: [
+        {
+          issueId: 'issue-1',
+          identifier: 'KAT-1',
+          issueTitle: 'Test issue',
+          state: 'in_progress',
+          toolName: 'bash',
+          model: 'test-model',
+          sessionId: 'worker-session',
+          workspacePath: workerWorkspace,
+        },
+      ],
+      escalations: [],
+      connection: { state: 'connected', updatedAt: new Date().toISOString() },
+      freshness: { status: 'fresh' },
+      response: {},
+    })
+
+    await vi.waitFor(() => {
+      expect(agentActivityJournal.ingestCliChatEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'tool_start',
+          toolCallId: 'tool-1',
+          toolName: 'bash',
+        }),
+        expect.objectContaining({
+          issueId: 'issue-1',
+          issueIdentifier: 'KAT-1',
+        }),
+      )
+    })
+
+    await fs.writeFile(
+      sessionPath,
+      `${JSON.stringify({ type: 'session', id: 'worker-session', cwd: workerWorkspace })}\n` +
+        `${JSON.stringify({
+          type: 'message',
+          message: {
+            role: 'assistant',
+            content: [{ type: 'tool_use', id: 'tool-2', name: 'read', input: { filePath: 'README.md' } }],
+          },
+        })}\n`,
+      'utf8',
+    )
+
+    operatorService.emit('snapshot', {
+      fetchedAt: new Date().toISOString(),
+      queueCount: 0,
+      completedCount: 0,
+      workers: [
+        {
+          issueId: 'issue-1',
+          identifier: 'KAT-1',
+          issueTitle: 'Test issue',
+          state: 'in_progress',
+          toolName: 'read',
+          model: 'test-model',
+          sessionId: 'worker-session',
+          workspacePath: workerWorkspace,
+        },
+      ],
+      escalations: [],
+      connection: { state: 'connected', updatedAt: new Date().toISOString() },
+      freshness: { status: 'fresh' },
+      response: {},
+    })
+
+    await vi.waitFor(() => {
+      expect(agentActivityJournal.ingestCliChatEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'tool_start',
+          toolCallId: 'tool-2',
+          toolName: 'read',
+        }),
+        expect.objectContaining({
+          issueId: 'issue-1',
+          issueIdentifier: 'KAT-1',
+        }),
+      )
+    })
+
+    unregister()
+    rmSync(tempDir, { recursive: true, force: true })
   })
 })
