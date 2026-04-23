@@ -1,4 +1,5 @@
 import { EventEmitter } from 'node:events'
+import { AGENT_ACTIVITY_EVENT_CAP, AGENT_ACTIVITY_VERBOSE_CAP } from '../shared/types'
 import type {
   AgentActivityEvent,
   AgentActivitySeverity,
@@ -13,8 +14,8 @@ import type {
   SymphonyRuntimeStatus,
 } from '../shared/types'
 
-export const AGENT_ACTIVITY_DEFAULT_EVENT_CAP = 2_000
-export const AGENT_ACTIVITY_DEFAULT_VERBOSE_CAP = 20_000
+export const AGENT_ACTIVITY_DEFAULT_EVENT_CAP = AGENT_ACTIVITY_EVENT_CAP
+export const AGENT_ACTIVITY_DEFAULT_VERBOSE_CAP = AGENT_ACTIVITY_VERBOSE_CAP
 
 interface AgentActivityJournalEvents {
   update: (update: AgentActivityUpdate) => void

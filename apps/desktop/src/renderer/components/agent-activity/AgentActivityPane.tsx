@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/select'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { ActivityTimeline } from './ActivityTimeline'
-import { PinnedErrorPanel } from './PinnedErrorPanel'
+import { PinnedEventPanel } from './PinnedEventPanel'
 import { RuntimeOverviewPanel } from './RuntimeOverviewPanel'
 
 export function AgentActivityPane() {
@@ -122,7 +122,7 @@ export function AgentActivityPane() {
 
         <CardContent className="flex min-h-0 flex-1 flex-col gap-4 p-4 pt-2">
           <RuntimeOverviewPanel />
-          <PinnedErrorPanel />
+          <PinnedEventPanel />
           <ActivityTimeline />
         </CardContent>
       </Card>

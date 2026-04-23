@@ -586,6 +586,21 @@ export function registerSessionIpc({
       })
     }
 
+    if (
+      (cursor.lastSize !== null && stat.size < cursor.lastSize) ||
+      loaded.events.length < cursor.lastEventCount
+    ) {
+      log.info('[desktop-ipc] worker session history appears truncated; resetting cursor', {
+        issueId: worker.issueId,
+        sessionId,
+        previousEventCount: cursor.lastEventCount,
+        nextEventCount: loaded.events.length,
+        previousSize: cursor.lastSize,
+        nextSize: stat.size,
+      })
+      cursor.lastEventCount = 0
+    }
+
     const startIndex = Math.min(cursor.lastEventCount, loaded.events.length)
     for (const event of loaded.events.slice(startIndex)) {
       agentActivityJournal.ingestCliChatEvent(event, {
@@ -1006,13 +1021,15 @@ export function registerSessionIpc({
 
   const onCrash = ({ exitCode, signal, stderrLines }: { exitCode: number | null; signal: NodeJS.Signals | null; stderrLines: string[] }): void => {
     const lastLine = stderrLines[stderrLines.length - 1] ?? 'kata subprocess exited unexpectedly'
-    sendEventToRenderer({
+    const crashEvent = {
       type: 'subprocess_crash',
       message: lastLine,
       exitCode,
       signal,
       stderrLines,
-    })
+    } as const
+    sendEventToRenderer(crashEvent)
+    agentActivityJournal?.ingestCliChatEvent(crashEvent)
     syncStabilityMetricsFromServices()
     reliabilityAggregator.ingestChatSubprocessCrash({
       message: lastLine,

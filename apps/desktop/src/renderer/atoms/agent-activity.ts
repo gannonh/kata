@@ -1,5 +1,9 @@
 import { atom, useAtomValue, useSetAtom } from 'jotai'
 import { useEffect } from 'react'
+import {
+  AGENT_ACTIVITY_EVENT_CAP,
+  AGENT_ACTIVITY_VERBOSE_CAP,
+} from '@shared/types'
 import type {
   AgentActivityEvent,
   AgentActivitySeverity,
@@ -27,16 +31,71 @@ export const agentActivitySeverityFilterAtom = atom<AgentActivitySeverityFilter>
 export const agentActivityAutoFollowAtom = atom<boolean>(true)
 export const agentActivityUnseenCountAtom = atom<number>(0)
 
+function trimStream<T>(stream: T[], cap: number): T[] {
+  if (stream.length <= cap) {
+    return stream
+  }
+
+  return stream.slice(stream.length - cap)
+}
+
+function appendAndTrim(
+  current: AgentActivityEvent[],
+  appended: AgentActivityEvent[] | undefined,
+  cap: number,
+): AgentActivityEvent[] {
+  if (!appended?.length) {
+    return current
+  }
+
+  return trimStream([...current, ...appended], cap)
+}
+
+function mergeHydratedStream(
+  incoming: AgentActivityEvent[],
+  current: AgentActivityEvent[],
+  cap: number,
+): AgentActivityEvent[] {
+  if (current.length === 0) {
+    return trimStream(incoming, cap)
+  }
+
+  const merged = incoming.slice()
+  const knownIds = new Set(merged.map((event) => event.id))
+  for (const event of current) {
+    if (!knownIds.has(event.id)) {
+      merged.push(event)
+      knownIds.add(event.id)
+    }
+  }
+
+  return trimStream(merged, cap)
+}
+
+function mergeHydratedSnapshot(
+  current: AgentActivitySnapshot,
+  incoming: AgentActivitySnapshot,
+): AgentActivitySnapshot {
+  const pinnedById = new Map(incoming.pinnedEvents.map((event) => [event.eventId, event]))
+  for (const event of current.pinnedEvents) {
+    pinnedById.set(event.eventId, event)
+  }
+
+  return {
+    generatedAt:
+      current.generatedAt.localeCompare(incoming.generatedAt) > 0 ? current.generatedAt : incoming.generatedAt,
+    events: mergeHydratedStream(incoming.events, current.events, AGENT_ACTIVITY_EVENT_CAP),
+    verbose: mergeHydratedStream(incoming.verbose, current.verbose, AGENT_ACTIVITY_VERBOSE_CAP),
+    pinnedEvents: Array.from(pinnedById.values()),
+  }
+}
+
 function applyAgentActivityUpdate(
   snapshot: AgentActivitySnapshot,
   update: AgentActivityUpdate,
 ): AgentActivitySnapshot {
-  const nextEvents = update.appendedEvents?.length
-    ? [...snapshot.events, ...update.appendedEvents]
-    : snapshot.events
-  const nextVerbose = update.appendedVerbose?.length
-    ? [...snapshot.verbose, ...update.appendedVerbose]
-    : snapshot.verbose
+  const nextEvents = appendAndTrim(snapshot.events, update.appendedEvents, AGENT_ACTIVITY_EVENT_CAP)
+  const nextVerbose = appendAndTrim(snapshot.verbose, update.appendedVerbose, AGENT_ACTIVITY_VERBOSE_CAP)
 
   const pinnedById = new Map(snapshot.pinnedEvents.map((event) => [event.eventId, event]))
   for (const event of update.upsertedPinnedEvents ?? []) {
@@ -102,7 +161,9 @@ export const setPinnedEventAtom = atom(
   null,
   async (_get, set, payload: { eventId: string; pinned: boolean }) => {
     const response = await window.api.agentActivity.setPinnedEvent(payload.eventId, payload.pinned)
-    set(agentActivitySnapshotAtom, response.snapshot)
+    if (response.success) {
+      set(agentActivitySnapshotAtom, response.snapshot)
+    }
     return response
   },
 )
@@ -119,7 +180,9 @@ export const isEventPinnedAtom = atom((get) => {
 export const togglePinnedEventAtom = atom(null, async (get, set, eventId: string) => {
   const isPinned = get(isEventPinnedAtom)(eventId)
   const response = await window.api.agentActivity.setPinnedEvent(eventId, !isPinned)
-  set(agentActivitySnapshotAtom, response.snapshot)
+  if (response.success) {
+    set(agentActivitySnapshotAtom, response.snapshot)
+  }
   return response
 })
 
@@ -145,10 +208,8 @@ export function useAgentActivityBridge(): void {
 
   useEffect(() => {
     let cancelled = false
-    let receivedPush = false
 
     const unsubscribe = window.api.agentActivity.onUpdate((update) => {
-      receivedPush = true
       applyUpdate(update)
     })
 
@@ -156,8 +217,8 @@ export function useAgentActivityBridge(): void {
       setLoading(true)
       try {
         const response = await window.api.agentActivity.getSnapshot()
-        if (!cancelled && !receivedPush) {
-          setSnapshot(response.snapshot)
+        if (!cancelled) {
+          setSnapshot((current) => mergeHydratedSnapshot(current, response.snapshot))
         }
       } finally {
         if (!cancelled) {

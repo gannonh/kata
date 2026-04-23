@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { createStore } from 'jotai'
+import { AGENT_ACTIVITY_EVENT_CAP } from '@shared/types'
 import {
   agentActivitySnapshotAtom,
   agentActivityUnseenCountAtom,
@@ -9,6 +10,7 @@ import {
   setAgentActivityModeAtom,
   agentActivitySourceFilterAtom,
   agentActivitySeverityFilterAtom,
+  setPinnedEventAtom,
 } from '../agent-activity'
 
 describe('agent-activity atoms', () => {
@@ -170,5 +172,99 @@ describe('agent-activity atoms', () => {
     const filtered = store.get(filteredAgentActivityEventsAtom)
     expect(filtered).toHaveLength(1)
     expect(filtered[0]?.id).toBe('evt-4')
+  })
+
+  test('applies event ring-buffer cap when incremental updates append beyond retention', () => {
+    const store = createStore()
+    const existingEvents = Array.from({ length: AGENT_ACTIVITY_EVENT_CAP }, (_, index) => ({
+      id: `evt-${index + 1}`,
+      timestamp: `2026-04-23T16:00:${String(index % 60).padStart(2, '0')}.000Z`,
+      stream: 'events' as const,
+      source: 'worker' as const,
+      severity: 'info' as const,
+      kind: 'worker.trace',
+      message: `existing-${index + 1}`,
+    }))
+
+    store.set(agentActivitySnapshotAtom, {
+      generatedAt: '2026-04-23T16:10:00.000Z',
+      events: existingEvents,
+      verbose: [],
+      pinnedEvents: [],
+    })
+
+    store.set(applyAgentActivityUpdateAtom, {
+      generatedAt: '2026-04-23T16:11:00.000Z',
+      appendedEvents: [
+        {
+          id: 'evt-new',
+          timestamp: '2026-04-23T16:11:00.000Z',
+          stream: 'events',
+          source: 'runtime',
+          severity: 'info',
+          kind: 'runtime.phase_changed',
+          message: 'newest',
+        },
+      ],
+    })
+
+    const events = store.get(agentActivitySnapshotAtom).events
+    expect(events).toHaveLength(AGENT_ACTIVITY_EVENT_CAP)
+    expect(events[0]?.id).toBe('evt-2')
+    expect(events.at(-1)?.id).toBe('evt-new')
+  })
+
+  test('preserves local snapshot when pin update request fails', async () => {
+    const store = createStore()
+    const existingSnapshot = {
+      generatedAt: '2026-04-23T16:12:00.000Z',
+      events: [
+        {
+          id: 'evt-1',
+          timestamp: '2026-04-23T16:12:00.000Z',
+          stream: 'events' as const,
+          source: 'runtime' as const,
+          severity: 'error' as const,
+          kind: 'runtime.error',
+          message: 'failure',
+        },
+      ],
+      verbose: [],
+      pinnedEvents: [
+        {
+          eventId: 'evt-1',
+          pinnedAt: '2026-04-23T16:12:01.000Z',
+          automatic: true,
+          timestamp: '2026-04-23T16:12:00.000Z',
+          source: 'runtime' as const,
+          severity: 'error' as const,
+          kind: 'runtime.error',
+          message: 'failure',
+        },
+      ],
+    }
+
+    store.set(agentActivitySnapshotAtom, existingSnapshot)
+    ;(globalThis as unknown as { window: any }).window = {
+      api: {
+        agentActivity: {
+          setPinnedEvent: async () => ({
+            success: false,
+            eventId: 'evt-1',
+            pinned: false,
+            snapshot: {
+              generatedAt: '2026-04-23T16:13:00.000Z',
+              events: [],
+              verbose: [],
+              pinnedEvents: [],
+            },
+          }),
+        },
+      },
+    }
+
+    await store.set(setPinnedEventAtom, { eventId: 'evt-1', pinned: false })
+
+    expect(store.get(agentActivitySnapshotAtom)).toEqual(existingSnapshot)
   })
 })

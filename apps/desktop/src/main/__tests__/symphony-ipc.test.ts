@@ -4,7 +4,7 @@ import { promises as fs } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { IPC_CHANNELS } from '@shared/types'
+import { ALL_AUTH_PROVIDERS, IPC_CHANNELS } from '@shared/types'
 
 const handlers = new Map<string, (...args: any[]) => any>()
 
@@ -63,6 +63,22 @@ function createWindowStub() {
       send: vi.fn(),
     },
   } as any
+}
+
+function createAuthProvidersResponse() {
+  return {
+    success: true,
+    providers: Object.fromEntries(
+      ALL_AUTH_PROVIDERS.map((provider) => [
+        provider,
+        {
+          provider,
+          status: 'valid',
+          authType: provider === 'github-copilot' ? 'oauth' : 'api_key',
+        },
+      ]),
+    ),
+  }
 }
 
 describe('symphony ipc handlers', () => {
@@ -152,7 +168,7 @@ describe('symphony ipc handlers', () => {
     const unregister = registerSessionIpc({
       bridge,
       authBridge: {
-        getProviders: vi.fn(async () => ({ success: true, providers: {} })),
+        getProviders: vi.fn(async () => createAuthProvidersResponse()),
         setProviderKey: vi.fn(),
         removeProviderKey: vi.fn(),
         validateKey: vi.fn(),
@@ -230,6 +246,18 @@ describe('symphony ipc handlers', () => {
         type: 'tool_start',
         toolCallId: 'tool-1',
         toolName: 'bash',
+      }),
+    )
+
+    bridge.emit('crash', {
+      exitCode: 1,
+      signal: null,
+      stderrLines: ['bridge crashed'],
+    })
+    expect(agentActivityJournal.ingestCliChatEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'subprocess_crash',
+        message: 'bridge crashed',
       }),
     )
 
@@ -335,7 +363,7 @@ describe('symphony ipc handlers', () => {
     const unregister = registerSessionIpc({
       bridge,
       authBridge: {
-        getProviders: vi.fn(async () => ({ success: true, providers: {} })),
+        getProviders: vi.fn(async () => createAuthProvidersResponse()),
         setProviderKey: vi.fn(),
         removeProviderKey: vi.fn(),
         validateKey: vi.fn(),
@@ -384,6 +412,55 @@ describe('symphony ipc handlers', () => {
           type: 'tool_start',
           toolCallId: 'tool-1',
           toolName: 'bash',
+        }),
+        expect.objectContaining({
+          issueId: 'issue-1',
+          issueIdentifier: 'KAT-1',
+        }),
+      )
+    })
+
+    await fs.writeFile(
+      sessionPath,
+      `${JSON.stringify({ type: 'session', id: 'worker-session', cwd: workerWorkspace })}\n` +
+        `${JSON.stringify({
+          type: 'message',
+          message: {
+            role: 'assistant',
+            content: [{ type: 'tool_use', id: 'tool-2', name: 'read', input: { filePath: 'README.md' } }],
+          },
+        })}\n`,
+      'utf8',
+    )
+
+    operatorService.emit('snapshot', {
+      fetchedAt: new Date().toISOString(),
+      queueCount: 0,
+      completedCount: 0,
+      workers: [
+        {
+          issueId: 'issue-1',
+          identifier: 'KAT-1',
+          issueTitle: 'Test issue',
+          state: 'in_progress',
+          toolName: 'read',
+          model: 'test-model',
+          sessionId: 'worker-session',
+          workspacePath: workerWorkspace,
+        },
+      ],
+      escalations: [],
+      connection: { state: 'connected', updatedAt: new Date().toISOString() },
+      freshness: { status: 'fresh' },
+      response: {},
+    })
+
+    await vi.waitFor(() => {
+      expect(agentActivityJournal.ingestCliChatEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'tool_start',
+          toolCallId: 'tool-2',
+          toolName: 'read',
         }),
         expect.objectContaining({
           issueId: 'issue-1',

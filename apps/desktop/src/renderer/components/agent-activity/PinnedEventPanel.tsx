@@ -16,12 +16,12 @@ function alertVariant(severity: 'info' | 'warning' | 'error'): 'default' | 'dest
   return severity === 'error' ? 'destructive' : 'default'
 }
 
-export function PinnedErrorPanel() {
+export function PinnedEventPanel() {
   const snapshot = useAgentActivitySnapshot()
   const setPinnedEvent = useSetAtom(setPinnedEventAtom)
 
   return (
-    <section className="space-y-2" data-testid="agent-activity-pinned-errors">
+    <section className="space-y-2" data-testid="agent-activity-pinned-events">
       <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Pinned Events</h3>
 
       {snapshot.pinnedEvents.length === 0 ? (

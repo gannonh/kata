@@ -1228,6 +1228,9 @@ export type AgentActivitySource = 'runtime' | 'worker' | 'escalation' | 'connect
 
 export type AgentActivitySeverity = 'info' | 'warning' | 'error'
 
+export const AGENT_ACTIVITY_EVENT_CAP = 2_000
+export const AGENT_ACTIVITY_VERBOSE_CAP = 20_000
+
 export interface AgentActivityEvent {
   id: string
   timestamp: string

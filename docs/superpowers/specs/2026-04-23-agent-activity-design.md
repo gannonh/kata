@@ -16,13 +16,13 @@ This creates three practical issues:
 
 1. worker/tool activity is visible but not durable enough for investigation
 2. operators cannot reliably scroll a unified timeline backward/forward
-3. error state is not persistently separated and surfaced as pinned incidents
+3. error state is not persistently separated and surfaced as pinned events
 
 ## 2) Goals
 
 1. Add a first-class, always-available right-pane observability surface named `Agent Activity`.
 2. Provide real-time activity monitoring with timeline navigation.
-3. Separate pinned errors from general activity.
+3. Separate pinned events from general activity.
 4. Support two densities:
    1. `Events` (default, curated meaningful changes)
    2. `Verbose` (debug-level, high-volume stream visibility)
@@ -49,25 +49,25 @@ This creates three practical issues:
 
 `Agent Activity` uses a two-region layout:
 
-1. `Pinned Errors` region (top)
+1. `Pinned Events` region (top)
 2. `Timeline` region (main, scrollable)
 
-## 5.2 Pinned Errors
+## 5.2 Pinned Events
 
-Each pinned incident shows:
+Each pinned event shows:
 
 1. severity
 2. source (`runtime`, `worker`, `escalation`, `connection`, `system`)
 3. concise message
-4. first seen timestamp
-5. last seen timestamp
-6. occurrence count
+4. event timestamp
+5. pinned timestamp
+6. pin origin (auto vs manual)
 
 Actions:
 
-1. `Dismiss` removes incident from pinned region only.
-2. Dismissal does not remove historical timeline events.
-3. Recurrence of the same fingerprinted error re-pins as active.
+1. `Unpin` removes the event from pinned region only.
+2. Unpinning does not remove historical timeline events.
+3. Error-level events are auto-pinned, but can still be manually unpinned.
 
 ## 5.3 Timeline
 
@@ -103,7 +103,7 @@ Responsibilities:
 1. ingest runtime/operator/escalation/connection signals
 2. normalize to shared event schema
 3. maintain ring buffers for `events` and `verbose`
-4. maintain active `pinnedErrors`
+4. maintain active `pinnedEvents`
 5. publish snapshot and incremental updates over IPC
 
 This becomes the source of truth for renderer observability state.
@@ -132,7 +132,7 @@ Renderer mode/filter state is local UI state; journal data remains main-owned.
    - owns Symphony API/WebSocket integration and operator snapshot assembly
    - does not own renderer presentation state
 3. `AgentActivityJournal` (new)
-   - owns normalized event creation, buffering, pinned-error lifecycle, and publish deltas
+   - owns normalized event creation, buffering, pinned-event lifecycle, and publish deltas
    - consumes events from runtime/operator services through explicit methods
 4. `Renderer AgentActivity atoms/components`
    - own view mode (`Events|Verbose`), filtering, scroll behavior, and presentation
@@ -162,27 +162,26 @@ interface AgentActivityEvent {
 }
 ```
 
-## 7.2 Pinned Error Incident
+## 7.2 Pinned Event
 
 ```ts
-interface AgentPinnedErrorIncident {
-  incidentId: string
-  fingerprint: string
+interface AgentPinnedEvent {
+  eventId: string
+  pinnedAt: string
+  automatic: boolean
+  timestamp: string
   source: AgentActivityEvent['source']
   kind: string
   message: string
-  severity: 'error'
-  firstSeenAt: string
-  lastSeenAt: string
-  occurrences: number
-  lastEventId: string
-  dismissedAt?: string
+  severity: AgentActivityEvent['severity']
+  workerId?: string
+  issueId?: string
+  issueIdentifier?: string
+  requestId?: string
+  connectionState?: AgentActivityEvent['connectionState']
+  details?: Record<string, unknown>
 }
 ```
-
-Fingerprint recommendation:
-
-`source + kind + normalizedMessage + issue/request identity`
 
 ## 7.3 Journal Snapshot and Delta
 
@@ -191,15 +190,15 @@ interface AgentActivitySnapshot {
   generatedAt: string
   events: AgentActivityEvent[]
   verbose: AgentActivityEvent[]
-  pinnedErrors: AgentPinnedErrorIncident[]
+  pinnedEvents: AgentPinnedEvent[]
 }
 
 interface AgentActivityUpdate {
   generatedAt: string
   appendedEvents?: AgentActivityEvent[]
   appendedVerbose?: AgentActivityEvent[]
-  upsertedPinnedErrors?: AgentPinnedErrorIncident[]
-  removedPinnedErrorIds?: string[]
+  upsertedPinnedEvents?: AgentPinnedEvent[]
+  removedPinnedEventIds?: string[]
 }
 ```
 
@@ -235,7 +234,7 @@ Session-only memory retention with ring buffers:
 
 1. `events` cap: 2,000 (default)
 2. `verbose` cap: 20,000 (default)
-3. pinned incidents: active set only (dismissed retained only as timeline events)
+3. pinned events: active set only (unpinned events remain in timeline history)
 
 Caps are tunable constants in main process.
 
@@ -245,8 +244,7 @@ New channels:
 
 1. `agentActivity:get-snapshot`
 2. `agentActivity:update` (push from main to renderer)
-3. `agentActivity:dismiss-pinned-error`
-4. optional future: `agentActivity:restore-pinned-error`
+3. `agentActivity:set-pinned-event`
 
 Renderer flow:
 
@@ -281,14 +279,13 @@ Use anchor preservation strategy:
 
 This avoids disorienting reset during `Events | Verbose` toggles.
 
-## 13) Error Pinning Semantics
+## 13) Event Pinning Semantics
 
 Auto-pin behavior:
 
-1. every `severity=error` event upserts active incident by fingerprint
-2. repeated errors increment `occurrences` and update `lastSeenAt`
-3. dismissal marks incident inactive in pinned panel
-4. recurrence after dismissal creates/reactivates active incident state
+1. every `severity=error` event auto-pins that event by `eventId`
+2. any event can be manually pinned/unpinned from the timeline
+3. unpinning removes only the pinned-card entry, not the timeline row
 
 ## 14) Testing Strategy
 
@@ -296,7 +293,7 @@ Auto-pin behavior:
 
 1. normalization and diff emission correctness
 2. ring buffer truncation behavior
-3. pinned error upsert/dismiss/recurrence rules
+3. pinned event auto-pin/manual-pin/unpin rules
 4. snapshot + delta shape stability
 
 ## 14.2 Renderer Unit Tests
@@ -304,13 +301,13 @@ Auto-pin behavior:
 1. `Events | Verbose` toggle and anchor preservation
 2. paused scroll vs auto-follow behavior
 3. unseen count indicator behavior
-4. pinned error rendering and dismiss action
+4. pinned event rendering and unpin action
 
 ## 14.3 Integration/E2E
 
 1. worker lifecycle transitions appear in timeline
 2. escalation lifecycle appears in timeline
-3. disconnect/reconnect generates pinned/cleared incident behavior
+3. disconnect/reconnect generates corresponding pinned-event behavior
 4. right-pane mode switch to `Agent Activity` works without Settings dependency
 
 ## 15) Rollout Plan
