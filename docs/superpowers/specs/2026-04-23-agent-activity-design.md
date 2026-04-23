@@ -123,6 +123,23 @@ Renderer mode/filter state is local UI state; journal data remains main-owned.
 `Settings -> Symphony` remains for runtime controls and baseline health view in v1.  
 `Agent Activity` becomes the primary real-time observability surface.
 
+## 6.4 Unit Boundaries and Interfaces
+
+1. `SymphonySupervisor`
+   - owns process lifecycle and runtime status emission
+   - does not own timeline/pinning concerns
+2. `SymphonyOperatorService`
+   - owns Symphony API/WebSocket integration and operator snapshot assembly
+   - does not own renderer presentation state
+3. `AgentActivityJournal` (new)
+   - owns normalized event creation, buffering, pinned-error lifecycle, and publish deltas
+   - consumes events from runtime/operator services through explicit methods
+4. `Renderer AgentActivity atoms/components`
+   - own view mode (`Events|Verbose`), filtering, scroll behavior, and presentation
+   - do not derive semantic events from raw Symphony snapshots
+
+Interface contract principle: producer services emit domain signals, journal normalizes and stores, renderer only displays and interacts through IPC commands.
+
 ## 7) Data Model
 
 ## 7.1 Normalized Event
@@ -248,6 +265,11 @@ Renderer flow:
 ## 11.2 Surface Navigation
 
 Add a clear one-click affordance from existing shell controls to open `Agent Activity`.
+
+Recommended v1 entry points:
+
+1. right-pane header mode switch (`Kanban | Planning | Agent Activity`)
+2. optional quick action on Symphony status badge to open pane directly
 
 ## 12) Scroll and Anchor Semantics
 
