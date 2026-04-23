@@ -157,6 +157,11 @@ describe('slash-autocomplete regression matrix', () => {
       expect(screen.queryByRole('option', { name: '/kata plan' })).not.toBeNull()
     })
 
+    // Dropdown opens with index 0 preselected (`/kata`); ArrowDown should move to the next option.
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: '/kata' }).getAttribute('aria-selected')).toBe('true')
+    })
+
     fireEvent.keyDown(input, { key: 'ArrowDown' })
 
     await waitFor(() => {

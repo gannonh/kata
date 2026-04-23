@@ -30,8 +30,8 @@ test.describe('slash autocomplete e2e', () => {
   }) => {
     await seedWorkspaceSkill(workspaceDir)
 
-    // refreshSkillCache debounces within 2s; wait so cache expiry cannot hide new workspace state.
-    await readyWindow.waitForTimeout(2200)
+    // refreshSkillCache debounces within 2s; use a wider margin to avoid CI timing flakes.
+    await readyWindow.waitForTimeout(3000)
 
     const input = readyWindow.getByTestId('chat-input')
 
@@ -73,6 +73,7 @@ test.describe('slash autocomplete e2e', () => {
     await captureEvidence(readyWindow, 's04-04-tab-accept.png')
 
     await input.fill('/ka')
+    await expect(readyWindow.getByTestId('command-suggestion-dropdown')).toBeVisible()
     await readyWindow.keyboard.press('Enter')
 
     await expect(input).toHaveValue('/kata ')
