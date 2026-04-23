@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
+import { Pin } from 'lucide-react'
 import {
   agentActivityLoadingAtom,
   agentActivityAutoFollowAtom,
   agentActivityModeAtom,
   agentActivityUnseenCountAtom,
   filteredAgentActivityEventsAtom,
+  pinnedEventIdsAtom,
   jumpToLatestAgentActivityAtom,
   setAgentActivityAutoFollowAtom,
+  setPinnedEventAtom,
 } from '@/atoms/agent-activity'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -37,9 +40,11 @@ export function ActivityTimeline() {
   const loading = useAtomValue(agentActivityLoadingAtom)
   const autoFollow = useAtomValue(agentActivityAutoFollowAtom)
   const events = useAtomValue(filteredAgentActivityEventsAtom)
+  const pinnedEventIds = useAtomValue(pinnedEventIdsAtom)
   const unseenCount = useAtomValue(agentActivityUnseenCountAtom)
   const setAutoFollow = useSetAtom(setAgentActivityAutoFollowAtom)
   const jumpToLatest = useSetAtom(jumpToLatestAgentActivityAtom)
+  const setPinnedEvent = useSetAtom(setPinnedEventAtom)
   const scrollViewportRef = useRef<HTMLDivElement | null>(null)
   const shouldAutoFollow = autoFollow
 
@@ -56,12 +61,12 @@ export function ActivityTimeline() {
     viewport.scrollTop = viewport.scrollHeight
   }, [events.length, shouldAutoFollow])
 
-  const streamLabel = useMemo(() => (mode === 'events' ? 'Events' : 'Verbose'), [mode])
+  const streamLabel = useMemo(() => (mode === 'events' ? 'Events Timeline' : 'Event Log'), [mode])
 
   return (
     <section className="flex min-h-0 flex-1 flex-col gap-2" data-testid="agent-activity-timeline">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{streamLabel} Timeline</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{streamLabel}</h3>
         {unseenCount > 0 ? (
           <Button
             type="button"
@@ -103,6 +108,19 @@ export function ActivityTimeline() {
                 <Badge variant="outline">{event.source}</Badge>
                 <Badge variant={severityVariant(event.severity)}>{event.severity}</Badge>
                 <Badge variant="secondary">{event.kind}</Badge>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="ml-auto size-6"
+                  aria-label={pinnedEventIds.has(event.id) ? 'Unpin event' : 'Pin event'}
+                  data-testid={`agent-activity-pin-${event.id}`}
+                  onClick={() => {
+                    void setPinnedEvent({ eventId: event.id, pinned: !pinnedEventIds.has(event.id) })
+                  }}
+                >
+                  <Pin className={`size-3.5 ${pinnedEventIds.has(event.id) ? 'fill-current' : ''}`} />
+                </Button>
               </div>
               <p className="mt-1 text-xs text-foreground">{event.message}</p>
               {event.details ? (

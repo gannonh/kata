@@ -52,7 +52,7 @@ export const IPC_CHANNELS = {
   symphonyDashboardSnapshot: 'symphony:dashboard-snapshot',
   agentActivityGetSnapshot: 'agentActivity:get-snapshot',
   agentActivityUpdate: 'agentActivity:update',
-  agentActivityDismissPinnedError: 'agentActivity:dismiss-pinned-error',
+  agentActivitySetPinnedEvent: 'agentActivity:set-pinned-event',
   mcpListServers: 'mcp:list-servers',
   mcpGetServer: 'mcp:get-server',
   mcpSaveServer: 'mcp:save-server',
@@ -1244,32 +1244,36 @@ export interface AgentActivityEvent {
   details?: Record<string, unknown>
 }
 
-export interface AgentPinnedErrorIncident {
-  incidentId: string
-  fingerprint: string
+export interface AgentPinnedEvent {
+  eventId: string
+  pinnedAt: string
+  automatic: boolean
+  timestamp: string
   source: AgentActivitySource
+  severity: AgentActivitySeverity
   kind: string
   message: string
-  severity: 'error'
-  firstSeenAt: string
-  lastSeenAt: string
-  occurrences: number
-  lastEventId: string
+  workerId?: string
+  issueId?: string
+  issueIdentifier?: string
+  requestId?: string
+  connectionState?: SymphonyOperatorConnectionState
+  details?: Record<string, unknown>
 }
 
 export interface AgentActivitySnapshot {
   generatedAt: string
   events: AgentActivityEvent[]
   verbose: AgentActivityEvent[]
-  pinnedErrors: AgentPinnedErrorIncident[]
+  pinnedEvents: AgentPinnedEvent[]
 }
 
 export interface AgentActivityUpdate {
   generatedAt: string
   appendedEvents?: AgentActivityEvent[]
   appendedVerbose?: AgentActivityEvent[]
-  upsertedPinnedErrors?: AgentPinnedErrorIncident[]
-  removedPinnedErrorIds?: string[]
+  upsertedPinnedEvents?: AgentPinnedEvent[]
+  removedPinnedEventIds?: string[]
 }
 
 export interface AgentActivitySnapshotResponse {
@@ -1277,9 +1281,10 @@ export interface AgentActivitySnapshotResponse {
   snapshot: AgentActivitySnapshot
 }
 
-export interface AgentActivityDismissPinnedErrorResponse {
+export interface AgentActivitySetPinnedEventResponse {
   success: boolean
-  incidentId: string
+  eventId: string
+  pinned: boolean
   snapshot: AgentActivitySnapshot
 }
 
@@ -1824,7 +1829,7 @@ export interface DesktopApi {
   }
   agentActivity: {
     getSnapshot: () => Promise<AgentActivitySnapshotResponse>
-    dismissPinnedError: (incidentId: string) => Promise<AgentActivityDismissPinnedErrorResponse>
+    setPinnedEvent: (eventId: string, pinned: boolean) => Promise<AgentActivitySetPinnedEventResponse>
     onUpdate: (listener: (update: AgentActivityUpdate) => void) => () => void
   }
   mcp: {

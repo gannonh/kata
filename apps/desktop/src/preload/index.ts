@@ -256,8 +256,8 @@ const api: DesktopApi = {
     getSnapshot: async () => {
       return ipcRenderer.invoke(IPC_CHANNELS.agentActivityGetSnapshot)
     },
-    dismissPinnedError: async (incidentId: string) => {
-      return ipcRenderer.invoke(IPC_CHANNELS.agentActivityDismissPinnedError, incidentId)
+    setPinnedEvent: async (eventId: string, pinned: boolean) => {
+      return ipcRenderer.invoke(IPC_CHANNELS.agentActivitySetPinnedEvent, eventId, pinned)
     },
     onUpdate: (listener: (update: AgentActivityUpdate) => void) => {
       const wrapped = (_event: Electron.IpcRendererEvent, update: AgentActivityUpdate) => {

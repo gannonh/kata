@@ -91,7 +91,7 @@ import {
   type SymphonyEscalationResponseCommandResult,
   type AgentActivityUpdate,
   type AgentActivitySnapshotResponse,
-  type AgentActivityDismissPinnedErrorResponse,
+  type AgentActivitySetPinnedEventResponse,
   type McpConfigReadResponse,
   type McpServerDeleteResponse,
   type McpServerInput,
@@ -432,8 +432,8 @@ export function registerSessionIpc({
     log.debug('[desktop-ipc] agent activity update', {
       events: update.appendedEvents?.length ?? 0,
       verbose: update.appendedVerbose?.length ?? 0,
-      pinnedUpserts: update.upsertedPinnedErrors?.length ?? 0,
-      pinnedRemovals: update.removedPinnedErrorIds?.length ?? 0,
+      pinnedUpserts: update.upsertedPinnedEvents?.length ?? 0,
+      pinnedRemovals: update.removedPinnedEventIds?.length ?? 0,
     })
   }
 
@@ -1190,7 +1190,7 @@ export function registerSessionIpc({
   ipcMain.removeHandler(IPC_CHANNELS.symphonyRefreshDashboard)
   ipcMain.removeHandler(IPC_CHANNELS.symphonyRespondEscalation)
   ipcMain.removeHandler(IPC_CHANNELS.agentActivityGetSnapshot)
-  ipcMain.removeHandler(IPC_CHANNELS.agentActivityDismissPinnedError)
+  ipcMain.removeHandler(IPC_CHANNELS.agentActivitySetPinnedEvent)
   ipcMain.removeHandler(IPC_CHANNELS.mcpListServers)
   ipcMain.removeHandler(IPC_CHANNELS.mcpGetServer)
   ipcMain.removeHandler(IPC_CHANNELS.mcpSaveServer)
@@ -2128,7 +2128,7 @@ export function registerSessionIpc({
     generatedAt: new Date(0).toISOString(),
     events: [],
     verbose: [],
-    pinnedErrors: [],
+    pinnedEvents: [],
   })
 
   ipcMain.handle(IPC_CHANNELS.symphonyGetStatus, async (): Promise<SymphonyRuntimeStatusResponse> => {
@@ -2236,20 +2236,22 @@ export function registerSessionIpc({
   )
 
   ipcMain.handle(
-    IPC_CHANNELS.agentActivityDismissPinnedError,
-    async (_event, incidentId: string): Promise<AgentActivityDismissPinnedErrorResponse> => {
+    IPC_CHANNELS.agentActivitySetPinnedEvent,
+    async (_event, eventId: string, pinned: boolean): Promise<AgentActivitySetPinnedEventResponse> => {
       if (!agentActivityJournal) {
         return {
           success: false,
-          incidentId,
+          eventId,
+          pinned,
           snapshot: createEmptyAgentActivitySnapshot(),
         }
       }
 
       return {
         success: true,
-        incidentId,
-        snapshot: agentActivityJournal.dismissPinnedError(incidentId),
+        eventId,
+        pinned,
+        snapshot: agentActivityJournal.setPinnedEvent(eventId, pinned),
       }
     },
   )
@@ -2401,7 +2403,7 @@ export function registerSessionIpc({
     ipcMain.removeHandler(IPC_CHANNELS.symphonyRefreshDashboard)
     ipcMain.removeHandler(IPC_CHANNELS.symphonyRespondEscalation)
     ipcMain.removeHandler(IPC_CHANNELS.agentActivityGetSnapshot)
-    ipcMain.removeHandler(IPC_CHANNELS.agentActivityDismissPinnedError)
+    ipcMain.removeHandler(IPC_CHANNELS.agentActivitySetPinnedEvent)
     ipcMain.removeHandler(IPC_CHANNELS.mcpListServers)
     ipcMain.removeHandler(IPC_CHANNELS.mcpGetServer)
     ipcMain.removeHandler(IPC_CHANNELS.mcpSaveServer)

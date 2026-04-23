@@ -86,21 +86,22 @@ describe('AgentActivityJournal', () => {
     expect(events.some((event) => event.kind === 'worker.tool_changed')).toBe(true)
   })
 
-  test('auto-pins error incidents, dismisses them, and re-pins on recurrence', () => {
+  test('auto-pins errors and allows manual unpin/pin by event id', () => {
     const journal = new AgentActivityJournal()
     journal.recordSystemError('Symphony stream dropped.')
 
     const firstSnapshot = journal.getSnapshot()
-    expect(firstSnapshot.pinnedErrors).toHaveLength(1)
-    const firstIncidentId = firstSnapshot.pinnedErrors[0]!.incidentId
+    expect(firstSnapshot.pinnedEvents).toHaveLength(1)
+    const firstEventId = firstSnapshot.pinnedEvents[0]!.eventId
 
-    journal.dismissPinnedError(firstIncidentId)
-    expect(journal.getSnapshot().pinnedErrors).toHaveLength(0)
+    journal.setPinnedEvent(firstEventId, false)
+    expect(journal.getSnapshot().pinnedEvents).toHaveLength(0)
 
-    journal.recordSystemError('Symphony stream dropped.')
-    const secondSnapshot = journal.getSnapshot()
-    expect(secondSnapshot.pinnedErrors).toHaveLength(1)
-    expect(secondSnapshot.pinnedErrors[0]!.incidentId).not.toBe(firstIncidentId)
+    journal.setPinnedEvent(firstEventId, true)
+    const repinnedSnapshot = journal.getSnapshot()
+    expect(repinnedSnapshot.pinnedEvents).toHaveLength(1)
+    expect(repinnedSnapshot.pinnedEvents[0]!.eventId).toBe(firstEventId)
+    expect(repinnedSnapshot.pinnedEvents[0]!.automatic).toBe(false)
   })
 
   test('enforces ring buffer truncation caps', () => {
@@ -134,8 +135,8 @@ describe('AgentActivityJournal', () => {
 
     const snapshot = journal.getSnapshot()
     expect(snapshot.events.some((event) => event.kind === 'escalation.response')).toBe(true)
-    expect(snapshot.pinnedErrors).toHaveLength(1)
-    expect(snapshot.pinnedErrors[0]?.source).toBe('escalation')
+    expect(snapshot.pinnedEvents).toHaveLength(1)
+    expect(snapshot.pinnedEvents[0]?.source).toBe('escalation')
   })
 
   test('records CLI tool lifecycle and pins tool failures', () => {
@@ -158,8 +159,8 @@ describe('AgentActivityJournal', () => {
     const snapshot = journal.getSnapshot()
     expect(snapshot.events.some((event) => event.kind === 'cli.tool_start')).toBe(true)
     expect(snapshot.events.some((event) => event.kind === 'cli.tool_error')).toBe(true)
-    expect(snapshot.pinnedErrors).toHaveLength(1)
-    expect(snapshot.pinnedErrors[0]?.kind).toBe('cli.tool_error')
+    expect(snapshot.pinnedEvents).toHaveLength(1)
+    expect(snapshot.pinnedEvents[0]?.kind).toBe('cli.tool_error')
   })
 
   test('records CLI lifecycle and verbose-only message/thinking events', () => {

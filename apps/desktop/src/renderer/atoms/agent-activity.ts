@@ -16,7 +16,7 @@ const EMPTY_SNAPSHOT: AgentActivitySnapshot = {
   generatedAt: new Date(0).toISOString(),
   events: [],
   verbose: [],
-  pinnedErrors: [],
+  pinnedEvents: [],
 }
 
 export const agentActivitySnapshotAtom = atom<AgentActivitySnapshot>(EMPTY_SNAPSHOT)
@@ -38,19 +38,19 @@ function applyAgentActivityUpdate(
     ? [...snapshot.verbose, ...update.appendedVerbose]
     : snapshot.verbose
 
-  const pinnedById = new Map(snapshot.pinnedErrors.map((incident) => [incident.incidentId, incident]))
-  for (const incident of update.upsertedPinnedErrors ?? []) {
-    pinnedById.set(incident.incidentId, incident)
+  const pinnedById = new Map(snapshot.pinnedEvents.map((event) => [event.eventId, event]))
+  for (const event of update.upsertedPinnedEvents ?? []) {
+    pinnedById.set(event.eventId, event)
   }
-  for (const incidentId of update.removedPinnedErrorIds ?? []) {
-    pinnedById.delete(incidentId)
+  for (const eventId of update.removedPinnedEventIds ?? []) {
+    pinnedById.delete(eventId)
   }
 
   return {
     generatedAt: update.generatedAt,
     events: nextEvents,
     verbose: nextVerbose,
-    pinnedErrors: Array.from(pinnedById.values()),
+    pinnedEvents: Array.from(pinnedById.values()),
   }
 }
 
@@ -98,8 +98,27 @@ export const jumpToLatestAgentActivityAtom = atom(null, (_get, set) => {
   set(agentActivityUnseenCountAtom, 0)
 })
 
-export const dismissPinnedErrorAtom = atom(null, async (_get, set, incidentId: string) => {
-  const response = await window.api.agentActivity.dismissPinnedError(incidentId)
+export const setPinnedEventAtom = atom(
+  null,
+  async (_get, set, payload: { eventId: string; pinned: boolean }) => {
+    const response = await window.api.agentActivity.setPinnedEvent(payload.eventId, payload.pinned)
+    set(agentActivitySnapshotAtom, response.snapshot)
+    return response
+  },
+)
+
+export const pinnedEventIdsAtom = atom((get) => {
+  return new Set(get(agentActivitySnapshotAtom).pinnedEvents.map((event) => event.eventId))
+})
+
+export const isEventPinnedAtom = atom((get) => {
+  const pinnedIds = get(pinnedEventIdsAtom)
+  return (eventId: string) => pinnedIds.has(eventId)
+})
+
+export const togglePinnedEventAtom = atom(null, async (get, set, eventId: string) => {
+  const isPinned = get(isEventPinnedAtom)(eventId)
+  const response = await window.api.agentActivity.setPinnedEvent(eventId, !isPinned)
   set(agentActivitySnapshotAtom, response.snapshot)
   return response
 })

@@ -5,7 +5,7 @@ import type {
   AgentActivitySnapshot,
   AgentActivitySource,
   AgentActivityUpdate,
-  AgentPinnedErrorIncident,
+  AgentPinnedEvent,
   ChatEvent,
   SymphonyEscalationResponseCommandResult,
   SymphonyOperatorSnapshot,
@@ -29,8 +29,8 @@ interface DeltaAccumulator {
   generatedAt: string
   appendedEvents: AgentActivityEvent[]
   appendedVerbose: AgentActivityEvent[]
-  upsertedPinnedErrors: AgentPinnedErrorIncident[]
-  removedPinnedErrorIds: string[]
+  upsertedPinnedEvents: AgentPinnedEvent[]
+  removedPinnedEventIds: string[]
 }
 
 interface EventInput {
@@ -58,12 +58,10 @@ export class AgentActivityJournal extends EventEmitter {
   private readonly verboseCap: number
   private readonly events: AgentActivityEvent[] = []
   private readonly verbose: AgentActivityEvent[] = []
-  private readonly pinnedByFingerprint = new Map<string, AgentPinnedErrorIncident>()
-  private readonly fingerprintByIncidentId = new Map<string, string>()
+  private readonly pinnedByEventId = new Map<string, AgentPinnedEvent>()
   private previousRuntimeStatus: SymphonyRuntimeStatus | null = null
   private previousOperatorSnapshot: SymphonyOperatorSnapshot | null = null
   private sequence = 0
-  private incidentSequence = 0
 
   constructor(options: AgentActivityJournalOptions = {}) {
     super()
@@ -91,27 +89,36 @@ export class AgentActivityJournal extends EventEmitter {
       generatedAt: new Date().toISOString(),
       events: this.events.slice(),
       verbose: this.verbose.slice(),
-      pinnedErrors: Array.from(this.pinnedByFingerprint.values()).sort((left, right) =>
-        left.lastSeenAt.localeCompare(right.lastSeenAt),
+      pinnedEvents: Array.from(this.pinnedByEventId.values()).sort((left, right) =>
+        left.pinnedAt.localeCompare(right.pinnedAt),
       ),
     }
   }
 
-  public dismissPinnedError(incidentId: string): AgentActivitySnapshot {
-    const trimmedIncidentId = incidentId.trim()
-    const fingerprint = this.fingerprintByIncidentId.get(trimmedIncidentId)
-    if (!fingerprint) {
+  public setPinnedEvent(eventId: string, pinned: boolean): AgentActivitySnapshot {
+    const trimmedEventId = eventId.trim()
+    if (!trimmedEventId) {
       return this.getSnapshot()
     }
 
-    this.fingerprintByIncidentId.delete(trimmedIncidentId)
-    this.pinnedByFingerprint.delete(fingerprint)
+    const delta = this.createDelta()
+    if (!pinned) {
+      if (!this.pinnedByEventId.has(trimmedEventId)) {
+        return this.getSnapshot()
+      }
+      this.pinnedByEventId.delete(trimmedEventId)
+      delta.removedPinnedEventIds.push(trimmedEventId)
+      this.flushDelta(delta)
+      return this.getSnapshot()
+    }
 
-    this.emitUpdate({
-      generatedAt: new Date().toISOString(),
-      removedPinnedErrorIds: [trimmedIncidentId],
-    })
+    const event = this.findEventById(trimmedEventId)
+    if (!event) {
+      return this.getSnapshot()
+    }
 
+    this.upsertPinned(event, delta, false)
+    this.flushDelta(delta)
     return this.getSnapshot()
   }
 
@@ -709,43 +716,52 @@ export class AgentActivityJournal extends EventEmitter {
     }
 
     if (primaryEvent && primaryEvent.severity === 'error') {
-      this.upsertPinned(primaryEvent, delta)
+      this.upsertPinned(primaryEvent, delta, true)
     }
   }
 
-  private upsertPinned(event: AgentActivityEvent, delta: DeltaAccumulator): void {
-    const fingerprint = buildFingerprint(event)
-    const existing = this.pinnedByFingerprint.get(fingerprint)
+  private upsertPinned(event: AgentActivityEvent, delta: DeltaAccumulator, automatic: boolean): void {
+    const existing = this.pinnedByEventId.get(event.id)
     if (existing) {
-      const updated: AgentPinnedErrorIncident = {
+      const updated: AgentPinnedEvent = {
         ...existing,
+        automatic: existing.automatic && automatic,
+        pinnedAt: existing.pinnedAt,
+        timestamp: event.timestamp,
+        source: event.source,
+        severity: event.severity,
+        kind: event.kind,
         message: event.message,
-        lastSeenAt: event.timestamp,
-        occurrences: existing.occurrences + 1,
-        lastEventId: event.id,
+        ...(event.workerId ? { workerId: event.workerId } : {}),
+        ...(event.issueId ? { issueId: event.issueId } : {}),
+        ...(event.issueIdentifier ? { issueIdentifier: event.issueIdentifier } : {}),
+        ...(event.requestId ? { requestId: event.requestId } : {}),
+        ...(event.connectionState ? { connectionState: event.connectionState } : {}),
+        ...(event.details ? { details: event.details } : {}),
       }
-      this.pinnedByFingerprint.set(fingerprint, updated)
-      this.fingerprintByIncidentId.set(updated.incidentId, fingerprint)
-      delta.upsertedPinnedErrors.push(updated)
+      this.pinnedByEventId.set(event.id, updated)
+      delta.upsertedPinnedEvents.push(updated)
       return
     }
 
-    const incidentId = this.nextIncidentId(event.timestamp)
-    const incident: AgentPinnedErrorIncident = {
-      incidentId,
-      fingerprint,
+    const nextPinnedEvent: AgentPinnedEvent = {
+      eventId: event.id,
+      pinnedAt: new Date().toISOString(),
+      automatic,
+      timestamp: event.timestamp,
       source: event.source,
+      severity: event.severity,
       kind: event.kind,
       message: event.message,
-      severity: 'error',
-      firstSeenAt: event.timestamp,
-      lastSeenAt: event.timestamp,
-      occurrences: 1,
-      lastEventId: event.id,
+      ...(event.workerId ? { workerId: event.workerId } : {}),
+      ...(event.issueId ? { issueId: event.issueId } : {}),
+      ...(event.issueIdentifier ? { issueIdentifier: event.issueIdentifier } : {}),
+      ...(event.requestId ? { requestId: event.requestId } : {}),
+      ...(event.connectionState ? { connectionState: event.connectionState } : {}),
+      ...(event.details ? { details: event.details } : {}),
     }
-    this.pinnedByFingerprint.set(fingerprint, incident)
-    this.fingerprintByIncidentId.set(incidentId, fingerprint)
-    delta.upsertedPinnedErrors.push(incident)
+    this.pinnedByEventId.set(event.id, nextPinnedEvent)
+    delta.upsertedPinnedEvents.push(nextPinnedEvent)
   }
 
   private nextEventId(timestamp: string): string {
@@ -753,9 +769,8 @@ export class AgentActivityJournal extends EventEmitter {
     return `evt:${timestamp}:${this.sequence}`
   }
 
-  private nextIncidentId(timestamp: string): string {
-    this.incidentSequence += 1
-    return `incident:${timestamp}:${this.incidentSequence}`
+  private findEventById(eventId: string): AgentActivityEvent | undefined {
+    return findEventByIdInStream(this.events, eventId) ?? findEventByIdInStream(this.verbose, eventId)
   }
 
   private createDelta(): DeltaAccumulator {
@@ -763,8 +778,8 @@ export class AgentActivityJournal extends EventEmitter {
       generatedAt: new Date().toISOString(),
       appendedEvents: [],
       appendedVerbose: [],
-      upsertedPinnedErrors: [],
-      removedPinnedErrorIds: [],
+      upsertedPinnedEvents: [],
+      removedPinnedEventIds: [],
     }
   }
 
@@ -772,8 +787,8 @@ export class AgentActivityJournal extends EventEmitter {
     if (
       delta.appendedEvents.length === 0 &&
       delta.appendedVerbose.length === 0 &&
-      delta.upsertedPinnedErrors.length === 0 &&
-      delta.removedPinnedErrorIds.length === 0
+      delta.upsertedPinnedEvents.length === 0 &&
+      delta.removedPinnedEventIds.length === 0
     ) {
       return
     }
@@ -782,8 +797,8 @@ export class AgentActivityJournal extends EventEmitter {
       generatedAt: delta.generatedAt,
       ...(delta.appendedEvents.length > 0 ? { appendedEvents: delta.appendedEvents } : {}),
       ...(delta.appendedVerbose.length > 0 ? { appendedVerbose: delta.appendedVerbose } : {}),
-      ...(delta.upsertedPinnedErrors.length > 0 ? { upsertedPinnedErrors: delta.upsertedPinnedErrors } : {}),
-      ...(delta.removedPinnedErrorIds.length > 0 ? { removedPinnedErrorIds: delta.removedPinnedErrorIds } : {}),
+      ...(delta.upsertedPinnedEvents.length > 0 ? { upsertedPinnedEvents: delta.upsertedPinnedEvents } : {}),
+      ...(delta.removedPinnedEventIds.length > 0 ? { removedPinnedEventIds: delta.removedPinnedEventIds } : {}),
     })
   }
 
@@ -799,11 +814,8 @@ function trimBuffer<T>(buffer: T[], cap: number): void {
   buffer.splice(0, buffer.length - cap)
 }
 
-function buildFingerprint(event: AgentActivityEvent): string {
-  const normalizedMessage = event.message.trim().toLowerCase()
-  const issue = event.issueIdentifier ?? event.issueId ?? ''
-  const request = event.requestId ?? ''
-  return `${event.source}|${event.kind}|${issue}|${request}|${normalizedMessage}`
+function findEventByIdInStream(stream: AgentActivityEvent[], eventId: string): AgentActivityEvent | undefined {
+  return stream.find((event) => event.id === eventId)
 }
 
 function toCliToolUpdateSeverity(status: string | undefined): AgentActivitySeverity {

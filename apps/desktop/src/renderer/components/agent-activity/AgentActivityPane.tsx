@@ -18,6 +18,7 @@ import {
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { ActivityTimeline } from './ActivityTimeline'
 import { PinnedErrorPanel } from './PinnedErrorPanel'
+import { RuntimeOverviewPanel } from './RuntimeOverviewPanel'
 
 export function AgentActivityPane() {
   const mode = useAtomValue(agentActivityModeAtom)
@@ -120,6 +121,7 @@ export function AgentActivityPane() {
         </CardHeader>
 
         <CardContent className="flex min-h-0 flex-1 flex-col gap-4 p-4 pt-2">
+          <RuntimeOverviewPanel />
           <PinnedErrorPanel />
           <ActivityTimeline />
         </CardContent>

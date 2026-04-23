@@ -46,35 +46,33 @@ describe('agent-activity atoms', () => {
     expect(snapshot.verbose).toHaveLength(1)
   })
 
-  test('upserts and removes pinned incidents through update deltas', () => {
+  test('upserts and removes pinned events through update deltas', () => {
     const store = createStore()
 
     store.set(applyAgentActivityUpdateAtom, {
       generatedAt: '2026-04-23T16:01:00.000Z',
-      upsertedPinnedErrors: [
+      upsertedPinnedEvents: [
         {
-          incidentId: 'incident-1',
-          fingerprint: 'runtime|error|x',
+          eventId: 'evt-err-1',
+          pinnedAt: '2026-04-23T16:01:05.000Z',
+          automatic: true,
+          timestamp: '2026-04-23T16:01:00.000Z',
           source: 'runtime',
           kind: 'runtime.error',
           message: 'Runtime crashed.',
           severity: 'error',
-          firstSeenAt: '2026-04-23T16:01:00.000Z',
-          lastSeenAt: '2026-04-23T16:01:00.000Z',
-          occurrences: 1,
-          lastEventId: 'evt-err-1',
         },
       ],
     })
 
-    expect(store.get(agentActivitySnapshotAtom).pinnedErrors).toHaveLength(1)
+    expect(store.get(agentActivitySnapshotAtom).pinnedEvents).toHaveLength(1)
 
     store.set(applyAgentActivityUpdateAtom, {
       generatedAt: '2026-04-23T16:02:00.000Z',
-      removedPinnedErrorIds: ['incident-1'],
+      removedPinnedEventIds: ['evt-err-1'],
     })
 
-    expect(store.get(agentActivitySnapshotAtom).pinnedErrors).toHaveLength(0)
+    expect(store.get(agentActivitySnapshotAtom).pinnedEvents).toHaveLength(0)
   })
 
   test('increments unseen count only when auto-follow is paused', () => {

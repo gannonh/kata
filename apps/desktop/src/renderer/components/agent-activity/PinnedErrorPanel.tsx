@@ -1,5 +1,5 @@
 import { useSetAtom } from 'jotai'
-import { useAgentActivitySnapshot, dismissPinnedErrorAtom } from '@/atoms/agent-activity'
+import { useAgentActivitySnapshot, setPinnedEventAtom } from '@/atoms/agent-activity'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 
@@ -12,29 +12,33 @@ function formatTime(value: string): string {
   return parsed.toLocaleTimeString()
 }
 
+function alertVariant(severity: 'info' | 'warning' | 'error'): 'default' | 'destructive' {
+  return severity === 'error' ? 'destructive' : 'default'
+}
+
 export function PinnedErrorPanel() {
   const snapshot = useAgentActivitySnapshot()
-  const dismiss = useSetAtom(dismissPinnedErrorAtom)
+  const setPinnedEvent = useSetAtom(setPinnedEventAtom)
 
   return (
     <section className="space-y-2" data-testid="agent-activity-pinned-errors">
-      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Pinned Errors</h3>
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Pinned Events</h3>
 
-      {snapshot.pinnedErrors.length === 0 ? (
+      {snapshot.pinnedEvents.length === 0 ? (
         <p className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
-          No pinned errors.
+          No pinned events.
         </p>
       ) : (
         <div className="space-y-2">
-          {snapshot.pinnedErrors.map((incident) => (
-            <Alert key={incident.incidentId} variant="destructive" data-testid={`agent-activity-pinned-${incident.incidentId}`}>
+          {snapshot.pinnedEvents.map((event) => (
+            <Alert key={event.eventId} variant={alertVariant(event.severity)} data-testid={`agent-activity-pinned-${event.eventId}`}>
               <div className="flex items-start justify-between gap-2">
                 <div className="space-y-1">
-                  <AlertTitle>{incident.kind}</AlertTitle>
-                  <AlertDescription>{incident.message}</AlertDescription>
+                  <AlertTitle>{event.kind}</AlertTitle>
+                  <AlertDescription>{event.message}</AlertDescription>
                   <p className="text-[11px] text-muted-foreground">
-                    First seen {formatTime(incident.firstSeenAt)} · Last seen {formatTime(incident.lastSeenAt)} ·{' '}
-                    {incident.occurrences} occurrence{incident.occurrences === 1 ? '' : 's'}
+                    Event at {formatTime(event.timestamp)} · Pinned at {formatTime(event.pinnedAt)}
+                    {event.automatic ? ' · Auto-pinned error' : ' · Manually pinned'}
                   </p>
                 </div>
                 <Button
@@ -42,11 +46,11 @@ export function PinnedErrorPanel() {
                   size="sm"
                   variant="outline"
                   onClick={() => {
-                    void dismiss(incident.incidentId)
+                    void setPinnedEvent({ eventId: event.eventId, pinned: false })
                   }}
-                  data-testid={`agent-activity-dismiss-${incident.incidentId}`}
+                  data-testid={`agent-activity-dismiss-${event.eventId}`}
                 >
-                  Dismiss
+                  Unpin
                 </Button>
               </div>
             </Alert>

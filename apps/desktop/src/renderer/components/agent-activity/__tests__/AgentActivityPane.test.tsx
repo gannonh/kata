@@ -21,14 +21,15 @@ describe('AgentActivityPane', () => {
   beforeEach(() => {
     ;(window as unknown as { api: any }).api = {
       agentActivity: {
-        dismissPinnedError: vi.fn(async () => ({
+        setPinnedEvent: vi.fn(async (_eventId: string, _pinned: boolean) => ({
           success: true,
-          incidentId: 'incident-1',
+          eventId: 'evt-1',
+          pinned: false,
           snapshot: {
             generatedAt: new Date().toISOString(),
             events: [],
             verbose: [],
-            pinnedErrors: [],
+            pinnedEvents: [],
           },
         })),
       },
@@ -61,7 +62,7 @@ describe('AgentActivityPane', () => {
           message: 'Verbose row',
         },
       ],
-      pinnedErrors: [],
+      pinnedEvents: [],
     })
 
     renderWithStore(store)
@@ -71,36 +72,35 @@ describe('AgentActivityPane', () => {
     await waitFor(() => expect(screen.getByText('Verbose row')).toBeTruthy())
   })
 
-  test('renders pinned incidents and dismisses them', async () => {
-    const dismissSpy = vi.fn(async () => ({
+  test('renders pinned events and unpins them', async () => {
+    const setPinnedEventSpy = vi.fn(async () => ({
       success: true,
-      incidentId: 'incident-1',
+      eventId: 'evt-1',
+      pinned: false,
       snapshot: {
         generatedAt: new Date().toISOString(),
         events: [],
         verbose: [],
-        pinnedErrors: [],
+        pinnedEvents: [],
       },
     }))
-    ;(window as unknown as { api: any }).api.agentActivity.dismissPinnedError = dismissSpy
+    ;(window as unknown as { api: any }).api.agentActivity.setPinnedEvent = setPinnedEventSpy
 
     const store = createStore()
     store.set(agentActivitySnapshotAtom, {
       generatedAt: new Date().toISOString(),
       events: [],
       verbose: [],
-      pinnedErrors: [
+      pinnedEvents: [
         {
-          incidentId: 'incident-1',
-          fingerprint: 'system|error',
+          eventId: 'evt-1',
+          pinnedAt: new Date().toISOString(),
+          automatic: true,
+          timestamp: new Date().toISOString(),
           source: 'system',
           kind: 'system.error',
           message: 'Pinned error row',
           severity: 'error',
-          firstSeenAt: new Date().toISOString(),
-          lastSeenAt: new Date().toISOString(),
-          occurrences: 1,
-          lastEventId: 'evt-1',
         },
       ],
     })
@@ -108,8 +108,8 @@ describe('AgentActivityPane', () => {
     renderWithStore(store)
 
     expect(screen.getByText('Pinned error row')).toBeTruthy()
-    fireEvent.click(screen.getByTestId('agent-activity-dismiss-incident-1'))
-    await waitFor(() => expect(dismissSpy).toHaveBeenCalledWith('incident-1'))
+    fireEvent.click(screen.getByTestId('agent-activity-dismiss-evt-1'))
+    await waitFor(() => expect(setPinnedEventSpy).toHaveBeenCalledWith('evt-1', false))
   })
 
   test('shows jump-to-latest button when unseen events are present', () => {
@@ -119,5 +119,42 @@ describe('AgentActivityPane', () => {
     renderWithStore(store)
 
     expect(screen.getByTestId('agent-activity-jump-latest')).toBeTruthy()
+  })
+
+  test('pins an event from the timeline', async () => {
+    const setPinnedEventSpy = vi.fn(async () => ({
+      success: true,
+      eventId: 'evt-1',
+      pinned: true,
+      snapshot: {
+        generatedAt: new Date().toISOString(),
+        events: [],
+        verbose: [],
+        pinnedEvents: [],
+      },
+    }))
+    ;(window as unknown as { api: any }).api.agentActivity.setPinnedEvent = setPinnedEventSpy
+
+    const store = createStore()
+    store.set(agentActivitySnapshotAtom, {
+      generatedAt: new Date().toISOString(),
+      events: [
+        {
+          id: 'evt-1',
+          timestamp: new Date().toISOString(),
+          stream: 'events',
+          source: 'worker',
+          severity: 'info',
+          kind: 'cli.tool_start',
+          message: 'Tool started',
+        },
+      ],
+      verbose: [],
+      pinnedEvents: [],
+    })
+
+    renderWithStore(store)
+    fireEvent.click(screen.getByTestId('agent-activity-pin-evt-1'))
+    await waitFor(() => expect(setPinnedEventSpy).toHaveBeenCalledWith('evt-1', true))
   })
 })

@@ -119,27 +119,27 @@ describe('symphony ipc handlers', () => {
       generatedAt: new Date().toISOString(),
       events: [],
       verbose: [],
-      pinnedErrors: [
+      pinnedEvents: [
         {
-          incidentId: 'incident-1',
-          fingerprint: 'system|error|x',
+          eventId: 'evt-1',
+          pinnedAt: new Date().toISOString(),
+          automatic: true,
+          timestamp: new Date().toISOString(),
           source: 'system',
           kind: 'system.error',
           message: 'Symphony service unavailable.',
           severity: 'error',
-          firstSeenAt: new Date().toISOString(),
-          lastSeenAt: new Date().toISOString(),
-          occurrences: 1,
-          lastEventId: 'evt-1',
         },
       ],
     }
 
     const agentActivityJournal = Object.assign(new EventEmitter(), {
       getSnapshot: vi.fn(() => agentActivitySnapshot),
-      dismissPinnedError: vi.fn((incidentId: string) => ({
+      setPinnedEvent: vi.fn((eventId: string, pinned: boolean) => ({
         ...agentActivitySnapshot,
-        pinnedErrors: agentActivitySnapshot.pinnedErrors.filter((incident) => incident.incidentId !== incidentId),
+        pinnedEvents: pinned
+          ? agentActivitySnapshot.pinnedEvents
+          : agentActivitySnapshot.pinnedEvents.filter((event) => event.eventId !== eventId),
       })),
       ingestRuntimeStatus: vi.fn(),
       ingestOperatorSnapshot: vi.fn(),
@@ -180,9 +180,10 @@ describe('symphony ipc handlers', () => {
       'Proceed',
     )
     const agentActivityResponse = await handlers.get(IPC_CHANNELS.agentActivityGetSnapshot)?.({})
-    const dismissPinnedResponse = await handlers.get(IPC_CHANNELS.agentActivityDismissPinnedError)?.(
+    const setPinnedResponse = await handlers.get(IPC_CHANNELS.agentActivitySetPinnedEvent)?.(
       {},
-      'incident-1',
+      'evt-1',
+      false,
     )
     const workflowRespondResult = await handlers.get(IPC_CHANNELS.workflowRespondEscalation)?.({}, {
       cardId: 'slice-1',
@@ -206,9 +207,9 @@ describe('symphony ipc handlers', () => {
     expect(respondResult.success).toBe(true)
     expect(agentActivityResponse.success).toBe(true)
     expect(agentActivityResponse.snapshot).toEqual(agentActivitySnapshot)
-    expect(dismissPinnedResponse.success).toBe(true)
-    expect(agentActivityJournal.dismissPinnedError).toHaveBeenCalledWith('incident-1')
-    expect(Array.isArray(dismissPinnedResponse.snapshot.pinnedErrors)).toBe(true)
+    expect(setPinnedResponse.success).toBe(true)
+    expect(agentActivityJournal.setPinnedEvent).toHaveBeenCalledWith('evt-1', false)
+    expect(Array.isArray(setPinnedResponse.snapshot.pinnedEvents)).toBe(true)
     expect(workflowRespondResult.success).toBe(true)
     expect(workflowRespondResult.code).toBe('SUBMITTED')
 
@@ -322,8 +323,8 @@ describe('symphony ipc handlers', () => {
     }) as any
 
     const agentActivityJournal = Object.assign(new EventEmitter(), {
-      getSnapshot: vi.fn(() => ({ generatedAt: new Date().toISOString(), events: [], verbose: [], pinnedErrors: [] })),
-      dismissPinnedError: vi.fn(),
+      getSnapshot: vi.fn(() => ({ generatedAt: new Date().toISOString(), events: [], verbose: [], pinnedEvents: [] })),
+      setPinnedEvent: vi.fn(),
       ingestRuntimeStatus: vi.fn(),
       ingestOperatorSnapshot: vi.fn(),
       ingestEscalationResponse: vi.fn(),
