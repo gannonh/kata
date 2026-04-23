@@ -202,6 +202,7 @@ See the `DECISIONS` document in Linear for full rationale and revisability notes
 - **Thinking content varies by provider:** Anthropic models stream full thinking text via `thinking_delta` events. OpenAI codex models emit `thinking_start/end` but may not stream summary text (depends on the API's `summary: "auto"` setting). The `ThinkingBlock` component handles both: shows "Thinking…" (minimal label) while streaming with no content, "Reasoned" when done with no content, and the full collapsible with word count when content exists.
 - **Thinking levels are model-specific:** Standard reasoning models get `off | minimal | low | medium | high`. Models that support xhigh (opus-4-6, gpt-5.2+) additionally get `xhigh`. The `supportsXhigh` flag is computed in the bridge from model ID patterns (mirrors `pi-ai`'s `supportsXhigh()` function). The `ThinkingLevelToggle` component only renders when the selected model has `reasoning: true`.
 - **Chat layout:** User messages render as right-aligned bubbles. Assistant messages render flat against the background (no container). Tool cards and thinking blocks render inline within their parent assistant message article. No role labels — visual layout distinguishes the roles.
+- **Slash autocomplete contracts are split across main + renderer:** Main returns root builtin command names (`kata`, `symphony`, etc.) and `/skill:*` entries via `commands:get-all`; renderer normalizes them to slash-prefixed display names (for example `/kata`). Acceptance (`Tab`/`Enter`) inserts `command + " "` and emits stable dev diagnostics under `[SlashAutocomplete]`: `SLASH_ACCEPTED`, `SLASH_ACCEPT_NO_SELECTION`, `SLASH_ACCEPT_SUPPRESSED_DUPLICATE`.
 - **Symphony env vars must be in `.env.development`:** The managed Symphony subprocess inherits `process.env` from the Electron process. It does **not** load `apps/symphony/.env`. All vars Symphony needs at runtime (LINEAR_API_KEY, SLACK_WEBHOOK_URL, GH_TOKEN, etc.) must be copied into `apps/desktop/.env.development`. If Symphony fails with `PROCESS_EXITED(1)`, check stderr diagnostics via `window.api.symphony.getStatus()` — common causes are missing env vars referenced in the WORKFLOW.md.
 - **Symphony dashboard connects independently of the supervisor:** The Runtime section (Start/Stop/Restart) tracks the Desktop-managed subprocess. The Dashboard section connects to whatever is at the configured `symphony.url`. If you start Symphony externally, the Runtime will show Idle/Failed but clicking Dashboard Refresh will connect the live dashboard. Both sections share the URL from config resolution but have independent connection state.
 - **Symphony config is read at process start and at `start()` time:** The URL and workflow path come from `.kata/preferences.md` which is read when `resolveSymphonyLaunch()` is called (lazy, on Start click). But `.env.development` vars are loaded once at Electron startup. Changing preferences requires restarting the Electron process to take effect for the supervisor; the dashboard Refresh can pick up a running external instance without restart.
@@ -269,11 +270,13 @@ bun run test:watch              # Watch mode for development
 | `app-launch.e2e.ts` | 7 | Process exists, window title, #root, console errors, viewport, context isolation, test mode |
 | `app-shell.e2e.ts` | 7 | Branding, sidebar, chat input, permission modes, right pane, settings panel + tabs |
 | `onboarding.e2e.ts` | 5 | Welcome step, step navigation, provider cards, full walkthrough, persistence |
+| `slash-autocomplete.e2e.ts` | 2 | Slash trigger visibility, builtin discovery, arrow navigation, Tab/Enter acceptance, and Esc dismissal |
 
 **Running:**
 ```bash
 bun run build                   # Must build first — e2e loads dist/main.cjs
 bun run test:e2e                # Headless
+bun run test:e2e -- e2e/tests/slash-autocomplete.e2e.ts   # Slash-autocomplete focused gate
 bun run test:e2e:headed         # Visible windows for debugging
 ```
 
