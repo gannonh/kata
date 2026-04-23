@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.6
+
+### Features
+
+- **Agent Activity event pinning** — all timeline events now expose pin/unpin controls, errors auto-pin by default, and pinned entries can be manually unpinned.
+- **Agent Activity runtime overview** — added a dashboard summary panel with runtime/session health context before the event timeline.
+- **Observability terminology update** — renamed "Pinned Errors" to "Pinned Events" and the verbose timeline mode to "Event Log" for clearer behavior.
+
 ## 0.2.5
 
 ### Features
