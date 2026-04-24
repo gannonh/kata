@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.7
+
+### Improvements
+
+- **Bundle updated Kata CLI runtime (`0.15.8`)** — Desktop release bundles the CLI patch that restores compatibility with `@mariozechner/pi-coding-agent@0.68.1` by passing `cwd` to `DefaultResourceLoader`.
+
 ## 0.2.6
 
 ### Features

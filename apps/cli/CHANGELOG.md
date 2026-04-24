@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.15.8
+
+### Bug Fixes
+
+- **Restore CLI build compatibility with pi-coding-agent `0.68.1`** — updated `buildResourceLoader()` to pass the now-required `cwd` option when constructing `DefaultResourceLoader`, fixing `TS2345` failures during `npm run build`.
+
 ## 0.15.7
 
 ### Features
