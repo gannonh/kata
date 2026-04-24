@@ -99,6 +99,7 @@ export function initResources(agentDir: string): void {
  * content before reload().
  */
 export function buildResourceLoader(agentDir: string, overrides?: {
+  cwd?: string;
   appendSystemPrompt?: string | string[];
 }): DefaultResourceLoader {
   const appendSystemPrompt = overrides?.appendSystemPrompt === undefined
@@ -108,6 +109,7 @@ export function buildResourceLoader(agentDir: string, overrides?: {
       : [overrides.appendSystemPrompt]
 
   return new DefaultResourceLoader({
+    cwd: overrides?.cwd ?? process.cwd(),
     agentDir,
     ...(appendSystemPrompt !== undefined ? { appendSystemPrompt } : {}),
   })
