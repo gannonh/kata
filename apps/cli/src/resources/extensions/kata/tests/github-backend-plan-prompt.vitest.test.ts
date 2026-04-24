@@ -71,4 +71,16 @@ describe("GithubBackend planning prompts", () => {
     expect(prompt).toMatch(/Do not read\/write local `\.kata\/\*\.md` planning files/i);
     expect(prompt).toMatch(/Link every task to the slice via real GitHub sub-issue relationships/i);
   });
+
+  it("discuss prompt uses the shared discuss template with GitHub-specific backend guidance", () => {
+    const backend = new GithubBackend("/tmp/github-prompt", CONFIG, NOOP_CLIENT);
+    const prompt = backend.buildDiscussPrompt("M010", "Discuss planning for M010.");
+
+    expect(prompt).toContain('Say exactly: "What would you like to build?"');
+    expect(prompt).toMatch(/GitHub mode discussion is enabled/i);
+    expect(prompt).toContain("KATA:GITHUB_ARTIFACT");
+    expect(prompt).toMatch(/Do not read or write local `\.kata\/\*\.md` planning artifacts/i);
+    expect(prompt).toMatch(/Do not use `linear_\*` tools in GitHub mode/i);
+    expect(prompt).toMatch(/Milestone M010 ready\./i);
+  });
 });

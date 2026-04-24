@@ -373,6 +373,15 @@ describe("CLI RPC mode", () => {
     expect(cliSrc).toContain("const { runRpcMode } = await import('@mariozechner/pi-coding-agent')");
     expect(cliSrc).toContain("await runRpcMode(runtime)");
   });
+
+  it("syncs bundled resources before starting rpc mode", () => {
+    const cliSrc = readFileSync(join(projectRoot, "src", "cli.ts"), "utf-8");
+    const initResourcesIdx = cliSrc.indexOf("initResources(agentDir)");
+    expect(initResourcesIdx).toBeGreaterThan(0);
+    const initBlock = cliSrc.slice(Math.max(0, initResourcesIdx - 220), initResourcesIdx + 40);
+    expect(initBlock).toContain("if (!isPrintMode) {");
+    expect(initBlock).toContain("--mode rpc");
+  });
 });
 
 describe("loader.ts", () => {

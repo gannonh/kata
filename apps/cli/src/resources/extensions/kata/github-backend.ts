@@ -2299,16 +2299,20 @@ export class GithubBackend implements KataBackend {
   }
 
   buildDiscussPrompt(nextId: string, preamble: string): string {
-    return [
-      preamble,
-      "",
-      `Requested milestone: ${nextId}`,
-      "",
+    const backendOps = [
       "GitHub mode discussion is enabled.",
-      "Persist planning artifacts to GitHub issues with stable Kata IDs and metadata markers.",
+      "Persist planning artifacts to GitHub issues with stable Kata IDs and `KATA:GITHUB_ARTIFACT` metadata markers.",
       "Do not read or write local `.kata/*.md` planning artifacts.",
       "Do not use `linear_*` tools in GitHub mode. Prefer backend-aware `kata_*` tools.",
     ].join("\n");
+
+    return loadPrompt("discuss", {
+      milestoneId: nextId,
+      preamble,
+      backendRules: "",
+      backendOps,
+      backendMustComplete: `After writing all documents, say exactly: \"Milestone ${nextId} ready.\" — nothing else. Auto-mode will start automatically.`,
+    });
   }
 
   async bootstrap(): Promise<void> {
