@@ -942,6 +942,27 @@ function issueNumberFromScope(scope: DocumentScope | undefined): number | undefi
   return parseGithubIssueNumber(scope.issueId) ?? undefined;
 }
 
+function normalizeMilestoneKataId(input: string | undefined): string | undefined {
+  const normalized = input?.trim().toUpperCase();
+  if (!normalized) return undefined;
+  if (!/^M\d{3}$/.test(normalized)) {
+    throw new Error(`Invalid GitHub milestoneId: ${input}. Expected a Kata milestone ID like M001, not a tracker issue number.`);
+  }
+  return normalized;
+}
+
+function requireMilestoneKataId(input: string): string {
+  const normalized = normalizeMilestoneKataId(input);
+  if (!normalized) {
+    throw new Error("GitHub milestoneId is required and must be a Kata milestone ID like M001.");
+  }
+  return normalized;
+}
+
+function roadmapSliceKey(id: string, title: string): string {
+  return `${id.trim().toUpperCase()}::${title.trim().toLowerCase()}`;
+}
+
 const KATA_STATE_LABEL_SUFFIXES = [
   "backlog",
   "planning",
@@ -1302,12 +1323,6 @@ export class GithubBackend implements KataBackend {
 
     if (scopedFallback.length > 0) {
       return scopedFallback[0] ?? null;
-    }
-
-    // Backward compatibility: when there is only one title match, prefer it
-    // even if scoped metadata/text is missing.
-    if (fallback.length === 1) {
-      return fallback[0] ?? null;
     }
 
     return null;
@@ -1758,11 +1773,13 @@ export class GithubBackend implements KataBackend {
     milestoneId?: string;
     initialPhase?: KataWorkflowPhase;
   }): Promise<KataIssueRecord> {
+    const milestoneId = normalizeMilestoneKataId(input.milestoneId);
+
     const metadata: GithubArtifactMetadataV1 = {
       schema: "kata/github-artifact/v1",
       kind: "slice",
       kataId: input.kataId.trim().toUpperCase(),
-      ...(input.milestoneId ? { milestoneId: input.milestoneId.trim().toUpperCase() } : {}),
+      ...(milestoneId ? { milestoneId } : {}),
     };
 
     const phasePrefix = this.config.labelPrefix.endsWith(":") ? this.config.labelPrefix : `${this.config.labelPrefix}:`;
@@ -1775,7 +1792,7 @@ export class GithubBackend implements KataBackend {
 
     const mergedMetadata = ensureMetadataDocumentTitle({
       ...(maybeParseGithubArtifactMetadata(issue.body ?? "") ?? metadata),
-      ...(input.milestoneId ? { milestoneId: input.milestoneId.trim().toUpperCase() } : {}),
+      ...(milestoneId ? { milestoneId } : {}),
     }, `${metadata.kataId}-PLAN`);
     const nextBody = composeArtifactIssueBody(issue.body, mergedMetadata, input.description);
     const updated = await this.updateIssue(issue.number, {
@@ -1856,21 +1873,21 @@ export class GithubBackend implements KataBackend {
       .map((issue) => this.toMilestoneRecord(issue));
   }
 
-  private async getRoadmapSliceIds(milestoneId: string): Promise<Set<string> | null> {
+  private async getRoadmapSliceKeys(milestoneId: string): Promise<Set<string> | null> {
     const roadmap = await this.readDocument(`${milestoneId}-ROADMAP`);
     if (!roadmap) return null;
 
     try {
       const parsed = parseRoadmap(roadmap);
-      return new Set(parsed.slices.map((slice) => slice.id.trim().toUpperCase()));
+      return new Set(parsed.slices.map((slice) => roadmapSliceKey(slice.id, slice.title)));
     } catch {
       return null;
     }
   }
 
   async listSlices(input: { milestoneId?: string } = {}): Promise<KataIssueRecord[]> {
-    const milestoneId = input.milestoneId?.trim().toUpperCase();
-    const roadmapSliceIds = milestoneId ? await this.getRoadmapSliceIds(milestoneId) : null;
+    const milestoneId = normalizeMilestoneKataId(input.milestoneId);
+    const roadmapSliceKeys = milestoneId ? await this.getRoadmapSliceKeys(milestoneId) : null;
     const issues = await this.listIssues();
     return issues
       .filter((issue) => {
@@ -1880,7 +1897,10 @@ export class GithubBackend implements KataBackend {
         if (metadata.milestoneId === milestoneId) return true;
 
         const parsedTitle = parseGithubKataTitle(issue.title);
-        return Boolean(parsedTitle?.kataId && roadmapSliceIds?.has(parsedTitle.kataId.trim().toUpperCase()));
+        return Boolean(
+          parsedTitle?.kataId &&
+          roadmapSliceKeys?.has(roadmapSliceKey(parsedTitle.kataId, parsedTitle.title)),
+        );
       })
       .sort((a, b) => compareGithubKataOrder(a.title, b.title))
       .map((issue) => this.toIssueRecord(issue));
@@ -2087,14 +2107,15 @@ export class GithubBackend implements KataBackend {
   }
 
   async resolveSliceScope(milestoneId: string, sliceId: string): Promise<DocumentScope | undefined> {
-    const issue = await this.findIssueByKataId(sliceId, "slice", { milestoneId });
+    const normalizedMilestoneId = requireMilestoneKataId(milestoneId);
+    const issue = await this.findIssueByKataId(sliceId, "slice", { milestoneId: normalizedMilestoneId });
     if (!issue) return undefined;
     return { issueId: String(issue.number) };
   }
 
   async isSlicePlanned(milestoneId: string, sliceId: string): Promise<boolean> {
     const normalizedSliceId = sliceId.trim().toUpperCase();
-    const normalizedMilestoneId = milestoneId.trim().toUpperCase();
+    const normalizedMilestoneId = requireMilestoneKataId(milestoneId);
 
     const sliceIssue = await this.findIssueByKataId(normalizedSliceId, "slice", {
       milestoneId: normalizedMilestoneId,
