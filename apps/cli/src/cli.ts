@@ -266,10 +266,11 @@ const sessionManager = SessionManager.create(process.cwd(), sessionsDir)
 // Resource loader — read --append-system-prompt before reload
 // ---------------------------------------------------------------------------
 
-// Skip resource syncing in print/rpc mode — child processes inherit the
-// already-synced ~/.kata-cli/agent/ from the parent. Running initResources()
-// concurrently from multiple workers causes ENOENT race conditions.
-if (!isPrintMode && !isRpcMode) {
+// Sync bundled resources for every real runtime, including RPC mode.
+// Desktop launches Kata in `--mode rpc`, and without this sync it can keep
+// running stale ~/.kata-cli/agent extensions from an older build.
+// Print mode is the only mode that should skip resource syncing.
+if (!isPrintMode) {
   initResources(agentDir)
 }
 

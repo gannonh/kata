@@ -71,7 +71,8 @@ async function createGithubBackend(
   basePath: string,
   loadedPreferences: LoadedKataPreferences | null,
 ): Promise<KataBackend> {
-  const validation = validateGithubConfig({ basePath, loadedPreferences });
+  const authFilePath = process.env.KATA_GITHUB_AUTH_FILE_PATH?.trim() || undefined;
+  const validation = validateGithubConfig({ basePath, loadedPreferences, authFilePath });
 
   if (!validation.ok || !validation.trackerConfig) {
     const diagnostics = validation.diagnostics.map((diagnostic) => diagnostic.code);
@@ -83,7 +84,7 @@ async function createGithubBackend(
     throw buildGithubBootstrapError(validation);
   }
 
-  const tokenResolution = resolveGithubToken();
+  const tokenResolution = resolveGithubToken(authFilePath);
   if (!tokenResolution.token) {
     emitBackendBootstrap({
       backend: "github",

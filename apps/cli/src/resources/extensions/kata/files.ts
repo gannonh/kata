@@ -200,7 +200,7 @@ export function parseRoadmap(content: string): Roadmap {
     let currentSlice: RoadmapSliceEntry | null = null;
 
     for (const line of checkboxItems) {
-      const cbMatch = line.match(/^-\s+\[([ xX])\]\s+\*\*(\w+):\s+(.+?)\*\*\s*(.*)/);
+      const cbMatch = line.match(/^[-*]\s+\[([ xX])\]\s+\*\*(\w+):\s+(.+?)\*\*\s*(.*)/);
       if (cbMatch) {
         if (currentSlice) slices.push(currentSlice);
 

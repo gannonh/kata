@@ -62,6 +62,7 @@ interface GithubProjectItemNode {
     id?: string
     number?: number
     title?: string
+    body?: string
     url?: string
     labels?: { nodes?: Array<{ name?: string }> }
     parent?: {
@@ -272,8 +273,7 @@ export class GithubWorkflowClient {
     const [items, activeKataMilestone] = await Promise.all([itemsPromise, activeKataMilestonePromise])
 
     const projectLabel = `GitHub Project #${projectNumber}`
-    const cardMilestoneId = activeKataMilestone?.id ?? `github-project:${projectNumber}`
-    const cardMilestoneName = activeKataMilestone?.name ?? projectLabel
+    const activeKataMilestoneId = activeKataMilestone?.kataId
 
     const normalizedIssues: Array<{
       issueNumber: number
@@ -282,6 +282,8 @@ export class GithubWorkflowClient {
       stateName: string
       isTask: boolean
       isSlice: boolean
+      milestoneId: string | null
+      prMetadata: WorkflowBoardPrMetadata | undefined
       subIssues: Array<{
         issueNumber: number
         issueTitle: string
@@ -306,6 +308,7 @@ export class GithubWorkflowClient {
       }
 
       const stateName = item.fieldValueByName?.name?.trim() || 'Unknown'
+      const issueBody = item.content?.body
       const labelNames = (item.content?.labels?.nodes ?? [])
         .map((label) => label.name?.trim().toLowerCase())
         .filter((label): label is string => Boolean(label))
@@ -315,6 +318,8 @@ export class GithubWorkflowClient {
       const hasTaskTitlePrefix = /^\s*\[T\d+\]/i.test(issueTitle)
       const isTask = hasTaskLabel || Boolean(parentIssueNumber) || hasTaskTitlePrefix
       const isSlice = !isTask && (hasSliceLabel || !hasTaskLabel)
+      const milestoneId = extractGithubArtifactMilestoneId(issueBody)
+      const prMetadata = extractPrMetadataFromGithubIssue(issueBody, config.repoOwner, config.repoName)
       const subIssues = (item.content?.subIssues?.nodes ?? [])
         .map((subIssue) => {
           const issueNumber = subIssue.number
@@ -353,6 +358,8 @@ export class GithubWorkflowClient {
         stateName,
         isTask,
         isSlice,
+        milestoneId,
+        prMetadata,
         subIssues,
       })
     }
@@ -378,6 +385,13 @@ export class GithubWorkflowClient {
 
         const doneCount = tasks.filter((task) => task.columnId === 'done').length
 
+        const cardMilestoneId = issue.milestoneId ?? `github-project:${projectNumber}`
+        const cardMilestoneName = issue.milestoneId
+          ? issue.milestoneId === activeKataMilestoneId
+            ? activeKataMilestone?.title ?? issue.milestoneId
+            : issue.milestoneId
+          : projectLabel
+
         return {
           id: String(issue.issueNumber),
           identifier: `#${issue.issueNumber}`,
@@ -390,6 +404,7 @@ export class GithubWorkflowClient {
           milestoneName: cardMilestoneName,
           taskCounts: { total: tasks.length, done: doneCount },
           tasks,
+          prMetadata: issue.prMetadata,
         }
       })
 
@@ -420,6 +435,7 @@ export class GithubWorkflowClient {
       status: hasCards ? 'fresh' : 'empty',
       source: {
         projectId: `github:${config.repoOwner}/${config.repoName}`,
+        activeMilestoneId: activeKataMilestoneId,
         trackerKind: 'github',
         githubStateMode: 'projects_v2',
         repoOwner: config.repoOwner,
@@ -504,6 +520,7 @@ export class GithubWorkflowClient {
                     id
                     number
                     title
+                    body
                     url
                     labels(first: 20) {
                       nodes {
@@ -568,7 +585,7 @@ export class GithubWorkflowClient {
     token: string,
     repoOwner: string,
     repoName: string,
-  ): Promise<{ id: string; name: string } | null> {
+  ): Promise<{ kataId: string; title: string } | null> {
     const issues = await this.restRequest<GithubIssueResponse[]>(
       token,
       `/repos/${encodeURIComponent(repoOwner)}/${encodeURIComponent(repoName)}/issues?state=open&labels=${encodeURIComponent(
@@ -589,10 +606,14 @@ export class GithubWorkflowClient {
         return {
           number,
           title,
+          kataId: parseKataMilestoneId(title),
           ordinal: parseKataMilestoneOrdinal(title),
         }
       })
-      .filter((candidate): candidate is { number: number; title: string; ordinal: number | null } => Boolean(candidate))
+      .filter(
+        (candidate): candidate is { number: number; title: string; kataId: string | null; ordinal: number | null } =>
+          Boolean(candidate),
+      )
 
     if (candidates.length === 0) {
       return null
@@ -600,7 +621,7 @@ export class GithubWorkflowClient {
 
     candidates.sort((left, right) => {
       if (left.ordinal !== null && right.ordinal !== null && left.ordinal !== right.ordinal) {
-        return right.ordinal - left.ordinal
+        return left.ordinal - right.ordinal
       }
 
       if (left.ordinal !== null && right.ordinal === null) {
@@ -611,7 +632,7 @@ export class GithubWorkflowClient {
         return 1
       }
 
-      return right.number - left.number
+      return left.number - right.number
     })
 
     const selected = candidates[0]
@@ -619,9 +640,13 @@ export class GithubWorkflowClient {
       return null
     }
 
+    if (!selected.kataId) {
+      return null
+    }
+
     return {
-      id: `github-milestone:${selected.number}`,
-      name: selected.title,
+      kataId: selected.kataId,
+      title: selected.title,
     }
   }
 
@@ -859,14 +884,43 @@ function denormalizeLabelState(value: string): string {
     .join(' ')
 }
 
-function parseKataMilestoneOrdinal(title: string): number | null {
-  const match = title.trim().match(/^\[M(\d+)\]/i)
-  if (!match) {
+function parseKataMilestoneId(title: string): string | null {
+  const match = title.trim().match(/^\[(M\d+)\]/i)
+  if (!match?.[1]) {
     return null
   }
 
-  const ordinal = Number(match[1])
+  const normalized = match[1].toUpperCase()
+  return /^M\d{3}$/.test(normalized) ? normalized : null
+}
+
+function parseKataMilestoneOrdinal(title: string): number | null {
+  const milestoneId = parseKataMilestoneId(title)
+  if (!milestoneId) {
+    return null
+  }
+
+  const ordinal = Number(milestoneId.slice(1))
   return Number.isFinite(ordinal) ? ordinal : null
+}
+
+function extractGithubArtifactMilestoneId(body: string | undefined): string | null {
+  if (!body) {
+    return null
+  }
+
+  const markerMatch = body.match(/<!--\s*KATA:GITHUB_ARTIFACT\s*([\s\S]*?)\s*-->/i)
+  if (!markerMatch?.[1]) {
+    return null
+  }
+
+  try {
+    const parsed = JSON.parse(markerMatch[1]) as { milestoneId?: unknown }
+    const milestoneId = typeof parsed.milestoneId === 'string' ? parsed.milestoneId.trim().toUpperCase() : ''
+    return /^M\d{3}$/.test(milestoneId) ? milestoneId : null
+  } catch {
+    return null
+  }
 }
 
 function mapGithubIssueStateToTaskColumn(issueState: string | undefined): {

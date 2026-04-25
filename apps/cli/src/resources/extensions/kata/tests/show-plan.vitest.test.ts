@@ -6,17 +6,8 @@ const roadmapRef = vi.hoisted(() => ({ current: null as string | null }));
 
 const mockShowNextAction = vi.hoisted(() => vi.fn(async () => "not_yet"));
 const mockCreateBackend = vi.hoisted(() => vi.fn());
-
-vi.mock("../backend-factory.js", () => ({
-  createBackend: mockCreateBackend,
-}));
-
-vi.mock("../../shared/next-action-ui.js", () => ({
-  showNextAction: mockShowNextAction,
-}));
-
-vi.mock("../linear-config.js", () => ({
-  getWorkflowEntrypointGuard: vi.fn(() => ({
+const modeGateRef = vi.hoisted(() => ({
+  current: {
     allow: true,
     mode: "linear",
     isLinearMode: true,
@@ -28,7 +19,19 @@ vi.mock("../linear-config.js", () => ({
       path: "/fake/path/KATA-WORKFLOW.md",
       ready: true,
     },
-  })),
+  },
+}));
+
+vi.mock("../backend-factory.js", () => ({
+  createBackend: mockCreateBackend,
+}));
+
+vi.mock("../../shared/next-action-ui.js", () => ({
+  showNextAction: mockShowNextAction,
+}));
+
+vi.mock("../linear-config.js", () => ({
+  getWorkflowEntrypointGuard: vi.fn(() => modeGateRef.current),
 }));
 
 vi.mock("node:fs", async () => {
@@ -109,7 +112,7 @@ function capturedActionIds(): string[] {
   return (opts.actions || []).map((action) => action.id);
 }
 
-function makeBackend() {
+function makeBackend(overrides: Record<string, unknown> = {}) {
   return {
     deriveState: vi.fn(async () => {
       if (!stateRef.current) throw new Error("stateRef.current not configured for test");
@@ -124,6 +127,7 @@ function makeBackend() {
     buildDiscussPrompt: vi.fn(() => "mock discuss prompt"),
     isLinearMode: true,
     basePath: "/tmp/test",
+    ...overrides,
   };
 }
 
@@ -144,6 +148,20 @@ function makePi() {
 beforeEach(() => {
   mockShowNextAction.mockReset();
   mockShowNextAction.mockResolvedValue("not_yet");
+
+  modeGateRef.current = {
+    allow: true,
+    mode: "linear",
+    isLinearMode: true,
+    notice: null,
+    noticeLevel: "info",
+    protocol: {
+      mode: "linear",
+      documentName: "KATA-WORKFLOW.md",
+      path: "/fake/path/KATA-WORKFLOW.md",
+      ready: true,
+    },
+  };
 
   stateRef.current = makeState();
   roadmapRef.current = null;
@@ -245,6 +263,48 @@ describe("showPlan option presentation", () => {
       "plan_new_milestone",
       "discuss_planning",
     ]);
+  });
+
+  it("GitHub mode dispatches the shared discuss prompt for new milestone planning", async () => {
+    modeGateRef.current = {
+      allow: true,
+      mode: "github",
+      isLinearMode: false,
+      notice: null,
+      noticeLevel: "info",
+      protocol: {
+        mode: "github",
+        documentName: "KATA-WORKFLOW.md",
+        path: "/fake/path/KATA-WORKFLOW.md",
+        ready: true,
+      },
+    };
+    stateRef.current = makeState({
+      activeMilestone: null,
+      registry: [],
+      phase: "pre-planning",
+    });
+    mockShowNextAction.mockResolvedValue("plan_new_milestone");
+
+    const ctx = makeCtx();
+    const pi = makePi();
+
+    const discussPrompt = 'New milestone M001.\n\nSay exactly: "What would you like to build?" — nothing else.';
+    mockCreateBackend.mockImplementation(async () =>
+      makeBackend({
+        isLinearMode: false,
+        buildDiscussPrompt: vi.fn(() => discussPrompt),
+      }),
+    );
+
+    await showPlan(ctx as any, pi as any, "/tmp/test");
+
+    expect(pi.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining('Say exactly: "What would you like to build?"'),
+      }),
+      { triggerTurn: true },
+    );
   });
 
   it("Blocked: warns and does not call showNextAction", async () => {

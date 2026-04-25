@@ -18,8 +18,13 @@ const CONTEXT_HEADING_PATTERN = /^(#{2,3})\s+(.+)$/gm
 
 export function detectArtifactType(title: string): ArtifactType | null {
   const normalized = normalizeArtifactTitle(title)
+  const trimmedTitle = title.trim()
 
-  if (/-ROADMAP(?:\b|$)/.test(normalized) || normalized === 'ROADMAP') {
+  if (
+    /-ROADMAP(?:\b|$)/.test(normalized) ||
+    normalized === 'ROADMAP' ||
+    /^\[M\d{3}\]\s+/.test(trimmedTitle)
+  ) {
     return 'roadmap'
   }
 
@@ -76,6 +81,7 @@ export function parseRoadmap(markdown: string): ParsedRoadmap | null {
   return {
     vision: parseVision(markdown),
     successCriteria: parseRoadmapSuccessCriteria(markdown),
+    definitionOfDone: parseRoadmapDefinitionOfDone(markdown),
     slices,
     boundaryMap: parseBoundaryMap(markdown),
   }
@@ -210,11 +216,25 @@ function parseVision(markdown: string): string | null {
 
 function parseRoadmapSuccessCriteria(markdown: string): string[] {
   const successCriteriaSection = extractSection(markdown, 'Success Criteria')
-  if (!successCriteriaSection) {
+  if (successCriteriaSection) {
+    return parseMarkdownBulletList(successCriteriaSection)
+  }
+
+  const inlineMatch = markdown.match(/\*\*Success Criteria:\*\*\s*([\s\S]*?)(?:\n\s*---\s*\n|\n##\s+|$)/i)
+  return parseMarkdownBulletList(inlineMatch?.[1] ?? '')
+}
+
+function parseRoadmapDefinitionOfDone(markdown: string): string[] {
+  const definitionOfDoneSection = extractSection(markdown, 'Milestone Definition of Done')
+  if (!definitionOfDoneSection) {
     return []
   }
 
-  return successCriteriaSection
+  return parseMarkdownBulletList(definitionOfDoneSection)
+}
+
+function parseMarkdownBulletList(markdown: string): string[] {
+  return markdown
     .split('\n')
     .map((line) => line.trim())
     .filter((line) => /^[-*]\s+/.test(line))
@@ -341,6 +361,21 @@ function parseRequirementSection(
     return []
   }
 
+  const legacyRequirements = parseLegacyRequirementSection(section, fallbackStatus)
+  const tableRequirements = parseRequirementTableSection(section, fallbackStatus)
+
+  const merged = new Map<string, ParsedRequirement>()
+  for (const requirement of [...legacyRequirements, ...tableRequirements]) {
+    merged.set(requirement.id, requirement)
+  }
+
+  return [...merged.values()]
+}
+
+function parseLegacyRequirementSection(
+  section: string,
+  fallbackStatus: RequirementStatus,
+): ParsedRequirement[] {
   const requirementHeadingPattern = /^###\s+R(\d+)\s+[—-]\s+(.+)$/gm
   const headingMatches = Array.from(section.matchAll(requirementHeadingPattern))
   const requirements: ParsedRequirement[] = []
@@ -363,14 +398,102 @@ function parseRequirementSection(
       id,
       title,
       class: parseRequirementField(block, 'Class'),
-      status: parseRequirementField(block, 'Status') || fallbackStatus,
+      status:
+        normalizeRequirementStatusLabel(parseRequirementField(block, 'Status')) ||
+        fallbackRequirementStatus(fallbackStatus),
       description: parseRequirementField(block, 'Description'),
       owner: parseRequirementField(block, 'Primary owning slice'),
-      validation: parseRequirementField(block, 'Validation'),
+      validation:
+        parseRequirementField(block, 'Validation status') || parseRequirementField(block, 'Validation'),
     })
   }
 
   return requirements
+}
+
+function parseRequirementTableSection(
+  section: string,
+  fallbackStatus: RequirementStatus,
+): ParsedRequirement[] {
+  const tableLines = section
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith('|'))
+
+  if (tableLines.length < 3) {
+    return []
+  }
+
+  const header = splitTableRow(tableLines[0] ?? '')
+  const headerIndexByName = buildHeaderIndexMap(header)
+
+  const idIndex = headerIndexByName.get('id')
+  const titleIndex = headerIndexByName.get('title') ?? headerIndexByName.get('requirement')
+  const classIndex = headerIndexByName.get('class')
+  const statusIndex = headerIndexByName.get('status')
+  const descriptionIndex = headerIndexByName.get('description')
+  const ownerIndex = headerIndexByName.get('primary owning slice') ?? headerIndexByName.get('owner')
+  const validationIndex =
+    headerIndexByName.get('validation status') ?? headerIndexByName.get('validation')
+
+  if (idIndex === undefined || titleIndex === undefined) {
+    return []
+  }
+
+  const requirements: ParsedRequirement[] = []
+
+  for (const tableLine of tableLines.slice(2)) {
+    const cells = splitTableRow(tableLine)
+    const id = (cells[idIndex] ?? '').trim()
+    const title = (cells[titleIndex] ?? '').trim()
+
+    if (!id || !title) {
+      continue
+    }
+
+    requirements.push({
+      id,
+      title,
+      class: classIndex === undefined ? '' : (cells[classIndex] ?? '').trim(),
+      status:
+        normalizeRequirementStatusLabel(statusIndex === undefined ? '' : cells[statusIndex] ?? '') ||
+        fallbackRequirementStatus(fallbackStatus),
+      description: descriptionIndex === undefined ? '' : (cells[descriptionIndex] ?? '').trim(),
+      owner: ownerIndex === undefined ? '' : (cells[ownerIndex] ?? '').trim(),
+      validation: validationIndex === undefined ? '' : (cells[validationIndex] ?? '').trim(),
+    })
+  }
+
+  return requirements
+}
+
+function fallbackRequirementStatus(status: RequirementStatus): string {
+  switch (status) {
+    case 'active':
+      return 'active'
+    case 'validated':
+      return 'validated'
+    case 'deferred':
+      return 'deferred'
+    case 'outOfScope':
+      return 'out-of-scope'
+    default:
+      return status
+  }
+}
+
+function normalizeRequirementStatusLabel(value: string): string {
+  const normalized = value.trim().toLowerCase()
+  if (!normalized) {
+    return ''
+  }
+
+  if (normalized === 'active') return 'active'
+  if (normalized === 'validated') return 'validated'
+  if (normalized === 'deferred') return 'deferred'
+  if (normalized === 'out of scope' || normalized === 'out-of-scope') return 'out-of-scope'
+
+  return value.trim()
 }
 
 function parseRequirementField(block: string, fieldName: string): string {

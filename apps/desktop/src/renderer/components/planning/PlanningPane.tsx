@@ -22,7 +22,7 @@ import {
   planningStaleReasonAtom,
   slicePlanningAtom,
 } from '@/atoms/planning'
-import { ArtifactTabs } from '@/components/planning/ArtifactTabs'
+import { ArtifactTabs, getPrimaryPlanningArtifacts } from '@/components/planning/ArtifactTabs'
 import { ContextView } from '@/components/planning/ContextView'
 import { DecisionsView } from '@/components/planning/DecisionsView'
 import { RequirementsView } from '@/components/planning/RequirementsView'
@@ -39,6 +39,7 @@ import {
 } from '@/lib/artifact-parser'
 import { cn } from '@/lib/utils'
 import { setRightPaneOverrideAtom } from '@/atoms/right-pane'
+import { workflowBoardAtom } from '@/atoms/workflow-board'
 
 export function PlanningPane() {
   const artifactsByKey = useAtomValue(planningArtifactsAtom)
@@ -50,6 +51,7 @@ export function PlanningPane() {
   const staleReason = useAtomValue(planningStaleReasonAtom)
   const lastViewedByArtifactKey = useAtomValue(lastViewedPlanningArtifactAtom)
   const slicesByArtifactKey = useAtomValue(slicePlanningAtom)
+  const workflowBoard = useAtomValue(workflowBoardAtom)
 
   const applyPlanningArtifact = useSetAtom(applyPlanningArtifactAtom)
   const setActiveArtifact = useSetAtom(activePlanningArtifactAtom)
@@ -59,6 +61,11 @@ export function PlanningPane() {
   const setPlanningError = useSetAtom(planningErrorAtom)
 
   const artifacts = useMemo(() => Object.values(artifactsByKey), [artifactsByKey])
+  const activeWorkflowMilestoneId = workflowBoard?.source.activeMilestoneId?.trim().toUpperCase() ?? null
+  const primaryArtifacts = useMemo(
+    () => getPrimaryPlanningArtifacts(artifacts, activeWorkflowMilestoneId),
+    [activeWorkflowMilestoneId, artifacts],
+  )
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
   const scrollPositionsByKeyRef = useRef<Record<string, number>>({})
@@ -69,6 +76,26 @@ export function PlanningPane() {
     : null
 
   const [isContentVisible, setIsContentVisible] = useState(true)
+
+  useEffect(() => {
+    const currentType = activeArtifactRef ? getPlanningArtifactType(artifactsByKey[activeArtifactRef.artifactKey]) : null
+    const hasVisibleActiveArtifact =
+      activeArtifactRef && (currentType === 'roadmap' || currentType === 'requirements' || currentType === 'decisions')
+
+    if (hasVisibleActiveArtifact || primaryArtifacts.length === 0) {
+      return
+    }
+
+    const fallbackArtifact = primaryArtifacts[0]
+    if (!fallbackArtifact) {
+      return
+    }
+
+    setActiveArtifact({
+      artifactKey: fallbackArtifact.artifactKey,
+      title: fallbackArtifact.title,
+    })
+  }, [activeArtifactRef, artifactsByKey, primaryArtifacts, setActiveArtifact])
 
   useEffect(() => {
     if (!activeArtifactRef || activeArtifact) {
@@ -177,17 +204,89 @@ export function PlanningPane() {
     }
   }, [activeArtifactVersion])
 
+  const roadmapMilestoneId =
+    (activeArtifact && getPlanningArtifactType(activeArtifact) === 'roadmap'
+      ? extractMilestoneId(activeArtifact.title)
+      : null) ?? activeWorkflowMilestoneId
+
+  const sliceIssueLinksById = useMemo(() => {
+    const links = new Map<string, { url: string; label?: string }>()
+
+    for (const column of workflowBoard?.columns ?? []) {
+      for (const card of column.cards) {
+        if (roadmapMilestoneId && card.milestoneId?.trim().toUpperCase() !== roadmapMilestoneId) {
+          continue
+        }
+
+        const sliceId = extractSliceId(card.title)
+        if (!sliceId || !card.url || links.has(sliceId)) {
+          continue
+        }
+
+        links.set(sliceId, {
+          url: card.url,
+          label: card.identifier,
+        })
+      }
+    }
+
+    for (const artifact of artifacts) {
+      const artifactType = getPlanningArtifactType(artifact)
+      if (artifactType !== 'slice') {
+        continue
+      }
+
+      const sliceMilestoneId = extractArtifactMilestoneId(artifact.content)
+      if (roadmapMilestoneId && sliceMilestoneId && sliceMilestoneId !== roadmapMilestoneId) {
+        continue
+      }
+
+      const sliceId = artifact.sliceData?.id ?? extractSliceId(artifact.title)
+      const url = buildGithubIssueUrl(artifact.projectId, artifact.issueId)
+      if (!sliceId || !url || links.has(sliceId)) {
+        continue
+      }
+
+      links.set(sliceId, { url })
+    }
+
+    return Object.fromEntries(links)
+  }, [artifacts, roadmapMilestoneId, workflowBoard])
+
+  const milestoneContext = useMemo(() => {
+    if (!activeArtifact || getPlanningArtifactType(activeArtifact) !== 'roadmap') {
+      return null
+    }
+
+    const milestoneId = extractMilestoneId(activeArtifact.title)
+    if (!milestoneId) {
+      return null
+    }
+
+    const contextBlock = extractEmbeddedArtifactBlock(activeArtifact.content, `${milestoneId}-CONTEXT`)
+    if (!contextBlock) {
+      return null
+    }
+
+    return parseContext(contextBlock) as ParsedContext | null
+  }, [activeArtifact])
+
   const parsedArtifact = useMemo(() => {
     if (!activeArtifact) {
       return null
     }
 
-    const type = activeArtifact.artifactType ?? detectArtifactType(activeArtifact.title)
+    const type = getPlanningArtifactType(activeArtifact)
 
     if (type === 'roadmap') {
+      const milestoneId = extractMilestoneId(activeArtifact.title)
+      const roadmapSource =
+        (milestoneId && extractEmbeddedArtifactBlock(activeArtifact.content, `${milestoneId}-ROADMAP`)) ||
+        activeArtifact.content
+
       return {
         type,
-        parsed: parseRoadmap(activeArtifact.content) as ParsedRoadmap | null,
+        parsed: parseRoadmap(roadmapSource) as ParsedRoadmap | null,
       }
     }
 
@@ -323,7 +422,7 @@ export function PlanningPane() {
 
         {artifacts.length > 0 ? (
           <ArtifactTabs
-            artifacts={artifacts}
+            artifacts={primaryArtifacts}
             activeArtifactKey={activeArtifactRef?.artifactKey ?? null}
             hasUnviewedUpdatesByKey={hasUnviewedUpdatesByKey}
             onSelect={(artifact) => handleArtifactSelect(artifact.artifactKey, artifact.title)}
@@ -383,7 +482,13 @@ export function PlanningPane() {
               )}
             >
               {parsedArtifact?.type === 'roadmap' && parsedArtifact.parsed ? (
-                <RoadmapView roadmap={parsedArtifact.parsed as ParsedRoadmap} />
+                <div className="space-y-4">
+                  <RoadmapView
+                    roadmap={parsedArtifact.parsed as ParsedRoadmap}
+                    sliceIssueLinksById={sliceIssueLinksById}
+                  />
+                  {milestoneContext ? <ContextView context={milestoneContext} /> : null}
+                </div>
               ) : parsedArtifact?.type === 'requirements' && parsedArtifact.parsed ? (
                 <RequirementsView requirements={parsedArtifact.parsed as ParsedRequirements} />
               ) : parsedArtifact?.type === 'decisions' && parsedArtifact.parsed ? (
@@ -414,4 +519,59 @@ export function PlanningPane() {
       </div>
     </aside>
   )
+}
+
+function getPlanningArtifactType(artifact: { artifactType?: string; title: string } | undefined | null) {
+  if (!artifact) {
+    return null
+  }
+
+  return artifact.artifactType ?? detectArtifactType(artifact.title)
+}
+
+function extractSliceId(title: string): string | null {
+  const match = title.trim().match(/^\[(S\d+)\]\s+/)
+  return match?.[1] ?? null
+}
+
+function extractMilestoneId(title: string): string | null {
+  const match = title.trim().match(/^\[(M\d{3})\]\s+/)
+  return match?.[1] ?? null
+}
+
+function extractEmbeddedArtifactBlock(markdown: string, documentTitle: string): string | null {
+  const escapedTitle = documentTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const match = markdown.match(
+    new RegExp(`<!--\\s*KATA:DOC:${escapedTitle}\\s*-->([\\s\\S]*?)<!--\\s*\\/KATA:DOC\\s*-->`, 'i'),
+  )
+
+  return match?.[1]?.trim() ?? null
+}
+
+function extractArtifactMilestoneId(markdown: string): string | null {
+  const match = markdown.match(/<!--\s*KATA:GITHUB_ARTIFACT\s*([\s\S]*?)\s*-->/i)
+  if (!match?.[1]) {
+    return null
+  }
+
+  try {
+    const parsed = JSON.parse(match[1]) as { milestoneId?: unknown }
+    const milestoneId = typeof parsed.milestoneId === 'string' ? parsed.milestoneId.trim().toUpperCase() : ''
+    return /^M\d{3}$/.test(milestoneId) ? milestoneId : null
+  } catch {
+    return null
+  }
+}
+
+function buildGithubIssueUrl(projectId?: string, issueId?: string): string | null {
+  if (!projectId || !issueId) {
+    return null
+  }
+
+  const match = projectId.match(/^github:([^/]+)\/(.+)$/)
+  if (!match?.[1] || !match[2]) {
+    return null
+  }
+
+  return `https://github.com/${match[1]}/${match[2]}/issues/${issueId}`
 }

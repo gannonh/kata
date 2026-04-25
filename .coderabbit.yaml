@@ -4,3 +4,10 @@ reviews:
 issue_enrichment:
   auto_enrich:
     enabled: false
+  planning:
+    enabled: false
+    auto_planning:
+      enabled: false
+  labeling:
+    auto_apply_labels: false
+    labeling_instructions: []

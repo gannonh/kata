@@ -543,14 +543,14 @@ describe("GithubBackend canonical worker operations", () => {
         title: "[S08] Slice",
         state: "open",
         labels: ["symphony:slice"],
-        body: "slice body",
+        body: "**Milestone:** M009\n\nslice body",
       },
       {
         number: 63,
         title: "[T08] Task",
         state: "open",
         labels: ["symphony:task", "symphony:slice:s08"],
-        body: "task body",
+        body: "**Milestone:** M009\n**Slice:** S08\n\ntask body",
       },
     ]);
     const backend = makeBackend(client, {
@@ -579,7 +579,8 @@ describe("GithubBackend artifact persistence", () => {
     const milestones = await backend.listMilestones();
     expect(milestones).toEqual([
       expect.objectContaining({
-        id: "10",
+        id: "M901",
+        trackerIssueId: "10",
         name: "[M901] Live mutation test",
         targetDate: "2026-04-30",
         updatedAt: "2026-04-17T22:58:07Z",
@@ -809,6 +810,47 @@ describe("GithubBackend artifact persistence", () => {
 
     const scope = await backend.resolveSliceScope("M010", "S01");
     expect(scope).toEqual({ issueId: "11" });
+  });
+
+  it("does not reuse a lone legacy slice when explicit milestone scope points to a new milestone", async () => {
+    const client = new FakeGithubClient([
+      {
+        number: 10,
+        title: "[S01] Legacy slice without milestone metadata",
+        state: "open",
+        labels: ["kata:slice"],
+        body: "Legacy issue body",
+      },
+    ]);
+    const backend = makeBackend(client);
+
+    const scope = await backend.resolveSliceScope("M011", "S01");
+    expect(scope).toBeUndefined();
+
+    const created = await backend.createSlice({
+      kataId: "S01",
+      title: "Scoped slice for M011",
+      milestoneId: "M011",
+      description: "# S01: Scoped slice for M011",
+    });
+
+    expect(created.identifier).toBe("#11");
+    const createdIssue = client.lastCreatedIssue();
+    expect(createdIssue?.title).toBe("[S01] Scoped slice for M011");
+    expect(maybeParseGithubArtifactMetadata(createdIssue?.body ?? "")?.milestoneId).toBe("M011");
+  });
+
+  it("rejects numeric GitHub milestone ids when creating or listing scoped slices", async () => {
+    const client = new FakeGithubClient();
+    const backend = makeBackend(client);
+
+    await expect(
+      backend.createSlice({ kataId: "S01", title: "Bad slice", milestoneId: "385" }),
+    ).rejects.toThrow(/Expected a Kata milestone ID like M001/);
+
+    await expect(backend.listSlices({ milestoneId: "385" })).rejects.toThrow(
+      /Expected a Kata milestone ID like M001/,
+    );
   });
 
   it("reuses cached issue listings during planning upserts", async () => {

@@ -14,6 +14,7 @@ vi.mock('../logger', () => ({
   },
 }))
 
+import log from '../logger'
 import {
   clearSkillCache,
   getCachedSkills,
@@ -190,6 +191,57 @@ describe('skill-scanner', () => {
     const third = await refreshSkillCache(fakeWorkspace)
 
     expect(third.map((entry) => entry.name)).toEqual(['/skill:added-later', '/skill:initial-skill'])
+  })
+
+  test('scanSkillDirectory warns and skips SKILL.md files that fail to read', async () => {
+    const skillsDir = path.join(fakeWorkspace, '.agents', 'skills')
+    await writeSkill(skillsDir, 'healthy-skill')
+    await writeSkill(skillsDir, 'broken-skill')
+
+    const brokenSkillPath = path.join(skillsDir, 'broken-skill', 'SKILL.md')
+    const originalReadFile = fs.readFile.bind(fs)
+    vi.spyOn(fs, 'readFile').mockImplementation(async (filePath, ...args) => {
+      if (String(filePath) === brokenSkillPath) {
+        const error = new Error('disk blew up') as Error & { code?: string }
+        error.code = 'EIO'
+        throw error
+      }
+
+      return originalReadFile(filePath, ...args)
+    })
+
+    const skills = await scanSkillDirectory(skillsDir)
+
+    expect(skills).toEqual([{ name: 'healthy-skill', description: 'healthy-skill description' }])
+    expect(log.warn).toHaveBeenCalledWith(
+      '[skill-scanner] failed to read SKILL.md',
+      expect.objectContaining({
+        directoryPath: skillsDir,
+        skillDirectory: 'broken-skill',
+        skillFilePath: brokenSkillPath,
+        code: 'EIO',
+      }),
+    )
+  })
+
+  test('scanAllSkillDirectories returns an empty list when a scan crashes mid-refresh', async () => {
+    const workspaceSkillsDir = path.join(fakeWorkspace, '.agents', 'skills')
+    await writeSkill(workspaceSkillsDir, 'healthy-skill')
+
+    const originalMapSet = Map.prototype.set
+    const setSpy = vi.spyOn(Map.prototype, 'set').mockImplementation(function (this: Map<unknown, unknown>, ...args) {
+      throw new Error(`set failed for ${String(args[0])}`)
+    })
+
+    const commands = await scanAllSkillDirectories(fakeWorkspace)
+
+    expect(commands).toEqual([])
+    expect(log.warn).toHaveBeenCalledWith(
+      '[skill-scanner] failed to scan skill directories',
+      expect.objectContaining({ workspacePath: fakeWorkspace, error: expect.stringContaining('set failed') }),
+    )
+
+    setSpy.mockImplementation(originalMapSet)
   })
 
   test('[R004] refreshSkillCache reuses in-flight scan for concurrent callers', async () => {

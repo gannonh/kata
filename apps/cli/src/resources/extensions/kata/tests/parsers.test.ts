@@ -109,6 +109,29 @@ Consumes from S03:
   assertEq(r.boundaryMap[1].toSlice, 'S03', 'bm[1] to');
 }
 
+console.log('\n=== parseRoadmap: accepts asterisk checklist bullets ===');
+{
+  const content = `# M001: Asterisk Roadmap
+
+**Vision:** Accept GitHub/Linear checklist bullets.
+
+## Slices
+
+* [ ] **S01: First Slice** \`risk:low\` \`depends:[]\`
+  > After this: first works.
+
+* [x] **S02: Second Slice** \`risk:medium\` \`depends:[S01]\`
+  > After this: second works.
+`;
+
+  const r = parseRoadmap(content);
+  assertEq(r.slices.length, 2, 'asterisk roadmap slice count');
+  assertEq(r.slices[0].id, 'S01', 'asterisk S01 id');
+  assertEq(r.slices[0].done, false, 'asterisk S01 not done');
+  assertEq(r.slices[1].id, 'S02', 'asterisk S02 id');
+  assertEq(r.slices[1].done, true, 'asterisk S02 done');
+}
+
 console.log('\n=== parseRoadmap: empty slices section ===');
 {
   const content = `# M002: Empty Milestone

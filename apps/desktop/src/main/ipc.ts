@@ -1079,6 +1079,8 @@ export function registerSessionIpc({
   reliabilityAggregator.on('snapshot', onReliabilitySnapshot)
   reliabilityAggregator.on('stability', onStabilitySnapshot)
 
+  const shouldRunBackgroundStartupSideEffects = process.env.KATA_TEST_MODE !== '1'
+
   const initialState = bridge.getState()
   const initialBridgeStatus: BridgeStatusEvent = {
     state: initialState.status,
@@ -1092,18 +1094,20 @@ export function registerSessionIpc({
     selectedModel: initialState.selectedModel,
   })
 
-  void authBridge
-    .getProviders()
-    .then((response) => {
-      reliabilityAggregator.ingestFirstRunAuthState({
-        providers: response.providers,
+  if (shouldRunBackgroundStartupSideEffects) {
+    void authBridge
+      .getProviders()
+      .then((response) => {
+        reliabilityAggregator.ingestFirstRunAuthState({
+          providers: response.providers,
+        })
       })
-    })
-    .catch((error) => {
-      log.warn('[desktop-ipc] initial auth readiness snapshot failed', {
-        error: error instanceof Error ? error.message : String(error),
+      .catch((error) => {
+        log.warn('[desktop-ipc] initial auth readiness snapshot failed', {
+          error: error instanceof Error ? error.message : String(error),
+        })
       })
-    })
+  }
 
   if (symphonySupervisor) {
     const initialSymphonyStatus = symphonySupervisor.getStatus()
@@ -1160,7 +1164,9 @@ export function registerSessionIpc({
     window.on('focus', onWindowFocus)
   }
 
-  void refreshSkillCommands('startup')
+  if (shouldRunBackgroundStartupSideEffects) {
+    void refreshSkillCommands('startup')
+  }
 
   ipcMain.removeHandler(IPC_CHANNELS.sessionSend)
   ipcMain.removeHandler(IPC_CHANNELS.sessionStop)
@@ -2435,8 +2441,13 @@ export function registerSessionIpc({
 
 function detectArtifactTypeFromTitle(title: string): ArtifactType | undefined {
   const normalized = normalizeArtifactTitle(title)
+  const trimmedTitle = title.trim()
 
-  if (/-ROADMAP(?:\b|$)/.test(normalized) || normalized === 'ROADMAP') {
+  if (
+    /-ROADMAP(?:\b|$)/.test(normalized) ||
+    normalized === 'ROADMAP' ||
+    /^\[M\d{3}\]\s+/.test(trimmedTitle)
+  ) {
     return 'roadmap'
   }
 

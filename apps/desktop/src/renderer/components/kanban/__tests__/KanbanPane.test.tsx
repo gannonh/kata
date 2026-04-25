@@ -184,8 +184,8 @@ describe('KanbanPane status formatting', () => {
           },
           scope: {
             requested: 'milestone',
-            resolved: 'project',
-            reason: 'milestone_scope_not_supported',
+            resolved: 'milestone',
+            reason: 'requested',
           },
         },
         'milestone',

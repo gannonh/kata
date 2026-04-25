@@ -1,9 +1,12 @@
 import type { GithubStateMode } from "./github-config.js";
 import type { ActiveRef, KataState, MilestoneRegistryEntry, Phase } from "./types.js";
 import { getActiveSliceBranch, parseSliceBranchName } from "./worktree.js";
+import { parseRoadmap } from "./files.js";
 import {
   maybeParseGithubArtifactMetadata,
   parseGithubKataTitle,
+  readEmbeddedDocument,
+  roadmapSliceKey,
   type GithubArtifactMetadataV1,
 } from "./github-artifacts.js";
 
@@ -148,6 +151,57 @@ function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function issueMentionsScopedId(issue: GithubIssueSummary, scopedId: string): boolean {
+  const normalized = scopedId.trim().toUpperCase();
+  if (!normalized) return false;
+
+  const contextText = `${issue.title}\n${issue.body ?? ""}`;
+  const matcher = new RegExp(`\\b${escapeRegex(normalized)}\\b`, "i");
+  return matcher.test(contextText);
+}
+
+function parseMilestoneRoadmapSliceKeys(issue: GithubIssueSummary, milestoneId: string): Set<string> | null {
+  const roadmapDoc = readEmbeddedDocument(issue.body ?? "", `${milestoneId}-ROADMAP`);
+  if (!roadmapDoc) return null;
+
+  try {
+    const roadmap = parseRoadmap(roadmapDoc);
+    return new Set(roadmap.slices.map((slice) => roadmapSliceKey(slice.id, slice.title)));
+  } catch {
+    return null;
+  }
+}
+
+function sliceBelongsToMilestone(
+  entry: ParsedIssue,
+  milestoneId: string,
+  roadmapSliceKeys: Set<string> | null,
+): boolean {
+  const metadataMilestoneId = entry.metadata?.milestoneId?.trim().toUpperCase();
+  if (metadataMilestoneId) {
+    return metadataMilestoneId === milestoneId;
+  }
+
+  if (!roadmapSliceKeys) return false;
+  return roadmapSliceKeys.has(roadmapSliceKey(entry.parsed.id, entry.parsed.title));
+}
+
+function taskBelongsToMilestone(
+  issue: GithubIssueSummary,
+  milestoneId: string,
+  metadata: GithubArtifactMetadataV1 | null,
+): boolean {
+  const normalizedMilestoneId = milestoneId.trim().toUpperCase();
+  if (!normalizedMilestoneId) return false;
+
+  const metadataMilestone = metadata?.milestoneId?.trim().toUpperCase();
+  if (metadataMilestone) {
+    return metadataMilestone === normalizedMilestoneId;
+  }
+
+  return issueMentionsScopedId(issue, normalizedMilestoneId);
+}
+
 function taskBelongsToSlice(
   issue: GithubIssueSummary,
   sliceId: string,
@@ -170,9 +224,7 @@ function taskBelongsToSlice(
     return true;
   }
 
-  const contextText = `${issue.title}\n${issue.body ?? ""}`;
-  const sliceIdMatcher = new RegExp(`\\b${escapeRegex(sliceId)}\\b`, "i");
-  return sliceIdMatcher.test(contextText);
+  return issueMentionsScopedId(issue, sliceId);
 }
 
 export async function deriveGithubState(
@@ -291,8 +343,17 @@ export async function deriveGithubState(
     };
   }
 
-  const openSlices = slices.filter((slice) => slice.issue.state !== "closed");
-  const closedSlices = slices.filter((slice) => slice.issue.state === "closed");
+  const activeMilestoneId = activeMilestoneEntry?.parsed.id ?? null;
+  const activeRoadmapSliceKeys = activeMilestoneEntry
+    ? parseMilestoneRoadmapSliceKeys(activeMilestoneEntry.issue, activeMilestoneEntry.parsed.id)
+    : null;
+
+  const slicesForActiveMilestone = activeMilestoneId
+    ? slices.filter((slice) => sliceBelongsToMilestone(slice, activeMilestoneId, activeRoadmapSliceKeys))
+    : [];
+
+  const openSlices = slicesForActiveMilestone.filter((slice) => slice.issue.state !== "closed");
+  const closedSlices = slicesForActiveMilestone.filter((slice) => slice.issue.state === "closed");
 
   let activeSliceEntry: (typeof openSlices)[number] | null = null;
   if (branchRef?.sliceId) {
@@ -303,14 +364,17 @@ export async function deriveGithubState(
     activeSliceEntry = openSlices[0] ?? null;
   }
 
-  const openTasks = tasks.filter((task) => task.issue.state !== "closed");
-  const closedTasks = tasks.filter((task) => task.issue.state === "closed");
+  const tasksForActiveMilestone = activeMilestoneId
+    ? tasks.filter((task) => taskBelongsToMilestone(task.issue, activeMilestoneId, task.metadata))
+    : [];
+  const openTasks = tasksForActiveMilestone.filter((task) => task.issue.state !== "closed");
+  const closedTasks = tasksForActiveMilestone.filter((task) => task.issue.state === "closed");
 
   const activeSliceId = activeSliceEntry?.parsed.id ?? null;
-  const scopedOpenTasks = activeSliceId
+  const scopedOpenTasks = activeSliceId && activeMilestoneId
     ? openTasks.filter((task) => taskBelongsToSlice(task.issue, activeSliceId, task.metadata))
     : [];
-  const scopedClosedTasks = activeSliceId
+  const scopedClosedTasks = activeSliceId && activeMilestoneId
     ? closedTasks.filter((task) => taskBelongsToSlice(task.issue, activeSliceId, task.metadata))
     : [];
 
@@ -326,6 +390,8 @@ export async function deriveGithubState(
       scopedOpenTasks.map((t) => t.issue),
       scopedClosedTasks.map((t) => t.issue),
     );
+  } else if (activeMilestoneId && slicesForActiveMilestone.length > 0 && openSlices.length === 0) {
+    phase = "completing-milestone";
   } else {
     phase = "pre-planning";
   }
@@ -365,11 +431,11 @@ export async function deriveGithubState(
       },
       slices: {
         done: closedSlices.length,
-        total: slices.length,
+        total: slicesForActiveMilestone.length,
       },
       tasks: {
         done: closedTasks.length,
-        total: tasks.length,
+        total: tasksForActiveMilestone.length,
       },
     },
   };

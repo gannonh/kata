@@ -275,14 +275,22 @@ In both cases, auto-mode pauses at the slice boundary. It never merges automatic
 
 ## Project State
 
-Kata workflow artifacts are stored in Linear:
+Kata supports both Linear-backed and GitHub-backed workflow storage.
+
+### Linear mode
 
 - Milestones → Linear project milestones (`[M###]`)
 - Slices → Linear parent issues (`[S##]`)
 - Tasks → Linear sub-issues (`[T##]`)
 - Roadmaps, context, research, summaries, decisions → Linear documents/comments
 
-The local `.kata/` directory is still used for runtime metadata (preferences, activity logs, metrics), but planning state is Linear-backed.
+### GitHub mode
+
+- Milestones, slices, and tasks live in GitHub issues
+- Planning artifacts are persisted with stable `KATA:GITHUB_ARTIFACT` metadata markers
+- State derivation is milestone-scoped, so repeated IDs like `S01` are resolved against the active milestone roadmap instead of guessed globally
+
+The local `.kata/` directory is still used for runtime metadata (preferences, activity logs, metrics), but workflow state lives in the configured backend.
 
 ## Bundled Tools
 
