@@ -1709,6 +1709,7 @@ export interface ParsedRoadmapBoundarySection {
 export interface ParsedRoadmap {
   vision: string | null
   successCriteria: string[]
+  definitionOfDone: string[]
   slices: ParsedRoadmapSlice[]
   boundaryMap: ParsedRoadmapBoundarySection[]
 }

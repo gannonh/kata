@@ -2435,8 +2435,13 @@ export function registerSessionIpc({
 
 function detectArtifactTypeFromTitle(title: string): ArtifactType | undefined {
   const normalized = normalizeArtifactTitle(title)
+  const trimmedTitle = title.trim()
 
-  if (/-ROADMAP(?:\b|$)/.test(normalized) || normalized === 'ROADMAP') {
+  if (
+    /-ROADMAP(?:\b|$)/.test(normalized) ||
+    normalized === 'ROADMAP' ||
+    /^\[M\d+\]\s+/.test(trimmedTitle)
+  ) {
     return 'roadmap'
   }
 
