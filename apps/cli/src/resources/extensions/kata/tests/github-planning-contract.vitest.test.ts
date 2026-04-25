@@ -88,7 +88,7 @@ describe("GitHub planning contract", () => {
     expect(state.phase).toBe("planning");
   });
 
-  it("falls back to title-based identity when metadata is absent", async () => {
+  it("does not guess an active slice when milestone linkage metadata is absent", async () => {
     const issues: GithubIssueSummary[] = [
       {
         number: 20,
@@ -112,7 +112,7 @@ describe("GitHub planning contract", () => {
     });
 
     expect(state.activeMilestone?.id).toBe("M010");
-    expect(state.activeSlice?.id).toBe("S01");
-    expect(state.phase).toBe("executing");
+    expect(state.activeSlice).toBeNull();
+    expect(state.phase).toBe("pre-planning");
   });
 });

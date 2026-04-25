@@ -351,13 +351,9 @@ export async function deriveGithubState(
     ? parseMilestoneRoadmapSliceKeys(activeMilestoneEntry.issue, activeMilestoneEntry.parsed.id)
     : null;
 
-  let slicesForActiveMilestone = activeMilestoneId
+  const slicesForActiveMilestone = activeMilestoneId
     ? slices.filter((slice) => sliceBelongsToMilestone(slice, activeMilestoneId, activeRoadmapSliceKeys))
     : [];
-
-  if (activeMilestoneId && slicesForActiveMilestone.length === 0 && activeRoadmapSliceKeys === null) {
-    slicesForActiveMilestone = [...slices];
-  }
 
   const openSlices = slicesForActiveMilestone.filter((slice) => slice.issue.state !== "closed");
   const closedSlices = slicesForActiveMilestone.filter((slice) => slice.issue.state === "closed");
