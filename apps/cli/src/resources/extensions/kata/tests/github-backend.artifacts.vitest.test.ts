@@ -579,7 +579,8 @@ describe("GithubBackend artifact persistence", () => {
     const milestones = await backend.listMilestones();
     expect(milestones).toEqual([
       expect.objectContaining({
-        id: "10",
+        id: "M901",
+        trackerIssueId: "10",
         name: "[M901] Live mutation test",
         targetDate: "2026-04-30",
         updatedAt: "2026-04-17T22:58:07Z",

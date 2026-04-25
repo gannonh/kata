@@ -621,7 +621,7 @@ export class GithubWorkflowClient {
 
     candidates.sort((left, right) => {
       if (left.ordinal !== null && right.ordinal !== null && left.ordinal !== right.ordinal) {
-        return right.ordinal - left.ordinal
+        return left.ordinal - right.ordinal
       }
 
       if (left.ordinal !== null && right.ordinal === null) {
@@ -632,7 +632,7 @@ export class GithubWorkflowClient {
         return 1
       }
 
-      return right.number - left.number
+      return left.number - right.number
     })
 
     const selected = candidates[0]

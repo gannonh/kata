@@ -25,8 +25,13 @@ const TYPE_LABEL: Record<Exclude<PrimaryArtifactType, 'roadmap'>, string> = {
   decisions: 'Decisions',
 }
 
-export function getPrimaryPlanningArtifacts(artifacts: PlanningArtifactState[]): PlanningArtifactState[] {
+export function getPrimaryPlanningArtifacts(
+  artifacts: PlanningArtifactState[],
+  activeMilestoneId?: string | null,
+): PlanningArtifactState[] {
   const newestArtifactByType = new Map<PrimaryArtifactType, PlanningArtifactState>()
+  const normalizedActiveMilestoneId = activeMilestoneId?.trim().toUpperCase() ?? null
+  const roadmapCandidates: PlanningArtifactState[] = []
 
   for (const artifact of artifacts) {
     const artifactType = getArtifactType(artifact)
@@ -34,15 +39,23 @@ export function getPrimaryPlanningArtifacts(artifacts: PlanningArtifactState[]):
       continue
     }
 
-    const existingArtifact = newestArtifactByType.get(artifactType)
-    if (!existingArtifact) {
-      newestArtifactByType.set(artifactType, artifact)
+    if (artifactType === 'roadmap') {
+      roadmapCandidates.push(artifact)
       continue
     }
 
-    if (Date.parse(artifact.updatedAt) > Date.parse(existingArtifact.updatedAt)) {
+    const existingArtifact = newestArtifactByType.get(artifactType)
+    if (!existingArtifact || Date.parse(artifact.updatedAt) > Date.parse(existingArtifact.updatedAt)) {
       newestArtifactByType.set(artifactType, artifact)
     }
+  }
+
+  const matchingRoadmaps = normalizedActiveMilestoneId
+    ? roadmapCandidates.filter((artifact) => extractMilestoneIdFromTitle(artifact.title) === normalizedActiveMilestoneId)
+    : roadmapCandidates
+  const selectedRoadmap = getNewestArtifact(matchingRoadmaps[0] ? matchingRoadmaps : roadmapCandidates)
+  if (selectedRoadmap) {
+    newestArtifactByType.set('roadmap', selectedRoadmap)
   }
 
   return [...newestArtifactByType.values()].sort((left, right) => {
@@ -123,7 +136,7 @@ function isPrimaryArtifactType(value: string | null | undefined): value is Prima
   return value === 'roadmap' || value === 'requirements' || value === 'decisions'
 }
 
-function formatArtifactTitle(title: string): string {
+export function formatArtifactTitle(title: string): string {
   const detectedType = detectArtifactType(title)
   if (detectedType === 'roadmap') {
     return formatMilestoneTitle(title)
@@ -136,16 +149,42 @@ function formatArtifactTitle(title: string): string {
   return title
 }
 
-function formatMilestoneTitle(title: string): string {
-  const bracketMatch = title.trim().match(/^\[(M\d+)\]\s+(.+)$/)
+export function formatMilestoneTitle(title: string): string {
+  const normalizedTitle = normalizeTitle(title)
+  const bracketMatch = normalizedTitle.match(/^\[(M\d{3})\]\s+(.+)$/)
   if (bracketMatch?.[1] && bracketMatch[2]) {
     return `${bracketMatch[1]}: ${bracketMatch[2].trim()}`
   }
 
-  const roadmapMatch = title.trim().match(/^(M\d+)-ROADMAP$/i)
+  const roadmapMatch = normalizedTitle.match(/^(M\d{3})-ROADMAP$/i)
   if (roadmapMatch?.[1]) {
     return `${roadmapMatch[1].toUpperCase()}: Milestone`
   }
 
-  return title
+  return normalizedTitle
+}
+
+function getNewestArtifact(artifacts: PlanningArtifactState[]): PlanningArtifactState | null {
+  return artifacts.reduce<PlanningArtifactState | null>((latest, artifact) => {
+    if (!latest || Date.parse(artifact.updatedAt) > Date.parse(latest.updatedAt)) {
+      return artifact
+    }
+
+    return latest
+  }, null)
+}
+
+function extractMilestoneIdFromTitle(title: string): string | null {
+  const normalizedTitle = normalizeTitle(title)
+  const bracketMatch = normalizedTitle.match(/^\[(M\d{3})\]\s+/)
+  if (bracketMatch?.[1]) {
+    return bracketMatch[1]
+  }
+
+  const roadmapMatch = normalizedTitle.match(/^(M\d{3})-ROADMAP$/i)
+  return roadmapMatch?.[1]?.toUpperCase() ?? null
+}
+
+function normalizeTitle(title: string): string {
+  return title.trim().replace(/^KATA-DOC\s*:\s*/i, '')
 }

@@ -1682,12 +1682,17 @@ function filterSnapshotToMilestone(snapshot: WorkflowBoardSnapshot, milestoneId:
   }))
 
   const hasCards = columns.some((column) => column.cards.length > 0)
+  const preserveStatus = snapshot.status === 'stale' || snapshot.status === 'error'
 
   return {
     ...snapshot,
     columns,
-    status: hasCards ? snapshot.status : snapshot.status === 'error' ? 'error' : 'empty',
-    emptyReason: hasCards ? undefined : 'No slices found in the active milestone.',
+    status: hasCards ? snapshot.status : preserveStatus ? snapshot.status : 'empty',
+    emptyReason: hasCards
+      ? snapshot.emptyReason
+      : preserveStatus
+        ? snapshot.emptyReason
+        : 'No slices found in the active milestone.',
   }
 }
 

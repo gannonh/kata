@@ -32,6 +32,7 @@ import {
   parseGithubKataTitle,
   parseGithubArtifactMetadata,
   readEmbeddedDocument,
+  roadmapSliceKey,
   serializeGithubArtifactMetadata,
   stripEmbeddedDocuments,
   stripGithubArtifactMetadata,
@@ -959,10 +960,6 @@ function requireMilestoneKataId(input: string): string {
   return normalized;
 }
 
-function roadmapSliceKey(id: string, title: string): string {
-  return `${id.trim().toUpperCase()}::${title.trim().toLowerCase()}`;
-}
-
 const KATA_STATE_LABEL_SUFFIXES = [
   "backlog",
   "planning",
@@ -1708,8 +1705,9 @@ export class GithubBackend implements KataBackend {
   }
 
   private toMilestoneRecord(issue: GithubIssueSummary): KataMilestoneRecord {
+    const parsedTitle = parseGithubKataTitle(issue.title);
     return {
-      id: String(issue.number),
+      id: parsedTitle?.kataId ?? String(issue.number),
       name: issue.title,
       targetDate: parseTargetDateFromIssue(issue),
       updatedAt: issue.updatedAt ?? null,

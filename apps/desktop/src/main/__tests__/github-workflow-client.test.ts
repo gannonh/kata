@@ -282,6 +282,81 @@ describe('GithubWorkflowClient', () => {
     ])
   })
 
+  test('projects v2 snapshot prefers the earliest open kata milestone to match CLI active-milestone selection', async () => {
+    process.env.GH_TOKEN = 'ghp_test'
+
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              repository: {
+                owner: {
+                  __typename: 'User',
+                  login: 'kata-sh',
+                  projectV2: {
+                    id: 'PVT_kwDOG7',
+                    field: { id: 'PVTSSF_kwDOG7_status' },
+                  },
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              node: {
+                items: {
+                  nodes: [],
+                  pageInfo: {
+                    hasNextPage: false,
+                    endCursor: null,
+                  },
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify([
+            {
+              number: 402,
+              title: '[M002] Newer open milestone',
+              labels: [{ name: 'kata:milestone' }],
+            },
+            {
+              number: 401,
+              title: '[M001] Earlier open milestone',
+              labels: [{ name: 'kata:milestone' }],
+            },
+          ]),
+          { status: 200 },
+        ),
+      ) as unknown as typeof fetch
+
+    const client = new GithubWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
+
+    const snapshot = await client.fetchSnapshot({
+      config: {
+        kind: 'github',
+        repoOwner: 'kata-sh',
+        repoName: 'kata',
+        stateMode: 'projects_v2',
+        githubProjectNumber: 7,
+      },
+    })
+
+    expect(snapshot.source.activeMilestoneId).toBe('M001')
+  })
+
   test('projects_v2 never renders orphan task items without a parent relationship', async () => {
     process.env.GH_TOKEN = 'ghp_test'
 

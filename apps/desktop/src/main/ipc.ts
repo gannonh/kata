@@ -2440,7 +2440,7 @@ function detectArtifactTypeFromTitle(title: string): ArtifactType | undefined {
   if (
     /-ROADMAP(?:\b|$)/.test(normalized) ||
     normalized === 'ROADMAP' ||
-    /^\[M\d+\]\s+/.test(trimmedTitle)
+    /^\[M\d{3}\]\s+/.test(trimmedTitle)
   ) {
     return 'roadmap'
   }

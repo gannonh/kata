@@ -39,6 +39,10 @@ const MILESTONE_RE = /^M\d{3}$/;
 const SLICE_RE = /^S\d{2}$/;
 const TASK_RE = /^T\d{2}$/;
 
+export function roadmapSliceKey(id: string, title: string): string {
+  return `${id.trim().toUpperCase()}::${title.trim().toLowerCase()}`;
+}
+
 function normalizeKataId(id: string): string {
   return id.trim().toUpperCase();
 }

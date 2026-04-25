@@ -6,6 +6,7 @@ import {
   maybeParseGithubArtifactMetadata,
   parseGithubKataTitle,
   readEmbeddedDocument,
+  roadmapSliceKey,
   type GithubArtifactMetadataV1,
 } from "./github-artifacts.js";
 
@@ -157,10 +158,6 @@ function issueMentionsScopedId(issue: GithubIssueSummary, scopedId: string): boo
   const contextText = `${issue.title}\n${issue.body ?? ""}`;
   const matcher = new RegExp(`\\b${escapeRegex(normalized)}\\b`, "i");
   return matcher.test(contextText);
-}
-
-function roadmapSliceKey(id: string, title: string): string {
-  return `${id.trim().toUpperCase()}::${title.trim().toLowerCase()}`;
 }
 
 function parseMilestoneRoadmapSliceKeys(issue: GithubIssueSummary, milestoneId: string): Set<string> | null {
@@ -375,16 +372,10 @@ export async function deriveGithubState(
 
   const activeSliceId = activeSliceEntry?.parsed.id ?? null;
   const scopedOpenTasks = activeSliceId && activeMilestoneId
-    ? openTasks.filter((task) =>
-        taskBelongsToMilestone(task.issue, activeMilestoneId, task.metadata) &&
-        taskBelongsToSlice(task.issue, activeSliceId, task.metadata),
-      )
+    ? openTasks.filter((task) => taskBelongsToSlice(task.issue, activeSliceId, task.metadata))
     : [];
   const scopedClosedTasks = activeSliceId && activeMilestoneId
-    ? closedTasks.filter((task) =>
-        taskBelongsToMilestone(task.issue, activeMilestoneId, task.metadata) &&
-        taskBelongsToSlice(task.issue, activeSliceId, task.metadata),
-      )
+    ? closedTasks.filter((task) => taskBelongsToSlice(task.issue, activeSliceId, task.metadata))
     : [];
 
   const activeTaskEntry = scopedOpenTasks[0] ?? null;

@@ -178,6 +178,7 @@ describe('artifact-parser', () => {
   test('detectArtifactType matches known artifact titles', () => {
     expect(detectArtifactType('M002-ROADMAP')).toBe('roadmap')
     expect(detectArtifactType('[M002] Workflow Contract Unification and Backend Parity')).toBe('roadmap')
+    expect(detectArtifactType('[M2] Invalid Milestone')).toBeNull()
     expect(detectArtifactType('REQUIREMENTS')).toBe('requirements')
     expect(detectArtifactType('DECISIONS')).toBe('decisions')
     expect(detectArtifactType('KATA-DOC: DECISIONS')).toBe('decisions')
