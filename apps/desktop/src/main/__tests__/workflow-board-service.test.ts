@@ -1984,6 +1984,100 @@ describe('WorkflowBoardService', () => {
     expect(response.snapshot.activeMilestone?.name).toContain('GitHub Project')
   })
 
+  test('filters github milestone scope to cards with the active kata milestone id', async () => {
+    const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-github-milestone-scope-'))
+    mkdirSync(path.join(workspacePath, '.kata'), { recursive: true })
+    writeFileSync(
+      path.join(workspacePath, '.kata', 'preferences.md'),
+      [
+        '---',
+        'workflow:',
+        '  mode: github',
+        'github:',
+        '  repoOwner: gannonh',
+        '  repoName: kata',
+        '  githubProjectNumber: 17',
+        '---',
+        '',
+      ].join('\n'),
+      'utf8',
+    )
+
+    const service = new WorkflowBoardService({
+      authBridge: { getApiKey: vi.fn(async () => null) } as never,
+      getWorkspacePath: () => workspacePath,
+    })
+
+    ;(service as any).githubClient.fetchSnapshot = vi.fn(async () => ({
+      backend: 'github',
+      fetchedAt: '2026-04-25T00:00:00.000Z',
+      status: 'fresh',
+      source: {
+        projectId: 'github:gannonh/kata',
+        activeMilestoneId: 'M002',
+        trackerKind: 'github',
+        githubStateMode: 'projects_v2',
+        repoOwner: 'gannonh',
+        repoName: 'kata',
+      },
+      activeMilestone: {
+        id: 'github-project:17',
+        name: 'GitHub Project #17',
+      },
+      columns: [
+        {
+          id: 'backlog',
+          title: 'Backlog',
+          cards: [
+            {
+              id: '387',
+              identifier: '#387',
+              title: '[S01] Canonical workflow contract from one source',
+              columnId: 'backlog',
+              stateName: 'Backlog',
+              stateType: 'projects_v2',
+              milestoneId: 'M002',
+              milestoneName: '[M002] Workflow Contract Unification and Backend Parity',
+              taskCounts: { total: 0, done: 0 },
+              tasks: [],
+            },
+          ],
+        },
+        {
+          id: 'done',
+          title: 'Done',
+          cards: [
+            {
+              id: '341',
+              identifier: '#341',
+              title: '[S01] Command + skill discovery substrate',
+              columnId: 'done',
+              stateName: 'Done',
+              stateType: 'projects_v2',
+              milestoneId: 'M001',
+              milestoneName: '[M001] Desktop Slash Autocomplete Parity',
+              taskCounts: { total: 0, done: 0 },
+              tasks: [],
+            },
+          ],
+        },
+      ],
+      poll: { status: 'success', backend: 'github', lastAttemptAt: '2026-04-25T00:00:00.000Z' },
+    }))
+
+    service.setActive(true)
+    service.setScope({ scopeKey: 'workspace:test::session:test::scope:milestone', requestedScope: 'milestone' })
+    const response = await service.refreshBoard()
+
+    expect(response.snapshot.scope).toMatchObject({
+      requested: 'milestone',
+      resolved: 'milestone',
+      reason: 'requested',
+    })
+    expect(response.snapshot.columns.find((column) => column.id === 'backlog')?.cards.map((card) => card.id)).toEqual(['387'])
+    expect(response.snapshot.columns.find((column) => column.id === 'done')?.cards).toEqual([])
+  })
+
   test('returns INVALID_CONFIG when github mode is configured without github block', async () => {
     const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-invalid-config-'))
     mkdirSync(path.join(workspacePath, '.kata'), { recursive: true })

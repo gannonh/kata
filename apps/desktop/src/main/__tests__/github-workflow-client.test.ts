@@ -151,6 +151,7 @@ describe('GithubWorkflowClient', () => {
                         id: 'I_kwDOA',
                         number: 2249,
                         title: '[S02] GitHub Workflow Board Parity',
+                        body: '<!-- KATA:GITHUB_ARTIFACT {"schema":"kata/github-artifact/v1","kind":"slice","kataId":"S02","milestoneId":"M001"} -->\n\nPR: https://github.com/kata-sh/kata/pull/77',
                         url: 'https://github.com/kata-sh/kata/issues/2249',
                         subIssues: {
                           nodes: [
@@ -250,6 +251,7 @@ describe('GithubWorkflowClient', () => {
 
     expect(snapshot.backend).toBe('github')
     expect(snapshot.source.githubStateMode).toBe('projects_v2')
+    expect(snapshot.source.activeMilestoneId).toBe('M001')
     expect(snapshot.activeMilestone?.name).toBe('GitHub Project #7')
     const agentReviewCards = snapshot.columns.find((column) => column.id === 'agent_review')?.cards ?? []
     expect(agentReviewCards).toHaveLength(1)
@@ -257,10 +259,15 @@ describe('GithubWorkflowClient', () => {
       id: '2249',
       identifier: '#2249',
       stateName: 'Agent Review',
+      milestoneId: 'M001',
       milestoneName: '[M001] Desktop Slash Autocomplete Parity',
       taskCounts: {
         total: 1,
         done: 1,
+      },
+      prMetadata: {
+        number: 77,
+        url: 'https://github.com/kata-sh/kata/pull/77',
       },
     })
     expect(agentReviewCards[0]?.tasks).toEqual([

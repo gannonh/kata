@@ -1188,11 +1188,19 @@ export class WorkflowBoardService {
     let resolvedScope: WorkflowBoardScope = this.requestedScope
     let resolutionReason: WorkflowBoardScopeResolutionReason = 'requested'
     let note: string | undefined
+    let scopedSnapshot = snapshot
 
     if (this.requestedScope === 'milestone' && snapshot.backend === 'github') {
-      resolvedScope = 'project'
-      resolutionReason = 'milestone_scope_not_supported'
-      note = 'Milestone scope is unavailable for GitHub trackers. Showing project scope.'
+      const activeMilestoneId = snapshot.source.activeMilestoneId?.trim()
+      const canFilterGithubMilestone = snapshot.source.githubStateMode === 'projects_v2' && Boolean(activeMilestoneId)
+
+      if (canFilterGithubMilestone && activeMilestoneId) {
+        scopedSnapshot = filterSnapshotToMilestone(snapshot, activeMilestoneId)
+      } else {
+        resolvedScope = 'project'
+        resolutionReason = 'milestone_scope_not_supported'
+        note = 'Milestone scope is unavailable for this GitHub tracker. Showing project scope.'
+      }
     }
 
     // When Active scope is requested, determine whether Symphony can provide
@@ -1218,7 +1226,6 @@ export class WorkflowBoardService {
       }
     }
 
-    let scopedSnapshot = snapshot
     let activeMatchIdentifiers: string[] | undefined
     let activeMatchCount: number | undefined
 
@@ -1666,6 +1673,22 @@ function parseScopeToken(scopeKey: string): WorkflowBoardScope {
   }
 
   return 'milestone'
+}
+
+function filterSnapshotToMilestone(snapshot: WorkflowBoardSnapshot, milestoneId: string): WorkflowBoardSnapshot {
+  const columns = snapshot.columns.map((column) => ({
+    ...column,
+    cards: column.cards.filter((card) => card.milestoneId === milestoneId),
+  }))
+
+  const hasCards = columns.some((column) => column.cards.length > 0)
+
+  return {
+    ...snapshot,
+    columns,
+    status: hasCards ? snapshot.status : snapshot.status === 'error' ? 'error' : 'empty',
+    emptyReason: hasCards ? undefined : 'No slices found in the active milestone.',
+  }
 }
 
 function projectActiveScope(snapshot: WorkflowBoardSnapshot): {
