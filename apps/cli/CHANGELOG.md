@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.15.9
+
+### Improvements
+
+- **Upgrade pi runtime dependencies to `0.70.2`** — bumped `@mariozechner/pi-coding-agent` and `@mariozechner/pi-tui` to the latest compatible release used by Kata CLI.
+
+### Bug Fixes
+
+- **Scope GitHub planning state to the active milestone** — GitHub-backed Kata workflows now derive open slices and tasks from the active milestone roadmap plus stable artifact metadata instead of guessing from bare `S01` / `T01` identifiers across the whole tracker.
+- **Harden GitHub slice lookup across repeated slice IDs** — slice resolution now matches roadmap entries with a stable `id + title` key, validates Kata milestone IDs up front, and preserves the legacy single-match fallback only when the GitHub tracker result is unambiguous.
+- **Refresh GitHub planning prompts correctly in RPC/Desktop sessions** — startup and planning flows now reload the latest GitHub-mode prompt guidance reliably when running through the embedded RPC/Desktop bridge.
+
 ## 0.15.8
 
 ### Bug Fixes

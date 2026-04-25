@@ -1,10 +1,11 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { Type } from "@sinclair/typebox";
-import { TypeCompiler } from "@sinclair/typebox/compiler";
 import chalk from "chalk";
 import { highlight, supportsLanguage } from "cli-highlight";
+import { Type } from "typebox";
+import { Compile } from "typebox/compile";
 import { getCustomThemesDir, getThemesDir } from "../../../config.js";
+import { closeWatcher, watchWithErrorHandler } from "../../../utils/fs-watch.js";
 // ============================================================================
 // Types & Schema
 // ============================================================================
@@ -82,7 +83,7 @@ const ThemeJsonSchema = Type.Object({
         infoBg: Type.Optional(ColorValueSchema),
     })),
 });
-const validateThemeJson = TypeCompiler.Compile(ThemeJsonSchema);
+const validateThemeJson = Compile(ThemeJsonSchema);
 // ============================================================================
 // Color Utilities
 // ============================================================================
@@ -396,22 +397,26 @@ export function getAvailableThemesWithPaths() {
 function parseThemeJson(label, json) {
     if (!validateThemeJson.Check(json)) {
         const errors = Array.from(validateThemeJson.Errors(json));
-        const missingColors = [];
+        const missingColors = new Set();
         const otherErrors = [];
-        for (const e of errors) {
-            // Check for missing required color properties
-            const match = e.path.match(/^\/colors\/(\w+)$/);
-            if (match && e.message.includes("Required")) {
-                missingColors.push(match[1]);
+        for (const error of errors) {
+            if (error.keyword === "required" && error.instancePath === "/colors") {
+                const requiredProperties = error.params.requiredProperties;
+                for (const requiredProperty of requiredProperties ?? []) {
+                    missingColors.add(requiredProperty);
+                }
+                continue;
             }
-            else {
-                otherErrors.push(`  - ${e.path}: ${e.message}`);
-            }
+            const path = error.instancePath || "/";
+            otherErrors.push(`  - ${path}: ${error.message}`);
         }
         let errorMessage = `Invalid theme "${label}":\n`;
-        if (missingColors.length > 0) {
+        if (missingColors.size > 0) {
             errorMessage += "\nMissing required color tokens:\n";
-            errorMessage += missingColors.map((c) => `  - ${c}`).join("\n");
+            errorMessage += Array.from(missingColors)
+                .sort()
+                .map((color) => `  - ${color}`)
+                .join("\n");
             errorMessage += '\n\nPlease add these colors to your theme\'s "colors" object.';
             errorMessage += "\nSee the built-in themes (dark.json, light.json) for reference values.";
         }
@@ -641,8 +646,8 @@ function startThemeWatcher() {
             }
         }, 100);
     };
-    try {
-        themeWatcher = fs.watch(customThemesDir, (_eventType, filename) => {
+    themeWatcher =
+        watchWithErrorHandler(customThemesDir, (_eventType, filename) => {
             if (currentThemeName !== watchedThemeName) {
                 return;
             }
@@ -650,35 +655,22 @@ function startThemeWatcher() {
                 scheduleReload();
                 return;
             }
-            const changedFile = String(filename);
-            if (changedFile !== watchedFileName) {
+            if (filename !== watchedFileName) {
                 return;
             }
             scheduleReload();
-        });
-        themeWatcher.on("error", () => {
-            try {
-                themeWatcher?.close();
-            }
-            catch {
-                /* ignore */
-            }
+        }, () => {
+            closeWatcher(themeWatcher);
             themeWatcher = undefined;
-        });
-    }
-    catch (_error) {
-        // Ignore errors starting watcher
-    }
+        }) ?? undefined;
 }
 export function stopThemeWatcher() {
     if (themeReloadTimer) {
         clearTimeout(themeReloadTimer);
         themeReloadTimer = undefined;
     }
-    if (themeWatcher) {
-        themeWatcher.close();
-        themeWatcher = undefined;
-    }
+    closeWatcher(themeWatcher);
+    themeWatcher = undefined;
 }
 // ============================================================================
 // HTML Export Helpers

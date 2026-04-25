@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.2.8
+
+### Improvements
+
+- **Bundle Kata CLI runtime with pi `0.70.2`** — the packaged desktop runtime now includes the CLI dependency bump to the latest `@mariozechner/pi-coding-agent` / `@mariozechner/pi-tui` release.
+
+### Features
+
+- **Milestone-aware GitHub planning view** — the planning pane now selects the active milestone roadmap, renders milestone context and definition-of-done data, and links roadmap slices directly to their GitHub issues.
+
+### Fixes
+
+- **Scope GitHub workflow board cards to the active milestone** — GitHub project board filtering now uses Kata milestone metadata so historical slices from other milestones no longer leak into the active planning/execution view.
+- **Harden planning artifact parsing and test stability** — roadmap parsing now understands milestone definition-of-done content and richer requirement states, with stronger coverage around workflow board, planning artifacts, skill scanning, and IPC-side test startup behavior.
+
 ## 0.2.7
 
 ### Improvements
