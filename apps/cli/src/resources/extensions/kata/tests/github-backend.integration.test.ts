@@ -53,19 +53,24 @@ function startMockGithubServer(): Promise<{ server: Server; baseUrl: string }> {
         title: "[M009] GitHub Backend Parity",
         state: "open",
         labels: [{ name: "kata:milestone" }],
+        body:
+          '<!-- KATA:GITHUB_ARTIFACT {"schema":"kata/github-artifact/v1","kind":"milestone","kataId":"M009","documentTitles":["M009-ROADMAP"]} -->\n\n<!-- KATA:DOC:M009-ROADMAP -->\n# M009: GitHub Backend Parity\n\n**Vision:** Validate GitHub mode end-to-end.\n\n**Success Criteria:**\n* Backend derives active refs correctly\n\n---\n\n## Slices\n\n* [ ] **S01: CLI GitHub Workflow Mode Bootstrap** `risk:low` `depends:[]`\n  > After this: GitHub mode derives milestone, slice, and task state.\n<!-- /KATA:DOC -->',
       },
       {
         number: 102,
         title: "[S01] CLI GitHub Workflow Mode Bootstrap",
         state: "open",
         labels: [{ name: "kata:slice" }, { name: "kata:executing" }],
+        body:
+          '<!-- KATA:GITHUB_ARTIFACT {"schema":"kata/github-artifact/v1","kind":"slice","kataId":"S01","milestoneId":"M009","documentTitles":["S01-PLAN"]} -->\n\nSlice plan for M009/S01.',
       },
       {
         number: 103,
         title: "[T04] Wire /kata surfaces",
         state: "open",
         labels: [{ name: "kata:task" }],
-        body: "Tracking implementation for slice S01",
+        body:
+          '<!-- KATA:GITHUB_ARTIFACT {"schema":"kata/github-artifact/v1","kind":"task","kataId":"T04","milestoneId":"M009","sliceId":"S01","documentTitles":["T04-PLAN"]} -->\n\nTracking implementation for M009/S01.',
       },
     ],
     "2": [],
@@ -188,6 +193,7 @@ test("createBackend boots GitHub mode and derives active refs", async () => {
         GH_TOKEN: undefined,
         GITHUB_TOKEN: undefined,
         KATA_GITHUB_API_BASE_URL: baseUrl,
+        KATA_GITHUB_AUTH_FILE_PATH: undefined,
         KATA_GITHUB_WORKFLOW_PATH: undefined,
       },
       async () => {
@@ -222,6 +228,7 @@ test("createBackend returns actionable diagnostics when GitHub token is missing"
         GITHUB_TOKEN: undefined,
         KATA_GITHUB_ENABLE_GH_CLI_FALLBACK: "0",
         KATA_GITHUB_API_BASE_URL: undefined,
+        KATA_GITHUB_AUTH_FILE_PATH: join(workspace, "missing-auth.json"),
         KATA_GITHUB_WORKFLOW_PATH: undefined,
         HOME: workspace,
       },
@@ -258,6 +265,7 @@ test("createBackend fetches beyond 10 pages when GitHub issues exceed 1000", asy
         GH_TOKEN: undefined,
         GITHUB_TOKEN: undefined,
         KATA_GITHUB_API_BASE_URL: baseUrl,
+        KATA_GITHUB_AUTH_FILE_PATH: undefined,
         KATA_GITHUB_WORKFLOW_PATH: undefined,
       },
       async () => {
@@ -285,6 +293,7 @@ test("createBackend surfaces timeout diagnostics when GitHub API calls hang", as
         GITHUB_TOKEN: undefined,
         KATA_GITHUB_API_BASE_URL: baseUrl,
         KATA_GITHUB_API_TIMEOUT_MS: "10",
+        KATA_GITHUB_AUTH_FILE_PATH: undefined,
         KATA_GITHUB_WORKFLOW_PATH: undefined,
       },
       async () => {
@@ -324,6 +333,7 @@ test("runtime smoke: GitHub backend derives state against real GitHub API when t
     await withEnv(
       {
         KATA_GITHUB_API_BASE_URL: undefined,
+        KATA_GITHUB_AUTH_FILE_PATH: undefined,
         KATA_GITHUB_WORKFLOW_PATH: undefined,
       },
       async () => {
