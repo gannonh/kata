@@ -122,12 +122,12 @@ describe('skill-scanner', () => {
   })
 
   test('[R003] scanAllSkillDirectories discovers and dedupes /skill:* entries across configured locations', async () => {
-    const kataSkillsDir = path.join(fakeHome, '.kata-cli', 'agent', 'skills')
     const userSkillsDir = path.join(fakeHome, '.agents', 'skills')
+    const codexSkillsDir = path.join(fakeHome, '.codex', 'skills')
     const workspaceSkillsDir = path.join(fakeWorkspace, '.agents', 'skills')
 
-    await writeSkill(kataSkillsDir, 'debug-like-expert')
     await writeSkill(userSkillsDir, 'shared-skill', ['---', 'name: shared-skill', 'description: user copy', '---'].join('\n'))
+    await writeSkill(codexSkillsDir, 'debug-like-expert')
     await writeSkill(workspaceSkillsDir, 'shared-skill', ['---', 'name: shared-skill', 'description: workspace copy', '---'].join('\n'))
     await writeSkill(workspaceSkillsDir, 'frontend-design')
     await writeSkill(path.join(workspaceSkillsDir, 'nested'), 'deep-skill')

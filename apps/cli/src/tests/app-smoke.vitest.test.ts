@@ -3,7 +3,7 @@
  *
  * Tests the glue code that IS the product:
  * - app-paths resolve to ~/.kata-cli/
- * - loader sets all required env vars
+ * - loader delegates into the standalone CLI entrypoint
  * - resource-loader syncs bundled resources
  * - wizard loadStoredEnvKeys hydrates env
  * - npm pack produces a valid tarball
@@ -11,10 +11,9 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { execFileSync, execSync, spawn } from "node:child_process";
+import { execFileSync, execSync } from "node:child_process";
 import {
   existsSync,
-  mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -44,42 +43,17 @@ describe("app-paths", () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 2. loader env vars
+// 2. loader entrypoint
 // ═══════════════════════════════════════════════════════════════════════════
 
-describe("loader env vars", () => {
-  it("sets all 4 KATA_ env vars and PI_PACKAGE_DIR", async () => {
-    const { agentDir: ad } = await import("../app-paths.ts");
-    expect(ad).toMatch(/\.kata-cli\/agent$/);
-
+describe("loader entrypoint", () => {
+  it("delegates directly to cli.js", () => {
     const loaderSrc = readFileSync(
       join(projectRoot, "src", "loader.ts"),
       "utf-8",
     );
-    expect(loaderSrc).toContain("PI_PACKAGE_DIR");
-    expect(loaderSrc).toContain("KATA_CODING_AGENT_DIR");
-    expect(loaderSrc).toContain("KATA_BIN_PATH");
-    expect(loaderSrc).toContain("KATA_WORKFLOW_PATH");
-    expect(loaderSrc).toContain("KATA_BUNDLED_EXTENSION_PATHS");
-
-    const extNames = [
-      '"kata"',
-      '"bg-shell"',
-      '"browser-tools"',
-      '"context7"',
-      '"search-the-web"',
-      '"slash-commands"',
-      '"subagent"',
-      '"mac-tools"',
-      '"linear"',
-      '"symphony"',
-      '"pr-lifecycle"',
-      '"ask-user-questions.ts"',
-      '"get-secrets-from-user.ts"',
-    ];
-    for (const name of extNames) {
-      expect(loaderSrc).toContain(name);
-    }
+    expect(loaderSrc).toMatch(/^#!\/usr\/bin\/env node/);
+    expect(loaderSrc).toContain('await import("./cli.js")');
   });
 
   it("symphony command registers config + console subcommands", () => {
@@ -313,10 +287,10 @@ describe("npm install", () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 8. MCP integration: mcp.json scaffolding, adapter seeding, flag injection
+// 8. standalone CLI entrypoints
 // ═══════════════════════════════════════════════════════════════════════════
 
-describe("MCP integration", () => {
+describe("standalone CLI", () => {
   it("initResources scaffolds starter mcp.json on first launch", async () => {
     const { initResources } = await import("../resource-loader.ts");
     const tmp = mkdtempSync(join(tmpdir(), "kata-mcp-scaffold-"));
@@ -344,151 +318,94 @@ describe("MCP integration", () => {
     }
   });
 
-  it("cli.ts seeds pi-mcp-adapter into settings.json packages", () => {
+  it("cli.ts exposes setup, doctor, and json commands", () => {
     const cliSrc = readFileSync(join(projectRoot, "src", "cli.ts"), "utf-8");
-    expect(cliSrc).toContain("npm:pi-mcp-adapter");
-    expect(cliSrc).toContain("settingsManager.getGlobalSettings");
-    expect(cliSrc).toContain('hasOwnProperty.call(globalSettings, "packages")');
+    expect(cliSrc).toContain('if (command === "setup")');
+    expect(cliSrc).toContain('if (command === "doctor")');
+    expect(cliSrc).toContain('if (command === "json")');
+    expect(cliSrc).toContain('"  kata setup"');
+    expect(cliSrc).toContain('"  kata doctor"');
+    expect(cliSrc).toContain('"  kata json <request.json>"');
   });
 
-  it("cli.ts injects mcp-config flag into extension runtime", () => {
-    const cliSrc = readFileSync(join(projectRoot, "src", "cli.ts"), "utf-8");
-    expect(cliSrc).toContain("extensionFlagValues.set('mcp-config'");
-    expect(cliSrc).toContain("KATA_MCP_CONFIG_PATH");
-  });
-});
-
-describe("CLI RPC mode", () => {
-  it("supports rpc mode and cwd override for Symphony RPC embedding", () => {
-    const cliSrc = readFileSync(join(projectRoot, "src", "cli.ts"), "utf-8");
-    expect(cliSrc).toContain("val === 'json' || val === 'text' || val === 'rpc'");
-    expect(cliSrc).toContain("arg === '--cwd' && i + 1 < argv.length");
-    expect(cliSrc).toContain("if (cliFlags.cwd)");
-    expect(cliSrc).toContain("process.chdir(cliFlags.cwd)");
-  });
-
-  it("routes --mode rpc through runRpcMode", () => {
-    const cliSrc = readFileSync(join(projectRoot, "src", "cli.ts"), "utf-8");
-    expect(cliSrc).toContain("if (cliFlags.mode === 'rpc')");
-    expect(cliSrc).toContain("const { runRpcMode } = await import('@mariozechner/pi-coding-agent')");
-    expect(cliSrc).toContain("await runRpcMode(runtime)");
-  });
-
-  it("syncs bundled resources before starting rpc mode", () => {
-    const cliSrc = readFileSync(join(projectRoot, "src", "cli.ts"), "utf-8");
-    const initResourcesIdx = cliSrc.indexOf("initResources(agentDir)");
-    expect(initResourcesIdx).toBeGreaterThan(0);
-    const initBlock = cliSrc.slice(Math.max(0, initResourcesIdx - 220), initResourcesIdx + 40);
-    expect(initBlock).toContain("if (!isPrintMode) {");
-    expect(initBlock).toContain("--mode rpc");
-  });
-});
-
-describe("loader.ts", () => {
-  it("injects --mcp-config into process.argv", () => {
-    const loaderSrc = readFileSync(join(projectRoot, "src", "loader.ts"), "utf-8");
-    expect(loaderSrc).toContain("--mcp-config");
-    expect(loaderSrc).toContain('startsWith("--mcp-config=")');
-    expect(loaderSrc).toContain("KATA_MCP_CONFIG_PATH");
-    expect(loaderSrc).toContain("mcp.json");
-  });
-});
-
-describe("kata startup", () => {
-  it("installs pi-mcp-adapter into an isolated npm prefix", { timeout: 60_000 }, async () => {
+  it("built loader emits detected harness JSON for setup", { timeout: 30_000 }, () => {
     execSync("npm run build", { cwd: projectRoot, stdio: "pipe" });
-
-    const tmp = mkdtempSync(join(tmpdir(), "kata-mcp-install-"));
-    const fakeHome = join(tmp, "home");
-    const npmPrefix = join(tmp, "npm-prefix");
-    mkdirSync(fakeHome, { recursive: true });
-    mkdirSync(npmPrefix, { recursive: true });
-
-    const env = {
-      ...process.env,
-      HOME: fakeHome,
-      npm_config_prefix: npmPrefix,
-      BRAVE_API_KEY: "test",
-      BRAVE_ANSWERS_KEY: "test",
-      CONTEXT7_API_KEY: "test",
-      JINA_API_KEY: "test",
-    };
-
-    const output = await new Promise<{ stderr: string }>((resolve) => {
-      let stderr = "";
-      const child = spawn("node", ["dist/loader.js"], {
-        cwd: projectRoot,
-        env,
-        stdio: ["pipe", "pipe", "pipe"],
-      });
-
-      child.stderr.on("data", (data: Buffer) => {
-        stderr += data.toString();
-      });
-
-      child.stdin.end();
-
-      const timer = setTimeout(() => {
-        child.kill("SIGTERM");
-      }, 20000);
-
-      child.on("close", () => {
-        clearTimeout(timer);
-        resolve({ stderr });
-      });
-    });
-
-    const isolatedGlobalRoot = execSync("npm root -g", {
+    const output = execFileSync("node", ["dist/loader.js", "setup"], {
+      cwd: projectRoot,
       encoding: "utf-8",
-      env,
-    }).trim();
-    const adapterPath = join(isolatedGlobalRoot, "pi-mcp-adapter");
-    expect(existsSync(adapterPath)).toBe(true);
-
-    const pkgPath = join(adapterPath, "package.json");
-    expect(existsSync(pkgPath)).toBe(true);
-    const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
-    expect(pkg.pi?.extensions).toBeDefined();
-
-    const extEntry = join(adapterPath, pkg.pi.extensions[0]);
-    expect(existsSync(extEntry)).toBe(true);
-  });
-
-  it("launches and loads extensions without errors", { timeout: 60_000 }, async () => {
-    execSync("npm run build", { cwd: projectRoot, stdio: "pipe" });
-
-    const output = await new Promise<string>((resolve) => {
-      let stderr = "";
-      const child = spawn("node", ["dist/loader.js"], {
-        cwd: projectRoot,
-        env: {
-          ...process.env,
-          BRAVE_API_KEY: "test",
-          BRAVE_ANSWERS_KEY: "test",
-          CONTEXT7_API_KEY: "test",
-          JINA_API_KEY: "test",
-        },
-        stdio: ["pipe", "pipe", "pipe"],
-      });
-
-      child.stderr.on("data", (data: Buffer) => {
-        stderr += data.toString();
-      });
-
-      child.stdin.end();
-
-      const timer = setTimeout(() => {
-        child.kill("SIGTERM");
-      }, 5000);
-
-      child.on("close", () => {
-        clearTimeout(timer);
-        resolve(stderr);
-      });
+      env: {
+        ...process.env,
+        CODEX_HOME: "/tmp/codex-home",
+      },
     });
 
-    expect(output).not.toContain("[kata] Extension load error");
-    expect(output).not.toContain("Error: Cannot find module");
-    expect(output).not.toContain("ERR_MODULE_NOT_FOUND");
+    expect(JSON.parse(output)).toEqual({
+      ok: true,
+      harness: "codex",
+    });
+  });
+
+  it("built loader emits a structured doctor report", { timeout: 30_000 }, () => {
+    execSync("npm run build", { cwd: projectRoot, stdio: "pipe" });
+    const output = execFileSync("node", ["dist/loader.js", "doctor"], {
+      cwd: projectRoot,
+      encoding: "utf-8",
+      env: {
+        ...process.env,
+        CURSOR_CONFIG_HOME: "/tmp/cursor-home",
+      },
+    });
+
+    expect(JSON.parse(output)).toEqual({
+      summary: "kata doctor ok (cursor)",
+      checks: [
+        {
+          name: "backend-config",
+          status: "ok",
+          message: "Config parsing available",
+        },
+      ],
+    });
+  });
+
+  it("built loader routes json requests through the standalone domain API", { timeout: 30_000 }, () => {
+    execSync("npm run build", { cwd: projectRoot, stdio: "pipe" });
+
+    const tmp = mkdtempSync(join(tmpdir(), "kata-json-smoke-"));
+    const workspace = join(tmp, "workspace");
+    const kataDir = join(workspace, ".kata");
+    const requestPath = join(tmp, "request.json");
+
+    try {
+      execSync(`mkdir -p "${kataDir}"`);
+      writeFileSync(
+        join(kataDir, "preferences.md"),
+        ["---", "workflow:", "  mode: linear", "---", ""].join("\n"),
+        "utf-8",
+      );
+      writeFileSync(
+        requestPath,
+        JSON.stringify({
+          operation: "unknown.operation",
+          payload: {},
+        }),
+        "utf-8",
+      );
+
+      const output = execFileSync("node", [join(projectRoot, "dist", "loader.js"), "json", requestPath], {
+        cwd: workspace,
+        encoding: "utf-8",
+      });
+
+      expect(JSON.parse(output)).toEqual({
+        ok: false,
+        error: {
+          code: "UNKNOWN",
+          message: "Unsupported operation: unknown.operation",
+        },
+      });
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
   });
 });
