@@ -56,7 +56,7 @@ function requirePositiveInteger(value: unknown, fieldName: string): number {
   throw new KataDomainError("INVALID_CONFIG", `${fieldName} must be a positive integer`);
 }
 
-export default function readTrackerConfig({ preferencesContent }: ReadTrackerConfigInput): TrackerConfig {
+export async function readTrackerConfig({ preferencesContent }: ReadTrackerConfigInput): Promise<TrackerConfig> {
   const parsed = asRecord(load(unwrapFrontmatter(preferencesContent)) ?? {});
   const workflow = asRecord(parsed.workflow);
   const mode = requireNonEmptyString(workflow.mode, "workflow.mode");
@@ -86,7 +86,7 @@ export default function readTrackerConfig({ preferencesContent }: ReadTrackerCon
     kind: "github",
     repoOwner,
     repoName,
-    stateMode,
+    stateMode: "projects_v2" as const,
     githubProjectNumber: requirePositiveInteger(github.githubProjectNumber, "github.githubProjectNumber"),
   };
 }

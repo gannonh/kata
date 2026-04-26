@@ -1,12 +1,6 @@
 import type {
-  KataArtifact,
-  KataArtifactListParams,
-  KataArtifactReadParams,
+  KataArtifactWriteInput,
   KataBackendAdapter,
-  KataExecutionStatusParams,
-  KataOpenPullRequestParams,
-  KataSliceListParams,
-  KataTaskListParams,
 } from "./types.js";
 
 export function createKataDomainApi(adapter: KataBackendAdapter) {
@@ -18,21 +12,36 @@ export function createKataDomainApi(adapter: KataBackendAdapter) {
       getActive: () => adapter.getActiveMilestone(),
     },
     slice: {
-      list: (params?: KataSliceListParams) => adapter.listSlices(params),
+      list: (input: { milestoneId: string }) => adapter.listSlices(input),
     },
     task: {
-      list: (params?: KataTaskListParams) => adapter.listTasks(params),
+      list: (input: { sliceId: string }) => adapter.listTasks(input),
     },
     artifact: {
-      list: (params: KataArtifactListParams) => adapter.listArtifacts(params),
-      read: (params: KataArtifactReadParams) => adapter.readArtifact(params),
-      write: (artifact: KataArtifact) => adapter.writeArtifact(artifact),
+      list: (input: { scopeType: "project" | "milestone" | "slice" | "task"; scopeId: string }) =>
+        adapter.listArtifacts(input),
+      read: (input: {
+        scopeType: "project" | "milestone" | "slice" | "task";
+        scopeId: string;
+        artifactType:
+          | "project-brief"
+          | "requirements"
+          | "roadmap"
+          | "phase-context"
+          | "research"
+          | "plan"
+          | "summary"
+          | "verification"
+          | "uat"
+          | "retrospective";
+      }) => adapter.readArtifact(input),
+      write: (input: KataArtifactWriteInput) => adapter.writeArtifact(input),
     },
     pr: {
-      open: (params?: KataOpenPullRequestParams) => adapter.openPullRequest(params),
+      open: (input: { title: string; body: string; base: string; head: string }) => adapter.openPullRequest(input),
     },
     execution: {
-      getStatus: (params?: KataExecutionStatusParams) => adapter.getExecutionStatus(params),
+      getStatus: () => adapter.getExecutionStatus(),
     },
   };
 }

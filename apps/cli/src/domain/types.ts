@@ -15,104 +15,92 @@ export type KataArtifactType =
   | "retrospective";
 
 export interface KataProjectContext {
-  id: string;
   backend: KataBackendKind;
-  title: string;
-  description?: string;
+  workspacePath: string;
+  repository?: string;
 }
 
 export interface KataMilestone {
   id: string;
-  backend: KataBackendKind;
-  projectId: string;
   title: string;
-  description?: string;
-  status: string;
+  goal: string;
+  status: "planned" | "active" | "done";
+  active: boolean;
 }
 
 export interface KataSlice {
   id: string;
-  backend: KataBackendKind;
   milestoneId: string;
   title: string;
-  description?: string;
-  status: string;
+  goal: string;
+  status: "backlog" | "todo" | "in_progress" | "agent_review" | "human_review" | "merging" | "done";
+  order: number;
 }
 
 export interface KataTask {
   id: string;
-  backend: KataBackendKind;
-  milestoneId: string;
   sliceId: string;
   title: string;
-  description?: string;
-  status: string;
+  description: string;
+  status: "todo" | "in_progress" | "done";
+  verificationState: "pending" | "verified" | "failed";
 }
 
 export interface KataArtifact {
   id: string;
-  backend: KataBackendKind;
-  artifactType: KataArtifactType;
   scopeType: KataScopeType;
   scopeId: string;
-  title?: string;
+  artifactType: KataArtifactType;
+  title: string;
   content: string;
-  format?: string;
-  updatedAt?: string;
-  externalRef?: string;
+  format: "markdown" | "text" | "json";
+  provenance: {
+    backend: KataBackendKind;
+    backendId: string;
+  };
+}
+
+export interface KataArtifactWriteInput {
+  scopeType: KataScopeType;
+  scopeId: string;
+  artifactType: KataArtifactType;
+  title: string;
+  content: string;
+  format: "markdown" | "text" | "json";
 }
 
 export interface KataPullRequest {
   id: string;
-  backend: KataBackendKind;
-  title: string;
-  link: string;
+  url: string;
+  branch: string;
+  base: string;
+  status: "open" | "merged" | "closed";
+  mergeReady: boolean;
 }
 
 export interface KataExecutionStatus {
-  status: string;
-  updatedAt?: string;
-  details?: string;
-}
-
-export interface KataSliceListParams {
-  projectId?: string;
-  milestoneId?: string;
-}
-
-export interface KataTaskListParams {
-  milestoneId?: string;
-  sliceId?: string;
-}
-
-export interface KataArtifactListParams {
-  scopeType: KataScopeType;
-  scopeId: string;
-}
-
-export interface KataArtifactReadParams extends KataArtifactListParams {
-  artifactType: KataArtifactType;
-}
-
-export interface KataOpenPullRequestParams {
-  taskId?: string;
-  sliceId?: string;
-  milestoneId?: string;
-}
-
-export interface KataExecutionStatusParams {
-  taskId?: string;
-  sliceId?: string;
+  queueDepth: number;
+  activeWorkers: number;
+  escalations: Array<{ requestId: string; issueId: string; summary: string }>;
 }
 
 export interface KataBackendAdapter {
   getProjectContext(): Promise<KataProjectContext>;
   getActiveMilestone(): Promise<KataMilestone | null>;
-  listSlices(params?: KataSliceListParams): Promise<KataSlice[]>;
-  listTasks(params?: KataTaskListParams): Promise<KataTask[]>;
-  listArtifacts(params: KataArtifactListParams): Promise<KataArtifact[]>;
-  readArtifact(params: KataArtifactReadParams): Promise<KataArtifact | null>;
-  writeArtifact(artifact: KataArtifact): Promise<KataArtifact>;
-  openPullRequest(params?: KataOpenPullRequestParams): Promise<KataPullRequest>;
-  getExecutionStatus(params?: KataExecutionStatusParams): Promise<KataExecutionStatus>;
+  listSlices(input: { milestoneId: string }): Promise<KataSlice[]>;
+  listTasks(input: { sliceId: string }): Promise<KataTask[]>;
+  listArtifacts(input: { scopeType: KataScopeType; scopeId: string }): Promise<KataArtifact[]>;
+  readArtifact(input: {
+    scopeType: KataScopeType;
+    scopeId: string;
+    artifactType: KataArtifactType;
+  }): Promise<KataArtifact | null>;
+  writeArtifact(input: KataArtifactWriteInput): Promise<KataArtifact>;
+  openPullRequest(input: {
+    title: string;
+    body: string;
+    base: string;
+    head: string;
+  }): Promise<KataPullRequest>;
+  getExecutionStatus(): Promise<KataExecutionStatus>;
 }

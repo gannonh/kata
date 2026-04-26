@@ -2,74 +2,98 @@ import { describe, expect, it } from "vitest";
 
 import { createKataDomainApi } from "../../domain/service.js";
 import { KataDomainError } from "../../domain/errors.js";
-import readTrackerConfig from "../../backends/read-tracker-config.js";
+import { readTrackerConfig } from "../../backends/read-tracker-config.js";
 
 const fakeProject = {
-  id: "P01",
   backend: "github",
-  title: "Skill Platform",
-  description: "Canonical project context",
+  workspacePath: "/workspace/kata-mono",
+  repository: "kata-sh/kata-mono",
 };
 
 const fakeMilestone = {
   id: "M01",
-  backend: "github",
   title: "Milestone One",
-  description: "Active milestone",
+  goal: "Create the canonical contract",
   status: "active",
-  projectId: fakeProject.id,
+  active: true,
 };
 
 const fakeTask = {
   id: "T01",
-  backend: "github",
   title: "Ship contract",
+  description: "Implement Task 1",
   status: "todo",
-  milestoneId: fakeMilestone.id,
   sliceId: "S01",
+  verificationState: "pending",
 };
 
 const fakeArtifact = {
   id: "artifact-1",
-  backend: "github",
   artifactType: "plan",
   scopeType: "slice",
   scopeId: "S01",
   title: "Execution plan",
   content: "Ship the contract",
   format: "markdown",
-  updatedAt: "2026-04-26T00:00:00.000Z",
+  provenance: {
+    backend: "github",
+    backendId: "GH-ART-1",
+  },
 };
 
 const fakeSlice = {
   id: "S01",
-  backend: "github",
   title: "Domain layer",
+  goal: "Normalize the backend surface",
   status: "todo",
   milestoneId: fakeMilestone.id,
+  order: 1,
 };
 
 const fakePullRequest = {
   id: "pr-1",
-  backend: "github",
-  title: "Open PR",
-  link: "https://example.com/pull/42",
+  url: "https://example.com/pull/42",
+  branch: "codex/kata-cli-skill-platform",
+  base: "main",
+  status: "open",
+  mergeReady: true,
 };
 
 const fakeExecutionStatus = {
-  status: "idle",
-  updatedAt: "2026-04-26T00:00:00.000Z",
+  queueDepth: 0,
+  activeWorkers: 1,
+  escalations: [
+    {
+      requestId: "req-1",
+      issueId: "ISSUE-1",
+      summary: "Waiting on review",
+    },
+  ],
 };
 
 function createFakeAdapter() {
   return {
     getProjectContext: async () => fakeProject,
     getActiveMilestone: async () => fakeMilestone,
-    listSlices: async () => [fakeSlice],
-    listTasks: async () => [fakeTask],
-    listArtifacts: async () => [fakeArtifact],
+    listSlices: async (_input: { milestoneId: string }) => [fakeSlice],
+    listTasks: async (_input: { sliceId: string }) => [fakeTask],
+    listArtifacts: async (_input: { scopeType: "project" | "milestone" | "slice" | "task"; scopeId: string }) => [fakeArtifact],
     readArtifact: async () => fakeArtifact,
-    writeArtifact: async (artifact: typeof fakeArtifact) => artifact,
+    writeArtifact: async (artifact: {
+      scopeType: "project" | "milestone" | "slice" | "task";
+      scopeId: string;
+      artifactType: "project-brief" | "requirements" | "roadmap" | "phase-context" | "research" | "plan" | "summary" | "verification" | "uat" | "retrospective";
+      title: string;
+      content: string;
+      format: "markdown" | "text" | "json";
+    }) => ({
+      id: "artifact-2",
+      ...artifact,
+      provenance: {
+        backend: "github" as const,
+        backendId: "GH-ART-2",
+      },
+    }),
     openPullRequest: async () => fakePullRequest,
     getExecutionStatus: async () => fakeExecutionStatus,
   };
@@ -90,15 +114,12 @@ describe("createKataDomainApi", () => {
   it("passes artifact writes through without renaming fields", async () => {
     const api = createKataDomainApi(createFakeAdapter());
     const input = {
-      id: "artifact-2",
-      backend: "github",
       artifactType: "summary",
       scopeType: "task",
       scopeId: fakeTask.id,
       title: "Done",
       content: "Wrapped up",
       format: "markdown",
-      externalRef: "artifact-ref-2",
     };
 
     const result = await api.artifact.write(input);
@@ -106,13 +127,13 @@ describe("createKataDomainApi", () => {
     expect(result.content).toBe(input.content);
     expect(result.scopeType).toBe(input.scopeType);
     expect(result.artifactType).toBe(input.artifactType);
-    expect(result).toEqual(input);
   });
 });
 
 describe("readTrackerConfig", () => {
-  it("accepts GitHub projects_v2 config", () => {
-    const config = readTrackerConfig({ preferencesContent: `---
+  it("accepts GitHub projects_v2 config", async () => {
+    await expect(
+      readTrackerConfig({ preferencesContent: `---
 workflow:
   mode: github
 github:
@@ -120,9 +141,8 @@ github:
   repoName: kata
   stateMode: projects_v2
   githubProjectNumber: 12
----` });
-
-    expect(config).toEqual({
+---` }),
+    ).resolves.toEqual({
       kind: "github",
       repoOwner: "kata-sh",
       repoName: "kata",
@@ -131,8 +151,8 @@ github:
     });
   });
 
-  it("rejects GitHub label mode explicitly", () => {
-    expect(() =>
+  it("rejects GitHub label mode explicitly", async () => {
+    await expect(
       readTrackerConfig({ preferencesContent: `---
 workflow:
   mode: github
@@ -142,9 +162,9 @@ github:
   stateMode: labels
   githubProjectNumber: 12
 ---` }),
-    ).toThrowError(KataDomainError);
+    ).rejects.toThrowError(KataDomainError);
 
-    expect(() =>
+    await expect(
       readTrackerConfig({ preferencesContent: `---
 workflow:
   mode: github
@@ -154,6 +174,6 @@ github:
   stateMode: labels
   githubProjectNumber: 12
 ---` }),
-    ).toThrowError(/GitHub label mode is no longer supported/);
+    ).rejects.toThrowError(/GitHub label mode is no longer supported/);
   });
 });
