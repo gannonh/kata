@@ -9,6 +9,9 @@
     "bin",
     "commands",
     "kata",
+    "dist",
+    "plugin-templates",
+    "skills-src",
     "agents",
     "hooks/dist",
     "scripts"
@@ -43,8 +46,9 @@
     "esbuild": "^0.28.0"
   },
   "scripts": {
+    "build:skills": "node scripts/build-skill-bundle.js",
     "build:hooks": "node scripts/build-hooks.js",
-    "prepublishOnly": "pnpm run build:hooks",
+    "prepublishOnly": "pnpm run build:skills && pnpm run build:hooks",
     "test": "bun test tests/",
     "lint": "eslint . --max-warnings=200 --no-error-on-unmatched-pattern"
   }

@@ -1,0 +1,36 @@
+{
+  "skills": [
+    {
+      "name": "kata-setup",
+      "description": "Bootstrap Kata into Codex, Claude Code, Cursor, Pi, or generic Skills environments. Use this whenever the user asks to install Kata, set it up, connect the CLI, or configure a harness."
+    },
+    {
+      "name": "kata-new-project",
+      "description": "Create a new Kata project interview and seed milestones. Use this whenever the user wants to start a project with Kata."
+    },
+    {
+      "name": "kata-discuss-phase",
+      "description": "Discuss a Kata phase before planning. Use this when the user wants to lock decisions before the plan."
+    },
+    {
+      "name": "kata-plan-phase",
+      "description": "Plan a Kata phase against the canonical backend contract. Use this whenever the user asks Kata to plan the next slice of work."
+    },
+    {
+      "name": "kata-execute-phase",
+      "description": "Execute a planned Kata phase task-by-task. Use this when the user wants Kata to carry out the plan."
+    },
+    {
+      "name": "kata-verify-work",
+      "description": "Verify completed Kata work through explicit UAT and checks. Use this when the user asks to validate the work."
+    },
+    {
+      "name": "kata-pr",
+      "description": "Manage the Kata pull request lifecycle. Use this when the user wants PR creation, review, merge, or status."
+    },
+    {
+      "name": "kata-quick",
+      "description": "Run a short-form Kata task without the full milestone ceremony. Use this for focused one-off work."
+    }
+  ]
+}

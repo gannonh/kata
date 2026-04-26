@@ -1053,6 +1053,38 @@ function listCodexSkillNames(skillsDir, prefix = 'kata-') {
     .sort();
 }
 
+const generatedSkillsDir = path.join(__dirname, '..', 'dist', 'skills');
+
+function resolveSkillsSource() {
+  if (fs.existsSync(generatedSkillsDir)) {
+    return generatedSkillsDir;
+  }
+  return path.join(__dirname, '..', 'skills-src');
+}
+
+function copyGeneratedSkills(srcDir, skillsDir, prefix = 'kata-') {
+  if (!fs.existsSync(srcDir)) {
+    return;
+  }
+
+  fs.mkdirSync(skillsDir, { recursive: true });
+
+  const existing = fs.readdirSync(skillsDir, { withFileTypes: true });
+  for (const entry of existing) {
+    if (entry.isDirectory() && entry.name.startsWith(prefix)) {
+      fs.rmSync(path.join(skillsDir, entry.name), { recursive: true, force: true });
+    }
+  }
+
+  const entries = fs.readdirSync(srcDir, { withFileTypes: true });
+  for (const entry of entries) {
+    if (!entry.isDirectory() || !entry.name.startsWith(prefix)) {
+      continue;
+    }
+    fs.cpSync(path.join(srcDir, entry.name), path.join(skillsDir, entry.name), { recursive: true });
+  }
+}
+
 function copyCommandsAsCodexSkills(srcDir, skillsDir, prefix, pathPrefix, runtime) {
   if (!fs.existsSync(srcDir)) {
     return;
@@ -1928,8 +1960,13 @@ function install(isGlobal, runtime = 'claude') {
     }
   } else if (isCodex) {
     const skillsDir = path.join(targetDir, 'skills');
-    const kataSrc = path.join(src, 'commands', 'kata');
-    copyCommandsAsCodexSkills(kataSrc, skillsDir, 'kata', pathPrefix, runtime);
+    const skillsSource = resolveSkillsSource();
+    if (skillsSource === generatedSkillsDir) {
+      copyGeneratedSkills(skillsSource, skillsDir, 'kata-');
+    } else {
+      const kataSrc = path.join(src, 'commands', 'kata');
+      copyCommandsAsCodexSkills(kataSrc, skillsDir, 'kata', pathPrefix, runtime);
+    }
     const installedSkillNames = listCodexSkillNames(skillsDir);
     if (installedSkillNames.length > 0) {
       console.log(`  ${green}✓${reset} Installed ${installedSkillNames.length} skills to skills/`);

@@ -20,6 +20,8 @@ Works on Mac, Windows, and Linux.
 
 Kata Orchestrator is part of the Kata mono-repo. It installs a set of slash commands and agents into your AI coding runtime that structure development work into phases: discuss, plan, execute, verify.
 
+It also serves as the source for the canonical Kata skill bundle and harness packaging templates, with generated skills emitted to `dist/skills` for downstream installers.
+
 Each execution phase runs in a fresh subagent context with a dedicated 200k token window. The main session stays light. Work accumulates as structured files on disk rather than in the context window.
 
 ---
