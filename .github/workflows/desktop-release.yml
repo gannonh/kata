@@ -98,7 +98,7 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" build.keychain
           rm certificate.p12
 
-      - name: Bundle CLI runtime and Symphony binary
+      - name: Bundle Pi runtime, Kata CLI, skills, and Symphony
         env:
           CARGO_BUILD_TARGET: ${{ matrix.arch == 'arm64' && 'aarch64-apple-darwin' || 'x86_64-apple-darwin' }}
         run: |
@@ -279,7 +279,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ matrix.arch }}-cargo-
 
-      - name: Bundle CLI runtime
+      - name: Bundle Pi runtime, Kata CLI, skills, and Symphony
         shell: bash
         run: |
           cd apps/desktop && bun run bundle:cli
@@ -407,7 +407,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ matrix.arch }}-cargo-
 
-      - name: Bundle CLI runtime
+      - name: Bundle Pi runtime, Kata CLI, skills, and Symphony
         run: |
           cd apps/desktop && bun run bundle:cli
 
