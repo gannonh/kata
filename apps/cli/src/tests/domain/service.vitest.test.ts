@@ -3,8 +3,20 @@ import { describe, expect, it } from "vitest";
 import { createKataDomainApi } from "../../domain/service.js";
 import { KataDomainError } from "../../domain/errors.js";
 import { readTrackerConfig } from "../../backends/read-tracker-config.js";
+import type {
+  KataArtifactListInput,
+  KataArtifactReadInput,
+  KataArtifactWriteInput,
+  KataBackendAdapter,
+  KataMilestone,
+  KataProjectContext,
+  KataSlice,
+  KataSliceListInput,
+  KataTask,
+  KataTaskListInput,
+} from "../../domain/types.js";
 
-const fakeProject = {
+const fakeProject: KataProjectContext = {
   backend: "github",
   workspacePath: "/workspace/kata-mono",
   repository: {
@@ -13,7 +25,7 @@ const fakeProject = {
   },
 };
 
-const fakeMilestone = {
+const fakeMilestone: KataMilestone = {
   id: "M01",
   title: "Milestone One",
   goal: "Create the canonical contract",
@@ -21,7 +33,7 @@ const fakeMilestone = {
   active: true,
 };
 
-const fakeTask = {
+const fakeTask: KataTask = {
   id: "T01",
   title: "Ship contract",
   description: "Implement Task 1",
@@ -45,7 +57,7 @@ const fakeArtifact = {
   },
 };
 
-const fakeSlice = {
+const fakeSlice: KataSlice = {
   id: "S01",
   title: "Domain layer",
   goal: "Normalize the backend surface",
@@ -75,22 +87,15 @@ const fakeExecutionStatus = {
   ],
 };
 
-function createFakeAdapter() {
+function createFakeAdapter(): KataBackendAdapter {
   return {
     getProjectContext: async () => fakeProject,
     getActiveMilestone: async () => fakeMilestone,
-    listSlices: async (_input: { milestoneId: string }) => [fakeSlice],
-    listTasks: async (_input: { sliceId: string }) => [fakeTask],
-    listArtifacts: async (_input: { scopeType: "project" | "milestone" | "slice" | "task"; scopeId: string }) => [fakeArtifact],
-    readArtifact: async () => fakeArtifact,
-    writeArtifact: async (artifact: {
-      scopeType: "project" | "milestone" | "slice" | "task";
-      scopeId: string;
-      artifactType: "project-brief" | "requirements" | "roadmap" | "phase-context" | "research" | "plan" | "summary" | "verification" | "uat" | "retrospective";
-      title: string;
-      content: string;
-      format: "markdown" | "text" | "json";
-    }) => ({
+    listSlices: async (_input: KataSliceListInput) => [fakeSlice],
+    listTasks: async (_input: KataTaskListInput) => [fakeTask],
+    listArtifacts: async (_input: KataArtifactListInput) => [fakeArtifact],
+    readArtifact: async (_input: KataArtifactReadInput) => fakeArtifact,
+    writeArtifact: async (artifact: KataArtifactWriteInput) => ({
       id: "artifact-2",
       ...artifact,
       updatedAt: "2026-04-26T00:00:00.000Z",
@@ -154,6 +159,51 @@ github:
       stateMode: "projects_v2",
       githubProjectNumber: 12,
     });
+  });
+
+  it("wraps malformed YAML in a KataDomainError", async () => {
+    await expect(
+      readTrackerConfig({
+        preferencesContent: `---
+workflow:
+  mode: github
+github:
+  repoOwner: kata-sh
+  repoName: [kata
+---`,
+      }),
+    ).rejects.toThrowError(KataDomainError);
+  });
+
+  it("rejects missing required GitHub fields with KataDomainError", async () => {
+    await expect(
+      readTrackerConfig({
+        preferencesContent: `---
+workflow:
+  mode: github
+github:
+  repoOwner: kata-sh
+  stateMode: projects_v2
+  githubProjectNumber: 12
+---`,
+      }),
+    ).rejects.toThrowError(KataDomainError);
+  });
+
+  it("rejects invalid githubProjectNumber with KataDomainError", async () => {
+    await expect(
+      readTrackerConfig({
+        preferencesContent: `---
+workflow:
+  mode: github
+github:
+  repoOwner: kata-sh
+  repoName: kata
+  stateMode: projects_v2
+  githubProjectNumber: 0
+---`,
+      }),
+    ).rejects.toThrowError(KataDomainError);
   });
 
   it("rejects GitHub label mode explicitly", async () => {

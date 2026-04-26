@@ -73,6 +73,30 @@ export interface KataArtifactWriteInput {
   format: "markdown" | "text" | "json";
 }
 
+export interface KataSliceListInput {
+  milestoneId: string;
+}
+
+export interface KataTaskListInput {
+  sliceId: string;
+}
+
+export interface KataArtifactListInput {
+  scopeType: KataScopeType;
+  scopeId: string;
+}
+
+export interface KataArtifactReadInput extends KataArtifactListInput {
+  artifactType: KataArtifactType;
+}
+
+export interface KataOpenPullRequestInput {
+  title: string;
+  body: string;
+  base: string;
+  head: string;
+}
+
 export interface KataPullRequest {
   id: string;
   url: string;
@@ -91,20 +115,11 @@ export interface KataExecutionStatus {
 export interface KataBackendAdapter {
   getProjectContext(): Promise<KataProjectContext>;
   getActiveMilestone(): Promise<KataMilestone | null>;
-  listSlices(input: { milestoneId: string }): Promise<KataSlice[]>;
-  listTasks(input: { sliceId: string }): Promise<KataTask[]>;
-  listArtifacts(input: { scopeType: KataScopeType; scopeId: string }): Promise<KataArtifact[]>;
-  readArtifact(input: {
-    scopeType: KataScopeType;
-    scopeId: string;
-    artifactType: KataArtifactType;
-  }): Promise<KataArtifact | null>;
+  listSlices(input: KataSliceListInput): Promise<KataSlice[]>;
+  listTasks(input: KataTaskListInput): Promise<KataTask[]>;
+  listArtifacts(input: KataArtifactListInput): Promise<KataArtifact[]>;
+  readArtifact(input: KataArtifactReadInput): Promise<KataArtifact | null>;
   writeArtifact(input: KataArtifactWriteInput): Promise<KataArtifact>;
-  openPullRequest(input: {
-    title: string;
-    body: string;
-    base: string;
-    head: string;
-  }): Promise<KataPullRequest>;
+  openPullRequest(input: KataOpenPullRequestInput): Promise<KataPullRequest>;
   getExecutionStatus(): Promise<KataExecutionStatus>;
 }

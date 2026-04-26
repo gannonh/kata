@@ -57,7 +57,16 @@ function requirePositiveInteger(value: unknown, fieldName: string): number {
 }
 
 export async function readTrackerConfig({ preferencesContent }: ReadTrackerConfigInput): Promise<TrackerConfig> {
-  const parsed = asRecord(load(unwrapFrontmatter(preferencesContent)) ?? {});
+  let parsedYaml: unknown;
+
+  try {
+    parsedYaml = load(unwrapFrontmatter(preferencesContent)) ?? {};
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Malformed preferences content";
+    throw new KataDomainError("INVALID_CONFIG", `Unable to parse preferences content: ${message}`);
+  }
+
+  const parsed = asRecord(parsedYaml);
   const workflow = asRecord(parsed.workflow);
   const mode = requireNonEmptyString(workflow.mode, "workflow.mode");
 
