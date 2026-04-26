@@ -7,7 +7,10 @@ import { readTrackerConfig } from "../../backends/read-tracker-config.js";
 const fakeProject = {
   backend: "github",
   workspacePath: "/workspace/kata-mono",
-  repository: "kata-sh/kata-mono",
+  repository: {
+    owner: "kata-sh",
+    name: "kata-mono",
+  },
 };
 
 const fakeMilestone = {
@@ -35,6 +38,7 @@ const fakeArtifact = {
   title: "Execution plan",
   content: "Ship the contract",
   format: "markdown",
+  updatedAt: "2026-04-26T00:00:00.000Z",
   provenance: {
     backend: "github",
     backendId: "GH-ART-1",
@@ -89,6 +93,7 @@ function createFakeAdapter() {
     }) => ({
       id: "artifact-2",
       ...artifact,
+      updatedAt: "2026-04-26T00:00:00.000Z",
       provenance: {
         backend: "github" as const,
         backendId: "GH-ART-2",

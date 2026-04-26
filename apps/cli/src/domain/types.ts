@@ -17,7 +17,10 @@ export type KataArtifactType =
 export interface KataProjectContext {
   backend: KataBackendKind;
   workspacePath: string;
-  repository?: string;
+  repository?: {
+    owner: string;
+    name: string;
+  };
 }
 
 export interface KataMilestone {
@@ -54,6 +57,7 @@ export interface KataArtifact {
   title: string;
   content: string;
   format: "markdown" | "text" | "json";
+  updatedAt: string;
   provenance: {
     backend: KataBackendKind;
     backendId: string;
