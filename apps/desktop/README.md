@@ -141,3 +141,9 @@ Packaged app includes:
 - `Contents/Resources/kata-runtime/`
 
 This allows Kata Desktop to launch the agent runtime even when `kata` is not on PATH.
+Desktop bundles:
+
+- the Pi runtime launcher used for RPC chat
+- the Kata CLI backend package
+- the canonical Kata skill bundle
+- the Symphony binary

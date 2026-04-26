@@ -6,6 +6,12 @@ beforeBuild: scripts/beforeBuild.cjs
 afterPack: scripts/afterPack.cjs
 afterSign: scripts/afterSign.cjs
 
+# Runtime resources are copied by afterPack:
+# - pi / pi.cmd
+# - kata-cli/
+# - kata-skills/
+# - symphony / symphony.exe
+
 directories:
   output: release
   buildResources: resources

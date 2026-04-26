@@ -5,6 +5,7 @@ import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from 'node:chil
 import { createRequire } from 'node:module'
 import readline from 'node:readline'
 import log from './logger'
+import { resolvePiRuntimePaths } from './pi-runtime-resolver'
 import {
   type AuthProvider,
   type AvailableModel,
@@ -53,7 +54,7 @@ interface BridgeEvents {
   debug: (payload: Record<string, unknown>) => void
 }
 
-type BridgeRuntimeMode = 'electron-node' | 'kata-cli'
+type BridgeRuntimeMode = 'electron-node' | 'pi-runtime'
 
 interface BinaryDiscoveryResult {
   source: 'bundled' | 'path' | 'not_found'
@@ -116,7 +117,7 @@ export class PiAgentBridge extends EventEmitter {
 
   constructor(
     private workspacePath: string,
-    private readonly commandHint = 'kata',
+    private readonly commandHint = 'pi',
     private readonly commandTimeoutMs = 30_000,
     initialModel: string | null = null,
   ) {
@@ -188,7 +189,7 @@ export class PiAgentBridge extends EventEmitter {
 
     if (discovery.source === 'not_found' || !discovery.resolvedPath) {
       const message =
-        'Kata CLI not found. Install via: npm install -g @kata-sh/cli. Checked: ' +
+        'Pi runtime not found. Desktop expects the bundled pi launcher or a pi binary on PATH. Checked: ' +
         discovery.checkedPaths.join(', ')
 
       this.emit('crash', {
@@ -764,11 +765,15 @@ export class PiAgentBridge extends EventEmitter {
     const checkedPaths: string[] = []
 
     if (isPackaged) {
-      // On Windows, look for kata.cmd; on macOS/Linux, look for kata shell script
+      const runtimePaths = resolvePiRuntimePaths({
+        isPackaged,
+        resourcesPath: process.resourcesPath,
+        platform: process.platform,
+      })
       const bundledCandidates =
         process.platform === 'win32'
-          ? [path.join(process.resourcesPath, 'kata.cmd'), path.join(process.resourcesPath, 'kata')]
-          : [path.join(process.resourcesPath, 'kata')]
+          ? [runtimePaths.launcher, path.join(process.resourcesPath, 'pi')]
+          : [runtimePaths.launcher]
 
       for (const bundledPath of bundledCandidates) {
         checkedPaths.push(bundledPath)
@@ -777,7 +782,7 @@ export class PiAgentBridge extends EventEmitter {
             source: 'bundled',
             resolvedPath: bundledPath,
             checkedPaths,
-            runtimeMode: 'electron-node',
+            runtimeMode: 'pi-runtime',
           }
         }
       }
@@ -792,7 +797,7 @@ export class PiAgentBridge extends EventEmitter {
           source: 'path',
           resolvedPath: fromEnv,
           checkedPaths,
-          runtimeMode: 'kata-cli',
+          runtimeMode: 'pi-runtime',
         }
       }
 
@@ -816,12 +821,12 @@ export class PiAgentBridge extends EventEmitter {
       if (discovered) {
         checkedPaths.push(discovered)
         if (this.isExecutableFile(discovered)) {
-          return {
-            source: 'path',
-            resolvedPath: discovered,
-            checkedPaths,
-            runtimeMode: 'kata-cli',
-          }
+        return {
+          source: 'path',
+          resolvedPath: discovered,
+          checkedPaths,
+          runtimeMode: 'pi-runtime',
+        }
         }
 
         log.warn('[PiAgentBridge] PATH lookup returned a non-executable binary candidate', {
@@ -835,7 +840,7 @@ export class PiAgentBridge extends EventEmitter {
       source: 'not_found',
       resolvedPath: null,
       checkedPaths,
-      runtimeMode: isPackaged ? 'electron-node' : 'kata-cli',
+      runtimeMode: 'pi-runtime',
     }
   }
 
