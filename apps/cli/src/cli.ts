@@ -1,406 +1,52 @@
-import {
-  AuthStorage,
-  ModelRegistry,
-  SettingsManager,
-  SessionManager,
-  DefaultPackageManager,
-  createAgentSessionServices,
-  createAgentSessionFromServices,
-  createAgentSessionRuntime,
-  type CreateAgentSessionRuntimeFactory,
-  InteractiveMode,
-  runPrintMode,
-  initTheme,
-} from '@mariozechner/pi-coding-agent'
-import { readFileSync } from 'node:fs'
-import { agentDir, sessionsDir, authFilePath } from './app-paths.js'
-import { initResources } from './resource-loader.js'
-import { loadStoredEnvKeys, runWizardIfNeeded } from './wizard.js'
+import { readFile } from "node:fs/promises";
 
-// ---------------------------------------------------------------------------
-// Lightweight argv parsing — supports subagent spawn flags
-// ---------------------------------------------------------------------------
+import { createKataDomainApi } from "./domain/service.js";
+import { resolveBackend } from "./backends/resolve-backend.js";
+import { detectHarness } from "./commands/setup.js";
+import { renderDoctorReport } from "./commands/doctor.js";
+import { runJsonCommand } from "./transports/json.js";
 
-interface CliFlags {
-  mode?: 'json' | 'text' | 'rpc'
-  print?: boolean
-  noSession?: boolean
-  model?: string
-  tools?: string
-  cwd?: string
-  appendSystemPrompt?: string
-  messages: string[]
-}
+async function main(argv = process.argv.slice(2)) {
+  const [command, ...rest] = argv;
 
-function parseCliFlags(argv: string[]): CliFlags {
-  const result: CliFlags = { messages: [] }
-  let i = 0
-  while (i < argv.length) {
-    const arg = argv[i]
-    if (arg === '--mode' && i + 1 < argv.length) {
-      const val = argv[++i]
-      if (val === 'json' || val === 'text' || val === 'rpc') result.mode = val
-    } else if (arg === '-p' || arg === '--print') {
-      result.print = true
-    } else if (arg === '--no-session') {
-      result.noSession = true
-    } else if (arg === '--model' && i + 1 < argv.length) {
-      result.model = argv[++i]
-    } else if (arg === '--tools' && i + 1 < argv.length) {
-      result.tools = argv[++i]
-    } else if (arg === '--append-system-prompt' && i + 1 < argv.length) {
-      result.appendSystemPrompt = argv[++i]
-    } else if (arg === '--cwd' && i + 1 < argv.length) {
-      result.cwd = argv[++i]
-    } else if (arg === '--extension' && i + 1 < argv.length) {
-      i++ // handled by loader.ts
-    } else if (arg === '--no-extensions') {
-      // handled by loader.ts
-    } else if (arg === '--mcp-config' && i + 1 < argv.length) {
-      i++ // handled below
-    } else if (!arg.startsWith('-')) {
-      result.messages.push(arg)
-    }
-    i++
-  }
-  return result
-}
-
-const cliFlags = parseCliFlags(process.argv.slice(2))
-const isPrintMode = cliFlags.mode === 'json' || cliFlags.mode === 'text' || cliFlags.print
-const isRpcMode = cliFlags.mode === 'rpc'
-
-// Apply --cwd before any path-dependent initialization.
-if (cliFlags.cwd) {
-  process.chdir(cliFlags.cwd)
-}
-
-// ---------------------------------------------------------------------------
-// Auth, model registry, settings
-// ---------------------------------------------------------------------------
-
-const authStorage = AuthStorage.create(authFilePath)
-loadStoredEnvKeys(authStorage)
-
-// Skip interactive wizard in print/json mode — subagents can't do TTY prompts
-if (!isPrintMode && !isRpcMode) {
-  await runWizardIfNeeded(authStorage)
-}
-
-const modelRegistry = ModelRegistry.create(authStorage)
-
-const settingsManager = SettingsManager.create(agentDir)
-
-// Always ensure defaults: anthropic/claude-sonnet-4-6, thinking off.
-// Validates on every startup — catches stale settings from prior installs
-// (e.g. grok-2 which no longer exists) and fresh installs with no settings.
-const configuredProvider = settingsManager.getDefaultProvider()
-const configuredModel = settingsManager.getDefaultModel()
-const allModels = modelRegistry.getAll()
-const configuredExists = configuredProvider && configuredModel &&
-  allModels.some((m) => m.provider === configuredProvider && m.id === configuredModel)
-
-if (!configuredModel || !configuredExists) {
-  // Preferred default: anthropic/claude-sonnet-4-6
-  const preferred =
-    allModels.find((m) => m.provider === 'anthropic' && m.id === 'claude-sonnet-4-6') ||
-    allModels.find((m) => m.provider === 'anthropic' && m.id.includes('sonnet')) ||
-    allModels.find((m) => m.provider === 'anthropic')
-  if (preferred) {
-    settingsManager.setDefaultModelAndProvider(preferred.provider, preferred.id)
-  }
-}
-
-// Default thinking level: off (always reset if not explicitly set)
-if (settingsManager.getDefaultThinkingLevel() !== 'off' && !configuredExists) {
-  settingsManager.setDefaultThinkingLevel('off')
-}
-
-// Quiet startup — the kata extension renders its own branded header
-if (!settingsManager.getQuietStartup()) {
-  settingsManager.setQuietStartup(true)
-}
-
-// Collapse changelog by default — avoid wall of text on updates
-if (!settingsManager.getCollapseChangelog()) {
-  settingsManager.setCollapseChangelog(true)
-}
-
-// Ensure pi-mcp-adapter is in the packages list so pi auto-installs it on startup.
-// Bootstrap only when packages have never been configured. If users later remove the
-// adapter from settings.json, that opt-out should persist.
-const MCP_ADAPTER_PACKAGE = 'npm:pi-mcp-adapter'
-const globalSettings = settingsManager.getGlobalSettings()
-const globalPackages = [...(globalSettings.packages ?? [])]
-const hasConfiguredPackages = Object.prototype.hasOwnProperty.call(globalSettings, "packages")
-if (!hasConfiguredPackages && !globalPackages.includes(MCP_ADAPTER_PACKAGE)) {
-  settingsManager.setPackages([...globalPackages, MCP_ADAPTER_PACKAGE])
-}
-await settingsManager.flush()
-
-// ---------------------------------------------------------------------------
-// Theme — must be initialized before any extension or MCP adapter accesses it.
-// pi-coding-agent's main() does this internally, but cli.ts bypasses main().
-// No file watcher needed for non-interactive (print/RPC) modes.
-// ---------------------------------------------------------------------------
-initTheme(settingsManager.getTheme(), !isPrintMode && !isRpcMode)
-
-// ---------------------------------------------------------------------------
-// Package commands: install, remove, uninstall, update, list
-// ---------------------------------------------------------------------------
-
-const PACKAGE_COMMANDS = ['install', 'remove', 'uninstall', 'update', 'list'] as const
-type PackageCommand = 'install' | 'remove' | 'update' | 'list'
-
-const rawArgs = process.argv.slice(2)
-const rawCommand = rawArgs[0]
-
-if (rawCommand && (PACKAGE_COMMANDS as readonly string[]).includes(rawCommand)) {
-  const command: PackageCommand = rawCommand === 'uninstall' ? 'remove' : rawCommand as PackageCommand
-  const rest = rawArgs.slice(1)
-
-  // Parse flags — skip known flag-value pairs injected by loader.ts
-  let local = false
-  let help = false
-  let source: string | undefined
-  for (let j = 0; j < rest.length; j++) {
-    const arg = rest[j]
-    if (arg === '-h' || arg === '--help') help = true
-    else if (arg === '-l' || arg === '--local') local = true
-    else if (arg === '--mcp-config' || arg === '--model' || arg === '--mode' || arg === '--tools' || arg === '--append-system-prompt' || arg === '--extension' || arg === '--cwd') {
-      j++ // skip the value
-    } else if (arg.startsWith('-')) {
-      // unknown flag, ignore
-    } else {
-      if (source === undefined) {
-        source = arg
-      } else {
-        console.error(`Error: unexpected argument '${arg}' — only one package source is accepted`)
-        process.exit(1)
-      }
-    }
+  if (command === "setup") {
+    const harness = detectHarness(process.env);
+    process.stdout.write(`${JSON.stringify({ ok: true, harness })}\n`);
+    return;
   }
 
-  if (help) {
-    const name = 'kata'
-    switch (command) {
-      case 'install':
-        console.log(`Usage: ${name} install <source> [-l]\n\nInstall a package and add it to settings.\n  -l, --local    Install project-locally`)
-        break
-      case 'remove':
-        console.log(`Usage: ${name} remove <source> [-l]\n\nRemove a package.\n  -l, --local    Remove from project settings`)
-        break
-      case 'update':
-        console.log(`Usage: ${name} update [source]\n\nUpdate installed packages.\nIf <source> is provided, only that package is updated.`)
-        break
-      case 'list':
-        console.log(`Usage: ${name} list\n\nList installed packages.`)
-        break
-    }
-    process.exit(0)
+  if (command === "doctor") {
+    const report = renderDoctorReport({
+      packageVersion: "0.0.0-dev",
+      backendConfigStatus: "ok",
+      backendConfigMessage: "Config parsing available",
+      harness: detectHarness(process.env),
+    });
+    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+    return;
   }
 
-  const packageManager = new DefaultPackageManager({
-    cwd: process.cwd(),
-    agentDir,
-    settingsManager,
-  })
-
-  try {
-    switch (command) {
-      case 'install': {
-        if (!source) { console.error('Error: source is required'); process.exit(1) }
-        await packageManager.install(source, { local })
-        console.log(`Installed ${source}`)
-        break
-      }
-      case 'remove': {
-        if (!source) { console.error('Error: source is required'); process.exit(1) }
-        await packageManager.remove(source, { local })
-        console.log(`Removed ${source}`)
-        break
-      }
-      case 'update':
-        await packageManager.update(source)
-        console.log(source ? `Updated ${source}` : 'Updated packages')
-        break
-      case 'list': {
-        const gs = settingsManager.getGlobalSettings()
-        const ps = settingsManager.getProjectSettings()
-        const gp = (gs.packages ?? []).map((p: string | { source: string }) => typeof p === 'string' ? p : p.source)
-        const pp = (ps.packages ?? []).map((p: string | { source: string }) => typeof p === 'string' ? p : p.source)
-        if (gp.length > 0) {
-          console.log('User packages:')
-          for (const p of gp) {
-            console.log(`  ${p}`)
-            const path = packageManager.getInstalledPath(p, 'user')
-            if (path) console.log(`    ${path}`)
-          }
-        }
-        if (pp.length > 0) {
-          if (gp.length > 0) console.log()
-          console.log('Project packages:')
-          for (const p of pp) {
-            console.log(`  ${p}`)
-            const path = packageManager.getInstalledPath(p, 'project')
-            if (path) console.log(`    ${path}`)
-          }
-        }
-        if (gp.length === 0 && pp.length === 0) {
-          console.log('No packages installed.')
-        }
-        break
-      }
-    }
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error'
-    console.error(`Error: ${message}`)
-    process.exit(1)
+  if (command === "json") {
+    const request = JSON.parse(await readFile(rest[0]!, "utf8"));
+    const adapter = await resolveBackend({
+      workspacePath: process.cwd(),
+      githubClients: { fetchProjectSnapshot: async () => ({ columns: [] }) },
+      linearClients: {
+        fetchActiveMilestoneSnapshot: async () => ({ columns: [] }),
+        fetchDocumentByTitle: async () => null,
+      },
+    });
+    const api = createKataDomainApi(adapter);
+    process.stdout.write(`${await runJsonCommand(request, api)}\n`);
+    return;
   }
-  process.exit(0)
+
+  process.stdout.write([
+    "Usage:",
+    "  kata setup",
+    "  kata doctor",
+    "  kata json <request.json>",
+  ].join("\n") + "\n");
 }
 
-const sessionManager = SessionManager.create(process.cwd(), sessionsDir)
-
-// ---------------------------------------------------------------------------
-// Resource loader — read --append-system-prompt before reload
-// ---------------------------------------------------------------------------
-
-// Sync bundled resources for every real runtime, including RPC mode.
-// Desktop launches Kata in `--mode rpc`, and without this sync it can keep
-// running stale ~/.kata-cli/agent extensions from an older build.
-// Print mode is the only mode that should skip resource syncing.
-if (!isPrintMode) {
-  initResources(agentDir)
-}
-
-// Read appended system prompt from file if provided (used by subagent spawns)
-let appendSystemPromptContent: string[] | undefined
-if (cliFlags.appendSystemPrompt) {
-  try {
-    const content = readFileSync(cliFlags.appendSystemPrompt, 'utf-8')
-    appendSystemPromptContent = [content]
-  } catch {
-    process.stderr.write(`[kata] Failed to read --append-system-prompt: ${cliFlags.appendSystemPrompt}\n`)
-  }
-}
-
-// MCP config path — injected into extension runtime inside the session factory.
-// pi-mcp-adapter reads this via pi.getFlag("mcp-config") at session_start.
-const mcpConfigPath = process.env.KATA_MCP_CONFIG_PATH
-
-// ---------------------------------------------------------------------------
-// Session creation via runtime factory
-// ---------------------------------------------------------------------------
-
-const extensionFlagValues = new Map<string, boolean | string>()
-if (mcpConfigPath) {
-  extensionFlagValues.set('mcp-config', mcpConfigPath)
-}
-
-const createRuntime: CreateAgentSessionRuntimeFactory = async ({
-  cwd: runtimeCwd,
-  sessionManager: runtimeSessionManager,
-  sessionStartEvent,
-}) => {
-  const services = await createAgentSessionServices({
-    cwd: runtimeCwd,
-    agentDir,
-    authStorage,
-    settingsManager,
-    modelRegistry,
-    extensionFlagValues,
-    resourceLoaderOptions: {
-      appendSystemPrompt: appendSystemPromptContent,
-    },
-  })
-
-  const result = await createAgentSessionFromServices({
-    services,
-    sessionManager: runtimeSessionManager,
-    sessionStartEvent,
-  })
-
-  return {
-    ...result,
-    services,
-    diagnostics: services.diagnostics,
-  }
-}
-
-const runtime = await createAgentSessionRuntime(createRuntime, {
-  cwd: process.cwd(),
-  agentDir,
-  sessionManager,
-})
-
-const { session } = runtime
-
-if (runtime.diagnostics.length > 0) {
-  for (const diag of runtime.diagnostics) {
-    if (diag.type === 'error') {
-      process.stderr.write(`[kata] ${diag.message}\n`)
-    }
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Mode routing
-// ---------------------------------------------------------------------------
-
-if (cliFlags.mode === 'rpc') {
-  // Apply --model override if provided
-  if (cliFlags.model) {
-    const match = modelRegistry.getAll().find(
-      (m) => `${m.provider}/${m.id}` === cliFlags.model || m.id === cliFlags.model
-    )
-    if (match) {
-      await session.setModel(match)
-    }
-  }
-
-  // Apply --tools override if provided
-  if (cliFlags.tools) {
-    const toolNames = cliFlags.tools.split(',').map((t: string) => t.trim()).filter(Boolean)
-    if (toolNames.length > 0) {
-      session.setActiveToolsByName(toolNames)
-    }
-  }
-
-  const { runRpcMode } = await import('@mariozechner/pi-coding-agent')
-  await runRpcMode(runtime)
-} else if (isPrintMode) {
-  if (cliFlags.messages.length === 0) {
-    process.stderr.write('[kata] --print/--mode requires a message argument\n')
-    process.exit(2)
-  }
-
-  // Apply --model override if provided
-  if (cliFlags.model) {
-    const match = modelRegistry.getAll().find(
-      (m) => `${m.provider}/${m.id}` === cliFlags.model || m.id === cliFlags.model
-    )
-    if (match) {
-      await session.setModel(match)
-    }
-  }
-
-  // Apply --tools override if provided
-  if (cliFlags.tools) {
-    const toolNames = cliFlags.tools.split(',').map((t: string) => t.trim()).filter(Boolean)
-    if (toolNames.length > 0) {
-      session.setActiveToolsByName(toolNames)
-    }
-  }
-
-  const outputMode = cliFlags.mode ?? 'text'
-  await runPrintMode(runtime, {
-    mode: outputMode,
-    initialMessage: cliFlags.messages.join(' '),
-  })
-  // Force exit — extensions (MCP adapter, timers, etc.) may keep the event loop alive
-  process.exit(0)
-} else {
-  const interactiveMode = new InteractiveMode(runtime)
-  await interactiveMode.run()
-}
+void main();

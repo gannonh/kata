@@ -70,6 +70,18 @@ Tell Kata what you want to build. Kata has three modes of operation:
 /kata stop
 ```
 
+## Modes
+
+- `npx @kata-sh/cli setup` — interactive harness setup bootstrap
+- `kata doctor` — local diagnostics
+- `kata json <request.json>` — stable JSON transport
+
+The package also exports a Node library surface for in-process consumers:
+
+```ts
+import { createKataDomainApi, resolveBackend } from "@kata-sh/cli";
+```
+
 ## How It Works
 
 Kata breaks work into three levels:
