@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  tree-sitter@0.25.0:
+    hash: 60e264ad5f8d4fe8e73fda206291b34ca45461ae2311dd580474cdde070d2148
+    path: patches/tree-sitter@0.25.0.patch
+
 importers:
 
   .:
@@ -297,13 +302,13 @@ importers:
         version: 0.1.9
       tree-sitter:
         specifier: ^0.25.0
-        version: 0.25.0
+        version: 0.25.0(patch_hash=60e264ad5f8d4fe8e73fda206291b34ca45461ae2311dd580474cdde070d2148)
       tree-sitter-python:
         specifier: ^0.25.0
-        version: 0.25.0(tree-sitter@0.25.0)
+        version: 0.25.0(tree-sitter@0.25.0(patch_hash=60e264ad5f8d4fe8e73fda206291b34ca45461ae2311dd580474cdde070d2148))
       tree-sitter-typescript:
         specifier: ^0.23.2
-        version: 0.23.2(tree-sitter@0.25.0)
+        version: 0.23.2(tree-sitter@0.25.0(patch_hash=60e264ad5f8d4fe8e73fda206291b34ca45461ae2311dd580474cdde070d2148))
     devDependencies:
       '@types/better-sqlite3':
         specifier: ^7.6.12
@@ -18320,29 +18325,29 @@ snapshots:
 
   tree-kill@1.2.2: {}
 
-  tree-sitter-javascript@0.23.1(tree-sitter@0.25.0):
+  tree-sitter-javascript@0.23.1(tree-sitter@0.25.0(patch_hash=60e264ad5f8d4fe8e73fda206291b34ca45461ae2311dd580474cdde070d2148)):
     dependencies:
       node-addon-api: 8.7.0
       node-gyp-build: 4.8.4
     optionalDependencies:
-      tree-sitter: 0.25.0
+      tree-sitter: 0.25.0(patch_hash=60e264ad5f8d4fe8e73fda206291b34ca45461ae2311dd580474cdde070d2148)
 
-  tree-sitter-python@0.25.0(tree-sitter@0.25.0):
+  tree-sitter-python@0.25.0(tree-sitter@0.25.0(patch_hash=60e264ad5f8d4fe8e73fda206291b34ca45461ae2311dd580474cdde070d2148)):
     dependencies:
       node-addon-api: 8.7.0
       node-gyp-build: 4.8.4
     optionalDependencies:
-      tree-sitter: 0.25.0
+      tree-sitter: 0.25.0(patch_hash=60e264ad5f8d4fe8e73fda206291b34ca45461ae2311dd580474cdde070d2148)
 
-  tree-sitter-typescript@0.23.2(tree-sitter@0.25.0):
+  tree-sitter-typescript@0.23.2(tree-sitter@0.25.0(patch_hash=60e264ad5f8d4fe8e73fda206291b34ca45461ae2311dd580474cdde070d2148)):
     dependencies:
       node-addon-api: 8.7.0
       node-gyp-build: 4.8.4
-      tree-sitter-javascript: 0.23.1(tree-sitter@0.25.0)
+      tree-sitter-javascript: 0.23.1(tree-sitter@0.25.0(patch_hash=60e264ad5f8d4fe8e73fda206291b34ca45461ae2311dd580474cdde070d2148))
     optionalDependencies:
-      tree-sitter: 0.25.0
+      tree-sitter: 0.25.0(patch_hash=60e264ad5f8d4fe8e73fda206291b34ca45461ae2311dd580474cdde070d2148)
 
-  tree-sitter@0.25.0:
+  tree-sitter@0.25.0(patch_hash=60e264ad5f8d4fe8e73fda206291b34ca45461ae2311dd580474cdde070d2148):
     dependencies:
       node-addon-api: 8.7.0
       node-gyp-build: 4.8.4

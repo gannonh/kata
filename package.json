@@ -125,5 +125,10 @@
   "trustedDependencies": [
     "tree-sitter-typescript",
     "tree-sitter-python"
-  ]
+  ],
+  "pnpm": {
+    "patchedDependencies": {
+      "tree-sitter@0.25.0": "patches/tree-sitter@0.25.0.patch"
+    }
+  }
 }
