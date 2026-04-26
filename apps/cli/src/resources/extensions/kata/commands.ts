@@ -452,7 +452,20 @@ export function registerKataCommand(pi: ExtensionAPI): void {
         ctx.ui.notify(`/kata step: ${state.phase} — ${unitId}`, "info");
         ctx.ui.setStatus("kata-auto", "step");
         setStepActive(true);
-        pi.sendMessage({ customType: "kata-step", content: prompt, display: false }, { triggerTurn: true });
+        try {
+          if (ctx.isIdle()) {
+            await pi.sendUserMessage(prompt);
+          } else {
+            await pi.sendUserMessage(prompt, { deliverAs: "followUp" });
+          }
+        } catch (err) {
+          setStepActive(false);
+          ctx.ui.setStatus("kata-auto", undefined);
+          ctx.ui.notify(
+            `Step dispatch failed: ${err instanceof Error ? err.message : String(err)}`,
+            "error",
+          );
+        }
         return;
       }
 
