@@ -5,9 +5,9 @@ import log from './logger'
 import type { SkillEntry, SlashCommandEntry } from '../shared/types'
 
 export const SKILL_DIRECTORIES = [
-  '~/.kata-cli/agent/skills/',
   '~/.agents/skills/',
   '.agents/skills/',
+  '~/.codex/skills/',
 ] as const
 
 export const SKILL_REFRESH_DEBOUNCE_MS = 2_000

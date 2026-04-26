@@ -74,11 +74,6 @@ export async function readWorkspaceWorkflowTrackerConfig(
 
   const repoOwner = stripYamlWrapping(githubFields.repoOwner ?? '')
   const repoName = stripYamlWrapping(githubFields.repoName ?? '')
-  const normalizedLabelPrefix = stripYamlWrapping(githubFields.labelPrefix ?? '')
-    .trim()
-    .replace(/:+$/, '')
-  const labelPrefix = normalizedLabelPrefix || undefined
-
   if (!repoOwner || !repoName) {
     return {
       config: null,
@@ -107,23 +102,27 @@ export async function readWorkspaceWorkflowTrackerConfig(
   }
 
   const stateModeRaw = stripYamlWrapping(githubFields.stateMode ?? '').toLowerCase()
-  let stateMode: 'labels' | 'projects_v2'
-
-  if (!stateModeRaw) {
-    stateMode = githubProjectNumber ? 'projects_v2' : 'labels'
-  } else if (stateModeRaw === 'labels' || stateModeRaw === 'projects_v2') {
-    stateMode = stateModeRaw
-  } else {
+  if (stateModeRaw === 'labels') {
     return {
       config: null,
       error: {
         code: 'INVALID_CONFIG',
-        message: 'github.stateMode must be labels or projects_v2 in .kata/preferences.md.',
+        message: 'GitHub label mode is no longer supported. Use github.stateMode: projects_v2.',
       },
     }
   }
 
-  if (stateMode === 'projects_v2' && githubProjectNumber === undefined) {
+  if (stateModeRaw && stateModeRaw !== 'projects_v2') {
+    return {
+      config: null,
+      error: {
+        code: 'INVALID_CONFIG',
+        message: 'github.stateMode must be projects_v2 in .kata/preferences.md.',
+      },
+    }
+  }
+
+  if (githubProjectNumber === undefined) {
     return {
       config: null,
       error: {
@@ -138,9 +137,8 @@ export async function readWorkspaceWorkflowTrackerConfig(
       kind: 'github',
       repoOwner,
       repoName,
-      stateMode,
+      stateMode: 'projects_v2',
       githubProjectNumber,
-      labelPrefix,
     },
   }
 }

@@ -12,11 +12,12 @@ import type {
 
 interface LinearKataClients {
   fetchActiveMilestoneSnapshot: (input: { milestoneId?: string }) => Promise<any>;
-  fetchDocumentByTitle: (input: {
+  fetchDocumentByTitle?: (input: {
     scopeType: KataScopeType;
     scopeId: string;
     artifactType: KataArtifactType;
   }) => Promise<KataArtifact | null>;
+  listArtifacts?: (input: { scopeType: KataScopeType; scopeId: string }) => Promise<KataArtifact[]>;
 }
 
 export class LinearKataAdapter implements KataBackendAdapter {
@@ -47,11 +48,16 @@ export class LinearKataAdapter implements KataBackendAdapter {
     return snapshot.columns.flatMap((column: any) =>
       column.cards.map((card: any, index: number) => ({
         id: card.id,
-        milestoneId: input.milestoneId,
+        identifier: card.identifier,
+        milestoneId: card.milestoneId ?? input.milestoneId,
+        milestoneName: card.milestoneName,
         title: card.title,
         goal: card.title,
         status: normalizeColumn(column.id),
         order: index,
+        stateName: card.stateName,
+        stateType: card.stateType,
+        url: card.url,
       })),
     );
   }
@@ -65,15 +71,19 @@ export class LinearKataAdapter implements KataBackendAdapter {
     return (card?.tasks ?? []).map((task: any) => ({
       id: task.id,
       sliceId: input.sliceId,
+      identifier: task.identifier,
       title: task.title,
       description: task.description ?? "",
       status: normalizeColumn(task.columnId),
       verificationState: "pending" as const,
+      stateName: task.stateName,
+      stateType: task.stateType,
+      url: task.url,
     }));
   }
 
   async listArtifacts(_input: { scopeType: KataScopeType; scopeId: string }): Promise<KataArtifact[]> {
-    return [];
+    return this.clients.listArtifacts?.(_input) ?? [];
   }
 
   async readArtifact(input: {
@@ -81,7 +91,7 @@ export class LinearKataAdapter implements KataBackendAdapter {
     scopeId: string;
     artifactType: KataArtifactType;
   }): Promise<KataArtifact | null> {
-    return this.clients.fetchDocumentByTitle(input);
+    return (await this.clients.fetchDocumentByTitle?.(input)) ?? null;
   }
 
   async writeArtifact(input: KataArtifactWriteInput): Promise<KataArtifact> {

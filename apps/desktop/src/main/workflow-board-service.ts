@@ -1,9 +1,13 @@
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
+import { createKataDomainApi } from '../../../cli/src/index'
+import { GithubProjectsV2Adapter } from '../../../cli/src/backends/github-projects-v2/adapter'
+import { LinearKataAdapter } from '../../../cli/src/backends/linear/adapter'
 import { WORKFLOW_COLUMNS } from '../shared/types'
 import { AuthBridge } from './auth-bridge'
 import { LinearWorkflowClient, mapLinearStateToColumnId } from './linear-workflow-client'
 import { GithubWorkflowClient } from './github-workflow-client'
+import { KataBackendClient } from './kata-backend-client'
 import log from './logger'
 import { WorkflowContextService } from './workflow-context-service'
 import { readWorkspaceWorkflowTrackerConfig } from './workflow-config-reader'
@@ -152,70 +156,6 @@ const TEST_LINEAR_ASSEMBLED_WORKFLOW_FIXTURE: WorkflowBoardSnapshot = {
   poll: {
     status: 'success',
     backend: 'linear',
-    lastAttemptAt: '2026-04-04T00:00:00.000Z',
-  },
-}
-
-const TEST_GITHUB_LABELS_WORKFLOW_FIXTURE: WorkflowBoardSnapshot = {
-  backend: 'github',
-  fetchedAt: '2026-04-04T00:00:00.000Z',
-  status: 'fresh',
-  source: {
-    projectId: 'github:kata-sh/kata-mono',
-    trackerKind: 'github',
-    githubStateMode: 'labels',
-    repoOwner: 'kata-sh',
-    repoName: 'kata-mono',
-  },
-  activeMilestone: null,
-  columns: [
-    { id: 'backlog', title: 'Backlog', cards: [] },
-    {
-      id: 'todo',
-      title: 'Todo',
-      cards: [
-        {
-          id: 'gh-2249',
-          identifier: '#2249',
-          title: '[S02] GitHub Workflow Board Parity',
-          columnId: 'todo',
-          stateName: 'Todo',
-          stateType: 'label',
-          milestoneId: 'github:kata-sh/kata-mono',
-          milestoneName: 'kata-sh/kata-mono',
-          taskCounts: { total: 0, done: 0 },
-          tasks: [],
-          url: 'https://github.com/kata-sh/kata-mono/issues/2249',
-        },
-      ],
-    },
-    {
-      id: 'in_progress',
-      title: 'In Progress',
-      cards: [
-        {
-          id: 'gh-2250',
-          identifier: '#2250',
-          title: '[S03] Workflow Context Switching and Failure Visibility',
-          columnId: 'in_progress',
-          stateName: 'In Progress',
-          stateType: 'label',
-          milestoneId: 'github:kata-sh/kata-mono',
-          milestoneName: 'kata-sh/kata-mono',
-          taskCounts: { total: 0, done: 0 },
-          tasks: [],
-          url: 'https://github.com/kata-sh/kata-mono/issues/2250',
-        },
-      ],
-    },
-    { id: 'agent_review', title: 'Agent Review', cards: [] },
-    { id: 'human_review', title: 'Human Review', cards: [] },
-    { id: 'merging', title: 'Merging', cards: [] },
-    { id: 'done', title: 'Done', cards: [] },
-  ],
-  poll: {
-    status: 'success',
-    backend: 'github',
     lastAttemptAt: '2026-04-04T00:00:00.000Z',
   },
 }
@@ -1055,12 +995,7 @@ export class WorkflowBoardService {
       : tracker.projectRef
 
     try {
-      const fetchedSnapshot =
-        tracker.kind === 'github'
-          ? await this.githubClient.fetchSnapshot({ config: tracker })
-          : this.requestedScope === 'project' || this.requestedScope === 'active'
-            ? await this.linearClient.fetchProjectSnapshot({ projectRef: tracker.projectRef })
-            : await this.linearClient.fetchActiveMilestoneSnapshot({ projectRef: tracker.projectRef })
+      const fetchedSnapshot = await this.loadBoardFromKataBackend(workspacePath, tracker)
 
       const snapshot: WorkflowBoardSnapshot = this.resolveScope(
         this.enrichWithSymphonyContext({
@@ -1603,12 +1538,114 @@ export class WorkflowBoardService {
       | { kind: 'linear'; projectRef: string },
   ): WorkflowBoardSnapshot {
     if (tracker.kind === 'github') {
-      return tracker.stateMode === 'projects_v2'
-        ? TEST_GITHUB_PROJECTS_WORKFLOW_FIXTURE
-        : TEST_GITHUB_LABELS_WORKFLOW_FIXTURE
+      return TEST_GITHUB_PROJECTS_WORKFLOW_FIXTURE
     }
 
     return this.resolveTestLinearFixture()
+  }
+
+  private async loadBoardFromKataBackend(
+    workspacePath: string,
+    tracker:
+      | ({ kind: 'github' } & Extract<WorkflowTrackerConfig, { kind: 'github' }>)
+      | { kind: 'linear'; projectRef: string },
+  ): Promise<WorkflowBoardSnapshot> {
+    const rawSnapshotPromise: Promise<WorkflowBoardSnapshot> =
+      tracker.kind === 'github'
+        ? this.githubClient.fetchSnapshot({ config: tracker })
+        : this.requestedScope === 'project' || this.requestedScope === 'active'
+          ? this.linearClient.fetchProjectSnapshot({ projectRef: tracker.projectRef })
+          : this.linearClient.fetchActiveMilestoneSnapshot({ projectRef: tracker.projectRef })
+
+    const rawSnapshot = await rawSnapshotPromise
+
+    const adapter =
+      tracker.kind === 'github'
+        ? new GithubProjectsV2Adapter({
+            fetchProjectSnapshot: async () => rawSnapshot,
+          })
+        : new LinearKataAdapter({
+            fetchActiveMilestoneSnapshot: async () => rawSnapshot,
+          })
+
+    const api = createKataDomainApi(adapter)
+    const canonicalSnapshot = await new KataBackendClient(api).getBoardSnapshot()
+    const snapshot = this.mergeCanonicalSnapshot(canonicalSnapshot, rawSnapshot)
+    return this.decorateKataSnapshot(snapshot, tracker)
+  }
+
+  private mergeCanonicalSnapshot(
+    canonicalSnapshot: WorkflowBoardSnapshot,
+    rawSnapshot: WorkflowBoardSnapshot,
+  ): WorkflowBoardSnapshot {
+    const canonicalCardsById = new Map(
+      canonicalSnapshot.columns.flatMap((column) => column.cards).map((card) => [card.id, card]),
+    )
+
+    const columns = rawSnapshot.columns.map((column) => ({
+      ...column,
+      cards: column.cards.map((rawCard) => {
+        const canonicalCard = canonicalCardsById.get(rawCard.id)
+        if (!canonicalCard) {
+          return rawCard
+        }
+
+        const canonicalTasksById = new Map(canonicalCard.tasks.map((task) => [task.id, task]))
+
+        return {
+          ...rawCard,
+          ...canonicalCard,
+          tasks: rawCard.tasks.map((rawTask) => {
+            const canonicalTask = canonicalTasksById.get(rawTask.id)
+            return canonicalTask ? { ...rawTask, ...canonicalTask } : rawTask
+          }),
+        }
+      }),
+    }))
+
+    return {
+      ...canonicalSnapshot,
+      fetchedAt: rawSnapshot.fetchedAt,
+      status: rawSnapshot.status,
+      source: {
+        ...canonicalSnapshot.source,
+        ...rawSnapshot.source,
+      },
+      activeMilestone: rawSnapshot.activeMilestone ?? canonicalSnapshot.activeMilestone,
+      columns,
+      emptyReason: rawSnapshot.emptyReason,
+      lastError: rawSnapshot.lastError,
+      poll: rawSnapshot.poll,
+    }
+  }
+
+  private decorateKataSnapshot(
+    snapshot: WorkflowBoardSnapshot,
+    tracker:
+      | ({ kind: 'github' } & Extract<WorkflowTrackerConfig, { kind: 'github' }>)
+      | { kind: 'linear'; projectRef: string },
+  ): WorkflowBoardSnapshot {
+    if (tracker.kind === 'github') {
+      return {
+        ...snapshot,
+        source: {
+          ...snapshot.source,
+          projectId: `github:${tracker.repoOwner}/${tracker.repoName}`,
+          trackerKind: 'github',
+          githubStateMode: 'projects_v2',
+          repoOwner: tracker.repoOwner,
+          repoName: tracker.repoName,
+        },
+      }
+    }
+
+    return {
+      ...snapshot,
+      source: {
+        ...snapshot.source,
+        trackerKind: 'linear',
+      },
+    }
   }
 
   private toErrorSnapshot(input: {

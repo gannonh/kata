@@ -14,19 +14,12 @@ const GITHUB_API_URL = 'https://api.github.com'
 const GITHUB_GRAPHQL_URL = 'https://api.github.com/graphql'
 const REQUEST_TIMEOUT_MS = 12_000
 const PAGE_SIZE = 100
-const MAX_REST_PAGES = 10
-
-interface GithubIssueLabel {
-  name?: string
-}
-
 interface GithubIssueResponse {
   id?: number
   number?: number
   title?: string
   body?: string
   html_url?: string
-  labels?: GithubIssueLabel[]
   pull_request?: unknown
 }
 
@@ -119,10 +112,7 @@ export class GithubWorkflowClient {
 
     const startedAt = Date.now()
 
-    const snapshot =
-      config.stateMode === 'projects_v2'
-        ? await this.fetchProjectsV2Snapshot(token, config)
-        : await this.fetchLabelModeSnapshot(token, config)
+    const snapshot = await this.fetchProjectsV2Snapshot(token, config)
 
     log.info('[github-workflow-client] workflow:fetch', {
       repo: `${config.repoOwner}/${config.repoName}`,
@@ -140,99 +130,6 @@ export class GithubWorkflowClient {
     return {
       code: normalized.code,
       message: normalized.message,
-    }
-  }
-
-  private async fetchLabelModeSnapshot(
-    token: string,
-    config: Extract<WorkflowTrackerConfig, { kind: 'github' }>,
-  ): Promise<WorkflowBoardSnapshot> {
-    const prefix = normalizeLabelPrefix(config.labelPrefix)
-
-    const issues = await this.fetchAllRepoIssues(token, config.repoOwner, config.repoName)
-    const cards: WorkflowBoardSliceCard[] = []
-    let unlabeledCount = 0
-
-    for (const issue of issues) {
-      if (issue.pull_request) {
-        continue
-      }
-
-      const issueNumber = issue.number
-      const issueTitle = issue.title?.trim()
-      if (!issueNumber || !issueTitle) {
-        continue
-      }
-
-      const parsedState = extractStateFromLabels(issue.labels ?? [], prefix)
-      if (!parsedState) {
-        unlabeledCount += 1
-        continue
-      }
-
-      const prMetadata = extractPrMetadataFromGithubIssue(
-        issue.body,
-        config.repoOwner,
-        config.repoName,
-      )
-
-      cards.push({
-        id: String(issueNumber),
-        identifier: `#${issueNumber}`,
-        title: issueTitle,
-        url: issue.html_url,
-        columnId: mapLinearStateToColumnId(parsedState.displayState, undefined),
-        stateName: parsedState.displayState,
-        stateType: 'label',
-        milestoneId: `github:${config.repoOwner}/${config.repoName}`,
-        milestoneName: `${config.repoOwner}/${config.repoName}`,
-        taskCounts: { total: 0, done: 0 },
-        tasks: [],
-        prMetadata,
-      })
-    }
-
-    log.debug('[github-workflow-client] PR metadata extraction', {
-      cardsWithPr: cards.filter((c) => c.prMetadata).length,
-      cardsWithoutPr: cards.filter((c) => !c.prMetadata).length,
-    })
-
-    const hasCards = cards.length > 0
-    const nowIso = new Date().toISOString()
-    const columns = createEmptyWorkflowColumns()
-
-    for (const card of cards) {
-      const column = columns.find((entry) => entry.id === card.columnId)
-      column?.cards.push(card)
-    }
-
-    for (const column of columns) {
-      column.cards.sort((left, right) => left.identifier.localeCompare(right.identifier))
-    }
-
-    return {
-      backend: 'github',
-      fetchedAt: nowIso,
-      status: hasCards ? 'fresh' : 'empty',
-      source: {
-        projectId: `github:${config.repoOwner}/${config.repoName}`,
-        trackerKind: 'github',
-        githubStateMode: 'labels',
-        repoOwner: config.repoOwner,
-        repoName: config.repoName,
-      },
-      activeMilestone: null,
-      columns,
-      emptyReason: hasCards
-        ? undefined
-        : unlabeledCount > 0
-          ? `No open issues have workflow labels with prefix "${prefix}:".`
-          : 'No open GitHub issues found for workflow board.',
-      poll: {
-        status: 'success',
-        backend: 'github',
-        lastAttemptAt: nowIso,
-      },
     }
   }
 
@@ -650,43 +547,6 @@ export class GithubWorkflowClient {
     }
   }
 
-  // We intentionally cap REST pagination to MAX_REST_PAGES * PAGE_SIZE (1000 issues)
-  // to avoid excessive API calls for very large repositories.
-  private async fetchAllRepoIssues(
-    token: string,
-    repoOwner: string,
-    repoName: string,
-  ): Promise<GithubIssueResponse[]> {
-    const issues: GithubIssueResponse[] = []
-    let reachedPaginationCap = false
-
-    for (let page = 1; page <= MAX_REST_PAGES; page += 1) {
-      const pageItems = await this.restRequest<GithubIssueResponse[]>(
-        token,
-        `/repos/${encodeURIComponent(repoOwner)}/${encodeURIComponent(repoName)}/issues?state=open&per_page=${PAGE_SIZE}&page=${page}`,
-        [],
-      )
-
-      issues.push(...pageItems)
-      if (pageItems.length < PAGE_SIZE) {
-        reachedPaginationCap = false
-        break
-      }
-
-      reachedPaginationCap = page === MAX_REST_PAGES
-    }
-
-    if (reachedPaginationCap) {
-      log.warn('[github-workflow-client] issue pagination cap reached; snapshot may be truncated', {
-        repo: `${repoOwner}/${repoName}`,
-        maxPages: MAX_REST_PAGES,
-        pageSize: PAGE_SIZE,
-      })
-    }
-
-    return issues
-  }
-
   private async restRequest<T>(token: string, endpoint: string, defaultEmptyResponse?: T): Promise<T> {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
@@ -832,56 +692,6 @@ export function extractPrMetadataFromGithubIssue(
   }
 
   return undefined
-}
-
-function normalizeLabelPrefix(prefix: string | undefined): string {
-  const normalized = (prefix ?? '').trim().replace(/:+$/, '')
-  return normalized || 'symphony'
-}
-
-function extractStateFromLabels(
-  labels: GithubIssueLabel[],
-  prefix: string,
-): { displayState: string } | null {
-  const marker = `${normalizeLabelPrefix(prefix).toLowerCase()}:`
-
-  for (const label of labels) {
-    const labelName = label.name?.trim()
-    if (!labelName) {
-      continue
-    }
-
-    const lower = labelName.toLowerCase()
-    if (!lower.startsWith(marker)) {
-      continue
-    }
-
-    const suffix = labelName.split(':').slice(1).join(':').trim()
-    if (!suffix) {
-      continue
-    }
-
-    const normalized = suffix
-      .toLowerCase()
-      .replace(/_/g, '-')
-      .split(/\s+/)
-      .filter(Boolean)
-      .join('-')
-
-    return {
-      displayState: denormalizeLabelState(normalized),
-    }
-  }
-
-  return null
-}
-
-function denormalizeLabelState(value: string): string {
-  return value
-    .split('-')
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ')
 }
 
 function parseKataMilestoneId(title: string): string | null {

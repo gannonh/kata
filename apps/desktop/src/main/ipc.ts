@@ -3,6 +3,10 @@ import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import { promisify } from 'node:util'
 import { dialog, ipcMain, shell, type BrowserWindow } from 'electron'
+import { createKataDomainApi } from '../../../cli/src/index'
+import { GithubProjectsV2Adapter } from '../../../cli/src/backends/github-projects-v2/adapter'
+import { LinearKataAdapter } from '../../../cli/src/backends/linear/adapter'
+import type { KataArtifact, KataArtifactType } from '../../../cli/src/domain/types'
 import log from './logger'
 import { listBuiltinCommands } from './command-registry'
 import { refreshSkillCache } from './skill-scanner'
@@ -52,6 +56,7 @@ import {
   type PlanningArtifactFetchResponse,
   type PlanningArtifactFetchStateEvent,
   type PlanningArtifactListResponse,
+  type PlanningArtifactError,
   type PlanningArtifactErrorCode,
   type SessionInfo,
   type SessionListResponse,
@@ -687,6 +692,169 @@ export function registerSessionIpc({
     }
   }
 
+  const toKataArtifactType = (artifactType: ArtifactType | undefined): KataArtifactType | null => {
+    switch (artifactType) {
+      case 'roadmap':
+      case 'requirements':
+      case 'decisions':
+      case 'context':
+      case 'slice':
+        return artifactType
+      default:
+        return null
+    }
+  }
+
+  const toKataArtifact = (
+    artifact: PlanningArtifact,
+    backend: 'github' | 'linear',
+  ): KataArtifact | null => {
+    const artifactType = toKataArtifactType(detectArtifactTypeFromTitle(artifact.title))
+    if (!artifactType) {
+      return null
+    }
+
+    const scopeType = artifact.scope === 'project' ? 'project' : 'slice'
+    const scopeId = artifact.scope === 'project'
+      ? artifact.projectId ?? 'project'
+      : artifact.issueId ?? artifact.projectId ?? artifact.artifactKey
+
+    return {
+      id: artifact.artifactKey,
+      scopeType,
+      scopeId,
+      artifactType,
+      title: artifact.title,
+      content: artifact.content,
+      format: 'markdown',
+      updatedAt: artifact.updatedAt,
+      provenance: {
+        backend,
+        backendId: artifact.artifactKey,
+      },
+    }
+  }
+
+  const toPlanningArtifact = (
+    artifact: KataArtifact,
+    defaultProjectId?: string | null,
+    existingSliceData?: PlanningSliceData,
+  ): PlanningArtifact => {
+    const scope = artifact.scopeType === 'project' ? 'project' : 'issue'
+    const issueId = scope === 'issue' ? artifact.scopeId : undefined
+    const projectId = scope === 'project' ? artifact.scopeId : defaultProjectId ?? undefined
+
+    return {
+      title: artifact.title,
+      artifactKey: artifact.provenance.backendId || artifact.id,
+      content: artifact.content,
+      updatedAt: artifact.updatedAt,
+      scope,
+      projectId,
+      issueId,
+      artifactType: detectArtifactTypeFromTitle(artifact.title),
+      sliceData: existingSliceData,
+    }
+  }
+
+  const listPlanningArtifactsViaKata = async (): Promise<{
+    tracker: Awaited<ReturnType<typeof readWorkspaceWorkflowTrackerConfig>>['config']
+    projectRef: string | null
+    workspacePath: string
+    artifacts: PlanningArtifact[]
+  }> => {
+    const workspacePath = bridge.getWorkspacePath()
+    const trackerResolution = await readWorkspaceWorkflowTrackerConfig(workspacePath)
+
+    if (trackerResolution.error) {
+      const error = new Error(trackerResolution.error.message)
+      ;(error as Error & { code?: string }).code = trackerResolution.error.code
+      throw error
+    }
+
+    const tracker = trackerResolution.config
+    const projectRef = tracker?.kind === 'github' ? null : await readLinearProjectReference(workspacePath)
+
+    if (!tracker && !projectRef) {
+      return {
+        tracker,
+        projectRef,
+        workspacePath,
+        artifacts: [],
+      }
+    }
+
+    const emptyBoardSnapshot = {
+      backend: tracker?.kind === 'github' ? 'github' : 'linear',
+      fetchedAt: new Date().toISOString(),
+      status: 'empty',
+      source: { projectId: workspacePath },
+      activeMilestone: null,
+      columns: [],
+      poll: {
+        status: 'success',
+        backend: tracker?.kind === 'github' ? 'github' : 'linear',
+        lastAttemptAt: new Date().toISOString(),
+      },
+    } as const
+
+    const adapter =
+      tracker?.kind === 'github'
+        ? new GithubProjectsV2Adapter({
+            fetchProjectSnapshot: async () => emptyBoardSnapshot,
+            listArtifacts: async () => {
+              const artifacts = await githubPlanningClient.listByRepository({
+                repoOwner: tracker.repoOwner,
+                repoName: tracker.repoName,
+              })
+              return artifacts
+                .map((artifact) => toKataArtifact(artifact, 'github'))
+                .filter((artifact): artifact is KataArtifact => Boolean(artifact))
+            },
+          })
+        : new LinearKataAdapter({
+            fetchActiveMilestoneSnapshot: async () => emptyBoardSnapshot,
+            listArtifacts: async () => {
+              if (!projectRef) {
+                return []
+              }
+
+              const artifacts = await linearDocumentClient.listByProject(projectRef)
+              return artifacts
+                .map((artifact) => toKataArtifact(artifact, 'linear'))
+                .filter((artifact): artifact is KataArtifact => Boolean(artifact))
+            },
+          })
+
+    const api = createKataDomainApi(adapter)
+    const projectScopeId =
+      tracker?.kind === 'github'
+        ? `github:${tracker.repoOwner}/${tracker.repoName}`
+        : projectRef ?? workspacePath
+
+    const kataArtifacts = await api.artifact.list({
+      scopeType: 'project',
+      scopeId: projectScopeId,
+    })
+
+    return {
+      tracker,
+      projectRef,
+      workspacePath,
+      artifacts: kataArtifacts
+        .map((artifact) =>
+          toPlanningArtifact(
+            artifact,
+            tracker?.kind === 'github'
+              ? `github:${tracker.repoOwner}/${tracker.repoName}`
+              : projectRef ?? workspacePath,
+            planningArtifactsByKey.get(artifact.provenance.backendId || artifact.id)?.sliceData,
+          ),
+        )
+        .sort((left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt)),
+    }
+  }
+
   const fetchPlanningArtifact = async (
     title: string,
     options?: {
@@ -709,32 +877,21 @@ export function registerSessionIpc({
     }
 
     try {
-      const workspacePath = bridge.getWorkspacePath()
-      const trackerResolution = await readWorkspaceWorkflowTrackerConfig(workspacePath)
-      if (trackerResolution.error) {
-        return {
-          success: false,
-          error: {
-            code: toPlanningArtifactErrorCode(trackerResolution.error.code),
-            message: trackerResolution.error.message,
-          },
-        }
-      }
+      const { artifacts } = await listPlanningArtifactsViaKata()
+      const fetchedArtifact = artifacts
+        .filter((artifact) => artifact.title.trim() === trimmedTitle)
+        .filter((artifact) => {
+          if (options?.issueId && artifact.issueId) {
+            return artifact.issueId === options.issueId
+          }
 
-      const tracker = trackerResolution.config
-      const fetchedArtifact =
-        tracker?.kind === 'github'
-          ? await githubPlanningClient.fetchByTitle({
-              title: trimmedTitle,
-              issueId: options?.issueId,
-              repoOwner: tracker.repoOwner,
-              repoName: tracker.repoName,
-            })
-          : await linearDocumentClient.fetchByTitle({
-              title: trimmedTitle,
-              projectId: options?.projectId,
-              issueId: options?.issueId,
-            })
+          if (options?.projectId && artifact.projectId) {
+            return artifact.projectId === options.projectId
+          }
+
+          return true
+        })
+        .sort((left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt))[0]
 
       if (!fetchedArtifact) {
         return {
@@ -778,10 +935,7 @@ export function registerSessionIpc({
     } catch (error) {
       return {
         success: false,
-        error:
-          error instanceof GithubPlanningClientError
-            ? GithubPlanningClient.toPlanningArtifactError(error)
-            : LinearDocumentClient.toPlanningArtifactError(error),
+        error: toPlanningArtifactError(error),
       }
     }
   }
@@ -1747,29 +1901,10 @@ export function registerSessionIpc({
   ipcMain.handle(IPC_CHANNELS.planningListArtifacts, async (): Promise<PlanningArtifactListResponse> => {
     let staleError: PlanningArtifactListResponse['error']
 
-    const workspacePath = bridge.getWorkspacePath()
-    const trackerResolution = await readWorkspaceWorkflowTrackerConfig(workspacePath)
-
-    if (trackerResolution.error) {
-      return {
-        success: false,
-        artifacts: [],
-        stale: false,
-        error: {
-          code: toPlanningArtifactErrorCode(trackerResolution.error.code),
-          message: trackerResolution.error.message,
-        },
-      }
-    }
-
-    const tracker = trackerResolution.config
-    const projectRef = tracker?.kind === 'github' ? null : await readLinearProjectReference(workspacePath)
-    const startupScopePrefix =
-      tracker?.kind === 'github'
-        ? `startup:${workspacePath}:github:${tracker.repoOwner}/${tracker.repoName}:`
-        : projectRef
-          ? `startup:${workspacePath}:${projectRef}:`
-          : null
+    let tracker: Awaited<ReturnType<typeof readWorkspaceWorkflowTrackerConfig>>['config'] = null
+    let projectRef: string | null = null
+    let workspacePath = bridge.getWorkspacePath()
+    let startupScopePrefix: string | null = null
 
     const clearStartupProactiveArtifacts = (): void => {
       for (const [artifactKey, metadata] of planningMetadataByKey.entries()) {
@@ -1786,19 +1921,23 @@ export function registerSessionIpc({
       }
     }
 
-    if (tracker?.kind === 'github' || projectRef) {
-      try {
-        const projectArtifacts =
-          tracker?.kind === 'github'
-            ? await githubPlanningClient.listByRepository({
-                repoOwner: tracker.repoOwner,
-                repoName: tracker.repoName,
-              })
-            : await linearDocumentClient.listByProject(projectRef as string)
+    try {
+      const result = await listPlanningArtifactsViaKata()
+      tracker = result.tracker
+      projectRef = result.projectRef
+      workspacePath = result.workspacePath
 
+      startupScopePrefix =
+        tracker?.kind === 'github'
+          ? `startup:${workspacePath}:github:${tracker.repoOwner}/${tracker.repoName}:`
+          : projectRef
+            ? `startup:${workspacePath}:${projectRef}:`
+            : null
+
+      try {
         clearStartupProactiveArtifacts()
 
-        for (const projectArtifact of projectArtifacts) {
+        for (const projectArtifact of result.artifacts) {
           const artifactType = detectArtifactTypeFromTitle(projectArtifact.title)
           if (tracker?.kind !== 'github' && !isStartupProactiveArtifactType(artifactType)) {
             continue
@@ -1826,10 +1965,7 @@ export function registerSessionIpc({
           })
         }
       } catch (error) {
-        staleError =
-          error instanceof GithubPlanningClientError
-            ? GithubPlanningClient.toPlanningArtifactError(error)
-            : LinearDocumentClient.toPlanningArtifactError(error)
+        staleError = toPlanningArtifactError(error)
 
         log.warn('[desktop-ipc] planning proactive artifact load failed', {
           workspacePath,
@@ -1838,6 +1974,13 @@ export function registerSessionIpc({
           repo: tracker?.kind === 'github' ? `${tracker.repoOwner}/${tracker.repoName}` : undefined,
           error: staleError,
         })
+      }
+    } catch (error) {
+      return {
+        success: false,
+        artifacts: [],
+        stale: false,
+        error: toPlanningArtifactError(error),
       }
     }
 
@@ -2499,6 +2642,14 @@ function toPlanningArtifactErrorCode(code: string): PlanningArtifactErrorCode {
     default:
       return 'UNKNOWN'
   }
+}
+
+function toPlanningArtifactError(error: unknown): PlanningArtifactError {
+  if (error instanceof GithubPlanningClientError) {
+    return GithubPlanningClient.toPlanningArtifactError(error)
+  }
+
+  return LinearDocumentClient.toPlanningArtifactError(error)
 }
 
 async function readLinearProjectReference(workspacePath: string): Promise<string | null> {

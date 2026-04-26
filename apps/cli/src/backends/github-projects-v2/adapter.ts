@@ -12,6 +12,12 @@ import type {
 
 interface GithubProjectsV2Clients {
   fetchProjectSnapshot: (input: { milestoneId?: string }) => Promise<any>;
+  listArtifacts?: (input: { scopeType: KataScopeType; scopeId: string }) => Promise<KataArtifact[]>;
+  readArtifact?: (input: {
+    scopeType: KataScopeType;
+    scopeId: string;
+    artifactType: KataArtifactType;
+  }) => Promise<KataArtifact | null>;
 }
 
 export class GithubProjectsV2Adapter implements KataBackendAdapter {
@@ -42,11 +48,16 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
     return snapshot.columns.flatMap((column: any) =>
       column.cards.map((card: any, index: number) => ({
         id: card.id,
-        milestoneId: input.milestoneId,
+        identifier: card.identifier,
+        milestoneId: card.milestoneId ?? input.milestoneId,
+        milestoneName: card.milestoneName,
         title: card.title,
         goal: card.title,
         status: normalizeColumn(column.id),
         order: index,
+        stateName: card.stateName,
+        stateType: card.stateType,
+        url: card.url,
       })),
     );
   }
@@ -60,15 +71,19 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
     return (card?.tasks ?? []).map((task: any) => ({
       id: task.id,
       sliceId: input.sliceId,
+      identifier: task.identifier,
       title: task.title,
       description: task.description ?? "",
       status: normalizeColumn(task.columnId),
       verificationState: "pending" as const,
+      stateName: task.stateName,
+      stateType: task.stateType,
+      url: task.url,
     }));
   }
 
   async listArtifacts(_input: { scopeType: KataScopeType; scopeId: string }): Promise<KataArtifact[]> {
-    return [];
+    return this.clients.listArtifacts?.(_input) ?? [];
   }
 
   async readArtifact(_input: {
@@ -76,7 +91,7 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
     scopeId: string;
     artifactType: KataArtifactType;
   }): Promise<KataArtifact | null> {
-    return null;
+    return (await this.clients.readArtifact?.(_input)) ?? null;
   }
 
   async writeArtifact(input: KataArtifactWriteInput): Promise<KataArtifact> {
