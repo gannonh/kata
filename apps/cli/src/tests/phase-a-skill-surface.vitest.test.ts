@@ -33,4 +33,23 @@ describe("Phase A skill surface", () => {
       expect(workflow).not.toContain("/" + "kata:" + "discuss");
     }
   });
+
+  it("treats verify-work as evidence recording by default instead of UAT", () => {
+    const executeWorkflow = readFileSync(
+      path.join(sourceRoot, "skills-src", "workflows", "execute-phase.md"),
+      "utf8",
+    );
+    const verifyWorkflow = readFileSync(
+      path.join(sourceRoot, "skills-src", "workflows", "verify-work.md"),
+      "utf8",
+    );
+    const manifest = readFileSync(path.join(sourceRoot, "skills-src", "manifest.json"), "utf8");
+
+    expect(executeWorkflow).toContain("run `kata-verify-work` to record verification evidence");
+    expect(executeWorkflow).not.toContain("for user-facing verification");
+    expect(verifyWorkflow).toContain("Do not infer that verification is user-facing from the skill name.");
+    expect(verifyWorkflow).toContain('Use `artifactType: "uat"` only when the plan explicitly calls for user acceptance testing.');
+    expect(manifest).not.toContain("demo");
+    expect(manifest).toContain("Use UAT artifacts only when the plan explicitly calls for user acceptance testing.");
+  });
 });

@@ -189,7 +189,7 @@ If verification failed, keep the task `in_progress`, set `verificationState` to 
 Summarize completed tasks, verification evidence, remaining tasks, and the next action:
 
 ```text
-Next up: run `kata-verify-work` for user-facing verification.
+Next up: run `kata-verify-work` to record verification evidence.
 ```
 
 ## Rules

@@ -1,14 +1,14 @@
 # Verify Work Workflow
 
-Use this workflow to verify completed work and record UAT or verification artifacts: test one behavior at a time, record evidence, and mark task verification state.
+Use this workflow to verify completed work and record durable verification evidence: test one behavior at a time, record evidence, and mark task verification state.
 
 ## Required Reading
 
 - `references/cli-runtime.md`
 - `references/artifact-contract.md`
 - `references/ui-brand.md`
-- `templates/UAT.md`
 - `templates/verification-report.md`
+- `templates/UAT.md` when the task explicitly requires user acceptance testing
 
 ## Stage 1: Load Verification Context
 
@@ -57,28 +57,34 @@ Read existing verification artifact when present:
 node ./scripts/kata-call.mjs artifact.read --input /tmp/kata-read-verification.json
 ```
 
-## Stage 2: Run UAT
+## Stage 2: Gather Verification Evidence
 
-Test one user-visible behavior at a time. Ask the user to confirm actual behavior when manual observation is required. Do not interrogate; keep the user focused on the next concrete check.
+Use the slice/task plan to determine the evidence type. Do not infer that verification is user-facing from the skill name.
 
-## Stage 3: Write Verification Or UAT Artifact
+For non-user-facing work, evidence can include CLI output, test results, backend state, artifact reads/writes, logs, or code review notes.
+
+For user-facing work, evidence can include UI behavior, screenshots, walkthrough notes, or manual acceptance checks.
+
+Ask the user to confirm actual behavior only when the plan calls for manual observation or user acceptance testing. Do not interrogate; keep the user focused on the next concrete check.
+
+## Stage 3: Write Verification Artifact
 
 ```json
 {
   "scopeType": "task",
   "scopeId": "T001",
-  "artifactType": "uat",
-  "title": "T001 UAT",
-  "content": "# User Acceptance Test\n\n## Tests\n\n...",
+  "artifactType": "verification",
+  "title": "T001 Verification",
+  "content": "# Verification\n\n## Evidence\n\n...",
   "format": "markdown"
 }
 ```
 
 ```bash
-node ./scripts/kata-call.mjs artifact.write --input /tmp/kata-uat.json
+node ./scripts/kata-call.mjs artifact.write --input /tmp/kata-verification.json
 ```
 
-For automated verification evidence, use `artifactType: "verification"` instead.
+Use `artifactType: "uat"` only when the plan explicitly calls for user acceptance testing.
 
 ## Stage 4: Update Verification State
 
