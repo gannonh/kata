@@ -39,6 +39,21 @@ const requiredSkillNames = [
   "kata-verify-work",
 ];
 
+const inputRequiredOperations = new Set([
+  "project.upsert",
+  "milestone.create",
+  "milestone.complete",
+  "slice.list",
+  "slice.create",
+  "slice.updateStatus",
+  "task.list",
+  "task.create",
+  "task.updateStatus",
+  "artifact.list",
+  "artifact.read",
+  "artifact.write",
+]);
+
 async function pathExists(filePath) {
   try {
     await fs.stat(filePath);
@@ -69,9 +84,17 @@ async function validateManifest(manifest) {
     requireString(skill.description, "description", skill.name);
     requireString(skill.workflow, "workflow", skill.name);
     requireString(skill.setupHint, "setupHint", skill.name);
+    requireString(skill.legacyCommand, "legacyCommand", skill.name);
+    requireString(skill.legacyWorkflow, "legacyWorkflow", skill.name);
 
     if (!Array.isArray(skill.contractOperations)) {
       throw new Error(`Skill "${skill.name}" must declare contractOperations as an array.`);
+    }
+    if (!Array.isArray(skill.requiredReferences)) {
+      throw new Error(`Skill "${skill.name}" must declare requiredReferences as an array.`);
+    }
+    if (!Array.isArray(skill.requiredTemplates)) {
+      throw new Error(`Skill "${skill.name}" must declare requiredTemplates as an array.`);
     }
 
     for (const operation of skill.contractOperations) {
@@ -84,6 +107,18 @@ async function validateManifest(manifest) {
     if (!(await pathExists(workflowPath))) {
       throw new Error(`Skill "${skill.name}" points to missing workflow: ${workflowPath}`);
     }
+    for (const reference of skill.requiredReferences) {
+      const referencePath = path.join(sourceRoot, "references", `${reference}.md`);
+      if (!(await pathExists(referencePath))) {
+        throw new Error(`Skill "${skill.name}" requires missing reference: ${referencePath}`);
+      }
+    }
+    for (const template of skill.requiredTemplates) {
+      const templatePath = path.join(sourceRoot, "templates", `${template}.md`);
+      if (!(await pathExists(templatePath))) {
+        throw new Error(`Skill "${skill.name}" requires missing template: ${templatePath}`);
+      }
+    }
   }
 }
 
@@ -92,14 +127,72 @@ function renderContractOperations(skill) {
     return "This setup skill does not require runtime contract operations.";
   }
 
-  return [
-    "Use only these typed runtime operations:",
-    "",
-    ...skill.contractOperations.map((operation) => `- \`${operation}\``),
-  ].join("\n");
+  const lines = ["Use only these typed runtime operations:", ""];
+  for (const operation of skill.contractOperations) {
+    lines.push(`## \`${operation}\``, "");
+    if (inputRequiredOperations.has(operation)) {
+      const inputPath = `/tmp/kata-${operation.replace(".", "-")}.json`;
+      lines.push("Create a JSON payload file first, then run:", "");
+      lines.push("```bash");
+      lines.push(`node ./scripts/kata-call.mjs ${operation} --input ${inputPath}`);
+      lines.push("```", "");
+      lines.push("Payload example:", "");
+      lines.push("```json");
+      lines.push(renderPayloadExample(operation));
+      lines.push("```", "");
+    } else {
+      lines.push("Run:", "");
+      lines.push("```bash");
+      lines.push(`node ./scripts/kata-call.mjs ${operation}`);
+      lines.push("```", "");
+    }
+  }
+  return lines.join("\n");
+}
+
+function renderPayloadExample(operation) {
+  switch (operation) {
+    case "project.upsert":
+      return JSON.stringify({ title: "Todo App", description: "A focused app for tracking personal tasks." }, null, 2);
+    case "milestone.create":
+      return JSON.stringify({ title: "v1.0 Todo App MVP", goal: "Deliver persistent task creation, completion, editing, and deletion." }, null, 2);
+    case "milestone.complete":
+      return JSON.stringify({ milestoneId: "M001", summary: "The milestone shipped and passed verification." }, null, 2);
+    case "slice.list":
+      return JSON.stringify({ milestoneId: "M001" }, null, 2);
+    case "slice.create":
+      return JSON.stringify({ milestoneId: "M001", title: "Task persistence", goal: "Persist tasks across app reloads.", order: 1 }, null, 2);
+    case "slice.updateStatus":
+      return JSON.stringify({ sliceId: "S001", status: "in_progress" }, null, 2);
+    case "task.list":
+      return JSON.stringify({ sliceId: "S001" }, null, 2);
+    case "task.create":
+      return JSON.stringify({ sliceId: "S001", title: "Add task model", description: "Implement the task persistence model and tests." }, null, 2);
+    case "task.updateStatus":
+      return JSON.stringify({ taskId: "T001", status: "done", verificationState: "verified" }, null, 2);
+    case "artifact.list":
+      return JSON.stringify({ scopeType: "milestone", scopeId: "M001" }, null, 2);
+    case "artifact.read":
+      return JSON.stringify({ scopeType: "milestone", scopeId: "M001", artifactType: "requirements" }, null, 2);
+    case "artifact.write":
+      return JSON.stringify({
+        scopeType: "milestone",
+        scopeId: "M001",
+        artifactType: "requirements",
+        title: "M001 Requirements",
+        content: "# Requirements\n\n- [ ] **TODO-01**: User can create a task.",
+        format: "markdown",
+      }, null, 2);
+    default:
+      return "{}";
+  }
 }
 
 function renderSkillMarkdown(skill) {
+  const extraReferences = skill.requiredReferences
+    .filter((reference) => !["alignment", "cli-runtime", "artifact-contract"].includes(reference))
+    .map((reference) => `- ${reference}: \`references/${reference}.md\``);
+  const templates = skill.requiredTemplates.map((template) => `- ${template}: \`templates/${template}.md\``);
   return [
     "---",
     `name: ${skill.name}`,
@@ -117,6 +210,8 @@ function renderSkillMarkdown(skill) {
     "- CLI command patterns: `references/cli-runtime.md`",
     "- Artifact conventions: `references/artifact-contract.md`",
     "- CLI helper: `scripts/kata-call.mjs`",
+    ...(extraReferences.length > 0 ? ["", "Additional references:", "", ...extraReferences] : []),
+    ...(templates.length > 0 ? ["", "Templates:", "", ...templates] : []),
     "",
     "## Execution Rules",
     "",
@@ -181,8 +276,12 @@ for (const skill of manifest.skills) {
   const workflowBody = await fs.readFile(workflowPath, "utf8");
   const skillDir = path.join(targetDir, skill.name);
   const referencesDir = path.join(skillDir, "references");
+  const templatesDir = path.join(skillDir, "templates");
 
   await fs.mkdir(referencesDir, { recursive: true });
+  if (skill.requiredTemplates.length > 0) {
+    await fs.mkdir(templatesDir, { recursive: true });
+  }
   await fs.writeFile(path.join(skillDir, "SKILL.md"), renderSkillMarkdown(skill), "utf8");
   await fs.writeFile(path.join(referencesDir, "setup.md"), renderSetupReference(skill), "utf8");
   await fs.writeFile(path.join(referencesDir, "runtime-contract.md"), renderRuntimeContractReference(skill), "utf8");
@@ -190,5 +289,11 @@ for (const skill of manifest.skills) {
   await copyIfExists(path.join(sourceRoot, "references", "alignment.md"), path.join(referencesDir, "alignment.md"));
   await copyIfExists(path.join(sourceRoot, "references", "cli-runtime.md"), path.join(referencesDir, "cli-runtime.md"));
   await copyIfExists(path.join(sourceRoot, "references", "artifact-contract.md"), path.join(referencesDir, "artifact-contract.md"));
+  for (const reference of skill.requiredReferences) {
+    await copyIfExists(path.join(sourceRoot, "references", `${reference}.md`), path.join(referencesDir, `${reference}.md`));
+  }
+  for (const template of skill.requiredTemplates) {
+    await copyIfExists(path.join(sourceRoot, "templates", `${template}.md`), path.join(templatesDir, `${template}.md`));
+  }
   await copyIfExists(path.join(sourceRoot, "scripts"), path.join(skillDir, "scripts"));
 }

@@ -4,20 +4,83 @@ Source: `apps/cli/skills-src/workflows/progress.md`
 
 # Progress Workflow
 
-Use this workflow to summarize current Kata project, milestone, slice, task, and execution state.
+Use this workflow to summarize current Kata project, milestone, slice, task, artifact, and execution state.
 
-## Runtime Flow
+## Required Reading
 
-1. Read project context with `project.getContext`.
-2. Read active milestone with `milestone.getActive`.
-3. List slices with `slice.list`.
-4. List tasks for each slice with `task.list`.
-5. Read artifact inventory with `artifact.list`.
-6. Read execution status with `execution.getStatus`.
-7. Summarize current state and recommend the next primary workflow.
+- `references/cli-runtime.md`
+- `references/artifact-contract.md`
+
+## Flow
+
+Read project context:
+
+```bash
+node ./scripts/kata-call.mjs project.getContext
+```
+
+Read active milestone:
+
+```bash
+node ./scripts/kata-call.mjs milestone.getActive
+```
+
+List slices:
+
+```json
+{
+  "milestoneId": "M001"
+}
+```
+
+```bash
+node ./scripts/kata-call.mjs slice.list --input /tmp/kata-slice-list.json
+```
+
+List tasks for each slice:
+
+```json
+{
+  "sliceId": "S001"
+}
+```
+
+```bash
+node ./scripts/kata-call.mjs task.list --input /tmp/kata-task-list.json
+```
+
+List artifact inventory:
+
+```json
+{
+  "scopeType": "milestone",
+  "scopeId": "M001"
+}
+```
+
+```bash
+node ./scripts/kata-call.mjs artifact.list --input /tmp/kata-artifact-list.json
+```
+
+Read execution status:
+
+```bash
+node ./scripts/kata-call.mjs execution.getStatus
+```
+
+## Summary Format
+
+Report:
+
+- Project/repository.
+- Active milestone.
+- Slice/task counts by status.
+- Verification state.
+- Missing artifacts.
+- One recommended next action.
 
 ## Rules
 
-1. Treat backend state as authoritative.
-2. Be explicit about missing project, milestone, slice, or task state.
-3. Recommend one next action, not a menu of unrelated options.
+- Treat backend state as authoritative.
+- Be explicit about missing project, milestone, slice, or task state.
+- Recommend one next action, not a menu of unrelated options.

@@ -6,22 +6,41 @@ Source: `apps/cli/skills-src/workflows/setup.md`
 
 Use this workflow to make Kata usable in the current harness before durable project work begins.
 
-## Alignment
+## Required Reading
+
+- `references/cli-runtime.md`
+- `references/artifact-contract.md`
+
+## Flow
 
 1. Confirm the user is running from the project repository.
-2. Confirm whether they want Pi setup specifically or generic harness setup.
-3. If the target harness is unclear, run generic setup first and then doctor.
+2. For local Kata monorepo + Pi validation, run:
 
-## Runtime Flow
+```bash
+node apps/cli/dist/loader.js setup --pi
+```
 
-1. Run `npx @kata-sh/cli setup --pi` for Pi, or `npx @kata-sh/cli setup` for generic harness detection.
-2. Run `npx @kata-sh/cli doctor`.
-3. If doctor reports invalid GitHub configuration, ask the user to fix `.kata/preferences.md`.
-4. If doctor reports missing GitHub auth, ask for `GITHUB_TOKEN` or `GH_TOKEN`.
-5. Continue only after backend health is valid enough for the requested workflow.
+3. For published npm use, run:
+
+```bash
+npx @kata-sh/cli setup --pi
+```
+
+4. Verify CLI setup:
+
+```bash
+node apps/cli/dist/loader.js doctor
+```
+
+5. Verify runtime health from an installed skill:
+
+```bash
+node ./scripts/kata-call.mjs health.check
+```
 
 ## Rules
 
-1. Do not create project, milestone, slice, task, or artifact state in setup.
-2. Keep backend IO behind `@kata-sh/cli`.
-3. Do not reference legacy local markdown state or legacy orchestrator commands.
+- Do not create project, milestone, slice, task, or artifact state during setup.
+- If `doctor` reports invalid backend configuration, ask the user to fix `.kata/preferences.md`.
+- If `doctor` reports missing GitHub auth, ask the user to set `GITHUB_TOKEN` or `GH_TOKEN`.
+- Continue to product workflows only after setup and backend health are good enough for the requested action.

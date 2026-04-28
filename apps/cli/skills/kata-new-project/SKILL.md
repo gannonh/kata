@@ -15,6 +15,16 @@ Use progressive disclosure resources:
 - Artifact conventions: `references/artifact-contract.md`
 - CLI helper: `scripts/kata-call.mjs`
 
+Additional references:
+
+- questioning: `references/questioning.md`
+- ui-brand: `references/ui-brand.md`
+
+Templates:
+
+- project: `templates/project.md`
+- requirements: `templates/requirements.md`
+
 ## Execution Rules
 
 1. If setup or backend state is uncertain, start with `references/setup.md`.

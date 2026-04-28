@@ -8,7 +8,14 @@
       "contractOperations": [
         "health.check"
       ],
-      "setupHint": "Run `npx @kata-sh/cli setup` for generic harness detection, or `npx @kata-sh/cli setup --pi` for Pi harnesses, then verify with `npx @kata-sh/cli doctor`."
+      "setupHint": "Run `npx @kata-sh/cli setup` for generic harness detection, or `npx @kata-sh/cli setup --pi` for Pi harnesses, then verify with `npx @kata-sh/cli doctor`.",
+      "legacyCommand": "apps/orchestrator-legacy/commands/kata/health.md",
+      "legacyWorkflow": "apps/orchestrator-legacy/kata/workflows/health.md",
+      "requiredReferences": [
+        "cli-runtime",
+        "artifact-contract"
+      ],
+      "requiredTemplates": []
     },
     {
       "name": "kata-new-project",
@@ -19,7 +26,19 @@
         "artifact.write",
         "health.check"
       ],
-      "setupHint": "If Kata CLI is not configured, run `npx @kata-sh/cli setup`, then verify with `npx @kata-sh/cli doctor`."
+      "setupHint": "If Kata CLI is not configured, run `npx @kata-sh/cli setup`, then verify with `npx @kata-sh/cli doctor`.",
+      "legacyCommand": "apps/orchestrator-legacy/commands/kata/new-project.md",
+      "legacyWorkflow": "apps/orchestrator-legacy/kata/workflows/new-project.md",
+      "requiredReferences": [
+        "cli-runtime",
+        "artifact-contract",
+        "questioning",
+        "ui-brand"
+      ],
+      "requiredTemplates": [
+        "project",
+        "requirements"
+      ]
     },
     {
       "name": "kata-new-milestone",
@@ -30,7 +49,21 @@
         "milestone.create",
         "artifact.write"
       ],
-      "setupHint": "If Kata CLI is not configured, run `npx @kata-sh/cli setup`, then verify with `npx @kata-sh/cli doctor`."
+      "setupHint": "If Kata CLI is not configured, run `npx @kata-sh/cli setup`, then verify with `npx @kata-sh/cli doctor`.",
+      "legacyCommand": "apps/orchestrator-legacy/commands/kata/new-milestone.md",
+      "legacyWorkflow": "apps/orchestrator-legacy/kata/workflows/new-milestone.md",
+      "requiredReferences": [
+        "cli-runtime",
+        "artifact-contract",
+        "questioning",
+        "ui-brand"
+      ],
+      "requiredTemplates": [
+        "project",
+        "requirements",
+        "roadmap",
+        "state"
+      ]
     },
     {
       "name": "kata-plan-phase",
@@ -43,7 +76,17 @@
         "task.create",
         "artifact.write"
       ],
-      "setupHint": "If Kata CLI is not configured, run `npx @kata-sh/cli setup`, then verify with `npx @kata-sh/cli doctor`."
+      "setupHint": "If Kata CLI is not configured, run `npx @kata-sh/cli setup`, then verify with `npx @kata-sh/cli doctor`.",
+      "legacyCommand": "apps/orchestrator-legacy/commands/kata/plan-phase.md",
+      "legacyWorkflow": "apps/orchestrator-legacy/kata/workflows/plan-phase.md",
+      "requiredReferences": [
+        "cli-runtime",
+        "artifact-contract",
+        "ui-brand"
+      ],
+      "requiredTemplates": [
+        "phase-prompt"
+      ]
     },
     {
       "name": "kata-execute-phase",
@@ -58,7 +101,17 @@
         "artifact.read",
         "artifact.write"
       ],
-      "setupHint": "If Kata CLI is not configured, run `npx @kata-sh/cli setup`, then verify with `npx @kata-sh/cli doctor`."
+      "setupHint": "If Kata CLI is not configured, run `npx @kata-sh/cli setup`, then verify with `npx @kata-sh/cli doctor`.",
+      "legacyCommand": "apps/orchestrator-legacy/commands/kata/execute-phase.md",
+      "legacyWorkflow": "apps/orchestrator-legacy/kata/workflows/execute-phase.md",
+      "requiredReferences": [
+        "cli-runtime",
+        "artifact-contract",
+        "ui-brand"
+      ],
+      "requiredTemplates": [
+        "summary"
+      ]
     },
     {
       "name": "kata-verify-work",
@@ -72,7 +125,18 @@
         "artifact.read",
         "artifact.write"
       ],
-      "setupHint": "If Kata CLI is not configured, run `npx @kata-sh/cli setup`, then verify with `npx @kata-sh/cli doctor`."
+      "setupHint": "If Kata CLI is not configured, run `npx @kata-sh/cli setup`, then verify with `npx @kata-sh/cli doctor`.",
+      "legacyCommand": "apps/orchestrator-legacy/commands/kata/verify-work.md",
+      "legacyWorkflow": "apps/orchestrator-legacy/kata/workflows/verify-work.md",
+      "requiredReferences": [
+        "cli-runtime",
+        "artifact-contract",
+        "ui-brand"
+      ],
+      "requiredTemplates": [
+        "UAT",
+        "verification-report"
+      ]
     },
     {
       "name": "kata-complete-milestone",
@@ -83,7 +147,18 @@
         "milestone.complete",
         "artifact.write"
       ],
-      "setupHint": "If Kata CLI is not configured, run `npx @kata-sh/cli setup`, then verify with `npx @kata-sh/cli doctor`."
+      "setupHint": "If Kata CLI is not configured, run `npx @kata-sh/cli setup`, then verify with `npx @kata-sh/cli doctor`.",
+      "legacyCommand": "apps/orchestrator-legacy/commands/kata/complete-milestone.md",
+      "legacyWorkflow": "apps/orchestrator-legacy/kata/workflows/complete-milestone.md",
+      "requiredReferences": [
+        "cli-runtime",
+        "artifact-contract",
+        "ui-brand"
+      ],
+      "requiredTemplates": [
+        "milestone-archive",
+        "retrospective"
+      ]
     },
     {
       "name": "kata-progress",
@@ -97,7 +172,14 @@
         "artifact.list",
         "execution.getStatus"
       ],
-      "setupHint": "If Kata CLI is not configured, run `npx @kata-sh/cli setup`, then verify with `npx @kata-sh/cli doctor`."
+      "setupHint": "If Kata CLI is not configured, run `npx @kata-sh/cli setup`, then verify with `npx @kata-sh/cli doctor`.",
+      "legacyCommand": "apps/orchestrator-legacy/commands/kata/progress.md",
+      "legacyWorkflow": "apps/orchestrator-legacy/kata/workflows/progress.md",
+      "requiredReferences": [
+        "cli-runtime",
+        "artifact-contract"
+      ],
+      "requiredTemplates": []
     },
     {
       "name": "kata-health",
@@ -107,7 +189,14 @@
         "health.check",
         "project.getContext"
       ],
-      "setupHint": "If Kata CLI is not configured, run `npx @kata-sh/cli setup`, then verify with `npx @kata-sh/cli doctor`."
+      "setupHint": "If Kata CLI is not configured, run `npx @kata-sh/cli setup`, then verify with `npx @kata-sh/cli doctor`.",
+      "legacyCommand": "apps/orchestrator-legacy/commands/kata/health.md",
+      "legacyWorkflow": "apps/orchestrator-legacy/kata/workflows/health.md",
+      "requiredReferences": [
+        "cli-runtime",
+        "artifact-contract"
+      ],
+      "requiredTemplates": []
     }
   ]
 }
