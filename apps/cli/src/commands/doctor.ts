@@ -229,6 +229,19 @@ export async function runDoctor(input: RunDoctorInput = {}): Promise<DoctorRepor
           ? `Parsed backend config: github projects_v2 (${config.repoOwner}/${config.repoName} #${config.githubProjectNumber})`
           : "Parsed backend config: linear",
       });
+      if (config.kind === "github") {
+        const hasGithubToken = Boolean((env.GITHUB_TOKEN ?? env.GH_TOKEN)?.trim());
+        checks.push({
+          name: "github-token",
+          status: hasGithubToken ? "ok" : "invalid",
+          message: hasGithubToken
+            ? "GitHub token is configured; doctor did not perform live Project v2 field validation."
+            : "GitHub mode requires GITHUB_TOKEN or GH_TOKEN.",
+          ...(hasGithubToken
+            ? {}
+            : { action: "Set GITHUB_TOKEN or GH_TOKEN with access to the configured GitHub Project v2." }),
+        });
+      }
     } catch (error) {
       checks.push({
         name: "backend-config",

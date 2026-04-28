@@ -42,6 +42,7 @@ github:
 
       const env = {
         PI_CODING_AGENT_DIR: agentDir,
+        GH_TOKEN: "ghp_test",
       };
 
       const setupResult = await runSetup({
@@ -67,38 +68,36 @@ github:
       expect(doctor.checks.find((check) => check.name === "pi-settings")?.status).toBe("ok");
       expect(doctor.checks.find((check) => check.name === "backend-config")?.status).toBe("ok");
 
-      const runtimeBackend = {
-        isLinearMode: false,
-        documentsByScope: new Map<string, Map<string, string>>([
-          ["project", new Map()],
-        ]),
-        deriveState: vi.fn(async () => ({
-          activeMilestone: { id: "M001", title: "[M001] Golden Path" },
-          activeSlice: { id: "S01" },
-          phase: "executing",
-          blockers: [],
-        })),
-        listSlices: vi.fn(async () => []),
-        listTasks: vi.fn(async () => []),
-        listDocuments: vi.fn(async (scope?: { issueId: string }) => {
-          const scopeKey = scope?.issueId ?? "project";
-          return Array.from(runtimeBackend.documentsByScope.get(scopeKey)?.keys() ?? []);
-        }),
-        readDocument: vi.fn(async (name: string, scope?: { issueId: string }) => {
-          const scopeKey = scope?.issueId ?? "project";
-          return runtimeBackend.documentsByScope.get(scopeKey)?.get(name) ?? null;
-        }),
-        writeDocument: vi.fn(async (name: string, content: string, scope?: { issueId: string }) => {
-          const scopeKey = scope?.issueId ?? "project";
-          const scopeDocs = runtimeBackend.documentsByScope.get(scopeKey) ?? new Map<string, string>();
-          scopeDocs.set(name, content);
-          runtimeBackend.documentsByScope.set(scopeKey, scopeDocs);
-        }),
-      };
+      const runtimeBackendFactory = vi.fn(async () => {
+        throw new Error("GitHub mode must not use the runtime backend fallback");
+      });
+      const githubClient = createGoldenFakeGithubClient();
 
       const adapter = await resolveBackend({
         workspacePath: workspaceDir,
-        runtimeBackendFactory: async () => runtimeBackend as any,
+        githubClients: githubClient as any,
+        runtimeBackendFactory,
+      });
+
+      const createdMilestoneOutput = await runJsonCommand(
+        {
+          operation: "milestone.create",
+          payload: {
+            title: "Golden Path",
+            goal: "Real GitHub backend validation",
+          },
+        },
+        createKataDomainApi(adapter),
+      );
+      expect(JSON.parse(createdMilestoneOutput)).toMatchObject({
+        ok: true,
+        data: {
+          id: "M001",
+          title: "Golden Path",
+          goal: "Real GitHub backend validation",
+          status: "active",
+          active: true,
+        },
       });
 
       const jsonOutput = await runJsonCommand(
@@ -109,12 +108,12 @@ github:
       expect(parsed.ok).toBe(true);
       expect(parsed.data).toEqual({
         id: "M001",
-        title: "[M001] Golden Path",
-        goal: "[M001] Golden Path",
+        title: "Golden Path",
+        goal: "Real GitHub backend validation",
         status: "active",
         active: true,
       });
-      expect(runtimeBackend.deriveState).toHaveBeenCalled();
+      expect(runtimeBackendFactory).not.toHaveBeenCalled();
 
       const contextOutput = await runJsonCommand(
         { operation: "project.getContext", payload: {} },
@@ -131,6 +130,17 @@ github:
           },
         },
       });
+
+      await runJsonCommand(
+        {
+          operation: "project.upsert",
+          payload: {
+            title: "Golden Project",
+            description: "GitHub Projects v2 project tracking issue",
+          },
+        },
+        createKataDomainApi(adapter),
+      );
 
       const artifactWriteOutput = await runJsonCommand(
         {
@@ -174,4 +184,136 @@ github:
       rmSync(tmp, { recursive: true, force: true });
     }
   });
+
+  it("reports missing GitHub token as invalid without contacting GitHub", async () => {
+    const tmp = mkdtempSync(join(tmpdir(), "kata-golden-path-"));
+    const workspaceDir = join(tmp, "repo");
+
+    try {
+      mkdirSync(join(workspaceDir, ".kata"), { recursive: true });
+      mkdirSync(join(workspaceDir, "apps", "orchestrator", "dist", "skills", "kata-health"), { recursive: true });
+      writeFileSync(join(workspaceDir, "apps", "orchestrator", "dist", "skills", "kata-health", "SKILL.md"), "# Kata\n");
+      writeFileSync(
+        join(workspaceDir, ".kata", "preferences.md"),
+        `---
+workflow:
+  mode: github
+github:
+  repoOwner: kata-sh
+  repoName: kata-mono
+  stateMode: projects_v2
+  githubProjectNumber: 12
+---
+`,
+        "utf8",
+      );
+
+      const doctor = await runDoctor({
+        cwd: workspaceDir,
+        env: { PI_CODING_AGENT_DIR: join(tmp, "pi-agent") },
+        packageVersion: "9.9.9-test",
+      });
+
+      expect(doctor.status).toBe("invalid");
+      expect(doctor.checks.find((check) => check.name === "github-token")).toMatchObject({
+        status: "invalid",
+        action: "Set GITHUB_TOKEN or GH_TOKEN with access to the configured GitHub Project v2.",
+      });
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
 });
+
+function createGoldenFakeGithubClient() {
+  const issues: any[] = [];
+  const commentsByIssue = new Map<number, any[]>();
+  let nextIssueNumber = 1;
+  let nextProjectItemNumber = 1;
+  let nextCommentId = 1;
+
+  return {
+    graphql: vi.fn(async (request: any) => {
+      if (request.query.includes("LoadKataProjectFields")) {
+        return {
+          organization: {
+            projectV2: {
+              id: "project-id",
+              fields: {
+                nodes: [
+                  { id: "status-field-id", name: "Status", options: validStatusOptions() },
+                  { id: "kata-type-field-id", name: "Kata Type" },
+                  { id: "kata-id-field-id", name: "Kata ID" },
+                  { id: "kata-parent-id-field-id", name: "Kata Parent ID" },
+                  { id: "kata-artifact-scope-field-id", name: "Kata Artifact Scope" },
+                ],
+              },
+            },
+          },
+        };
+      }
+      if (request.query.includes("addProjectV2ItemById")) {
+        return {
+          addProjectV2ItemById: {
+            item: { id: `project-item-${nextProjectItemNumber++}` },
+          },
+        };
+      }
+      return { updateProjectV2ItemFieldValue: { projectV2Item: { id: request.variables.itemId } } };
+    }),
+    rest: vi.fn(async (request: any) => {
+      if (request.method === "GET" && request.path.startsWith("/repos/kata-sh/kata-mono/issues?")) {
+        const page = Number(new URL(`https://example.test${request.path}`).searchParams.get("page") ?? "1");
+        return page === 1 ? issues : [];
+      }
+
+      const commentsMatch = request.path.match(/^\/repos\/kata-sh\/kata-mono\/issues\/(\d+)\/comments(?:\?.*)?$/);
+      if (request.method === "GET" && commentsMatch) {
+        return commentsByIssue.get(Number(commentsMatch[1])) ?? [];
+      }
+      if (request.method === "POST" && commentsMatch) {
+        const issueNumber = Number(commentsMatch[1]);
+        const comment = { id: nextCommentId++, body: request.body.body };
+        commentsByIssue.set(issueNumber, [...(commentsByIssue.get(issueNumber) ?? []), comment]);
+        return comment;
+      }
+
+      if (request.method === "POST" && request.path === "/repos/kata-sh/kata-mono/issues") {
+        const number = nextIssueNumber++;
+        const issue = {
+          id: number,
+          node_id: `issue-node-${number}`,
+          number,
+          title: request.body.title,
+          body: request.body.body,
+          state: "open",
+          html_url: `https://github.test/kata-sh/kata-mono/issues/${number}`,
+        };
+        issues.push(issue);
+        return issue;
+      }
+
+      if (request.method === "POST" && request.path === "/repos/kata-sh/kata-mono/milestones") {
+        return { number: 1, title: request.body.title, description: request.body.description, state: "open" };
+      }
+
+      if (request.method === "PATCH") {
+        return request.body;
+      }
+
+      throw new Error(`Unhandled fake GitHub request: ${request.method} ${request.path}`);
+    }),
+  };
+}
+
+function validStatusOptions() {
+  return [
+    { id: "status-backlog", name: "Backlog" },
+    { id: "status-todo", name: "Todo" },
+    { id: "status-in-progress", name: "In Progress" },
+    { id: "status-agent-review", name: "Agent Review" },
+    { id: "status-human-review", name: "Human Review" },
+    { id: "status-merging", name: "Merging" },
+    { id: "status-done", name: "Done" },
+  ];
+}

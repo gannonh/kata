@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { GithubProjectsV2Adapter } from "../backends/github-projects-v2/adapter.js";
 import {
   formatArtifactComment,
   parseArtifactComment,
@@ -230,3 +231,287 @@ describe("GitHub artifact comments", () => {
     );
   });
 });
+
+describe("GithubProjectsV2Adapter", () => {
+  it("creates project, milestone, slice, task, and artifact records through GitHub and Project v2", async () => {
+    const client = createFakeGithubClient();
+    const adapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+
+    const project = await adapter.upsertProject({
+      title: "Launch Kata",
+      description: "Project brief",
+    });
+    const milestone = await adapter.createMilestone({
+      title: "Phase A",
+      goal: "Real backend",
+    });
+    const slice = await adapter.createSlice({
+      milestoneId: milestone.id,
+      title: "Wire adapter",
+      goal: "Use GitHub",
+    });
+    const task = await adapter.createTask({
+      sliceId: slice.id,
+      title: "Set project fields",
+      description: "Add item and update fields",
+    });
+    const artifact = await adapter.writeArtifact({
+      scopeType: "slice",
+      scopeId: slice.id,
+      artifactType: "plan",
+      title: "Slice plan",
+      content: "# Plan",
+      format: "markdown",
+    });
+
+    expect(project).toMatchObject({
+      backend: "github",
+      workspacePath: "/workspace",
+      title: "Launch Kata",
+    });
+    expect(milestone).toMatchObject({ id: "M001", title: "Phase A", status: "active" });
+    expect(slice).toMatchObject({ id: "S001", milestoneId: "M001", status: "todo" });
+    expect(task).toMatchObject({ id: "T001", sliceId: "S001", status: "todo" });
+    expect(artifact).toMatchObject({
+      scopeType: "slice",
+      scopeId: "S001",
+      artifactType: "plan",
+      content: "# Plan",
+    });
+
+    expect(client.rest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "POST",
+        path: "/repos/kata-sh/uat/milestones",
+        body: expect.objectContaining({
+          title: "[M001] Phase A",
+          description: "Real backend",
+        }),
+      }),
+    );
+    expect(client.rest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "POST",
+        path: "/repos/kata-sh/uat/issues/3/comments",
+        body: expect.objectContaining({
+          body: expect.stringContaining("<!-- kata:artifact "),
+        }),
+      }),
+    );
+
+    const addCalls = client.graphql.mock.calls.filter(([input]) => input.query.includes("addProjectV2ItemById"));
+    expect(addCalls).toHaveLength(4);
+    expect(addCalls.map(([input]) => input.variables.contentId)).toEqual([
+      "issue-node-1",
+      "issue-node-2",
+      "issue-node-3",
+      "issue-node-4",
+    ]);
+
+    const updateCalls = client.graphql.mock.calls.filter(([input]) =>
+      input.query.includes("updateProjectV2ItemFieldValue")
+    );
+    expect(updateCalls).toEqual(
+      expect.arrayContaining([
+        [
+          expect.objectContaining({
+            variables: expect.objectContaining({
+              itemId: "project-item-1",
+              fieldId: "kata-type-field-id",
+              value: { text: "Project" },
+            }),
+          }),
+        ],
+        [
+          expect.objectContaining({
+            variables: expect.objectContaining({
+              itemId: "project-item-2",
+              fieldId: "kata-id-field-id",
+              value: { text: "M001" },
+            }),
+          }),
+        ],
+        [
+          expect.objectContaining({
+            variables: expect.objectContaining({
+              itemId: "project-item-3",
+              fieldId: "kata-parent-id-field-id",
+              value: { text: "M001" },
+            }),
+          }),
+        ],
+        [
+          expect.objectContaining({
+            variables: expect.objectContaining({
+              itemId: "project-item-4",
+              fieldId: "status-field-id",
+              value: { singleSelectOptionId: "status-todo" },
+            }),
+          }),
+        ],
+      ]),
+    );
+  });
+
+  it("rediscovers marker issues before writing artifacts from a fresh adapter", async () => {
+    const client = createFakeGithubClient({
+      issues: [
+        {
+          id: 99,
+          node_id: "issue-node-99",
+          number: 42,
+          title: "[S001] Existing Slice",
+          body: '<!-- kata:entity {"kataId":"S001","type":"Slice","parentId":"M001"} -->\nExisting slice',
+          state: "open",
+          html_url: "https://github.test/kata-sh/uat/issues/42",
+        },
+      ],
+    });
+    const adapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+
+    const artifact = await adapter.writeArtifact({
+      scopeType: "slice",
+      scopeId: "S001",
+      artifactType: "plan",
+      title: "Existing slice plan",
+      content: "Rediscovered",
+      format: "markdown",
+    });
+
+    expect(artifact.provenance.backendId).toBe("comment:1");
+    expect(client.rest).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "POST",
+        path: "/repos/kata-sh/uat/issues",
+      }),
+    );
+    expect(client.rest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "GET",
+        path: "/repos/kata-sh/uat/issues?state=all&per_page=100&page=1",
+      }),
+    );
+    expect(client.rest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "POST",
+        path: "/repos/kata-sh/uat/issues/42/comments",
+      }),
+    );
+  });
+});
+
+function createFakeGithubClient(input: { issues?: any[] } = {}) {
+  const issues = [...(input.issues ?? [])];
+  const commentsByIssue = new Map<number, any[]>();
+  let nextIssueNumber = issues.reduce((max, issue) => Math.max(max, Number(issue.number) || 0), 0) + 1;
+  let nextProjectItemNumber = 1;
+  let nextCommentId = 1;
+
+  return {
+    graphql: vi.fn(async (request: any) => {
+      if (request.query.includes("LoadKataProjectFields")) {
+        return {
+          organization: {
+            projectV2: {
+              id: "project-id",
+              fields: {
+                nodes: [
+                  { id: "status-field-id", name: "Status", options: validStatusOptions() },
+                  { id: "kata-type-field-id", name: "Kata Type" },
+                  { id: "kata-id-field-id", name: "Kata ID" },
+                  { id: "kata-parent-id-field-id", name: "Kata Parent ID" },
+                  { id: "kata-artifact-scope-field-id", name: "Kata Artifact Scope" },
+                ],
+              },
+            },
+          },
+        };
+      }
+
+      if (request.query.includes("addProjectV2ItemById")) {
+        return {
+          addProjectV2ItemById: {
+            item: { id: `project-item-${nextProjectItemNumber++}` },
+          },
+        };
+      }
+
+      return {
+        updateProjectV2ItemFieldValue: {
+          projectV2Item: { id: request.variables.itemId },
+        },
+      };
+    }),
+    rest: vi.fn(async (request: any) => {
+      if (request.method === "GET" && request.path.startsWith("/repos/kata-sh/uat/issues?")) {
+        const page = Number(new URL(`https://example.test${request.path}`).searchParams.get("page") ?? "1");
+        return page === 1 ? issues : [];
+      }
+
+      const commentsMatch = request.path.match(/^\/repos\/kata-sh\/uat\/issues\/(\d+)\/comments(?:\?.*)?$/);
+      if (request.method === "GET" && commentsMatch) {
+        return commentsByIssue.get(Number(commentsMatch[1])) ?? [];
+      }
+      if (request.method === "POST" && commentsMatch) {
+        const issueNumber = Number(commentsMatch[1]);
+        const comment = { id: nextCommentId++, body: request.body.body };
+        commentsByIssue.set(issueNumber, [...(commentsByIssue.get(issueNumber) ?? []), comment]);
+        return comment;
+      }
+
+      if (request.method === "POST" && request.path === "/repos/kata-sh/uat/issues") {
+        const number = nextIssueNumber++;
+        const issue = {
+          id: number,
+          node_id: `issue-node-${number}`,
+          number,
+          title: request.body.title,
+          body: request.body.body,
+          state: "open",
+          html_url: `https://github.test/kata-sh/uat/issues/${number}`,
+        };
+        issues.push(issue);
+        return issue;
+      }
+
+      if (request.method === "POST" && request.path === "/repos/kata-sh/uat/milestones") {
+        return {
+          number: 1,
+          title: request.body.title,
+          description: request.body.description,
+          state: "open",
+        };
+      }
+
+      if (request.method === "PATCH") {
+        return request.body;
+      }
+
+      throw new Error(`Unhandled fake GitHub request: ${request.method} ${request.path}`);
+    }),
+  };
+}
+
+function validStatusOptions() {
+  return [
+    { id: "status-backlog", name: "Backlog" },
+    { id: "status-todo", name: "Todo" },
+    { id: "status-in-progress", name: "In Progress" },
+    { id: "status-agent-review", name: "Agent Review" },
+    { id: "status-human-review", name: "Human Review" },
+    { id: "status-merging", name: "Merging" },
+    { id: "status-done", name: "Done" },
+  ];
+}

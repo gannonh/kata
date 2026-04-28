@@ -27,6 +27,7 @@ import type {
   KataTaskUpdateStatusInput,
 } from "../domain/types.js";
 import { KataDomainError } from "../domain/errors.js";
+import { createGithubClient } from "./github-projects-v2/client.js";
 import { readTrackerConfig } from "./read-tracker-config.js";
 import { GithubProjectsV2Adapter } from "./github-projects-v2/adapter.js";
 import { LinearKataAdapter } from "./linear/adapter.js";
@@ -493,7 +494,8 @@ function createRuntimeBackedAdapter(input: {
 
 export async function resolveBackend(input: {
   workspacePath: string;
-  githubClients?: ConstructorParameters<typeof GithubProjectsV2Adapter>[0];
+  env?: NodeJS.ProcessEnv;
+  githubClients?: ReturnType<typeof createGithubClient>;
   linearClients?: ConstructorParameters<typeof LinearKataAdapter>[0];
   runtimeBackendFactory?: RuntimeBackendFactory;
 }): Promise<KataBackendAdapter> {
@@ -502,11 +504,21 @@ export async function resolveBackend(input: {
   const config = await readTrackerConfig({ preferencesContent });
 
   if (config.kind === "github") {
-    if (input.githubClients) return new GithubProjectsV2Adapter(input.githubClients);
-    return createRuntimeBackedAdapter({
+    const token = (input.env ?? process.env).GITHUB_TOKEN ?? (input.env ?? process.env).GH_TOKEN;
+    const client = input.githubClients ?? (token ? createGithubClient({ token }) : null);
+    if (!client) {
+      throw new KataDomainError(
+        "UNAUTHORIZED",
+        "GitHub mode requires GITHUB_TOKEN or GH_TOKEN with access to the configured GitHub Project v2.",
+      );
+    }
+
+    return new GithubProjectsV2Adapter({
+      owner: config.repoOwner,
+      repo: config.repoName,
+      projectNumber: config.githubProjectNumber,
       workspacePath: input.workspacePath,
-      config,
-      runtimeBackendFactory: input.runtimeBackendFactory,
+      client,
     });
   }
 
