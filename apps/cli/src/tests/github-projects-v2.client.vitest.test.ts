@@ -56,6 +56,45 @@ describe("createGithubClient", () => {
     });
   });
 
+  it("returns GraphQL data when GitHub also includes partial errors", async () => {
+    const fetch = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            data: { user: { login: "gannonhall" }, organization: null },
+            errors: [{ message: "Could not resolve to an Organization with the login of 'gannonhall'." }],
+          }),
+          { status: 200 },
+        ),
+    );
+    const client = createGithubClient({ token: "ghp_test", fetch });
+
+    const result = await client.graphql<{ user: { login: string }; organization: null }>({
+      query: "query { user(login: \"gannonhall\") { login } organization(login: \"gannonhall\") { login } }",
+    });
+
+    expect(result.user.login).toBe("gannonhall");
+    expect(result.organization).toBeNull();
+  });
+
+  it("rejects GraphQL errors when the response does not include data", async () => {
+    const fetch = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            errors: [{ message: "Could not resolve to a User with the login of 'missing'." }],
+          }),
+          { status: 200 },
+        ),
+    );
+    const client = createGithubClient({ token: "ghp_test", fetch });
+
+    await expect(client.graphql({ query: "query { user(login: \"missing\") { login } }" })).rejects.toMatchObject({
+      code: "UNKNOWN",
+      message: "Could not resolve to a User with the login of 'missing'.",
+    });
+  });
+
   it("rejects empty successful GraphQL responses with a missing data domain error", async () => {
     const fetch = vi.fn(async () => new Response("", { status: 200 }));
     const client = createGithubClient({ token: "ghp_test", fetch });

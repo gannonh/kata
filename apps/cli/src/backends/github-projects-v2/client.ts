@@ -44,16 +44,16 @@ export function createGithubClient(input: GithubClientInput) {
         throw new KataDomainError("UNKNOWN", "GitHub GraphQL response did not include data.");
       }
 
+      if (payload.data != null) {
+        return payload.data;
+      }
+
       if (payload.errors?.length) {
         const message = payload.errors.map((error) => error.message ?? "Unknown GraphQL error").join("; ");
         throw new KataDomainError("UNKNOWN", message);
       }
 
-      if (!payload.data) {
-        throw new KataDomainError("UNKNOWN", "GitHub GraphQL response did not include data.");
-      }
-
-      return payload.data;
+      throw new KataDomainError("UNKNOWN", "GitHub GraphQL response did not include data.");
     },
 
     async rest<T>(restInput: RestInput): Promise<T> {
