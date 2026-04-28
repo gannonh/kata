@@ -83,6 +83,7 @@
       "contractOperations": [
         "project.getContext",
         "milestone.create",
+        "artifact.read",
         "artifact.write"
       ],
       "setupHint": "If Kata CLI is not configured, run setup and health checks through `scripts/kata-call.mjs` from the installed skill.",
@@ -125,6 +126,8 @@
       "contractOperations": [
         "project.getContext",
         "milestone.getActive",
+        "artifact.read",
+        "slice.list",
         "slice.create",
         "task.create",
         "artifact.write"
@@ -133,9 +136,9 @@
       "operatingBrief": [
         "When this skill is invoked, turn the active milestone roadmap into executable slices and tasks.",
         "",
-        "Load project context and the active milestone, read the milestone requirements and roadmap, then present the phase or slice you plan to convert into execution work. Ask for confirmation before creating backend slices or tasks.",
+        "Load project context and the active milestone, read the milestone requirements and roadmap, list existing milestone slices, then present the phase or slice you plan to convert into execution work. Ask for confirmation before creating backend slices or tasks.",
         "",
-        "Create a slice with `slice.create`, create focused tasks with `task.create`, and write a slice-scoped plan artifact with `artifact.write`. End by routing the user to `kata-execute-phase`."
+        "If the selected roadmap work is not already represented by an existing slice, create a slice with `slice.create`, create focused tasks with `task.create`, and write a slice-scoped plan artifact with `artifact.write`. End by routing the user to `kata-execute-phase`."
       ],
       "successCriteria": [
         "The selected milestone work is represented by one or more backend slices.",

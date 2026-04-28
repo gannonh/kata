@@ -7,7 +7,7 @@ Use only these typed runtime operations:
 Run:
 
 ```bash
-node ./scripts/kata-call.mjs project.getContext
+node <path-to-skill-directory>/scripts/kata-call.mjs project.getContext
 ```
 
 ## `milestone.getActive`
@@ -15,7 +15,41 @@ node ./scripts/kata-call.mjs project.getContext
 Run:
 
 ```bash
-node ./scripts/kata-call.mjs milestone.getActive
+node <path-to-skill-directory>/scripts/kata-call.mjs milestone.getActive
+```
+
+## `artifact.read`
+
+Create a JSON payload file first, then run:
+
+```bash
+node <path-to-skill-directory>/scripts/kata-call.mjs artifact.read --input /tmp/kata-artifact-read.json
+```
+
+Payload example:
+
+```json
+{
+  "scopeType": "milestone",
+  "scopeId": "M001",
+  "artifactType": "requirements"
+}
+```
+
+## `slice.list`
+
+Create a JSON payload file first, then run:
+
+```bash
+node <path-to-skill-directory>/scripts/kata-call.mjs slice.list --input /tmp/kata-slice-list.json
+```
+
+Payload example:
+
+```json
+{
+  "milestoneId": "M001"
+}
 ```
 
 ## `slice.create`
@@ -23,7 +57,7 @@ node ./scripts/kata-call.mjs milestone.getActive
 Create a JSON payload file first, then run:
 
 ```bash
-node ./scripts/kata-call.mjs slice.create --input /tmp/kata-slice-create.json
+node <path-to-skill-directory>/scripts/kata-call.mjs slice.create --input /tmp/kata-slice-create.json
 ```
 
 Payload example:
@@ -42,7 +76,7 @@ Payload example:
 Create a JSON payload file first, then run:
 
 ```bash
-node ./scripts/kata-call.mjs task.create --input /tmp/kata-task-create.json
+node <path-to-skill-directory>/scripts/kata-call.mjs task.create --input /tmp/kata-task-create.json
 ```
 
 Payload example:
@@ -60,7 +94,7 @@ Payload example:
 Create a JSON payload file first, then run:
 
 ```bash
-node ./scripts/kata-call.mjs artifact.write --input /tmp/kata-artifact-write.json
+node <path-to-skill-directory>/scripts/kata-call.mjs artifact.write --input /tmp/kata-artifact-write.json
 ```
 
 Payload example:
@@ -77,4 +111,4 @@ Payload example:
 ```
 
 
-Use `scripts/kata-call.mjs <operation> --input <request.json>` when a harness benefits from a local helper.
+Use `<path-to-skill-directory>/scripts/kata-call.mjs <operation> --input <request.json>` when a harness benefits from a local helper.

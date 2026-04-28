@@ -15,7 +15,7 @@ Use this workflow to complete the active milestone after verified work is accept
 ## Stage 1: Load Active Milestone
 
 ```bash
-node ./scripts/kata-call.mjs milestone.getActive
+node <path-to-skill-directory>/scripts/kata-call.mjs milestone.getActive
 ```
 
 If no active milestone exists, stop and report that there is nothing to complete.
@@ -32,7 +32,7 @@ List milestone artifacts:
 ```
 
 ```bash
-node ./scripts/kata-call.mjs artifact.list --input /tmp/kata-milestone-artifacts.json
+node <path-to-skill-directory>/scripts/kata-call.mjs artifact.list --input /tmp/kata-milestone-artifacts.json
 ```
 
 Review requirements, roadmap, summaries, UAT, and verification artifacts. Surface incomplete or failed work before asking to close the milestone.
@@ -51,7 +51,7 @@ Review requirements, roadmap, summaries, UAT, and verification artifacts. Surfac
 ```
 
 ```bash
-node ./scripts/kata-call.mjs artifact.write --input /tmp/kata-milestone-summary.json
+node <path-to-skill-directory>/scripts/kata-call.mjs artifact.write --input /tmp/kata-milestone-summary.json
 ```
 
 ## Stage 4: Write Retrospective Artifact
@@ -70,7 +70,7 @@ Use `templates/retrospective.md`.
 ```
 
 ```bash
-node ./scripts/kata-call.mjs artifact.write --input /tmp/kata-retrospective.json
+node <path-to-skill-directory>/scripts/kata-call.mjs artifact.write --input /tmp/kata-retrospective.json
 ```
 
 ## Stage 5: Complete Milestone
@@ -83,7 +83,7 @@ node ./scripts/kata-call.mjs artifact.write --input /tmp/kata-retrospective.json
 ```
 
 ```bash
-node ./scripts/kata-call.mjs milestone.complete --input /tmp/kata-milestone-complete.json
+node <path-to-skill-directory>/scripts/kata-call.mjs milestone.complete --input /tmp/kata-milestone-complete.json
 ```
 
 ## Completion

@@ -16,13 +16,13 @@ Use this workflow to turn the active milestone roadmap into executable slices an
 Read project context:
 
 ```bash
-node ./scripts/kata-call.mjs project.getContext
+node <path-to-skill-directory>/scripts/kata-call.mjs project.getContext
 ```
 
 Run:
 
 ```bash
-node ./scripts/kata-call.mjs milestone.getActive
+node <path-to-skill-directory>/scripts/kata-call.mjs milestone.getActive
 ```
 
 If no active milestone exists, stop and route to `kata-new-milestone`.
@@ -38,7 +38,7 @@ Read requirements:
 ```
 
 ```bash
-node ./scripts/kata-call.mjs artifact.read --input /tmp/kata-read-requirements.json
+node <path-to-skill-directory>/scripts/kata-call.mjs artifact.read --input /tmp/kata-read-requirements.json
 ```
 
 Read roadmap:
@@ -52,8 +52,22 @@ Read roadmap:
 ```
 
 ```bash
-node ./scripts/kata-call.mjs artifact.read --input /tmp/kata-read-roadmap.json
+node <path-to-skill-directory>/scripts/kata-call.mjs artifact.read --input /tmp/kata-read-roadmap.json
 ```
+
+List existing milestone slices before proposing new backend work:
+
+```json
+{
+  "milestoneId": "M001"
+}
+```
+
+```bash
+node <path-to-skill-directory>/scripts/kata-call.mjs slice.list --input /tmp/kata-slice-list.json
+```
+
+Use the returned slices to avoid creating duplicate backend slices for roadmap work that is already planned.
 
 ## Stage 2: Phase Gate
 
@@ -62,12 +76,15 @@ Present the phase or roadmap slice you plan to convert into executable work:
 - Goal.
 - Requirements covered.
 - Success criteria.
+- Existing slice coverage, if any.
 - Known constraints.
 - Assumptions.
 
 Ask for confirmation before creating backend slices/tasks. This is the phase gate.
 
 ## Stage 3: Create Slice
+
+If an existing slice already covers the selected roadmap work, do not create a duplicate. Confirm whether to add missing tasks or update the slice-scoped plan artifact instead.
 
 Create `/tmp/kata-slice-create.json`:
 
@@ -83,7 +100,7 @@ Create `/tmp/kata-slice-create.json`:
 Run:
 
 ```bash
-node ./scripts/kata-call.mjs slice.create --input /tmp/kata-slice-create.json
+node <path-to-skill-directory>/scripts/kata-call.mjs slice.create --input /tmp/kata-slice-create.json
 ```
 
 Capture the returned slice ID, for example `S001`.
@@ -103,7 +120,7 @@ For each execution task, create a payload:
 Run:
 
 ```bash
-node ./scripts/kata-call.mjs task.create --input /tmp/kata-task-create.json
+node <path-to-skill-directory>/scripts/kata-call.mjs task.create --input /tmp/kata-task-create.json
 ```
 
 Tasks should be small enough for a fresh execution agent and include verification notes in the description.
@@ -128,7 +145,7 @@ Create `/tmp/kata-plan-artifact.json`:
 Run:
 
 ```bash
-node ./scripts/kata-call.mjs artifact.write --input /tmp/kata-plan-artifact.json
+node <path-to-skill-directory>/scripts/kata-call.mjs artifact.write --input /tmp/kata-plan-artifact.json
 ```
 
 ## Completion
@@ -149,5 +166,7 @@ Next up: run `kata-execute-phase` to execute the planned tasks.
 ## Rules
 
 - Derive tasks from requirements and success criteria.
+- List existing slices before creating new backend slices.
+- Do not create duplicate slices for roadmap work that already has backend slice coverage.
 - Do not create tasks that are not tied to the milestone goal.
 - Keep discussion integrated in this workflow; do not route to standalone discuss skills.

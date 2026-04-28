@@ -4,8 +4,8 @@ If Kata CLI is not configured, run setup and health checks through `scripts/kata
 
 When this skill is already installed, prefer the local wrapper:
 
-- `node ./scripts/kata-call.mjs doctor`
-- `node ./scripts/kata-call.mjs health.check`
+- `node <path-to-skill-directory>/scripts/kata-call.mjs doctor`
+- `node <path-to-skill-directory>/scripts/kata-call.mjs health.check`
 
 ## GitHub Projects V2 Setup
 

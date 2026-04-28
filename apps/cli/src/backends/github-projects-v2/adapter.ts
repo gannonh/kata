@@ -155,7 +155,7 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
 
     await this.syncProjectFields(entity, {
       type: "Project",
-      status: "Todo",
+      status: "Backlog",
       artifactScope: "PROJECT",
     });
 
@@ -212,7 +212,7 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
 
     await this.syncProjectFields(entity, {
       type: "Milestone",
-      status: "Todo",
+      status: "Backlog",
       artifactScope: kataId,
     });
 
@@ -255,7 +255,7 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
         kataId,
         type: "Slice",
         parentId: input.milestoneId,
-        status: "todo",
+        status: "backlog",
         content: input.goal,
       }),
     });
@@ -263,7 +263,7 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
     await this.syncProjectFields(entity, {
       type: "Slice",
       parentId: input.milestoneId,
-      status: "Todo",
+      status: "Backlog",
       artifactScope: kataId,
     });
 
@@ -272,7 +272,7 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
       milestoneId: input.milestoneId,
       title: input.title,
       goal: input.goal,
-      status: "todo",
+      status: "backlog",
       order: input.order ?? 0,
     };
   }
@@ -308,7 +308,7 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
         kataId,
         type: "Task",
         parentId: input.sliceId,
-        status: "todo",
+        status: "backlog",
         verificationState: "pending",
         content: input.description,
       }),
@@ -317,7 +317,7 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
     await this.syncProjectFields(entity, {
       type: "Task",
       parentId: input.sliceId,
-      status: "Todo",
+      status: "Backlog",
       artifactScope: kataId,
     });
 
@@ -326,7 +326,7 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
       sliceId: input.sliceId,
       title: input.title,
       description: input.description,
-      status: "todo",
+      status: "backlog",
       verificationState: "pending",
     };
   }
@@ -821,6 +821,8 @@ function statusOptionForSlice(status: KataSlice["status"]): ProjectStatusName {
 
 function statusOptionForTask(status: KataTask["status"]): ProjectStatusName {
   switch (status) {
+    case "backlog":
+      return "Backlog";
     case "in_progress":
       return "In Progress";
     case "done":
@@ -835,7 +837,7 @@ function sliceStatusFromEntity(entity: TrackedEntity): KataSliceStatus {
 }
 
 function taskStatusFromEntity(entity: TrackedEntity): KataTaskStatus {
-  return isKataTaskStatus(entity.status) ? entity.status : entity.state === "closed" ? "done" : "todo";
+  return isKataTaskStatus(entity.status) ? entity.status : entity.state === "closed" ? "done" : "backlog";
 }
 
 function taskVerificationStateFromEntity(entity: TrackedEntity): KataTaskVerificationState {
@@ -875,7 +877,7 @@ function isKataSliceStatus(value: unknown): value is KataSliceStatus {
 }
 
 function isKataTaskStatus(value: unknown): value is KataTaskStatus {
-  return value === "todo" || value === "in_progress" || value === "done";
+  return value === "backlog" || value === "todo" || value === "in_progress" || value === "done";
 }
 
 function isKataTaskVerificationState(value: unknown): value is KataTaskVerificationState {

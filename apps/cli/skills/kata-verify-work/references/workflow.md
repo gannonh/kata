@@ -17,7 +17,7 @@ Use this workflow to verify completed work and record UAT or verification artifa
 Read project context:
 
 ```bash
-node ./scripts/kata-call.mjs project.getContext
+node <path-to-skill-directory>/scripts/kata-call.mjs project.getContext
 ```
 
 If needed, list tasks for the slice under verification:
@@ -29,7 +29,7 @@ If needed, list tasks for the slice under verification:
 ```
 
 ```bash
-node ./scripts/kata-call.mjs task.list --input /tmp/kata-task-list.json
+node <path-to-skill-directory>/scripts/kata-call.mjs task.list --input /tmp/kata-task-list.json
 ```
 
 List task artifacts:
@@ -42,7 +42,7 @@ List task artifacts:
 ```
 
 ```bash
-node ./scripts/kata-call.mjs artifact.list --input /tmp/kata-artifact-list.json
+node <path-to-skill-directory>/scripts/kata-call.mjs artifact.list --input /tmp/kata-artifact-list.json
 ```
 
 Read existing verification artifact when present:
@@ -56,7 +56,7 @@ Read existing verification artifact when present:
 ```
 
 ```bash
-node ./scripts/kata-call.mjs artifact.read --input /tmp/kata-read-verification.json
+node <path-to-skill-directory>/scripts/kata-call.mjs artifact.read --input /tmp/kata-read-verification.json
 ```
 
 ## Stage 2: Run UAT
@@ -77,7 +77,7 @@ Test one user-visible behavior at a time. Ask the user to confirm actual behavio
 ```
 
 ```bash
-node ./scripts/kata-call.mjs artifact.write --input /tmp/kata-uat.json
+node <path-to-skill-directory>/scripts/kata-call.mjs artifact.write --input /tmp/kata-uat.json
 ```
 
 For automated verification evidence, use `artifactType: "verification"` instead.
@@ -95,7 +95,7 @@ If accepted:
 ```
 
 ```bash
-node ./scripts/kata-call.mjs task.updateStatus --input /tmp/kata-task-verified.json
+node <path-to-skill-directory>/scripts/kata-call.mjs task.updateStatus --input /tmp/kata-task-verified.json
 ```
 
 If failed, use `verificationState: "failed"` and summarize the blocking issue in the artifact.

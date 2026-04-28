@@ -16,13 +16,13 @@ Use this workflow to execute planned slice tasks through the active Kata backend
 Read project context:
 
 ```bash
-node ./scripts/kata-call.mjs project.getContext
+node <path-to-skill-directory>/scripts/kata-call.mjs project.getContext
 ```
 
 Read active milestone:
 
 ```bash
-node ./scripts/kata-call.mjs milestone.getActive
+node <path-to-skill-directory>/scripts/kata-call.mjs milestone.getActive
 ```
 
 List slices:
@@ -34,7 +34,7 @@ List slices:
 ```
 
 ```bash
-node ./scripts/kata-call.mjs slice.list --input /tmp/kata-slice-list.json
+node <path-to-skill-directory>/scripts/kata-call.mjs slice.list --input /tmp/kata-slice-list.json
 ```
 
 For each selected slice, list tasks:
@@ -46,7 +46,7 @@ For each selected slice, list tasks:
 ```
 
 ```bash
-node ./scripts/kata-call.mjs task.list --input /tmp/kata-task-list.json
+node <path-to-skill-directory>/scripts/kata-call.mjs task.list --input /tmp/kata-task-list.json
 ```
 
 Read the plan artifact:
@@ -60,7 +60,7 @@ Read the plan artifact:
 ```
 
 ```bash
-node ./scripts/kata-call.mjs artifact.read --input /tmp/kata-read-plan.json
+node <path-to-skill-directory>/scripts/kata-call.mjs artifact.read --input /tmp/kata-read-plan.json
 ```
 
 ## Stage 2: Select Work
@@ -82,7 +82,7 @@ Pick the next `todo` task unless the user explicitly selects another task. Prese
 ```
 
 ```bash
-node ./scripts/kata-call.mjs task.updateStatus --input /tmp/kata-task-in-progress.json
+node <path-to-skill-directory>/scripts/kata-call.mjs task.updateStatus --input /tmp/kata-task-in-progress.json
 ```
 
 ## Stage 4: Execute And Verify
@@ -105,7 +105,7 @@ Use `templates/summary.md`.
 ```
 
 ```bash
-node ./scripts/kata-call.mjs artifact.write --input /tmp/kata-task-summary.json
+node <path-to-skill-directory>/scripts/kata-call.mjs artifact.write --input /tmp/kata-task-summary.json
 ```
 
 ## Stage 6: Complete Or Leave In Progress
@@ -121,7 +121,7 @@ If verification passed:
 ```
 
 ```bash
-node ./scripts/kata-call.mjs task.updateStatus --input /tmp/kata-task-done.json
+node <path-to-skill-directory>/scripts/kata-call.mjs task.updateStatus --input /tmp/kata-task-done.json
 ```
 
 If verification failed, keep the task `in_progress`, set `verificationState` to `failed`, and write failure evidence with `artifact.write`.

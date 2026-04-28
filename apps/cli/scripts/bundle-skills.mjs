@@ -54,6 +54,12 @@ const inputRequiredOperations = new Set([
   "artifact.write",
 ]);
 
+const skillCallCommand = "node <path-to-skill-directory>/scripts/kata-call.mjs";
+
+function normalizeSkillCommandReferences(markdown) {
+  return markdown.replaceAll("node ./scripts/kata-call.mjs", skillCallCommand);
+}
+
 async function pathExists(filePath) {
   try {
     await fs.stat(filePath);
@@ -141,7 +147,7 @@ function renderContractOperations(skill) {
       const inputPath = `/tmp/kata-${operation.replace(".", "-")}.json`;
       lines.push("Create a JSON payload file first, then run:", "");
       lines.push("```bash");
-      lines.push(`node ./scripts/kata-call.mjs ${operation} --input ${inputPath}`);
+      lines.push(`${skillCallCommand} ${operation} --input ${inputPath}`);
       lines.push("```", "");
       lines.push("Payload example:", "");
       lines.push("```json");
@@ -150,7 +156,7 @@ function renderContractOperations(skill) {
     } else {
       lines.push("Run:", "");
       lines.push("```bash");
-      lines.push(`node ./scripts/kata-call.mjs ${operation}`);
+      lines.push(`${skillCallCommand} ${operation}`);
       lines.push("```", "");
     }
   }
@@ -280,8 +286,8 @@ function renderSetupReference(skill) {
     "",
     "When this skill is already installed, prefer the local wrapper:",
     "",
-    "- `node ./scripts/kata-call.mjs doctor`",
-    "- `node ./scripts/kata-call.mjs health.check`",
+    `- \`${skillCallCommand} doctor\``,
+    `- \`${skillCallCommand} health.check\``,
     "",
     "## GitHub Projects V2 Setup",
     "",
@@ -317,7 +323,7 @@ function renderRuntimeContractReference(skill) {
     "",
     renderContractOperations(skill),
     "",
-    "Use `scripts/kata-call.mjs <operation> --input <request.json>` when a harness benefits from a local helper.",
+    "Use `<path-to-skill-directory>/scripts/kata-call.mjs <operation> --input <request.json>` when a harness benefits from a local helper.",
     "",
   ].join("\n");
 }
@@ -333,6 +339,11 @@ function renderWorkflowReference(skill, workflowBody) {
 
 async function copyIfExists(source, destination) {
   if (!(await pathExists(source))) return;
+  if (source.endsWith(".md")) {
+    const markdown = await fs.readFile(source, "utf8");
+    await fs.writeFile(destination, normalizeSkillCommandReferences(markdown), "utf8");
+    return;
+  }
   await fs.cp(source, destination, { recursive: true });
 }
 
@@ -345,7 +356,7 @@ await fs.mkdir(targetDir, { recursive: true });
 
 for (const skill of manifest.skills) {
   const workflowPath = path.join(sourceRoot, "workflows", `${skill.workflow}.md`);
-  const workflowBody = await fs.readFile(workflowPath, "utf8");
+  const workflowBody = normalizeSkillCommandReferences(await fs.readFile(workflowPath, "utf8"));
   const skillDir = path.join(targetDir, skill.name);
   const referencesDir = path.join(skillDir, "references");
   const templatesDir = path.join(skillDir, "templates");

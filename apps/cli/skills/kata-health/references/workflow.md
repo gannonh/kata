@@ -13,19 +13,19 @@ Use this workflow when the user asks whether Kata is configured, connected, or r
 1. Run CLI doctor through the installed skill helper:
 
 ```bash
-node ./scripts/kata-call.mjs doctor
+node <path-to-skill-directory>/scripts/kata-call.mjs doctor
 ```
 
 2. Run runtime health through the installed skill helper:
 
 ```bash
-node ./scripts/kata-call.mjs health.check
+node <path-to-skill-directory>/scripts/kata-call.mjs health.check
 ```
 
 3. Read project context:
 
 ```bash
-node ./scripts/kata-call.mjs project.getContext
+node <path-to-skill-directory>/scripts/kata-call.mjs project.getContext
 ```
 
 4. Report the result in plain language:

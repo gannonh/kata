@@ -14,13 +14,13 @@ Use this workflow to summarize current Kata project, milestone, slice, task, art
 Read project context:
 
 ```bash
-node ./scripts/kata-call.mjs project.getContext
+node <path-to-skill-directory>/scripts/kata-call.mjs project.getContext
 ```
 
 Read active milestone:
 
 ```bash
-node ./scripts/kata-call.mjs milestone.getActive
+node <path-to-skill-directory>/scripts/kata-call.mjs milestone.getActive
 ```
 
 List slices:
@@ -32,7 +32,7 @@ List slices:
 ```
 
 ```bash
-node ./scripts/kata-call.mjs slice.list --input /tmp/kata-slice-list.json
+node <path-to-skill-directory>/scripts/kata-call.mjs slice.list --input /tmp/kata-slice-list.json
 ```
 
 List tasks for each slice:
@@ -44,7 +44,7 @@ List tasks for each slice:
 ```
 
 ```bash
-node ./scripts/kata-call.mjs task.list --input /tmp/kata-task-list.json
+node <path-to-skill-directory>/scripts/kata-call.mjs task.list --input /tmp/kata-task-list.json
 ```
 
 List artifact inventory:
@@ -57,13 +57,13 @@ List artifact inventory:
 ```
 
 ```bash
-node ./scripts/kata-call.mjs artifact.list --input /tmp/kata-artifact-list.json
+node <path-to-skill-directory>/scripts/kata-call.mjs artifact.list --input /tmp/kata-artifact-list.json
 ```
 
 Read execution status:
 
 ```bash
-node ./scripts/kata-call.mjs execution.getStatus
+node <path-to-skill-directory>/scripts/kata-call.mjs execution.getStatus
 ```
 
 ## Summary Format

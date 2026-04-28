@@ -112,7 +112,7 @@ function createFakeAdapter(): KataBackendAdapter {
       milestoneId: input.milestoneId,
       title: input.title,
       goal: input.goal,
-      status: "todo",
+      status: "backlog",
       order: input.order ?? 0,
     }),
     updateSliceStatus: async (input: KataSliceUpdateStatusInput) => ({
@@ -129,7 +129,7 @@ function createFakeAdapter(): KataBackendAdapter {
       sliceId: input.sliceId,
       title: input.title,
       description: input.description,
-      status: "todo",
+      status: "backlog",
       verificationState: "pending",
     }),
     updateTaskStatus: async (input: KataTaskUpdateStatusInput) => ({
@@ -244,7 +244,7 @@ describe("Phase A domain contract", () => {
     ).resolves.toMatchObject({
       id: "slice-1",
       milestoneId: "milestone-1",
-      status: "todo",
+      status: "backlog",
       order: 2,
     });
 
@@ -256,7 +256,7 @@ describe("Phase A domain contract", () => {
       }),
     ).resolves.toMatchObject({
       id: "task-1",
-      status: "todo",
+      status: "backlog",
       verificationState: "pending",
     });
   });

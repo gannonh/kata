@@ -18,7 +18,7 @@ Use this workflow to start a scoped delivery cycle for an existing Kata project:
 Run:
 
 ```bash
-node ./scripts/kata-call.mjs project.getContext
+node <path-to-skill-directory>/scripts/kata-call.mjs project.getContext
 ```
 
 Read project brief when available:
@@ -32,7 +32,7 @@ Read project brief when available:
 ```
 
 ```bash
-node ./scripts/kata-call.mjs artifact.read --input /tmp/kata-read-project-brief.json
+node <path-to-skill-directory>/scripts/kata-call.mjs artifact.read --input /tmp/kata-read-project-brief.json
 ```
 
 If the project brief is missing, ask the user whether to continue from conversation context or run `kata-new-project` first.
@@ -84,7 +84,7 @@ Create `/tmp/kata-milestone-create.json`:
 Run:
 
 ```bash
-node ./scripts/kata-call.mjs milestone.create --input /tmp/kata-milestone-create.json
+node <path-to-skill-directory>/scripts/kata-call.mjs milestone.create --input /tmp/kata-milestone-create.json
 ```
 
 Capture the returned milestone ID, for example `M001`. Use that exact ID for all milestone-scoped artifacts.
@@ -107,7 +107,7 @@ Create `/tmp/kata-milestone-requirements.json`:
 Run:
 
 ```bash
-node ./scripts/kata-call.mjs artifact.write --input /tmp/kata-milestone-requirements.json
+node <path-to-skill-directory>/scripts/kata-call.mjs artifact.write --input /tmp/kata-milestone-requirements.json
 ```
 
 ## Stage 6: Write Roadmap Artifact
@@ -130,7 +130,7 @@ Create `/tmp/kata-milestone-roadmap.json`:
 Run:
 
 ```bash
-node ./scripts/kata-call.mjs artifact.write --input /tmp/kata-milestone-roadmap.json
+node <path-to-skill-directory>/scripts/kata-call.mjs artifact.write --input /tmp/kata-milestone-roadmap.json
 ```
 
 ## Completion

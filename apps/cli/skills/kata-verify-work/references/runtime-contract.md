@@ -7,7 +7,7 @@ Use only these typed runtime operations:
 Run:
 
 ```bash
-node ./scripts/kata-call.mjs project.getContext
+node <path-to-skill-directory>/scripts/kata-call.mjs project.getContext
 ```
 
 ## `task.list`
@@ -15,7 +15,7 @@ node ./scripts/kata-call.mjs project.getContext
 Create a JSON payload file first, then run:
 
 ```bash
-node ./scripts/kata-call.mjs task.list --input /tmp/kata-task-list.json
+node <path-to-skill-directory>/scripts/kata-call.mjs task.list --input /tmp/kata-task-list.json
 ```
 
 Payload example:
@@ -31,7 +31,7 @@ Payload example:
 Create a JSON payload file first, then run:
 
 ```bash
-node ./scripts/kata-call.mjs task.updateStatus --input /tmp/kata-task-updateStatus.json
+node <path-to-skill-directory>/scripts/kata-call.mjs task.updateStatus --input /tmp/kata-task-updateStatus.json
 ```
 
 Payload example:
@@ -49,7 +49,7 @@ Payload example:
 Create a JSON payload file first, then run:
 
 ```bash
-node ./scripts/kata-call.mjs artifact.list --input /tmp/kata-artifact-list.json
+node <path-to-skill-directory>/scripts/kata-call.mjs artifact.list --input /tmp/kata-artifact-list.json
 ```
 
 Payload example:
@@ -66,7 +66,7 @@ Payload example:
 Create a JSON payload file first, then run:
 
 ```bash
-node ./scripts/kata-call.mjs artifact.read --input /tmp/kata-artifact-read.json
+node <path-to-skill-directory>/scripts/kata-call.mjs artifact.read --input /tmp/kata-artifact-read.json
 ```
 
 Payload example:
@@ -84,7 +84,7 @@ Payload example:
 Create a JSON payload file first, then run:
 
 ```bash
-node ./scripts/kata-call.mjs artifact.write --input /tmp/kata-artifact-write.json
+node <path-to-skill-directory>/scripts/kata-call.mjs artifact.write --input /tmp/kata-artifact-write.json
 ```
 
 Payload example:
@@ -101,4 +101,4 @@ Payload example:
 ```
 
 
-Use `scripts/kata-call.mjs <operation> --input <request.json>` when a harness benefits from a local helper.
+Use `<path-to-skill-directory>/scripts/kata-call.mjs <operation> --input <request.json>` when a harness benefits from a local helper.

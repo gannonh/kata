@@ -34,7 +34,7 @@ Do not begin with a rigid checklist. Follow the user's thread using `references/
 Run this once before durable writes:
 
 ```bash
-node ./scripts/kata-call.mjs health.check
+node <path-to-skill-directory>/scripts/kata-call.mjs health.check
 ```
 
 If the response is `ok: false`, stop and fix setup. If it is healthy or warning-only, continue.
@@ -102,7 +102,7 @@ Create `/tmp/kata-project-upsert.json`:
 Run:
 
 ```bash
-node ./scripts/kata-call.mjs project.upsert --input /tmp/kata-project-upsert.json
+node <path-to-skill-directory>/scripts/kata-call.mjs project.upsert --input /tmp/kata-project-upsert.json
 ```
 
 If the command returns `ok: false`, stop and fix the payload or backend issue.
@@ -127,7 +127,7 @@ Create `/tmp/kata-project-brief.json`:
 Run:
 
 ```bash
-node ./scripts/kata-call.mjs artifact.write --input /tmp/kata-project-brief.json
+node <path-to-skill-directory>/scripts/kata-call.mjs artifact.write --input /tmp/kata-project-brief.json
 ```
 
 The content must preserve the user's language and the decisions made during discovery. Do not compress away context that future milestone planning will need.
@@ -161,7 +161,7 @@ Create `/tmp/kata-project-requirements.json`:
 Run:
 
 ```bash
-node ./scripts/kata-call.mjs artifact.write --input /tmp/kata-project-requirements.json
+node <path-to-skill-directory>/scripts/kata-call.mjs artifact.write --input /tmp/kata-project-requirements.json
 ```
 
 If the project is still too early for requirements, do not force them. Put unresolved requirement questions in the project brief and mention that `kata-new-milestone` will refine scope.

@@ -53,6 +53,20 @@ Read roadmap:
 node ./scripts/kata-call.mjs artifact.read --input /tmp/kata-read-roadmap.json
 ```
 
+List existing milestone slices before proposing new backend work:
+
+```json
+{
+  "milestoneId": "M001"
+}
+```
+
+```bash
+node ./scripts/kata-call.mjs slice.list --input /tmp/kata-slice-list.json
+```
+
+Use the returned slices to avoid creating duplicate backend slices for roadmap work that is already planned.
+
 ## Stage 2: Phase Gate
 
 Present the phase or roadmap slice you plan to convert into executable work:
@@ -60,12 +74,15 @@ Present the phase or roadmap slice you plan to convert into executable work:
 - Goal.
 - Requirements covered.
 - Success criteria.
+- Existing slice coverage, if any.
 - Known constraints.
 - Assumptions.
 
 Ask for confirmation before creating backend slices/tasks. This is the phase gate.
 
 ## Stage 3: Create Slice
+
+If an existing slice already covers the selected roadmap work, do not create a duplicate. Confirm whether to add missing tasks or update the slice-scoped plan artifact instead.
 
 Create `/tmp/kata-slice-create.json`:
 
@@ -147,5 +164,7 @@ Next up: run `kata-execute-phase` to execute the planned tasks.
 ## Rules
 
 - Derive tasks from requirements and success criteria.
+- List existing slices before creating new backend slices.
+- Do not create duplicate slices for roadmap work that already has backend slice coverage.
 - Do not create tasks that are not tied to the milestone goal.
 - Keep discussion integrated in this workflow; do not route to standalone discuss skills.

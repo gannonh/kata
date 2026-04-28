@@ -50,7 +50,7 @@ export interface KataTask {
   sliceId: string;
   title: string;
   description: string;
-  status: "todo" | "in_progress" | "done";
+  status: "backlog" | "todo" | "in_progress" | "done";
   verificationState: "pending" | "verified" | "failed";
 }
 

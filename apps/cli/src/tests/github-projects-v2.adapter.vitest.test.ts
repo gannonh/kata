@@ -309,8 +309,8 @@ describe("GithubProjectsV2Adapter", () => {
       title: "Launch Kata",
     });
     expect(milestone).toMatchObject({ id: "M001", title: "Phase A", status: "active" });
-    expect(slice).toMatchObject({ id: "S001", milestoneId: "M001", status: "todo" });
-    expect(task).toMatchObject({ id: "T001", sliceId: "S001", status: "todo" });
+    expect(slice).toMatchObject({ id: "S001", milestoneId: "M001", status: "backlog" });
+    expect(task).toMatchObject({ id: "T001", sliceId: "S001", status: "backlog" });
     expect(artifact).toMatchObject({
       scopeType: "slice",
       scopeId: "S001",
@@ -384,7 +384,7 @@ describe("GithubProjectsV2Adapter", () => {
             variables: expect.objectContaining({
               itemId: "project-item-4",
               fieldId: "status-field-id",
-              value: { singleSelectOptionId: "status-todo" },
+              value: { singleSelectOptionId: "status-backlog" },
             }),
           }),
         ],

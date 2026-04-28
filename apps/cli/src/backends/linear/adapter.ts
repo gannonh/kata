@@ -196,5 +196,6 @@ function normalizeColumn(columnId: string): KataSlice["status"] | KataTask["stat
   if (columnId === "human_review") return "human_review";
   if (columnId === "merging") return "merging";
   if (columnId === "done") return "done";
-  return "todo";
+  if (columnId === "todo") return "todo";
+  return "backlog";
 }

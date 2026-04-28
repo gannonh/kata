@@ -7,7 +7,7 @@ Use only these typed runtime operations:
 Run:
 
 ```bash
-node ./scripts/kata-call.mjs health.check
+node <path-to-skill-directory>/scripts/kata-call.mjs health.check
 ```
 
 ## `project.getContext`
@@ -15,8 +15,8 @@ node ./scripts/kata-call.mjs health.check
 Run:
 
 ```bash
-node ./scripts/kata-call.mjs project.getContext
+node <path-to-skill-directory>/scripts/kata-call.mjs project.getContext
 ```
 
 
-Use `scripts/kata-call.mjs <operation> --input <request.json>` when a harness benefits from a local helper.
+Use `<path-to-skill-directory>/scripts/kata-call.mjs <operation> --input <request.json>` when a harness benefits from a local helper.

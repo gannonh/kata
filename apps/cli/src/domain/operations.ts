@@ -65,7 +65,7 @@ const SLICE_STATUSES = [
   "done",
 ] as const satisfies readonly KataSlice["status"][];
 
-const TASK_STATUSES = ["todo", "in_progress", "done"] as const satisfies readonly KataTask["status"][];
+const TASK_STATUSES = ["backlog", "todo", "in_progress", "done"] as const satisfies readonly KataTask["status"][];
 const TASK_VERIFICATION_STATES = ["pending", "verified", "failed"] as const satisfies readonly KataTask["verificationState"][];
 const SCOPE_TYPES = ["project", "milestone", "slice", "task"] as const satisfies readonly KataScopeType[];
 const ARTIFACT_TYPES = [

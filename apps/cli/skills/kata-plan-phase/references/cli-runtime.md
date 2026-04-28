@@ -10,7 +10,7 @@ The helper chooses the CLI runtime in this order:
 2. `KATA_CLI_BIN`: explicit executable or wrapper supplied by a harness, desktop app, or plugin.
 3. `npx --yes @kata-sh/cli`: published npm package fallback.
 
-Installed skills should call `node ./scripts/kata-call.mjs ...` only. Do not hardcode monorepo paths, package-manager commands, or backend adapter details in workflow steps.
+Installed skills should call `node <path-to-skill-directory>/scripts/kata-call.mjs ...` only. Do not hardcode monorepo paths, package-manager commands, or backend adapter details in workflow steps.
 
 ## Command Pattern
 
@@ -19,23 +19,23 @@ Run commands from the user's project workspace.
 CLI commands:
 
 ```bash
-node ./scripts/kata-call.mjs doctor
-node ./scripts/kata-call.mjs setup --pi
+node <path-to-skill-directory>/scripts/kata-call.mjs doctor
+node <path-to-skill-directory>/scripts/kata-call.mjs setup --pi
 ```
 
 No-input operations:
 
 ```bash
-node ./scripts/kata-call.mjs project.getContext
-node ./scripts/kata-call.mjs health.check
-node ./scripts/kata-call.mjs milestone.getActive
+node <path-to-skill-directory>/scripts/kata-call.mjs project.getContext
+node <path-to-skill-directory>/scripts/kata-call.mjs health.check
+node <path-to-skill-directory>/scripts/kata-call.mjs milestone.getActive
 ```
 
 Required-input operations:
 
 ```bash
-node ./scripts/kata-call.mjs milestone.create --input /tmp/kata-milestone-create.json
-node ./scripts/kata-call.mjs artifact.write --input /tmp/kata-artifact-write.json
+node <path-to-skill-directory>/scripts/kata-call.mjs milestone.create --input /tmp/kata-milestone-create.json
+node <path-to-skill-directory>/scripts/kata-call.mjs artifact.write --input /tmp/kata-artifact-write.json
 ```
 
 Create the JSON payload file before running any operation that requires `--input`.
@@ -53,7 +53,7 @@ cat > /tmp/kata-milestone-create.json <<'JSON'
   "goal": "Deliver a usable todo app with persistent tasks, completion state, and basic project structure."
 }
 JSON
-node ./scripts/kata-call.mjs milestone.create --input /tmp/kata-milestone-create.json
+node <path-to-skill-directory>/scripts/kata-call.mjs milestone.create --input /tmp/kata-milestone-create.json
 ```
 
 ## Response Handling
@@ -95,7 +95,7 @@ Treat `ok: false` as blocking. Read the error message, fix the payload or setup 
 Command:
 
 ```bash
-node ./scripts/kata-call.mjs project.getContext
+node <path-to-skill-directory>/scripts/kata-call.mjs project.getContext
 ```
 
 Expected data:
@@ -125,7 +125,7 @@ Payload:
 Command:
 
 ```bash
-node ./scripts/kata-call.mjs project.upsert --input /tmp/kata-project-upsert.json
+node <path-to-skill-directory>/scripts/kata-call.mjs project.upsert --input /tmp/kata-project-upsert.json
 ```
 
 Expected data:
@@ -157,7 +157,7 @@ Payload:
 Command:
 
 ```bash
-node ./scripts/kata-call.mjs milestone.create --input /tmp/kata-milestone-create.json
+node <path-to-skill-directory>/scripts/kata-call.mjs milestone.create --input /tmp/kata-milestone-create.json
 ```
 
 Expected data:
@@ -190,7 +190,7 @@ Payload:
 Command:
 
 ```bash
-node ./scripts/kata-call.mjs artifact.write --input /tmp/kata-artifact-write.json
+node <path-to-skill-directory>/scripts/kata-call.mjs artifact.write --input /tmp/kata-artifact-write.json
 ```
 
 Expected data includes the persisted artifact:

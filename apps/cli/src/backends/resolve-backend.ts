@@ -193,13 +193,15 @@ function toCanonicalSliceStatus(inputIssue: RuntimeKataIssueRecord): KataSlice["
   if (normalizedState === "human-review" || hasPhaseLabel("human-review")) return "human_review";
   if (normalizedState === "agent-review" || hasPhaseLabel("agent-review")) return "agent_review";
   if (normalizedState === "in-progress" || hasPhaseLabel("in-progress")) return "in_progress";
-  return "todo";
+  if (normalizedState === "todo" || hasPhaseLabel("todo")) return "todo";
+  return "backlog";
 }
 
 function toCanonicalTaskStatus(inputIssue: RuntimeKataIssueRecord): KataTask["status"] {
   const sliceStatus = toCanonicalSliceStatus(inputIssue);
   if (sliceStatus === "done") return "done";
   if (sliceStatus === "todo") return "todo";
+  if (sliceStatus === "backlog") return "backlog";
   return "in_progress";
 }
 

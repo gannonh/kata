@@ -15,19 +15,19 @@ Use this workflow to make Kata usable in the current harness before durable proj
 2. Run setup through the installed skill helper:
 
 ```bash
-node ./scripts/kata-call.mjs setup --pi
+node <path-to-skill-directory>/scripts/kata-call.mjs setup --pi
 ```
 
 3. Verify CLI setup:
 
 ```bash
-node ./scripts/kata-call.mjs doctor
+node <path-to-skill-directory>/scripts/kata-call.mjs doctor
 ```
 
 4. Verify runtime health from an installed skill:
 
 ```bash
-node ./scripts/kata-call.mjs health.check
+node <path-to-skill-directory>/scripts/kata-call.mjs health.check
 ```
 
 ## Rules

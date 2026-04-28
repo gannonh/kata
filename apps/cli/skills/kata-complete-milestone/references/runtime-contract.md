@@ -7,7 +7,7 @@ Use only these typed runtime operations:
 Run:
 
 ```bash
-node ./scripts/kata-call.mjs milestone.getActive
+node <path-to-skill-directory>/scripts/kata-call.mjs milestone.getActive
 ```
 
 ## `milestone.complete`
@@ -15,7 +15,7 @@ node ./scripts/kata-call.mjs milestone.getActive
 Create a JSON payload file first, then run:
 
 ```bash
-node ./scripts/kata-call.mjs milestone.complete --input /tmp/kata-milestone-complete.json
+node <path-to-skill-directory>/scripts/kata-call.mjs milestone.complete --input /tmp/kata-milestone-complete.json
 ```
 
 Payload example:
@@ -32,7 +32,7 @@ Payload example:
 Create a JSON payload file first, then run:
 
 ```bash
-node ./scripts/kata-call.mjs artifact.write --input /tmp/kata-artifact-write.json
+node <path-to-skill-directory>/scripts/kata-call.mjs artifact.write --input /tmp/kata-artifact-write.json
 ```
 
 Payload example:
@@ -49,4 +49,4 @@ Payload example:
 ```
 
 
-Use `scripts/kata-call.mjs <operation> --input <request.json>` when a harness benefits from a local helper.
+Use `<path-to-skill-directory>/scripts/kata-call.mjs <operation> --input <request.json>` when a harness benefits from a local helper.
