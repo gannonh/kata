@@ -61,6 +61,7 @@ interface TrackedEntity {
   parentId?: string;
   status?: KataSliceStatus | KataTaskStatus;
   verificationState?: KataTaskVerificationState;
+  issueId: number;
   issueNumber: number;
   contentId: string;
   title: string;
@@ -298,6 +299,7 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
 
   async createTask(input: KataTaskCreateInput): Promise<KataTask> {
     await this.discoverEntities();
+    const sliceEntity = await this.requireEntity(input.sliceId, "Slice");
     const kataId = this.nextKataId("Task");
     const entity = await this.createIssueEntity({
       kataId,
@@ -313,6 +315,8 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
         content: input.description,
       }),
     });
+
+    await this.attachSubIssue(sliceEntity, entity);
 
     await this.syncProjectFields(entity, {
       type: "Task",
@@ -525,6 +529,16 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
     return entity;
   }
 
+  private async attachSubIssue(parent: TrackedEntity, child: TrackedEntity): Promise<void> {
+    await this.client.rest({
+      method: "POST",
+      path: `/repos/${this.owner}/${this.repo}/issues/${parent.issueNumber}/sub_issues`,
+      body: {
+        sub_issue_id: child.issueId,
+      },
+    });
+  }
+
   private async updateIssueEntity(
     entity: TrackedEntity,
     input: { title?: string; body?: string; state?: "open" | "closed" },
@@ -698,12 +712,18 @@ export function parseEntityMarker(body: string): EntityMarker | null {
 }
 
 function entityFromIssue(issue: GithubIssue, marker: EntityMarker): TrackedEntity {
+  const issueId = Number(issue.id);
+  if (!Number.isFinite(issueId)) {
+    throw new KataDomainError("UNKNOWN", `GitHub issue response did not include a numeric id for ${marker.kataId}.`);
+  }
+
   return {
     kataId: marker.kataId,
     type: marker.type,
     parentId: marker.parentId,
     status: marker.status,
     verificationState: marker.verificationState,
+    issueId,
     issueNumber: issue.number,
     contentId: issue.node_id ?? "",
     title: stripKataPrefix(issue.title),

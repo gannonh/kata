@@ -337,6 +337,13 @@ describe("GithubProjectsV2Adapter", () => {
         }),
       }),
     );
+    expect(client.rest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "POST",
+        path: "/repos/kata-sh/uat/issues/3/sub_issues",
+        body: { sub_issue_id: 4 },
+      }),
+    );
 
     const addCalls = client.graphql.mock.calls.filter(([input]) => input.query.includes("addProjectV2ItemById"));
     expect(addCalls).toHaveLength(4);
@@ -668,6 +675,14 @@ function createFakeGithubClient(input: { issues?: any[]; projectFields?: any[] }
         const comment = { id: nextCommentId++, body: request.body.body };
         commentsByIssue.set(issueNumber, [...(commentsByIssue.get(issueNumber) ?? []), comment]);
         return comment;
+      }
+
+      const subIssuesMatch = request.path.match(/^\/repos\/kata-sh\/uat\/issues\/(\d+)\/sub_issues$/);
+      if (request.method === "POST" && subIssuesMatch) {
+        return {
+          parent_issue_number: Number(subIssuesMatch[1]),
+          sub_issue_id: request.body.sub_issue_id,
+        };
       }
 
       if (request.method === "POST" && request.path === "/repos/kata-sh/uat/issues") {
