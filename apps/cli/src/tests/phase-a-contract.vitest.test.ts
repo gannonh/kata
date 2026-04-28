@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { runCall } from "../commands/call.js";
 import { dispatchKataOperation, KATA_OPERATION_NAMES } from "../domain/operations.js";
@@ -278,6 +278,58 @@ describe("Phase A operation transport", () => {
       data: { id: "M001", active: true },
     });
   });
+
+  it.each([
+    {
+      operation: "slice.updateStatus",
+      payload: { sliceId: "slice-1", status: "blocked" },
+      method: "updateSliceStatus",
+    },
+    {
+      operation: "artifact.write",
+      payload: {
+        scopeType: "project",
+        scopeId: "project-1",
+        artifactType: "plan",
+        title: "Plan",
+        content: "Do the work",
+        format: "html",
+      },
+      method: "writeArtifact",
+    },
+  ] as const)("rejects invalid $operation payloads before adapter dispatch", async ({ operation, payload, method }) => {
+    const adapter = createFakeAdapter();
+    const spy = vi.fn(adapter[method]);
+    const api = createKataDomainApi({
+      ...adapter,
+      [method]: spy,
+    });
+
+    const result = await runJsonCommand({ operation, payload }, api);
+
+    expect(JSON.parse(result)).toMatchObject({
+      ok: false,
+      error: { code: "INVALID_REQUEST" },
+    });
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("rejects missing slice.list.milestoneId through runJsonCommand before adapter dispatch", async () => {
+    const adapter = createFakeAdapter();
+    const listSlices = vi.fn(adapter.listSlices);
+    const api = createKataDomainApi({
+      ...adapter,
+      listSlices,
+    });
+
+    const result = await runJsonCommand({ operation: "slice.list", payload: {} }, api);
+
+    expect(JSON.parse(result)).toMatchObject({
+      ok: false,
+      error: { code: "INVALID_REQUEST" },
+    });
+    expect(listSlices).not.toHaveBeenCalled();
+  });
 });
 
 describe("Phase A call command validation", () => {
@@ -337,6 +389,21 @@ describe("Phase A call command validation", () => {
     await withTempFile(content, async (inputPath) => {
       const result = await runCall({
         operation: "milestone.create",
+        inputPath,
+        cwd: workspacePath,
+      });
+
+      expect(JSON.parse(result)).toMatchObject({
+        ok: false,
+        error: { code: "INVALID_REQUEST" },
+      });
+    });
+  });
+
+  it("rejects missing slice.list.milestoneId from input files before backend resolution", async () => {
+    await withTempFile("{}", async (inputPath) => {
+      const result = await runCall({
+        operation: "slice.list",
         inputPath,
         cwd: workspacePath,
       });

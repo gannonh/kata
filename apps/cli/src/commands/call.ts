@@ -1,7 +1,12 @@
 import { readFile } from "node:fs/promises";
 
 import { resolveBackend } from "../backends/resolve-backend.js";
-import { dispatchKataOperation, isKataOperationName, type KataOperationName } from "../domain/operations.js";
+import {
+  dispatchKataOperation,
+  isKataOperationName,
+  validateKataOperationPayload,
+  type KataOperationName,
+} from "../domain/operations.js";
 import { createKataDomainApi } from "../domain/service.js";
 
 export interface RunCallInput {
@@ -63,6 +68,11 @@ export async function runCall(input: RunCallInput): Promise<string> {
     payload = parsed as Record<string, unknown>;
   } else if (PAYLOAD_REQUIRED_OPERATIONS.has(input.operation)) {
     return invalidRequest(`Operation requires an input file: ${input.operation}`);
+  }
+
+  const validation = validateKataOperationPayload(input.operation, payload);
+  if (!validation.ok) {
+    return invalidRequest(validation.message ?? "Invalid operation payload.");
   }
 
   const adapter = await resolveBackend({ workspacePath: input.cwd });

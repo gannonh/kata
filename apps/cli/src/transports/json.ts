@@ -2,6 +2,7 @@ import {
   KATA_OPERATION_NAMES,
   dispatchKataOperation,
   isKataOperationName,
+  validateKataOperationPayload,
   type KataDomainApi,
 } from "../domain/operations.js";
 
@@ -26,6 +27,15 @@ export async function runJsonCommand(input: JsonCommandRequest, api: KataDomainA
     });
   }
 
-  const data = await dispatchKataOperation(api, input.operation, input.payload ?? {});
+  const payload = input.payload ?? {};
+  const validation = validateKataOperationPayload(input.operation, payload);
+  if (!validation.ok) {
+    return JSON.stringify({
+      ok: false,
+      error: { code: "INVALID_REQUEST", message: validation.message ?? "Invalid operation payload." },
+    });
+  }
+
+  const data = await dispatchKataOperation(api, input.operation, payload);
   return JSON.stringify({ ok: true, data });
 }
