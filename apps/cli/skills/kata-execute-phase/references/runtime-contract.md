@@ -34,6 +34,23 @@ Payload example:
 }
 ```
 
+## `slice.updateStatus`
+
+Create a JSON payload file first, then run:
+
+```bash
+node <path-to-skill-directory>/scripts/kata-call.mjs slice.updateStatus --input /tmp/kata-slice-updateStatus.json
+```
+
+Payload example:
+
+```json
+{
+  "sliceId": "S001",
+  "status": "in_progress"
+}
+```
+
 ## `task.list`
 
 Create a JSON payload file first, then run:

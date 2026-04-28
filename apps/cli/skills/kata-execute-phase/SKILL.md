@@ -9,9 +9,9 @@ description: "Use when the user wants Kata to execute planned phase work or adva
 
 When this skill is invoked, execute planned task work for the active milestone.
 
-Load project context, active milestone, slices, tasks, and the relevant plan artifact. Select executable todo tasks, update their status as work begins, perform the implementation, then persist a summary artifact and mark completed tasks done only after verification evidence exists.
+Load project context, active milestone, slices, tasks, and the relevant plan artifact. Select a planned slice/task, get explicit execution approval if the slice is still in Backlog, update statuses as work begins, perform the implementation, then persist a summary artifact and mark completed tasks done only after verification evidence exists.
 
-Keep backend state current through `task.updateStatus` and `artifact.write`.
+Keep backend state current through `slice.updateStatus`, `task.updateStatus`, and `artifact.write`.
 
 ## Success Criteria
 
