@@ -27,12 +27,26 @@ This skill does not initialize project state. It only verifies that the runtime,
 - Do not inspect helper scripts unless the helper command itself fails.
 - Do not invent backend-specific setup steps outside the CLI contract.
 
-Use progressive disclosure resources:
+## Process
+
+1. Read `references/workflow.md` before taking action. Execute that workflow end-to-end.
+2. Preserve every workflow gate: required checks, user confirmations, durable writes, status updates, and next-step routing.
+3. Before any backend IO, read `references/runtime-contract.md` and use only the operations listed there.
+4. When the workflow tells you to create or read an artifact, use `references/artifact-contract.md` and the named template files.
+5. If setup or backend readiness is uncertain, read `references/setup.md` before proceeding.
+6. Read optional references only when the workflow calls for them or the current step needs them.
+
+## Resource Loading
+
+Must read:
+
+- Workflow: `references/workflow.md`
+- Runtime IO contract: `references/runtime-contract.md`
+
+Read when needed:
 
 - Setup and health checks: `references/setup.md`
 - Alignment depth: `references/alignment.md`
-- Workflow instructions: `references/workflow.md`
-- Runtime IO contract: `references/runtime-contract.md`
 - CLI command patterns: `references/cli-runtime.md`
 - Artifact conventions: `references/artifact-contract.md`
 - CLI helper: `scripts/kata-call.mjs`

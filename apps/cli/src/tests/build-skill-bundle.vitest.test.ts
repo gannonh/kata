@@ -46,6 +46,12 @@ describe("skill bundle generation", () => {
     expect(skill).toContain("references/runtime-contract.md");
     expect(skill).toContain("references/cli-runtime.md");
     expect(skill).toContain("references/artifact-contract.md");
+    expect(skill).toContain("## Process");
+    expect(skill).toContain("Read `references/workflow.md` before taking action. Execute that workflow end-to-end.");
+    expect(skill).toContain("Preserve every workflow gate");
+    expect(skill).toContain("## Resource Loading");
+    expect(skill).toContain("Must read:");
+    expect(skill).toContain("Read when needed:");
     expect(workflow).not.toContain("Source:");
     expect(workflow).not.toContain("apps/cli/dist/loader.js");
     expect(runtime).toContain("project.getContext");
