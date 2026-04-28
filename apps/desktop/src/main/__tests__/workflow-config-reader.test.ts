@@ -78,7 +78,9 @@ describe('readWorkspaceWorkflowTrackerConfig', () => {
 
     expect(result.config).toBeNull()
     expect(result.error?.code).toBe('INVALID_CONFIG')
-    expect(result.error?.message).toContain('label mode')
+    expect(result.error?.message).toBe(
+      'GitHub label mode is no longer supported. Use github.stateMode: projects_v2 and set github.githubProjectNumber in .kata/preferences.md.',
+    )
   })
 
   test('returns INVALID_CONFIG when github block is missing in github mode', async () => {
@@ -230,7 +232,7 @@ describe('readWorkspaceWorkflowTrackerConfig', () => {
     })
   })
 
-  test('infers projects_v2 mode when githubProjectNumber is set without an explicit stateMode', async () => {
+  test('returns INVALID_CONFIG when githubProjectNumber is set without an explicit stateMode', async () => {
     const workspace = mkdtempSync(path.join(tmpdir(), 'workflow-config-github-projects-number-'))
     writePrefs(
       workspace,
@@ -249,13 +251,10 @@ describe('readWorkspaceWorkflowTrackerConfig', () => {
 
     const result = await readWorkspaceWorkflowTrackerConfig(workspace)
 
-    expect(result.error).toBeUndefined()
-    expect(result.config).toEqual({
-      kind: 'github',
-      repoOwner: 'kata-sh',
-      repoName: 'kata-mono',
-      stateMode: 'projects_v2',
-      githubProjectNumber: 7,
-    })
+    expect(result.config).toBeNull()
+    expect(result.error?.code).toBe('INVALID_CONFIG')
+    expect(result.error?.message).toBe(
+      'github.stateMode is required and must be projects_v2 in .kata/preferences.md. Set github.stateMode: projects_v2 and github.githubProjectNumber to a positive integer.',
+    )
   })
 })

@@ -1,6 +1,7 @@
 packages:
   - packages/*
   - apps/*
+  - '!apps/cli-legacy'
   - '!apps/online-docs'
 onlyBuiltDependencies:
   - '@sentry/cli'

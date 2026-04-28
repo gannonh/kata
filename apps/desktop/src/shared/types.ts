@@ -655,7 +655,7 @@ export type WorkflowTrackerConfig =
       kind: 'github'
       repoOwner: string
       repoName: string
-      stateMode: 'projects_v2'
+      stateMode: GithubWorkflowStateMode
       githubProjectNumber: number
     }
 

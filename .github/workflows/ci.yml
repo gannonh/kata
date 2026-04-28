@@ -161,6 +161,33 @@ jobs:
       - name: Run GitHub backend validation lane
         run: bash scripts/ci/github-backend-validation.sh
 
+  golden-path-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: '.node-version'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.8'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.6.2
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run golden-path smoke lane
+        run: pnpm --dir apps/cli exec vitest run src/tests/golden-path.pi-github.vitest.test.ts
+
   kata-distributions:
     runs-on: ubuntu-latest
     steps:
@@ -199,7 +226,7 @@ jobs:
   # Desktop e2e tests will be added in a future milestone.
 
   gate:
-    needs: [validate, symphony-coverage, github-backend-validation, kata-distributions]
+    needs: [validate, symphony-coverage, github-backend-validation, golden-path-smoke, kata-distributions]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -208,14 +235,16 @@ jobs:
           echo "validate: ${{ needs.validate.result }}"
           echo "symphony-coverage: ${{ needs.symphony-coverage.result }}"
           echo "github-backend-validation: ${{ needs.github-backend-validation.result }}"
+          echo "golden-path-smoke: ${{ needs.golden-path-smoke.result }}"
           echo "kata-distributions: ${{ needs.kata-distributions.result }}"
 
-          if [[ "${{ needs.validate.result }}" == "failure" || \
-                "${{ needs.symphony-coverage.result }}" == "failure" || \
-                "${{ needs.github-backend-validation.result }}" == "failure" || \
-                "${{ needs.kata-distributions.result }}" == "failure" ]]; then
-            echo "One or more jobs failed"
+          if [[ "${{ needs.validate.result }}" != "success" || \
+                "${{ needs.symphony-coverage.result }}" != "success" || \
+                "${{ needs.github-backend-validation.result }}" != "success" || \
+                "${{ needs.golden-path-smoke.result }}" != "success" || \
+                "${{ needs.kata-distributions.result }}" != "success" ]]; then
+            echo "One or more required jobs did not succeed"
             exit 1
           fi
 
-          echo "All jobs passed or were skipped"
+          echo "All required jobs succeeded"

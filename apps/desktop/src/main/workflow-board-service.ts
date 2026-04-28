@@ -1,6 +1,6 @@
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
-import { createKataDomainApi } from '../../../cli/src/index'
+import { createKataDomainApi } from '../../../cli/src/domain/service'
 import { GithubProjectsV2Adapter } from '../../../cli/src/backends/github-projects-v2/adapter'
 import { LinearKataAdapter } from '../../../cli/src/backends/linear/adapter'
 import { WORKFLOW_COLUMNS } from '../shared/types'

@@ -24,27 +24,15 @@ run_segment() {
 
 echo "Running deterministic GitHub backend validation lane"
 echo "Negative-path signal checks included in this lane:"
-echo "- CLI: missing token + timeout diagnostics (github-backend.integration.test.ts)"
-echo "- Desktop: structured GitHub HTTP/GraphQL error mapping (github-workflow-client.test.ts)"
-echo "- Symphony: unknown Project v2 status actionable error (github_execution_contract_tests.rs)"
+echo "- CLI: setup/source policy + golden-path runtime contract checks"
+echo "- Desktop: structured GitHub HTTP/GraphQL error mapping"
+echo "- Symphony: unknown Project v2 status actionable error"
 
 run_segment \
   "CLI GitHub backend contract suites (Vitest)" \
   pnpm --dir apps/cli exec vitest run \
-  src/resources/extensions/kata/tests/github-planning-contract.vitest.test.ts \
-  src/resources/extensions/kata/tests/github-config.integration.vitest.test.ts \
-  src/resources/extensions/kata/tests/github-planning.integration.vitest.test.ts \
-  src/resources/extensions/kata/tests/github-backend.artifacts.vitest.test.ts \
-  src/resources/extensions/kata/tests/github-artifacts.vitest.test.ts \
-  src/resources/extensions/kata/tests/github-dependency-materialization.vitest.test.ts \
-  src/resources/extensions/kata/tests/github-backend-plan-prompt.vitest.test.ts
-
-run_segment \
-  "CLI GitHub backend integration harness (bun test)" \
-  pnpm --dir apps/cli exec bun test \
-  src/resources/extensions/kata/tests/github-config.test.ts \
-  src/resources/extensions/kata/tests/github-state.test.ts \
-  src/resources/extensions/kata/tests/github-backend.integration.test.ts
+  src/tests/setup-source.vitest.test.ts \
+  src/tests/golden-path.pi-github.vitest.test.ts
 
 run_segment \
   "Desktop GitHub workflow backend contracts (Vitest)" \

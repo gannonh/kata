@@ -30,11 +30,11 @@ if [ ! -d "$ROOT_DIR/node_modules" ]; then
   (cd "$ROOT_DIR" && pnpm install --frozen-lockfile)
 fi
 
-log "building Kata CLI"
-pnpm --dir "$ROOT_DIR/apps/cli" run build
-
 log "building Kata skill bundle"
 pnpm --dir "$ROOT_DIR/apps/orchestrator" run build:skills
+
+log "building Kata CLI"
+pnpm --dir "$ROOT_DIR/apps/cli" run build
 
 log "copying Kata CLI bundle"
 cp -R "$ROOT_DIR/apps/cli/dist" "$VENDOR_DIR/kata-cli/dist"

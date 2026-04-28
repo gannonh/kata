@@ -73,6 +73,9 @@ jobs:
       - name: Run tests
         run: cd apps/cli && npm test
 
+      - name: Run golden-path smoke test
+        run: pnpm --dir apps/cli exec vitest run src/tests/golden-path.pi-github.vitest.test.ts
+
   publish:
     needs: [check-version, test]
     if: needs.check-version.outputs.should_release == 'true'
@@ -106,10 +109,14 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build
-        run: cd apps/cli && npm run build
+        run: |
+          pnpm --dir apps/orchestrator run build:skills
+          cd apps/cli && npm run build
 
-      - name: Build generated distribution artifacts
-        run: bash scripts/ci/build-kata-distributions.sh
+      - name: Run CLI golden-path release gate
+        run: |
+          pnpm --dir apps/orchestrator run build:skills
+          pnpm --dir apps/cli exec vitest run src/tests/golden-path.pi-github.vitest.test.ts
 
       - name: Publish to npm
         run: cd apps/cli && npm publish --access public

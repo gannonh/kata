@@ -107,17 +107,19 @@ export async function readWorkspaceWorkflowTrackerConfig(
       config: null,
       error: {
         code: 'INVALID_CONFIG',
-        message: 'GitHub label mode is no longer supported. Use github.stateMode: projects_v2.',
+        message:
+          'GitHub label mode is no longer supported. Use github.stateMode: projects_v2 and set github.githubProjectNumber in .kata/preferences.md.',
       },
     }
   }
 
-  if (stateModeRaw && stateModeRaw !== 'projects_v2') {
+  if (!stateModeRaw || stateModeRaw !== 'projects_v2') {
     return {
       config: null,
       error: {
         code: 'INVALID_CONFIG',
-        message: 'github.stateMode must be projects_v2 in .kata/preferences.md.',
+        message:
+          'github.stateMode is required and must be projects_v2 in .kata/preferences.md. Set github.stateMode: projects_v2 and github.githubProjectNumber to a positive integer.',
       },
     }
   }
@@ -127,7 +129,8 @@ export async function readWorkspaceWorkflowTrackerConfig(
       config: null,
       error: {
         code: 'INVALID_CONFIG',
-        message: 'github.githubProjectNumber is required when github.stateMode is projects_v2 in .kata/preferences.md.',
+        message:
+          'github.githubProjectNumber is required for github.stateMode: projects_v2 in .kata/preferences.md.',
       },
     }
   }
