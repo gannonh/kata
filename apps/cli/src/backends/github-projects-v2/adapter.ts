@@ -27,6 +27,9 @@ import { KATA_PROJECT_FIELDS, loadProjectFieldIndex, type ProjectFieldIndex } fr
 type GithubClient = ReturnType<typeof createGithubClient>;
 type KataEntityType = "Project" | "Milestone" | "Slice" | "Task";
 type ProjectStatusName = "Backlog" | "Todo" | "In Progress" | "Agent Review" | "Human Review" | "Merging" | "Done";
+type KataSliceStatus = KataSlice["status"];
+type KataTaskStatus = KataTask["status"];
+type KataTaskVerificationState = KataTask["verificationState"];
 
 interface GithubProjectsV2AdapterInput {
   owner: string;
@@ -56,6 +59,8 @@ interface TrackedEntity {
   kataId: string;
   type: KataEntityType;
   parentId?: string;
+  status?: KataSliceStatus | KataTaskStatus;
+  verificationState?: KataTaskVerificationState;
   issueNumber: number;
   contentId: string;
   title: string;
@@ -68,6 +73,8 @@ interface EntityMarker {
   kataId: string;
   type: KataEntityType;
   parentId?: string;
+  status?: KataSliceStatus | KataTaskStatus;
+  verificationState?: KataTaskVerificationState;
 }
 
 const ENTITY_MARKER_PREFIX = "<!-- kata:entity ";
@@ -247,6 +254,7 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
         kataId,
         type: "Slice",
         parentId: input.milestoneId,
+        status: "todo",
         content: input.goal,
       }),
     });
@@ -270,7 +278,9 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
 
   async updateSliceStatus(input: KataSliceUpdateStatusInput): Promise<KataSlice> {
     const entity = await this.requireEntity(input.sliceId, "Slice");
-    const updated = await this.updateEntityStatus(entity, statusOptionForSlice(input.status));
+    const updated = await this.updateEntityStatus(entity, statusOptionForSlice(input.status), {
+      status: input.status,
+    });
     return {
       ...sliceFromEntity(updated, 0),
       status: input.status,
@@ -297,6 +307,8 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
         kataId,
         type: "Task",
         parentId: input.sliceId,
+        status: "todo",
+        verificationState: "pending",
         content: input.description,
       }),
     });
@@ -320,11 +332,15 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
 
   async updateTaskStatus(input: KataTaskUpdateStatusInput): Promise<KataTask> {
     const entity = await this.requireEntity(input.taskId, "Task");
-    const updated = await this.updateEntityStatus(entity, statusOptionForTask(input.status));
+    const verificationState = input.verificationState ?? taskVerificationStateFromEntity(entity);
+    const updated = await this.updateEntityStatus(entity, statusOptionForTask(input.status), {
+      status: input.status,
+      verificationState,
+    });
     return {
       ...taskFromEntity(updated),
       status: input.status,
-      verificationState: input.verificationState ?? "pending",
+      verificationState,
     };
   }
 
@@ -438,6 +454,7 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
         if (issue.pull_request) continue;
         const marker = typeof issue.body === "string" ? parseEntityMarker(issue.body) : null;
         if (!marker || !issue.node_id) continue;
+        if (this.entities.has(marker.kataId)) continue;
         this.entities.set(marker.kataId, entityFromIssue(issue, marker));
       }
 
@@ -547,12 +564,19 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
     return projectItemId;
   }
 
-  private async updateEntityStatus(entity: TrackedEntity, status: ProjectStatusName): Promise<TrackedEntity> {
+  private async updateEntityStatus(
+    entity: TrackedEntity,
+    status: ProjectStatusName,
+    metadata: Pick<EntityMarker, "status" | "verificationState"> = {},
+  ): Promise<TrackedEntity> {
     const fieldIndex = await this.getFieldIndex();
     const projectItemId = await this.addProjectItem(fieldIndex.projectId, entity.contentId);
     await this.updateProjectStatus(fieldIndex, projectItemId, status);
     const issueState = status === "Done" ? "closed" : "open";
-    return this.updateIssueEntity(entity, { state: issueState });
+    return this.updateIssueEntity(entity, {
+      state: issueState,
+      body: updateEntityBodyMarker(entity, metadata),
+    });
   }
 
   private async getFieldIndex(): Promise<ProjectFieldIndex> {
@@ -640,12 +664,16 @@ export function formatEntityBody(input: {
   kataId: string;
   type: KataEntityType;
   parentId?: string;
+  status?: KataSliceStatus | KataTaskStatus;
+  verificationState?: KataTaskVerificationState;
   content: string;
 }): string {
   const marker = JSON.stringify({
     kataId: input.kataId,
     type: input.type,
     ...(input.parentId ? { parentId: input.parentId } : {}),
+    ...(input.status ? { status: input.status } : {}),
+    ...(input.verificationState ? { verificationState: input.verificationState } : {}),
   });
 
   return `${ENTITY_MARKER_PREFIX}${marker}${ENTITY_MARKER_SUFFIX}\n${input.content}`;
@@ -673,6 +701,8 @@ function entityFromIssue(issue: GithubIssue, marker: EntityMarker): TrackedEntit
     kataId: marker.kataId,
     type: marker.type,
     parentId: marker.parentId,
+    status: marker.status,
+    verificationState: marker.verificationState,
     issueNumber: issue.number,
     contentId: issue.node_id ?? "",
     title: stripKataPrefix(issue.title),
@@ -698,7 +728,7 @@ function sliceFromEntity(entity: TrackedEntity, order: number): KataSlice {
     milestoneId: entity.parentId ?? "M000",
     title: entity.title,
     goal: bodyContent(entity.body) || entity.title,
-    status: entity.state === "closed" ? "done" : "todo",
+    status: sliceStatusFromEntity(entity),
     order,
   };
 }
@@ -709,8 +739,8 @@ function taskFromEntity(entity: TrackedEntity): KataTask {
     sliceId: entity.parentId ?? "S000",
     title: entity.title,
     description: bodyContent(entity.body),
-    status: entity.state === "closed" ? "done" : "todo",
-    verificationState: "pending",
+    status: taskStatusFromEntity(entity),
+    verificationState: taskVerificationStateFromEntity(entity),
   };
 }
 
@@ -738,12 +768,26 @@ function artifactFromParsedComment(input: {
 function isEntityMarker(value: unknown): value is EntityMarker {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
-  return (
-    typeof candidate.kataId === "string" &&
-    candidate.kataId.length > 0 &&
-    isKataEntityType(candidate.type) &&
-    (candidate.parentId === undefined || typeof candidate.parentId === "string")
-  );
+  if (
+    typeof candidate.kataId !== "string" ||
+    candidate.kataId.length === 0 ||
+    !isKataEntityType(candidate.type) ||
+    (candidate.parentId !== undefined && typeof candidate.parentId !== "string")
+  ) {
+    return false;
+  }
+  if (candidate.status !== undefined) {
+    const statusValid = candidate.type === "Slice"
+      ? isKataSliceStatus(candidate.status)
+      : candidate.type === "Task"
+        ? isKataTaskStatus(candidate.status)
+        : false;
+    if (!statusValid) return false;
+  }
+  if (candidate.verificationState !== undefined) {
+    if (candidate.type !== "Task" || !isKataTaskVerificationState(candidate.verificationState)) return false;
+  }
+  return true;
 }
 
 function isKataEntityType(value: unknown): value is KataEntityType {
@@ -783,6 +827,58 @@ function statusOptionForTask(status: KataTask["status"]): ProjectStatusName {
     case "todo":
       return "Todo";
   }
+}
+
+function sliceStatusFromEntity(entity: TrackedEntity): KataSliceStatus {
+  return isKataSliceStatus(entity.status) ? entity.status : entity.state === "closed" ? "done" : "todo";
+}
+
+function taskStatusFromEntity(entity: TrackedEntity): KataTaskStatus {
+  return isKataTaskStatus(entity.status) ? entity.status : entity.state === "closed" ? "done" : "todo";
+}
+
+function taskVerificationStateFromEntity(entity: TrackedEntity): KataTaskVerificationState {
+  return isKataTaskVerificationState(entity.verificationState) ? entity.verificationState : "pending";
+}
+
+function updateEntityBodyMarker(
+  entity: TrackedEntity,
+  metadata: Pick<EntityMarker, "status" | "verificationState">,
+): string {
+  const marker = parseEntityMarker(entity.body) ?? {
+    kataId: entity.kataId,
+    type: entity.type,
+    parentId: entity.parentId,
+  };
+  const content = bodyContent(entity.body);
+  return formatEntityBody({
+    kataId: marker.kataId,
+    type: marker.type,
+    parentId: marker.parentId,
+    status: metadata.status ?? marker.status,
+    verificationState: metadata.verificationState ?? marker.verificationState,
+    content,
+  });
+}
+
+function isKataSliceStatus(value: unknown): value is KataSliceStatus {
+  return (
+    value === "backlog" ||
+    value === "todo" ||
+    value === "in_progress" ||
+    value === "agent_review" ||
+    value === "human_review" ||
+    value === "merging" ||
+    value === "done"
+  );
+}
+
+function isKataTaskStatus(value: unknown): value is KataTaskStatus {
+  return value === "todo" || value === "in_progress" || value === "done";
+}
+
+function isKataTaskVerificationState(value: unknown): value is KataTaskVerificationState {
+  return value === "pending" || value === "verified" || value === "failed";
 }
 
 function stripKataPrefix(title: string): string {

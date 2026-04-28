@@ -234,12 +234,12 @@ export async function runDoctor(input: RunDoctorInput = {}): Promise<DoctorRepor
         const hasGithubToken = Boolean(resolveGithubToken(env));
         checks.push({
           name: "github-token",
-          status: hasGithubToken ? "ok" : "invalid",
+          status: hasGithubToken ? "warn" : "invalid",
           message: hasGithubToken
-            ? "GitHub token is configured; doctor did not perform live Project v2 field validation."
+            ? "GitHub token is configured, but doctor did not perform live Project v2 field validation."
             : "GitHub mode requires GITHUB_TOKEN or GH_TOKEN.",
           ...(hasGithubToken
-            ? {}
+            ? { action: "Run a live backend operation or future doctor validation to confirm GitHub Project v2 access." }
             : { action: "Set GITHUB_TOKEN or GH_TOKEN with access to the configured GitHub Project v2." }),
         });
       }

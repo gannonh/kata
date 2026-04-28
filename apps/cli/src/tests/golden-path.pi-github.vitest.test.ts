@@ -61,12 +61,16 @@ github:
         env,
         packageVersion: "9.9.9-test",
       });
-      expect(doctor.status).toBe("ok");
+      expect(doctor.status).toBe("warn");
       expect(doctor.harness).toBe("pi");
       expect(doctor.checks.find((check) => check.name === "skills-source")?.status).toBe("ok");
       expect(doctor.checks.find((check) => check.name === "pi-skills-dir")?.status).toBe("ok");
       expect(doctor.checks.find((check) => check.name === "pi-settings")?.status).toBe("ok");
       expect(doctor.checks.find((check) => check.name === "backend-config")?.status).toBe("ok");
+      expect(doctor.checks.find((check) => check.name === "github-token")).toMatchObject({
+        status: "warn",
+        action: "Run a live backend operation or future doctor validation to confirm GitHub Project v2 access.",
+      });
 
       const runtimeBackendFactory = vi.fn(async () => {
         throw new Error("GitHub mode must not use the runtime backend fallback");
@@ -256,9 +260,10 @@ github:
         packageVersion: "9.9.9-test",
       });
 
-      expect(doctor.status).toBe("ok");
+      expect(doctor.status).toBe("warn");
       expect(doctor.checks.find((check) => check.name === "github-token")).toMatchObject({
-        status: "ok",
+        status: "warn",
+        action: "Run a live backend operation or future doctor validation to confirm GitHub Project v2 access.",
       });
     } finally {
       rmSync(tmp, { recursive: true, force: true });

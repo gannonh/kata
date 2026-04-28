@@ -415,6 +415,135 @@ describe("GithubProjectsV2Adapter", () => {
       }),
     );
   });
+
+  it("rediscovers updated slice status from marker metadata", async () => {
+    const client = createFakeGithubClient({
+      issues: [
+        {
+          id: 98,
+          node_id: "issue-node-98",
+          number: 41,
+          title: "[S001] Existing Slice",
+          body: '<!-- kata:entity {"kataId":"S001","type":"Slice","parentId":"M001"} -->\nExisting slice',
+          state: "open",
+          html_url: "https://github.test/kata-sh/uat/issues/41",
+        },
+      ],
+    });
+    const adapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+
+    await adapter.updateSliceStatus({ sliceId: "S001", status: "agent_review" });
+
+    const freshAdapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+    await expect(freshAdapter.listSlices({ milestoneId: "M001" })).resolves.toMatchObject([
+      { id: "S001", status: "agent_review" },
+    ]);
+  });
+
+  it("rediscovers updated task status and verification state from marker metadata", async () => {
+    const client = createFakeGithubClient({
+      issues: [
+        {
+          id: 97,
+          node_id: "issue-node-97",
+          number: 40,
+          title: "[T001] Existing Task",
+          body: '<!-- kata:entity {"kataId":"T001","type":"Task","parentId":"S001"} -->\nExisting task',
+          state: "open",
+          html_url: "https://github.test/kata-sh/uat/issues/40",
+        },
+      ],
+    });
+    const adapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+
+    await adapter.updateTaskStatus({ taskId: "T001", status: "in_progress", verificationState: "verified" });
+
+    const freshAdapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+    await expect(freshAdapter.listTasks({ sliceId: "S001" })).resolves.toMatchObject([
+      { id: "T001", status: "in_progress", verificationState: "verified" },
+    ]);
+  });
+
+  it("keeps the first duplicate marker issue when writing artifacts", async () => {
+    const client = createFakeGithubClient({
+      issues: [
+        {
+          id: 96,
+          node_id: "issue-node-96",
+          number: 39,
+          title: "[S001] Newer Slice",
+          body: '<!-- kata:entity {"kataId":"S001","type":"Slice","parentId":"M001"} -->\nNewer slice',
+          state: "open",
+          html_url: "https://github.test/kata-sh/uat/issues/39",
+        },
+        {
+          id: 95,
+          node_id: "issue-node-95",
+          number: 38,
+          title: "[S001] Stale Duplicate Slice",
+          body: '<!-- kata:entity {"kataId":"S001","type":"Slice","parentId":"M001"} -->\nStale duplicate',
+          state: "open",
+          html_url: "https://github.test/kata-sh/uat/issues/38",
+        },
+      ],
+    });
+    const adapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+
+    const slices = await adapter.listSlices({ milestoneId: "M001" });
+    expect(slices).toMatchObject([{ id: "S001", title: "Newer Slice" }]);
+
+    await adapter.writeArtifact({
+      scopeType: "slice",
+      scopeId: "S001",
+      artifactType: "plan",
+      title: "Slice plan",
+      content: "Prefer first issue",
+      format: "markdown",
+    });
+
+    expect(client.rest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "POST",
+        path: "/repos/kata-sh/uat/issues/39/comments",
+      }),
+    );
+    expect(client.rest).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "POST",
+        path: "/repos/kata-sh/uat/issues/38/comments",
+      }),
+    );
+  });
 });
 
 describe("resolveBackend GitHub token selection", () => {
@@ -537,8 +666,18 @@ function createFakeGithubClient(input: { issues?: any[] } = {}) {
         };
       }
 
-      if (request.method === "PATCH") {
-        return request.body;
+      const issuePatchMatch = request.path.match(/^\/repos\/kata-sh\/uat\/issues\/(\d+)$/);
+      if (request.method === "PATCH" && issuePatchMatch) {
+        const issueNumber = Number(issuePatchMatch[1]);
+        const issueIndex = issues.findIndex((issue) => issue.number === issueNumber);
+        if (issueIndex === -1) {
+          throw new Error(`Unhandled fake GitHub issue patch: ${request.method} ${request.path}`);
+        }
+        issues[issueIndex] = {
+          ...issues[issueIndex],
+          ...request.body,
+        };
+        return issues[issueIndex];
       }
 
       throw new Error(`Unhandled fake GitHub request: ${request.method} ${request.path}`);
