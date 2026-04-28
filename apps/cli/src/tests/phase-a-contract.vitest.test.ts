@@ -1,5 +1,10 @@
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+
 import { describe, expect, it } from "vitest";
 
+import { runCall } from "../commands/call.js";
 import { dispatchKataOperation, KATA_OPERATION_NAMES } from "../domain/operations.js";
 import { createKataDomainApi } from "../domain/service.js";
 import { runJsonCommand } from "../transports/json.js";
@@ -23,6 +28,32 @@ import type {
 } from "../domain/types.js";
 
 const workspacePath = "/tmp/kata";
+const payloadRequiredCallOperations = [
+  "project.upsert",
+  "milestone.create",
+  "milestone.complete",
+  "slice.list",
+  "slice.create",
+  "slice.updateStatus",
+  "task.list",
+  "task.create",
+  "task.updateStatus",
+  "artifact.list",
+  "artifact.read",
+  "artifact.write",
+];
+
+async function withTempFile(content: string, run: (filePath: string) => Promise<void>) {
+  const directory = await mkdtemp(path.join(tmpdir(), "kata-cli-test-"));
+  const filePath = path.join(directory, "request.json");
+
+  try {
+    await writeFile(filePath, content, "utf8");
+    await run(filePath);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+}
 
 function createFakeAdapter(): KataBackendAdapter {
   const artifact: KataArtifact = {
@@ -245,6 +276,75 @@ describe("Phase A operation transport", () => {
     expect(JSON.parse(result)).toMatchObject({
       ok: true,
       data: { id: "M001", active: true },
+    });
+  });
+});
+
+describe("Phase A call command validation", () => {
+  it("keeps unknown operations as UNKNOWN errors", async () => {
+    const result = await runCall({
+      operation: "unknown.operation",
+      cwd: workspacePath,
+    });
+
+    expect(JSON.parse(result)).toMatchObject({
+      ok: false,
+      error: { code: "UNKNOWN" },
+    });
+  });
+
+  it.each(payloadRequiredCallOperations)("requires an input file for payload operation %s", async (operation) => {
+    const result = await runCall({
+      operation,
+      cwd: workspacePath,
+    });
+
+    expect(JSON.parse(result)).toMatchObject({
+      ok: false,
+      error: { code: "INVALID_REQUEST" },
+    });
+  });
+
+  it("rejects unreadable input files before dispatch", async () => {
+    const result = await runCall({
+      operation: "milestone.create",
+      inputPath: path.join(tmpdir(), "missing-kata-call-input.json"),
+      cwd: workspacePath,
+    });
+
+    expect(JSON.parse(result)).toMatchObject({
+      ok: false,
+      error: { code: "INVALID_REQUEST" },
+    });
+  });
+
+  it("rejects invalid JSON input before dispatch", async () => {
+    await withTempFile("{", async (inputPath) => {
+      const result = await runCall({
+        operation: "milestone.create",
+        inputPath,
+        cwd: workspacePath,
+      });
+
+      expect(JSON.parse(result)).toMatchObject({
+        ok: false,
+        error: { code: "INVALID_REQUEST" },
+      });
+    });
+  });
+
+  it.each(["null", "[]", '"not an object"'])("rejects non-object JSON input %s before dispatch", async (content) => {
+    await withTempFile(content, async (inputPath) => {
+      const result = await runCall({
+        operation: "milestone.create",
+        inputPath,
+        cwd: workspacePath,
+      });
+
+      expect(JSON.parse(result)).toMatchObject({
+        ok: false,
+        error: { code: "INVALID_REQUEST" },
+      });
     });
   });
 });

@@ -97,6 +97,11 @@ async function main(argv = process.argv.slice(2)) {
       return;
     }
 
+    if (inputFlagIndex >= 0 && (!inputPath || inputPath.startsWith("--"))) {
+      writeJsonError("Missing input path. Usage: kata call <operation> --input <request.json>");
+      return;
+    }
+
     try {
       const { runCall } = await import("./commands/call.js");
       process.stdout.write(`${await runCall({ operation, inputPath, cwd: process.cwd() })}\n`);
