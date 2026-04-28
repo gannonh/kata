@@ -48,8 +48,8 @@ This section is the authoritative progress tracker. The detailed task checkboxes
 | Task 8: Pi setup and doctor readiness | Implemented to current Phase A scope, committed | `780ecee0`; doctor still warns instead of live-validating GitHub Project v2 fields |
 | Task 9: Manual Phase A runbook | In progress | Active runbook restored at `docs/superpowers/specs/2026-04-27-kata-cli-manual-validation-runbook.md` |
 | Task 10: CI guards | Done, committed | `780ecee0`; `bash scripts/ci/build-kata-distributions.sh` passed locally |
-| Task 11: Full local verification | Partially done | CLI build/typecheck/tests and distribution script passed; desktop typecheck and full affected validation still pending |
-| Task 12: Manual Pi acceptance | Not done | Requires real Pi session and GitHub Projects v2 evidence URLs |
+| Task 11: Full local verification | Done | `pnpm run validate:affected` passed after the Desktop snapshot adapter fix |
+| Task 12: Manual Pi acceptance | In progress | `setup --pi`, `doctor`, and live `health.check` passed; interactive Pi skill chain and evidence URLs still pending |
 
 ## File Map
 

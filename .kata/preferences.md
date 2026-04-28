@@ -10,7 +10,6 @@ github:
   repoName: kata
   stateMode: projects_v2
   githubProjectNumber: 17
-  labelPrefix: kata:
 pr:
   enabled: false
   auto_create: false
