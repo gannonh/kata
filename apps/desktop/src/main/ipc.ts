@@ -4,7 +4,7 @@ import path from 'node:path'
 import { promisify } from 'node:util'
 import { dialog, ipcMain, shell, type BrowserWindow } from 'electron'
 import { createKataDomainApi } from '../../../cli/src/domain/service'
-import { GithubProjectsV2Adapter } from '../../../cli/src/backends/github-projects-v2/adapter'
+import { GithubProjectsV2SnapshotAdapter } from '../../../cli/src/backends/github-projects-v2/snapshot-adapter'
 import { LinearKataAdapter } from '../../../cli/src/backends/linear/adapter'
 import type { KataArtifact, KataArtifactType } from '../../../cli/src/domain/types'
 import log from './logger'
@@ -800,7 +800,7 @@ export function registerSessionIpc({
 
     const adapter =
       tracker?.kind === 'github'
-        ? new GithubProjectsV2Adapter({
+        ? new GithubProjectsV2SnapshotAdapter({
             fetchProjectSnapshot: async () => emptyBoardSnapshot,
             listArtifacts: async () => {
               const artifacts = await githubPlanningClient.listByRepository({
