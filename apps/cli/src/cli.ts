@@ -4,6 +4,7 @@ import { createKataDomainApi } from "./domain/service.js";
 import { resolveBackend } from "./backends/resolve-backend.js";
 import { runSetup } from "./commands/setup.js";
 import { runDoctor } from "./commands/doctor.js";
+import { loadDotEnv } from "./env.js";
 import { isSupportedJsonOperation, runJsonCommand } from "./transports/json.js";
 
 function writeJsonError(message: string) {
@@ -58,6 +59,8 @@ async function getPackageVersion(): Promise<string> {
 }
 
 async function main(argv = process.argv.slice(2)) {
+  loadDotEnv({ cwd: process.cwd(), env: process.env });
+
   const [command, ...rest] = argv;
   const packageVersion = await getPackageVersion();
 
