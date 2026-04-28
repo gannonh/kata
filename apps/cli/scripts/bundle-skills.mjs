@@ -114,6 +114,8 @@ function renderSkillMarkdown(skill) {
     "- Alignment depth: `references/alignment.md`",
     "- Workflow instructions: `references/workflow.md`",
     "- Runtime IO contract: `references/runtime-contract.md`",
+    "- CLI command patterns: `references/cli-runtime.md`",
+    "- Artifact conventions: `references/artifact-contract.md`",
     "- CLI helper: `scripts/kata-call.mjs`",
     "",
     "## Execution Rules",
@@ -186,5 +188,7 @@ for (const skill of manifest.skills) {
   await fs.writeFile(path.join(referencesDir, "runtime-contract.md"), renderRuntimeContractReference(skill), "utf8");
   await fs.writeFile(path.join(referencesDir, "workflow.md"), renderWorkflowReference(skill, workflowBody), "utf8");
   await copyIfExists(path.join(sourceRoot, "references", "alignment.md"), path.join(referencesDir, "alignment.md"));
+  await copyIfExists(path.join(sourceRoot, "references", "cli-runtime.md"), path.join(referencesDir, "cli-runtime.md"));
+  await copyIfExists(path.join(sourceRoot, "references", "artifact-contract.md"), path.join(referencesDir, "artifact-contract.md"));
   await copyIfExists(path.join(sourceRoot, "scripts"), path.join(skillDir, "scripts"));
 }

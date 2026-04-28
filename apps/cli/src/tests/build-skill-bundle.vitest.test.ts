@@ -18,11 +18,21 @@ describe("skill bundle generation", () => {
     const skillPath = path.join(cliRoot, "skills", "kata-plan-phase", "SKILL.md");
     const workflowReferencePath = path.join(cliRoot, "skills", "kata-plan-phase", "references", "workflow.md");
     const runtimeReferencePath = path.join(cliRoot, "skills", "kata-plan-phase", "references", "runtime-contract.md");
+    const cliRuntimeReferencePath = path.join(cliRoot, "skills", "kata-plan-phase", "references", "cli-runtime.md");
+    const artifactContractReferencePath = path.join(
+      cliRoot,
+      "skills",
+      "kata-plan-phase",
+      "references",
+      "artifact-contract.md",
+    );
     const helperScriptPath = path.join(cliRoot, "skills", "kata-plan-phase", "scripts", "kata-call.mjs");
 
     expect(existsSync(skillPath)).toBe(true);
     expect(existsSync(workflowReferencePath)).toBe(true);
     expect(existsSync(runtimeReferencePath)).toBe(true);
+    expect(existsSync(cliRuntimeReferencePath)).toBe(true);
+    expect(existsSync(artifactContractReferencePath)).toBe(true);
     expect(existsSync(helperScriptPath)).toBe(true);
 
     const skill = readFileSync(skillPath, "utf8");
@@ -33,6 +43,8 @@ describe("skill bundle generation", () => {
     expect(skill).toContain("references/alignment.md");
     expect(skill).toContain("references/workflow.md");
     expect(skill).toContain("references/runtime-contract.md");
+    expect(skill).toContain("references/cli-runtime.md");
+    expect(skill).toContain("references/artifact-contract.md");
     expect(workflow).toContain("Source: `apps/cli/skills-src/workflows/plan-phase.md`");
     expect(runtime).toContain("project.getContext");
     expect(runtime).toContain("slice.create");

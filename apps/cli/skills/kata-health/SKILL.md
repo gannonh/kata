@@ -11,6 +11,8 @@ Use progressive disclosure resources:
 - Alignment depth: `references/alignment.md`
 - Workflow instructions: `references/workflow.md`
 - Runtime IO contract: `references/runtime-contract.md`
+- CLI command patterns: `references/cli-runtime.md`
+- Artifact conventions: `references/artifact-contract.md`
 - CLI helper: `scripts/kata-call.mjs`
 
 ## Execution Rules
