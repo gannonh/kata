@@ -17,8 +17,11 @@ Use this as the content shape for `summary` artifacts.
 
 - [Command or manual check]
 
+## Commit
+
+- [Commit hash, or "No code commit required" with reason]
+
 ## Follow-Ups
 
 - [Follow-up]
 ```
-

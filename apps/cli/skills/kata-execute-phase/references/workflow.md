@@ -122,7 +122,17 @@ node <path-to-skill-directory>/scripts/kata-call.mjs task.updateStatus --input /
 
 ## Stage 4: Execute And Verify
 
+Before changing files, run `git status --short` and identify any pre-existing user changes. Do not stage or commit unrelated user changes.
+
 Perform the repository code work. Run the verification commands implied by the plan or by project conventions. Evidence comes before claims.
+
+After verification passes, run `git status --short` again:
+
+- If repository files changed for this task, create one atomic commit containing only the task-scoped changes before marking the task done.
+- Use a conventional commit message that includes the task ID, for example `test(T001): verify project initialization artifacts`.
+- If no repository files changed, do not create an empty commit; record "no code commit required" with the evidence in the summary artifact.
+- Do not commit Kata backend artifacts directly. Durable Kata artifacts are persisted through `artifact.write`.
+- If unrelated pre-existing user changes are present, leave them unstaged and mention them in the summary.
 
 ## Stage 5: Write Summary Artifact
 
@@ -189,5 +199,8 @@ Next up: run `kata-verify-work` for user-facing verification.
 - Do not bypass the CLI when reading or mutating Kata state.
 - Do not execute Backlog slices without an explicit execution approval checkpoint.
 - Use the shared execution lifecycle for approved slices: `todo` -> `in_progress` -> `agent_review` -> `human_review` -> `merging` -> `done` as far as the current validated path requires.
+- Preserve atomic commits: one task-scoped code commit per completed task when repository files changed.
+- Never stage or commit unrelated user changes.
+- Mark a task done only after verification evidence exists and the task-scoped code commit has been created, or after the summary records why no code commit was required.
 - Do not claim completion without verification evidence.
 - If autonomous dispatch is required, use Symphony in the Symphony validation phase; do not invent a local runner here.
