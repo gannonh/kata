@@ -32,6 +32,25 @@ kata-plan-phase
 
 Phase A proof must run through Pi against a real GitHub Projects v2 backend. Unit tests may use fake HTTP clients, but the acceptance evidence may not rely on mocks, local fallback stores, or JSON-only transport checks.
 
+## Current Status
+
+This section is the authoritative progress tracker. The detailed task checkboxes below remain as the original implementation checklist.
+
+| Area | Status | Evidence |
+|---|---|---|
+| Task 1: Phase A domain contract | Done, committed | `cc9a8c7e`, `3af2b2bc` |
+| Task 2: CLI operation runner | Done, committed | `4a3fb4c5`, `c3740cd2`, `e1a3d748` |
+| Task 3: GitHub client and project fields | Done, committed | `ac0be71d`, `f95f4c6a`, `54f5c74d` |
+| Task 4: GitHub artifact IO | Done, committed | `9ff3c779`, `9586dc0b` |
+| Task 5: Real GitHub Projects v2 backend adapter | Done, committed | `81b3fb1b`, `b6c90f9f`, `e9e06d0f` |
+| Task 6: Progressive-disclosure skill source | Done, committed | `780ecee0`; source is `apps/cli/skills-src` |
+| Task 7: Phase A workflow references | Done, committed | `780ecee0`; generated bundle has exactly nine Phase A skills |
+| Task 8: Pi setup and doctor readiness | Implemented to current Phase A scope, committed | `780ecee0`; doctor still warns instead of live-validating GitHub Project v2 fields |
+| Task 9: Manual Phase A runbook | In progress | Active runbook restored at `docs/superpowers/specs/2026-04-27-kata-cli-manual-validation-runbook.md` |
+| Task 10: CI guards | Done, committed | `780ecee0`; `bash scripts/ci/build-kata-distributions.sh` passed locally |
+| Task 11: Full local verification | Partially done | CLI build/typecheck/tests and distribution script passed; desktop typecheck and full affected validation still pending |
+| Task 12: Manual Pi acceptance | Not done | Requires real Pi session and GitHub Projects v2 evidence URLs |
+
 ## File Map
 
 ### Create
