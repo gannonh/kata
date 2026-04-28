@@ -4,11 +4,22 @@ import type {
   KataArtifactWriteInput,
   KataBackendAdapter,
   KataExecutionStatus,
+  KataHealthReport,
+  KataMilestone,
+  KataMilestoneCompleteInput,
+  KataMilestoneCreateInput,
   KataPullRequest,
+  KataProjectContext,
+  KataProjectUpsertInput,
   KataScopeType,
   KataSlice,
+  KataSliceCreateInput,
+  KataSliceUpdateStatusInput,
   KataTask,
+  KataTaskCreateInput,
+  KataTaskUpdateStatusInput,
 } from "../../domain/types.js";
+import { KataDomainError } from "../../domain/errors.js";
 
 interface GithubProjectsV2Clients {
   fetchProjectSnapshot: (input: { milestoneId?: string }) => Promise<any>;
@@ -30,6 +41,15 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
     };
   }
 
+  async upsertProject(_input: KataProjectUpsertInput): Promise<KataProjectContext> {
+    throw new KataDomainError("NOT_SUPPORTED", "GitHub Projects v2 project upsert is not implemented yet.");
+  }
+
+  async listMilestones(): Promise<KataMilestone[]> {
+    const activeMilestone = await this.getActiveMilestone();
+    return activeMilestone ? [activeMilestone] : [];
+  }
+
   async getActiveMilestone() {
     const snapshot = await this.clients.fetchProjectSnapshot({});
     if (!snapshot.activeMilestone) return null;
@@ -41,6 +61,14 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
       status: "active" as const,
       active: true,
     };
+  }
+
+  async createMilestone(_input: KataMilestoneCreateInput): Promise<KataMilestone> {
+    throw new KataDomainError("NOT_SUPPORTED", "GitHub Projects v2 milestone creation is not implemented yet.");
+  }
+
+  async completeMilestone(_input: KataMilestoneCompleteInput): Promise<KataMilestone> {
+    throw new KataDomainError("NOT_SUPPORTED", "GitHub Projects v2 milestone completion is not implemented yet.");
   }
 
   async listSlices(input: { milestoneId: string }): Promise<KataSlice[]> {
@@ -62,6 +90,14 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
     );
   }
 
+  async createSlice(_input: KataSliceCreateInput): Promise<KataSlice> {
+    throw new KataDomainError("NOT_SUPPORTED", "GitHub Projects v2 slice creation is not implemented yet.");
+  }
+
+  async updateSliceStatus(_input: KataSliceUpdateStatusInput): Promise<KataSlice> {
+    throw new KataDomainError("NOT_SUPPORTED", "GitHub Projects v2 slice status updates are not implemented yet.");
+  }
+
   async listTasks(input: { sliceId: string }): Promise<KataTask[]> {
     const snapshot = await this.clients.fetchProjectSnapshot({});
     const card = snapshot.columns
@@ -80,6 +116,14 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
       stateType: task.stateType,
       url: task.url,
     }));
+  }
+
+  async createTask(_input: KataTaskCreateInput): Promise<KataTask> {
+    throw new KataDomainError("NOT_SUPPORTED", "GitHub Projects v2 task creation is not implemented yet.");
+  }
+
+  async updateTaskStatus(_input: KataTaskUpdateStatusInput): Promise<KataTask> {
+    throw new KataDomainError("NOT_SUPPORTED", "GitHub Projects v2 task status updates are not implemented yet.");
   }
 
   async listArtifacts(_input: { scopeType: KataScopeType; scopeId: string }): Promise<KataArtifact[]> {
@@ -129,6 +173,20 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
 
   async getExecutionStatus(): Promise<KataExecutionStatus> {
     return { queueDepth: 0, activeWorkers: 0, escalations: [] };
+  }
+
+  async checkHealth(): Promise<KataHealthReport> {
+    return {
+      ok: true,
+      backend: "github",
+      checks: [
+        {
+          name: "adapter",
+          status: "ok",
+          message: "GitHub Projects v2 adapter is configured; external backend validation is not implemented yet.",
+        },
+      ],
+    };
   }
 }
 

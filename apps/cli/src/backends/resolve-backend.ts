@@ -9,14 +9,24 @@ import type {
   KataArtifactWriteInput,
   KataBackendAdapter,
   KataExecutionStatus,
+  KataHealthReport,
   KataMilestone,
+  KataMilestoneCompleteInput,
+  KataMilestoneCreateInput,
   KataPullRequest,
+  KataProjectContext,
+  KataProjectUpsertInput,
   KataScopeType,
   KataSlice,
+  KataSliceCreateInput,
   KataSliceListInput,
+  KataSliceUpdateStatusInput,
   KataTask,
+  KataTaskCreateInput,
   KataTaskListInput,
+  KataTaskUpdateStatusInput,
 } from "../domain/types.js";
+import { KataDomainError } from "../domain/errors.js";
 import { readTrackerConfig } from "./read-tracker-config.js";
 import { GithubProjectsV2Adapter } from "./github-projects-v2/adapter.js";
 import { LinearKataAdapter } from "./linear/adapter.js";
@@ -319,6 +329,23 @@ function createRuntimeBackedAdapter(input: {
 
   return {
     getProjectContext: async () => projectContext,
+    upsertProject: async (_payload: KataProjectUpsertInput): Promise<KataProjectContext> => {
+      throw new KataDomainError("NOT_SUPPORTED", "Runtime-backed project upsert is not implemented yet.");
+    },
+    listMilestones: async (): Promise<KataMilestone[]> => {
+      const state = await (await getBackend()).deriveState();
+      const activeMilestone = state.activeMilestone;
+      if (!activeMilestone) return [];
+      return [
+        {
+          id: activeMilestone.id,
+          title: activeMilestone.title,
+          goal: activeMilestone.title,
+          status: "active",
+          active: true,
+        },
+      ];
+    },
     getActiveMilestone: async (): Promise<KataMilestone | null> => {
       const state = await (await getBackend()).deriveState();
       const activeMilestone = state.activeMilestone;
@@ -330,6 +357,12 @@ function createRuntimeBackedAdapter(input: {
         status: "active",
         active: true,
       };
+    },
+    createMilestone: async (_payload: KataMilestoneCreateInput): Promise<KataMilestone> => {
+      throw new KataDomainError("NOT_SUPPORTED", "Runtime-backed milestone creation is not implemented yet.");
+    },
+    completeMilestone: async (_payload: KataMilestoneCompleteInput): Promise<KataMilestone> => {
+      throw new KataDomainError("NOT_SUPPORTED", "Runtime-backed milestone completion is not implemented yet.");
     },
     listSlices: async (payload: KataSliceListInput): Promise<KataSlice[]> => {
       const backend = await getBackend();
@@ -344,6 +377,12 @@ function createRuntimeBackedAdapter(input: {
         order: index,
       }));
     },
+    createSlice: async (_payload: KataSliceCreateInput): Promise<KataSlice> => {
+      throw new KataDomainError("NOT_SUPPORTED", "Runtime-backed slice creation is not implemented yet.");
+    },
+    updateSliceStatus: async (_payload: KataSliceUpdateStatusInput): Promise<KataSlice> => {
+      throw new KataDomainError("NOT_SUPPORTED", "Runtime-backed slice status updates are not implemented yet.");
+    },
     listTasks: async (payload: KataTaskListInput): Promise<KataTask[]> => {
       const backend = await getBackend();
       const tasks = await backend.listTasks(payload.sliceId);
@@ -355,6 +394,12 @@ function createRuntimeBackedAdapter(input: {
         status: toCanonicalTaskStatus(task),
         verificationState: "pending",
       }));
+    },
+    createTask: async (_payload: KataTaskCreateInput): Promise<KataTask> => {
+      throw new KataDomainError("NOT_SUPPORTED", "Runtime-backed task creation is not implemented yet.");
+    },
+    updateTaskStatus: async (_payload: KataTaskUpdateStatusInput): Promise<KataTask> => {
+      throw new KataDomainError("NOT_SUPPORTED", "Runtime-backed task status updates are not implemented yet.");
     },
     listArtifacts: async (payload: KataArtifactListInput): Promise<KataArtifact[]> => {
       const backend = await getBackend();
@@ -432,6 +477,17 @@ function createRuntimeBackedAdapter(input: {
         })),
       };
     },
+    checkHealth: async (): Promise<KataHealthReport> => ({
+      ok: true,
+      backend: backendKind,
+      checks: [
+        {
+          name: "runtime-adapter",
+          status: "ok",
+          message: "Runtime-backed adapter is configured; lifecycle mutations are not implemented yet.",
+        },
+      ],
+    }),
   };
 }
 
