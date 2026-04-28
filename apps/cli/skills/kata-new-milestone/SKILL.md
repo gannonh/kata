@@ -5,6 +5,28 @@ description: "Use when the user wants to create the next milestone, release goal
 
 # kata-new-milestone
 
+## Operating Brief
+
+When this skill is invoked, help the user define the next scoped delivery milestone for an existing Kata project.
+
+Start by reading project context, then ask what outcome the next milestone should deliver. Gather enough detail to define the milestone goal, requirements, roadmap, constraints, and open questions.
+
+Create exactly one milestone with `milestone.create`, then write milestone-scoped requirements and roadmap artifacts with `artifact.write`. End by routing the user to `kata-plan-phase`.
+
+## Success Criteria
+
+- Exactly one active milestone is created for the selected delivery goal.
+- Milestone requirements are persisted as a milestone-scoped `requirements` artifact.
+- The delivery roadmap is persisted as a milestone-scoped `roadmap` artifact.
+- The user knows the next step is `kata-plan-phase`.
+
+## Do Not
+
+- Do not initialize a new project here; route missing project context to `kata-new-project`.
+- Do not create slices or tasks.
+- Do not create multiple milestones unless the user explicitly asks.
+- Do not route to standalone discussion skills.
+
 Use progressive disclosure resources:
 
 - Setup and health checks: `references/setup.md`

@@ -5,6 +5,28 @@ description: "Use when the user wants to finish, close, ship, archive, or mark t
 
 # kata-complete-milestone
 
+## Operating Brief
+
+When this skill is invoked, close the active milestone after verified work is accepted.
+
+Load the active milestone, confirm readiness, summarize delivered outcomes, capture retrospective notes, write completion artifacts, and then complete the milestone through `milestone.complete`.
+
+If readiness is uncertain, stop and explain what must be verified or resolved first.
+
+## Success Criteria
+
+- The active milestone has an accepted completion summary.
+- Retrospective or archive artifacts are persisted when useful.
+- The milestone is completed through `milestone.complete` only after readiness is confirmed.
+- The user knows what remains, if anything, after completion.
+
+## Do Not
+
+- Do not complete a milestone with unverified required work.
+- Do not invent completion evidence.
+- Do not create a new milestone here.
+- Do not skip the readiness check.
+
 Use progressive disclosure resources:
 
 - Setup and health checks: `references/setup.md`

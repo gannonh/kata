@@ -5,6 +5,28 @@ description: "Use when the user asks to verify, validate, review, demo, or sign 
 
 # kata-verify-work
 
+## Operating Brief
+
+When this skill is invoked, verify completed Kata work and record acceptance evidence.
+
+Load the relevant project/task/artifact context, identify the behaviors that must be verified, and walk through them one at a time. Record evidence in verification or UAT artifacts, then update task verification state through the CLI.
+
+If verification fails, report the exact failure and leave the task unverified.
+
+## Success Criteria
+
+- Each relevant behavior has explicit verification evidence.
+- A verification or UAT artifact records what was checked and the result.
+- Verified tasks are marked with `verificationState: verified`.
+- Failed checks are clearly reported without marking tasks verified.
+
+## Do Not
+
+- Do not mark verification complete from confidence alone.
+- Do not hide or smooth over failed checks.
+- Do not create new execution scope.
+- Do not skip artifact updates when verification evidence was gathered.
+
 Use progressive disclosure resources:
 
 - Setup and health checks: `references/setup.md`

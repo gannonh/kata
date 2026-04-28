@@ -5,6 +5,28 @@ description: "Use when the user asks for Kata project status, milestone progress
 
 # kata-progress
 
+## Operating Brief
+
+When this skill is invoked, report current Kata project and milestone progress.
+
+Read project context, active milestone, slices, tasks, artifacts, and execution status. Summarize what is active, what is blocked, what is done, and the next recommended action.
+
+This is a reporting skill. It should not mutate backend state.
+
+## Success Criteria
+
+- The user sees the current project/backend identity.
+- The active milestone, slices, tasks, artifacts, and execution state are summarized.
+- Blocking issues and next actions are clear.
+- No backend state is changed.
+
+## Do Not
+
+- Do not create or update project artifacts.
+- Do not change task or milestone status.
+- Do not proceed into execution from a status request.
+- Do not omit blockers or warnings.
+
 Use progressive disclosure resources:
 
 - Setup and health checks: `references/setup.md`

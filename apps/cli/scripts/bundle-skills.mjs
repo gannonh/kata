@@ -88,6 +88,15 @@ async function validateManifest(manifest) {
     if (!Array.isArray(skill.contractOperations)) {
       throw new Error(`Skill "${skill.name}" must declare contractOperations as an array.`);
     }
+    if (!Array.isArray(skill.operatingBrief) || skill.operatingBrief.length === 0) {
+      throw new Error(`Skill "${skill.name}" must declare operatingBrief as a non-empty array.`);
+    }
+    if (!Array.isArray(skill.successCriteria) || skill.successCriteria.length === 0) {
+      throw new Error(`Skill "${skill.name}" must declare successCriteria as a non-empty array.`);
+    }
+    if (!Array.isArray(skill.doNot) || skill.doNot.length === 0) {
+      throw new Error(`Skill "${skill.name}" must declare doNot as a non-empty array.`);
+    }
     if (!Array.isArray(skill.requiredReferences)) {
       throw new Error(`Skill "${skill.name}" must declare requiredReferences as an array.`);
     }
