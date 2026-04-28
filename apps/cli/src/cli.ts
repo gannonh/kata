@@ -88,6 +88,24 @@ async function main(argv = process.argv.slice(2)) {
     return;
   }
 
+  if (command === "call") {
+    const operation = rest[0];
+    const inputFlagIndex = rest.findIndex((value) => value === "--input");
+    const inputPath = inputFlagIndex >= 0 ? rest[inputFlagIndex + 1] : undefined;
+    if (!operation) {
+      writeJsonError("Missing operation. Usage: kata call <operation> --input <request.json>");
+      return;
+    }
+
+    try {
+      const { runCall } = await import("./commands/call.js");
+      process.stdout.write(`${await runCall({ operation, inputPath, cwd: process.cwd() })}\n`);
+    } catch (error) {
+      process.stdout.write(`${JSON.stringify({ ok: false, error: toJsonRuntimeError(error) })}\n`);
+    }
+    return;
+  }
+
   if (command === "json") {
     const requestPath = rest[0];
     if (!requestPath) {
@@ -135,7 +153,10 @@ async function main(argv = process.argv.slice(2)) {
     const request = { operation: operation.trim(), ...(payload ? { payload } : {}) };
 
     if (!isSupportedJsonOperation(request.operation)) {
-      process.stdout.write(`${await runJsonCommand(request, {})}\n`);
+      process.stdout.write(`${JSON.stringify({
+        ok: false,
+        error: { code: "UNKNOWN", message: `Unsupported operation: ${request.operation}` },
+      })}\n`);
       return;
     }
 
@@ -152,6 +173,7 @@ async function main(argv = process.argv.slice(2)) {
     "Usage:",
     "  kata setup",
     "  kata doctor",
+    "  kata call <operation> --input <request.json>",
     "  kata json <request.json>",
   ].join("\n") + "\n");
 }

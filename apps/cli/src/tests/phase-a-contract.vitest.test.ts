@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { dispatchKataOperation, KATA_OPERATION_NAMES } from "../domain/operations.js";
 import { createKataDomainApi } from "../domain/service.js";
+import { runJsonCommand } from "../transports/json.js";
 import type {
   KataArtifact,
   KataArtifactListInput,
@@ -141,6 +142,19 @@ function createFakeAdapter(): KataBackendAdapter {
   };
 }
 
+function createAdapter(): KataBackendAdapter {
+  return {
+    ...createFakeAdapter(),
+    createMilestone: async (input: KataMilestoneCreateInput) => ({
+      id: input.title,
+      title: input.title,
+      goal: input.goal,
+      status: "active",
+      active: true,
+    }),
+  };
+}
+
 describe("Phase A domain contract", () => {
   it("defines the expected operation names in order", () => {
     expect(KATA_OPERATION_NAMES).toEqual([
@@ -213,6 +227,24 @@ describe("Phase A domain contract", () => {
       id: "task-1",
       status: "todo",
       verificationState: "pending",
+    });
+  });
+});
+
+describe("Phase A operation transport", () => {
+  it("routes new lifecycle operations through runJsonCommand", async () => {
+    const api = createKataDomainApi(createAdapter());
+    const result = await runJsonCommand(
+      {
+        operation: "milestone.create",
+        payload: { title: "M001", goal: "Ship first milestone" },
+      },
+      api,
+    );
+
+    expect(JSON.parse(result)).toMatchObject({
+      ok: true,
+      data: { id: "M001", active: true },
     });
   });
 });
