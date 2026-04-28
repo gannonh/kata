@@ -4,11 +4,20 @@ import { createKataDomainApi } from "./domain/service.js";
 import { resolveBackend } from "./backends/resolve-backend.js";
 import { runSetup } from "./commands/setup.js";
 import { runDoctor } from "./commands/doctor.js";
+import { jsonResultIndicatesFailure } from "./commands/json-result.js";
 import { loadDotEnv } from "./env.js";
 import { isSupportedJsonOperation, runJsonCommand } from "./transports/json.js";
 
 function writeJsonError(message: string) {
   process.stdout.write(`${JSON.stringify({ ok: false, error: { code: "INVALID_REQUEST", message } })}\n`);
+  process.exitCode = 1;
+}
+
+function writeJsonResult(result: string) {
+  process.stdout.write(`${result}\n`);
+  if (jsonResultIndicatesFailure(result)) {
+    process.exitCode = 1;
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -107,9 +116,9 @@ async function main(argv = process.argv.slice(2)) {
 
     try {
       const { runCall } = await import("./commands/call.js");
-      process.stdout.write(`${await runCall({ operation, inputPath, cwd: process.cwd() })}\n`);
+      writeJsonResult(await runCall({ operation, inputPath, cwd: process.cwd() }));
     } catch (error) {
-      process.stdout.write(`${JSON.stringify({ ok: false, error: toJsonRuntimeError(error) })}\n`);
+      writeJsonResult(JSON.stringify({ ok: false, error: toJsonRuntimeError(error) }));
     }
     return;
   }
@@ -165,14 +174,15 @@ async function main(argv = process.argv.slice(2)) {
         ok: false,
         error: { code: "UNKNOWN", message: `Unsupported operation: ${request.operation}` },
       })}\n`);
+      process.exitCode = 1;
       return;
     }
 
     try {
       const adapter = await resolveBackend({ workspacePath: process.cwd() });
-      process.stdout.write(`${await runJsonCommand(request, createKataDomainApi(adapter))}\n`);
+      writeJsonResult(await runJsonCommand(request, createKataDomainApi(adapter)));
     } catch (error) {
-      process.stdout.write(`${JSON.stringify({ ok: false, error: toJsonRuntimeError(error) })}\n`);
+      writeJsonResult(JSON.stringify({ ok: false, error: toJsonRuntimeError(error) }));
     }
     return;
   }

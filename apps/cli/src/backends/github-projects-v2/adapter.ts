@@ -135,6 +135,7 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
 
   async upsertProject(input: KataProjectUpsertInput): Promise<KataProjectContext> {
     await this.discoverEntities();
+    await this.getFieldIndex();
     const existing = this.entities.get("PROJECT");
     const body = formatEntityBody({
       kataId: "PROJECT",

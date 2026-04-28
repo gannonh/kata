@@ -238,6 +238,34 @@ describe("GitHub artifact comments", () => {
 });
 
 describe("GithubProjectsV2Adapter", () => {
+  it("validates Project v2 fields before creating the project issue", async () => {
+    const client = createFakeGithubClient({
+      projectFields: [{ id: "status-field-id", name: "Status", options: validStatusOptions() }],
+    });
+    const adapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+
+    await expect(adapter.upsertProject({
+      title: "Launch Kata",
+      description: "Project brief",
+    })).rejects.toMatchObject({
+      code: "INVALID_CONFIG",
+      message: expect.stringContaining("GitHub Projects v2 project is missing required Kata fields"),
+    });
+
+    expect(client.rest).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "POST",
+        path: "/repos/kata-sh/uat/issues",
+      }),
+    );
+  });
+
   it("creates project, milestone, slice, task, and artifact records through GitHub and Project v2", async () => {
     const client = createFakeGithubClient();
     const adapter = new GithubProjectsV2Adapter({
@@ -583,7 +611,7 @@ github:
   });
 });
 
-function createFakeGithubClient(input: { issues?: any[] } = {}) {
+function createFakeGithubClient(input: { issues?: any[]; projectFields?: any[] } = {}) {
   const issues = [...(input.issues ?? [])];
   const commentsByIssue = new Map<number, any[]>();
   let nextIssueNumber = issues.reduce((max, issue) => Math.max(max, Number(issue.number) || 0), 0) + 1;
@@ -598,7 +626,7 @@ function createFakeGithubClient(input: { issues?: any[] } = {}) {
             projectV2: {
               id: "project-id",
               fields: {
-                nodes: [
+                nodes: input.projectFields ?? [
                   { id: "status-field-id", name: "Status", options: validStatusOptions() },
                   { id: "kata-type-field-id", name: "Kata Type" },
                   { id: "kata-id-field-id", name: "Kata ID" },

@@ -19,6 +19,7 @@ describe("skill bundle generation", () => {
     const skillPath = path.join(cliRoot, "skills", "kata-plan-phase", "SKILL.md");
     const workflowReferencePath = path.join(cliRoot, "skills", "kata-plan-phase", "references", "workflow.md");
     const runtimeReferencePath = path.join(cliRoot, "skills", "kata-plan-phase", "references", "runtime-contract.md");
+    const setupReferencePath = path.join(cliRoot, "skills", "kata-plan-phase", "references", "setup.md");
     const cliRuntimeReferencePath = path.join(cliRoot, "skills", "kata-plan-phase", "references", "cli-runtime.md");
     const artifactContractReferencePath = path.join(
       cliRoot,
@@ -39,6 +40,7 @@ describe("skill bundle generation", () => {
     const skill = readFileSync(skillPath, "utf8");
     const workflow = readFileSync(workflowReferencePath, "utf8");
     const runtime = readFileSync(runtimeReferencePath, "utf8");
+    const setup = readFileSync(setupReferencePath, "utf8");
     const helperScript = readFileSync(helperScriptPath, "utf8");
 
     expect(skill).toContain("references/alignment.md");
@@ -56,6 +58,10 @@ describe("skill bundle generation", () => {
     expect(workflow).not.toContain("apps/cli/dist/loader.js");
     expect(runtime).toContain("project.getContext");
     expect(runtime).toContain("slice.create");
+    expect(setup).toContain("`setup --pi` installs or refreshes local Pi skills");
+    expect(setup).toContain("Kata Type");
+    expect(setup).toContain("Kata Artifact Scope");
+    expect(setup).toContain("In Progress");
     expect(helperScript).toContain("loadDotEnv(process.cwd())");
     expect(helperScript).toContain("path.resolve(process.cwd(), process.env.KATA_CLI_ROOT)");
     expect(existsSync(path.join(cliRoot, "skills", "kata-discuss-phase"))).toBe(false);

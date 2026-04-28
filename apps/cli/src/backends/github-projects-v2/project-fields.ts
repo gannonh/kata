@@ -19,6 +19,13 @@ export const KATA_STATUS_OPTIONS = [
   "Done",
 ] as const;
 
+const REQUIRED_TEXT_FIELD_NAMES = [
+  KATA_PROJECT_FIELDS.type,
+  KATA_PROJECT_FIELDS.id,
+  KATA_PROJECT_FIELDS.parentId,
+  KATA_PROJECT_FIELDS.artifactScope,
+] as const;
+
 export interface ProjectFieldIndex {
   projectId: string;
   fields: Record<string, { id: string; options?: Record<string, string> }>;
@@ -153,7 +160,14 @@ function validateProjectFieldIndex(fields: ProjectFieldIndex["fields"]): void {
   if (missingFields.length) {
     throw new KataDomainError(
       "INVALID_CONFIG",
-      `GitHub Projects v2 project is missing required Kata fields: ${missingFields.join(", ")}.`,
+      [
+        `GitHub Projects v2 project is missing required Kata fields: ${missingFields.join(", ")}.`,
+        "",
+        "Add each missing field in the GitHub Project table view: click the rightmost + field header, choose New field, enter the exact field name, choose Text, and save.",
+        "",
+        `Required Kata text fields: ${REQUIRED_TEXT_FIELD_NAMES.join(", ")}.`,
+        `Required Status options: ${KATA_STATUS_OPTIONS.join(", ")}.`,
+      ].join("\n"),
     );
   }
 
@@ -163,7 +177,11 @@ function validateProjectFieldIndex(fields: ProjectFieldIndex["fields"]): void {
   if (missingStatusOptions.length) {
     throw new KataDomainError(
       "INVALID_CONFIG",
-      `GitHub Projects v2 Status field is missing required options: ${missingStatusOptions.join(", ")}.`,
+      [
+        `GitHub Projects v2 Status field is missing required options: ${missingStatusOptions.join(", ")}.`,
+        "",
+        `Open the Status field settings in the GitHub Project and add these options exactly: ${KATA_STATUS_OPTIONS.join(", ")}.`,
+      ].join("\n"),
     );
   }
 }
