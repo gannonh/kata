@@ -223,6 +223,47 @@ github:
       rmSync(tmp, { recursive: true, force: true });
     }
   });
+
+  it("accepts GH_TOKEN when GITHUB_TOKEN is empty", async () => {
+    const tmp = mkdtempSync(join(tmpdir(), "kata-golden-path-"));
+    const workspaceDir = join(tmp, "repo");
+
+    try {
+      mkdirSync(join(workspaceDir, ".kata"), { recursive: true });
+      mkdirSync(join(workspaceDir, "apps", "orchestrator", "dist", "skills", "kata-health"), { recursive: true });
+      writeFileSync(join(workspaceDir, "apps", "orchestrator", "dist", "skills", "kata-health", "SKILL.md"), "# Kata\n");
+      writeFileSync(
+        join(workspaceDir, ".kata", "preferences.md"),
+        `---
+workflow:
+  mode: github
+github:
+  repoOwner: kata-sh
+  repoName: kata-mono
+  stateMode: projects_v2
+  githubProjectNumber: 12
+---
+`,
+        "utf8",
+      );
+
+      const doctor = await runDoctor({
+        cwd: workspaceDir,
+        env: {
+          GITHUB_TOKEN: "  ",
+          GH_TOKEN: "ghp_test",
+        },
+        packageVersion: "9.9.9-test",
+      });
+
+      expect(doctor.status).toBe("ok");
+      expect(doctor.checks.find((check) => check.name === "github-token")).toMatchObject({
+        status: "ok",
+      });
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
 });
 
 function createGoldenFakeGithubClient() {

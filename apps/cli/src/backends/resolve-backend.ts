@@ -72,6 +72,14 @@ interface RuntimeKataBackend {
 
 type RuntimeBackendFactory = (workspacePath: string) => Promise<RuntimeKataBackend>;
 
+export function resolveGithubToken(env: NodeJS.ProcessEnv = process.env): string | null {
+  for (const value of [env.GITHUB_TOKEN, env.GH_TOKEN]) {
+    const token = value?.trim();
+    if (token) return token;
+  }
+  return null;
+}
+
 const ARTIFACT_SUFFIX_BY_TYPE: Record<KataArtifactType, string> = {
   "project-brief": "PROJECT",
   requirements: "REQUIREMENTS",
@@ -504,7 +512,7 @@ export async function resolveBackend(input: {
   const config = await readTrackerConfig({ preferencesContent });
 
   if (config.kind === "github") {
-    const token = (input.env ?? process.env).GITHUB_TOKEN ?? (input.env ?? process.env).GH_TOKEN;
+    const token = resolveGithubToken(input.env);
     const client = input.githubClients ?? (token ? createGithubClient({ token }) : null);
     if (!client) {
       throw new KataDomainError(

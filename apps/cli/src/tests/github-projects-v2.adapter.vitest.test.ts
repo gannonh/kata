@@ -1,4 +1,9 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { describe, expect, it, vi } from "vitest";
+import { resolveBackend } from "../backends/resolve-backend.js";
 import { GithubProjectsV2Adapter } from "../backends/github-projects-v2/adapter.js";
 import {
   formatArtifactComment,
@@ -409,6 +414,43 @@ describe("GithubProjectsV2Adapter", () => {
         path: "/repos/kata-sh/uat/issues/42/comments",
       }),
     );
+  });
+});
+
+describe("resolveBackend GitHub token selection", () => {
+  it("uses GH_TOKEN when GITHUB_TOKEN is empty", async () => {
+    const tmp = mkdtempSync(join(tmpdir(), "kata-github-token-"));
+    const workspaceDir = join(tmp, "repo");
+
+    try {
+      mkdirSync(join(workspaceDir, ".kata"), { recursive: true });
+      writeFileSync(
+        join(workspaceDir, ".kata", "preferences.md"),
+        `---
+workflow:
+  mode: github
+github:
+  repoOwner: kata-sh
+  repoName: kata-mono
+  stateMode: projects_v2
+  githubProjectNumber: 12
+---
+`,
+        "utf8",
+      );
+
+      await expect(
+        resolveBackend({
+          workspacePath: workspaceDir,
+          env: {
+            GITHUB_TOKEN: "",
+            GH_TOKEN: "ghp_test",
+          },
+        }),
+      ).resolves.toBeInstanceOf(GithubProjectsV2Adapter);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
   });
 });
 

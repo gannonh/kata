@@ -3,6 +3,7 @@ import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 
 import { readTrackerConfig } from "../backends/read-tracker-config.js";
+import { resolveGithubToken } from "../backends/resolve-backend.js";
 import {
   PI_SETUP_MARKER_FILENAME,
   PI_SETTINGS_FILENAME,
@@ -230,7 +231,7 @@ export async function runDoctor(input: RunDoctorInput = {}): Promise<DoctorRepor
           : "Parsed backend config: linear",
       });
       if (config.kind === "github") {
-        const hasGithubToken = Boolean((env.GITHUB_TOKEN ?? env.GH_TOKEN)?.trim());
+        const hasGithubToken = Boolean(resolveGithubToken(env));
         checks.push({
           name: "github-token",
           status: hasGithubToken ? "ok" : "invalid",
