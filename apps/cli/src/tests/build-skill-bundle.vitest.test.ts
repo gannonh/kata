@@ -1,5 +1,6 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -45,11 +46,56 @@ describe("skill bundle generation", () => {
     expect(skill).toContain("references/runtime-contract.md");
     expect(skill).toContain("references/cli-runtime.md");
     expect(skill).toContain("references/artifact-contract.md");
-    expect(workflow).toContain("Source: `apps/cli/skills-src/workflows/plan-phase.md`");
+    expect(workflow).not.toContain("Source:");
+    expect(workflow).not.toContain("apps/cli/dist/loader.js");
     expect(runtime).toContain("project.getContext");
     expect(runtime).toContain("slice.create");
     expect(helperScript).toContain("loadDotEnv(process.cwd())");
     expect(helperScript).toContain("path.resolve(process.cwd(), process.env.KATA_CLI_ROOT)");
     expect(existsSync(path.join(cliRoot, "skills", "kata-discuss-phase"))).toBe(false);
+  });
+
+  it("generates helpers that route CLI commands separately from runtime operations", () => {
+    const fixtureDir = path.join(tmpdir(), `kata-skill-helper-${Date.now()}`);
+    const scriptsDir = path.join(fixtureDir, "scripts");
+    const fakeCliDir = path.join(fixtureDir, "fake-cli", "dist");
+    const callsPath = path.join(fixtureDir, "calls.jsonl");
+
+    mkdirSync(scriptsDir, { recursive: true });
+    mkdirSync(fakeCliDir, { recursive: true });
+    writeFileSync(path.join(fixtureDir, ".env"), "KATA_CLI_ROOT=./fake-cli\n", "utf8");
+    writeFileSync(
+      path.join(fakeCliDir, "loader.js"),
+      [
+        "#!/usr/bin/env node",
+        "import { appendFileSync } from 'node:fs';",
+        `appendFileSync(${JSON.stringify(callsPath)}, JSON.stringify(process.argv.slice(2)) + "\\n");`,
+      ].join("\n"),
+      "utf8",
+    );
+    writeFileSync(
+      path.join(scriptsDir, "kata-call.mjs"),
+      readFileSync(path.join(cliRoot, "skills-src", "scripts", "kata-call.mjs"), "utf8"),
+      "utf8",
+    );
+
+    const doctor = spawnSync(process.execPath, ["scripts/kata-call.mjs", "doctor"], {
+      cwd: fixtureDir,
+      encoding: "utf8",
+    });
+    expect(doctor.status, doctor.stderr || doctor.stdout).toBe(0);
+
+    const health = spawnSync(process.execPath, ["scripts/kata-call.mjs", "health.check"], {
+      cwd: fixtureDir,
+      encoding: "utf8",
+    });
+    expect(health.status, health.stderr || health.stdout).toBe(0);
+
+    const calls = readFileSync(callsPath, "utf8")
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+
+    expect(calls).toEqual([["doctor"], ["call", "health.check"]]);
   });
 });

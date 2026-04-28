@@ -5,6 +5,30 @@ description: "Use when the user wants to start, define, import, or initialize a 
 
 # kata-new-project
 
+## Operating Brief
+
+When this skill is invoked, help the user initialize durable Kata project context.
+
+Start conversationally. If the user has not already provided enough detail, ask: "What do you want to build?" Follow their thread until you can explain the project, why it matters, who it is for, what done looks like, and what is explicitly out of scope.
+
+Before durable writes, run `node ./scripts/kata-call.mjs health.check`. Then confirm the synthesized project brief with the user, run `project.upsert`, and write project-scoped artifacts with `artifact.write`.
+
+This skill captures project-level context only; milestone scope and roadmap creation happen next in `kata-new-milestone`.
+
+## Success Criteria
+
+- The project exists in the backend through `project.upsert`.
+- A project-scoped `project-brief` artifact captures what is being built, core value, users, context, constraints, decisions, and open questions.
+- A project-scoped `requirements` artifact is written when concrete requirement hypotheses emerged.
+- The user knows the next step is `kata-new-milestone`.
+
+## Do Not
+
+- Do not create milestones, slices, or tasks.
+- Do not write durable state outside the CLI backend contract.
+- Do not route to standalone discussion skills.
+- Do not skip questioning when the project idea is vague.
+
 Use progressive disclosure resources:
 
 - Setup and health checks: `references/setup.md`

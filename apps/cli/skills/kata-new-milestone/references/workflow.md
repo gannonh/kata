@@ -1,10 +1,8 @@
 # Workflow Reference
 
-Source: `apps/cli/skills-src/workflows/new-milestone.md`
-
 # New Milestone Workflow
 
-Use this workflow to start a scoped delivery cycle for an existing Kata project. It adapts the legacy `new-milestone` flow: gather "what's next", define requirements, create the milestone, write roadmap artifacts, then route to `kata-plan-phase`.
+Use this workflow to start a scoped delivery cycle for an existing Kata project: gather "what's next", define requirements, create the milestone, write roadmap artifacts, then route to `kata-plan-phase`.
 
 ## Required Reading
 

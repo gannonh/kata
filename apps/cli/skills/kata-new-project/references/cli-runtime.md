@@ -2,9 +2,26 @@
 
 Kata backend IO is performed through the local skill helper. Do not call abstract operation names by themselves.
 
+## CLI Resolution
+
+The helper chooses the CLI runtime in this order:
+
+1. `KATA_CLI_ROOT`: local development checkout, resolved from the project workspace and run through `<root>/dist/loader.js`.
+2. `KATA_CLI_BIN`: explicit executable or wrapper supplied by a harness, desktop app, or plugin.
+3. `npx --yes @kata-sh/cli`: published npm package fallback.
+
+Installed skills should call `node ./scripts/kata-call.mjs ...` only. Do not hardcode monorepo paths, package-manager commands, or backend adapter details in workflow steps.
+
 ## Command Pattern
 
 Run commands from the user's project workspace.
+
+CLI commands:
+
+```bash
+node ./scripts/kata-call.mjs doctor
+node ./scripts/kata-call.mjs setup --pi
+```
 
 No-input operations:
 
@@ -194,4 +211,3 @@ Expected data includes the persisted artifact:
   }
 }
 ```
-

@@ -38,14 +38,38 @@ function loadDotEnv(cwd) {
 
 loadDotEnv(process.cwd());
 
+const rawCliCommands = new Set([
+  "doctor",
+  "setup",
+  "help",
+  "--help",
+  "-h",
+  "--version",
+  "-v",
+]);
+
 const localLoader = process.env.KATA_CLI_ROOT
   ? path.join(path.resolve(process.cwd(), process.env.KATA_CLI_ROOT), "dist", "loader.js")
   : null;
 
-const command = localLoader && existsSync(localLoader) ? process.execPath : "npx";
-const args = localLoader && existsSync(localLoader)
-  ? [localLoader, "call", ...process.argv.slice(2)]
-  : ["--yes", "@kata-sh/cli", "call", ...process.argv.slice(2)];
+const userArgs = process.argv.slice(2);
+const firstArg = userArgs[0] ?? "help";
+const isRawCliCommand = rawCliCommands.has(firstArg);
+const cliArgs = isRawCliCommand ? userArgs : ["call", ...userArgs];
+
+let command;
+let args;
+
+if (localLoader && existsSync(localLoader)) {
+  command = process.execPath;
+  args = [localLoader, ...cliArgs];
+} else if (process.env.KATA_CLI_BIN) {
+  command = process.env.KATA_CLI_BIN;
+  args = cliArgs;
+} else {
+  command = "npx";
+  args = ["--yes", "@kata-sh/cli", ...cliArgs];
+}
 
 const child = spawn(command, args, {
   stdio: "inherit",

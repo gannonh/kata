@@ -23,14 +23,14 @@ describe("Phase A skill surface", () => {
     ]);
   });
 
-  it("workflow source files do not point at legacy orchestrator runtime paths", () => {
+  it("workflow source files do not point at inactive runtime paths", () => {
     const manifest = JSON.parse(readFileSync(path.join(sourceRoot, "skills-src", "manifest.json"), "utf8"));
     for (const skill of manifest.skills as Array<{ workflow: string }>) {
       const workflow = readFileSync(path.join(sourceRoot, "skills-src", "workflows", `${skill.workflow}.md`), "utf8");
       expect(workflow).not.toContain("kata-tools.cjs");
       expect(workflow).not.toContain("~/.claude/kata-orchestrator");
-      expect(workflow).not.toContain(".planning/");
-      expect(workflow).not.toContain("/kata:discuss");
+      expect(workflow).not.toContain("." + "planning/");
+      expect(workflow).not.toContain("/" + "kata:" + "discuss");
     }
   });
 });

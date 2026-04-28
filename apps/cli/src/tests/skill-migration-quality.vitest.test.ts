@@ -4,7 +4,6 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const cliRoot = process.cwd();
-const repoRoot = path.resolve(cliRoot, "../..");
 const sourceRoot = path.join(cliRoot, "skills-src");
 
 const inputRequiredOperations = new Set([
@@ -26,8 +25,6 @@ interface ManifestSkill {
   name: string;
   workflow: string;
   contractOperations: string[];
-  legacyCommand: string;
-  legacyWorkflow: string;
   requiredReferences: string[];
   requiredTemplates: string[];
 }
@@ -41,12 +38,10 @@ function readSourceWorkflow(workflowName: string) {
 }
 
 describe("skill migration quality gates", () => {
-  it("tracks the legacy source material for every Phase A skill", () => {
+  it("tracks required runtime references for every Phase A skill", () => {
     const manifest = readManifest();
 
     for (const skill of manifest.skills) {
-      expect(existsSync(path.join(repoRoot, skill.legacyCommand)), `${skill.name} legacy command`).toBe(true);
-      expect(existsSync(path.join(repoRoot, skill.legacyWorkflow)), `${skill.name} legacy workflow`).toBe(true);
       expect(skill.requiredReferences).toContain("cli-runtime");
       expect(skill.requiredReferences).toContain("artifact-contract");
       expect(Array.isArray(skill.requiredTemplates)).toBe(true);

@@ -1,6 +1,6 @@
 # Complete Milestone Workflow
 
-Use this workflow to complete the active milestone after verified work is accepted. It adapts the legacy completion flow: check readiness, preserve summary/retrospective/archive artifacts, then transition the backend milestone lifecycle.
+Use this workflow to complete the active milestone after verified work is accepted: check readiness, preserve summary/retrospective/archive artifacts, then transition the backend milestone lifecycle.
 
 ## Required Reading
 
@@ -99,4 +99,3 @@ Next up: run `kata-new-milestone` to start the next cycle.
 - Do not complete a milestone with unverified required tasks unless the user explicitly accepts the risk.
 - Preserve follow-up work in artifact content or backend task state.
 - Keep lifecycle transitions in the CLI backend contract.
-

@@ -1,6 +1,6 @@
 # Execute Phase Workflow
 
-Use this workflow to execute planned slice tasks through the active Kata backend state. This adapts the legacy wave execution flow for portable harnesses: load the active plan, select executable tasks, perform code work, verify evidence, and persist summary artifacts.
+Use this workflow to execute planned slice tasks through the active Kata backend state: load the active plan, select executable tasks, perform code work, verify evidence, and persist summary artifacts.
 
 ## Required Reading
 
@@ -137,4 +137,3 @@ Next up: run `kata-verify-work` for user-facing verification.
 - Do not bypass the CLI when reading or mutating Kata state.
 - Do not claim completion without verification evidence.
 - If autonomous dispatch is required, use Symphony in the Symphony validation phase; do not invent a local runner here.
-

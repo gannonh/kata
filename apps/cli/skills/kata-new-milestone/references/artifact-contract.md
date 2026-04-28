@@ -1,6 +1,6 @@
 # Artifact Contract
 
-Artifacts are durable workflow documents stored through `artifact.write`. They replace the old local `.planning/*.md` files for portable skill workflows.
+Artifacts are durable workflow documents stored through `artifact.write`.
 
 ## Common Payload Shape
 
@@ -26,7 +26,7 @@ Artifacts are durable workflow documents stored through `artifact.write`. They r
 
 ### Project Brief
 
-Use for the durable equivalent of legacy `PROJECT.md`.
+Use for durable project context.
 
 ```json
 {
@@ -200,4 +200,3 @@ Use for conversational user acceptance testing.
 - Keep historical context in the artifact body when it matters for future decisions.
 - Do not create duplicate artifacts for the same scope and artifact type unless the workflow explicitly requires an archive.
 - If the backend returns `ok: false`, do not proceed as if the artifact was persisted.
-

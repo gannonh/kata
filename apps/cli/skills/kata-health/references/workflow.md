@@ -1,7 +1,5 @@
 # Workflow Reference
 
-Source: `apps/cli/skills-src/workflows/health.md`
-
 # Health Workflow
 
 Use this workflow when the user asks whether Kata is configured, connected, or ready.
@@ -12,10 +10,10 @@ Use this workflow when the user asks whether Kata is configured, connected, or r
 
 ## Flow
 
-1. Run CLI doctor when available from the project root:
+1. Run CLI doctor through the installed skill helper:
 
 ```bash
-node apps/cli/dist/loader.js doctor
+node ./scripts/kata-call.mjs doctor
 ```
 
 2. Run runtime health through the installed skill helper:

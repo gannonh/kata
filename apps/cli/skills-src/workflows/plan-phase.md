@@ -1,6 +1,6 @@
 # Plan Phase Workflow
 
-Use this workflow to turn the active milestone roadmap into executable slices and tasks. It adapts the legacy `plan-phase` behavior: load context, clarify approach, derive execution plans from requirements, create backend tasks, and write plan artifacts.
+Use this workflow to turn the active milestone roadmap into executable slices and tasks: load context, clarify approach, derive execution plans from requirements, create backend tasks, and write plan artifacts.
 
 ## Required Reading
 

@@ -1,10 +1,8 @@
 # Workflow Reference
 
-Source: `apps/cli/skills-src/workflows/execute-phase.md`
-
 # Execute Phase Workflow
 
-Use this workflow to execute planned slice tasks through the active Kata backend state. This adapts the legacy wave execution flow for portable harnesses: load the active plan, select executable tasks, perform code work, verify evidence, and persist summary artifacts.
+Use this workflow to execute planned slice tasks through the active Kata backend state: load the active plan, select executable tasks, perform code work, verify evidence, and persist summary artifacts.
 
 ## Required Reading
 

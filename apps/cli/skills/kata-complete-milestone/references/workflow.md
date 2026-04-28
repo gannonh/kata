@@ -1,10 +1,8 @@
 # Workflow Reference
 
-Source: `apps/cli/skills-src/workflows/complete-milestone.md`
-
 # Complete Milestone Workflow
 
-Use this workflow to complete the active milestone after verified work is accepted. It adapts the legacy completion flow: check readiness, preserve summary/retrospective/archive artifacts, then transition the backend milestone lifecycle.
+Use this workflow to complete the active milestone after verified work is accepted: check readiness, preserve summary/retrospective/archive artifacts, then transition the backend milestone lifecycle.
 
 ## Required Reading
 

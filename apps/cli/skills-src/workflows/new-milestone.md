@@ -1,6 +1,6 @@
 # New Milestone Workflow
 
-Use this workflow to start a scoped delivery cycle for an existing Kata project. It adapts the legacy `new-milestone` flow: gather "what's next", define requirements, create the milestone, write roadmap artifacts, then route to `kata-plan-phase`.
+Use this workflow to start a scoped delivery cycle for an existing Kata project: gather "what's next", define requirements, create the milestone, write roadmap artifacts, then route to `kata-plan-phase`.
 
 ## Required Reading
 
@@ -151,4 +151,3 @@ Next up: run `kata-plan-phase` to turn the roadmap into executable slices and ta
 - Create exactly one active milestone unless the user explicitly asks for multiple.
 - Keep discussion integrated in this workflow.
 - Persist durable decisions through the CLI artifact contract.
-

@@ -50,5 +50,4 @@ Next up:
 Run `kata-new-milestone` to define the first milestone.
 ```
 
-Use the next skill name, not legacy slash command names.
-
+Use the next skill name, not slash command names.

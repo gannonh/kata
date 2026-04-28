@@ -8,10 +8,10 @@ Use this workflow when the user asks whether Kata is configured, connected, or r
 
 ## Flow
 
-1. Run CLI doctor when available from the project root:
+1. Run CLI doctor through the installed skill helper:
 
 ```bash
-node apps/cli/dist/loader.js doctor
+node ./scripts/kata-call.mjs doctor
 ```
 
 2. Run runtime health through the installed skill helper:
@@ -39,4 +39,3 @@ node ./scripts/kata-call.mjs project.getContext
 - Do not inspect helper scripts unless the command itself fails.
 - Do not start setup automatically unless health proves setup is missing.
 - Do not proceed into planning or execution when `health.check` returns `ok: false`.
-

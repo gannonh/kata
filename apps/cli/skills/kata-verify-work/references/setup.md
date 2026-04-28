@@ -1,7 +1,8 @@
 # Setup and Health
 
-If Kata CLI is not configured, run `npx @kata-sh/cli setup`, then verify with `npx @kata-sh/cli doctor`.
+If Kata CLI is not configured, run setup and health checks through `scripts/kata-call.mjs` from the installed skill.
 
-Validate runtime health:
+When this skill is already installed, prefer the local wrapper:
 
-- `npx @kata-sh/cli doctor`
+- `node ./scripts/kata-call.mjs doctor`
+- `node ./scripts/kata-call.mjs health.check`

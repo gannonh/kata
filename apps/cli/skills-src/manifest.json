@@ -8,9 +8,7 @@
       "contractOperations": [
         "health.check"
       ],
-      "setupHint": "Run `npx @kata-sh/cli setup` for generic harness detection, or `npx @kata-sh/cli setup --pi` for Pi harnesses, then verify with `npx @kata-sh/cli doctor`.",
-      "legacyCommand": "apps/orchestrator-legacy/commands/kata/health.md",
-      "legacyWorkflow": "apps/orchestrator-legacy/kata/workflows/health.md",
+      "setupHint": "When this installed skill is available, run setup and health checks through `scripts/kata-call.mjs`. Before skills are installed, use the published Kata CLI package or harness plugin installer.",
       "requiredReferences": [
         "cli-runtime",
         "artifact-contract"
@@ -26,9 +24,28 @@
         "artifact.write",
         "health.check"
       ],
-      "setupHint": "If Kata CLI is not configured, run `npx @kata-sh/cli setup`, then verify with `npx @kata-sh/cli doctor`.",
-      "legacyCommand": "apps/orchestrator-legacy/commands/kata/new-project.md",
-      "legacyWorkflow": "apps/orchestrator-legacy/kata/workflows/new-project.md",
+      "setupHint": "If Kata CLI is not configured, run setup and health checks through `scripts/kata-call.mjs` from the installed skill.",
+      "operatingBrief": [
+        "When this skill is invoked, help the user initialize durable Kata project context.",
+        "",
+        "Start conversationally. If the user has not already provided enough detail, ask: \"What do you want to build?\" Follow their thread until you can explain the project, why it matters, who it is for, what done looks like, and what is explicitly out of scope.",
+        "",
+        "Before durable writes, run `node ./scripts/kata-call.mjs health.check`. Then confirm the synthesized project brief with the user, run `project.upsert`, and write project-scoped artifacts with `artifact.write`.",
+        "",
+        "This skill captures project-level context only; milestone scope and roadmap creation happen next in `kata-new-milestone`."
+      ],
+      "successCriteria": [
+        "The project exists in the backend through `project.upsert`.",
+        "A project-scoped `project-brief` artifact captures what is being built, core value, users, context, constraints, decisions, and open questions.",
+        "A project-scoped `requirements` artifact is written when concrete requirement hypotheses emerged.",
+        "The user knows the next step is `kata-new-milestone`."
+      ],
+      "doNot": [
+        "Do not create milestones, slices, or tasks.",
+        "Do not write durable state outside the CLI backend contract.",
+        "Do not route to standalone discussion skills.",
+        "Do not skip questioning when the project idea is vague."
+      ],
       "requiredReferences": [
         "cli-runtime",
         "artifact-contract",
@@ -49,9 +66,7 @@
         "milestone.create",
         "artifact.write"
       ],
-      "setupHint": "If Kata CLI is not configured, run `npx @kata-sh/cli setup`, then verify with `npx @kata-sh/cli doctor`.",
-      "legacyCommand": "apps/orchestrator-legacy/commands/kata/new-milestone.md",
-      "legacyWorkflow": "apps/orchestrator-legacy/kata/workflows/new-milestone.md",
+      "setupHint": "If Kata CLI is not configured, run setup and health checks through `scripts/kata-call.mjs` from the installed skill.",
       "requiredReferences": [
         "cli-runtime",
         "artifact-contract",
@@ -76,9 +91,7 @@
         "task.create",
         "artifact.write"
       ],
-      "setupHint": "If Kata CLI is not configured, run `npx @kata-sh/cli setup`, then verify with `npx @kata-sh/cli doctor`.",
-      "legacyCommand": "apps/orchestrator-legacy/commands/kata/plan-phase.md",
-      "legacyWorkflow": "apps/orchestrator-legacy/kata/workflows/plan-phase.md",
+      "setupHint": "If Kata CLI is not configured, run setup and health checks through `scripts/kata-call.mjs` from the installed skill.",
       "requiredReferences": [
         "cli-runtime",
         "artifact-contract",
@@ -101,9 +114,7 @@
         "artifact.read",
         "artifact.write"
       ],
-      "setupHint": "If Kata CLI is not configured, run `npx @kata-sh/cli setup`, then verify with `npx @kata-sh/cli doctor`.",
-      "legacyCommand": "apps/orchestrator-legacy/commands/kata/execute-phase.md",
-      "legacyWorkflow": "apps/orchestrator-legacy/kata/workflows/execute-phase.md",
+      "setupHint": "If Kata CLI is not configured, run setup and health checks through `scripts/kata-call.mjs` from the installed skill.",
       "requiredReferences": [
         "cli-runtime",
         "artifact-contract",
@@ -125,9 +136,7 @@
         "artifact.read",
         "artifact.write"
       ],
-      "setupHint": "If Kata CLI is not configured, run `npx @kata-sh/cli setup`, then verify with `npx @kata-sh/cli doctor`.",
-      "legacyCommand": "apps/orchestrator-legacy/commands/kata/verify-work.md",
-      "legacyWorkflow": "apps/orchestrator-legacy/kata/workflows/verify-work.md",
+      "setupHint": "If Kata CLI is not configured, run setup and health checks through `scripts/kata-call.mjs` from the installed skill.",
       "requiredReferences": [
         "cli-runtime",
         "artifact-contract",
@@ -147,9 +156,7 @@
         "milestone.complete",
         "artifact.write"
       ],
-      "setupHint": "If Kata CLI is not configured, run `npx @kata-sh/cli setup`, then verify with `npx @kata-sh/cli doctor`.",
-      "legacyCommand": "apps/orchestrator-legacy/commands/kata/complete-milestone.md",
-      "legacyWorkflow": "apps/orchestrator-legacy/kata/workflows/complete-milestone.md",
+      "setupHint": "If Kata CLI is not configured, run setup and health checks through `scripts/kata-call.mjs` from the installed skill.",
       "requiredReferences": [
         "cli-runtime",
         "artifact-contract",
@@ -172,9 +179,7 @@
         "artifact.list",
         "execution.getStatus"
       ],
-      "setupHint": "If Kata CLI is not configured, run `npx @kata-sh/cli setup`, then verify with `npx @kata-sh/cli doctor`.",
-      "legacyCommand": "apps/orchestrator-legacy/commands/kata/progress.md",
-      "legacyWorkflow": "apps/orchestrator-legacy/kata/workflows/progress.md",
+      "setupHint": "If Kata CLI is not configured, run setup and health checks through `scripts/kata-call.mjs` from the installed skill.",
       "requiredReferences": [
         "cli-runtime",
         "artifact-contract"
@@ -189,9 +194,7 @@
         "health.check",
         "project.getContext"
       ],
-      "setupHint": "If Kata CLI is not configured, run `npx @kata-sh/cli setup`, then verify with `npx @kata-sh/cli doctor`.",
-      "legacyCommand": "apps/orchestrator-legacy/commands/kata/health.md",
-      "legacyWorkflow": "apps/orchestrator-legacy/kata/workflows/health.md",
+      "setupHint": "If Kata CLI is not configured, run setup and health checks through `scripts/kata-call.mjs` from the installed skill.",
       "requiredReferences": [
         "cli-runtime",
         "artifact-contract"

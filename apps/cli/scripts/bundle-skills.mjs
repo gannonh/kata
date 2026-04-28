@@ -84,8 +84,6 @@ async function validateManifest(manifest) {
     requireString(skill.description, "description", skill.name);
     requireString(skill.workflow, "workflow", skill.name);
     requireString(skill.setupHint, "setupHint", skill.name);
-    requireString(skill.legacyCommand, "legacyCommand", skill.name);
-    requireString(skill.legacyWorkflow, "legacyWorkflow", skill.name);
 
     if (!Array.isArray(skill.contractOperations)) {
       throw new Error(`Skill "${skill.name}" must declare contractOperations as an array.`);
@@ -193,6 +191,30 @@ function renderSkillMarkdown(skill) {
     .filter((reference) => !["alignment", "cli-runtime", "artifact-contract"].includes(reference))
     .map((reference) => `- ${reference}: \`references/${reference}.md\``);
   const templates = skill.requiredTemplates.map((template) => `- ${template}: \`templates/${template}.md\``);
+  const operatingBrief = Array.isArray(skill.operatingBrief) && skill.operatingBrief.length > 0
+    ? [
+        "## Operating Brief",
+        "",
+        ...skill.operatingBrief.map((line) => (line.trim().length === 0 ? "" : line)),
+        "",
+      ]
+    : [];
+  const successCriteria = Array.isArray(skill.successCriteria) && skill.successCriteria.length > 0
+    ? [
+        "## Success Criteria",
+        "",
+        ...skill.successCriteria.map((criterion) => `- ${criterion}`),
+        "",
+      ]
+    : [];
+  const doNot = Array.isArray(skill.doNot) && skill.doNot.length > 0
+    ? [
+        "## Do Not",
+        "",
+        ...skill.doNot.map((rule) => `- ${rule}`),
+        "",
+      ]
+    : [];
   return [
     "---",
     `name: ${skill.name}`,
@@ -201,6 +223,9 @@ function renderSkillMarkdown(skill) {
     "",
     `# ${skill.name}`,
     "",
+    ...operatingBrief,
+    ...successCriteria,
+    ...doNot,
     "Use progressive disclosure resources:",
     "",
     "- Setup and health checks: `references/setup.md`",
@@ -230,9 +255,10 @@ function renderSetupReference(skill) {
     "",
     skill.setupHint,
     "",
-    "Validate runtime health:",
+    "When this skill is already installed, prefer the local wrapper:",
     "",
-    "- `npx @kata-sh/cli doctor`",
+    "- `node ./scripts/kata-call.mjs doctor`",
+    "- `node ./scripts/kata-call.mjs health.check`",
     "",
   ].join("\n");
 }
@@ -251,8 +277,6 @@ function renderRuntimeContractReference(skill) {
 function renderWorkflowReference(skill, workflowBody) {
   return [
     "# Workflow Reference",
-    "",
-    `Source: \`apps/cli/skills-src/workflows/${skill.workflow}.md\``,
     "",
     workflowBody.trim(),
     "",

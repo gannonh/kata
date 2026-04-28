@@ -1,7 +1,5 @@
 # Workflow Reference
 
-Source: `apps/cli/skills-src/workflows/progress.md`
-
 # Progress Workflow
 
 Use this workflow to summarize current Kata project, milestone, slice, task, artifact, and execution state.

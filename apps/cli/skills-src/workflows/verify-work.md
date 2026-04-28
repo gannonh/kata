@@ -1,6 +1,6 @@
 # Verify Work Workflow
 
-Use this workflow to verify completed work and record UAT or verification artifacts. It adapts the legacy conversational UAT flow: test one behavior at a time, record evidence, and mark task verification state.
+Use this workflow to verify completed work and record UAT or verification artifacts: test one behavior at a time, record evidence, and mark task verification state.
 
 ## Required Reading
 
@@ -107,4 +107,3 @@ If the milestone appears fully verified, route to `kata-complete-milestone`. Oth
 - Evidence comes before claims.
 - Record failures as durable artifacts when they affect the milestone.
 - Do not close a milestone from this workflow.
-
