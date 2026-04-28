@@ -41,7 +41,7 @@
     "demo:repo": "bash scripts/create-demo-repo.sh"
   },
   "devDependencies": {
-    "@aws-sdk/client-s3": "^3.1036.0",
+    "@aws-sdk/client-s3": "^3.1038.0",
     "@electron/packager": "^20.0.0",
     "@rollup/rollup-win32-arm64-msvc": "^4.60.2",
     "@sentry/vite-plugin": "^5.1.1",
@@ -54,8 +54,8 @@
     "@types/react-dom": "^19.1.0",
     "@types/semver": "^7.7.1",
     "@types/shell-quote": "^1.7.5",
-    "@typescript-eslint/eslint-plugin": "^8.59.0",
-    "@typescript-eslint/parser": "^8.59.0",
+    "@typescript-eslint/eslint-plugin": "^8.59.1",
+    "@typescript-eslint/parser": "^8.59.1",
     "@vitejs/plugin-react": "^6.0.1",
     "agentation": "^3.0.2",
     "autoprefixer": "^10.5.0",
@@ -66,14 +66,14 @@
     "eslint": "^10.2.1",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "postcss": "^8.5.10",
+    "postcss": "^8.5.12",
     "react-devtools-core": "^7.0.1",
     "tailwindcss": "^4.2.4",
     "tar": "^7.5.2",
     "turbo": "^2.8.17",
     "tsx": "^4.20.6",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.59.0",
+    "typescript-eslint": "^8.59.1",
     "vite": "^8.0.10"
   },
   "dependencies": {
