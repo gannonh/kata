@@ -40,6 +40,10 @@ export function createGithubClient(input: GithubClientInput) {
 
       const payload = await parseResponse<GraphqlResponse<T>>(response);
 
+      if (!payload) {
+        throw new KataDomainError("UNKNOWN", "GitHub GraphQL response did not include data.");
+      }
+
       if (payload.errors?.length) {
         const message = payload.errors.map((error) => error.message ?? "Unknown GraphQL error").join("; ");
         throw new KataDomainError("UNKNOWN", message);
@@ -53,7 +57,8 @@ export function createGithubClient(input: GithubClientInput) {
     },
 
     async rest<T>(restInput: RestInput): Promise<T> {
-      const response = await request(`https://api.github.com${restInput.path}`, {
+      const path = normalizeRestPath(restInput.path);
+      const response = await request(`https://api.github.com${path}`, {
         method: restInput.method,
         headers: {
           Authorization: `Bearer ${input.token}`,
@@ -81,5 +86,20 @@ async function parseResponse<T>(response: Response): Promise<T> {
     return undefined as T;
   }
 
-  return JSON.parse(text) as T;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new KataDomainError("NETWORK", "GitHub response was not valid JSON.");
+  }
+}
+
+function normalizeRestPath(path: string): string {
+  if (!path.startsWith("/") || path.startsWith("//") || /^[a-z][a-z\d+.-]*:\/\//i.test(path)) {
+    throw new KataDomainError(
+      "INVALID_CONFIG",
+      'GitHub REST path must be root-relative and begin with exactly one "/".',
+    );
+  }
+
+  return path;
 }

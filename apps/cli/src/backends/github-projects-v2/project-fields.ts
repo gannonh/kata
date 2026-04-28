@@ -123,22 +123,47 @@ export async function loadProjectFieldIndex(input: {
     );
   }
 
+  const fields = Object.fromEntries(
+    project.fields.nodes.filter(isProjectFieldNode).map((field) => [
+      field.name,
+      {
+        id: field.id,
+        options: field.options
+          ? Object.fromEntries(field.options.map((option) => [option.name, option.id]))
+          : undefined,
+      },
+    ]),
+  );
+
+  validateProjectFieldIndex(fields);
+
   return {
     projectId: project.id,
-    fields: Object.fromEntries(
-      project.fields.nodes.filter(isProjectFieldNode).map((field) => [
-        field.name,
-        {
-          id: field.id,
-          options: field.options
-            ? Object.fromEntries(field.options.map((option) => [option.name, option.id]))
-            : undefined,
-        },
-      ]),
-    ),
+    fields,
   };
 }
 
 function isProjectFieldNode(node: ProjectFieldNode | null): node is ProjectFieldNode {
   return Boolean(node?.id && node.name);
+}
+
+function validateProjectFieldIndex(fields: ProjectFieldIndex["fields"]): void {
+  const missingFields = Object.values(KATA_PROJECT_FIELDS).filter((fieldName) => !fields[fieldName]);
+
+  if (missingFields.length) {
+    throw new KataDomainError(
+      "INVALID_CONFIG",
+      `GitHub Projects v2 project is missing required Kata fields: ${missingFields.join(", ")}.`,
+    );
+  }
+
+  const statusOptions = fields[KATA_PROJECT_FIELDS.status]?.options;
+  const missingStatusOptions = KATA_STATUS_OPTIONS.filter((optionName) => !statusOptions?.[optionName]);
+
+  if (missingStatusOptions.length) {
+    throw new KataDomainError(
+      "INVALID_CONFIG",
+      `GitHub Projects v2 Status field is missing required options: ${missingStatusOptions.join(", ")}.`,
+    );
+  }
 }
