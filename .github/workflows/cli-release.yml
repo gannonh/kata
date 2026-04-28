@@ -68,10 +68,10 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: TypeScript check
-        run: cd apps/cli && npx tsc
+        run: pnpm --dir apps/cli exec tsc
 
       - name: Run tests
-        run: cd apps/cli && npm test
+        run: pnpm --dir apps/cli run test
 
       - name: Run golden-path smoke test
         run: pnpm --dir apps/cli exec vitest run src/tests/golden-path.pi-github.vitest.test.ts
@@ -109,17 +109,15 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build
-        run: |
-          pnpm --dir apps/orchestrator run build:skills
-          cd apps/cli && npm run build
+        run: pnpm --dir apps/cli run build
 
       - name: Run CLI golden-path release gate
         run: |
-          pnpm --dir apps/orchestrator run build:skills
+          pnpm --dir apps/cli run build
           pnpm --dir apps/cli exec vitest run src/tests/golden-path.pi-github.vitest.test.ts
 
       - name: Publish to npm
-        run: cd apps/cli && npm publish --access public
+        run: pnpm --dir apps/cli publish --access public --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 

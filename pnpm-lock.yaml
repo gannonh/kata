@@ -435,12 +435,6 @@ importers:
         specifier: ^9.0.4
         version: 9.0.5
 
-  apps/orchestrator:
-    devDependencies:
-      esbuild:
-        specifier: ^0.28.0
-        version: 0.28.0
-
   apps/symphony: {}
 
   packages/core:

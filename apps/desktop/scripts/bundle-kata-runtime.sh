@@ -30,9 +30,6 @@ if [ ! -d "$ROOT_DIR/node_modules" ]; then
   (cd "$ROOT_DIR" && pnpm install --frozen-lockfile)
 fi
 
-log "building Kata skill bundle"
-pnpm --dir "$ROOT_DIR/apps/orchestrator" run build:skills
-
 log "building Kata CLI"
 pnpm --dir "$ROOT_DIR/apps/cli" run build
 
@@ -47,7 +44,7 @@ log "installing Kata CLI production dependencies"
 )
 
 log "copying Kata skills"
-cp -R "$ROOT_DIR/apps/orchestrator/dist/skills/." "$VENDOR_DIR/kata-skills/"
+cp -R "$ROOT_DIR/apps/cli/skills/." "$VENDOR_DIR/kata-skills/"
 
 if [ -f "$ROOT_DIR/apps/symphony/Cargo.toml" ] && command -v cargo >/dev/null 2>&1; then
   log "building Symphony (release)"

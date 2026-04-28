@@ -24,7 +24,7 @@ export const PI_SETUP_MARKER_FILENAME = "kata-setup-manifest.json";
 export const PI_SETTINGS_FILENAME = "settings.json";
 const PI_REQUIRED_SKILLS_ENTRY = "./skills";
 const KATA_MANAGED_SKILL_MARKER_FILENAME = ".kata-managed-by-kata-cli";
-export type SkillsSourceResolution = "orchestrator-dist" | "bundled-package";
+export type SkillsSourceResolution = "cli-workspace" | "bundled-package";
 
 export interface PiSetupManifest {
   schemaVersion: 1;
@@ -122,7 +122,7 @@ function findMonorepoRoot(startingPath: string): string | null {
   while (true) {
     if (
       existsSync(join(current, "pnpm-workspace.yaml")) &&
-      existsSync(join(current, "apps", "orchestrator"))
+      existsSync(join(current, "apps", "cli"))
     ) {
       return current;
     }
@@ -138,11 +138,11 @@ export function resolveSkillsSource(
 ): { path: string; exists: boolean; resolution: SkillsSourceResolution } {
   const monorepoRoot = findMonorepoRoot(cwd);
   if (monorepoRoot) {
-    const orchestratorDist = join(monorepoRoot, "apps", "orchestrator", "dist", "skills");
+    const cliSkills = join(monorepoRoot, "apps", "cli", "skills");
     return {
-      path: orchestratorDist,
-      exists: existsSync(orchestratorDist),
-      resolution: "orchestrator-dist",
+      path: cliSkills,
+      exists: existsSync(cliSkills),
+      resolution: "cli-workspace",
     };
   }
 
@@ -299,8 +299,8 @@ export async function runSetup(input: RunSetupInput = {}): Promise<SetupResult> 
       mode: "pi-install",
       error: {
         code: "SKILLS_SOURCE_MISSING",
-        message: source.resolution === "orchestrator-dist"
-          ? `Missing orchestrator skills at ${source.path}. Run "pnpm --dir apps/orchestrator run build:skills" first.`
+        message: source.resolution === "cli-workspace"
+          ? `Missing CLI skills at ${source.path}. Run "pnpm --dir apps/cli run build" first.`
           : `Bundled skills directory not found at ${source.path}. Reinstall @kata-sh/cli.`,
       },
     };

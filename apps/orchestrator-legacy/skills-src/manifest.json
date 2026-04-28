@@ -1,0 +1,113 @@
+{
+  "skills": [
+    {
+      "name": "kata-setup",
+      "description": "Use when the user asks to install Kata, set up Kata CLI, connect Kata to an agent harness, or check initial Kata configuration.",
+      "workflow": "setup",
+      "runtimeRequired": false,
+      "contractOperations": [
+        "health.check"
+      ],
+      "setupHint": "Run `npx @kata-sh/cli setup` for generic harness detection, or `npx @kata-sh/cli setup --pi` for Pi harnesses, then verify with `npx @kata-sh/cli doctor`."
+    },
+    {
+      "name": "kata-new-project",
+      "description": "Use when the user wants to start, define, import, or initialize a Kata project.",
+      "workflow": "new-project",
+      "contractOperations": [
+        "project.upsert",
+        "artifact.write",
+        "health.check"
+      ],
+      "setupHint": "If Kata CLI is not configured, run `npx @kata-sh/cli setup`, then verify with `npx @kata-sh/cli doctor`."
+    },
+    {
+      "name": "kata-new-milestone",
+      "description": "Use when the user wants to create the next milestone, release goal, or scoped delivery target for an existing Kata project.",
+      "workflow": "new-milestone",
+      "contractOperations": [
+        "project.getContext",
+        "milestone.create",
+        "artifact.write"
+      ],
+      "setupHint": "If Kata CLI is not configured, run `npx @kata-sh/cli setup`, then verify with `npx @kata-sh/cli doctor`."
+    },
+    {
+      "name": "kata-plan-phase",
+      "description": "Use when the user asks to plan a phase, slice upcoming work, or turn a milestone goal into executable Kata tasks.",
+      "workflow": "plan-phase",
+      "contractOperations": [
+        "project.getContext",
+        "milestone.getActive",
+        "slice.create",
+        "task.create",
+        "artifact.write"
+      ],
+      "setupHint": "If Kata CLI is not configured, run `npx @kata-sh/cli setup`, then verify with `npx @kata-sh/cli doctor`."
+    },
+    {
+      "name": "kata-execute-phase",
+      "description": "Use when the user wants Kata to execute planned phase work or advance tasks in the active milestone.",
+      "workflow": "execute-phase",
+      "contractOperations": [
+        "project.getContext",
+        "milestone.getActive",
+        "slice.list",
+        "task.list",
+        "task.updateStatus",
+        "artifact.read",
+        "artifact.write"
+      ],
+      "setupHint": "If Kata CLI is not configured, run `npx @kata-sh/cli setup`, then verify with `npx @kata-sh/cli doctor`."
+    },
+    {
+      "name": "kata-verify-work",
+      "description": "Use when the user asks to verify, validate, review, demo, or sign off on Kata work.",
+      "workflow": "verify-work",
+      "contractOperations": [
+        "project.getContext",
+        "task.list",
+        "task.updateStatus",
+        "artifact.list",
+        "artifact.read",
+        "artifact.write"
+      ],
+      "setupHint": "If Kata CLI is not configured, run `npx @kata-sh/cli setup`, then verify with `npx @kata-sh/cli doctor`."
+    },
+    {
+      "name": "kata-complete-milestone",
+      "description": "Use when the user wants to finish, close, ship, archive, or mark the active Kata milestone complete.",
+      "workflow": "complete-milestone",
+      "contractOperations": [
+        "milestone.getActive",
+        "milestone.complete",
+        "artifact.write"
+      ],
+      "setupHint": "If Kata CLI is not configured, run `npx @kata-sh/cli setup`, then verify with `npx @kata-sh/cli doctor`."
+    },
+    {
+      "name": "kata-progress",
+      "description": "Use when the user asks for Kata project status, milestone progress, task progress, or execution state.",
+      "workflow": "progress",
+      "contractOperations": [
+        "project.getContext",
+        "milestone.getActive",
+        "slice.list",
+        "task.list",
+        "artifact.list",
+        "execution.getStatus"
+      ],
+      "setupHint": "If Kata CLI is not configured, run `npx @kata-sh/cli setup`, then verify with `npx @kata-sh/cli doctor`."
+    },
+    {
+      "name": "kata-health",
+      "description": "Use when the user asks whether Kata is configured correctly, healthy, connected, or ready to run.",
+      "workflow": "health",
+      "contractOperations": [
+        "health.check",
+        "project.getContext"
+      ],
+      "setupHint": "If Kata CLI is not configured, run `npx @kata-sh/cli setup`, then verify with `npx @kata-sh/cli doctor`."
+    }
+  ]
+}

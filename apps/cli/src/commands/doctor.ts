@@ -126,13 +126,13 @@ export async function runDoctor(input: RunDoctorInput = {}): Promise<DoctorRepor
     status: bundledSkills.exists ? "ok" : "invalid",
     message: bundledSkills.exists
       ? `Kata skills source found at ${bundledSkills.path} (${bundledSkills.resolution})`
-      : bundledSkills.resolution === "orchestrator-dist"
-        ? `Orchestrator skills not found at ${bundledSkills.path}`
+      : bundledSkills.resolution === "cli-workspace"
+        ? `CLI skills not found at ${bundledSkills.path}`
         : `Bundled skills source not found at ${bundledSkills.path}`,
     ...(bundledSkills.exists
       ? {}
-      : bundledSkills.resolution === "orchestrator-dist"
-        ? { action: "Run `pnpm --dir apps/orchestrator run build:skills` from the monorepo root." }
+      : bundledSkills.resolution === "cli-workspace"
+        ? { action: "Run `pnpm --dir apps/cli run build` from the monorepo root." }
         : { action: "Reinstall @kata-sh/cli so the packaged skill bundle is present." }),
   });
 

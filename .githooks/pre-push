@@ -37,7 +37,6 @@ if ! pnpm exec turbo run lint typecheck test \
   --filter=@kata/desktop \
   --filter=@kata-sh/cli \
   --filter=@kata/context \
-  --filter=@kata-sh/orc \
   --filter=@kata/core \
   --filter=@kata/shared \
   --filter=@kata/ui \

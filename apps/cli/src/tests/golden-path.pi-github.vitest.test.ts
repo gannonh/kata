@@ -14,16 +14,15 @@ describe("golden path: pi + github projects v2", () => {
   it("covers setup/doctor flow and a github-backed runtime json operation", async () => {
     const tmp = mkdtempSync(join(tmpdir(), "kata-golden-path-"));
     const workspaceDir = join(tmp, "repo");
-    const orchestratorSkillsDir = join(workspaceDir, "apps", "orchestrator", "dist", "skills");
+    const cliSkillsDir = join(workspaceDir, "apps", "cli", "skills");
     const agentDir = join(tmp, "pi-agent");
     const preferencesPath = join(workspaceDir, ".kata", "preferences.md");
 
     try {
       mkdirSync(workspaceDir, { recursive: true });
       writeFileSync(join(workspaceDir, "pnpm-workspace.yaml"), "packages:\n  - apps/*\n", "utf8");
-      mkdirSync(join(workspaceDir, "apps", "orchestrator"), { recursive: true });
-      mkdirSync(join(orchestratorSkillsDir, "kata-health"), { recursive: true });
-      writeFileSync(join(orchestratorSkillsDir, "kata-health", "SKILL.md"), "# Kata Health\n", "utf8");
+      mkdirSync(join(cliSkillsDir, "kata-health"), { recursive: true });
+      writeFileSync(join(cliSkillsDir, "kata-health", "SKILL.md"), "# Kata Health\n", "utf8");
       mkdirSync(join(workspaceDir, ".kata"), { recursive: true });
       writeFileSync(
         preferencesPath,
@@ -195,8 +194,8 @@ github:
 
     try {
       mkdirSync(join(workspaceDir, ".kata"), { recursive: true });
-      mkdirSync(join(workspaceDir, "apps", "orchestrator", "dist", "skills", "kata-health"), { recursive: true });
-      writeFileSync(join(workspaceDir, "apps", "orchestrator", "dist", "skills", "kata-health", "SKILL.md"), "# Kata\n");
+      mkdirSync(join(workspaceDir, "apps", "cli", "skills", "kata-health"), { recursive: true });
+      writeFileSync(join(workspaceDir, "apps", "cli", "skills", "kata-health", "SKILL.md"), "# Kata\n");
       writeFileSync(
         join(workspaceDir, ".kata", "preferences.md"),
         `---
@@ -234,8 +233,8 @@ github:
 
     try {
       mkdirSync(join(workspaceDir, ".kata"), { recursive: true });
-      mkdirSync(join(workspaceDir, "apps", "orchestrator", "dist", "skills", "kata-health"), { recursive: true });
-      writeFileSync(join(workspaceDir, "apps", "orchestrator", "dist", "skills", "kata-health", "SKILL.md"), "# Kata\n");
+      mkdirSync(join(workspaceDir, "apps", "cli", "skills", "kata-health"), { recursive: true });
+      writeFileSync(join(workspaceDir, "apps", "cli", "skills", "kata-health", "SKILL.md"), "# Kata\n");
       writeFileSync(
         join(workspaceDir, ".kata", "preferences.md"),
         `---
