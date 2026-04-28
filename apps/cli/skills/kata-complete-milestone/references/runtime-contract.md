@@ -27,6 +27,73 @@ Payload example:
 }
 ```
 
+## `slice.list`
+
+Create a JSON payload file first, then run:
+
+```bash
+node <path-to-skill-directory>/scripts/kata-call.mjs slice.list --input /tmp/kata-slice-list.json
+```
+
+Payload example:
+
+```json
+{
+  "milestoneId": "M001"
+}
+```
+
+## `task.list`
+
+Create a JSON payload file first, then run:
+
+```bash
+node <path-to-skill-directory>/scripts/kata-call.mjs task.list --input /tmp/kata-task-list.json
+```
+
+Payload example:
+
+```json
+{
+  "sliceId": "S001"
+}
+```
+
+## `artifact.list`
+
+Create a JSON payload file first, then run:
+
+```bash
+node <path-to-skill-directory>/scripts/kata-call.mjs artifact.list --input /tmp/kata-artifact-list.json
+```
+
+Payload example:
+
+```json
+{
+  "scopeType": "milestone",
+  "scopeId": "M001"
+}
+```
+
+## `artifact.read`
+
+Create a JSON payload file first, then run:
+
+```bash
+node <path-to-skill-directory>/scripts/kata-call.mjs artifact.read --input /tmp/kata-artifact-read.json
+```
+
+Payload example:
+
+```json
+{
+  "scopeType": "milestone",
+  "scopeId": "M001",
+  "artifactType": "requirements"
+}
+```
+
 ## `artifact.write`
 
 Create a JSON payload file first, then run:

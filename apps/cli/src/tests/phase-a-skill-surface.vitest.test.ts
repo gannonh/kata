@@ -82,4 +82,23 @@ describe("Phase A skill surface", () => {
     expect(executeWorkflow).toContain("execute every executable task in that slice before routing to `kata-verify-work`");
     expect(manifest).toContain("Do not stop after one task when additional executable tasks remain in the approved slice.");
   });
+
+  it("requires complete-milestone to inspect slice and task verification state", () => {
+    const completeWorkflow = readFileSync(
+      path.join(sourceRoot, "skills-src", "workflows", "complete-milestone.md"),
+      "utf8",
+    );
+    const manifest = readFileSync(path.join(sourceRoot, "skills-src", "manifest.json"), "utf8");
+
+    expect(completeWorkflow).toContain("slice.list");
+    expect(completeWorkflow).toContain("task.list");
+    expect(completeWorkflow).toContain("verificationState` other than `verified`");
+    expect(completeWorkflow).toContain("task verification artifacts live on task scope");
+    expect(completeWorkflow).not.toContain("todo app MVP");
+    expect(manifest).toContain('"slice.list"');
+    expect(manifest).toContain('"task.list"');
+    expect(manifest).toContain('"artifact.list"');
+    expect(manifest).toContain('"artifact.read"');
+    expect(manifest).toContain("Every required task is done with `verificationState: verified`.");
+  });
 });
