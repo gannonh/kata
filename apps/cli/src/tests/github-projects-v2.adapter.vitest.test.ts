@@ -390,6 +390,15 @@ describe("GithubProjectsV2Adapter", () => {
           expect.objectContaining({
             variables: expect.objectContaining({
               itemId: "project-item-4",
+              fieldId: "kata-verification-state-field-id",
+              value: { text: "pending" },
+            }),
+          }),
+        ],
+        [
+          expect.objectContaining({
+            variables: expect.objectContaining({
+              itemId: "project-item-4",
               fieldId: "status-field-id",
               value: { singleSelectOptionId: "status-backlog" },
             }),
@@ -510,6 +519,22 @@ describe("GithubProjectsV2Adapter", () => {
     });
 
     await adapter.updateTaskStatus({ taskId: "T001", status: "in_progress", verificationState: "verified" });
+
+    const updateCalls = client.graphql.mock.calls.filter(([input]) =>
+      input.query.includes("updateProjectV2ItemFieldValue")
+    );
+    expect(updateCalls).toEqual(
+      expect.arrayContaining([
+        [
+          expect.objectContaining({
+            variables: expect.objectContaining({
+              fieldId: "kata-verification-state-field-id",
+              value: { text: "verified" },
+            }),
+          }),
+        ],
+      ]),
+    );
 
     const freshAdapter = new GithubProjectsV2Adapter({
       owner: "kata-sh",
@@ -639,6 +664,9 @@ function createFakeGithubClient(input: { issues?: any[]; projectFields?: any[] }
                   { id: "kata-id-field-id", name: "Kata ID" },
                   { id: "kata-parent-id-field-id", name: "Kata Parent ID" },
                   { id: "kata-artifact-scope-field-id", name: "Kata Artifact Scope" },
+                  { id: "kata-verification-state-field-id", name: "Kata Verification State" },
+                  { id: "kata-blocking-field-id", name: "Kata Blocking" },
+                  { id: "kata-blocked-by-field-id", name: "Kata Blocked By" },
                 ],
               },
             },

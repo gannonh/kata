@@ -2,7 +2,7 @@
 
 # Execute Phase Workflow
 
-Use this workflow to execute planned slice tasks through the active Kata backend state: load the active plan, select executable tasks, perform code work, verify evidence, and persist summary artifacts.
+Use this workflow to execute one approved slice through the active Kata backend state: load the active plan, complete every executable task in the slice, run execution checks, and persist summary artifacts.
 
 ## Required Reading
 
@@ -63,14 +63,14 @@ Read the plan artifact:
 node <path-to-skill-directory>/scripts/kata-call.mjs artifact.read --input /tmp/kata-read-plan.json
 ```
 
-## Stage 2: Select Work And Confirm Execution Approval
+## Stage 2: Select Slice And Confirm Execution Approval
 
-Present the selected slice and task work before mutating execution state:
+Present the selected slice and all executable task work before mutating execution state:
 
 - Slice ID, title, and current status.
-- Task ID and title.
+- Task IDs and titles.
 - Plan context.
-- Expected verification.
+- Expected execution checks.
 - Files or subsystems likely affected.
 
 If the selected slice is `backlog`, ask for explicit confirmation that this slice is approved for execution. Do not move a Backlog slice forward without that confirmation.
@@ -79,7 +79,7 @@ If the selected slice is already `todo`, treat it as approved for execution.
 
 If the selected slice is already `in_progress`, continue from the current execution state.
 
-## Stage 3: Mark Slice And Task In Progress
+## Stage 3: Mark Slice In Progress
 
 If the selected slice was `backlog`, first mark it `todo` to record execution approval:
 
@@ -107,7 +107,7 @@ Then mark the selected slice `in_progress` when work starts:
 node <path-to-skill-directory>/scripts/kata-call.mjs slice.updateStatus --input /tmp/kata-slice-in-progress.json
 ```
 
-Mark the selected task `in_progress` when work starts:
+For each executable task in the selected slice, mark that task `in_progress` when work starts:
 
 ```json
 {
@@ -120,13 +120,13 @@ Mark the selected task `in_progress` when work starts:
 node <path-to-skill-directory>/scripts/kata-call.mjs task.updateStatus --input /tmp/kata-task-in-progress.json
 ```
 
-## Stage 4: Execute And Verify
+## Stage 4: Execute And Check
 
 Before changing files, run `git status --short` and identify any pre-existing user changes. Do not stage or commit unrelated user changes.
 
-Perform the repository code work. Run the verification commands implied by the plan or by project conventions. Evidence comes before claims.
+Perform the repository code work for the current task. Run the execution checks implied by the plan or by project conventions. Evidence comes before claims.
 
-After verification passes, run `git status --short` again:
+After execution checks pass, run `git status --short` again:
 
 - If repository files changed for this task, create one atomic commit containing only the task-scoped changes before marking the task done.
 - Use a conventional commit message that includes the task ID, for example `test(T001): verify project initialization artifacts`.
@@ -134,7 +134,7 @@ After verification passes, run `git status --short` again:
 - Do not commit Kata backend artifacts directly. Durable Kata artifacts are persisted through `artifact.write`.
 - If unrelated pre-existing user changes are present, leave them unstaged and mention them in the summary.
 
-## Stage 5: Write Summary Artifact
+## Stage 5: Write Summary Artifact For Each Task
 
 Use `templates/summary.md`.
 
@@ -153,17 +153,17 @@ Use `templates/summary.md`.
 node <path-to-skill-directory>/scripts/kata-call.mjs artifact.write --input /tmp/kata-task-summary.json
 ```
 
-## Stage 6: Complete Or Leave In Progress
+## Stage 6: Complete Each Task Or Leave It In Progress
 
-If verification passed:
+If execution checks passed:
 
-Mark the selected task done:
+Mark the current task done and leave verification pending for `kata-verify-work`:
 
 ```json
 {
   "taskId": "T001",
   "status": "done",
-  "verificationState": "verified"
+  "verificationState": "pending"
 }
 ```
 
@@ -171,7 +171,9 @@ Mark the selected task done:
 node <path-to-skill-directory>/scripts/kata-call.mjs task.updateStatus --input /tmp/kata-task-done.json
 ```
 
-If all tasks for the slice are complete and verified, mark the slice done:
+Repeat stages 3 through 6 for every executable task in the selected slice.
+
+If all tasks for the slice are complete, mark the slice done. Task verification remains owned by `kata-verify-work`.
 
 ```json
 {
@@ -184,11 +186,11 @@ If all tasks for the slice are complete and verified, mark the slice done:
 node <path-to-skill-directory>/scripts/kata-call.mjs slice.updateStatus --input /tmp/kata-slice-done.json
 ```
 
-If verification failed, keep the task `in_progress`, set `verificationState` to `failed`, and write failure evidence with `artifact.write`.
+If execution checks failed, keep the task `in_progress`, leave `verificationState` as `pending`, and write failure evidence with `artifact.write`.
 
 ## Completion
 
-Summarize completed tasks, verification evidence, remaining tasks, and the next action:
+Summarize all completed slice tasks, execution-check evidence, remaining tasks, and the next action:
 
 ```text
 Next up: run `kata-verify-work` to record verification evidence.
@@ -198,9 +200,11 @@ Next up: run `kata-verify-work` to record verification evidence.
 
 - Do not bypass the CLI when reading or mutating Kata state.
 - Do not execute Backlog slices without an explicit execution approval checkpoint.
+- The slice is the primary execution unit. After a slice is approved, execute every executable task in that slice before routing to `kata-verify-work`.
 - Use the shared execution lifecycle for approved slices: `todo` -> `in_progress` -> `agent_review` -> `human_review` -> `merging` -> `done` as far as the current validated path requires.
 - Preserve atomic commits: one task-scoped code commit per completed task when repository files changed.
 - Never stage or commit unrelated user changes.
-- Mark a task done only after verification evidence exists and the task-scoped code commit has been created, or after the summary records why no code commit was required.
-- Do not claim completion without verification evidence.
+- `kata-execute-phase` must not set `verificationState: verified`; `kata-verify-work` owns that transition.
+- Mark a task done only after execution-check evidence exists and the task-scoped code commit has been created, or after the summary records why no code commit was required.
+- Do not claim execution completion without execution-check evidence.
 - If autonomous dispatch is required, use Symphony in the Symphony validation phase; do not invent a local runner here.

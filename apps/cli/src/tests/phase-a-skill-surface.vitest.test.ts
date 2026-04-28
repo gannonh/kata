@@ -52,4 +52,34 @@ describe("Phase A skill surface", () => {
     expect(manifest).not.toContain("demo");
     expect(manifest).toContain("Use UAT artifacts only when the plan explicitly calls for user acceptance testing.");
   });
+
+  it("keeps task verification owned by verify-work instead of execute-phase", () => {
+    const executeWorkflow = readFileSync(
+      path.join(sourceRoot, "skills-src", "workflows", "execute-phase.md"),
+      "utf8",
+    );
+    const verifyWorkflow = readFileSync(
+      path.join(sourceRoot, "skills-src", "workflows", "verify-work.md"),
+      "utf8",
+    );
+    const manifest = readFileSync(path.join(sourceRoot, "skills-src", "manifest.json"), "utf8");
+
+    expect(executeWorkflow).toContain("verificationState\": \"pending");
+    expect(executeWorkflow).toContain("must not set `verificationState: verified`");
+    expect(verifyWorkflow).toContain("verificationState\": \"verified");
+    expect(manifest).toContain("Do not set `verificationState: verified`; `kata-verify-work` owns verification.");
+  });
+
+  it("treats a slice as the execute-phase unit of work", () => {
+    const executeWorkflow = readFileSync(
+      path.join(sourceRoot, "skills-src", "workflows", "execute-phase.md"),
+      "utf8",
+    );
+    const manifest = readFileSync(path.join(sourceRoot, "skills-src", "manifest.json"), "utf8");
+
+    expect(executeWorkflow).toContain("execute one approved slice");
+    expect(executeWorkflow).toContain("complete every executable task in the slice");
+    expect(executeWorkflow).toContain("execute every executable task in that slice before routing to `kata-verify-work`");
+    expect(manifest).toContain("Do not stop after one task when additional executable tasks remain in the approved slice.");
+  });
 });

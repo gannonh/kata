@@ -158,6 +158,9 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
       type: "Project",
       status: "Backlog",
       artifactScope: "PROJECT",
+      verificationState: "",
+      blocking: "",
+      blockedBy: "",
     });
 
     return {
@@ -215,6 +218,9 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
       type: "Milestone",
       status: "Backlog",
       artifactScope: kataId,
+      verificationState: "",
+      blocking: "",
+      blockedBy: "",
     });
 
     return {
@@ -266,6 +272,9 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
       parentId: input.milestoneId,
       status: "Backlog",
       artifactScope: kataId,
+      verificationState: "",
+      blocking: "",
+      blockedBy: "",
     });
 
     return {
@@ -323,6 +332,9 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
       parentId: input.sliceId,
       status: "Backlog",
       artifactScope: kataId,
+      verificationState: "pending",
+      blocking: "",
+      blockedBy: "",
     });
 
     return {
@@ -565,6 +577,9 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
       parentId?: string;
       status: ProjectStatusName;
       artifactScope: string;
+      verificationState?: string;
+      blocking?: string;
+      blockedBy?: string;
     },
   ): Promise<string> {
     const fieldIndex = await this.getFieldIndex();
@@ -575,6 +590,9 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
       await this.updateProjectField(fieldIndex, projectItemId, KATA_PROJECT_FIELDS.parentId, input.parentId);
     }
     await this.updateProjectField(fieldIndex, projectItemId, KATA_PROJECT_FIELDS.artifactScope, input.artifactScope);
+    await this.updateProjectField(fieldIndex, projectItemId, KATA_PROJECT_FIELDS.verificationState, input.verificationState ?? "");
+    await this.updateProjectField(fieldIndex, projectItemId, KATA_PROJECT_FIELDS.blocking, input.blocking ?? "");
+    await this.updateProjectField(fieldIndex, projectItemId, KATA_PROJECT_FIELDS.blockedBy, input.blockedBy ?? "");
     await this.updateProjectStatus(fieldIndex, projectItemId, input.status);
     return projectItemId;
   }
@@ -587,6 +605,14 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
     const fieldIndex = await this.getFieldIndex();
     const projectItemId = await this.addProjectItem(fieldIndex.projectId, entity.contentId);
     await this.updateProjectStatus(fieldIndex, projectItemId, status);
+    if (metadata.verificationState) {
+      await this.updateProjectField(
+        fieldIndex,
+        projectItemId,
+        KATA_PROJECT_FIELDS.verificationState,
+        metadata.verificationState,
+      );
+    }
     const issueState = status === "Done" ? "closed" : "open";
     return this.updateIssueEntity(entity, {
       state: issueState,

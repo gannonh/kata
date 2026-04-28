@@ -147,7 +147,7 @@ describe("loadProjectFieldIndex", () => {
     ).rejects.toMatchObject({
       code: "INVALID_CONFIG",
       message:
-        "GitHub Projects v2 project is missing required Kata fields: Kata Type, Kata ID, Kata Parent ID, Kata Artifact Scope.\n\nAdd each missing field in the GitHub Project table view: click the rightmost + field header, choose New field, enter the exact field name, choose Text, and save.\n\nRequired Kata text fields: Kata Type, Kata ID, Kata Parent ID, Kata Artifact Scope.\nRequired Status options: Backlog, Todo, In Progress, Agent Review, Human Review, Merging, Done.",
+        "GitHub Projects v2 project is missing required Kata fields: Kata Type, Kata ID, Kata Parent ID, Kata Artifact Scope, Kata Verification State, Kata Blocking, Kata Blocked By.\n\nAdd each missing field in the GitHub Project table view: click the rightmost + field header, choose New field, enter the exact field name, choose Text, and save.\n\nRequired Kata text fields: Kata Type, Kata ID, Kata Parent ID, Kata Artifact Scope, Kata Verification State, Kata Blocking, Kata Blocked By.\nRequired Status options: Backlog, Todo, In Progress, Agent Review, Human Review, Merging, Done.",
     });
   });
 
@@ -221,6 +221,9 @@ function validProjectFields(input: { statusOptions?: Array<{ id: string; name: s
     { id: "kata-id-field-id", name: "Kata ID" },
     { id: "kata-parent-id-field-id", name: "Kata Parent ID" },
     { id: "kata-artifact-scope-field-id", name: "Kata Artifact Scope" },
+    { id: "kata-verification-state-field-id", name: "Kata Verification State" },
+    { id: "kata-blocking-field-id", name: "Kata Blocking" },
+    { id: "kata-blocked-by-field-id", name: "Kata Blocked By" },
   ];
 }
 

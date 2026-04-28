@@ -177,22 +177,24 @@
       ],
       "setupHint": "If Kata CLI is not configured, run setup and health checks through `scripts/kata-call.mjs` from the installed skill.",
       "operatingBrief": [
-        "When this skill is invoked, execute planned task work for the active milestone.",
+        "When this skill is invoked, execute one approved slice for the active milestone.",
         "",
-        "Load project context, active milestone, slices, tasks, and the relevant plan artifact. Select a planned slice/task, get explicit execution approval if the slice is still in Backlog, update statuses as work begins, perform the implementation, commit task-scoped repository changes atomically when code changed, then persist a summary artifact and mark completed tasks done only after verification evidence exists.",
+        "Load project context, active milestone, slices, tasks, and the relevant plan artifact. Select a planned slice, get explicit execution approval if the slice is still in Backlog, update statuses as work begins, complete every executable task in the slice, commit task-scoped repository changes atomically when code changed, then persist summary artifacts and mark completed tasks done with verification still pending.",
         "",
         "Keep backend state current through `slice.updateStatus`, `task.updateStatus`, and `artifact.write`."
       ],
       "successCriteria": [
-        "The selected task work is implemented in the repository.",
+        "Every executable task in the selected slice is implemented in the repository or explicitly left in progress with failure evidence.",
         "Any repository changes for the task are committed in one task-scoped atomic commit before the task is marked done.",
         "Task status reflects the real execution state.",
-        "A task or slice summary artifact records what changed and how it was verified.",
-        "Completed tasks are marked done only after verification evidence is available."
+        "A task or slice summary artifact records what changed and what execution checks passed.",
+        "Completed tasks remain pending verification until `kata-verify-work` verifies them."
       ],
       "doNot": [
         "Do not execute tasks without reading the active plan.",
-        "Do not mark work done before verification evidence exists.",
+        "Do not stop after one task when additional executable tasks remain in the approved slice.",
+        "Do not mark work done before execution-check evidence exists.",
+        "Do not set `verificationState: verified`; `kata-verify-work` owns verification.",
         "Do not create new milestone scope here.",
         "Do not leave backend task status stale after beginning or completing work."
       ],

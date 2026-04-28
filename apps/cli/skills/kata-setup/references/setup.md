@@ -17,6 +17,9 @@ If a backend operation reports missing GitHub Projects v2 fields, stop and instr
 - `Kata ID` — Text field
 - `Kata Parent ID` — Text field
 - `Kata Artifact Scope` — Text field
+- `Kata Verification State` — Text field
+- `Kata Blocking` — Text field with comma-separated Kata IDs
+- `Kata Blocked By` — Text field with comma-separated Kata IDs
 
 The Project `Status` field must include these options:
 
