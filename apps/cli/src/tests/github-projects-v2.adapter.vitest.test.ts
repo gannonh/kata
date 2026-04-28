@@ -34,6 +34,20 @@ describe("GitHub artifact comments", () => {
     ).toBeNull();
   });
 
+  it("returns null when marker-like content is not on the first line", () => {
+    const body = [
+      "regular comment body",
+      formatArtifactComment({
+        scopeType: "slice",
+        scopeId: "S001",
+        artifactType: "plan",
+        content: "not a marker",
+      }),
+    ].join("\n");
+
+    expect(parseArtifactComment(body)).toBeNull();
+  });
+
   it("updates an existing artifact comment instead of duplicating it", async () => {
     const client = {
       rest: vi.fn(async (request: any) => {
@@ -75,6 +89,63 @@ describe("GitHub artifact comments", () => {
     );
   });
 
+  it("updates an existing artifact comment found on the second page", async () => {
+    const pageOne = Array.from({ length: 100 }, (_, index) => ({
+      id: index + 1,
+      body: `non artifact ${index + 1}`,
+    }));
+    const client = {
+      rest: vi.fn(async (request: any) => {
+        if (
+          request.method === "GET" &&
+          (request.path === "/repos/kata-sh/uat/issues/5/comments" || request.path.endsWith("page=1"))
+        ) {
+          return pageOne;
+        }
+
+        if (request.method === "GET" && request.path.endsWith("page=2")) {
+          return [
+            {
+              id: 201,
+              body: formatArtifactComment({
+                scopeType: "slice",
+                scopeId: "S001",
+                artifactType: "plan",
+                content: "old",
+              }),
+            },
+          ];
+        }
+
+        return { id: 201, body: request.body.body };
+      }),
+    };
+
+    const result = await upsertArtifactComment({
+      client: client as any,
+      owner: "kata-sh",
+      repo: "uat",
+      issueNumber: 5,
+      scopeType: "slice",
+      scopeId: "S001",
+      artifactType: "plan",
+      content: "new",
+    });
+
+    expect(result.backendId).toBe("comment:201");
+    expect(client.rest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "PATCH",
+        path: "/repos/kata-sh/uat/issues/comments/201",
+      }),
+    );
+    expect(client.rest).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "POST",
+      }),
+    );
+  });
+
   it("creates a new artifact comment when no matching marker exists", async () => {
     const client = {
       rest: vi.fn(async (request: any) => {
@@ -112,6 +183,49 @@ describe("GitHub artifact comments", () => {
       expect.objectContaining({
         method: "POST",
         path: "/repos/kata-sh/uat/issues/5/comments",
+      }),
+    );
+  });
+
+  it("skips comments with null or missing bodies", async () => {
+    const client = {
+      rest: vi.fn(async (request: any) => {
+        if (request.method === "GET") {
+          return [
+            { id: 7, body: null },
+            { id: 8 },
+            {
+              id: 9,
+              body: formatArtifactComment({
+                scopeType: "slice",
+                scopeId: "S001",
+                artifactType: "plan",
+                content: "old",
+              }),
+            },
+          ];
+        }
+
+        return { id: 9, body: request.body.body };
+      }),
+    };
+
+    const result = await upsertArtifactComment({
+      client: client as any,
+      owner: "kata-sh",
+      repo: "uat",
+      issueNumber: 5,
+      scopeType: "slice",
+      scopeId: "S001",
+      artifactType: "plan",
+      content: "new",
+    });
+
+    expect(result.backendId).toBe("comment:9");
+    expect(client.rest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "PATCH",
+        path: "/repos/kata-sh/uat/issues/comments/9",
       }),
     );
   });

@@ -3,6 +3,8 @@ import type { createGithubClient } from "./client.js";
 
 const MARKER_PREFIX = "<!-- kata:artifact ";
 const MARKER_SUFFIX = " -->";
+const COMMENTS_PER_PAGE = 100;
+const MAX_COMMENT_PAGES = 100;
 
 const SCOPE_TYPES = ["project", "milestone", "slice", "task"] satisfies KataScopeType[];
 const ARTIFACT_TYPES = [
@@ -87,20 +89,7 @@ export function parseArtifactComment(body: string): ParsedArtifactComment | null
 export async function upsertArtifactComment(input: UpsertArtifactCommentInput): Promise<UpsertArtifactCommentResult> {
   const commentsPath = `/repos/${input.owner}/${input.repo}/issues/${input.issueNumber}/comments`;
   const body = formatArtifactComment(input);
-  const comments = await input.client.rest<GithubIssueComment[]>({
-    method: "GET",
-    path: commentsPath,
-  });
-
-  const existingComment = comments.find((comment) => {
-    const parsed = typeof comment.body === "string" ? parseArtifactComment(comment.body) : null;
-
-    return (
-      parsed?.scopeType === input.scopeType &&
-      parsed.scopeId === input.scopeId &&
-      parsed.artifactType === input.artifactType
-    );
-  });
+  const existingComment = await findExistingArtifactComment(input, commentsPath);
 
   if (existingComment) {
     const updated = await input.client.rest<GithubIssueComment>({
@@ -125,6 +114,38 @@ export async function upsertArtifactComment(input: UpsertArtifactCommentInput): 
     backendId: `comment:${created.id}`,
     body: created.body ?? body,
   };
+}
+
+async function findExistingArtifactComment(
+  input: UpsertArtifactCommentInput,
+  commentsPath: string,
+): Promise<GithubIssueComment | null> {
+  for (let page = 1; page <= MAX_COMMENT_PAGES; page += 1) {
+    const comments = await input.client.rest<GithubIssueComment[]>({
+      method: "GET",
+      path: `${commentsPath}?per_page=${COMMENTS_PER_PAGE}&page=${page}`,
+    });
+
+    const existingComment = comments.find((comment) => {
+      const parsed = typeof comment.body === "string" ? parseArtifactComment(comment.body) : null;
+
+      return (
+        parsed?.scopeType === input.scopeType &&
+        parsed.scopeId === input.scopeId &&
+        parsed.artifactType === input.artifactType
+      );
+    });
+
+    if (existingComment) {
+      return existingComment;
+    }
+
+    if (comments.length < COMMENTS_PER_PAGE) {
+      return null;
+    }
+  }
+
+  throw new Error(`Unable to search artifact comments after ${MAX_COMMENT_PAGES} full pages`);
 }
 
 function isValidArtifactMetadata(metadata: unknown): metadata is Omit<ParsedArtifactComment, "content"> {
