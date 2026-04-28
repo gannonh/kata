@@ -20,6 +20,8 @@ export type KataArtifactType =
 export interface KataProjectContext {
   backend: KataBackendKind;
   workspacePath: string;
+  title?: string;
+  description?: string;
   repository?: {
     owner: string;
     name: string;
@@ -76,12 +78,51 @@ export interface KataArtifactWriteInput {
   format: "markdown" | "text" | "json";
 }
 
+export interface KataProjectUpsertInput {
+  title: string;
+  description: string;
+}
+
+export interface KataMilestoneCreateInput {
+  title: string;
+  goal: string;
+}
+
+export interface KataMilestoneCompleteInput {
+  milestoneId: string;
+  summary: string;
+}
+
 export interface KataSliceListInput {
   milestoneId: string;
 }
 
+export interface KataSliceCreateInput {
+  milestoneId: string;
+  title: string;
+  goal: string;
+  order?: number;
+}
+
+export interface KataSliceUpdateStatusInput {
+  sliceId: string;
+  status: KataSlice["status"];
+}
+
 export interface KataTaskListInput {
   sliceId: string;
+}
+
+export interface KataTaskCreateInput {
+  sliceId: string;
+  title: string;
+  description: string;
+}
+
+export interface KataTaskUpdateStatusInput {
+  taskId: string;
+  status: KataTask["status"];
+  verificationState?: KataTask["verificationState"];
 }
 
 export interface KataArtifactListInput {
@@ -115,14 +156,35 @@ export interface KataExecutionStatus {
   escalations: Array<{ requestId: string; issueId: string; summary: string }>;
 }
 
+export interface KataHealthCheck {
+  name: string;
+  status: "ok" | "warn" | "invalid";
+  message: string;
+}
+
+export interface KataHealthReport {
+  ok: boolean;
+  backend: KataBackendKind;
+  checks: KataHealthCheck[];
+}
+
 export interface KataBackendAdapter {
   getProjectContext(): Promise<KataProjectContext>;
+  upsertProject(input: KataProjectUpsertInput): Promise<KataProjectContext>;
+  listMilestones(): Promise<KataMilestone[]>;
   getActiveMilestone(): Promise<KataMilestone | null>;
+  createMilestone(input: KataMilestoneCreateInput): Promise<KataMilestone>;
+  completeMilestone(input: KataMilestoneCompleteInput): Promise<KataMilestone>;
   listSlices(input: KataSliceListInput): Promise<KataSlice[]>;
+  createSlice(input: KataSliceCreateInput): Promise<KataSlice>;
+  updateSliceStatus(input: KataSliceUpdateStatusInput): Promise<KataSlice>;
   listTasks(input: KataTaskListInput): Promise<KataTask[]>;
+  createTask(input: KataTaskCreateInput): Promise<KataTask>;
+  updateTaskStatus(input: KataTaskUpdateStatusInput): Promise<KataTask>;
   listArtifacts(input: KataArtifactListInput): Promise<KataArtifact[]>;
   readArtifact(input: KataArtifactReadInput): Promise<KataArtifact | null>;
   writeArtifact(input: KataArtifactWriteInput): Promise<KataArtifact>;
   openPullRequest(input: KataOpenPullRequestInput): Promise<KataPullRequest>;
   getExecutionStatus(): Promise<KataExecutionStatus>;
+  checkHealth(): Promise<KataHealthReport>;
 }
