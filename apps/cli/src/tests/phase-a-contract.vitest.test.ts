@@ -324,6 +324,10 @@ describe("Phase A domain contract", () => {
         plannedSliceIds: ["S001", "S002"],
         existingSliceIds: ["S001"],
         missingSliceIds: ["S002"],
+        requirementToSliceIds: {
+          "E2E-01": ["S001"],
+          "E2E-02": ["S002"],
+        },
       },
       requirements: {
         requiredIds: ["E2E-01", "E2E-02"],
@@ -418,6 +422,11 @@ describe("Phase A domain contract", () => {
     await expect(dispatchKataOperation(api, "project.getSnapshot")).resolves.toMatchObject({
       roadmap: {
         missingSliceIds: ["S004"],
+        requirementToSliceIds: {
+          "E2E-01": ["S001"],
+          "E2E-06": ["S003"],
+          "E2E-10": ["S004"],
+        },
       },
       nextAction: {
         workflow: "kata-execute-phase",
@@ -429,9 +438,103 @@ describe("Phase A domain contract", () => {
           workflow: "kata-plan-phase",
           target: { milestoneId: "M001", sliceId: "S004" },
         },
+      ],
+    });
+  });
+
+  it("surfaces requirement planning only when no roadmap slice maps to the requirement", async () => {
+    const api = createKataDomainApi({
+      ...createFakeAdapter(),
+      getActiveMilestone: async () => ({
+        id: "M001",
+        title: "Phase A",
+        goal: "Validate end to end",
+        status: "active",
+        active: true,
+      }),
+      listSlices: async () => [
+        {
+          id: "S001",
+          milestoneId: "M001",
+          title: "Initialization",
+          goal: "Cover E2E-01",
+          status: "done",
+          order: 0,
+        },
+        {
+          id: "S003",
+          milestoneId: "M001",
+          title: "Execution handoff",
+          goal: "Cover E2E-06",
+          status: "backlog",
+          order: 2,
+        },
+      ],
+      listTasks: async (input: KataTaskListInput) =>
+        input.sliceId === "S003"
+          ? [
+              {
+                id: "T007",
+                sliceId: "S003",
+                title: "Validate execute-phase selects approved work",
+                description: "Covers E2E-06",
+                status: "backlog",
+                verificationState: "pending",
+              },
+            ]
+          : [
+              {
+                id: "T001",
+                sliceId: "S001",
+                title: "Verify initialization",
+                description: "Covers E2E-01",
+                status: "done",
+                verificationState: "verified",
+              },
+            ],
+      listArtifacts: async (input: KataArtifactListInput) => [
+        {
+          id: `${input.scopeType}:${input.scopeId}:summary`,
+          scopeType: input.scopeType,
+          scopeId: input.scopeId,
+          artifactType: "summary",
+          title: "Summary",
+          content: input.scopeId === "S003" ? "Covers E2E-06" : "Covered E2E-01",
+          format: "markdown",
+          updatedAt: "2026-04-28T00:00:00.000Z",
+          provenance: { backend: "github", backendId: "comment:1" },
+        },
+      ],
+      readArtifact: async (input: KataArtifactReadInput) => ({
+        id: `${input.scopeType}:${input.scopeId}:${input.artifactType}`,
+        scopeType: input.scopeType,
+        scopeId: input.scopeId,
+        artifactType: input.artifactType,
+        title: input.artifactType,
+        content: input.artifactType === "roadmap"
+          ? "S001 covers E2E-01\nS004 covers E2E-10"
+          : "E2E-01\nE2E-06\nE2E-10\nFUT-01",
+        format: "markdown",
+        updatedAt: "2026-04-28T00:00:00.000Z",
+        provenance: { backend: "github", backendId: "comment:2" },
+      }),
+    });
+
+    await expect(dispatchKataOperation(api, "project.getSnapshot")).resolves.toMatchObject({
+      roadmap: {
+        requirementToSliceIds: {
+          "E2E-01": ["S001"],
+          "E2E-10": ["S004"],
+        },
+      },
+      otherActions: [
         {
           workflow: "kata-plan-phase",
-          target: { milestoneId: "M001", requirementId: "E2E-10" },
+          target: { milestoneId: "M001", sliceId: "S004" },
+        },
+        {
+          workflow: "kata-plan-phase",
+          target: { milestoneId: "M001", requirementId: "FUT-01" },
         },
       ],
     });

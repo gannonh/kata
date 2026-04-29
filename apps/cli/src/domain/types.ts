@@ -71,6 +71,7 @@ export interface KataProjectSnapshot {
     plannedSliceIds: string[];
     existingSliceIds: string[];
     missingSliceIds: string[];
+    requirementToSliceIds: Record<string, string[]>;
   };
   slices: KataProjectSnapshotSlice[];
   readiness: {

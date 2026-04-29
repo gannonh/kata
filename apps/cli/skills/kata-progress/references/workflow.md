@@ -84,7 +84,7 @@ Report:
 - Verification state.
 - Missing artifacts.
 - A `Recommended Next Action` section showing exactly one command-shaped action from `snapshot.nextAction`.
-- An `Other Possible Actions` section showing command-shaped explicit overrides from `snapshot.otherActions` when present.
+- An `Other Possible Actions` section showing command-shaped explicit overrides from `snapshot.otherActions` when present. Prefer slice targets when a missing requirement maps to a roadmap slice; show requirement targets only when the snapshot has no roadmap slice mapping for that requirement.
 
 Example:
 

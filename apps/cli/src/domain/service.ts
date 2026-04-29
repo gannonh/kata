@@ -78,6 +78,7 @@ async function getProjectSnapshot(adapter: KataBackendAdapter): Promise<KataProj
         plannedSliceIds: [],
         existingSliceIds: [],
         missingSliceIds: [],
+        requirementToSliceIds: {},
       },
       slices: [],
       readiness: {
@@ -147,6 +148,7 @@ async function getProjectSnapshot(adapter: KataBackendAdapter): Promise<KataProj
   const plannedSliceIds = uniqueIds(extractSliceIds(roadmapContent));
   const existingSliceIds = snapshotSlices.map((slice) => slice.id);
   const missingSliceIds = plannedSliceIds.filter((id) => !existingSliceIds.includes(id));
+  const requirementToSliceIds = extractRequirementToSliceIds(roadmapContent);
 
   const readiness = {
     hasActiveMilestone: true,
@@ -180,11 +182,20 @@ async function getProjectSnapshot(adapter: KataBackendAdapter): Promise<KataProj
       plannedSliceIds,
       existingSliceIds,
       missingSliceIds,
+      requirementToSliceIds,
     },
     slices: snapshotSlices,
     readiness,
     nextAction,
-    otherActions: determineOtherActions(activeMilestone.id, snapshotSlices, missingSliceIds, missingIds, readiness, nextAction),
+    otherActions: determineOtherActions(
+      activeMilestone.id,
+      snapshotSlices,
+      missingSliceIds,
+      missingIds,
+      requirementToSliceIds,
+      readiness,
+      nextAction,
+    ),
   };
 }
 
@@ -281,6 +292,7 @@ function determineOtherActions(
   slices: KataProjectSnapshotSlice[],
   missingSliceIds: string[],
   missingRequirementIds: string[],
+  requirementToSliceIds: Record<string, string[]>,
   readiness: KataProjectSnapshot["readiness"],
   nextAction: KataProjectSnapshotNextAction,
 ): KataProjectSnapshotNextAction[] {
@@ -313,9 +325,12 @@ function determineOtherActions(
   }
 
   for (const requirementId of missingRequirementIds) {
+    if (requirementToSliceIds[requirementId]?.some((sliceId) => missingSliceIds.includes(sliceId))) {
+      continue;
+    }
     actions.push({
       workflow: "kata-plan-phase",
-      reason: `Requirement ${requirementId} is not covered by completed milestone evidence and can be explicitly planned.`,
+      reason: `Requirement ${requirementId} is missing coverage and has no roadmap slice mapping, so it can be explicitly resolved into slice planning.`,
       target: { milestoneId, requirementId },
     });
   }
@@ -337,6 +352,19 @@ function extractRequirementIds(content: string): string[] {
 
 function extractSliceIds(content: string): string[] {
   return uniqueIds(content.match(/\bS\d+\b/g) ?? []);
+}
+
+function extractRequirementToSliceIds(content: string): Record<string, string[]> {
+  const mapping: Record<string, string[]> = {};
+  for (const line of content.split(/\r?\n/)) {
+    const sliceIds = extractSliceIds(line);
+    const requirementIds = extractRequirementIds(line);
+    if (sliceIds.length === 0 || requirementIds.length === 0) continue;
+    for (const requirementId of requirementIds) {
+      mapping[requirementId] = uniqueIds([...(mapping[requirementId] ?? []), ...sliceIds]);
+    }
+  }
+  return mapping;
 }
 
 function uniqueIds(ids: string[]): string[] {

@@ -23,7 +23,13 @@ Read the project snapshot:
 node ./scripts/kata-call.mjs project.getSnapshot
 ```
 
-Use `snapshot.nextAction` to select the next roadmap slice or requirement to plan. If the snapshot recommends a workflow other than `kata-plan-phase`, explain that concrete state instead of creating duplicate plan scope.
+Use `snapshot.nextAction` to select the next roadmap slice to plan by default. If the user explicitly targets a requirement ID such as `E2E-08`, resolve that requirement through `snapshot.roadmap.requirementToSliceIds` first:
+
+- If the requirement maps to one or more roadmap slices, plan the mapped slice that is missing or not yet complete.
+- If the requirement is already covered by an existing slice, do not create duplicate scope; report the existing slice and its state.
+- If the requirement has no roadmap slice mapping, propose where it should fit in the roadmap before creating backend state.
+
+If the snapshot recommends a workflow other than `kata-plan-phase`, explain that concrete state before honoring any explicit planning override.
 
 Run:
 
@@ -156,18 +162,27 @@ node ./scripts/kata-call.mjs artifact.write --input /tmp/kata-plan-artifact.json
 
 ## Completion
 
+Reload the project snapshot after creating or updating backend planning state:
+
+```bash
+node ./scripts/kata-call.mjs project.getSnapshot
+```
+
 Summarize:
 
 - Slice ID.
 - Created task IDs.
 - Requirements covered.
 - Verification expectations.
+- Snapshot recommended next action.
+- Any important explicit-override note, for example when the user planned a later slice while an earlier slice still has execution work.
 
-End with:
+End with the reloaded snapshot's next action, not an assumption that the slice just planned should execute next. Example:
 
-```text
-Next up: run `kata-execute-phase` to execute the planned tasks.
-```
+Next up
+- /kata-execute-phase S003
+
+Note: S004 is planned Backlog work. Snapshot still recommends executing S003 first because it has execution work remaining.
 
 ## Rules
 

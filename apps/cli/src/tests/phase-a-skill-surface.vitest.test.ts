@@ -111,6 +111,10 @@ describe("Phase A skill surface", () => {
       path.join(sourceRoot, "skills-src", "workflows", "progress.md"),
       "utf8",
     );
+    const planWorkflow = readFileSync(
+      path.join(sourceRoot, "skills-src", "workflows", "plan-phase.md"),
+      "utf8",
+    );
     const completeWorkflow = readFileSync(
       path.join(sourceRoot, "skills-src", "workflows", "complete-milestone.md"),
       "utf8",
@@ -123,6 +127,10 @@ describe("Phase A skill surface", () => {
     expect(progressWorkflow).toContain("Use the snapshot as the source of truth");
     expect(progressWorkflow).toContain("Recommended Next Action");
     expect(progressWorkflow).toContain("Other Possible Actions");
+    expect(planWorkflow).toContain("resolve that requirement through `snapshot.roadmap.requirementToSliceIds` first");
+    expect(planWorkflow).toContain("Reload the project snapshot after creating or updating backend planning state");
+    expect(planWorkflow).toContain("End with the reloaded snapshot's next action");
+    expect(progressWorkflow).toContain("Prefer slice targets when a missing requirement maps to a roadmap slice");
     expect(progressWorkflow).toContain("/kata-execute-phase S003");
     expect(progressWorkflow).toContain("/kata-plan-phase S004");
     expect(completeWorkflow).toContain("If `snapshot.nextAction.workflow` is not `kata-complete-milestone`");
