@@ -12,6 +12,8 @@ cp "$CODEX_SOURCE_TREE_PATH"/apps/desktop/.env.development "$CODEX_WORKTREE_PATH
 cp "$CODEX_SOURCE_TREE_PATH"/apps/symphony/WORKFLOW-desktop-github.md "$CODEX_WORKTREE_PATH"/apps/symphony/WORKFLOW-desktop-github.md
 cp "$CODEX_SOURCE_TREE_PATH"/apps/symphony/WORKFLOW-desktop.md "$CODEX_WORKTREE_PATH"/apps/symphony/WORKFLOW-desktop.md
 
+cd "$CODEX_WORKTREE_PATH" && pnpm install
+
 cd "$CODEX_WORKTREE_PATH"/apps/symphony && cargo build --release
 cd "$CODEX_WORKTREE_PATH"/apps/cli && npm run build
 '''
