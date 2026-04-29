@@ -42,7 +42,7 @@ List slices:
 ```
 
 ```bash
-node <path-to-skill-directory>/scripts/kata-call.mjs slice.list --input /tmp/kata-slice-list.json
+node <path-to-skill-directory>/scripts/kata-call.mjs slice.list --input /tmp/kata-M001-slice-list.json
 ```
 
 For each selected slice, list tasks:
@@ -54,7 +54,7 @@ For each selected slice, list tasks:
 ```
 
 ```bash
-node <path-to-skill-directory>/scripts/kata-call.mjs task.list --input /tmp/kata-task-list.json
+node <path-to-skill-directory>/scripts/kata-call.mjs task.list --input /tmp/kata-S001-task-list.json
 ```
 
 Read the plan artifact:
@@ -68,7 +68,7 @@ Read the plan artifact:
 ```
 
 ```bash
-node <path-to-skill-directory>/scripts/kata-call.mjs artifact.read --input /tmp/kata-read-plan.json
+node <path-to-skill-directory>/scripts/kata-call.mjs artifact.read --input /tmp/kata-S001-read-plan.json
 ```
 
 ## Stage 2: Select Slice And Confirm Execution Approval
@@ -99,7 +99,7 @@ If the selected slice was `backlog`, first mark it `todo` to record execution ap
 ```
 
 ```bash
-node <path-to-skill-directory>/scripts/kata-call.mjs slice.updateStatus --input /tmp/kata-slice-approved.json
+node <path-to-skill-directory>/scripts/kata-call.mjs slice.updateStatus --input /tmp/kata-S001-slice-approved.json
 ```
 
 Then mark the selected slice `in_progress` when work starts:
@@ -112,7 +112,7 @@ Then mark the selected slice `in_progress` when work starts:
 ```
 
 ```bash
-node <path-to-skill-directory>/scripts/kata-call.mjs slice.updateStatus --input /tmp/kata-slice-in-progress.json
+node <path-to-skill-directory>/scripts/kata-call.mjs slice.updateStatus --input /tmp/kata-S001-slice-in-progress.json
 ```
 
 For each executable task in the selected slice, mark that task `in_progress` when work starts:
@@ -125,7 +125,7 @@ For each executable task in the selected slice, mark that task `in_progress` whe
 ```
 
 ```bash
-node <path-to-skill-directory>/scripts/kata-call.mjs task.updateStatus --input /tmp/kata-task-in-progress.json
+node <path-to-skill-directory>/scripts/kata-call.mjs task.updateStatus --input /tmp/kata-T001-task-in-progress.json
 ```
 
 ## Stage 4: Execute And Check
@@ -138,6 +138,7 @@ After execution checks pass, run `git status --short` again:
 
 - If repository files changed for this task, create one atomic commit containing only the task-scoped changes before marking the task done.
 - Use a conventional commit message that includes the task ID, for example `test(T001): verify project initialization artifacts`.
+- If the committed task changes skill sources, generated skill bundles, or skill helper scripts, run the project install command such as `node apps/cli/dist/loader.js setup --pi` after building so the active Pi skill installation matches the committed bundle before the task is marked done.
 - If no repository files changed, do not create an empty commit; record "no code commit required" with the evidence in the summary artifact.
 - Do not commit Kata backend artifacts directly. Durable Kata artifacts are persisted through `artifact.write`.
 - If unrelated pre-existing user changes are present, leave them unstaged and mention them in the summary.
@@ -158,7 +159,7 @@ Use `templates/summary.md`.
 ```
 
 ```bash
-node <path-to-skill-directory>/scripts/kata-call.mjs artifact.write --input /tmp/kata-task-summary.json
+node <path-to-skill-directory>/scripts/kata-call.mjs artifact.write --input /tmp/kata-T001-task-summary.json
 ```
 
 ## Stage 6: Complete Each Task Or Leave It In Progress
@@ -176,7 +177,7 @@ Mark the current task done and leave verification pending for `kata-verify-work`
 ```
 
 ```bash
-node <path-to-skill-directory>/scripts/kata-call.mjs task.updateStatus --input /tmp/kata-task-done.json
+node <path-to-skill-directory>/scripts/kata-call.mjs task.updateStatus --input /tmp/kata-T001-task-done.json
 ```
 
 Repeat stages 3 through 6 for every executable task in the selected slice.
@@ -191,7 +192,7 @@ If all tasks for the slice are complete, mark the slice done. Task verification 
 ```
 
 ```bash
-node <path-to-skill-directory>/scripts/kata-call.mjs slice.updateStatus --input /tmp/kata-slice-done.json
+node <path-to-skill-directory>/scripts/kata-call.mjs slice.updateStatus --input /tmp/kata-S001-slice-done.json
 ```
 
 If execution checks failed, keep the task `in_progress`, leave `verificationState` as `pending`, and write failure evidence with `artifact.write`.
@@ -211,6 +212,7 @@ Next up: run `kata-verify-work` to record verification evidence.
 - The slice is the primary execution unit. After a slice is approved, execute every executable task in that slice before routing to `kata-verify-work`.
 - Use the shared execution lifecycle for approved slices: `todo` -> `in_progress` -> `agent_review` -> `human_review` -> `merging` -> `done` as far as the current validated path requires.
 - Preserve atomic commits: one task-scoped code commit per completed task when repository files changed.
+- Use scope-specific scratch payload paths for runtime calls, for example `/tmp/kata-S004-slice-done.json` and `/tmp/kata-T012-task-done.json`, so a later operation cannot reuse a stale payload from another slice or task.
 - Never stage or commit unrelated user changes.
 - `kata-execute-phase` must not set `verificationState: verified`; `kata-verify-work` owns that transition.
 - Mark a task done only after execution-check evidence exists and the task-scoped code commit has been created, or after the summary records why no code commit was required.

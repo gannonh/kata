@@ -42,7 +42,7 @@ Create the JSON payload file before running any operation that requires `--input
 
 ## Temporary Payload Files
 
-Use `/tmp/kata-<operation>.json` unless the harness provides a better scratch path.
+Use a scope-specific scratch path when a milestone, slice, task, or artifact ID is known. Prefer `/tmp/kata-<scope>-<operation>.json`, such as `/tmp/kata-S004-slice-done.json` or `/tmp/kata-T012-task-done.json`, so repeated operations cannot accidentally reuse stale payloads. Use `/tmp/kata-<operation>.json` only for one-off setup operations with no stable scope ID.
 
 Example:
 
