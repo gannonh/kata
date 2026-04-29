@@ -18,6 +18,7 @@ import type {
   KataMilestoneCompleteInput,
   KataMilestoneCreateInput,
   KataOpenPullRequestInput,
+  KataProjectSnapshot,
   KataProjectUpsertInput,
   KataSliceCreateInput,
   KataSliceListInput,
@@ -440,6 +441,115 @@ describe("Phase A domain contract", () => {
         },
       ],
     });
+  });
+
+  it("prioritizes verifying a completed slice before executing the next slice", async () => {
+    const api = createKataDomainApi({
+      ...createFakeAdapter(),
+      getActiveMilestone: async () => ({
+        id: "M001",
+        title: "Phase A",
+        goal: "Validate end to end",
+        status: "active",
+        active: true,
+      }),
+      listSlices: async () => [
+        {
+          id: "S003",
+          milestoneId: "M001",
+          title: "Execution handoff",
+          goal: "Cover E2E-06",
+          status: "done",
+          order: 2,
+        },
+        {
+          id: "S004",
+          milestoneId: "M001",
+          title: "Completion",
+          goal: "Cover E2E-08",
+          status: "backlog",
+          order: 3,
+        },
+      ],
+      listTasks: async (input: KataTaskListInput) =>
+        input.sliceId === "S003"
+          ? [
+              {
+                id: "T007",
+                sliceId: "S003",
+                title: "Validate execute-phase selects approved work",
+                description: "Covers E2E-06",
+                status: "done",
+                verificationState: "pending",
+              },
+              {
+                id: "T008",
+                sliceId: "S003",
+                title: "Validate execute-phase records progress",
+                description: "Covers E2E-06",
+                status: "done",
+                verificationState: "pending",
+              },
+            ]
+          : [
+              {
+                id: "T010",
+                sliceId: "S004",
+                title: "Validate completion preconditions",
+                description: "Covers E2E-08",
+                status: "backlog",
+                verificationState: "pending",
+              },
+            ],
+      listArtifacts: async (input: KataArtifactListInput) => [
+        {
+          id: `${input.scopeType}:${input.scopeId}:summary`,
+          scopeType: input.scopeType,
+          scopeId: input.scopeId,
+          artifactType: "summary",
+          title: "Summary",
+          content: input.scopeId === "S003" ? "Covers E2E-06" : "Covers E2E-08",
+          format: "markdown",
+          updatedAt: "2026-04-28T00:00:00.000Z",
+          provenance: { backend: "github", backendId: "comment:1" },
+        },
+      ],
+      readArtifact: async (input: KataArtifactReadInput) => ({
+        id: `${input.scopeType}:${input.scopeId}:${input.artifactType}`,
+        scopeType: input.scopeType,
+        scopeId: input.scopeId,
+        artifactType: input.artifactType,
+        title: input.artifactType,
+        content: input.artifactType === "roadmap" ? "S003 covers E2E-06\nS004 covers E2E-08" : "E2E-06\nE2E-08",
+        format: "markdown",
+        updatedAt: "2026-04-28T00:00:00.000Z",
+        provenance: { backend: "github", backendId: "comment:2" },
+      }),
+    });
+
+    const snapshot = await dispatchKataOperation(api, "project.getSnapshot") as KataProjectSnapshot;
+
+    expect(snapshot).toMatchObject({
+      nextAction: {
+        workflow: "kata-verify-work",
+        reason: "Slice S003 is done but has tasks awaiting verification.",
+        target: { milestoneId: "M001", sliceId: "S003" },
+      },
+    });
+    expect(snapshot.otherActions).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        workflow: "kata-verify-work",
+        target: { milestoneId: "M001", sliceId: "S003", taskId: "T007" },
+      }),
+      expect.objectContaining({
+        workflow: "kata-verify-work",
+        target: { milestoneId: "M001", sliceId: "S003", taskId: "T008" },
+      }),
+      expect.objectContaining({
+        workflow: "kata-execute-phase",
+        target: { milestoneId: "M001", sliceId: "S004" },
+      }),
+    ]));
   });
 
   it("surfaces requirement planning only when no roadmap slice maps to the requirement", async () => {

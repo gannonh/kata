@@ -238,21 +238,35 @@ function determineNextAction(
   missingRequirementIds: string[],
   readiness: KataProjectSnapshot["readiness"],
 ): KataProjectSnapshotNextAction {
+  const unverifiedDoneSlice = slices.find((slice) =>
+    slice.status === "done" &&
+    slice.tasks.some((task) => task.status === "done" && task.verificationState !== "verified")
+  );
+  if (unverifiedDoneSlice) {
+    return {
+      workflow: "kata-verify-work",
+      reason: `Slice ${unverifiedDoneSlice.id} is done but has tasks awaiting verification.`,
+      target: { milestoneId, sliceId: unverifiedDoneSlice.id },
+    };
+  }
+
+  const unverifiedTask = slices.flatMap((slice) => slice.tasks).find((task) =>
+    task.status === "done" && task.verificationState !== "verified"
+  );
+  if (unverifiedTask) {
+    return {
+      workflow: "kata-verify-work",
+      reason: `Task ${unverifiedTask.id} is done but not verified.`,
+      target: { milestoneId, sliceId: unverifiedTask.sliceId, taskId: unverifiedTask.id },
+    };
+  }
+
   const executableSlice = slices.find((slice) => slice.status !== "done" || slice.tasks.some((task) => task.status !== "done"));
   if (executableSlice) {
     return {
       workflow: "kata-execute-phase",
       reason: `Slice ${executableSlice.id} still has execution work remaining.`,
       target: { milestoneId, sliceId: executableSlice.id },
-    };
-  }
-
-  const unverifiedTask = slices.flatMap((slice) => slice.tasks).find((task) => task.verificationState !== "verified");
-  if (unverifiedTask) {
-    return {
-      workflow: "kata-verify-work",
-      reason: `Task ${unverifiedTask.id} is done but not verified.`,
-      target: { milestoneId, sliceId: unverifiedTask.sliceId, taskId: unverifiedTask.id },
     };
   }
 
