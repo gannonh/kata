@@ -151,7 +151,7 @@ async function getProjectSnapshot(adapter: KataBackendAdapter): Promise<KataProj
   );
   const coveredIds = uniqueIds(snapshotSlices.flatMap((slice) => slice.requirementIds).filter((id) => requiredIds.includes(id)));
   const missingIds = requiredIds.filter((id) => !coveredIds.includes(id));
-  const plannedSliceIds = uniqueIds(extractSliceIds(roadmapContent));
+  const plannedSliceIds = extractRoadmapBackendSliceIds(roadmapContent);
   const existingSliceIds = snapshotSlices.map((slice) => slice.id);
   const missingSliceIds = plannedSliceIds.filter((id) => !existingSliceIds.includes(id));
   const requirementToSliceIds = extractRequirementToSliceIds(roadmapContent);
@@ -413,10 +413,19 @@ function extractSliceIds(content: string): string[] {
   return uniqueIds(content.match(/\bS\d+\b/g) ?? []);
 }
 
+function extractRoadmapBackendSliceIds(content: string): string[] {
+  const ids: string[] = [];
+  for (const line of content.split(/\r?\n/)) {
+    if (!/\b(?:backend\s+slice|backend\s+id|slice\s+id)\b/i.test(line)) continue;
+    ids.push(...extractSliceIds(line));
+  }
+  return uniqueIds(ids);
+}
+
 function extractRequirementToSliceIds(content: string): Record<string, string[]> {
   const mapping: Record<string, string[]> = {};
   for (const line of content.split(/\r?\n/)) {
-    const sliceIds = extractSliceIds(line);
+    const sliceIds = extractRoadmapBackendSliceIds(line);
     const requirementIds = extractRequirementIds(line);
     if (sliceIds.length === 0 || requirementIds.length === 0) continue;
     for (const requirementId of requirementIds) {
