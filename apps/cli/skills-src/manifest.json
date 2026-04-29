@@ -125,6 +125,7 @@
       "workflow": "plan-phase",
       "contractOperations": [
         "project.getContext",
+        "project.getSnapshot",
         "milestone.getActive",
         "artifact.read",
         "slice.list",
@@ -136,7 +137,7 @@
       "operatingBrief": [
         "When this skill is invoked, turn the active milestone roadmap into executable slices and tasks.",
         "",
-        "Load project context and the active milestone, read the milestone requirements and roadmap, list existing milestone slices, then present the phase or slice you plan to convert into execution work. Ask for confirmation before creating backend slices or tasks.",
+        "Load the project snapshot and active milestone, read the milestone requirements and roadmap, list existing milestone slices when needed, then present the next roadmap phase or slice the snapshot recommends converting into execution work. Ask for confirmation before creating backend slices or tasks.",
         "",
         "If the selected roadmap work is not already represented by an existing slice, create a slice with `slice.create`, create focused tasks with `task.create`, and write a slice-scoped plan artifact with `artifact.write`. End by routing the user to `kata-execute-phase`."
       ],
@@ -167,6 +168,7 @@
       "workflow": "execute-phase",
       "contractOperations": [
         "project.getContext",
+        "project.getSnapshot",
         "milestone.getActive",
         "slice.list",
         "slice.updateStatus",
@@ -179,7 +181,7 @@
       "operatingBrief": [
         "When this skill is invoked, execute one approved slice for the active milestone.",
         "",
-        "Load project context, active milestone, slices, tasks, and the relevant plan artifact. Select a planned slice, get explicit execution approval if the slice is still in Backlog, update statuses as work begins, complete every executable task in the slice, commit task-scoped repository changes atomically when code changed, then persist summary artifacts and mark completed tasks done with verification still pending.",
+        "Load the project snapshot, active milestone, slices, tasks, and the relevant plan artifact. Select the next executable slice from snapshot state, get explicit execution approval if the slice is still in Backlog, update statuses as work begins, complete every executable task in the slice, commit task-scoped repository changes atomically when code changed, then persist summary artifacts and mark completed tasks done with verification still pending.",
         "",
         "Keep backend state current through `slice.updateStatus`, `task.updateStatus`, and `artifact.write`."
       ],
@@ -213,6 +215,7 @@
       "workflow": "verify-work",
       "contractOperations": [
         "project.getContext",
+        "project.getSnapshot",
         "task.list",
         "task.updateStatus",
         "artifact.list",
@@ -223,9 +226,9 @@
       "operatingBrief": [
         "When this skill is invoked, verify completed Kata work and record durable evidence.",
         "",
-        "Load the relevant project/task/artifact context, identify the behaviors that must be verified, and walk through them one at a time. Record evidence in verification artifacts, then update task verification state through the CLI. Use UAT artifacts only when the plan explicitly calls for user acceptance testing.",
+        "Load the relevant project snapshot, task, and artifact context, identify the behaviors that must be verified, and walk through them one at a time. Record evidence in verification artifacts, then update task verification state through the CLI. Use UAT artifacts only when the plan explicitly calls for user acceptance testing.",
         "",
-        "If verification fails, report the exact failure and leave the task unverified."
+        "After updating verification state, reload the project snapshot and recommend exactly the snapshot's next workflow. Do not infer milestone completion from verified tasks alone."
       ],
       "successCriteria": [
         "Each relevant behavior has explicit verification evidence.",
@@ -254,6 +257,7 @@
       "description": "Use when the user wants to finish, close, ship, archive, or mark the active Kata milestone complete.",
       "workflow": "complete-milestone",
       "contractOperations": [
+        "project.getSnapshot",
         "milestone.getActive",
         "milestone.complete",
         "slice.list",
@@ -266,7 +270,7 @@
       "operatingBrief": [
         "When this skill is invoked, close the active release-sized milestone after all milestone slices and tasks are done and verified.",
         "",
-        "Load the active milestone, list slices, list tasks for each slice, inspect milestone/slice/task artifacts, confirm every required task is done and verified, summarize delivered outcomes, capture retrospective notes, write completion artifacts, and then complete the milestone through `milestone.complete`.",
+        "Load the project snapshot and active milestone, list slices, list tasks for each slice when detail is needed, inspect milestone/slice/task artifacts, confirm every required task is done and verified, summarize delivered outcomes, capture retrospective notes, write completion artifacts, and then complete the milestone through `milestone.complete`.",
         "",
         "If readiness is uncertain, stop and explain what must be verified or resolved first."
       ],
@@ -302,6 +306,7 @@
       "workflow": "progress",
       "contractOperations": [
         "project.getContext",
+        "project.getSnapshot",
         "milestone.getActive",
         "slice.list",
         "task.list",
@@ -312,7 +317,7 @@
       "operatingBrief": [
         "When this skill is invoked, report current Kata project and milestone progress.",
         "",
-        "Read project context, active milestone, slices, tasks, artifacts, and execution status. Summarize what is active, what is blocked, what is done, and the next recommended action.",
+        "Read the project snapshot plus execution status. Summarize what is active, what is blocked, what is done, and the one next action recommended by snapshot state.",
         "",
         "This is a reporting skill. It should not mutate backend state."
       ],

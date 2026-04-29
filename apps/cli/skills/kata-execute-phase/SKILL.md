@@ -9,7 +9,7 @@ description: "Use when the user wants Kata to execute planned phase work or adva
 
 When this skill is invoked, execute one approved slice for the active milestone.
 
-Load project context, active milestone, slices, tasks, and the relevant plan artifact. Select a planned slice, get explicit execution approval if the slice is still in Backlog, update statuses as work begins, complete every executable task in the slice, commit task-scoped repository changes atomically when code changed, then persist summary artifacts and mark completed tasks done with verification still pending.
+Load the project snapshot, active milestone, slices, tasks, and the relevant plan artifact. Select the next executable slice from snapshot state, get explicit execution approval if the slice is still in Backlog, update statuses as work begins, complete every executable task in the slice, commit task-scoped repository changes atomically when code changed, then persist summary artifacts and mark completed tasks done with verification still pending.
 
 Keep backend state current through `slice.updateStatus`, `task.updateStatus`, and `artifact.write`.
 

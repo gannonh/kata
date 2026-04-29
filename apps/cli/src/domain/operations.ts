@@ -20,6 +20,7 @@ import type {
 
 export const KATA_OPERATION_NAMES = [
   "project.getContext",
+  "project.getSnapshot",
   "project.upsert",
   "milestone.list",
   "milestone.getActive",
@@ -49,6 +50,7 @@ export interface KataPayloadValidationResult {
 
 const NO_PAYLOAD_OPERATIONS = new Set<KataOperationName>([
   "project.getContext",
+  "project.getSnapshot",
   "milestone.list",
   "milestone.getActive",
   "execution.getStatus",
@@ -162,6 +164,7 @@ export function validateKataOperationPayload(
 
   switch (operation) {
     case "project.getContext":
+    case "project.getSnapshot":
     case "milestone.list":
     case "milestone.getActive":
     case "execution.getStatus":
@@ -253,6 +256,8 @@ export async function dispatchKataOperation(
   switch (operation) {
     case "project.getContext":
       return api.project.getContext();
+    case "project.getSnapshot":
+      return api.project.getSnapshot();
     case "project.upsert":
       return api.project.upsert(payload as KataProjectUpsertInput);
     case "milestone.list":

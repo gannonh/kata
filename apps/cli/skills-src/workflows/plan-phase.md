@@ -17,6 +17,14 @@ Read project context:
 node ./scripts/kata-call.mjs project.getContext
 ```
 
+Read the project snapshot:
+
+```bash
+node ./scripts/kata-call.mjs project.getSnapshot
+```
+
+Use `snapshot.nextAction` to select the next roadmap slice or requirement to plan. If the snapshot recommends a workflow other than `kata-plan-phase`, explain that concrete state instead of creating duplicate plan scope.
+
 Run:
 
 ```bash

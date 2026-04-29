@@ -9,7 +9,7 @@ description: "Use when the user wants to finish, close, ship, archive, or mark t
 
 When this skill is invoked, close the active release-sized milestone after all milestone slices and tasks are done and verified.
 
-Load the active milestone, list slices, list tasks for each slice, inspect milestone/slice/task artifacts, confirm every required task is done and verified, summarize delivered outcomes, capture retrospective notes, write completion artifacts, and then complete the milestone through `milestone.complete`.
+Load the project snapshot and active milestone, list slices, list tasks for each slice when detail is needed, inspect milestone/slice/task artifacts, confirm every required task is done and verified, summarize delivered outcomes, capture retrospective notes, write completion artifacts, and then complete the milestone through `milestone.complete`.
 
 If readiness is uncertain, stop and explain what must be verified or resolved first.
 

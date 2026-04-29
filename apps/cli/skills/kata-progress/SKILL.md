@@ -9,7 +9,7 @@ description: "Use when the user asks for Kata project status, milestone progress
 
 When this skill is invoked, report current Kata project and milestone progress.
 
-Read project context, active milestone, slices, tasks, artifacts, and execution status. Summarize what is active, what is blocked, what is done, and the next recommended action.
+Read the project snapshot plus execution status. Summarize what is active, what is blocked, what is done, and the one next action recommended by snapshot state.
 
 This is a reporting skill. It should not mutate backend state.
 

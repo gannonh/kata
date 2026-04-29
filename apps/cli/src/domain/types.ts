@@ -28,6 +28,62 @@ export interface KataProjectContext {
   };
 }
 
+export interface KataProjectSnapshotArtifact {
+  artifactType: KataArtifactType;
+  title: string;
+  updatedAt: string;
+  provenance: KataArtifact["provenance"];
+  requirementIds: string[];
+}
+
+export interface KataProjectSnapshotTask extends KataTask {
+  artifacts: KataProjectSnapshotArtifact[];
+  requirementIds: string[];
+}
+
+export interface KataProjectSnapshotSlice extends KataSlice {
+  tasks: KataProjectSnapshotTask[];
+  artifacts: KataProjectSnapshotArtifact[];
+  requirementIds: string[];
+}
+
+export interface KataProjectSnapshotNextAction {
+  workflow: "kata-new-milestone" | "kata-plan-phase" | "kata-execute-phase" | "kata-verify-work" | "kata-complete-milestone";
+  reason: string;
+  target?: {
+    milestoneId?: string;
+    sliceId?: string;
+    taskId?: string;
+    requirementId?: string;
+  };
+}
+
+export interface KataProjectSnapshot {
+  context: KataProjectContext;
+  activeMilestone: KataMilestone | null;
+  milestoneArtifacts: KataProjectSnapshotArtifact[];
+  requirements: {
+    requiredIds: string[];
+    coveredIds: string[];
+    missingIds: string[];
+  };
+  roadmap: {
+    plannedSliceIds: string[];
+    existingSliceIds: string[];
+    missingSliceIds: string[];
+  };
+  slices: KataProjectSnapshotSlice[];
+  readiness: {
+    hasActiveMilestone: boolean;
+    allRoadmapSlicesExist: boolean;
+    allSlicesDone: boolean;
+    allTasksDone: boolean;
+    allTasksVerified: boolean;
+    milestoneCompletable: boolean;
+  };
+  nextAction: KataProjectSnapshotNextAction;
+}
+
 export interface KataMilestone {
   id: string;
   title: string;

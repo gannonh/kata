@@ -17,6 +17,14 @@ Read project context:
 node ./scripts/kata-call.mjs project.getContext
 ```
 
+Read the project snapshot:
+
+```bash
+node ./scripts/kata-call.mjs project.getSnapshot
+```
+
+Use `snapshot.nextAction` and slice/task state to choose the executable slice. If the snapshot recommends `kata-plan-phase` or `kata-verify-work`, stop and report that concrete next step instead of executing stale or duplicate scope.
+
 Read active milestone:
 
 ```bash

@@ -10,6 +10,14 @@ Run:
 node <path-to-skill-directory>/scripts/kata-call.mjs project.getContext
 ```
 
+## `project.getSnapshot`
+
+Run:
+
+```bash
+node <path-to-skill-directory>/scripts/kata-call.mjs project.getSnapshot
+```
+
 ## `milestone.getActive`
 
 Run:

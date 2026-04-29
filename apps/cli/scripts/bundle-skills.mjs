@@ -9,6 +9,7 @@ const targetDir = path.join(cliRoot, "skills");
 
 const supportedOperations = new Set([
   "project.getContext",
+  "project.getSnapshot",
   "project.upsert",
   "milestone.list",
   "milestone.getActive",

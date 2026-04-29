@@ -101,4 +101,27 @@ describe("Phase A skill surface", () => {
     expect(manifest).toContain('"artifact.read"');
     expect(manifest).toContain("Every required task is done with `verificationState: verified`.");
   });
+
+  it("uses project snapshots for concrete next-step recommendations", () => {
+    const verifyWorkflow = readFileSync(
+      path.join(sourceRoot, "skills-src", "workflows", "verify-work.md"),
+      "utf8",
+    );
+    const progressWorkflow = readFileSync(
+      path.join(sourceRoot, "skills-src", "workflows", "progress.md"),
+      "utf8",
+    );
+    const completeWorkflow = readFileSync(
+      path.join(sourceRoot, "skills-src", "workflows", "complete-milestone.md"),
+      "utf8",
+    );
+    const manifest = readFileSync(path.join(sourceRoot, "skills-src", "manifest.json"), "utf8");
+
+    expect(verifyWorkflow).toContain("project.getSnapshot");
+    expect(verifyWorkflow).toContain("Recommend exactly the workflow named by `snapshot.nextAction.workflow`");
+    expect(verifyWorkflow).toContain("Do not recommend `kata-complete-milestone` unless");
+    expect(progressWorkflow).toContain("Use the snapshot as the source of truth");
+    expect(completeWorkflow).toContain("If `snapshot.nextAction.workflow` is not `kata-complete-milestone`");
+    expect(manifest).toContain('"project.getSnapshot"');
+  });
 });

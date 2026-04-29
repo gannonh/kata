@@ -18,6 +18,14 @@ Read project context:
 node ./scripts/kata-call.mjs project.getContext
 ```
 
+Read the project snapshot before choosing verification scope:
+
+```bash
+node ./scripts/kata-call.mjs project.getSnapshot
+```
+
+Use `nextAction`, `readiness`, `roadmap`, and the slice/task state in the snapshot as the source of truth for where the project is. Do not infer milestone readiness from a partial task list.
+
 If needed, list tasks for the slice under verification:
 
 ```json
@@ -106,10 +114,24 @@ If failed, use `verificationState: "failed"` and summarize the blocking issue in
 
 ## Completion
 
-If the milestone appears fully verified, route to `kata-complete-milestone`. Otherwise, summarize remaining unverified tasks.
+After updating verification state, reload the project snapshot:
+
+```bash
+node ./scripts/kata-call.mjs project.getSnapshot
+```
+
+Recommend exactly the workflow named by `snapshot.nextAction.workflow`, with its target and reason. Do not provide a generic menu.
+
+Examples:
+
+- If `nextAction.workflow` is `kata-plan-phase`, say which missing roadmap slice or requirement should be planned next.
+- If `nextAction.workflow` is `kata-execute-phase`, say which slice still has execution work remaining.
+- If `nextAction.workflow` is `kata-verify-work`, say which task is still awaiting verification.
+- If `nextAction.workflow` is `kata-complete-milestone`, say the milestone is ready for completion because the snapshot reports all roadmap slices exist, all slices/tasks are done, and all tasks are verified.
 
 ## Rules
 
 - Evidence comes before claims.
 - Record failures as durable artifacts when they affect the milestone.
 - Do not close a milestone from this workflow.
+- Do not recommend `kata-complete-milestone` unless the reloaded snapshot's `nextAction.workflow` is `kata-complete-milestone`.

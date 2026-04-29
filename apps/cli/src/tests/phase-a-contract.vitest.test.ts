@@ -190,6 +190,7 @@ describe("Phase A domain contract", () => {
   it("defines the expected operation names in order", () => {
     expect(KATA_OPERATION_NAMES).toEqual([
       "project.getContext",
+      "project.getSnapshot",
       "project.upsert",
       "milestone.list",
       "milestone.getActive",
@@ -258,6 +259,81 @@ describe("Phase A domain contract", () => {
       id: "task-1",
       status: "backlog",
       verificationState: "pending",
+    });
+  });
+
+  it("builds a project snapshot with a concrete next action", async () => {
+    const api = createKataDomainApi({
+      ...createFakeAdapter(),
+      getActiveMilestone: async () => ({
+        id: "M001",
+        title: "Phase A",
+        goal: "Validate end to end",
+        status: "active",
+        active: true,
+      }),
+      listSlices: async () => [
+        {
+          id: "S001",
+          milestoneId: "M001",
+          title: "Initialization",
+          goal: "Cover E2E-01",
+          status: "done",
+          order: 0,
+        },
+      ],
+      listTasks: async () => [
+        {
+          id: "T001",
+          sliceId: "S001",
+          title: "Verify initialization",
+          description: "Covers E2E-01",
+          status: "done",
+          verificationState: "verified",
+        },
+      ],
+      listArtifacts: async (input: KataArtifactListInput) => [
+        {
+          id: `${input.scopeType}:${input.scopeId}:summary`,
+          scopeType: input.scopeType,
+          scopeId: input.scopeId,
+          artifactType: "summary",
+          title: "Summary",
+          content: "Covered E2E-01",
+          format: "markdown",
+          updatedAt: "2026-04-28T00:00:00.000Z",
+          provenance: { backend: "github", backendId: "comment:1" },
+        },
+      ],
+      readArtifact: async (input: KataArtifactReadInput) => ({
+        id: `${input.scopeType}:${input.scopeId}:${input.artifactType}`,
+        scopeType: input.scopeType,
+        scopeId: input.scopeId,
+        artifactType: input.artifactType,
+        title: input.artifactType,
+        content: input.artifactType === "roadmap" ? "S001 covers E2E-01\nS002 covers E2E-02" : "E2E-01\nE2E-02",
+        format: "markdown",
+        updatedAt: "2026-04-28T00:00:00.000Z",
+        provenance: { backend: "github", backendId: "comment:2" },
+      }),
+    });
+
+    await expect(dispatchKataOperation(api, "project.getSnapshot")).resolves.toMatchObject({
+      activeMilestone: { id: "M001" },
+      roadmap: {
+        plannedSliceIds: ["S001", "S002"],
+        existingSliceIds: ["S001"],
+        missingSliceIds: ["S002"],
+      },
+      requirements: {
+        requiredIds: ["E2E-01", "E2E-02"],
+        coveredIds: ["E2E-01"],
+        missingIds: ["E2E-02"],
+      },
+      nextAction: {
+        workflow: "kata-plan-phase",
+        target: { sliceId: "S002" },
+      },
     });
   });
 });

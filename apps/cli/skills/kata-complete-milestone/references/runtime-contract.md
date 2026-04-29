@@ -2,6 +2,14 @@
 
 Use only these typed runtime operations:
 
+## `project.getSnapshot`
+
+Run:
+
+```bash
+node <path-to-skill-directory>/scripts/kata-call.mjs project.getSnapshot
+```
+
 ## `milestone.getActive`
 
 Run:

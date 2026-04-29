@@ -9,7 +9,7 @@ description: "Use when the user asks to plan a phase, slice upcoming work, or tu
 
 When this skill is invoked, turn the active milestone roadmap into executable slices and tasks.
 
-Load project context and the active milestone, read the milestone requirements and roadmap, list existing milestone slices, then present the phase or slice you plan to convert into execution work. Ask for confirmation before creating backend slices or tasks.
+Load the project snapshot and active milestone, read the milestone requirements and roadmap, list existing milestone slices when needed, then present the next roadmap phase or slice the snapshot recommends converting into execution work. Ask for confirmation before creating backend slices or tasks.
 
 If the selected roadmap work is not already represented by an existing slice, create a slice with `slice.create`, create focused tasks with `task.create`, and write a slice-scoped plan artifact with `artifact.write`. End by routing the user to `kata-execute-phase`.
 

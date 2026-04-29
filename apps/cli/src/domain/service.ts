@@ -1,4 +1,5 @@
 import type {
+  KataArtifact,
   KataArtifactListInput,
   KataArtifactReadInput,
   KataArtifactWriteInput,
@@ -7,6 +8,10 @@ import type {
   KataMilestoneCreateInput,
   KataOpenPullRequestInput,
   KataProjectUpsertInput,
+  KataProjectSnapshot,
+  KataProjectSnapshotArtifact,
+  KataProjectSnapshotNextAction,
+  KataProjectSnapshotSlice,
   KataSliceCreateInput,
   KataSliceListInput,
   KataSliceUpdateStatusInput,
@@ -20,6 +25,7 @@ export function createKataDomainApi(adapter: KataBackendAdapter) {
     project: {
       getContext: () => adapter.getProjectContext(),
       upsert: (input: KataProjectUpsertInput) => adapter.upsertProject(input),
+      getSnapshot: () => getProjectSnapshot(adapter),
     },
     milestone: {
       list: () => adapter.listMilestones(),
@@ -52,4 +58,228 @@ export function createKataDomainApi(adapter: KataBackendAdapter) {
       check: () => adapter.checkHealth(),
     },
   };
+}
+
+async function getProjectSnapshot(adapter: KataBackendAdapter): Promise<KataProjectSnapshot> {
+  const context = await adapter.getProjectContext();
+  const activeMilestone = await adapter.getActiveMilestone();
+
+  if (!activeMilestone) {
+    return {
+      context,
+      activeMilestone: null,
+      milestoneArtifacts: [],
+      requirements: {
+        requiredIds: [],
+        coveredIds: [],
+        missingIds: [],
+      },
+      roadmap: {
+        plannedSliceIds: [],
+        existingSliceIds: [],
+        missingSliceIds: [],
+      },
+      slices: [],
+      readiness: {
+        hasActiveMilestone: false,
+        allRoadmapSlicesExist: false,
+        allSlicesDone: false,
+        allTasksDone: false,
+        allTasksVerified: false,
+        milestoneCompletable: false,
+      },
+      nextAction: {
+        workflow: "kata-new-milestone",
+        reason: "No active milestone exists.",
+      },
+    };
+  }
+
+  const [milestoneArtifacts, requirementsArtifact, roadmapArtifact, slices] = await Promise.all([
+    safeListArtifacts(adapter, { scopeType: "milestone", scopeId: activeMilestone.id }),
+    safeReadArtifact(adapter, { scopeType: "milestone", scopeId: activeMilestone.id, artifactType: "requirements" }),
+    safeReadArtifact(adapter, { scopeType: "milestone", scopeId: activeMilestone.id, artifactType: "roadmap" }),
+    adapter.listSlices({ milestoneId: activeMilestone.id }),
+  ]);
+
+  const snapshotSlices = await Promise.all(
+    slices.map(async (slice): Promise<KataProjectSnapshotSlice> => {
+      const [tasks, sliceArtifacts] = await Promise.all([
+        adapter.listTasks({ sliceId: slice.id }),
+        safeListArtifacts(adapter, { scopeType: "slice", scopeId: slice.id }),
+      ]);
+
+      const snapshotTasks = await Promise.all(
+        tasks.map(async (task) => {
+          const taskArtifacts = await safeListArtifacts(adapter, { scopeType: "task", scopeId: task.id });
+          return {
+            ...task,
+            artifacts: summarizeArtifacts(taskArtifacts),
+            requirementIds: uniqueIds([
+              ...extractRequirementIds(task.title),
+              ...extractRequirementIds(task.description),
+              ...taskArtifacts.flatMap((artifact) => extractRequirementIds(artifact.content)),
+            ]),
+          };
+        }),
+      );
+
+      return {
+        ...slice,
+        tasks: snapshotTasks,
+        artifacts: summarizeArtifacts(sliceArtifacts),
+        requirementIds: uniqueIds([
+          ...extractRequirementIds(slice.title),
+          ...extractRequirementIds(slice.goal),
+          ...sliceArtifacts.flatMap((artifact) => extractRequirementIds(artifact.content)),
+          ...snapshotTasks.flatMap((task) => task.requirementIds),
+        ]),
+      };
+    }),
+  );
+
+  const roadmapContent = roadmapArtifact?.content ?? "";
+  const requirementsContent = requirementsArtifact?.content ?? "";
+  const requiredIds = uniqueIds([...extractRequirementIds(requirementsContent), ...extractRequirementIds(roadmapContent)]);
+  const coveredIds = uniqueIds(snapshotSlices.flatMap((slice) => slice.requirementIds));
+  const missingIds = requiredIds.filter((id) => !coveredIds.includes(id));
+  const plannedSliceIds = uniqueIds(extractSliceIds(roadmapContent));
+  const existingSliceIds = snapshotSlices.map((slice) => slice.id);
+  const missingSliceIds = plannedSliceIds.filter((id) => !existingSliceIds.includes(id));
+
+  const readiness = {
+    hasActiveMilestone: true,
+    allRoadmapSlicesExist: missingSliceIds.length === 0,
+    allSlicesDone: snapshotSlices.length > 0 && snapshotSlices.every((slice) => slice.status === "done"),
+    allTasksDone: snapshotSlices.length > 0 && snapshotSlices.every((slice) => slice.tasks.every((task) => task.status === "done")),
+    allTasksVerified:
+      snapshotSlices.length > 0 &&
+      snapshotSlices.every((slice) => slice.tasks.every((task) => task.verificationState === "verified")),
+    milestoneCompletable: false,
+  };
+  readiness.milestoneCompletable =
+    readiness.allRoadmapSlicesExist &&
+    readiness.allSlicesDone &&
+    readiness.allTasksDone &&
+    readiness.allTasksVerified &&
+    missingIds.length === 0;
+
+  return {
+    context,
+    activeMilestone,
+    milestoneArtifacts: summarizeArtifacts(milestoneArtifacts),
+    requirements: {
+      requiredIds,
+      coveredIds,
+      missingIds,
+    },
+    roadmap: {
+      plannedSliceIds,
+      existingSliceIds,
+      missingSliceIds,
+    },
+    slices: snapshotSlices,
+    readiness,
+    nextAction: determineNextAction(activeMilestone.id, snapshotSlices, missingSliceIds, missingIds, readiness),
+  };
+}
+
+async function safeListArtifacts(
+  adapter: KataBackendAdapter,
+  input: KataArtifactListInput,
+): Promise<KataArtifact[]> {
+  try {
+    return await adapter.listArtifacts(input);
+  } catch {
+    return [];
+  }
+}
+
+async function safeReadArtifact(
+  adapter: KataBackendAdapter,
+  input: KataArtifactReadInput,
+): Promise<KataArtifact | null> {
+  try {
+    return await adapter.readArtifact(input);
+  } catch {
+    return null;
+  }
+}
+
+function summarizeArtifacts(artifacts: KataArtifact[]): KataProjectSnapshotArtifact[] {
+  return artifacts.map((artifact) => ({
+    artifactType: artifact.artifactType,
+    title: artifact.title,
+    updatedAt: artifact.updatedAt,
+    provenance: artifact.provenance,
+    requirementIds: extractRequirementIds(artifact.content),
+  }));
+}
+
+function determineNextAction(
+  milestoneId: string,
+  slices: KataProjectSnapshotSlice[],
+  missingSliceIds: string[],
+  missingRequirementIds: string[],
+  readiness: KataProjectSnapshot["readiness"],
+): KataProjectSnapshotNextAction {
+  if (missingSliceIds.length > 0) {
+    return {
+      workflow: "kata-plan-phase",
+      reason: `Roadmap slice ${missingSliceIds[0]} is not represented in backend state.`,
+      target: { milestoneId, sliceId: missingSliceIds[0] },
+    };
+  }
+
+  const executableSlice = slices.find((slice) => slice.status !== "done" || slice.tasks.some((task) => task.status !== "done"));
+  if (executableSlice) {
+    return {
+      workflow: "kata-execute-phase",
+      reason: `Slice ${executableSlice.id} still has execution work remaining.`,
+      target: { milestoneId, sliceId: executableSlice.id },
+    };
+  }
+
+  const unverifiedTask = slices.flatMap((slice) => slice.tasks).find((task) => task.verificationState !== "verified");
+  if (unverifiedTask) {
+    return {
+      workflow: "kata-verify-work",
+      reason: `Task ${unverifiedTask.id} is done but not verified.`,
+      target: { milestoneId, sliceId: unverifiedTask.sliceId, taskId: unverifiedTask.id },
+    };
+  }
+
+  if (missingRequirementIds.length > 0) {
+    return {
+      workflow: "kata-plan-phase",
+      reason: `Requirement ${missingRequirementIds[0]} is not covered by completed milestone evidence.`,
+      target: { milestoneId, requirementId: missingRequirementIds[0] },
+    };
+  }
+
+  if (readiness.milestoneCompletable) {
+    return {
+      workflow: "kata-complete-milestone",
+      reason: "All roadmap slices exist, all slices and tasks are done, and all tasks are verified.",
+      target: { milestoneId },
+    };
+  }
+
+  return {
+    workflow: "kata-plan-phase",
+    reason: "Milestone state is incomplete and needs additional planning before completion.",
+    target: { milestoneId },
+  };
+}
+
+function extractRequirementIds(content: string): string[] {
+  return uniqueIds(content.match(/\b[A-Z][A-Z0-9]*-\d+\b/g) ?? []);
+}
+
+function extractSliceIds(content: string): string[] {
+  return uniqueIds(content.match(/\bS\d+\b/g) ?? []);
+}
+
+function uniqueIds(ids: string[]): string[] {
+  return [...new Set(ids)].sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
 }

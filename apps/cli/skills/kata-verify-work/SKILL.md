@@ -9,9 +9,9 @@ description: "Use when the user asks to verify, validate, review, or sign off on
 
 When this skill is invoked, verify completed Kata work and record durable evidence.
 
-Load the relevant project/task/artifact context, identify the behaviors that must be verified, and walk through them one at a time. Record evidence in verification artifacts, then update task verification state through the CLI. Use UAT artifacts only when the plan explicitly calls for user acceptance testing.
+Load the relevant project snapshot, task, and artifact context, identify the behaviors that must be verified, and walk through them one at a time. Record evidence in verification artifacts, then update task verification state through the CLI. Use UAT artifacts only when the plan explicitly calls for user acceptance testing.
 
-If verification fails, report the exact failure and leave the task unverified.
+After updating verification state, reload the project snapshot and recommend exactly the snapshot's next workflow. Do not infer milestone completion from verified tasks alone.
 
 ## Success Criteria
 

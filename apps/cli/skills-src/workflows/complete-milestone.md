@@ -12,6 +12,14 @@ Use this workflow to complete the active release-sized milestone after all miles
 
 ## Stage 1: Load Active Milestone
 
+Read the project snapshot:
+
+```bash
+node ./scripts/kata-call.mjs project.getSnapshot
+```
+
+Use `snapshot.readiness` and `snapshot.nextAction` as the source of truth for whether milestone completion is allowed. If `snapshot.nextAction.workflow` is not `kata-complete-milestone`, stop and report that exact next workflow, target, and reason.
+
 ```bash
 node ./scripts/kata-call.mjs milestone.getActive
 ```
