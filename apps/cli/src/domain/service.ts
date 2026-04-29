@@ -379,8 +379,11 @@ function extractRequirementScope(content: string): { requiredIds: string[]; futu
   for (const line of content.split(/\r?\n/)) {
     const headingMatch = /^(#{2,6})\s+(.+?)\s*$/.exec(line);
     if (headingMatch) {
-      const headingLevel = headingMatch[1].length;
-      const heading = headingMatch[2].toLowerCase();
+      const marks = headingMatch[1];
+      const text = headingMatch[2];
+      if (!marks || !text) continue;
+      const headingLevel = marks.length;
+      const heading = text.toLowerCase();
       if (/\b(future|deferred|follow[- ]?up|carry[- ]?forward|non[- ]?blocking)\b/.test(heading)) {
         mode = "future";
       } else if (/\b(out of scope|traceability|coverage|notes?)\b/.test(heading)) {
