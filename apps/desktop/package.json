@@ -70,7 +70,7 @@
     "electron-log": "^5.4.3",
     "esbuild": "^0.28.0",
     "jotai": "^2.16.0",
-    "jsdom": "^29.0.2",
+    "jsdom": "^29.1.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-resizable-panels": "^4.6.3",
