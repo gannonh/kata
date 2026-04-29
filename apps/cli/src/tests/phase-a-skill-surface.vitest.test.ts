@@ -121,6 +121,10 @@ describe("Phase A skill surface", () => {
     expect(verifyWorkflow).toContain("Recommend exactly the workflow named by `snapshot.nextAction.workflow`");
     expect(verifyWorkflow).toContain("Do not recommend `kata-complete-milestone` unless");
     expect(progressWorkflow).toContain("Use the snapshot as the source of truth");
+    expect(progressWorkflow).toContain("Recommended Next Action");
+    expect(progressWorkflow).toContain("Other Possible Actions");
+    expect(progressWorkflow).toContain("/kata-execute-phase S003");
+    expect(progressWorkflow).toContain("/kata-plan-phase S004");
     expect(completeWorkflow).toContain("If `snapshot.nextAction.workflow` is not `kata-complete-milestone`");
     expect(manifest).toContain('"project.getSnapshot"');
   });

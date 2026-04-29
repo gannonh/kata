@@ -23,7 +23,7 @@ Read the project snapshot:
 node <path-to-skill-directory>/scripts/kata-call.mjs project.getSnapshot
 ```
 
-Use the snapshot as the source of truth for active milestone, roadmap coverage, slice/task state, readiness, and the recommended next action.
+Use the snapshot as the source of truth for active milestone, roadmap coverage, slice/task state, readiness, the recommended next action, and other possible explicit actions.
 
 Read active milestone only when you need additional raw milestone detail:
 
@@ -83,10 +83,20 @@ Report:
 - Slice/task counts by status.
 - Verification state.
 - Missing artifacts.
-- The one `snapshot.nextAction` recommendation and its reason.
+- A `Recommended Next Action` section showing exactly one command-shaped action from `snapshot.nextAction`.
+- An `Other Possible Actions` section showing command-shaped explicit overrides from `snapshot.otherActions` when present.
+
+Example:
+
+Recommended Next Action
+- /kata-execute-phase S003
+
+Other Possible Actions
+- /kata-plan-phase S004
 
 ## Rules
 
 - Treat backend state as authoritative.
 - Be explicit about missing project, milestone, slice, or task state.
-- Recommend the snapshot's next action, not a menu of unrelated options.
+- Put the snapshot's `nextAction` first as the recommended action.
+- Include only state-backed explicit overrides from `snapshot.otherActions`; do not invent unrelated options.

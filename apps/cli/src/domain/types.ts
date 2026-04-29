@@ -82,6 +82,7 @@ export interface KataProjectSnapshot {
     milestoneCompletable: boolean;
   };
   nextAction: KataProjectSnapshotNextAction;
+  otherActions: KataProjectSnapshotNextAction[];
 }
 
 export interface KataMilestone {
