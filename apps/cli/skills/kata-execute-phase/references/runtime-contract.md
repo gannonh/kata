@@ -89,7 +89,7 @@ Payload example:
 {
   "taskId": "T001",
   "status": "done",
-  "verificationState": "verified"
+  "verificationState": "pending"
 }
 ```
 

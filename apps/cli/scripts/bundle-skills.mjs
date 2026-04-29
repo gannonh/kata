@@ -152,7 +152,7 @@ function renderContractOperations(skill) {
       lines.push("```", "");
       lines.push("Payload example:", "");
       lines.push("```json");
-      lines.push(renderPayloadExample(operation));
+      lines.push(renderPayloadExample(operation, skill));
       lines.push("```", "");
     } else {
       lines.push("Run:", "");
@@ -164,7 +164,7 @@ function renderContractOperations(skill) {
   return lines.join("\n");
 }
 
-function renderPayloadExample(operation) {
+function renderPayloadExample(operation, skill) {
   switch (operation) {
     case "project.upsert":
       return JSON.stringify({ title: "Todo App", description: "A focused app for tracking personal tasks." }, null, 2);
@@ -183,7 +183,15 @@ function renderPayloadExample(operation) {
     case "task.create":
       return JSON.stringify({ sliceId: "S001", title: "Add task model", description: "Implement the task persistence model and tests." }, null, 2);
     case "task.updateStatus":
-      return JSON.stringify({ taskId: "T001", status: "done", verificationState: "verified" }, null, 2);
+      return JSON.stringify(
+        {
+          taskId: "T001",
+          status: "done",
+          verificationState: skill.name === "kata-execute-phase" ? "pending" : "verified",
+        },
+        null,
+        2,
+      );
     case "artifact.list":
       return JSON.stringify({ scopeType: "milestone", scopeId: "M001" }, null, 2);
     case "artifact.read":
