@@ -189,7 +189,7 @@ export class PiAgentBridge extends EventEmitter {
 
     if (discovery.source === 'not_found' || !discovery.resolvedPath) {
       const message =
-        'Pi runtime not found. Desktop expects the bundled pi launcher or a pi binary on PATH. Checked: ' +
+        'Pi runtime not found. Desktop expects the bundled pi launcher, KATA_PI_BIN_PATH, or a pi binary on PATH. Checked: ' +
         discovery.checkedPaths.join(', ')
 
       this.emit('crash', {
@@ -792,25 +792,25 @@ export class PiAgentBridge extends EventEmitter {
       }
     }
 
-    const fromEnvRaw = process.env.KATA_BIN_PATH?.trim()
-    const fromEnv = fromEnvRaw ? path.resolve(fromEnvRaw) : undefined
-    if (fromEnv) {
-      checkedPaths.push(fromEnv)
-      if (this.isExecutableFile(fromEnv)) {
+    const fromPiEnvRaw = process.env.KATA_PI_BIN_PATH?.trim()
+    const fromPiEnv = fromPiEnvRaw ? path.resolve(fromPiEnvRaw) : undefined
+    if (fromPiEnv) {
+      checkedPaths.push(fromPiEnv)
+      if (this.isExecutableFile(fromPiEnv)) {
         return {
           source: 'path',
-          resolvedPath: fromEnv,
+          resolvedPath: fromPiEnv,
           checkedPaths,
           runtimeMode: 'pi-runtime',
         }
       }
 
-      log.warn('[PiAgentBridge] KATA_BIN_PATH is set but not executable, falling back to PATH lookup', {
-        fromEnv,
+      log.warn('[PiAgentBridge] KATA_PI_BIN_PATH is set but not executable, falling back to PATH lookup', {
+        fromPiEnv,
       })
       this.emit('debug', {
-        type: 'bridge:binary-discovery-env-not-executable',
-        fromEnv,
+        type: 'bridge:binary-discovery-pi-env-not-executable',
+        fromEnv: fromPiEnv,
       })
     }
 
