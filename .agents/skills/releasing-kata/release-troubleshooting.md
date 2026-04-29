@@ -7,10 +7,10 @@ Common issues and solutions for Kata release flows.
 Before debugging CI, confirm the target identity is correct:
 
 - CLI: `@kata-sh/cli`
-- Orchestrator: `@kata-sh/orc`
 - Context: `@kata/context`
 - Desktop: app release only (not an npm publish target)
 - Symphony: Rust binary release
+- Orchestrator: legacy-only; do not cut new `@kata-sh/orc` releases
 
 If the wrong target/version file is edited, release workflows may skip.
 
@@ -49,7 +49,7 @@ git tag -l 'desktop-v*'
 rg -n '"version"' apps/desktop/package.json
 ```
 
-## CLI / Orchestrator / Context publish issues
+## CLI / Context publish issues
 
 ### npm publish failed
 
@@ -61,8 +61,13 @@ rg -n '"version"' apps/desktop/package.json
 
 ```bash
 git tag -l 'cli-v*'
-git tag -l 'orc-v*'
 git tag -l 'context-v*'
+```
+
+For CLI prereleases, confirm the package did not publish as `latest`:
+
+```bash
+npm view @kata-sh/cli dist-tags
 ```
 
 ### Workflow did not trigger
@@ -70,7 +75,6 @@ git tag -l 'context-v*'
 Confirm the right path changed:
 
 - CLI: `apps/cli/**`
-- Orchestrator: `apps/orchestrator/**`
 - Context: `apps/context/**`
 
 ## Symphony release issues
@@ -126,7 +130,6 @@ xcrun notarytool history --apple-id "$APPLE_ID" --password "$APPLE_APP_SPECIFIC_
 # Recent release workflow runs
 gh run list --workflow=desktop-release.yml --limit 5
 gh run list --workflow=cli-release.yml --limit 5
-gh run list --workflow=orc-release.yml --limit 5
 gh run list --workflow=context-release.yml --limit 5
 gh run list --workflow=symphony-release.yml --limit 5
 

@@ -3,8 +3,15 @@
 Package: `@kata-sh/cli`
 Version source: `apps/cli/package.json`
 Changelog: `apps/cli/CHANGELOG.md`
-Tag format: `cli-vX.Y.Z`
+Tag format: `cli-vX.Y.Z` or `cli-vX.Y.Z-alpha.N`
 CI workflow: `cli-release.yml`
+
+## Release Channels
+
+- Stable releases use plain semver, for example `0.16.0`, and publish to npm with the `latest` dist-tag.
+- Prereleases use semver prerelease identifiers, for example `0.16.0-alpha.0`, `0.16.0-beta.0`, or `0.16.0-rc.0`.
+- The CLI release workflow derives the npm dist-tag from the prerelease identifier. `0.16.0-alpha.0` publishes as `@kata-sh/cli@alpha` and creates a GitHub prerelease.
+- Use prereleases for platform pivots where the skill/backend contract is ready for integration validation but downstream harnesses are still catching up.
 
 ## Steps
 
@@ -23,7 +30,7 @@ CI workflow: `cli-release.yml`
    npm test
    ```
 
-3. **Bump version** in `apps/cli/package.json` only
+3. **Bump version** in `apps/cli/package.json` only. For validation releases, prefer prerelease semver such as `0.16.0-alpha.0`.
 
 4. **Update `apps/cli/CHANGELOG.md`** and `apps/cli/README.md` and `apps/cli/AGENTS.md` with the new version's changes
 
@@ -49,6 +56,7 @@ CI workflow: `cli-release.yml`
    ```bash
    gh release view cli-vX.Y.Z
    npm view @kata-sh/cli version
+   npm view @kata-sh/cli dist-tags
    ```
 
 ## What CI does after merge
@@ -57,12 +65,12 @@ CI workflow: `cli-release.yml`
 
 1. Compares `apps/cli/package.json` version against existing `cli-v*` tags — skips if tag exists
 2. Runs TypeScript check and tests
-3. Builds and publishes to npm (`npm publish --access public`)
+3. Builds and publishes to npm (`npm publish --access public`). Prereleases publish under their prerelease dist-tag, for example `alpha`; stable releases publish under `latest`.
 4. Creates git tag `cli-vX.Y.Z` and GitHub Release
 
 ## Acceptance criteria
 
 - [ ] `apps/cli/package.json` version bumped
 - [ ] `apps/cli/CHANGELOG.md` updated
-- [ ] Published to npm (`npm view @kata-sh/cli version`)
+- [ ] Published to npm (`npm view @kata-sh/cli version` for stable or `npm view @kata-sh/cli dist-tags` for prerelease)
 - [ ] Git tag `cli-vX.Y.Z` created

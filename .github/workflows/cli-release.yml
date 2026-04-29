@@ -18,6 +18,8 @@ jobs:
     outputs:
       should_release: ${{ steps.check.outputs.should_release }}
       version: ${{ steps.check.outputs.version }}
+      npm_tag: ${{ steps.check.outputs.npm_tag }}
+      prerelease: ${{ steps.check.outputs.prerelease }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -29,6 +31,16 @@ jobs:
         run: |
           CURRENT_VERSION=$(node -p "require('./apps/cli/package.json').version")
           echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+
+          if [[ "$CURRENT_VERSION" == *-* ]]; then
+            DIST_TAG="${CURRENT_VERSION#*-}"
+            DIST_TAG="${DIST_TAG%%.*}"
+            echo "npm_tag=$DIST_TAG" >> $GITHUB_OUTPUT
+            echo "prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "npm_tag=latest" >> $GITHUB_OUTPUT
+            echo "prerelease=false" >> $GITHUB_OUTPUT
+          fi
 
           if git ls-remote --tags origin | grep -q "refs/tags/cli-v$CURRENT_VERSION"; then
             echo "Tag cli-v$CURRENT_VERSION already exists, skipping release"
@@ -117,7 +129,7 @@ jobs:
           pnpm --dir apps/cli exec vitest run src/tests/golden-path.pi-github.vitest.test.ts
 
       - name: Publish to npm
-        run: pnpm --dir apps/cli publish --access public --no-git-checks
+        run: pnpm --dir apps/cli publish --access public --no-git-checks --tag "${{ needs.check-version.outputs.npm_tag }}"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -150,3 +162,4 @@ jobs:
           body_path: ${{ steps.changelog.outputs.found == 'true' && '/tmp/release-notes.md' || '' }}
           generate_release_notes: ${{ steps.changelog.outputs.found != 'true' }}
           make_latest: false
+          prerelease: ${{ needs.check-version.outputs.prerelease == 'true' }}
