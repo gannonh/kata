@@ -1,7 +1,8 @@
 import { EventEmitter } from 'node:events'
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import type { CommandResult, ProviderStatusMap } from '@shared/types'
 import {
@@ -1152,6 +1153,18 @@ rl.on('line', (line) => {
 
       cleanup()
     }
+  })
+
+  test('packaged runtime launcher invokes bundled Pi runtime instead of global pi', () => {
+    const script = readFileSync(
+      path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../scripts/bundle-kata-runtime.sh'),
+      'utf8',
+    )
+
+    expect(script).toContain('pi-runtime/node_modules/@mariozechner/pi-coding-agent/dist/cli.js')
+    expect(script).toContain('ELECTRON_RUN_AS_NODE=1 exec "$KATA_ELECTRON_NODE" "$PI_CLI" "$@"')
+    expect(script).not.toContain('exec pi "$@"')
+    expect(script).not.toContain('\npi %*')
   })
 
   test('isExecutableFile and RPC type guards return false for invalid values', () => {

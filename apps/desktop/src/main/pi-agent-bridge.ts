@@ -225,9 +225,13 @@ export class PiAgentBridge extends EventEmitter {
     this.spawnTimestamp = Date.now()
     // On Windows, .cmd files require shell: true for child_process.spawn
     const useShell = process.platform === 'win32' && command.toLowerCase().endsWith('.cmd')
+    const spawnEnv = { ...process.env }
+    if (isPackaged && discovery.source === 'bundled') {
+      spawnEnv.KATA_ELECTRON_NODE = process.execPath
+    }
     const child = spawn(command, args, {
       cwd: this.workspacePath,
-      env: process.env,
+      env: spawnEnv,
       stdio: 'pipe',
       ...(useShell ? { shell: true } : {}),
     })

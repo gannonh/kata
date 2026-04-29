@@ -8,6 +8,7 @@ afterSign: scripts/afterSign.cjs
 
 # Runtime resources are copied by afterPack:
 # - pi / pi.cmd
+# - pi-runtime/
 # - kata-cli/
 # - kata-skills/
 # - symphony / symphony.exe
