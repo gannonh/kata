@@ -1,0 +1,105 @@
+import { KataDomainError } from "../../domain/errors.js";
+
+export type FetchLike = typeof fetch;
+
+export interface GithubClientInput {
+  token: string;
+  fetch?: FetchLike;
+}
+
+export interface GraphqlInput {
+  query: string;
+  variables?: Record<string, unknown>;
+}
+
+export interface RestInput {
+  method: "GET" | "POST" | "PATCH" | "DELETE";
+  path: string;
+  body?: Record<string, unknown>;
+}
+
+interface GraphqlResponse<T> {
+  data?: T;
+  errors?: Array<{ message?: string }>;
+}
+
+export function createGithubClient(input: GithubClientInput) {
+  const request = input.fetch ?? fetch;
+
+  return {
+    async graphql<T>(graphqlInput: GraphqlInput): Promise<T> {
+      const response = await request("https://api.github.com/graphql", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${input.token}`,
+          "Content-Type": "application/json",
+          "User-Agent": "@kata-sh/cli",
+        },
+        body: JSON.stringify(graphqlInput),
+      });
+
+      const payload = await parseResponse<GraphqlResponse<T>>(response);
+
+      if (!payload) {
+        throw new KataDomainError("UNKNOWN", "GitHub GraphQL response did not include data.");
+      }
+
+      if (payload.data != null) {
+        return payload.data;
+      }
+
+      if (payload.errors?.length) {
+        const message = payload.errors.map((error) => error.message ?? "Unknown GraphQL error").join("; ");
+        throw new KataDomainError("UNKNOWN", message);
+      }
+
+      throw new KataDomainError("UNKNOWN", "GitHub GraphQL response did not include data.");
+    },
+
+    async rest<T>(restInput: RestInput): Promise<T> {
+      const path = normalizeRestPath(restInput.path);
+      const response = await request(`https://api.github.com${path}`, {
+        method: restInput.method,
+        headers: {
+          Authorization: `Bearer ${input.token}`,
+          Accept: "application/vnd.github+json",
+          "Content-Type": "application/json",
+          "X-GitHub-Api-Version": "2022-11-28",
+          "User-Agent": "@kata-sh/cli",
+        },
+        body: restInput.body ? JSON.stringify(restInput.body) : undefined,
+      });
+
+      return parseResponse<T>(response);
+    },
+  };
+}
+
+async function parseResponse<T>(response: Response): Promise<T> {
+  const text = await response.text();
+
+  if (!response.ok) {
+    throw new KataDomainError("NETWORK", `GitHub request failed (${response.status}): ${text}`);
+  }
+
+  if (!text) {
+    return undefined as T;
+  }
+
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new KataDomainError("NETWORK", "GitHub response was not valid JSON.");
+  }
+}
+
+function normalizeRestPath(path: string): string {
+  if (!path.startsWith("/") || path.startsWith("//") || /^[a-z][a-z\d+.-]*:\/\//i.test(path)) {
+    throw new KataDomainError(
+      "INVALID_CONFIG",
+      'GitHub REST path must be root-relative and begin with exactly one "/".',
+    );
+  }
+
+  return path;
+}

@@ -321,7 +321,7 @@ app.whenReady().then(async () => {
 
   const workspacePath = await resolveInitialWorkspacePath()
 
-  bridge = new PiAgentBridge(workspacePath, 'kata', 30_000)
+  bridge = new PiAgentBridge(workspacePath, 'pi', 30_000)
   symphonySupervisor = new SymphonySupervisor({
     workspacePath,
     appIsPackaged: app.isPackaged,

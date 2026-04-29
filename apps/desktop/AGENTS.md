@@ -10,14 +10,14 @@ Kata Desktop is the native GUI for the Kata coding agent platform. It combines:
 - **Contextual right pane:** Planning artifact viewer during `/kata plan`, kanban board during execution
 - **Symphony operator surface:** Start/stop Symphony, monitor workers, handle escalations — all from the GUI
 
-Desktop wraps the Kata CLI as a subprocess in JSON-RPC mode (`kata --mode rpc`). This means Desktop inherits all CLI capabilities: multi-provider support, extensions, skills, MCP, Linear/GitHub integration, and the Kata planning methodology.
+Desktop wraps the Pi coding-agent runtime as a subprocess in JSON-RPC mode (`pi --mode rpc`). The packaged app uses the bundled Pi launcher and Kata Skills; local development can override the Pi binary with `KATA_PI_BIN_PATH`.
 
 ## Hard Rules
 
 - **Never use `git push --no-verify` or `git commit --no-verify`.** If the gate fails, fix the problem.
-- **Never import from archived legacy packages.** Use the live `@kata/*` workspace packages for shared code and pi-coding-agent via the CLI subprocess, not as an embedded library.
+- **Never import from archived legacy packages.** Use the live `@kata/*` workspace packages for shared code and pi-coding-agent via the Pi runtime subprocess, not as an embedded library.
 - **Use current Kata Desktop naming everywhere.** The product name is "Kata Desktop" and the active package scope should stay on `@kata/*` / `@kata-sh/*` as appropriate.
-- **Electron main process runs Node.js, not Bun.** Don't use `import.meta.dir` or Bun-only APIs in main process code. The CLI subprocess runs Bun, but the Electron process itself is Node.js.
+- **Electron main process runs Node.js, not Bun.** Don't use `import.meta.dir` or Bun-only APIs in main process code. The Pi runtime subprocess runs in its own Node/Electron-as-Node context, but the Electron main process itself is Node.js.
 - **Desktop UI must stick to shadcn default components and patterns on Tailwind v4.** Do not introduce custom design systems, custom-styled primitives, or ad hoc component patterns when a shadcn default component/composition exists. For any substantial UI change — new screens, large layout changes, major visual refactors, or component-library decisions — read and follow `.agents/skills/shadcn/SKILL.md` first.
 
 ## Architecture
@@ -28,7 +28,7 @@ apps/desktop/
 │   ├── main/                    # Electron main process (Node.js)
 │   │   ├── index.ts             # App entry, window lifecycle
 │   │   ├── ipc.ts               # IPC handlers for renderer communication
-│   │   ├── pi-agent-bridge.ts   # Spawns `kata --mode rpc`, manages subprocess lifecycle
+│   │   ├── pi-agent-bridge.ts   # Spawns `pi --mode rpc`, manages subprocess lifecycle
 │   │   ├── rpc-event-adapter.ts # Stateful adapter: RPC events → ChatEvent types (see below)
 │   │   ├── auth-bridge.ts       # Reads/writes ~/.kata-cli/agent/auth.json, provider validation
 │   │   ├── session-manager.ts   # Lists/reads session JSONL files for the sidebar
@@ -54,9 +54,9 @@ apps/desktop/
 
 ## Key Integration Points
 
-### CLI Subprocess (pi-coding-agent)
+### Pi Runtime Subprocess (pi-coding-agent)
 
-The core integration. Desktop spawns `kata --mode rpc` as a child process:
+The core integration. Desktop spawns `pi --mode rpc` as a child process:
 
 - **Spawn:** `child_process.spawn()` with stdin/stdout for JSON-RPC
 - **Messages:** Send user messages, receive streaming events (text deltas, tool starts, tool results, errors, turn boundaries)
@@ -65,7 +65,7 @@ The core integration. Desktop spawns `kata --mode rpc` as a child process:
 - **Model selection:** Passed via `--model` flag on spawn, `set_model` RPC command at runtime
 - **Thinking level:** `set_thinking_level` RPC command — levels are `off | minimal | low | medium | high | xhigh` (model-dependent)
 
-Reference: `apps/cli/src/cli.ts` (RPC mode entry)
+Reference: `apps/desktop/src/main/pi-agent-bridge.ts` (RPC runtime bridge)
 
 ### RPC Event Adapter (`rpc-event-adapter.ts`)
 
@@ -185,7 +185,7 @@ Borrow patterns and components selectively. **Import from shared packages**, not
 
 | # | Decision | Choice |
 |---|----------|--------|
-| D001 | Agent runtime | pi-coding-agent via CLI subprocess in RPC mode |
+| D001 | Agent runtime | pi-coding-agent via Pi runtime subprocess in RPC mode |
 | D002 | Build strategy | Fresh app at `apps/desktop/`, borrow selectively from legacy |
 | D003 | Auth storage | Shared `~/.kata-cli/agent/auth.json` with CLI |
 | D004 | CLI packaging | Bundle `kata` binary inside .dmg |
@@ -245,7 +245,7 @@ bun run test:watch              # Watch mode for development
 - Import from `vitest`, not `bun:test`
 - Test files go in `src/main/__tests__/<module>.test.ts`
 - Test private methods via `(instance as any).methodName()` when the public API doesn't cover the path
-- Tests that modify `process.env.KATA_BIN_PATH` must save and restore it
+- Tests that modify `process.env.KATA_PI_BIN_PATH`, `process.env.KATA_CLI_ROOT`, or `process.env.KATA_CLI_BIN` must save and restore them. `KATA_PI_BIN_PATH` selects the Desktop RPC runtime; `KATA_CLI_ROOT` / `KATA_CLI_BIN` are inherited by `/kata` skills for CLI-backed artifact I/O.
 
 ### E2E Tests (Playwright Electron)
 
@@ -261,7 +261,7 @@ bun run test:watch              # Watch mode for development
 | `mainWindow` | First window, waited for React mount. Onboarding overlay may be visible. |
 | `readyWindow` | Same as `mainWindow` but auto-dismisses onboarding. Use for tests that click behind the overlay. |
 
-**Teardown:** `app.close()` is raced with a 3s timeout + `SIGKILL`. Without this, the kata CLI subprocess shutdown hangs for 30s.
+**Teardown:** `app.close()` is raced with a 3s timeout + `SIGKILL`. Without this, the Pi runtime subprocess shutdown can hang for 30s.
 
 **Test suites:**
 

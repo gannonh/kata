@@ -35,7 +35,7 @@ describe('readWorkspaceWorkflowTrackerConfig', () => {
     expect(result).toEqual({ config: { kind: 'linear' } })
   })
 
-  test('parses github label mode tracker config from preferences', async () => {
+  test('returns INVALID_CONFIG when github stateMode is omitted', async () => {
     const workspace = mkdtempSync(path.join(tmpdir(), 'workflow-config-github-labels-'))
     writePrefs(
       workspace,
@@ -46,7 +46,6 @@ describe('readWorkspaceWorkflowTrackerConfig', () => {
         'github:',
         '  repoOwner: kata-sh',
         '  repoName: kata-mono',
-        '  labelPrefix: symphony',
         '---',
         '',
       ],
@@ -54,18 +53,11 @@ describe('readWorkspaceWorkflowTrackerConfig', () => {
 
     const result = await readWorkspaceWorkflowTrackerConfig(workspace)
 
-    expect(result.error).toBeUndefined()
-    expect(result.config).toEqual({
-      kind: 'github',
-      repoOwner: 'kata-sh',
-      repoName: 'kata-mono',
-      stateMode: 'labels',
-      labelPrefix: 'symphony',
-      githubProjectNumber: undefined,
-    })
+    expect(result.config).toBeNull()
+    expect(result.error?.code).toBe('INVALID_CONFIG')
   })
 
-  test('normalizes github labelPrefix by trimming trailing colons', async () => {
+  test('returns INVALID_CONFIG when github label mode is requested explicitly', async () => {
     const workspace = mkdtempSync(path.join(tmpdir(), 'workflow-config-github-label-prefix-colon-'))
     writePrefs(
       workspace,
@@ -76,7 +68,7 @@ describe('readWorkspaceWorkflowTrackerConfig', () => {
         'github:',
         '  repoOwner: kata-sh',
         '  repoName: kata-mono',
-        '  labelPrefix: kata:',
+        '  stateMode: labels',
         '---',
         '',
       ],
@@ -84,15 +76,11 @@ describe('readWorkspaceWorkflowTrackerConfig', () => {
 
     const result = await readWorkspaceWorkflowTrackerConfig(workspace)
 
-    expect(result.error).toBeUndefined()
-    expect(result.config).toEqual({
-      kind: 'github',
-      repoOwner: 'kata-sh',
-      repoName: 'kata-mono',
-      stateMode: 'labels',
-      labelPrefix: 'kata',
-      githubProjectNumber: undefined,
-    })
+    expect(result.config).toBeNull()
+    expect(result.error?.code).toBe('INVALID_CONFIG')
+    expect(result.error?.message).toBe(
+      'GitHub label mode is no longer supported. Use github.stateMode: projects_v2 and set github.githubProjectNumber in .kata/preferences.md.',
+    )
   })
 
   test('returns INVALID_CONFIG when github block is missing in github mode', async () => {
@@ -182,56 +170,6 @@ describe('readWorkspaceWorkflowTrackerConfig', () => {
     expect(result.error?.code).toBe('INVALID_CONFIG')
   })
 
-  test('preserves quoted values containing hash characters', async () => {
-    const workspace = mkdtempSync(path.join(tmpdir(), 'workflow-config-hash-value-'))
-    writePrefs(
-      workspace,
-      [
-        '---',
-        'workflow:',
-        '  mode: github',
-        'github:',
-        '  repoOwner: kata-sh',
-        '  repoName: kata-mono',
-        "  labelPrefix: 'sym#flow'",
-        '---',
-        '',
-      ],
-    )
-
-    const result = await readWorkspaceWorkflowTrackerConfig(workspace)
-    expect(result.config).toMatchObject({
-      kind: 'github',
-      stateMode: 'labels',
-      labelPrefix: 'sym#flow',
-    })
-  })
-
-  test('strips inline comments from unquoted values but keeps hashes in double quotes', async () => {
-    const workspace = mkdtempSync(path.join(tmpdir(), 'workflow-config-inline-comment-'))
-    writePrefs(
-      workspace,
-      [
-        '---',
-        'workflow:',
-        '  mode: github',
-        'github:',
-        '  repoOwner: kata-sh',
-        '  repoName: kata-mono',
-        '  labelPrefix: "sym#flow" # inline comment',
-        '---',
-        '',
-      ],
-    )
-
-    const result = await readWorkspaceWorkflowTrackerConfig(workspace)
-    expect(result.config).toMatchObject({
-      kind: 'github',
-      stateMode: 'labels',
-      labelPrefix: 'sym#flow',
-    })
-  })
-
   test('returns UNKNOWN when preferences path cannot be read due to invalid workspace', async () => {
     const workspacePath = path.join(tmpdir(), 'workflow-config-not-a-dir')
     writeFileSync(workspacePath, 'not-a-dir', 'utf8')
@@ -291,11 +229,10 @@ describe('readWorkspaceWorkflowTrackerConfig', () => {
       repoName: 'kata-mono',
       stateMode: 'projects_v2',
       githubProjectNumber: 7,
-      labelPrefix: undefined,
     })
   })
 
-  test('infers projects_v2 mode when githubProjectNumber is set', async () => {
+  test('returns INVALID_CONFIG when githubProjectNumber is set without an explicit stateMode', async () => {
     const workspace = mkdtempSync(path.join(tmpdir(), 'workflow-config-github-projects-number-'))
     writePrefs(
       workspace,
@@ -314,14 +251,10 @@ describe('readWorkspaceWorkflowTrackerConfig', () => {
 
     const result = await readWorkspaceWorkflowTrackerConfig(workspace)
 
-    expect(result.error).toBeUndefined()
-    expect(result.config).toEqual({
-      kind: 'github',
-      repoOwner: 'kata-sh',
-      repoName: 'kata-mono',
-      stateMode: 'projects_v2',
-      githubProjectNumber: 7,
-      labelPrefix: undefined,
-    })
+    expect(result.config).toBeNull()
+    expect(result.error?.code).toBe('INVALID_CONFIG')
+    expect(result.error?.message).toBe(
+      'github.stateMode is required and must be projects_v2 in .kata/preferences.md. Set github.stateMode: projects_v2 and github.githubProjectNumber to a positive integer.',
+    )
   })
 })

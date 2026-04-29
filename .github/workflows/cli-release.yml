@@ -18,6 +18,8 @@ jobs:
     outputs:
       should_release: ${{ steps.check.outputs.should_release }}
       version: ${{ steps.check.outputs.version }}
+      npm_tag: ${{ steps.check.outputs.npm_tag }}
+      prerelease: ${{ steps.check.outputs.prerelease }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -29,6 +31,16 @@ jobs:
         run: |
           CURRENT_VERSION=$(node -p "require('./apps/cli/package.json').version")
           echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+
+          if [[ "$CURRENT_VERSION" == *-* ]]; then
+            DIST_TAG="${CURRENT_VERSION#*-}"
+            DIST_TAG="${DIST_TAG%%.*}"
+            echo "npm_tag=$DIST_TAG" >> $GITHUB_OUTPUT
+            echo "prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "npm_tag=latest" >> $GITHUB_OUTPUT
+            echo "prerelease=false" >> $GITHUB_OUTPUT
+          fi
 
           if git ls-remote --tags origin | grep -q "refs/tags/cli-v$CURRENT_VERSION"; then
             echo "Tag cli-v$CURRENT_VERSION already exists, skipping release"
@@ -68,10 +80,13 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: TypeScript check
-        run: cd apps/cli && npx tsc
+        run: pnpm --dir apps/cli exec tsc
 
       - name: Run tests
-        run: cd apps/cli && npm test
+        run: pnpm --dir apps/cli run test
+
+      - name: Run golden-path smoke test
+        run: pnpm --dir apps/cli exec vitest run src/tests/golden-path.pi-github.vitest.test.ts
 
   publish:
     needs: [check-version, test]
@@ -106,10 +121,15 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build
-        run: cd apps/cli && npm run build
+        run: pnpm --dir apps/cli run build
+
+      - name: Run CLI golden-path release gate
+        run: |
+          pnpm --dir apps/cli run build
+          pnpm --dir apps/cli exec vitest run src/tests/golden-path.pi-github.vitest.test.ts
 
       - name: Publish to npm
-        run: cd apps/cli && npm publish --access public
+        run: pnpm --dir apps/cli publish --access public --no-git-checks --tag "${{ needs.check-version.outputs.npm_tag }}"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -142,3 +162,4 @@ jobs:
           body_path: ${{ steps.changelog.outputs.found == 'true' && '/tmp/release-notes.md' || '' }}
           generate_release_notes: ${{ steps.changelog.outputs.found != 'true' }}
           make_latest: false
+          prerelease: ${{ needs.check-version.outputs.prerelease == 'true' }}

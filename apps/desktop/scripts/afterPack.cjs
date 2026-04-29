@@ -2,7 +2,7 @@
  * electron-builder afterPack hook
  *
  * 1. Copies pre-compiled macOS 26+ Liquid Glass icon (Assets.car) into the app bundle.
- * 2. Copies bundled runtime resources (kata, kata-runtime, symphony) into Contents/Resources.
+ * 2. Copies bundled runtime resources (pi, pi-runtime, kata-cli, kata-skills, symphony) into Contents/Resources.
  * 3. Strips executable permissions from script files to prevent notarization issues.
  *
  * To regenerate Assets.car after icon changes:
@@ -34,8 +34,10 @@ function copyVendorResources(projectDir, resourcesDir, platform) {
   const isWindows = platform === 'win32';
 
   const items = [
-    { src: isWindows ? 'kata.cmd' : 'kata', type: 'file', executable: true },
-    { src: 'kata-runtime', type: 'dir' },
+    { src: isWindows ? 'pi.cmd' : 'pi', type: 'file', executable: true },
+    { src: 'pi-runtime', type: 'dir' },
+    { src: 'kata-cli', type: 'dir' },
+    { src: 'kata-skills', type: 'dir' },
     { src: isWindows ? 'symphony.exe' : 'symphony', type: 'file', executable: true, optional: true },
   ];
 
@@ -86,12 +88,12 @@ module.exports = async function afterPack(context) {
     // 1. Copy vendor runtime resources
     copyVendorResources(projectDir, resourcesDir, platform);
 
-    // Remove .bin symlinks from kata-runtime — they point to relative targets
+    // Remove .bin symlinks from kata-cli — they point to relative targets
     // that codesign rejects as "invalid destination for symbolic link in bundle"
-    const binDir = path.join(resourcesDir, 'kata-runtime', 'node_modules', '.bin');
+    const binDir = path.join(resourcesDir, 'kata-cli', 'node_modules', '.bin');
     if (fs.existsSync(binDir)) {
       fs.rmSync(binDir, { recursive: true });
-      console.log('afterPack: removed kata-runtime/node_modules/.bin symlinks');
+      console.log('afterPack: removed kata-cli/node_modules/.bin symlinks');
     }
 
     // 2. Copy Liquid Glass icon (Assets.car)
@@ -112,11 +114,11 @@ module.exports = async function afterPack(context) {
     // Copy vendor runtime resources
     copyVendorResources(projectDir, resourcesDir, platform);
 
-    // Remove .bin symlinks/shims from kata-runtime
-    const binDir = path.join(resourcesDir, 'kata-runtime', 'node_modules', '.bin');
+    // Remove .bin symlinks/shims from kata-cli
+    const binDir = path.join(resourcesDir, 'kata-cli', 'node_modules', '.bin');
     if (fs.existsSync(binDir)) {
       fs.rmSync(binDir, { recursive: true });
-      console.log(`afterPack: removed kata-runtime/node_modules/.bin (${platform})`);
+      console.log(`afterPack: removed kata-cli/node_modules/.bin (${platform})`);
     }
 
     console.log(`afterPack: vendor resources copied for ${platform}`);

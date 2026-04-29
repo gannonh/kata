@@ -928,6 +928,8 @@ describe('WorkflowBoardService', () => {
         'github:',
         '  repoOwner: kata-sh',
         '  repoName: kata-mono',
+        '  stateMode: projects_v2',
+        '  githubProjectNumber: 7',
         '---',
         '',
       ].join('\n'),
@@ -982,7 +984,7 @@ describe('WorkflowBoardService', () => {
       source: {
         projectId: 'github:kata-sh/kata-mono',
         trackerKind: 'github',
-        githubStateMode: 'labels',
+        githubStateMode: 'projects_v2',
         repoOwner: 'kata-sh',
         repoName: 'kata-mono',
       },
@@ -998,9 +1000,9 @@ describe('WorkflowBoardService', () => {
               title: '[S02] GitHub Workflow Board Parity',
               columnId: 'in_progress',
               stateName: 'In Progress',
-              stateType: 'label',
-              milestoneId: 'github:kata-sh/kata-mono',
-              milestoneName: 'kata-sh/kata-mono',
+              stateType: 'projects_v2',
+              milestoneId: 'github-project:7',
+              milestoneName: 'GitHub Project #7',
               taskCounts: { total: 0, done: 0 },
               tasks: [],
               url: 'https://github.com/kata-sh/kata-mono/issues/2249',
@@ -1916,7 +1918,7 @@ describe('WorkflowBoardService', () => {
     expect(response.snapshot.status).toBe('fresh')
   })
 
-  test('uses github labels fixture in test mode when preferences workflow.mode=github labels', async () => {
+  test('returns INVALID_CONFIG in test mode when github label mode is requested', async () => {
     process.env.KATA_TEST_MODE = '1'
 
     const workspacePath = mkdtempSync(path.join(tmpdir(), 'workflow-board-github-labels-'))
@@ -1930,7 +1932,7 @@ describe('WorkflowBoardService', () => {
         'github:',
         '  repoOwner: kata-sh',
         '  repoName: kata-mono',
-        '  labelPrefix: symphony',
+        '  stateMode: labels',
         '---',
         '',
       ].join('\n'),
@@ -1945,9 +1947,8 @@ describe('WorkflowBoardService', () => {
     service.setActive(true)
     const response = await service.refreshBoard()
 
-    expect(response.snapshot.backend).toBe('github')
-    expect(response.snapshot.source.githubStateMode).toBe('labels')
-    expect(response.snapshot.status).toBe('fresh')
+    expect(response.snapshot.status).toBe('error')
+    expect(response.snapshot.lastError?.code).toBe('INVALID_CONFIG')
   })
 
   test('uses github projects_v2 fixture in test mode when githubProjectNumber is set', async () => {
@@ -1964,6 +1965,7 @@ describe('WorkflowBoardService', () => {
         'github:',
         '  repoOwner: kata-sh',
         '  repoName: kata-mono',
+        '  stateMode: projects_v2',
         '  githubProjectNumber: 7',
         '---',
         '',
@@ -1996,6 +1998,7 @@ describe('WorkflowBoardService', () => {
         'github:',
         '  repoOwner: gannonh',
         '  repoName: kata',
+        '  stateMode: projects_v2',
         '  githubProjectNumber: 17',
         '---',
         '',
@@ -2090,6 +2093,7 @@ describe('WorkflowBoardService', () => {
         'github:',
         '  repoOwner: gannonh',
         '  repoName: kata',
+        '  stateMode: projects_v2',
         '  githubProjectNumber: 17',
         '---',
         '',
@@ -2186,6 +2190,8 @@ describe('WorkflowBoardService', () => {
         'github:',
         '  repoOwner: kata-sh',
         '  repoName: kata-mono',
+        '  stateMode: projects_v2',
+        '  githubProjectNumber: 7',
         '---',
         '',
       ].join('\n'),

@@ -1,0 +1,6 @@
+{
+  "name": "kata",
+  "description": "Installs the canonical Kata skill bundle and CLI integration for Cursor.",
+  "skillsDir": "skills",
+  "setupCommand": "npx @kata-sh/cli setup --cursor"
+}

@@ -1,0 +1,56 @@
+{
+  "name": "@kata-sh/orc",
+  "version": "2.0.2",
+  "private": true,
+  "description": "LEGACY ARCHIVE: former Kata Orchestrator app retained for reference only.",
+  "bin": {
+    "kata": "bin/install.js"
+  },
+  "files": [
+    "bin",
+    "commands",
+    "kata",
+    "dist",
+    "plugin-templates",
+    "skills-src",
+    "agents",
+    "hooks/dist",
+    "scripts"
+  ],
+  "keywords": [
+    "claude",
+    "claude-code",
+    "ai",
+    "meta-prompting",
+    "context-engineering",
+    "spec-driven-development",
+    "gemini",
+    "gemini-cli",
+    "codex",
+    "codex-cli"
+  ],
+  "author": "kata-orchestrator",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gannonh/kata.git",
+    "directory": "apps/orchestrator"
+  },
+  "homepage": "https://github.com/gannonh/kata/tree/main/apps/orchestrator",
+  "bugs": {
+    "url": "https://github.com/gannonh/kata/issues"
+  },
+  "engines": {
+    "node": ">=16.7.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.0"
+  },
+  "scripts": {
+    "build:skills": "node scripts/build-skill-bundle.js",
+    "build:hooks": "node scripts/build-hooks.js",
+    "prepublishOnly": "pnpm run build:skills && pnpm run build:hooks",
+    "test": "bun test tests/",
+    "lint": "eslint . --max-warnings=200 --no-error-on-unmatched-pattern"
+  }
+}

@@ -1,0 +1,69 @@
+{
+  "name": "@kata-sh/cli-legacy",
+  "version": "0.15.9",
+  "description": "Legacy Kata CLI coding agent (archival)",
+  "license": "MIT",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gannonh/kata.git",
+    "directory": "apps/cli"
+  },
+  "type": "module",
+  "bin": {
+    "kata": "dist/loader.js",
+    "kata-cli": "dist/loader.js"
+  },
+  "exports": {
+    ".": "./dist/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "pkg",
+    "src/resources",
+    "scripts/postinstall.js",
+    "package.json",
+    "README.md"
+  ],
+  "piConfig": {
+    "name": "kata",
+    "configDir": ".kata-cli"
+  },
+  "engines": {
+    "node": ">=20.6.0"
+  },
+  "scripts": {
+    "build": "tsc && pnpm run copy-themes && pnpm run copy-export-html && pnpm run copy-changelog",
+    "copy-changelog": "node -e \"require('fs').cpSync('CHANGELOG.md','pkg/CHANGELOG.md')\"",
+    "copy-themes": "node -e \"const{mkdirSync,cpSync}=require('fs');const{resolve}=require('path');const candidates=[resolve(__dirname,'node_modules/@mariozechner/pi-coding-agent/dist/modes/interactive/theme'),resolve(__dirname,'..','..','node_modules/@mariozechner/pi-coding-agent/dist/modes/interactive/theme')];const src=candidates.find(p=>{try{require('fs').statSync(p);return true}catch{return false}});if(!src)throw new Error('theme dir not found');mkdirSync('pkg/dist/modes/interactive/theme',{recursive:true});cpSync(src,'pkg/dist/modes/interactive/theme',{recursive:true})\"",
+    "copy-export-html": "node -e \"const{mkdirSync,cpSync}=require('fs');const{resolve}=require('path');const candidates=[resolve(__dirname,'node_modules/@mariozechner/pi-coding-agent/dist/core/export-html'),resolve(__dirname,'..','..','node_modules/@mariozechner/pi-coding-agent/dist/core/export-html')];const src=candidates.find(p=>{try{require('fs').statSync(p);return true}catch{return false}});if(!src)throw new Error('export-html dir not found');mkdirSync('pkg/dist/core/export-html',{recursive:true});cpSync(src,'pkg/dist/core/export-html',{recursive:true})\"",
+    "test": "bun test --path-ignore-patterns '**/*.vitest.test.ts' src/ && pnpm exec vitest run --coverage",
+    "test:vitest": "pnpm exec vitest run",
+    "test:coverage": "pnpm exec vitest run --coverage",
+    "dev": "tsc --watch",
+    "postinstall": "node scripts/postinstall.js",
+    "sync-pkg-version": "node scripts/sync-pkg-version.cjs",
+    "prepublishOnly": "pnpm run sync-pkg-version && pnpm run build",
+    "lint": "eslint src/ --max-warnings=500",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@mariozechner/pi-coding-agent": "^0.70.2",
+    "@mariozechner/pi-tui": "^0.70.2",
+    "@sinclair/typebox": "^0.34.48",
+    "js-yaml": "^4.1.1",
+    "playwright": "^1.58.2",
+    "proper-lockfile": "^4.1.2"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^25.5.0",
+    "@vitest/coverage-v8": "^4.1.5",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.5"
+  },
+  "overrides": {
+    "gaxios": "7.1.4"
+  }
+}

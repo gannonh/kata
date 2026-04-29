@@ -1,19 +1,20 @@
 ---
 name: releasing-kata
-description: Use this skill when releasing Kata Desktop, Kata CLI, Kata Orchestrator, Kata Context, or Symphony, bumping versions, updating changelogs, or creating release PRs. Triggers include "release", "bump version", "publish", "create release PR", "ship it", "cut a release".
+description: Use this skill when releasing Kata Desktop, Kata CLI, Kata Context, or Symphony, bumping versions, updating changelogs, or creating release PRs. Triggers include "release", "bump version", "publish", "create release PR", "ship it", "cut a release".
 ---
 
 # Releasing Kata
 
-Kata has five independently versioned release targets. Ask which target if not clear from context.
+Kata has four active independently versioned release targets. Ask which target if not clear from context.
 
 | Target           | Package                  | Tag Format        | Reference                        |
 | ---------------- | ------------------------ | ----------------- | -------------------------------- |
 | **Desktop**      | Desktop app (not npm package) | `desktop-vX.Y.Z`  | `references/desktop-release.md`  |
 | **CLI**          | `@kata-sh/cli`           | `cli-vX.Y.Z`      | `references/cli-release.md`      |
-| **Orchestrator** | `@kata-sh/orc`           | `orc-vX.Y.Z`      | `references/orc-release.md`      |
 | **Context**      | `@kata/context`          | `context-vX.Y.Z`  | `references/context-release.md`  |
 | **Symphony**     | `symphony` (Rust binary) | `symphony-vX.Y.Z` | `references/symphony-release.md` |
+
+`@kata-sh/orc` / Orchestrator is legacy-only. Do not cut new Orchestrator releases; update the CLI skill-platform, Desktop, Context, or Symphony release target instead.
 
 Root `package.json` version is `0.0.0` — never touch it. Each app owns its own version. Versions are independent and do not need to match.
 
@@ -38,8 +39,6 @@ Quick checks:
 - **CI didn't trigger**: Version in `package.json` must differ from existing git tags
 - **Desktop CI fails**: `gh run list --workflow=desktop-release.yml --limit 3`
 - **CLI publish fails**: Ensure `NPM_TOKEN` secret is set and `private: false` in `apps/cli/package.json`
-- **Orchestrator CI didn't trigger**: Changes must be under `apps/orchestrator/**`; version must differ from existing `orc-v*` tags
-- **Orchestrator publish fails**: Ensure `NPM_TOKEN` secret is set; check `apps/orchestrator/package.json` has no `private: true`
 - **Context CI didn't trigger**: Changes must be under `apps/context/**`; version must differ from existing `context-v*` tags
 - **Context publish fails**: Ensure `NPM_TOKEN` secret is set; check `apps/context/package.json` has no `private: true`
 - **Symphony CI didn't trigger**: Changes must be under `apps/symphony/**`; version in `Cargo.toml` must differ from existing `symphony-v*` tags

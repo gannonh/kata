@@ -1,6 +1,6 @@
 # Kata Desktop
 
-Kata Desktop is a fresh Electron shell for the Kata CLI runtime (`kata --mode rpc`).
+Kata Desktop is a fresh Electron shell for the Pi RPC runtime (`pi --mode rpc`) with bundled Kata skills.
 
 ## Quick Start (packaged app)
 
@@ -42,7 +42,7 @@ Packaging is configured in `apps/desktop/electron-builder.yml`.
 
 `desktop:dist:mac` executes:
 
-1. `scripts/bundle-cli.sh` (stages bundled kata runtime)
+1. `scripts/bundle-kata-runtime.sh` (stages bundled Pi runtime, Kata skills, and Kata CLI backend)
 2. `desktop:build`
 3. `scripts/prepare-builder-app.sh` (stages `.bundle-app`)
 4. `scripts/package-mac.sh` (packaged app + DMG)
@@ -65,11 +65,13 @@ Desktop can manage a Symphony orchestrator instance and display a live operator 
 
 2. **Configure `.env.development`** — Desktop's main process loads `apps/desktop/.env.development` at startup. It must contain the Symphony binary path *and* all env vars that Symphony needs at runtime:
    ```
-   KATA_BIN_PATH=../../apps/cli/dist/loader.js
+   # Optional: KATA_PI_BIN_PATH=/absolute/path/to/pi
+   KATA_CLI_ROOT=./apps/cli
    KATA_SYMPHONY_BIN_PATH=/path/to/apps/symphony/target/release/symphony
    LINEAR_API_KEY=lin_api_...
    SLACK_WEBHOOK_URL=https://hooks.slack.com/...
    ```
+   `KATA_PI_BIN_PATH` selects the optional local Pi RPC harness. `KATA_CLI_ROOT` is different: `/kata` skills inherit it and use it for Kata CLI artifact/backend I/O.
    The managed Symphony subprocess inherits the Electron process's environment — it does **not** read `apps/symphony/.env` on its own. Copy any required vars from there.
 
 3. **Configure `.kata/preferences.md`** — set the Symphony URL and workflow file path:
@@ -89,14 +91,14 @@ Start Symphony yourself (e.g. `./target/release/symphony WORKFLOW-desktop.md`). 
 
 ## Build and Test the Packaged App
 
-Build the full distributable (bundles CLI + Symphony + Bun into a self-contained .app):
+Build the full distributable (bundles Pi runtime + Kata skills + Kata CLI backend + Symphony into a self-contained .app):
 
 ```bash
 cd apps/desktop
 pnpm run desktop:dist:mac
 ```
 
-This runs the full pipeline: `bundle-cli.sh` (builds CLI runtime + Symphony binary into `vendor/`) → `build` (esbuild + Vite) → `prepare-builder-app.sh` (stages `.bundle-app/`) → `package-mac.sh` (electron-packager + DMG).
+This runs the full pipeline: `bundle-kata-runtime.sh` (builds the runtime assets into `vendor/`) → `build` (esbuild + Vite) → `prepare-builder-app.sh` (stages `.bundle-app/`) → `package-mac.sh` (electron-packager + DMG).
 
 **Run the packaged app directly:**
 
@@ -111,13 +113,14 @@ open "apps/desktop/release/Kata Desktop-1.0.0-arm64.dmg"
 # Drag Kata Desktop.app to Applications, then launch from Launchpad
 ```
 
-The packaged app is fully self-contained — it bundles its own Bun runtime, Kata CLI, and Symphony binary in `Contents/Resources/`. Changes to `.env.development` or monorepo source don't affect it; rebuild to pick up changes.
+The packaged app is fully self-contained — it bundles its own Pi runtime, Kata skills, Kata CLI backend, and Symphony binary in `Contents/Resources/`. Changes to `.env.development` or monorepo source don't affect it; rebuild to pick up changes.
 
 ### Dev mode vs packaged mode
 
 | | Dev mode (`desktop:dev`) | Packaged (.app) |
 |---|---|---|
-| CLI | `apps/cli/dist/loader.js` via system Bun | `Contents/Resources/kata` (bundled launcher + runtime + Bun) |
+| Agent RPC runtime | `pi` from PATH or `KATA_PI_BIN_PATH` | `Contents/Resources/pi` (bundled launcher + Pi runtime) |
+| Kata artifact I/O | `KATA_CLI_ROOT=./apps/cli` for `/kata` skills | Bundled `Contents/Resources/kata-cli` |
 | Symphony | `KATA_SYMPHONY_BIN_PATH` from `.env.development` | `Contents/Resources/symphony` (bundled binary) |
 | Preferences | `apps/desktop/.kata/preferences.md` (CWD) | `~/.kata/preferences.md` or last-selected workspace |
 | Config | `.env.development` loaded at startup | No `.env` — all config comes from auth.json + preferences |
@@ -126,8 +129,9 @@ The packaged app is fully self-contained — it bundles its own Bun runtime, Kat
 
 - **Main process**: `src/main/index.ts`
 - **Bridge**: `src/main/pi-agent-bridge.ts`
-  - packaged binary discovery first (`Contents/Resources/kata`)
-  - PATH fallback second
+  - packaged Pi runtime discovery first (`Contents/Resources/pi`)
+  - `KATA_PI_BIN_PATH` override and PATH fallback second
+  - `KATA_CLI_ROOT` is inherited for `/kata` skill artifact I/O, not used as the RPC runtime
   - clear missing-binary crash message with install hint
 - **Renderer**: `src/renderer/`
 - **Shared IPC types**: `src/shared/types.ts`
@@ -137,7 +141,13 @@ The packaged app is fully self-contained — it bundles its own Bun runtime, Kat
 Packaged app includes:
 
 - `Contents/Resources/kata` (launcher)
-- `Contents/Resources/bun/bun`
+- `Contents/Resources/pi` (Pi RPC launcher)
 - `Contents/Resources/kata-runtime/`
 
 This allows Kata Desktop to launch the agent runtime even when `kata` is not on PATH.
+Desktop bundles:
+
+- the Pi runtime launcher used for RPC chat
+- the Kata CLI backend package
+- the canonical Kata skill bundle
+- the Symphony binary

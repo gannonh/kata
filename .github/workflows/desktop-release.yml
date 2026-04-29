@@ -36,8 +36,43 @@ jobs:
             echo "should_release=true" >> $GITHUB_OUTPUT
           fi
 
-  build-macos:
+  golden-path-gate:
     needs: check-version
+    if: needs.check-version.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version-file: '.node-version'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@4bc047ad259df6fc24a6c9b0f9a0cb08cf17fbe5 # v2.0.1
+        with:
+          bun-version: '1.3.8'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.6.2
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y ripgrep
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run distribution + golden-path gate
+        run: bash scripts/ci/build-kata-distributions.sh
+
+  build-macos:
+    needs: [check-version, golden-path-gate]
     if: needs.check-version.outputs.should_release == 'true'
     runs-on: macos-latest
     env:
@@ -98,7 +133,7 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" build.keychain
           rm certificate.p12
 
-      - name: Bundle CLI runtime and Symphony binary
+      - name: Bundle Pi runtime, Kata CLI, skills, and Symphony
         env:
           CARGO_BUILD_TARGET: ${{ matrix.arch == 'arm64' && 'aarch64-apple-darwin' || 'x86_64-apple-darwin' }}
         run: |
@@ -231,7 +266,7 @@ jobs:
             apps/desktop/release/latest-mac.yml
 
   build-windows:
-    needs: check-version
+    needs: [check-version, golden-path-gate]
     if: needs.check-version.outputs.should_release == 'true'
     runs-on: windows-latest
     env:
@@ -279,7 +314,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ matrix.arch }}-cargo-
 
-      - name: Bundle CLI runtime
+      - name: Bundle Pi runtime, Kata CLI, skills, and Symphony
         shell: bash
         run: |
           cd apps/desktop && bun run bundle:cli
@@ -330,7 +365,7 @@ jobs:
             apps/desktop/release/latest.yml
 
   build-linux:
-    needs: check-version
+    needs: [check-version, golden-path-gate]
     if: needs.check-version.outputs.should_release == 'true'
     runs-on: ubuntu-latest
     env:
@@ -407,7 +442,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ matrix.arch }}-cargo-
 
-      - name: Bundle CLI runtime
+      - name: Bundle Pi runtime, Kata CLI, skills, and Symphony
         run: |
           cd apps/desktop && bun run bundle:cli
 

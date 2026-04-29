@@ -1,0 +1,193 @@
+import { KataDomainError } from "../../domain/errors.js";
+import type { createGithubClient } from "./client.js";
+
+export const KATA_PROJECT_FIELDS = {
+  status: "Status",
+  type: "Kata Type",
+  id: "Kata ID",
+  parentId: "Kata Parent ID",
+  artifactScope: "Kata Artifact Scope",
+  verificationState: "Kata Verification State",
+  blocking: "Kata Blocking",
+  blockedBy: "Kata Blocked By",
+} as const;
+
+export const KATA_STATUS_OPTIONS = [
+  "Backlog",
+  "Todo",
+  "In Progress",
+  "Agent Review",
+  "Human Review",
+  "Merging",
+  "Done",
+] as const;
+
+const REQUIRED_TEXT_FIELD_NAMES = [
+  KATA_PROJECT_FIELDS.type,
+  KATA_PROJECT_FIELDS.id,
+  KATA_PROJECT_FIELDS.parentId,
+  KATA_PROJECT_FIELDS.artifactScope,
+  KATA_PROJECT_FIELDS.verificationState,
+  KATA_PROJECT_FIELDS.blocking,
+  KATA_PROJECT_FIELDS.blockedBy,
+] as const;
+
+export interface ProjectFieldIndex {
+  projectId: string;
+  fields: Record<string, { id: string; options?: Record<string, string> }>;
+}
+
+interface ProjectFieldNode {
+  id: string;
+  name: string;
+  options?: Array<{ id: string; name: string }>;
+}
+
+interface ProjectV2 {
+  id: string;
+  fields: {
+    nodes: Array<ProjectFieldNode | null>;
+  };
+}
+
+interface ProjectFieldsQueryData {
+  organization?: {
+    projectV2?: ProjectV2 | null;
+  } | null;
+  user?: {
+    projectV2?: ProjectV2 | null;
+  } | null;
+}
+
+const PROJECT_FIELDS_QUERY = `
+  query LoadKataProjectFields($owner: String!, $repo: String!, $projectNumber: Int!) {
+    repository(owner: $owner, name: $repo) {
+      id
+      owner {
+        login
+      }
+    }
+    organization(login: $owner) {
+      projectV2(number: $projectNumber) {
+        id
+        fields(first: 50) {
+          nodes {
+            ... on ProjectV2Field {
+              id
+              name
+            }
+            ... on ProjectV2SingleSelectField {
+              id
+              name
+              options {
+                id
+                name
+              }
+            }
+          }
+        }
+      }
+    }
+    user(login: $owner) {
+      projectV2(number: $projectNumber) {
+        id
+        fields(first: 50) {
+          nodes {
+            ... on ProjectV2Field {
+              id
+              name
+            }
+            ... on ProjectV2SingleSelectField {
+              id
+              name
+              options {
+                id
+                name
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
+export async function loadProjectFieldIndex(input: {
+  client: ReturnType<typeof createGithubClient>;
+  owner: string;
+  repo: string;
+  projectNumber: number;
+}): Promise<ProjectFieldIndex> {
+  const data = await input.client.graphql<ProjectFieldsQueryData>({
+    query: PROJECT_FIELDS_QUERY,
+    variables: {
+      owner: input.owner,
+      repo: input.repo,
+      projectNumber: input.projectNumber,
+    },
+  });
+
+  const project = data.organization?.projectV2 ?? data.user?.projectV2;
+
+  if (!project?.id) {
+    throw new KataDomainError(
+      "NOT_FOUND",
+      `GitHub Projects v2 project ${input.projectNumber} was not found for ${input.owner}/${input.repo}.`,
+    );
+  }
+
+  const fields = Object.fromEntries(
+    project.fields.nodes.filter(isProjectFieldNode).map((field) => [
+      field.name,
+      {
+        id: field.id,
+        options: field.options
+          ? Object.fromEntries(field.options.map((option) => [option.name, option.id]))
+          : undefined,
+      },
+    ]),
+  );
+
+  validateProjectFieldIndex(fields);
+
+  return {
+    projectId: project.id,
+    fields,
+  };
+}
+
+function isProjectFieldNode(node: ProjectFieldNode | null): node is ProjectFieldNode {
+  return Boolean(node?.id && node.name);
+}
+
+function validateProjectFieldIndex(fields: ProjectFieldIndex["fields"]): void {
+  const missingFields = Object.values(KATA_PROJECT_FIELDS).filter((fieldName) => !fields[fieldName]);
+
+  if (missingFields.length) {
+    throw new KataDomainError(
+      "INVALID_CONFIG",
+      [
+        `GitHub Projects v2 project is missing required Kata fields: ${missingFields.join(", ")}.`,
+        "",
+        "Add each missing field in the GitHub Project table view: click the rightmost + field header, choose New field, enter the exact field name, choose Text, and save.",
+        "",
+        `Required Kata text fields: ${REQUIRED_TEXT_FIELD_NAMES.join(", ")}.`,
+        `Required Status options: ${KATA_STATUS_OPTIONS.join(", ")}.`,
+      ].join("\n"),
+    );
+  }
+
+  const statusOptions = fields[KATA_PROJECT_FIELDS.status]?.options;
+  const missingStatusOptions = KATA_STATUS_OPTIONS.filter((optionName) => !statusOptions?.[optionName]);
+
+  if (missingStatusOptions.length) {
+    throw new KataDomainError(
+      "INVALID_CONFIG",
+      [
+        `GitHub Projects v2 Status field is missing required options: ${missingStatusOptions.join(", ")}.`,
+        "",
+        `Open the Status field settings in the GitHub Project and add these options exactly: ${KATA_STATUS_OPTIONS.join(", ")}.`,
+      ].join("\n"),
+    );
+  }
+}

@@ -1,7 +1,8 @@
 import { EventEmitter } from 'node:events'
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import type { CommandResult, ProviderStatusMap } from '@shared/types'
 import {
@@ -24,8 +25,8 @@ async function waitFor(condition: () => boolean, timeoutMs = 1_500): Promise<voi
 
 describe('PiAgentBridge', () => {
   test('marks bridge as crashed and allows restart attempts after spawn error', async () => {
-    const savedBinPath = process.env.KATA_BIN_PATH
-    delete process.env.KATA_BIN_PATH
+    const savedPiBinPath = process.env.KATA_PI_BIN_PATH
+    delete process.env.KATA_PI_BIN_PATH
     const bridge = new PiAgentBridge(process.cwd(), 'kata-command-that-does-not-exist')
     const statusHistory: string[] = []
 
@@ -46,12 +47,12 @@ describe('PiAgentBridge', () => {
 
     expect(bridge.getState().running).toBe(false)
     expect(bridge.getState().status).toBe('crashed')
-    if (savedBinPath !== undefined) process.env.KATA_BIN_PATH = savedBinPath
+    if (savedPiBinPath !== undefined) process.env.KATA_PI_BIN_PATH = savedPiBinPath
   })
 
   test('coalesces concurrent start calls into a single spawn attempt', async () => {
-    const savedBinPath = process.env.KATA_BIN_PATH
-    delete process.env.KATA_BIN_PATH
+    const savedPiBinPath = process.env.KATA_PI_BIN_PATH
+    delete process.env.KATA_PI_BIN_PATH
     const bridge = new PiAgentBridge(process.cwd(), 'kata-command-that-does-not-exist')
     const statusHistory: string[] = []
 
@@ -65,7 +66,7 @@ describe('PiAgentBridge', () => {
     expect(statusHistory.filter((state) => state === 'crashed').length).toBe(1)
     expect(bridge.getState().running).toBe(false)
     expect(bridge.getState().status).toBe('crashed')
-    if (savedBinPath !== undefined) process.env.KATA_BIN_PATH = savedBinPath
+    if (savedPiBinPath !== undefined) process.env.KATA_PI_BIN_PATH = savedPiBinPath
   })
 
   test('resolves oldest pending command when response id is omitted', () => {
@@ -786,8 +787,8 @@ rl.on('line', (line) => {
 })
 `)
 
-    const originalBinPath = process.env.KATA_BIN_PATH
-    process.env.KATA_BIN_PATH = executablePath
+    const originalPiBinPath = process.env.KATA_PI_BIN_PATH
+    process.env.KATA_PI_BIN_PATH = executablePath
 
     try {
       const bridge = new PiAgentBridge(process.cwd(), 'kata', 1_000, 'provider/model') as any
@@ -819,10 +820,10 @@ rl.on('line', (line) => {
       expect(bridge.getState().status).toBe('shutdown')
       expect(bridge.getState().running).toBe(false)
     } finally {
-      if (originalBinPath === undefined) {
-        delete process.env.KATA_BIN_PATH
+      if (originalPiBinPath === undefined) {
+        delete process.env.KATA_PI_BIN_PATH
       } else {
-        process.env.KATA_BIN_PATH = originalBinPath
+        process.env.KATA_PI_BIN_PATH = originalPiBinPath
       }
       cleanup()
     }
@@ -838,8 +839,8 @@ setTimeout(() => {
 }, 200)
 `)
 
-    const originalBinPath = process.env.KATA_BIN_PATH
-    process.env.KATA_BIN_PATH = executablePath
+    const originalPiBinPath = process.env.KATA_PI_BIN_PATH
+    process.env.KATA_PI_BIN_PATH = executablePath
 
     try {
       const bridge = new PiAgentBridge(process.cwd(), 'kata', 1_000) as any
@@ -863,10 +864,10 @@ setTimeout(() => {
       expect(crashPayload?.stderrLines).toContain('token=***')
       expect(bridge.getState().status).toBe('crashed')
     } finally {
-      if (originalBinPath === undefined) {
-        delete process.env.KATA_BIN_PATH
+      if (originalPiBinPath === undefined) {
+        delete process.env.KATA_PI_BIN_PATH
       } else {
-        process.env.KATA_BIN_PATH = originalBinPath
+        process.env.KATA_PI_BIN_PATH = originalPiBinPath
       }
       cleanup()
     }
@@ -961,16 +962,16 @@ setTimeout(() => {
   })
 
   test('binary discovery supports env, packaged, and PATH fallback branches', () => {
-    const originalBinPath = process.env.KATA_BIN_PATH
+    const originalPiBinPath = process.env.KATA_PI_BIN_PATH
     const originalResourcesPath = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath
 
     try {
       const envBridge = new PiAgentBridge(process.cwd()) as any
-      process.env.KATA_BIN_PATH = process.execPath
+      process.env.KATA_PI_BIN_PATH = process.execPath
       expect(envBridge.discoverBinary(false)).toMatchObject({
         source: 'path',
         resolvedPath: process.execPath,
-        runtimeMode: 'kata-cli',
+        runtimeMode: 'pi-runtime',
       })
 
       const packagedBridge = new PiAgentBridge(process.cwd()) as any
@@ -979,23 +980,23 @@ setTimeout(() => {
         configurable: true,
       })
       vi.spyOn(packagedBridge, 'isExecutableFile').mockImplementation(((candidate: string) => {
-        return candidate === path.join('/tmp/kata-resources', 'kata')
+        return candidate === path.join('/tmp/kata-resources', 'pi')
       }) as any)
 
       expect(packagedBridge.discoverBinary(true)).toMatchObject({
         source: 'bundled',
-        resolvedPath: path.join('/tmp/kata-resources', 'kata'),
-        runtimeMode: 'electron-node',
+        resolvedPath: path.join('/tmp/kata-resources', 'pi'),
+        runtimeMode: 'pi-runtime',
       })
 
       const fallbackBridge = new PiAgentBridge(process.cwd(), 'node') as any
       vi.spyOn(fallbackBridge, 'isExecutableFile').mockReturnValue(false)
       expect(fallbackBridge.discoverBinary(false).source).toBe('not_found')
     } finally {
-      if (originalBinPath === undefined) {
-        delete process.env.KATA_BIN_PATH
+      if (originalPiBinPath === undefined) {
+        delete process.env.KATA_PI_BIN_PATH
       } else {
-        process.env.KATA_BIN_PATH = originalBinPath
+        process.env.KATA_PI_BIN_PATH = originalPiBinPath
       }
 
       Object.defineProperty(process, 'resourcesPath', {
@@ -1005,11 +1006,11 @@ setTimeout(() => {
     }
   })
 
-  test('discoverBinary emits debug event when KATA_BIN_PATH is not executable', () => {
-    const originalBinPath = process.env.KATA_BIN_PATH
+  test('discoverBinary emits debug event when KATA_PI_BIN_PATH is not executable', () => {
+    const originalPiBinPath = process.env.KATA_PI_BIN_PATH
 
     try {
-      process.env.KATA_BIN_PATH = '/definitely/not-executable'
+      process.env.KATA_PI_BIN_PATH = '/definitely/not-executable'
       const bridge = new PiAgentBridge(process.cwd(), 'kata-command-that-does-not-exist') as any
       const debugEvents: Array<Record<string, unknown>> = []
 
@@ -1021,24 +1022,113 @@ setTimeout(() => {
 
       expect(result.source).toBe('not_found')
       expect(debugEvents).toContainEqual({
-        type: 'bridge:binary-discovery-env-not-executable',
+        type: 'bridge:binary-discovery-pi-env-not-executable',
         fromEnv: '/definitely/not-executable',
       })
+    } finally {
+      if (originalPiBinPath === undefined) {
+        delete process.env.KATA_PI_BIN_PATH
+      } else {
+        process.env.KATA_PI_BIN_PATH = originalPiBinPath
+      }
+    }
+  })
+
+  test('discoverBinary does not treat KATA_BIN_PATH as the Pi RPC runtime', () => {
+    const originalBinPath = process.env.KATA_BIN_PATH
+    const originalPiBinPath = process.env.KATA_PI_BIN_PATH
+
+    try {
+      process.env.KATA_BIN_PATH = process.execPath
+      delete process.env.KATA_PI_BIN_PATH
+
+      const bridge = new PiAgentBridge(process.cwd(), 'kata-command-that-does-not-exist') as any
+      const result = bridge.discoverBinary(false)
+
+      expect(result.source).toBe('not_found')
+      expect(result.checkedPaths).not.toContain(process.execPath)
+      expect(result.checkedPaths).toContain('kata-command-that-does-not-exist')
     } finally {
       if (originalBinPath === undefined) {
         delete process.env.KATA_BIN_PATH
       } else {
         process.env.KATA_BIN_PATH = originalBinPath
       }
+
+      if (originalPiBinPath === undefined) {
+        delete process.env.KATA_PI_BIN_PATH
+      } else {
+        process.env.KATA_PI_BIN_PATH = originalPiBinPath
+      }
+    }
+  })
+
+  test('spawned Pi runtime inherits KATA_CLI_ROOT for kata skill artifact IO', async () => {
+    const { executablePath, cleanup } = createTempExecutable(`#!/usr/bin/env node
+const readline = require('node:readline')
+process.stdout.write(JSON.stringify({ type: 'event', event: { type: 'agent_ready' } }) + '\\n')
+const rl = readline.createInterface({ input: process.stdin })
+rl.on('line', (line) => {
+  const message = JSON.parse(line)
+  if (message.type === 'prompt') {
+    process.stdout.write(JSON.stringify({
+      type: 'response',
+      id: message.id,
+      command: 'prompt',
+      success: true,
+      data: { kataCliRoot: process.env.KATA_CLI_ROOT }
+    }) + '\\n')
+    return
+  }
+
+  if (message.type === 'shutdown') {
+    process.stdout.write(JSON.stringify({ type: 'response', id: message.id, command: 'shutdown', success: true }) + '\\n')
+    setTimeout(() => process.exit(0), 10)
+  }
+})
+`)
+
+    const originalCliRoot = process.env.KATA_CLI_ROOT
+    const originalPiBinPath = process.env.KATA_PI_BIN_PATH
+    const kataCliRoot = './apps/cli'
+
+    try {
+      process.env.KATA_PI_BIN_PATH = executablePath
+      process.env.KATA_CLI_ROOT = kataCliRoot
+
+      const bridge = new PiAgentBridge(process.cwd(), 'kata-command-that-does-not-exist') as any
+      await bridge.start()
+
+      await expect(bridge.prompt('env?')).resolves.toMatchObject({
+        command: 'prompt',
+        success: true,
+        data: { kataCliRoot },
+      })
+
+      await bridge.shutdown(250)
+    } finally {
+      if (originalCliRoot === undefined) {
+        delete process.env.KATA_CLI_ROOT
+      } else {
+        process.env.KATA_CLI_ROOT = originalCliRoot
+      }
+
+      if (originalPiBinPath === undefined) {
+        delete process.env.KATA_PI_BIN_PATH
+      } else {
+        process.env.KATA_PI_BIN_PATH = originalPiBinPath
+      }
+
+      cleanup()
     }
   })
 
   test('packaged discovery returns not_found with checked launcher path when launcher is missing', () => {
-    const originalBinPath = process.env.KATA_BIN_PATH
+    const originalPiBinPath = process.env.KATA_PI_BIN_PATH
     const originalResourcesPath = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath
 
     try {
-      delete process.env.KATA_BIN_PATH
+      delete process.env.KATA_PI_BIN_PATH
       Object.defineProperty(process, 'resourcesPath', {
         value: '/tmp/missing-kata-resources',
         configurable: true,
@@ -1048,14 +1138,14 @@ setTimeout(() => {
       const result = bridge.discoverBinary(true)
 
       expect(result.source).toBe('not_found')
-      expect(result.runtimeMode).toBe('electron-node')
-      expect(result.checkedPaths).toContain(path.join('/tmp/missing-kata-resources', 'kata'))
+      expect(result.runtimeMode).toBe('pi-runtime')
+      expect(result.checkedPaths).toContain(path.join('/tmp/missing-kata-resources', 'pi'))
       expect(result.checkedPaths).toContain('kata-command-that-does-not-exist')
     } finally {
-      if (originalBinPath === undefined) {
-        delete process.env.KATA_BIN_PATH
+      if (originalPiBinPath === undefined) {
+        delete process.env.KATA_PI_BIN_PATH
       } else {
-        process.env.KATA_BIN_PATH = originalBinPath
+        process.env.KATA_PI_BIN_PATH = originalPiBinPath
       }
 
       Object.defineProperty(process, 'resourcesPath', {
@@ -1065,7 +1155,7 @@ setTimeout(() => {
     }
   })
 
-  test('packaged launcher spawns with rpc args and emits runtimeMode electron-node', async () => {
+  test('packaged launcher spawns with rpc args and emits runtimeMode pi-runtime', async () => {
     const { executablePath, cleanup } = createTempExecutable(`#!/usr/bin/env node
 const readline = require('node:readline')
 const rl = readline.createInterface({ input: process.stdin })
@@ -1079,11 +1169,11 @@ rl.on('line', (line) => {
 `)
 
     const resourcesDir = path.dirname(executablePath)
-    const bundledLauncherPath = path.join(resourcesDir, 'kata')
-    const originalBinPath = process.env.KATA_BIN_PATH
+    const bundledLauncherPath = path.join(resourcesDir, 'pi')
+    const originalPiBinPath = process.env.KATA_PI_BIN_PATH
     const originalResourcesPath = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath
 
-    // Ensure discoverBinary sees a bundled launcher named "kata"
+    // Ensure discoverBinary sees a bundled launcher named "pi"
     writeFileSync(bundledLauncherPath, `#!/usr/bin/env node
 const readline = require('node:readline')
 const rl = readline.createInterface({ input: process.stdin })
@@ -1098,7 +1188,7 @@ rl.on('line', (line) => {
     chmodSync(bundledLauncherPath, 0o755)
 
     try {
-      delete process.env.KATA_BIN_PATH
+      delete process.env.KATA_PI_BIN_PATH
       Object.defineProperty(process, 'resourcesPath', {
         value: resourcesDir,
         configurable: true,
@@ -1126,23 +1216,23 @@ rl.on('line', (line) => {
       expect(discoveryEvent).toMatchObject({
         source: 'bundled',
         path: bundledLauncherPath,
-        runtimeMode: 'electron-node',
+        runtimeMode: 'pi-runtime',
       })
 
       const spawnEvent = debugEvents.find((event) => event.type === 'bridge:spawn')
       expect(spawnEvent).toMatchObject({
         command: bundledLauncherPath,
         args: ['--mode', 'rpc', '--cwd', workspacePath],
-        runtimeMode: 'electron-node',
+        runtimeMode: 'pi-runtime',
       })
 
       await bridge.shutdown(250)
       await waitFor(() => statuses.includes('shutdown'))
     } finally {
-      if (originalBinPath === undefined) {
-        delete process.env.KATA_BIN_PATH
+      if (originalPiBinPath === undefined) {
+        delete process.env.KATA_PI_BIN_PATH
       } else {
-        process.env.KATA_BIN_PATH = originalBinPath
+        process.env.KATA_PI_BIN_PATH = originalPiBinPath
       }
 
       Object.defineProperty(process, 'resourcesPath', {
@@ -1152,6 +1242,19 @@ rl.on('line', (line) => {
 
       cleanup()
     }
+  })
+
+  test('packaged runtime launcher invokes bundled Pi runtime instead of global pi', () => {
+    const script = readFileSync(
+      path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../scripts/bundle-kata-runtime.sh'),
+      'utf8',
+    )
+
+    expect(script).toContain('pi-runtime/node_modules/@mariozechner/pi-coding-agent/dist/cli.js')
+    expect(script).toContain('export KATA_CLI_ROOT="$SCRIPT_DIR/kata-cli"')
+    expect(script).toContain('ELECTRON_RUN_AS_NODE=1 exec "$KATA_ELECTRON_NODE" "$PI_CLI" "$@"')
+    expect(script).not.toContain('exec pi "$@"')
+    expect(script).not.toContain('\npi %*')
   })
 
   test('isExecutableFile and RPC type guards return false for invalid values', () => {
@@ -1174,7 +1277,7 @@ rl.on('line', (line) => {
       source: 'path',
       resolvedPath: '/definitely/missing/kata-bin',
       checkedPaths: ['/definitely/missing/kata-bin'],
-      runtimeMode: 'kata-cli',
+      runtimeMode: 'pi-runtime',
     })
     vi.spyOn(bridge, 'isElectronPackaged').mockReturnValue(false)
 

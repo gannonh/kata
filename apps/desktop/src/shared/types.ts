@@ -645,7 +645,7 @@ export const WORKFLOW_COLUMNS: ReadonlyArray<{ id: WorkflowColumnId; title: stri
 
 export type WorkflowBoardBackend = 'linear' | 'github'
 
-export type GithubWorkflowStateMode = 'labels' | 'projects_v2'
+export type GithubWorkflowStateMode = 'projects_v2'
 
 export type WorkflowTrackerConfig =
   | {
@@ -656,8 +656,7 @@ export type WorkflowTrackerConfig =
       repoOwner: string
       repoName: string
       stateMode: GithubWorkflowStateMode
-      githubProjectNumber?: number
-      labelPrefix?: string
+      githubProjectNumber: number
     }
 
 export type WorkflowBoardStatus = 'fresh' | 'stale' | 'empty' | 'error'

@@ -14,48 +14,49 @@
 
 ## Kata Monorepo
 
-This is the Kata monorepo for five AI agent products:
+This is the Kata monorepo for four active AI agent products:
 
 - Kata CLI in `apps/cli`
 - Kata Symphony in `apps/symphony`
 - Kata Desktop in `apps/desktop`
-- Kata Orchestrator in `apps/orchestrator`
 - Kata Context in `apps/context`
 
-The repo also contains shared packages that support the product apps.
+The repo also contains shared packages that support the product apps. The former Kata Orchestrator app is archived at `apps/orchestrator-legacy` for reference only; the active Agent Skills source now lives in `apps/cli/skills-src`.
 
 ## Products
 
 | Product                                          | Path                | Use it for                                                                                         | Quick start                                                 |
 | ------------------------------------------------ | ------------------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| [Kata CLI](apps/cli/README.md)                   | `apps/cli`          | Terminal-based coding work with guided and autonomous execution modes                              | `npx @kata-sh/cli`                                          |
+| [Kata CLI](apps/cli/README.md)                   | `apps/cli`          | Portable Kata Skills runtime and backend contract bridge for project planning/execution workflows  | `npm install -g @kata-sh/cli@alpha`                         |
 | [Kata Symphony](apps/symphony/README.md)         | `apps/symphony`     | Headless orchestrator: polls Linear, dispatches parallel agent sessions, manages full PR lifecycle | `cargo build --release`                                     |
 | [Kata Desktop](apps/desktop/AGENTS.md)            | `apps/desktop`      | Native GUI with planning view, workflow kanban, and Symphony operator surface                       | [GitHub Releases](https://github.com/gannonh/kata/releases) |
-| [Kata Orchestrator](apps/orchestrator/README.md) | `apps/orchestrator` | Spec-driven workflows for Claude Code, OpenCode, Gemini CLI, and Codex                             | `npx @kata-sh/orc@latest`                                   |
 | Kata Context                                     | `apps/context`      | Structural, semantic, and memory-based codebase understanding for AI coding agents                 | `npx @kata/context`                                         |
 
 ## Kata CLI
 
-Kata CLI is a terminal coding agent. It breaks work into milestones, slices, and tasks, then executes with structured planning, verification, and fresh context windows. It supports stepwise operation, autonomous execution, and a two-terminal steering workflow.
+Kata CLI is now the portable runtime and backend contract bridge for Kata Skills. It owns typed project, milestone, slice, task, and artifact operations while harnesses such as Pi, Symphony, Desktop, or future agents own the chat/runtime experience.
+
+The `0.16.0-alpha.*` line is the M001 validation release for this skill-platform architecture. Pi is the first direct integration; Symphony and Desktop are moving onto the same contract next.
 
 Quick start:
 
 ```bash
-npx @kata-sh/cli
+npm install -g @kata-sh/cli@alpha
+kata setup --pi
 ```
 
-Or install globally:
+For local development:
 
 ```bash
-npm install -g @kata-sh/cli
-kata-cli
+pnpm --dir apps/cli run build
+pnpm --dir apps/cli run test
 ```
 
 Use Kata CLI when you want:
 
-- a terminal-first workflow
-- direct repo access from the command line
-- guided or autonomous execution inside one tool
+- portable Kata Skills installable into multiple harnesses
+- durable backend operations through GitHub Projects v2 or other adapters
+- a typed runtime contract for planning, execution, verification, progress, and milestone completion
 
 Read more in [apps/cli/README.md](apps/cli/README.md).
 
@@ -96,7 +97,7 @@ Read more in [apps/symphony/README.md](apps/symphony/README.md).
 
 ## Kata Desktop
 
-Kata Desktop is a native Electron app that brings together Kata CLI's structured planning and Symphony's autonomous orchestration in one surface. It wraps the CLI as a subprocess in JSON-RPC mode, so it inherits all CLI capabilities: multi-provider support, extensions, skills, MCP, Linear/GitHub integration, and the Kata planning methodology.
+Kata Desktop is a native Electron app that brings together planning, workflow state, and Symphony's autonomous orchestration in one surface. It is moving toward the Pi coding-agent runtime with prepackaged Kata skills, CLI backend operations, and Symphony binaries.
 
 Download a release from [GitHub Releases](https://github.com/gannonh/kata/releases), or run it from source:
 
@@ -114,7 +115,7 @@ Key features:
 - **Symphony operator** — Start/stop Symphony from the app, watch workers execute, respond to escalations inline
 - **Sessions** — Multi-session sidebar with persistence, workspace picker, model selector
 
-The app bundles everything — CLI runtime, Symphony binary, Bun — so it works out of the box.
+The app bundles the Pi runtime launcher, Kata CLI backend, Kata skills, Symphony binary, and Bun so it works out of the box.
 
 Use Kata Desktop when you want:
 
@@ -123,32 +124,6 @@ Use Kata Desktop when you want:
 - a built-in Symphony operator surface without running a separate dashboard
 
 Read more in [apps/desktop/AGENTS.md](apps/desktop/AGENTS.md).
-
-## Kata Orchestrator
-
-Kata Orchestrator provides a spec-driven development harness for supported terminal-based coding agents, including Claude Code, Codex, Gemini CLI, and OpenCode. It organizes work into discuss, plan, execute, and verify phases, runs execution in fresh subagent contexts, and writes project state to disk as structured files.
-
-Quick start:
-
-```bash
-npx @kata-sh/orc@latest
-```
-
-Verify the install in your runtime:
-
-```text
-Claude Code / Gemini CLI: /kata:help
-OpenCode: /kata-help
-Codex: $kata-help
-```
-
-Use Kata Orchestrator when you want:
-
-- a spec-driven workflow inside an existing coding runtime
-- structured planning and verification across longer projects
-- project artifacts written to disk instead of relying on one long session
-
-Read more in [apps/orchestrator/README.md](apps/orchestrator/README.md).
 
 ## Kata Context
 
@@ -164,7 +139,8 @@ npx @kata/context
 | `apps/symphony`     | Kata Symphony (Rust)                                       |
 | `apps/context`      | Kata Context                                               |
 | `apps/desktop`      | Kata Desktop                                               |
-| `apps/orchestrator` | Kata Orchestrator                                          |
+| `apps/cli/skills-src` | Source of truth for Kata Agent Skills                    |
+| `apps/orchestrator-legacy` | Archived legacy Orchestrator reference              |
 | `apps/online-docs`  | Documentation site                                         |
 | `packages/core`     | Shared types                                               |
 | `packages/shared`   | Shared agent, auth, config, git, session, and source logic |
@@ -208,10 +184,10 @@ All testing is orchestrated by Turborepo. Each package owns its test runner.
 | ---------- | ----------- | --------------------------------------- |
 | context    | Vitest      | Uses better-sqlite3 (native Node addon) |
 | symphony   | cargo test  | Rust, runs through package.json shim    |
-| all others | Bun test    | Default for JS/TS packages              |
+| all others | package-local scripts | JS/TS packages run through Turborepo |
 
 A pre-push git hook runs `turbo run lint typecheck test --affected` before every push.
 
 ## License
 
-Kata CLI and Kata Orchestrator use MIT.
+Kata packages use the licenses declared in their package directories.

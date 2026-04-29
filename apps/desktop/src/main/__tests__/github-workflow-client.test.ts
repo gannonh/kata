@@ -27,93 +27,6 @@ describe('GithubWorkflowClient', () => {
     }
   })
 
-  test('normalizes label mode issues into canonical board columns', async () => {
-    process.env.GH_TOKEN = 'ghp_test'
-
-    globalThis.fetch = vi.fn().mockResolvedValueOnce(
-      new Response(
-        JSON.stringify([
-          {
-            id: 1001,
-            number: 2249,
-            title: '[S02] GitHub Workflow Board Parity',
-            html_url: 'https://github.com/kata-sh/kata/issues/2249',
-            labels: [{ name: 'symphony:in-progress' }],
-          },
-          {
-            id: 1002,
-            number: 2250,
-            title: '[S03] Workflow Context Switching',
-            labels: [{ name: 'bug' }],
-          },
-          {
-            id: 1003,
-            number: 2251,
-            title: 'PR item',
-            pull_request: { url: 'https://api.github.com/repos/kata-sh/kata/pulls/2251' },
-            labels: [{ name: 'symphony:todo' }],
-          },
-        ]),
-        { status: 200 },
-      ),
-    ) as unknown as typeof fetch
-
-    const client = new GithubWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
-
-    const snapshot = await client.fetchSnapshot({
-      config: {
-        kind: 'github',
-        repoOwner: 'kata-sh',
-        repoName: 'kata',
-        stateMode: 'labels',
-        labelPrefix: 'symphony',
-      },
-    })
-
-    expect(snapshot.backend).toBe('github')
-    expect(snapshot.source.githubStateMode).toBe('labels')
-    expect(snapshot.columns.find((column) => column.id === 'in_progress')?.cards[0]).toMatchObject({
-      id: '2249',
-      identifier: '#2249',
-      stateName: 'In Progress',
-    })
-    expect(snapshot.columns.find((column) => column.id === 'todo')?.cards).toHaveLength(0)
-  })
-
-  test('accepts labelPrefix with trailing colon', async () => {
-    process.env.GH_TOKEN = 'ghp_test'
-
-    globalThis.fetch = vi.fn().mockResolvedValueOnce(
-      new Response(
-        JSON.stringify([
-          {
-            id: 1001,
-            number: 2249,
-            title: '[S02] GitHub Workflow Board Parity',
-            html_url: 'https://github.com/kata-sh/kata/issues/2249',
-            labels: [{ name: 'symphony:in-progress' }],
-          },
-        ]),
-        { status: 200 },
-      ),
-    ) as unknown as typeof fetch
-
-    const client = new GithubWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
-
-    const snapshot = await client.fetchSnapshot({
-      config: {
-        kind: 'github',
-        repoOwner: 'kata-sh',
-        repoName: 'kata',
-        stateMode: 'labels',
-        labelPrefix: 'symphony:',
-      },
-    })
-
-    expect(snapshot.columns.find((column) => column.id === 'in_progress')?.cards).toHaveLength(1)
-    expect(snapshot.columns.find((column) => column.id === 'in_progress')?.cards[0]?.stateName).toBe('In Progress')
-  })
-
   test('normalizes projects v2 status into canonical board columns', async () => {
     process.env.GH_TOKEN = 'ghp_test'
 
@@ -516,61 +429,41 @@ describe('GithubWorkflowClient', () => {
     expect(body).not.toContain('user(login: $owner)')
   })
 
-  test('paginates label mode issue requests and returns empty state when no mapped labels are present', async () => {
-    process.env.GH_TOKEN = 'ghp_test'
-
+  test('uses authBridge token fallback when GH_TOKEN is absent', async () => {
     globalThis.fetch = vi
       .fn()
       .mockResolvedValueOnce(
         new Response(
-          JSON.stringify(
-            Array.from({ length: 100 }, (_value, index) => ({
-              id: 2000 + index,
-              number: 3000 + index,
-              title: `Issue ${index}`,
-              labels: [{ name: 'bug' }],
-            })),
-          ),
+          JSON.stringify({
+            data: {
+              repository: {
+                owner: {
+                  __typename: 'User',
+                  login: 'kata-sh',
+                  projectV2: { id: 'p1', field: { id: 'f1' } },
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              node: {
+                items: {
+                  nodes: [],
+                  pageInfo: { hasNextPage: false, endCursor: null },
+                },
+              },
+            },
+          }),
           { status: 200 },
         ),
       )
       .mockResolvedValueOnce(new Response(JSON.stringify([]), { status: 200 })) as unknown as typeof fetch
-
-    const client = new GithubWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
-    const snapshot = await client.fetchSnapshot({
-      config: {
-        kind: 'github',
-        repoOwner: 'kata-sh',
-        repoName: 'kata',
-        stateMode: 'labels',
-      },
-    })
-
-    expect(snapshot.status).toBe('empty')
-    expect(snapshot.emptyReason).toContain('symphony:')
-    expect((globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.length).toBe(2)
-  })
-
-  test('treats empty REST response body as empty issue list', async () => {
-    process.env.GH_TOKEN = 'ghp_test'
-
-    globalThis.fetch = vi.fn().mockResolvedValue(new Response('', { status: 200 })) as unknown as typeof fetch
-
-    const client = new GithubWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
-    const snapshot = await client.fetchSnapshot({
-      config: {
-        kind: 'github',
-        repoOwner: 'kata-sh',
-        repoName: 'kata',
-        stateMode: 'labels',
-      },
-    })
-
-    expect(snapshot.status).toBe('empty')
-  })
-
-  test('uses authBridge token fallback when GH_TOKEN is absent', async () => {
-    globalThis.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify([]), { status: 200 })) as unknown as typeof fetch
 
     const client = new GithubWorkflowClient({ getApiKey: vi.fn(async () => 'bridge_token') } as never)
     await client.fetchSnapshot({
@@ -578,7 +471,8 @@ describe('GithubWorkflowClient', () => {
         kind: 'github',
         repoOwner: 'kata-sh',
         repoName: 'kata',
-        stateMode: 'labels',
+        stateMode: 'projects_v2',
+        githubProjectNumber: 7,
       },
     })
 
@@ -597,7 +491,8 @@ describe('GithubWorkflowClient', () => {
           kind: 'github',
           repoOwner: 'kata-sh',
           repoName: 'kata',
-          stateMode: 'labels',
+          stateMode: 'projects_v2',
+          githubProjectNumber: 7,
         },
       }),
     ).rejects.toMatchObject({ code: 'UNAUTHORIZED' })
@@ -609,7 +504,8 @@ describe('GithubWorkflowClient', () => {
           kind: 'github',
           repoOwner: 'kata-sh',
           repoName: 'kata',
-          stateMode: 'labels',
+          stateMode: 'projects_v2',
+          githubProjectNumber: 7,
         },
       }),
     ).rejects.toMatchObject({ code: 'NOT_FOUND' })
@@ -702,7 +598,8 @@ describe('GithubWorkflowClient', () => {
           kind: 'github',
           repoOwner: 'kata-sh',
           repoName: 'kata',
-          stateMode: 'labels',
+          stateMode: 'projects_v2',
+          githubProjectNumber: 7,
         },
       }),
     ).rejects.toMatchObject({ code: 'MISSING_API_KEY' })
@@ -720,97 +617,6 @@ describe('GithubWorkflowClient', () => {
     })
   })
 
-  test('populates prMetadata on label-mode cards from issue body PR references', async () => {
-    process.env.GH_TOKEN = 'ghp_test'
-
-    globalThis.fetch = vi.fn().mockResolvedValueOnce(
-      new Response(
-        JSON.stringify([
-          {
-            id: 1001,
-            number: 10,
-            title: 'Issue with PR link',
-            body: 'Related PR: https://github.com/kata-sh/kata/pull/42',
-            html_url: 'https://github.com/kata-sh/kata/issues/10',
-            labels: [{ name: 'symphony:in-progress' }],
-          },
-          {
-            id: 1002,
-            number: 11,
-            title: 'Issue without PR link',
-            body: 'No PR reference here',
-            html_url: 'https://github.com/kata-sh/kata/issues/11',
-            labels: [{ name: 'symphony:todo' }],
-          },
-        ]),
-        { status: 200 },
-      ),
-    ) as unknown as typeof fetch
-
-    const client = new GithubWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
-    const snapshot = await client.fetchSnapshot({
-      config: {
-        kind: 'github',
-        repoOwner: 'kata-sh',
-        repoName: 'kata',
-        stateMode: 'labels',
-        labelPrefix: 'symphony',
-      },
-    })
-
-    const inProgressCard = snapshot.columns.find((c) => c.id === 'in_progress')?.cards[0]
-    expect(inProgressCard?.prMetadata).toEqual({
-      number: 42,
-      url: 'https://github.com/kata-sh/kata/pull/42',
-    })
-
-    const todoCard = snapshot.columns.find((c) => c.id === 'todo')?.cards[0]
-    expect(todoCard?.prMetadata).toBeUndefined()
-  })
-
-  test('filters out PR-type issues while still extracting PR references from regular issues', async () => {
-    process.env.GH_TOKEN = 'ghp_test'
-
-    globalThis.fetch = vi.fn().mockResolvedValueOnce(
-      new Response(
-        JSON.stringify([
-          {
-            id: 1001,
-            number: 10,
-            title: 'Regular issue',
-            body: 'See https://github.com/kata-sh/kata/pull/42',
-            html_url: 'https://github.com/kata-sh/kata/issues/10',
-            labels: [{ name: 'symphony:todo' }],
-          },
-          {
-            id: 1002,
-            number: 42,
-            title: 'This is a PR',
-            pull_request: { url: 'https://api.github.com/repos/kata-sh/kata/pulls/42' },
-            labels: [{ name: 'symphony:in-progress' }],
-          },
-        ]),
-        { status: 200 },
-      ),
-    ) as unknown as typeof fetch
-
-    const client = new GithubWorkflowClient({ getApiKey: vi.fn(async () => null) } as never)
-    const snapshot = await client.fetchSnapshot({
-      config: {
-        kind: 'github',
-        repoOwner: 'kata-sh',
-        repoName: 'kata',
-        stateMode: 'labels',
-        labelPrefix: 'symphony',
-      },
-    })
-
-    // PR-type issue should be filtered out
-    const allCards = snapshot.columns.flatMap((c) => c.cards)
-    expect(allCards).toHaveLength(1)
-    expect(allCards[0]?.identifier).toBe('#10')
-    expect(allCards[0]?.prMetadata?.number).toBe(42)
-  })
 })
 
 describe('extractPrMetadataFromGithubIssue', () => {

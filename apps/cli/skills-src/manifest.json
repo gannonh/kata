@@ -1,0 +1,379 @@
+{
+  "skills": [
+    {
+      "name": "kata-setup",
+      "description": "Use when the user asks to install Kata, set up Kata CLI, connect Kata to an agent harness, or check initial Kata configuration.",
+      "workflow": "setup",
+      "runtimeRequired": false,
+      "contractOperations": [
+        "health.check"
+      ],
+      "setupHint": "When this installed skill is available, run setup and health checks through `scripts/kata-call.mjs`. Before skills are installed, use the published Kata CLI package or harness plugin installer.",
+      "operatingBrief": [
+        "When this skill is invoked, help the user make Kata usable in the current harness and repository.",
+        "",
+        "If the skill is already installed, use the local wrapper for setup and health checks. Explain only the concrete next fix when setup is blocked.",
+        "",
+        "This skill does not initialize project state. It only verifies that the runtime, skill installation, and backend configuration are ready for the requested Kata workflow."
+      ],
+      "successCriteria": [
+        "The user knows whether Kata is ready in this harness.",
+        "Runtime health has been checked with `node ./scripts/kata-call.mjs health.check` when the wrapper is available.",
+        "Any blocking setup issue is stated with the exact next action.",
+        "No project, milestone, slice, task, or artifact state is created."
+      ],
+      "doNot": [
+        "Do not create or modify project artifacts.",
+        "Do not continue into planning or execution if setup is blocked.",
+        "Do not inspect helper scripts unless the helper command itself fails.",
+        "Do not invent backend-specific setup steps outside the CLI contract."
+      ],
+      "requiredReferences": [
+        "cli-runtime",
+        "artifact-contract"
+      ],
+      "requiredTemplates": []
+    },
+    {
+      "name": "kata-new-project",
+      "description": "Use when the user wants to start, define, import, or initialize a Kata project.",
+      "workflow": "new-project",
+      "contractOperations": [
+        "project.upsert",
+        "artifact.write",
+        "health.check"
+      ],
+      "setupHint": "If Kata CLI is not configured, run setup and health checks through `scripts/kata-call.mjs` from the installed skill.",
+      "operatingBrief": [
+        "When this skill is invoked, help the user initialize durable Kata project context.",
+        "",
+        "Start conversationally. If the user has not already provided enough detail, ask: \"What do you want to build?\" Follow their thread until you can explain the project, why it matters, who it is for, what done looks like, and what is explicitly out of scope.",
+        "",
+        "Before durable writes, run `node ./scripts/kata-call.mjs health.check`. Then confirm the synthesized project brief with the user, run `project.upsert`, and write project-scoped artifacts with `artifact.write`.",
+        "",
+        "This skill captures project-level context only; milestone scope and roadmap creation happen next in `kata-new-milestone`."
+      ],
+      "successCriteria": [
+        "The project exists in the backend through `project.upsert`.",
+        "A project-scoped `project-brief` artifact captures what is being built, core value, users, context, constraints, decisions, and open questions.",
+        "A project-scoped `requirements` artifact is written when concrete requirement hypotheses emerged.",
+        "The user knows the next step is `kata-new-milestone`."
+      ],
+      "doNot": [
+        "Do not create milestones, slices, or tasks.",
+        "Do not write durable state outside the CLI backend contract.",
+        "Do not route to standalone discussion skills.",
+        "Do not skip questioning when the project idea is vague."
+      ],
+      "requiredReferences": [
+        "cli-runtime",
+        "artifact-contract",
+        "questioning",
+        "ui-brand"
+      ],
+      "requiredTemplates": [
+        "project",
+        "requirements"
+      ]
+    },
+    {
+      "name": "kata-new-milestone",
+      "description": "Use when the user wants to create the next milestone, release goal, or scoped delivery target for an existing Kata project.",
+      "workflow": "new-milestone",
+      "contractOperations": [
+        "project.getContext",
+        "milestone.list",
+        "milestone.create",
+        "artifact.read",
+        "artifact.write"
+      ],
+      "setupHint": "If Kata CLI is not configured, run setup and health checks through `scripts/kata-call.mjs` from the installed skill.",
+      "operatingBrief": [
+        "When this skill is invoked, help the user define the next scoped delivery milestone for an existing Kata project.",
+        "",
+        "Start by reading project context and recent completed milestone artifacts, then ask what outcome the next milestone should deliver. Gather enough detail to define the milestone goal, requirements, roadmap, constraints, open questions, and any carry-forward candidates.",
+        "",
+        "Create exactly one milestone with `milestone.create`, then write milestone-scoped requirements and roadmap artifacts with `artifact.write`. End by routing the user to `kata-plan-phase`."
+      ],
+      "successCriteria": [
+        "Exactly one active milestone is created for the selected delivery goal.",
+        "Carry-forward candidates from completed milestones are surfaced before the new milestone scope is confirmed.",
+        "Milestone requirements are persisted as a milestone-scoped `requirements` artifact.",
+        "The delivery roadmap is persisted as a milestone-scoped `roadmap` artifact.",
+        "The user knows the next step is `kata-plan-phase`."
+      ],
+      "doNot": [
+        "Do not initialize a new project here; route missing project context to `kata-new-project`.",
+        "Do not create slices or tasks.",
+        "Do not create multiple milestones unless the user explicitly asks.",
+        "Do not route to standalone discussion skills."
+      ],
+      "requiredReferences": [
+        "cli-runtime",
+        "artifact-contract",
+        "questioning",
+        "ui-brand"
+      ],
+      "requiredTemplates": [
+        "project",
+        "requirements",
+        "roadmap",
+        "state"
+      ]
+    },
+    {
+      "name": "kata-plan-phase",
+      "description": "Use when the user asks to plan a phase, slice upcoming work, or turn a milestone goal into executable Kata tasks.",
+      "workflow": "plan-phase",
+      "contractOperations": [
+        "project.getContext",
+        "project.getSnapshot",
+        "milestone.getActive",
+        "artifact.read",
+        "slice.list",
+        "slice.create",
+        "task.create",
+        "artifact.write"
+      ],
+      "setupHint": "If Kata CLI is not configured, run setup and health checks through `scripts/kata-call.mjs` from the installed skill.",
+      "operatingBrief": [
+        "When this skill is invoked, turn the active milestone roadmap into executable slices and tasks.",
+        "",
+        "Load the project snapshot and active milestone, read the milestone requirements and roadmap, list existing milestone slices when needed, then present the next roadmap phase or slice the snapshot recommends converting into execution work. Ask for confirmation before creating backend slices or tasks.",
+        "",
+        "If the selected roadmap work is not already represented by an existing slice, create a slice with `slice.create`, create focused tasks with `task.create`, and write a slice-scoped plan artifact with `artifact.write`. End by routing the user to `kata-execute-phase`."
+      ],
+      "successCriteria": [
+        "The selected milestone work is represented by one or more backend slices.",
+        "Each task is small enough for a fresh execution agent and includes verification expectations.",
+        "A slice-scoped `plan` artifact captures the execution plan.",
+        "The user knows the next step is `kata-execute-phase`."
+      ],
+      "doNot": [
+        "Do not plan without an active milestone.",
+        "Do not create tasks that are not tied to milestone requirements.",
+        "Do not skip the phase gate before creating backend work.",
+        "Do not execute implementation work in this skill."
+      ],
+      "requiredReferences": [
+        "cli-runtime",
+        "artifact-contract",
+        "ui-brand"
+      ],
+      "requiredTemplates": [
+        "phase-prompt"
+      ]
+    },
+    {
+      "name": "kata-execute-phase",
+      "description": "Use when the user wants Kata to execute planned phase work or advance tasks in the active milestone.",
+      "workflow": "execute-phase",
+      "contractOperations": [
+        "project.getContext",
+        "project.getSnapshot",
+        "milestone.getActive",
+        "slice.list",
+        "slice.updateStatus",
+        "task.list",
+        "task.updateStatus",
+        "artifact.read",
+        "artifact.write"
+      ],
+      "setupHint": "If Kata CLI is not configured, run setup and health checks through `scripts/kata-call.mjs` from the installed skill.",
+      "operatingBrief": [
+        "When this skill is invoked, execute one approved slice for the active milestone.",
+        "",
+        "Load the project snapshot, active milestone, slices, tasks, and the relevant plan artifact. Select the next executable slice from snapshot state, get explicit execution approval if the slice is still in Backlog, update statuses as work begins, complete every executable task in the slice, commit task-scoped repository changes atomically when code changed, then persist summary artifacts and mark completed tasks done with verification still pending.",
+        "",
+        "Keep backend state current through `slice.updateStatus`, `task.updateStatus`, and `artifact.write`."
+      ],
+      "successCriteria": [
+        "Every executable task in the selected slice is implemented in the repository or explicitly left in progress with failure evidence.",
+        "Any repository changes for the task are committed in one task-scoped atomic commit before the task is marked done.",
+        "Task status reflects the real execution state.",
+        "A task or slice summary artifact records what changed and what execution checks passed.",
+        "Completed tasks remain pending verification until `kata-verify-work` verifies them."
+      ],
+      "doNot": [
+        "Do not execute tasks without reading the active plan.",
+        "Do not stop after one task when additional executable tasks remain in the approved slice.",
+        "Do not mark work done before execution-check evidence exists.",
+        "Do not set `verificationState: verified`; `kata-verify-work` owns verification.",
+        "Do not create new milestone scope here.",
+        "Do not leave backend task status stale after beginning or completing work."
+      ],
+      "requiredReferences": [
+        "cli-runtime",
+        "artifact-contract",
+        "ui-brand"
+      ],
+      "requiredTemplates": [
+        "summary"
+      ]
+    },
+    {
+      "name": "kata-verify-work",
+      "description": "Use when the user asks to verify, validate, review, or sign off on Kata work.",
+      "workflow": "verify-work",
+      "contractOperations": [
+        "project.getContext",
+        "project.getSnapshot",
+        "task.list",
+        "task.updateStatus",
+        "artifact.list",
+        "artifact.read",
+        "artifact.write"
+      ],
+      "setupHint": "If Kata CLI is not configured, run setup and health checks through `scripts/kata-call.mjs` from the installed skill.",
+      "operatingBrief": [
+        "When this skill is invoked, verify completed Kata work and record durable evidence.",
+        "",
+        "Load the relevant project snapshot, task, and artifact context, identify the behaviors that must be verified, and walk through them one at a time. Record evidence in verification artifacts, then update task verification state through the CLI. Use UAT artifacts only when the plan explicitly calls for user acceptance testing.",
+        "",
+        "After updating verification state, reload the project snapshot and recommend exactly the snapshot's next workflow. Do not infer milestone completion from verified tasks alone."
+      ],
+      "successCriteria": [
+        "Each relevant behavior has explicit verification evidence.",
+        "A verification artifact records what was checked and the result.",
+        "Verified tasks are marked with `verificationState: verified`.",
+        "Failed checks are clearly reported without marking tasks verified."
+      ],
+      "doNot": [
+        "Do not mark verification complete from confidence alone.",
+        "Do not hide or smooth over failed checks.",
+        "Do not create new execution scope.",
+        "Do not skip artifact updates when verification evidence was gathered."
+      ],
+      "requiredReferences": [
+        "cli-runtime",
+        "artifact-contract",
+        "ui-brand"
+      ],
+      "requiredTemplates": [
+        "UAT",
+        "verification-report"
+      ]
+    },
+    {
+      "name": "kata-complete-milestone",
+      "description": "Use when the user wants to finish, close, ship, archive, or mark the active Kata milestone complete.",
+      "workflow": "complete-milestone",
+      "contractOperations": [
+        "project.getSnapshot",
+        "milestone.getActive",
+        "milestone.complete",
+        "slice.list",
+        "task.list",
+        "artifact.list",
+        "artifact.read",
+        "artifact.write"
+      ],
+      "setupHint": "If Kata CLI is not configured, run setup and health checks through `scripts/kata-call.mjs` from the installed skill.",
+      "operatingBrief": [
+        "When this skill is invoked, close the active release-sized milestone after all milestone slices and tasks are done and verified.",
+        "",
+        "Load the project snapshot and active milestone, list slices, list tasks for each slice when detail is needed, inspect milestone/slice/task artifacts, confirm every required task is done and verified, summarize delivered outcomes, capture retrospective notes, write completion artifacts, and then complete the milestone through `milestone.complete`.",
+        "",
+        "If readiness is uncertain, stop and explain what must be verified or resolved first."
+      ],
+      "successCriteria": [
+        "The active milestone has an accepted completion summary.",
+        "Every required slice is done.",
+        "Every required task is done with `verificationState: verified`.",
+        "Completion evidence includes milestone, slice, and task-scoped artifacts.",
+        "Retrospective or archive artifacts are persisted when useful.",
+        "The milestone is completed through `milestone.complete` only after readiness is confirmed.",
+        "The user knows what remains, if anything, after completion."
+      ],
+      "doNot": [
+        "Do not complete a milestone with unverified required work.",
+        "Do not invent completion evidence.",
+        "Do not rely only on milestone-level artifacts when task verification artifacts live on task scope.",
+        "Do not create a new milestone here.",
+        "Do not skip the readiness check."
+      ],
+      "requiredReferences": [
+        "cli-runtime",
+        "artifact-contract",
+        "ui-brand"
+      ],
+      "requiredTemplates": [
+        "milestone-archive",
+        "retrospective"
+      ]
+    },
+    {
+      "name": "kata-progress",
+      "description": "Use when the user asks for Kata project status, milestone progress, task progress, or execution state.",
+      "workflow": "progress",
+      "contractOperations": [
+        "project.getContext",
+        "project.getSnapshot",
+        "milestone.getActive",
+        "slice.list",
+        "task.list",
+        "artifact.list",
+        "execution.getStatus"
+      ],
+      "setupHint": "If Kata CLI is not configured, run setup and health checks through `scripts/kata-call.mjs` from the installed skill.",
+      "operatingBrief": [
+        "When this skill is invoked, report current Kata project and milestone progress.",
+        "",
+        "Read the project snapshot plus execution status. Summarize what is active, what is blocked, what is done, and the one next action recommended by snapshot state.",
+        "",
+        "This is a reporting skill. It should not mutate backend state."
+      ],
+      "successCriteria": [
+        "The user sees the current project/backend identity.",
+        "The active milestone, slices, tasks, artifacts, and execution state are summarized.",
+        "Blocking issues and next actions are clear.",
+        "No backend state is changed."
+      ],
+      "doNot": [
+        "Do not create or update project artifacts.",
+        "Do not change task or milestone status.",
+        "Do not proceed into execution from a status request.",
+        "Do not omit blockers or warnings."
+      ],
+      "requiredReferences": [
+        "cli-runtime",
+        "artifact-contract"
+      ],
+      "requiredTemplates": []
+    },
+    {
+      "name": "kata-health",
+      "description": "Use when the user asks whether Kata is configured correctly, healthy, connected, or ready to run.",
+      "workflow": "health",
+      "contractOperations": [
+        "health.check",
+        "project.getContext"
+      ],
+      "setupHint": "If Kata CLI is not configured, run setup and health checks through `scripts/kata-call.mjs` from the installed skill.",
+      "operatingBrief": [
+        "When this skill is invoked, determine whether Kata is configured, connected, and ready.",
+        "",
+        "Run doctor through the local wrapper when available, run `health.check`, then read project context. Report backend identity, repository/project identity, blocking errors, warnings, and the exact next fix if blocked.",
+        "",
+        "This skill diagnoses readiness only."
+      ],
+      "successCriteria": [
+        "Runtime health has been checked.",
+        "Project context has been read when health allows it.",
+        "The user knows whether Kata is ready to run.",
+        "Any blocker includes a concrete next action."
+      ],
+      "doNot": [
+        "Do not start setup automatically unless the user asked for setup.",
+        "Do not continue into planning or execution when health is blocked.",
+        "Do not inspect helper scripts unless the helper command fails.",
+        "Do not mutate backend project state."
+      ],
+      "requiredReferences": [
+        "cli-runtime",
+        "artifact-contract"
+      ],
+      "requiredTemplates": []
+    }
+  ]
+}

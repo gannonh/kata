@@ -7,10 +7,10 @@ pnpm monorepo (`pnpm@10.6.2`) with Turborepo orchestration. Rust app (Symphony) 
 This mono-repo is comprised of the following primary applications:
 
 - Kata Symphony: `apps/symphony` - @kata/symphony — Rust binary (Cargo scripts via package.json)
-- Kata CLI: `apps/cli` - @kata-sh/cli — published NPM CLI agent
+- Kata CLI: `apps/cli` - @kata-sh/cli — portable Kata Skills runtime and backend contract bridge
 - Kata Desktop: `apps/desktop` - Electron app (primary UI)
 - Context Indexer: `apps/context` - @kata/context — context indexing tool (Vitest, native Node addon)
-- Orchestrator: `apps/orchestrator` - @kata-sh/orc — meta-prompting system
+- Orchestrator Legacy: `apps/orchestrator-legacy` - archived reference only, excluded from the active workspace
 
 ## Commands
 
@@ -33,10 +33,11 @@ pnpm run print:system-prompt     # Debug: print the agent system prompt
 
 ```
 apps/
-├── cli/              # @kata-sh/cli — published NPM CLI agent
+├── cli/              # @kata-sh/cli — Kata Skills runtime and backend contract bridge
+├── cli/skills-src/   # Source of truth for Kata Agent Skills
 ├── context/          # @kata/context — context indexing tool (Vitest, native Node addon)
 ├── desktop/          # Kata Desktop — Electron app (primary UI)
-├── orchestrator/     # @kata-sh/orc — meta-prompting system
+├── orchestrator-legacy/ # Archived legacy Orchestrator reference
 ├── symphony/         # @kata/symphony — Rust binary (Cargo scripts via package.json)
 ├── viewer/           # Session viewer (Vite)
 └── online-docs/      # @kata/online-docs — documentation site (Fumadocs/Next.js)
@@ -48,7 +49,7 @@ packages/
 └── mermaid/          # Mermaid diagram → SVG renderer
 ```
 
-Workspace exclusion in `package.json`: `apps/online-docs`.
+Workspace exclusions in `pnpm-workspace.yaml`: `apps/cli-legacy`, `apps/orchestrator-legacy`, and `apps/online-docs`.
 
 ## Turborepo
 
@@ -67,7 +68,7 @@ Turborepo orchestrates package-local test scripts via `turbo run test`.
 
 | Package  | Runner / command | Notes |
 | -------- | ---------------- | ----- |
-| cli      | `pnpm test`      | Transitional: package test script currently runs `bun test` plus Vitest coverage |
+| cli      | `pnpm test`      | Vitest suite for CLI domain, backend adapters, skill bundle, and golden-path contract |
 | desktop  | `pnpm run test`  | Vitest with coverage; Playwright lives under `pnpm run test:e2e` |
 | context  | Vitest           | Uses better-sqlite3 (native Node addon; Node runtime required) |
 | symphony | `cargo test`     | Rust binary |
@@ -84,7 +85,7 @@ Pre-push hook runs `pnpm exec turbo run lint typecheck test --affected` — same
 - `gate`: aggregates results, sole required branch protection check
 
 Release workflows trigger on push to main with path filters:
-`cli-release.yml`, `desktop-release.yml`, `orc-release.yml`, `context-release.yml`, `symphony-release.yml`
+`cli-release.yml`, `desktop-release.yml`, `context-release.yml`, `symphony-release.yml`
 
 ## Tech Stack
 
