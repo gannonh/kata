@@ -293,6 +293,10 @@ describe('config-get command', () => {
     tmpDir = createTempProject();
     // Create config with known values
     runKataTools('config-ensure-section', tmpDir);
+    writeConfig(tmpDir, {
+      ...readConfig(tmpDir),
+      model_profile: 'balanced',
+    });
   });
 
   afterEach(() => {
