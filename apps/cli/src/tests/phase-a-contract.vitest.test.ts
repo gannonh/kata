@@ -334,6 +334,7 @@ describe("Phase A domain contract", () => {
         requiredIds: ["E2E-01", "E2E-02"],
         coveredIds: ["E2E-01"],
         missingIds: ["E2E-02"],
+        futureIds: [],
       },
       nextAction: {
         workflow: "kata-plan-phase",
@@ -622,8 +623,18 @@ describe("Phase A domain contract", () => {
         artifactType: input.artifactType,
         title: input.artifactType,
         content: input.artifactType === "roadmap"
-          ? "S001 covers E2E-01\nS004 covers E2E-10"
-          : "E2E-01\nE2E-06\nE2E-10\nFUT-01",
+          ? "S001 covers E2E-01\nS004 covers E2E-10\nFuture note mentions FUT-01"
+          : [
+              "## Active Requirements",
+              "E2E-01",
+              "E2E-06",
+              "E2E-10",
+              "",
+              "## Future Requirements",
+              "",
+              "### Post-Phase-A Hardening",
+              "FUT-01",
+            ].join("\n"),
         format: "markdown",
         updatedAt: "2026-04-28T00:00:00.000Z",
         provenance: { backend: "github", backendId: "comment:2" },
@@ -637,14 +648,15 @@ describe("Phase A domain contract", () => {
           "E2E-10": ["S004"],
         },
       },
+      requirements: {
+        requiredIds: ["E2E-01", "E2E-06", "E2E-10"],
+        futureIds: ["FUT-01"],
+        missingIds: ["E2E-10"],
+      },
       otherActions: [
         {
           workflow: "kata-plan-phase",
           target: { milestoneId: "M001", sliceId: "S004" },
-        },
-        {
-          workflow: "kata-plan-phase",
-          target: { milestoneId: "M001", requirementId: "FUT-01" },
         },
       ],
     });

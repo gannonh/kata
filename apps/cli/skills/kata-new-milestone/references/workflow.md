@@ -21,6 +21,12 @@ Run:
 node <path-to-skill-directory>/scripts/kata-call.mjs project.getContext
 ```
 
+List existing milestones so completed milestone artifacts can seed the next cycle:
+
+```bash
+node <path-to-skill-directory>/scripts/kata-call.mjs milestone.list
+```
+
 Read project brief when available:
 
 ```json
@@ -37,6 +43,34 @@ node <path-to-skill-directory>/scripts/kata-call.mjs artifact.read --input /tmp/
 
 If the project brief is missing, ask the user whether to continue from conversation context or run `kata-new-project` first.
 
+For the most recent completed milestone, read milestone summary and retrospective artifacts when available:
+
+```json
+{
+  "scopeType": "milestone",
+  "scopeId": "M001",
+  "artifactType": "summary"
+}
+```
+
+```bash
+node <path-to-skill-directory>/scripts/kata-call.mjs artifact.read --input /tmp/kata-M001-read-summary.json
+```
+
+```json
+{
+  "scopeType": "milestone",
+  "scopeId": "M001",
+  "artifactType": "retrospective"
+}
+```
+
+```bash
+node <path-to-skill-directory>/scripts/kata-call.mjs artifact.read --input /tmp/kata-M001-read-retrospective.json
+```
+
+Surface any `Carry-Forward Candidates`, `Future Requirements`, deferred requirements, or follow-up IDs from completed milestone artifacts before asking the user to confirm the new milestone scope.
+
 ## Stage 2: Gather Milestone Goal
 
 Use `references/questioning.md`, but focus on what changes in this milestone:
@@ -44,6 +78,7 @@ Use `references/questioning.md`, but focus on what changes in this milestone:
 - Milestone title.
 - Goal.
 - Target features.
+- Carry-forward candidates to include, defer again, or drop.
 - Success criteria.
 - Constraints.
 - Out of scope.
@@ -69,6 +104,8 @@ Requirements must be:
 - Scoped to this milestone.
 
 Present the full requirements list for confirmation before writing it.
+
+If the user accepts carry-forward candidates into this milestone, move them into `## Active Requirements` with updated IDs or preserved IDs. If the user defers them again, keep them under `## Future Requirements` and explain why they remain non-blocking for this milestone.
 
 ## Stage 4: Create Milestone
 

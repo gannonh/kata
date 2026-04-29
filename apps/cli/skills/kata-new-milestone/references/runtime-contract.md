@@ -10,6 +10,14 @@ Run:
 node <path-to-skill-directory>/scripts/kata-call.mjs project.getContext
 ```
 
+## `milestone.list`
+
+Run:
+
+```bash
+node <path-to-skill-directory>/scripts/kata-call.mjs milestone.list
+```
+
 ## `milestone.create`
 
 Create a JSON payload file first, then run:

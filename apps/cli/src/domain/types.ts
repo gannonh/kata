@@ -66,6 +66,7 @@ export interface KataProjectSnapshot {
     requiredIds: string[];
     coveredIds: string[];
     missingIds: string[];
+    futureIds: string[];
   };
   roadmap: {
     plannedSliceIds: string[];

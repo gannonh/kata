@@ -9,13 +9,14 @@ description: "Use when the user wants to create the next milestone, release goal
 
 When this skill is invoked, help the user define the next scoped delivery milestone for an existing Kata project.
 
-Start by reading project context, then ask what outcome the next milestone should deliver. Gather enough detail to define the milestone goal, requirements, roadmap, constraints, and open questions.
+Start by reading project context and recent completed milestone artifacts, then ask what outcome the next milestone should deliver. Gather enough detail to define the milestone goal, requirements, roadmap, constraints, open questions, and any carry-forward candidates.
 
 Create exactly one milestone with `milestone.create`, then write milestone-scoped requirements and roadmap artifacts with `artifact.write`. End by routing the user to `kata-plan-phase`.
 
 ## Success Criteria
 
 - Exactly one active milestone is created for the selected delivery goal.
+- Carry-forward candidates from completed milestones are surfaced before the new milestone scope is confirmed.
 - Milestone requirements are persisted as a milestone-scoped `requirements` artifact.
 - The delivery roadmap is persisted as a milestone-scoped `roadmap` artifact.
 - The user knows the next step is `kata-plan-phase`.

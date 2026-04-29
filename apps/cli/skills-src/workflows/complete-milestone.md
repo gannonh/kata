@@ -142,7 +142,7 @@ Before writing completion artifacts or completing the milestone, summarize:
 - Completed slices.
 - Verified tasks.
 - Requirements covered.
-- Known gaps and follow-up work.
+- Known gaps, follow-up work, and carry-forward candidates from `snapshot.requirements.futureIds`.
 - Whether this milestone includes a release action or only validates a pre-release slice.
 
 Ask for explicit confirmation to complete the milestone. If readiness is uncertain, stop and explain what remains.
@@ -163,6 +163,8 @@ Ask for explicit confirmation to complete the milestone. If readiness is uncerta
 ```bash
 node ./scripts/kata-call.mjs artifact.write --input /tmp/kata-milestone-summary.json
 ```
+
+Include a `## Carry-Forward Candidates` section in the summary when `snapshot.requirements.futureIds` is non-empty. Preserve each future requirement ID, its source milestone, and the reason it was deferred so `kata-new-milestone` can surface it during the next planning cycle.
 
 ## Stage 5: Write Retrospective Artifact
 

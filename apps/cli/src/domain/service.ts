@@ -73,6 +73,7 @@ async function getProjectSnapshot(adapter: KataBackendAdapter): Promise<KataProj
         requiredIds: [],
         coveredIds: [],
         missingIds: [],
+        futureIds: [],
       },
       roadmap: {
         plannedSliceIds: [],
@@ -142,8 +143,13 @@ async function getProjectSnapshot(adapter: KataBackendAdapter): Promise<KataProj
 
   const roadmapContent = roadmapArtifact?.content ?? "";
   const requirementsContent = requirementsArtifact?.content ?? "";
-  const requiredIds = uniqueIds([...extractRequirementIds(requirementsContent), ...extractRequirementIds(roadmapContent)]);
-  const coveredIds = uniqueIds(snapshotSlices.flatMap((slice) => slice.requirementIds));
+  const requirementScope = extractRequirementScope(requirementsContent);
+  const roadmapRequirementScope = extractRequirementScope(roadmapContent);
+  const futureIds = uniqueIds([...requirementScope.futureIds, ...roadmapRequirementScope.futureIds]);
+  const requiredIds = uniqueIds([...requirementScope.requiredIds, ...roadmapRequirementScope.requiredIds]).filter(
+    (id) => !futureIds.includes(id) || requirementScope.requiredIds.includes(id),
+  );
+  const coveredIds = uniqueIds(snapshotSlices.flatMap((slice) => slice.requirementIds).filter((id) => requiredIds.includes(id)));
   const missingIds = requiredIds.filter((id) => !coveredIds.includes(id));
   const plannedSliceIds = uniqueIds(extractSliceIds(roadmapContent));
   const existingSliceIds = snapshotSlices.map((slice) => slice.id);
@@ -177,6 +183,7 @@ async function getProjectSnapshot(adapter: KataBackendAdapter): Promise<KataProj
       requiredIds,
       coveredIds,
       missingIds,
+      futureIds,
     },
     roadmap: {
       plannedSliceIds,
@@ -362,6 +369,41 @@ function determineOtherActions(
 
 function extractRequirementIds(content: string): string[] {
   return uniqueIds(content.match(/\b[A-Z][A-Z0-9]*-\d+\b/g) ?? []);
+}
+
+function extractRequirementScope(content: string): { requiredIds: string[]; futureIds: string[] } {
+  const requiredIds: string[] = [];
+  const futureIds: string[] = [];
+  let mode: "required" | "future" | "ignore" = "required";
+
+  for (const line of content.split(/\r?\n/)) {
+    const headingMatch = /^(#{2,6})\s+(.+?)\s*$/.exec(line);
+    if (headingMatch) {
+      const headingLevel = headingMatch[1].length;
+      const heading = headingMatch[2].toLowerCase();
+      if (/\b(future|deferred|follow[- ]?up|carry[- ]?forward|non[- ]?blocking)\b/.test(heading)) {
+        mode = "future";
+      } else if (/\b(out of scope|traceability|coverage|notes?)\b/.test(heading)) {
+        mode = "ignore";
+      } else if (headingLevel <= 2 && /\b(active|required|requirements?|roadmap|slices?|phases?)\b/.test(heading)) {
+        mode = "required";
+      }
+      continue;
+    }
+
+    const ids = extractRequirementIds(line);
+    if (ids.length === 0) continue;
+    if (mode === "future") {
+      futureIds.push(...ids);
+    } else if (mode === "required") {
+      requiredIds.push(...ids);
+    }
+  }
+
+  return {
+    requiredIds: uniqueIds(requiredIds),
+    futureIds: uniqueIds(futureIds.filter((id) => !requiredIds.includes(id))),
+  };
 }
 
 function extractSliceIds(content: string): string[] {
