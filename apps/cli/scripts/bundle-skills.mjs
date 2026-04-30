@@ -56,9 +56,12 @@ const inputRequiredOperations = new Set([
 ]);
 
 const skillCallCommand = "node <path-to-skill-directory>/scripts/kata-call.mjs";
+const artifactInputCommand = "node <path-to-skill-directory>/scripts/kata-artifact-input.mjs";
 
 function normalizeSkillCommandReferences(markdown) {
-  return markdown.replaceAll("node ./scripts/kata-call.mjs", skillCallCommand);
+  return markdown
+    .replaceAll("node ./scripts/kata-call.mjs", skillCallCommand)
+    .replaceAll("node ./scripts/kata-artifact-input.mjs", artifactInputCommand);
 }
 
 async function pathExists(filePath) {
@@ -273,6 +276,7 @@ function renderSkillMarkdown(skill) {
     "- CLI command patterns: `references/cli-runtime.md`",
     "- Artifact conventions: `references/artifact-contract.md`",
     "- CLI helper: `scripts/kata-call.mjs`",
+    "- Artifact input helper: `scripts/kata-artifact-input.mjs`",
     ...(extraReferences.length > 0 ? ["", "Additional references:", "", ...extraReferences] : []),
     ...(templates.length > 0 ? ["", "Templates:", "", ...templates] : []),
     "",

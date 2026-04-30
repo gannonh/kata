@@ -77,60 +77,38 @@ Ask the user to confirm actual behavior only when the plan calls for manual obse
 
 ## Stage 3: Write Verification Artifact
 
-Write artifact input files with a JSON encoder when the report contains Markdown
-tables, command snippets, quotes, or backticks. Do not hand-escape rich Markdown
-inside shell heredocs or JavaScript template literals; that is easy to corrupt
-and can cause failed artifact writes before verification state is updated.
+Write the verification report as Markdown first, then generate the artifact input
+JSON with `scripts/kata-artifact-input.mjs`. Do not hand-escape rich Markdown
+inside JSON heredocs or JavaScript template literals; verification reports often
+contain tables, command snippets, quotes, or backticks, and hand-escaped JSON is
+easy to corrupt before verification state is updated.
 
 Example:
 
 ```bash
-node - <<'NODE'
-const fs = require("node:fs");
+cat > /tmp/T001-verification.md <<'MARKDOWN'
+# Verification Report
 
-const content = [
-  "# Verification Report",
-  "",
-  "## Scope",
-  "",
-  "T001: Verify behavior",
-  "",
-  "## Evidence",
-  "",
-  "- `pnpm test` passed.",
-  "",
-  "## Result",
-  "",
-  "Verified",
-].join("\n");
+## Scope
 
-fs.writeFileSync(
-  "/tmp/kata-verification.json",
-  JSON.stringify(
-    {
-      scopeType: "task",
-      scopeId: "T001",
-      artifactType: "verification",
-      title: "T001 Verification",
-      content,
-      format: "markdown",
-    },
-    null,
-    2,
-  ),
-);
-NODE
-```
+T001: Verify behavior
 
-```json
-{
-  "scopeType": "task",
-  "scopeId": "T001",
-  "artifactType": "verification",
-  "title": "T001 Verification",
-  "content": "# Verification\n\n## Evidence\n\n...",
-  "format": "markdown"
-}
+## Evidence
+
+- `pnpm test` passed.
+
+## Result
+
+Verified
+MARKDOWN
+
+node ./scripts/kata-artifact-input.mjs \
+  --scope-type task \
+  --scope-id T001 \
+  --artifact-type verification \
+  --title "T001 Verification" \
+  --content-file /tmp/T001-verification.md \
+  --output /tmp/kata-verification.json
 ```
 
 ```bash
