@@ -3504,6 +3504,9 @@ fn make_worker_config(
     max_turns: u32,
 ) -> ServiceConfig {
     let mut config = test_config(1);
+    // These worker-attempt tests exercise the fake Codex app-server path
+    // directly. Keep that explicit now that Kata CLI/Pi is the default backend.
+    config.agent_backend = AgentBackend::Codex;
     config.workspace.root = workspace_root.to_string_lossy().to_string();
     config.workspace.repo = None;
     config.codex.command = vec![script_path.to_string_lossy().to_string()];

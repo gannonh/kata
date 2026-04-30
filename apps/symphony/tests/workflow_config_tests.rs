@@ -1627,6 +1627,7 @@ fn test_config_validation_missing_codex_command() {
             command: vec![],
             ..CodexConfig::default()
         },
+        agent_backend: AgentBackend::Codex,
         ..ServiceConfig::default()
     };
 
