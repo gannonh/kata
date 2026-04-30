@@ -424,6 +424,69 @@ describe("Phase A domain contract", () => {
     });
   });
 
+  it("extracts backend slice ids from structured roadmap table columns", async () => {
+    const api = createKataDomainApi({
+      ...createFakeAdapter(),
+      getActiveMilestone: async () => ({
+        id: "M003",
+        title: "Structured Roadmap",
+        goal: "Validate backend slice table extraction",
+        status: "active",
+        active: true,
+      }),
+      listSlices: async () => [
+        {
+          id: "S012",
+          milestoneId: "M003",
+          title: "Build the first path",
+          goal: "Cover REQ-01",
+          status: "done",
+          order: 1,
+        },
+      ],
+      listTasks: async () => [],
+      listArtifacts: async () => [],
+      readArtifact: async (input: KataArtifactReadInput) => ({
+        id: `${input.scopeType}:${input.scopeId}:${input.artifactType}`,
+        scopeType: input.scopeType,
+        scopeId: input.scopeId,
+        artifactType: input.artifactType,
+        title: input.artifactType,
+        content: input.artifactType === "roadmap"
+          ? [
+              "| Requirement | Backend Slice ID | Status |",
+              "|---|---|---|",
+              "| REQ-01 | S012 | Done |",
+              "| REQ-02 | S013 | Pending |",
+            ].join("\n")
+          : "REQ-01\nREQ-02",
+        format: "markdown",
+        updatedAt: "2026-04-29T00:00:00.000Z",
+        provenance: { backend: "github", backendId: "comment:3" },
+      }),
+    });
+
+    await expect(dispatchKataOperation(api, "project.getSnapshot")).resolves.toMatchObject({
+      roadmap: {
+        plannedSliceIds: ["S012", "S013"],
+        existingSliceIds: ["S012"],
+        missingSliceIds: ["S013"],
+        requirementToSliceIds: {
+          "REQ-01": ["S012"],
+          "REQ-02": ["S013"],
+        },
+      },
+      requirements: {
+        coveredIds: ["REQ-01"],
+        missingIds: ["REQ-02"],
+      },
+      nextAction: {
+        workflow: "kata-plan-phase",
+        target: { sliceId: "S013" },
+      },
+    });
+  });
+
   it("prioritizes executing existing planned slices before planning later roadmap slices", async () => {
     const api = createKataDomainApi({
       ...createFakeAdapter(),
