@@ -24,24 +24,24 @@ Use this as the content shape for milestone-scoped `roadmap` artifacts.
 
 **Planned Slices:**
 
-- [ ] S001: [Slice title]
+- [ ] Planned Slice 1: [Slice title]
 
 ## Traceability
 
-| Requirement | Phase/Slice | Status |
+| Requirement | Phase/Planned Slice | Status |
 |---|---|---|
-| REQ-01 | Phase 1 / S001 | Pending |
+| REQ-01 | Phase 1 / Planned Slice 1 | Pending |
 
 ## Progress
 
-| Phase | Status | Requirements | Slices |
+| Phase | Status | Requirements | Planned Slices |
 |---|---|---|---|
-| 1 | Pending | REQ-01 | S001 |
+| 1 | Pending | REQ-01 | Planned Slice 1 |
 ```
 
 ## Guidance
 
 - Derive phases from requirements; do not impose arbitrary structure.
 - Every active requirement should map to exactly one primary phase/slice.
+- Do not preassign backend slice IDs such as `S001` in milestone roadmaps. Backend slice IDs are global and are only known after `slice.create` returns them. Once a backend slice ID exists, record it using an explicit keyworded format such as `Backend Slice: S001`, `Slice ID: S001`, or a table column named `Backend Slice ID`; avoid bare forms like `S001:`.
 - Success criteria must be observable from the user or system boundary.
-

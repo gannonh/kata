@@ -137,7 +137,7 @@ fn test_service_config_defaults_match_spec() {
     assert_eq!(cfg.codex.stall_timeout_ms, 300_000);
     assert_eq!(cfg.pi_agent.read_timeout_ms, 5_000);
     assert_eq!(cfg.pi_agent.stall_timeout_ms, 300_000);
-    assert_eq!(cfg.agent_backend, AgentBackend::Codex);
+    assert_eq!(cfg.agent_backend, AgentBackend::KataCli);
 
     // Hooks §5.3.4
     assert_eq!(cfg.hooks.timeout_ms, 60_000);

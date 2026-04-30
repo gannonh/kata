@@ -77,15 +77,38 @@ Ask the user to confirm actual behavior only when the plan calls for manual obse
 
 ## Stage 3: Write Verification Artifact
 
-```json
-{
-  "scopeType": "task",
-  "scopeId": "T001",
-  "artifactType": "verification",
-  "title": "T001 Verification",
-  "content": "# Verification\n\n## Evidence\n\n...",
-  "format": "markdown"
-}
+Write the verification report as Markdown first, then generate the artifact input
+JSON with `scripts/kata-artifact-input.mjs`. Do not hand-escape rich Markdown
+inside JSON heredocs or JavaScript template literals; verification reports often
+contain tables, command snippets, quotes, or backticks, and hand-escaped JSON is
+easy to corrupt before verification state is updated.
+
+Example:
+
+```bash
+cat > /tmp/T001-verification.md <<'MARKDOWN'
+# Verification Report
+
+## Scope
+
+T001: Verify behavior
+
+## Evidence
+
+- `pnpm test` passed.
+
+## Result
+
+Verified
+MARKDOWN
+
+node ./scripts/kata-artifact-input.mjs \
+  --scope-type task \
+  --scope-id T001 \
+  --artifact-type verification \
+  --title "T001 Verification" \
+  --content-file /tmp/T001-verification.md \
+  --output /tmp/kata-verification.json
 ```
 
 ```bash
