@@ -124,18 +124,23 @@ def _ensure_gh_authenticated() -> None:
 
 
 def gh_pr_view_json(fields: str) -> dict[str, Any]:
-    # fields is a comma-separated list like: "number,baseRepositoryOwner,baseRepository"
+    # fields is a comma-separated list like: "number,url"
     return _run_json(["gh", "pr", "view", "--json", fields])
 
 
 def get_current_pr_ref() -> tuple[str, str, int]:
     """
     Resolve the PR for the current branch (whatever gh considers associated).
-    Works for cross-repo PRs too, using the base repository owner/name.
+    Uses the PR URL as the stable base repository source because recent gh
+    versions do not expose baseRepositoryOwner/baseRepository JSON fields.
     """
-    pr = gh_pr_view_json("number,baseRepositoryOwner,baseRepository")
-    owner = pr["baseRepositoryOwner"]["login"]
-    repo = pr["baseRepository"]["name"]
+    pr = gh_pr_view_json("number,url")
+    parts = pr["url"].rstrip("/").split("/")
+    if len(parts) < 7 or parts[-2] != "pull":
+        raise RuntimeError(f"Unexpected pull request URL from gh: {pr['url']}")
+
+    owner = parts[-4]
+    repo = parts[-3]
     number = int(pr["number"])
     return owner, repo, number
 
