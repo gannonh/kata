@@ -92,6 +92,8 @@ fn build_command_parts(
     }
 
     let mut parts = config.command.clone();
+    parts.push("--cwd".to_string());
+    parts.push(workspace_path.to_string());
 
     if config.no_session {
         parts.push("--no-session".to_string());

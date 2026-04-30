@@ -75,6 +75,9 @@ log "worktree: $WORKTREE"
 
 copy_if_present "$SOURCE_TREE/.env" "$WORKTREE/.env"
 copy_if_present "$SOURCE_TREE/apps/desktop/.env.development" "$WORKTREE/apps/desktop/.env.development"
+copy_if_present "$SOURCE_TREE/apps/symphony/WORKFLOW-desktop-github.md" "$WORKTREE/apps/symphony/WORKFLOW-desktop-github.md"
+copy_if_present "$SOURCE_TREE/apps/symphony/WORKFLOW-desktop.md" "$WORKTREE/apps/symphony/WORKFLOW-desktop.md"
+copy_if_present "$SOURCE_TREE/apps/symphony/WORKFLOW-github.md" "$WORKTREE/apps/symphony/WORKFLOW-github.md"
 
 log "installing workspace dependencies"
 pnpm --dir "$WORKTREE" install
@@ -82,7 +85,7 @@ pnpm --dir "$WORKTREE" install
 log "building Symphony release binary"
 cargo build --manifest-path "$WORKTREE/apps/symphony/Cargo.toml" --release
 
-log "building Kata CLI for Pi"
-pnpm --dir "$WORKTREE" build:cli:pi
+log "building Kata CLI"
+pnpm --dir "$WORKTREE/apps/cli" run build
 
 log "bootstrap complete"

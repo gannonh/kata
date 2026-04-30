@@ -169,8 +169,8 @@ fn test_agent_review_prompt_transitions_to_human_review() {
 
 #[test]
 fn test_repo_workflow_example_uses_per_state_prompts() {
-    let workflow_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("WORKFLOW.md");
-    let def = parse_workflow(&workflow_path).expect("active WORKFLOW.md should parse");
+    let workflow_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("WORKFLOW-github.md");
+    let def = parse_workflow(&workflow_path).expect("active WORKFLOW-github.md should parse");
     let mut test_config = def.config.clone();
     if let Some(map) = test_config.as_mapping_mut() {
         map.remove(serde_yaml::Value::String("notifications".to_string()));

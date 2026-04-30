@@ -1,19 +1,12 @@
 # Symphony
 
-Symphony is a headless orchestrator that polls a configured issue tracker for
-candidate issues and dispatches each one to an agent session running in an
-isolated workspace. It supports both Codex app-server and Pi RPC
-(`agent.name`), tracks concurrency limits, retries failures with exponential
-back-off, reconciles issue state on each poll cycle, and optionally exposes a
-live HTTP dashboard and JSON API for observability. SSH remote worker pools are
-supported for distributing agent sessions across multiple machines.
-
-## How It Works
-
-1. Symphony polls the configured tracker for issues in active states, such as `Todo` and `In Progress`.
-2. For each routable issue, it creates an isolated workspace and starts the configured worker runner.
-3. The worker reads the issue, updates the Agent Workpad, changes code, validates, publishes a PR, and advances the tracker state through the configured lifecycle.
-4. When the issue reaches a terminal state, Symphony reconciles bookkeeping and optionally cleans up the workspace.
+Symphony is a headless orchestrator that polls a Linear project for candidate
+issues and dispatches each one to an agent session running in an isolated
+workspace. It supports both Codex app-server and Pi RPC (`agent.name`),
+tracks concurrency limits, retries failures with exponential back-off,
+reconciles issue state on each poll cycle, and optionally exposes a live HTTP
+dashboard and JSON API for observability. SSH remote worker pools are supported
+for distributing agent sessions across multiple machines.
 
 ---
 
@@ -137,24 +130,24 @@ is at `docs/WORKFLOW-REFERENCE.md`. Copy it to your project root as `WORKFLOW.md
 
 #### `agent` section
 
-| Field                         | Type                | Default                   | Description                                                                                              |
-| ----------------------------- | ------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `agent.max_concurrent_agents` | u32                 | `10`                      | Global cap on simultaneously running agent sessions.                                                     |
-| `agent.max_turns`             | u32                 | `20`                      | Maximum prompt turns per session attempt before the worker run ends.                                     |
-| `agent.max_retry_backoff_ms`  | u64                 | `300000`                  | Maximum exponential back-off delay (ms) between retries.                                                 |
-| `agent.escalation_timeout_ms` | u64                 | `300000`                  | Timeout (ms) to wait for a human escalation response before falling back to auto-cancel/reject behavior. |
-| `agent.name`                  | string              | `"pi"`                    | Worker runner: `"pi"` or `"codex"`. This is not the tracker/backend-state backend.                       |
-| `agent.command`               | string or string[]  | `["pi", "--mode", "rpc"]` | Complete static launch command. Local workers start with the workspace as process cwd.                   |
-| `agent.model`                 | string              | _(none)_                  | Optional default model override passed to runners that support it.                                       |
-| `agent.model_by_state`        | map<string, string> | `{}`                      | Optional per-state model overrides. Keys are lowercased state names; falls back to `model`.              |
-| `agent.no_session`            | bool                | `true`                    | Pass `--no-session` to Pi.                                                                               |
-| `agent.append_system_prompt`  | string              | _(none)_                  | Optional path passed via `--append-system-prompt` to Pi.                                                 |
-| `agent.turn_timeout_ms`       | u64                 | `3600000`                 | Hard timeout per Codex turn (1 hour default).                                                            |
-| `agent.read_timeout_ms`       | u64                 | `5000`                    | Timeout waiting for runtime process output (ms).                                                         |
-| `agent.stall_timeout_ms`      | u64                 | `300000`                  | Time before a non-progressing session is considered stalled (5 min default).                             |
-| `agent.approval_policy`       | object              | _(reject all)_            | Codex approval policy.                                                                                   |
-| `agent.thread_sandbox`        | string              | `"workspace-write"`       | Codex sandbox mode for the agent thread.                                                                 |
-| `agent.turn_sandbox_policy`   | object              | _(none)_                  | Per-turn Codex sandbox policy override.                                                                  |
+| Field                         | Type   | Default   | Description                                                                                              |
+| ----------------------------- | ------ | --------- | -------------------------------------------------------------------------------------------------------- |
+| `agent.max_concurrent_agents` | u32    | `10`      | Global cap on simultaneously running agent sessions.                                                     |
+| `agent.max_turns`             | u32    | `20`      | Maximum prompt turns per session attempt before the worker run ends.                                     |
+| `agent.max_retry_backoff_ms`  | u64    | `300000`  | Maximum exponential back-off delay (ms) between retries.                                                 |
+| `agent.escalation_timeout_ms` | u64    | `300000`  | Timeout (ms) to wait for a human escalation response before falling back to auto-cancel/reject behavior. |
+| `agent.name`                  | string | `"pi"`    | Worker runner: `"pi"` or `"codex"`. This is not the tracker/backend-state backend.                  |
+| `agent.command`               | string or string[] | `["pi", "--mode", "rpc"]` | Complete static launch command. Symphony appends dynamic per-run args such as `--cwd <workspace>`. |
+| `agent.model`                 | string | _(none)_ | Optional default model override passed to runners that support it.                                  |
+| `agent.model_by_state`        | map<string, string> | `{}` | Optional per-state model overrides. Keys are lowercased state names; falls back to `model`.          |
+| `agent.no_session`            | bool   | `true`    | Pass `--no-session` to Pi.                                                                         |
+| `agent.append_system_prompt`  | string | _(none)_  | Optional path passed via `--append-system-prompt` to Pi.                                            |
+| `agent.turn_timeout_ms`       | u64    | `3600000` | Hard timeout per Codex turn (1 hour default).                                                       |
+| `agent.read_timeout_ms`       | u64    | `5000`    | Timeout waiting for runtime process output (ms).                                                    |
+| `agent.stall_timeout_ms`      | u64    | `300000`  | Time before a non-progressing session is considered stalled (5 min default).                        |
+| `agent.approval_policy`       | object | _(reject all)_ | Codex approval policy.                                                                          |
+| `agent.thread_sandbox`        | string | `"workspace-write"` | Codex sandbox mode for the agent thread.                                                     |
+| `agent.turn_sandbox_policy`   | object | _(none)_  | Per-turn Codex sandbox policy override.                                                            |
 
 #### `hooks` section
 

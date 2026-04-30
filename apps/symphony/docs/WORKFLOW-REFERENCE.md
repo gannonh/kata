@@ -297,8 +297,8 @@ agent:
   name: pi
 
   # Command to start the selected worker runner. Can be a shell-style string
-  # or a list. Include the runner mode in the command. For local workers,
-  # Symphony starts the runner with the workspace as the process cwd.
+  # or a list. Include the runner mode in the command; Symphony only appends
+  # dynamic per-run args such as `--cwd <workspace>`.
   command: pi --mode rpc
 
   # Codex example:
