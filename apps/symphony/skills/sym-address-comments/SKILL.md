@@ -1,21 +1,25 @@
 ---
 name: sym-address-comments
-description: Help address review/issue comments on the open GitHub PR for the current branch using Symphony workflow guidance and helper APIs.
+description: Help address review/issue comments on the open GitHub PR for the current branch using Pi-hosted Symphony guidance, Kata CLI state where applicable, and gh CLI for GitHub PR review APIs; verify gh auth first and prompt the user to authenticate if not logged in.
 metadata:
   short-description: Address comments in a GitHub PR review
 ---
 
 # PR Comment Handler
 
-Guide to find the open PR for the current branch and address its comments during a Symphony worker run. Use Kata CLI operations only for Kata project/slice/task/artifact backend-state when applicable. Use the Symphony helper for PR feedback discovery so workers do not need backend-specific prompt branches.
+Guide to find the open PR for the current branch and address its comments while Symphony runs through the Pi coding-agent path. Use Kata CLI operations only for Kata project/slice/task/artifact state; use `gh` CLI for GitHub PR review/comment discovery, replies, thread resolution, pushes, and CI because those PR-review APIs are not deterministic Kata CLI operations in this skill's contract. Run all `gh` commands with elevated network access when the harness requires it.
+
+## Preflight
+
+1. Create a structured task list of the following steps 
+2. Inform the user of what you are doing
+
+You should endeavor to run this entire workflow autonomously, only engaging the user if issues arise or uncertain how to best proceed.
 
 ### Step 1: Inspect comments needing attention
 
-- Confirm the local branch/worktree maps to the intended GitHub PR. If this work is part of an active Kata slice or task, use the active Kata backend-state workflow for durable task/slice/artifact evidence.
-- Write an input file, for example `/tmp/sym-pr-feedback.json`:
-  `{"pr":"<number-or-url>"}`
-- Run `.agents/skills/sym-state/scripts/sym-call pr.inspect-feedback --input /tmp/sym-pr-feedback.json` to list conversation comments, reviews, and inline review comments.
-- Omit `pr` to inspect the current branch PR.
+- Confirm the local branch/worktree maps to the intended GitHub PR. If this work is part of an active Kata slice or task, use Kata CLI state/artifact operations from the active Pi-installed skill workflow for that project context; do not bypass Kata backend state for durable Kata evidence.
+- Run `<path-to-skill>/scripts/fetch_comments.py` which will print out all the comments and review threads on the PR. This helper intentionally uses `gh api graphql` because review threads, inline comments, and resolution state are GitHub PR-review data, not Kata CLI runtime state.
 
 ### Step 2: Enumarate issues identified in comments and review threads
 
@@ -29,7 +33,7 @@ Guide to find the open PR for the current branch and address its comments during
 ### Step 4: Apply fixes to all actionable issues & resolve/address comments
 
 - Use TDD when possible: write a failing test that captures the issue, then apply the fix to make the test pass.
-- Resolve or reply to those threads with GitHub review APIs as you address them. For comments not addressed, reply to reviewers with your reasoning and ask for any clarification if needed. Keep GitHub comment state in GitHub; keep Kata execution/verification summaries in Kata artifacts when the PR work is attached to a Kata task.
+- Resolve or reply to those threads with `gh`/GitHub UI as you address them. For comments not addressed, reply to reviewers with your reasoning and ask for any clarification if needed. Keep GitHub comment state in GitHub; keep Kata execution/verification summaries in Kata artifacts when the PR work is attached to a Kata task.
 
 ### Step 5: Run checks, commit and push changes
 
