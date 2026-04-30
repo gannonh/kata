@@ -61,7 +61,7 @@ agent:
 ## Prerequisites
 
 - **Linear personal API key** — `LINEAR_API_KEY` in your environment
-- **Worker runner** — Pi/Kata RPC or Codex (see above)
+- **Worker runner** — Pi RPC or Codex (see above)
 - **Git** — for workspace bootstrapping
 - **Docker** (only for container-isolated workers) — Docker Desktop or Docker Engine running
 
@@ -705,7 +705,7 @@ worker:
   max_concurrent_agents_per_host: 3
 ```
 
-Each host must have the agent backend (Kata CLI or Codex) installed and on PATH. Symphony connects via `ssh -T` and spawns the agent remotely. Set `SYMPHONY_SSH_CONFIG` to use a custom SSH config file.
+Each host must have the selected worker runner command installed and on PATH (for example `pi --mode rpc` or `codex app-server`). Symphony connects via `ssh -T` and spawns the runner remotely. Set `SYMPHONY_SSH_CONFIG` to use a custom SSH config file.
 
 ## Dashboard
 

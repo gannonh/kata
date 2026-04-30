@@ -31,7 +31,7 @@
 #       Linear: auth (viewer), project slug resolution, workflow state alignment, assignee lookup
 #       GitHub: PAT auth, repo access, Projects v2 check (when github_project_number is set),
 #               label presence checks (label mode)
-#   - Backend: configured backend command present on PATH and responds to `--version`
+#   - Runner: configured worker command present on PATH and responds to `--version`
 #   - Workspace: root path writable/creatable, repo reference sanity, git strategy compatibility,
 #                Docker daemon availability when isolation=docker
 #   - Orphans: on-disk workspace directories that do not map to active tracker issues
