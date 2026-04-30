@@ -5,13 +5,13 @@ description: "Use when a user asks to debug or fix failing GitHub PR checks that
 
 ## Overview
 
-Use the active Symphony workflow to reason about the task, Kata CLI only for durable Kata project/slice/task/artifact backend-state when applicable, and the Symphony helper to locate failing PR checks, fetch GitHub Actions logs for actionable failures, summarize the failures, and implement fixes.
+Use the Pi-hosted Symphony workflow to reason about the task, Kata CLI only for durable Kata project/slice/task/artifact state when applicable, and `gh` to locate failing PR checks, fetch GitHub Actions logs for actionable failures, summarize the failures, and implement fixes. GitHub Actions check/log APIs are not deterministic Kata CLI runtime operations in this skill's contract, so preserve the `gh` path for CI inspection.
 
 ## Inputs
 
 - `repo`: path inside the repo (default `.`)
 - `pr`: PR number or URL (optional; defaults to current branch PR)
-- `gh` authentication or the GitHub token configured in the active Symphony workflow
+- `gh` authentication for the repo host
 - Optional active Kata task/slice context when CI work is part of a Kata-backed Symphony run
 
 ## Quick start
@@ -42,7 +42,7 @@ Use the active Symphony workflow to reason about the task, Kata CLI only for dur
    - Create a checklist for yourself of issues to address so you have a clear sequence of steps to follow.
 7. Implement plan.
    - Apply the plan, summarize diffs/tests, commit and push changes.
-   - If the work is attached to a Kata task, keep Kata status/artifact updates in the active backend-state workflow and keep GitHub CI state in GitHub.
+   - If the work is attached to a Kata task, keep Kata status/artifact updates in the active Pi/Kata workflow and keep GitHub CI state in GitHub.
 8. Recheck status.
    - After changes, re-run the relevant tests and `pr.inspect-checks` to confirm.
    - If new or existing failures remain, repeat the workflow until CI passes

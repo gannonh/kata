@@ -12,7 +12,7 @@ description:
 
 - `gh` CLI is installed and available in `PATH`.
 - `gh auth status` succeeds for GitHub operations in this repo.
-- When this is part of a Kata-backed Symphony run, use the active Kata backend-state workflow for durable Kata task/slice/artifact state. PR creation/update remains a GitHub operation handled through `gh`.
+- When this is part of a Kata-backed Symphony run, use the active Pi/Kata workflow for durable Kata task/slice/artifact state. PR creation/update remains a GitHub operation handled through `gh` because no deterministic Kata CLI PR operation is available in this skill's runtime contract.
 
 ## Goals
 

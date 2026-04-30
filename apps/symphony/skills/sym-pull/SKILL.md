@@ -12,7 +12,7 @@ description:
 
 ## Workflow
 
-1. Verify git status is clean or commit/stash changes before merging. If this is part of a Kata-backed Symphony run, keep task/slice status and summary artifacts in the active backend-state workflow; this skill only handles git synchronization.
+1. Verify git status is clean or commit/stash changes before merging. If this is part of a Kata-backed Symphony run, keep task/slice status and summary artifacts in the active Pi/Kata workflow; this skill only handles git synchronization.
 2. Ensure rerere is enabled locally:
    - `git config rerere.enabled true`
    - `git config rerere.autoupdate true`
