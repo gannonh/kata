@@ -177,7 +177,7 @@ The helper returns PR metadata, feedback collections, and check status. Treat no
   thread) with `[codex]` and state whether you will address the feedback now or
   defer it (include rationale).
 - If feedback requires changes:
-  - For inline review comments (human), reply with intended fixes using the active runner prefix (for example `[pi] ...` on Pi runs or `[codex] ...` on Codex app-server runs) **as an inline reply to the original review comment** using the review comment endpoint and `in_reply_to` (do not use issue comments for this).
+  - For inline review comments (human), reply with intended fixes using the active harness prefix (for example `[pi] ...` on Pi/Kata CLI runs or `[codex] ...` on explicit Codex app-server runs) **as an inline reply to the original review comment** using the review comment endpoint and `in_reply_to` (do not use issue comments for this).
   - Implement fixes, commit, push.
   - Reply with the fix details and commit sha using the same active harness prefix in the same place you acknowledged the feedback (issue comment for Codex reviews, inline reply for review comments).
   - The land watcher treats Codex review issue comments as unresolved until a
