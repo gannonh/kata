@@ -180,14 +180,9 @@ Exit codes:
   thread) with `[codex]` and state whether you will address the feedback now or
   defer it (include rationale).
 - If feedback requires changes:
-  - For inline review comments (human), reply with intended fixes
-    (`[codex] ...`) **as an inline reply to the original review comment** using
-    the review comment endpoint and `in_reply_to` (do not use issue comments for
-    this).
+  - For inline review comments (human), reply with intended fixes using the active harness prefix (for example `[pi] ...` on Pi/Kata CLI runs or `[codex] ...` on explicit Codex app-server runs) **as an inline reply to the original review comment** using the review comment endpoint and `in_reply_to` (do not use issue comments for this).
   - Implement fixes, commit, push.
-  - Reply with the fix details and commit sha (`[codex] ...`) in the same place
-    you acknowledged the feedback (issue comment for Codex reviews, inline reply
-    for review comments).
+  - Reply with the fix details and commit sha using the same active harness prefix in the same place you acknowledged the feedback (issue comment for Codex reviews, inline reply for review comments).
   - The land watcher treats Codex review issue comments as unresolved until a
     newer `[codex]` issue comment is posted acknowledging the findings.
 - Only request a new Codex review when you need a rerun (e.g., after new
@@ -199,7 +194,7 @@ Exit codes:
     synchronization (or you can re-run the workflow manually). Post a concise
     root-level summary comment so reviewers have the latest delta:
     ```
-    [codex] Changes since last review:
+    [<active-harness>] Changes since last review:
     - <short bullets of deltas>
     Commits: <sha>, <sha>
     Tests: <commands run>
@@ -214,7 +209,7 @@ Exit codes:
   just the most recent fix.
 - If review feedback expands scope, decide whether to include it now or defer
   it. You can accept, defer, or decline feedback. If deferring or declining,
-  call it out in the root-level `[codex]` update with a brief reason (e.g.,
+  call it out in the root-level active-harness update with a brief reason (e.g.,
   out-of-scope, conflicts with intent, unnecessary).
 - Correctness issues raised in review comments should be addressed. If you plan
   to defer or decline a correctness concern, validate first and explain why the
