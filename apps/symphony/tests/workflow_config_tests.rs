@@ -271,7 +271,7 @@ fn test_config_defaults() {
     assert_eq!(config.workspace.clone_branch, None);
     assert_eq!(config.workspace.base_branch.as_deref(), Some("main"));
     assert!(!config.workspace.cleanup_on_done);
-    assert_eq!(config.agent_backend, AgentBackend::Codex);
+    assert_eq!(config.agent_backend, AgentBackend::KataCli);
     assert_eq!(config.pi_agent.command, vec!["kata".to_string()]);
     assert_eq!(config.pi_agent.model, None);
     assert!(config.pi_agent.model_by_label.is_empty());

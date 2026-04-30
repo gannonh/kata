@@ -954,8 +954,8 @@ impl Default for CodexConfig {
 /// Which runtime backend to use for agent sessions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum AgentBackend {
-    KataCli,
     #[default]
+    KataCli,
     Codex,
 }
 
