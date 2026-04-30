@@ -2,16 +2,17 @@
 name: sym-pull
 description:
   Pull latest origin/<base-branch> into the current local branch and resolve
-  merge conflicts (aka update-branch). Use when Codex needs to sync a feature
-  branch with origin, perform a merge-based update (not rebase), and guide
-  conflict resolution best practices.
+  merge conflicts (aka update-branch). Use when Symphony running through Pi or
+  the explicit Codex app-server path needs to sync a feature branch with origin,
+  perform a merge-based update (not rebase), and guide conflict resolution best
+  practices.
 ---
 
 # Pull
 
 ## Workflow
 
-1. Verify git status is clean or commit/stash changes before merging.
+1. Verify git status is clean or commit/stash changes before merging. If this is part of a Kata-backed Symphony run, keep task/slice status and summary artifacts in the active Pi/Kata workflow; this skill only handles git synchronization.
 2. Ensure rerere is enabled locally:
    - `git config rerere.enabled true`
    - `git config rerere.autoupdate true`
@@ -35,7 +36,7 @@ description:
 8. If conflicts appear, resolve them (see conflict guidance below), then:
    - `git add <files>`
    - `git commit` (or `git merge --continue` if the merge is paused)
-9. Verify with project checks (follow repo policy in `AGENTS.md`).
+9. Verify with project checks (follow repo policy in `AGENTS.md`). Do not use `--no-verify` to bypass hooks or checks.
 10. Summarize the merge:
    - Call out the most challenging conflicts/files and how they were resolved.
    - Note any assumptions or follow-ups.

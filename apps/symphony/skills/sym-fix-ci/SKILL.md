@@ -5,13 +5,14 @@ description: "Use when a user asks to debug or fix failing GitHub PR checks that
 
 ## Overview
 
-Use gh to locate failing PR checks, fetch GitHub Actions logs for actionable failures, summarize the failures, and implement fixes.
+Use the Pi-hosted Symphony workflow to reason about the task, Kata CLI only for durable Kata project/slice/task/artifact state when applicable, and `gh` to locate failing PR checks, fetch GitHub Actions logs for actionable failures, summarize the failures, and implement fixes. GitHub Actions check/log APIs are not deterministic Kata CLI runtime operations in this skill's contract, so preserve the `gh` path for CI inspection.
 
 ## Inputs
 
 - `repo`: path inside the repo (default `.`)
 - `pr`: PR number or URL (optional; defaults to current branch PR)
 - `gh` authentication for the repo host
+- Optional active Kata task/slice context when CI work is part of a Kata-backed Symphony run
 
 ## Quick start
 
@@ -48,6 +49,7 @@ Use gh to locate failing PR checks, fetch GitHub Actions logs for actionable fai
    - Use the `create-plan` skill to draft a concise plan.
 7. Implement plan.
    - Apply the plan, summarize diffs/tests, commit and push changes.
+   - If the work is attached to a Kata task, keep Kata status/artifact updates in the active Pi/Kata workflow and keep GitHub CI state in GitHub.
 8. Recheck status.
    - After changes, re-run the relevant tests and `gh pr checks` to confirm.
    - If new or existing failures remain, repeat the workflow until CI passes
