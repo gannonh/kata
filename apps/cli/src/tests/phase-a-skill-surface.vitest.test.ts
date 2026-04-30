@@ -70,6 +70,18 @@ describe("Phase A skill surface", () => {
     expect(manifest).toContain("Do not set `verificationState: verified`; `kata-verify-work` owns verification.");
   });
 
+  it("paves verify-work artifact writes through the JSON encoder helper", () => {
+    const verifyWorkflow = readFileSync(
+      path.join(sourceRoot, "skills-src", "workflows", "verify-work.md"),
+      "utf8",
+    );
+
+    expect(verifyWorkflow).toContain("kata-artifact-input.mjs");
+    expect(verifyWorkflow).toContain("--content-file /tmp/T001-verification.md");
+    expect(verifyWorkflow).not.toContain('"content": "# Verification');
+    expect(verifyWorkflow).not.toContain('"content": "# Verification\\n');
+  });
+
   it("treats a slice as the execute-phase unit of work", () => {
     const executeWorkflow = readFileSync(
       path.join(sourceRoot, "skills-src", "workflows", "execute-phase.md"),

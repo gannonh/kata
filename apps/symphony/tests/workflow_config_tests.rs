@@ -271,7 +271,7 @@ fn test_config_defaults() {
     assert_eq!(config.workspace.clone_branch, None);
     assert_eq!(config.workspace.base_branch.as_deref(), Some("main"));
     assert!(!config.workspace.cleanup_on_done);
-    assert_eq!(config.agent_backend, AgentBackend::Codex);
+    assert_eq!(config.agent_backend, AgentBackend::KataCli);
     assert_eq!(config.pi_agent.command, vec!["kata".to_string()]);
     assert_eq!(config.pi_agent.model, None);
     assert!(config.pi_agent.model_by_label.is_empty());
@@ -494,6 +494,27 @@ fn test_server_public_url_rejects_malformed_or_relative_values() {
             "expected invalid public_url error for '{public_url}', got: {err}"
         );
     }
+}
+
+#[test]
+fn test_agent_backend_codex_remains_explicitly_supported() {
+    let yaml_str = r#"
+agent:
+  backend: codex
+codex:
+  command:
+    - codex
+    - app-server
+"#;
+
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let config = from_workflow(&raw).expect("explicit codex backend config should parse");
+
+    assert_eq!(config.agent_backend, AgentBackend::Codex);
+    assert_eq!(
+        config.codex.command,
+        vec!["codex".to_string(), "app-server".to_string()]
+    );
 }
 
 #[test]
@@ -1606,6 +1627,7 @@ fn test_config_validation_missing_codex_command() {
             command: vec![],
             ..CodexConfig::default()
         },
+        agent_backend: AgentBackend::Codex,
         ..ServiceConfig::default()
     };
 

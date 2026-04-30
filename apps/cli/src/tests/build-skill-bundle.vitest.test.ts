@@ -29,6 +29,13 @@ describe("skill bundle generation", () => {
       "artifact-contract.md",
     );
     const helperScriptPath = path.join(cliRoot, "skills", "kata-plan-phase", "scripts", "kata-call.mjs");
+    const artifactInputHelperScriptPath = path.join(
+      cliRoot,
+      "skills",
+      "kata-plan-phase",
+      "scripts",
+      "kata-artifact-input.mjs",
+    );
 
     expect(existsSync(skillPath)).toBe(true);
     expect(existsSync(workflowReferencePath)).toBe(true);
@@ -36,18 +43,21 @@ describe("skill bundle generation", () => {
     expect(existsSync(cliRuntimeReferencePath)).toBe(true);
     expect(existsSync(artifactContractReferencePath)).toBe(true);
     expect(existsSync(helperScriptPath)).toBe(true);
+    expect(existsSync(artifactInputHelperScriptPath)).toBe(true);
 
     const skill = readFileSync(skillPath, "utf8");
     const workflow = readFileSync(workflowReferencePath, "utf8");
     const runtime = readFileSync(runtimeReferencePath, "utf8");
     const setup = readFileSync(setupReferencePath, "utf8");
     const helperScript = readFileSync(helperScriptPath, "utf8");
+    const artifactInputHelperScript = readFileSync(artifactInputHelperScriptPath, "utf8");
 
     expect(skill).toContain("references/alignment.md");
     expect(skill).toContain("references/workflow.md");
     expect(skill).toContain("references/runtime-contract.md");
     expect(skill).toContain("references/cli-runtime.md");
     expect(skill).toContain("references/artifact-contract.md");
+    expect(skill).toContain("scripts/kata-artifact-input.mjs");
     expect(skill).toContain("## Process");
     expect(skill).toContain("Read `references/workflow.md` before taking action. Execute that workflow end-to-end.");
     expect(skill).toContain("Preserve every workflow gate");
@@ -64,7 +74,56 @@ describe("skill bundle generation", () => {
     expect(setup).toContain("In Progress");
     expect(helperScript).toContain("loadDotEnv(process.cwd())");
     expect(helperScript).toContain("path.resolve(process.cwd(), process.env.KATA_CLI_ROOT)");
+    expect(artifactInputHelperScript).toContain("JSON.stringify(payload, null, 2)");
     expect(existsSync(path.join(cliRoot, "skills", "kata-discuss-phase"))).toBe(false);
+  });
+
+  it("generates artifact input JSON from Markdown without hand escaping", () => {
+    const fixtureDir = path.join(tmpdir(), `kata-artifact-input-${Date.now()}`);
+    const scriptsDir = path.join(fixtureDir, "scripts");
+    const markdownPath = path.join(fixtureDir, "verification.md");
+    const outputPath = path.join(fixtureDir, "artifact.json");
+
+    mkdirSync(scriptsDir, { recursive: true });
+    writeFileSync(
+      path.join(scriptsDir, "kata-artifact-input.mjs"),
+      readFileSync(path.join(cliRoot, "skills-src", "scripts", "kata-artifact-input.mjs"), "utf8"),
+      "utf8",
+    );
+    writeFileSync(markdownPath, "# Verification\n\n- `pnpm test` passed.\n| A | B |\n|---|---|\n", "utf8");
+
+    const result = spawnSync(
+      process.execPath,
+      [
+        "scripts/kata-artifact-input.mjs",
+        "--scope-type",
+        "task",
+        "--scope-id",
+        "T001",
+        "--artifact-type",
+        "verification",
+        "--title",
+        "T001 Verification",
+        "--content-file",
+        markdownPath,
+        "--output",
+        outputPath,
+      ],
+      {
+        cwd: fixtureDir,
+        encoding: "utf8",
+      },
+    );
+
+    expect(result.status, result.stderr || result.stdout).toBe(0);
+    expect(JSON.parse(readFileSync(outputPath, "utf8"))).toMatchObject({
+      scopeType: "task",
+      scopeId: "T001",
+      artifactType: "verification",
+      title: "T001 Verification",
+      content: "# Verification\n\n- `pnpm test` passed.\n| A | B |\n|---|---|\n",
+      format: "markdown",
+    });
   });
 
   it("generates helpers that route CLI commands separately from runtime operations", () => {
