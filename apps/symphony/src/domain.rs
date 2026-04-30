@@ -951,7 +951,7 @@ impl Default for CodexConfig {
     }
 }
 
-/// Which runtime backend to use for agent sessions.
+/// Which worker runtime to use for agent sessions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum AgentBackend {
     #[default]
@@ -959,10 +959,10 @@ pub enum AgentBackend {
     Codex,
 }
 
-/// Pi-agent (Kata RPC) runtime configuration.
+/// Pi runtime configuration.
 #[derive(Debug, Clone)]
 pub struct PiAgentConfig {
-    /// Command and arguments to launch pi-agent.
+    /// Command and arguments to launch the Pi runtime.
     pub command: Vec<String>,
     /// Optional default model identifier passed via `--model`.
     pub model: Option<String>,
@@ -983,7 +983,7 @@ pub struct PiAgentConfig {
 impl Default for PiAgentConfig {
     fn default() -> Self {
         Self {
-            command: vec!["kata".to_string()],
+            command: vec!["pi".to_string(), "--mode".to_string(), "rpc".to_string()],
             model: None,
             model_by_label: HashMap::new(),
             model_by_state: HashMap::new(),

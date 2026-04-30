@@ -2,7 +2,7 @@
 
 Symphony is a headless orchestrator that polls a Linear project for candidate
 issues and dispatches each one to an agent session running in an isolated
-workspace. It supports both Codex app-server and Kata RPC (`agent.backend`),
+workspace. It supports both Codex app-server and Pi RPC (`agent.name`),
 tracks concurrency limits, retries failures with exponential back-off,
 reconciles issue state on each poll cycle, and optionally exposes a live HTTP
 dashboard and JSON API for observability. SSH remote worker pools are supported
@@ -15,8 +15,8 @@ for distributing agent sessions across multiple machines.
 - **Rust stable toolchain** (install via [rustup](https://rustup.rs/))
 - A Linear personal API key (`LINEAR_API_KEY`)
 - Agent runtime binary reachable on `PATH`:
-  - Codex backend: `codex app-server`
-  - Kata CLI backend (`kata-cli` / `kata` / `pi`): `kata --mode rpc`
+  - Codex runner: `codex ... app-server`
+  - Pi runner: `pi --mode rpc`
 
 Build the release binary:
 
@@ -127,31 +127,18 @@ is at `docs/WORKFLOW-REFERENCE.md`. Copy it to your project root as
 | `agent.max_turns`             | u32    | `20`      | Maximum prompt turns per session attempt before the worker run ends.                                     |
 | `agent.max_retry_backoff_ms`  | u64    | `300000`  | Maximum exponential back-off delay (ms) between retries.                                                 |
 | `agent.escalation_timeout_ms` | u64    | `300000`  | Timeout (ms) to wait for a human escalation response before falling back to auto-cancel/reject behavior. |
-| `agent.backend`               | string | `"codex"` | Runtime backend: `"codex"` (Codex app-server) or `"kata-cli"` (alias: `"kata"`) for Kata RPC.            |
-
-#### `codex` section
-
-| Field                       | Type               | Default                   | Description                                                                                                              |
-| --------------------------- | ------------------ | ------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `codex.command`             | string or string[] | `["codex", "app-server"]` | Codex executable and arguments. Accepts a whitespace-split string or an explicit list.                                   |
-| `codex.approval_policy`     | object             | _(reject all)_            | JSON/YAML object passed to Codex as the approval policy. Default rejects sandbox approvals, rules, and MCP elicitations. |
-| `codex.thread_sandbox`      | string             | `"workspace-write"`       | Codex sandbox mode for the agent thread.                                                                                 |
-| `codex.turn_sandbox_policy` | object             | _(none)_                  | Per-turn sandbox policy override passed to Codex.                                                                        |
-| `codex.turn_timeout_ms`     | u64                | `3600000`                 | Hard timeout per Codex turn (1 hour default).                                                                            |
-| `codex.read_timeout_ms`     | u64                | `5000`                    | Timeout waiting for Codex process output (ms).                                                                           |
-| `codex.stall_timeout_ms`    | u64                | `300000`                  | Time before a non-progressing session is considered stalled (5 min default).                                             |
-
-#### `kata_agent` section (`pi_agent` alias)
-
-| Field                                                               | Type                | Default    | Description                                                                                        |
-| ------------------------------------------------------------------- | ------------------- | ---------- | -------------------------------------------------------------------------------------------------- |
-| `kata_agent.command` (`pi_agent.command`)                           | string or string[]  | `["kata"]` | Kata CLI executable and base args. Symphony appends `--mode rpc --cwd <workspace>`.                |
-| `kata_agent.model` (`pi_agent.model`)                               | string              | _(none)_   | Optional default model override passed as `--model`.                                               |
-| `kata_agent.model_by_state` (`pi_agent.model_by_state`)             | map<string, string> | `{}`       | Optional per-Linear-state model overrides. Keys are lowercased state names; falls back to `model`. |
-| `kata_agent.no_session` (`pi_agent.no_session`)                     | bool                | `true`     | Pass `--no-session` to disable persistent session storage.                                         |
-| `kata_agent.append_system_prompt` (`pi_agent.append_system_prompt`) | string              | _(none)_   | Optional path passed via `--append-system-prompt`.                                                 |
-| `kata_agent.read_timeout_ms` (`pi_agent.read_timeout_ms`)           | u64                 | `5000`     | Timeout waiting for Kata CLI process output (ms).                                                  |
-| `kata_agent.stall_timeout_ms` (`pi_agent.stall_timeout_ms`)         | u64                 | `300000`   | Time before a non-progressing Kata CLI session is considered stalled (5 min default).              |
+| `agent.name`                  | string | `"pi"`    | Worker runner: `"pi"` or `"codex"`. This is not the tracker/backend-state backend.                  |
+| `agent.command`               | string or string[] | `["pi", "--mode", "rpc"]` | Complete static launch command. Symphony appends dynamic per-run args such as `--cwd <workspace>`. |
+| `agent.model`                 | string | _(none)_ | Optional default model override passed to runners that support it.                                  |
+| `agent.model_by_state`        | map<string, string> | `{}` | Optional per-state model overrides. Keys are lowercased state names; falls back to `model`.          |
+| `agent.no_session`            | bool   | `true`    | Pass `--no-session` to Pi.                                                                         |
+| `agent.append_system_prompt`  | string | _(none)_  | Optional path passed via `--append-system-prompt` to Pi.                                            |
+| `agent.turn_timeout_ms`       | u64    | `3600000` | Hard timeout per Codex turn (1 hour default).                                                       |
+| `agent.read_timeout_ms`       | u64    | `5000`    | Timeout waiting for runtime process output (ms).                                                    |
+| `agent.stall_timeout_ms`      | u64    | `300000`  | Time before a non-progressing session is considered stalled (5 min default).                        |
+| `agent.approval_policy`       | object | _(reject all)_ | Codex approval policy.                                                                          |
+| `agent.thread_sandbox`        | string | `"workspace-write"` | Codex sandbox mode for the agent thread.                                                     |
+| `agent.turn_sandbox_policy`   | object | _(none)_  | Per-turn Codex sandbox policy override.                                                            |
 
 #### `hooks` section
 
@@ -548,7 +535,7 @@ symphony WORKFLOW.md
 Symphony connects via `ssh -T [-F config] -p <port> <host> bash -lc '<command>'`.
 The command string is POSIX single-quote-escaped. The remote host must have
 `bash` available and the configured runtime binary on its `PATH`
-(`codex.command` for codex backend, `kata_agent.command` / `pi_agent.command` for Kata CLI backend).
+(`agent.command`).
 
 ### Docker Isolation Lifecycle
 
@@ -559,8 +546,7 @@ When `workspace.isolation: docker` is selected:
    `workspace.docker.setup` is configured.
 3. A per-issue container is started via `docker run --rm -d`.
 4. Repository bootstrap and hooks execute inside the container (`docker exec`).
-5. Agent runtime runs via `docker exec -i <container> sh -lc 'cd /workspace && <runtime command>'`
-   where runtime command is backend-dependent (`<codex.command>` or Kata RPC).
+5. Agent runtime runs via `docker exec -i <container> sh -lc 'cd /workspace && <agent.command>'`.
 6. Container is removed via `docker rm -f` after session completion.
 
 ---
@@ -716,9 +702,9 @@ cargo clippy -- -D warnings
 
 ---
 
-## Debugging Worker Sessions (Kata CLI Logs)
+## Debugging Worker Sessions
 
-When Symphony dispatches a worker using the `kata-cli` backend, each session
+When Symphony dispatches a worker using the Pi runner, each session
 writes a JSONL log to `~/.kata-cli/sessions/`. The filename includes the
 session UUID:
 

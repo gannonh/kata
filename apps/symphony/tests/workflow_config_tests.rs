@@ -169,12 +169,21 @@ fn test_agent_review_prompt_transitions_to_human_review() {
 
 #[test]
 fn test_repo_workflow_example_uses_per_state_prompts() {
-    let workflow_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("docs/WORKFLOW-linear.md");
-    let def = parse_workflow(&workflow_path).expect("example WORKFLOW-linear.md should parse");
+    let workflow_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("WORKFLOW-github.md");
+    let def = parse_workflow(&workflow_path).expect("active WORKFLOW-github.md should parse");
+    let mut test_config = def.config.clone();
+    if let Some(map) = test_config.as_mapping_mut() {
+        map.remove(serde_yaml::Value::String("notifications".to_string()));
+    }
 
     // When using per-state prompts, the body after --- should be empty or minimal
     // The config should have a prompts section
-    let config = from_workflow(&def.config).expect("config should parse");
+    let config = from_workflow(&test_config).expect("config should parse");
+    assert_eq!(config.agent_backend, AgentBackend::KataCli);
+    assert_eq!(
+        config.pi_agent.command,
+        vec!["pi".to_string(), "--mode".to_string(), "rpc".to_string()]
+    );
     assert!(
         config.prompts.is_some(),
         "example WORKFLOW-linear.md should use per-state prompts config"
@@ -272,7 +281,10 @@ fn test_config_defaults() {
     assert_eq!(config.workspace.base_branch.as_deref(), Some("main"));
     assert!(!config.workspace.cleanup_on_done);
     assert_eq!(config.agent_backend, AgentBackend::KataCli);
-    assert_eq!(config.pi_agent.command, vec!["kata".to_string()]);
+    assert_eq!(
+        config.pi_agent.command,
+        vec!["pi".to_string(), "--mode".to_string(), "rpc".to_string()]
+    );
     assert_eq!(config.pi_agent.model, None);
     assert!(config.pi_agent.model_by_label.is_empty());
     assert!(config.pi_agent.model_by_state.is_empty());
@@ -497,33 +509,40 @@ fn test_server_public_url_rejects_malformed_or_relative_values() {
 }
 
 #[test]
-fn test_agent_backend_codex_remains_explicitly_supported() {
+fn test_agent_name_codex_uses_agent_command() {
     let yaml_str = r#"
 agent:
-  backend: codex
-codex:
+  name: codex
   command:
     - codex
+    - --model
+    - gpt-5.3-codex
     - app-server
+  stall_timeout_ms: 900000
 "#;
 
     let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
-    let config = from_workflow(&raw).expect("explicit codex backend config should parse");
+    let config = from_workflow(&raw).expect("codex agent config should parse");
 
     assert_eq!(config.agent_backend, AgentBackend::Codex);
     assert_eq!(
         config.codex.command,
-        vec!["codex".to_string(), "app-server".to_string()]
+        vec![
+            "codex".to_string(),
+            "--model".to_string(),
+            "gpt-5.3-codex".to_string(),
+            "app-server".to_string()
+        ]
     );
+    assert_eq!(config.codex.stall_timeout_ms, 900_000);
 }
 
 #[test]
-fn test_agent_backend_kata_cli_with_kata_agent_config() {
+fn test_agent_name_pi_uses_agent_command_and_params() {
     let yaml_str = r#"
 agent:
-  backend: kata-cli
-kata_agent:
-  command: "kata"
+  name: pi
+  command: "pi --mode rpc"
   model: "anthropic/claude-sonnet-4-6"
   no_session: false
   append_system_prompt: "/tmp/system.md"
@@ -531,10 +550,13 @@ kata_agent:
   stall_timeout_ms: 90000
 "#;
     let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
-    let config = from_workflow(&raw).expect("kata-cli backend config should parse");
+    let config = from_workflow(&raw).expect("pi agent config should parse");
 
     assert_eq!(config.agent_backend, AgentBackend::KataCli);
-    assert_eq!(config.pi_agent.command, vec!["kata".to_string()]);
+    assert_eq!(
+        config.pi_agent.command,
+        vec!["pi".to_string(), "--mode".to_string(), "rpc".to_string()]
+    );
     assert_eq!(
         config.pi_agent.model.as_deref(),
         Some("anthropic/claude-sonnet-4-6")
@@ -551,12 +573,27 @@ kata_agent:
 }
 
 #[test]
+fn test_legacy_kata_runtime_name_is_rejected() {
+    let yaml_str = r#"
+agent:
+  name: kata-cli
+  command: "kata"
+"#;
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let err = from_workflow(&raw).expect_err("kata-cli is not a worker runtime name");
+    assert!(
+        err.to_string()
+            .contains("agent.name must be 'pi' or 'codex'"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
 fn test_pi_agent_model_by_label_normalizes_keys() {
     let yaml_str = r#"
 agent:
-  backend: kata-cli
-pi_agent:
-  command: kata
+  name: pi
+  command: pi --mode rpc
   model_by_label:
     Model:Sonnet: anthropic/claude-sonnet-4-6
     MODEL:OPUS: anthropic/claude-opus-4-6
@@ -592,9 +629,8 @@ pi_agent:
 fn test_pi_agent_model_by_state_normalizes_keys() {
     let yaml_str = r#"
 agent:
-  backend: kata-cli
-pi_agent:
-  command: kata
+  name: pi
+  command: pi --mode rpc
   model: anthropic/claude-opus-4-6
   model_by_state:
     Agent Review: anthropic/claude-sonnet-4-6
@@ -629,33 +665,34 @@ pi_agent:
 
 #[test]
 fn test_agent_backend_aliases_map_to_kata_cli() {
-    for backend in ["kata-cli", "kata", "pi"] {
-        let yaml_str = format!("agent:\n  backend: {backend}\nkata_agent:\n  command: kata\n");
-        let raw: serde_yaml::Value = serde_yaml::from_str(&yaml_str).unwrap();
-        let config = from_workflow(&raw).expect("backend alias should parse");
-        assert_eq!(config.agent_backend, AgentBackend::KataCli);
-    }
+    let raw: serde_yaml::Value =
+        serde_yaml::from_str("agent:\n  name: pi\n  command: pi --mode rpc\n").unwrap();
+    let config = from_workflow(&raw).expect("pi agent name should parse");
+    assert_eq!(config.agent_backend, AgentBackend::KataCli);
 }
 
 #[test]
 fn test_pi_agent_section_still_supported_as_alias() {
     let yaml_str = r#"
 agent:
-  backend: kata
+  name: pi
 pi_agent:
-  command: "kata"
+  command: "pi --mode rpc"
 "#;
     let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
     let config = from_workflow(&raw).expect("pi_agent alias section should parse");
     assert_eq!(config.agent_backend, AgentBackend::KataCli);
-    assert_eq!(config.pi_agent.command, vec!["kata".to_string()]);
+    assert_eq!(
+        config.pi_agent.command,
+        vec!["pi".to_string(), "--mode".to_string(), "rpc".to_string()]
+    );
 }
 
 #[test]
 fn test_kata_agent_and_pi_agent_sections_conflict() {
     let yaml_str = r#"
 agent:
-  backend: kata-cli
+  name: pi
 kata_agent:
   command: "kata"
 pi_agent:
@@ -674,12 +711,12 @@ pi_agent:
 fn test_agent_backend_invalid_value_errors() {
     let yaml_str = r#"
 agent:
-  backend: unknown
+  name: unknown
 "#;
     let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
-    let err = from_workflow(&raw).expect_err("unknown backend should fail");
+    let err = from_workflow(&raw).expect_err("unknown agent name should fail");
     assert!(
-        err.to_string().contains("agent.backend"),
+        err.to_string().contains("agent.name"),
         "unexpected error: {err}"
     );
 }
@@ -1612,10 +1649,10 @@ fn test_config_validation_github_missing_repo_name_errors() {
 
 #[test]
 fn test_config_validation_missing_codex_command() {
-    // Build a fully valid base config so validation reaches the codex.command
+    // Build a fully valid base config so validation reaches the agent.command
     // check.  Previously this test used ServiceConfig::default() which has
     // tracker.kind=None, causing validation to fail on kind before ever
-    // reaching the codex.command check.
+    // reaching the agent.command check.
     let config = ServiceConfig {
         tracker: TrackerConfig {
             kind: Some("linear".to_string()),
@@ -1633,8 +1670,8 @@ fn test_config_validation_missing_codex_command() {
 
     let result = validate(&config);
     assert!(
-        matches!(result, Err(SymphonyError::InvalidWorkflowConfig(ref msg)) if msg.contains("codex.command")),
-        "empty codex.command should return codex-specific InvalidWorkflowConfig, got: {:?}",
+        matches!(result, Err(SymphonyError::InvalidWorkflowConfig(ref msg)) if msg.contains("agent.command")),
+        "empty command should return agent-specific InvalidWorkflowConfig, got: {:?}",
         result
     );
 }

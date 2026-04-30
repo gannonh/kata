@@ -1,6 +1,6 @@
 //! Pi RPC bridge — subprocess lifecycle, JSON-line I/O, and turn management.
 //!
-//! This module launches `kata --mode rpc` (or a compatible pi-agent command)
+//! This module launches the configured Pi RPC command
 //! and drives prompt turns over stdin/stdout JSON lines.
 
 use std::path::{Path, PathBuf};
@@ -92,8 +92,6 @@ fn build_command_parts(
     }
 
     let mut parts = config.command.clone();
-    parts.push("--mode".to_string());
-    parts.push("rpc".to_string());
     parts.push("--cwd".to_string());
     parts.push(workspace_path.to_string());
 
@@ -1136,7 +1134,7 @@ mod tests {
     #[test]
     fn build_command_parts_uses_state_selected_model() {
         let mut config = PiAgentConfig {
-            command: vec!["kata".to_string()],
+            command: vec!["pi".to_string(), "--mode".to_string(), "rpc".to_string()],
             model: Some("anthropic/claude-opus-4-6".to_string()),
             ..PiAgentConfig::default()
         };
@@ -1154,7 +1152,7 @@ mod tests {
     #[test]
     fn build_command_parts_prefers_explicit_model_override() {
         let mut config = PiAgentConfig {
-            command: vec!["kata".to_string()],
+            command: vec!["pi".to_string(), "--mode".to_string(), "rpc".to_string()],
             model: Some("anthropic/claude-opus-4-6".to_string()),
             ..PiAgentConfig::default()
         };

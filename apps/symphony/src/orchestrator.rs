@@ -1042,7 +1042,7 @@ async fn run_worker_task(
 
                         tracing::info!(
                             event = "worker_started",
-                            backend = "kata-cli",
+                            backend = "pi",
                             issue_id = %issue.id,
                             issue_identifier = %issue.identifier,
                             session_id = %session.session_id,
@@ -1342,7 +1342,7 @@ async fn run_worker_task(
 
             tracing::info!(
                 event = "worker_started",
-                backend = "kata-cli",
+                backend = "pi",
                 issue_id = %issue_id,
                 issue_identifier = %issue.identifier,
                 session_id = %session.session_id,
@@ -3635,7 +3635,7 @@ impl Orchestrator {
 
                 tracing::info!(
                     event = "worker_started",
-                    backend = "kata-cli",
+                    backend = "pi",
                     issue_id = %issue.id,
                     issue_identifier = %issue.identifier,
                     session_id = %session.session_id,

@@ -286,7 +286,7 @@ agent:
   # Default parser value: 10.
   max_concurrent_agents: 1
 
-  # Maximum turns (Codex interactions) per session before the run is
+  # Maximum turns per session before the run is
   # considered complete for a single worker attempt.
   max_turns: 20
 
@@ -297,19 +297,35 @@ agent:
   # falls back to auto-cancel/reject behavior.
   # escalation_timeout_ms: 300000
 
-  # Runtime backend for worker sessions.
-  #   - kata-cli (alias: kata): launch Kata CLI in RPC mode
-  #   - codex: launch Codex app-server
-  backend: kata-cli
+  # Worker runner name. This chooses how Symphony speaks to the worker process.
+  # It is separate from tracker/backend-state operations.
+  #   - pi: launch the Pi RPC runtime
+  #   - codex: launch a Codex app-server process
+  name: pi
 
+  # Command to start the selected worker runner. Can be a shell-style string
+  # or a list. Include the runner mode in the command; Symphony only appends
+  # dynamic per-run args such as `--cwd <workspace>`.
+  command: pi --mode rpc
 
+  # Codex example:
+  # name: codex
+  # command: codex --config shell_environment_policy.inherit=all --config model_reasoning_effort=xhigh --model gpt-5.3-codex app-server
 
-# ─── Codex ────────────────────────────────────────────────────────────────────
-# Configures the Codex app-server process (used when `agent.backend: codex`).
-codex:
-  # Command to start Codex. Can be a string (whitespace-split) or list.
-  # Default parser value: `codex app-server`.
-  command: codex --config shell_environment_policy.inherit=all --config model_reasoning_effort=xhigh --model gpt-5.3-codex app-server
+  # Model passed to runners that support a model flag.
+  model: anthropic/claude-opus-4-6
+
+  # Per-state model overrides. Keys are workflow state names
+  # (case-insensitive). If a state isn't listed, falls back to `model`.
+  # model_by_state:
+  #   Agent Review: anthropic/claude-sonnet-4-6
+  #   Merging: anthropic/claude-sonnet-4-6
+
+  # Whether to pass `--no-session` for `name: pi` (default: true).
+  no_session: true
+
+  # Optional file path passed via `--append-system-prompt` for `name: pi`.
+  # append_system_prompt: /absolute/path/to/prompt.md
 
   # Hard timeout per Codex turn in milliseconds (default: 3600000 = 1 hour).
   # turn_timeout_ms: 3600000
@@ -336,29 +352,6 @@ codex:
   turn_sandbox_policy:
     type: dangerFullAccess
 
-# ─── Kata Agent (Kata RPC) ────────────────────────────────────────────────────
-# Configures Kata RPC runtime (used when `agent.backend: kata-cli`; alias: kata).
-kata_agent:  # alias: pi_agent
-  # Command used to launch Kata RPC. Can be a string or list.
-  # Symphony appends --mode rpc --cwd <workspace> automatically.
-  # Default parser value: `kata`
-  command: kata # or: npx @kata-sh/cli
-
-  # Model passed via `--model`. Format: provider/model-id or just model-id.
-  model: anthropic/claude-opus-4-6
-
-  # Per-state model overrides. Keys are Linear state names (case-insensitive).
-  # If a state isn't listed, falls back to `model` above.
-  # model_by_state:
-  #   Agent Review: anthropic/claude-sonnet-4-6
-  #   Merging: anthropic/claude-sonnet-4-6
-
-  # Whether to pass `--no-session` to Kata (default: true).
-  no_session: true
-
-  # Optional file path passed via `--append-system-prompt`.
-  # append_system_prompt: /absolute/path/to/prompt.md
-
   # Timeout waiting for stdout lines in milliseconds.
   # Default parser value: 5000.
   read_timeout_ms: 5000
@@ -374,7 +367,7 @@ supervisor:
   enabled: false
 
   # Optional model identifier for future model-backed supervisor reasoning.
-  # Defaults to kata_agent.model when omitted.
+  # Defaults to agent.model when omitted.
   # model: anthropic/claude-sonnet-4-6
 
   # Minimum milliseconds between steer actions for the same worker issue.

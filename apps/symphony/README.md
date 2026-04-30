@@ -14,45 +14,41 @@ Headless orchestrator that polls a Linear project for issues and dispatches para
 
 All configuration — tracker, workspace, agent, and the prompt template — lives in a single `WORKFLOW.md` file.
 
-## Agent Backends
+## Worker Agents
 
-Symphony supports two agent backends. Choose with `agent.backend` in your WORKFLOW.md.
+Symphony supports two worker runners. Choose with `agent.name` and configure the launch command with `agent.command` in your WORKFLOW.md.
 
-| Backend      | Config value                       | What it runs            | Models                                                                           |
+| Runner       | Config value                       | What it runs            | Models                                                                           |
 | ------------ | ---------------------------------- | ----------------------- | -------------------------------------------------------------------------------- |
-| **Kata CLI** | `kata-cli` (alias: `kata`) | Kata CLI in RPC mode    | Any model supported by pi-ai: Anthropic, OpenAI, Google, Mistral, Bedrock, Azure |
+| **Pi RPC** | `pi` | Pi RPC runtime | Any model supported by the selected command                                      |
 | **Codex**    | `codex`                            | OpenAI Codex app-server | OpenAI Codex models                                                              |
 
-### Kata CLI backend (recommended)
+### Pi RPC runner (recommended)
 
 ```yaml
 agent:
-  backend: kata-cli
+  name: pi
+  command: pi --mode rpc
   max_concurrent_agents: 3
   max_turns: 20
   escalation_timeout_ms: 300000
-
-kata_agent:                # alias: pi_agent
-  command: kata            # or: npx @kata-sh/cli
   model: anthropic/claude-sonnet-4-6
   stall_timeout_ms: 300000
 ```
 
 **Prerequisites:**
 
-- **Kata CLI** — `npm install -g @kata-sh/cli`, or use `npx @kata-sh/cli` as the command
-- **Provider auth** — either run `kata` interactively once to log in via browser, or set the provider's API key in your environment (e.g. `ANTHROPIC_API_KEY`)
+- **Pi runtime** — `pi` on PATH, or use the absolute command path for your Pi launcher
+- **Provider auth** — configure credentials for the selected runtime/model provider
 
-### Codex backend
+### Codex runner
 
 ```yaml
 agent:
-  backend: codex
+  name: codex
+  command: codex app-server
   max_concurrent_agents: 3
   max_turns: 20
-
-codex:
-  command: codex app-server
   stall_timeout_ms: 900000
   approval_policy: never
 ```
@@ -65,7 +61,7 @@ codex:
 ## Prerequisites
 
 - **Linear personal API key** — `LINEAR_API_KEY` in your environment
-- **Agent backend** — Kata CLI or Codex (see above)
+- **Worker runner** — Pi/Kata RPC or Codex (see above)
 - **Git** — for workspace bootstrapping
 - **Docker** (only for container-isolated workers) — Docker Desktop or Docker Engine running
 
@@ -112,10 +108,10 @@ Edit `.env` with your Linear API key:
 LINEAR_API_KEY=lin_api_...
 ```
 
-For agent auth, either:
+For worker auth, either:
 
-- **Kata CLI backend:** run `kata` once to log in, or set your provider's API key (e.g. `ANTHROPIC_API_KEY`)
-- **Codex backend:** run `codex` once to log in, or set `OPENAI_API_KEY`
+- **Pi runtime:** configure credentials for the selected runtime/model provider
+- **Codex runner:** run `codex` once to log in, or set `OPENAI_API_KEY`
 
 ### 2. Create a WORKFLOW.md
 
@@ -155,12 +151,10 @@ workspace:
   cleanup_on_done: true
 
 agent:
-  backend: kata-cli
+  name: pi
+  command: pi --mode rpc
   max_concurrent_agents: 3
   max_turns: 20
-
-kata_agent:
-  command: kata
   model: anthropic/claude-sonnet-4-6
 ---
 
@@ -466,10 +460,10 @@ If your Linear team uses different state names, update `active_states` and `term
 
 ### Per-state model selection
 
-When using the Kata CLI backend, you can assign different models to different workflow states. This lets you use expensive models for implementation and cheaper/faster models for mechanical tasks like addressing review comments or merging.
+When using a runner that supports model selection, you can assign different models to different workflow states. This lets you use expensive models for implementation and cheaper/faster models for mechanical tasks like addressing review comments or merging.
 
 ```yaml
-kata_agent:
+agent:
   model: anthropic/claude-opus-4-6          # default for all states
   model_by_state:                           # keys are Linear state names (case-insensitive)
     Agent Review: anthropic/claude-sonnet-4-6
@@ -515,9 +509,7 @@ All configuration lives in the YAML front-matter of your WORKFLOW.md. See [`docs
 | `shared_context`          | Ephemeral cross-worker context retention (TTL + max entries)      |
 | `supervisor`              | Autonomous supervisor loop (steering, conflict detection, escalation fallback) |
 | `workspace`               | Where and how workspaces are created, Docker config               |
-| `agent`                   | Backend selection, concurrency limits, max turns, retry backoff   |
-| `kata_agent` / `pi_agent` | Kata CLI backend config: command, model, timeouts                 |
-| `codex`                   | Codex backend config: command, timeouts, approval policy, sandbox |
+| `agent`                   | Worker runner selection, command, concurrency limits, max turns, retry backoff |
 | `hooks`                   | Shell commands to run at workspace lifecycle points               |
 | `worker`                  | SSH remote worker pool configuration                              |
 | `notifications`           | Slack webhook notifications for events needing human attention    |
