@@ -77,6 +77,51 @@ Ask the user to confirm actual behavior only when the plan calls for manual obse
 
 ## Stage 3: Write Verification Artifact
 
+Write artifact input files with a JSON encoder when the report contains Markdown
+tables, command snippets, quotes, or backticks. Do not hand-escape rich Markdown
+inside shell heredocs or JavaScript template literals; that is easy to corrupt
+and can cause failed artifact writes before verification state is updated.
+
+Example:
+
+```bash
+node - <<'NODE'
+const fs = require("node:fs");
+
+const content = [
+  "# Verification Report",
+  "",
+  "## Scope",
+  "",
+  "T001: Verify behavior",
+  "",
+  "## Evidence",
+  "",
+  "- `pnpm test` passed.",
+  "",
+  "## Result",
+  "",
+  "Verified",
+].join("\n");
+
+fs.writeFileSync(
+  "/tmp/kata-verification.json",
+  JSON.stringify(
+    {
+      scopeType: "task",
+      scopeId: "T001",
+      artifactType: "verification",
+      title: "T001 Verification",
+      content,
+      format: "markdown",
+    },
+    null,
+    2,
+  ),
+);
+NODE
+```
+
 ```json
 {
   "scopeType": "task",
