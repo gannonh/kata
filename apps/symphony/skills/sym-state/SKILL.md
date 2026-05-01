@@ -25,6 +25,60 @@ The script calls the running Symphony binary through `SYMPHONY_BIN` and `SYMPHON
 - `pr.inspect-checks`: read PR check status. Input: `{"pr":"123","includeLogs":true,"maxLines":160}`; omit `pr` to use the current branch PR.
 - `pr.land-status`: read PR metadata, feedback, and check status in one call. Input: `{"pr":"123","includeLogs":false}`; omit `pr` to use the current branch PR.
 
+## JSON Payload Recipes
+
+For small inputs, write JSON directly:
+
+```bash
+cat > /tmp/sym-input.json <<'JSON'
+{"issueId":"123","state":"Agent Review"}
+JSON
+.agents/skills/sym-state/scripts/sym-call issue.update-state --input /tmp/sym-input.json
+```
+
+For large Markdown bodies or helper output summaries, use Node.js as the JSON
+construction/parsing tool. The helper is still `sym-call`, a shell wrapper that
+invokes the Symphony Rust binary; Node is only used here to avoid quoting and
+escaping mistakes.
+
+```bash
+cat > /tmp/workpad.md <<'MARKDOWN'
+## Agent Workpad
+
+Environment: host:/workspace@abc123
+Issues / Blockers: None
+MARKDOWN
+
+node <<'NODE'
+const fs = require('node:fs');
+
+fs.writeFileSync('/tmp/workpad-input.json', JSON.stringify({
+  issueId: '123',
+  marker: '## Agent Workpad',
+  body: fs.readFileSync('/tmp/workpad.md', 'utf8'),
+}));
+NODE
+
+.agents/skills/sym-state/scripts/sym-call comment.upsert --input /tmp/workpad-input.json
+```
+
+```bash
+node <<'NODE'
+const { execFileSync } = require('node:child_process');
+
+const raw = execFileSync(
+  '.agents/skills/sym-state/scripts/sym-call',
+  ['pr.inspect-feedback', '--input', '/tmp/pr-feedback.json'],
+  { encoding: 'utf8' },
+);
+const result = JSON.parse(raw);
+const data = result.data || {};
+console.log('reviews', (data.reviews || []).length);
+console.log('reviewThreads', (data.reviewThreads || []).length);
+console.log('issueComments', (data.issueComments || []).length);
+NODE
+```
+
 ## Guardrails
 
 - Do not call backend-specific tracker mutation commands for normal Symphony state flow.
