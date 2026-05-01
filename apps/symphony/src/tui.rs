@@ -37,6 +37,7 @@ const MESSAGE_COLUMN_TRUNCATE_WIDTH: usize = 60;
 const ACTIVITY_LOG_CAPACITY: usize = 200;
 const ACTIVITY_LOG_MESSAGE_WIDTH: usize = 100;
 const PINNED_ERROR_LIMIT: usize = 20;
+const RUNNING_SESSIONS_HEIGHT: u16 = 10;
 
 #[derive(Debug, Default)]
 struct ThroughputTracker {
@@ -592,7 +593,7 @@ fn draw_dashboard(
             Constraint::Length(7),
             Constraint::Length(5),
             Constraint::Length(pinned_error_height),
-            Constraint::Length(9),
+            Constraint::Min(10),
             Constraint::Length(2),
         ])
         .split(inner);
