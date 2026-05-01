@@ -787,45 +787,6 @@ fn test_workspace_worktree_bootstrap_and_cleanup() {
 }
 
 #[test]
-fn test_workspace_worktree_attaches_existing_issue_branch() {
-    let tmp = TempDir::new().unwrap();
-    let root = tmp.path().join("workspaces");
-    let source_repo = tmp.path().join("source-repo");
-    fs::create_dir_all(&root).unwrap();
-    init_git_repo(&source_repo);
-
-    let mut branch = Command::new("git");
-    branch
-        .current_dir(&source_repo)
-        .args(["branch", "symphony/KAT-810"]);
-    command_success(branch, "create existing issue branch");
-
-    let config = WorkspaceConfig {
-        root: root.to_string_lossy().to_string(),
-        repo: Some(source_repo.to_string_lossy().to_string()),
-        strategy: WorkspaceRepoStrategy::Worktree,
-        isolation: WorkspaceIsolation::Local,
-        docker: None,
-        branch_prefix: "symphony".to_string(),
-        clone_branch: Some("main".to_string()),
-        base_branch: Some("main".to_string()),
-        cleanup_on_done: false,
-    };
-    let hooks = hooks_config_none();
-    let issue = make_test_issue("KAT-810");
-
-    let ws = symphony::workspace::ensure_workspace_for_issue(&issue, &config, &hooks).unwrap();
-
-    let mut branch_cmd = Command::new("git");
-    branch_cmd.args(["-C", &ws.path, "branch", "--show-current"]);
-    let current_branch = command_success(branch_cmd, "read worktree branch");
-    assert_eq!(
-        current_branch, "symphony/KAT-810",
-        "worktree bootstrap should attach an existing issue branch instead of recreating it"
-    );
-}
-
-#[test]
 fn test_existing_worktree_fast_forwards_from_clone_branch_when_clean() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path().join("workspaces");

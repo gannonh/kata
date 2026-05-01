@@ -445,6 +445,10 @@ fn activity_entry_from_envelope(envelope: SymphonyEventEnvelope) -> ActivityLogE
 
 fn activity_message_from_payload(payload: &serde_json::Value) -> Option<String> {
     for key in [
+        "error_preview",
+        "output_preview",
+        "command_preview",
+        "tool_args_preview",
         "summary",
         "error",
         "instruction_preview",

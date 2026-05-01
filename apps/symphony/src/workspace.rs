@@ -376,23 +376,6 @@ fn branch_name_for_issue(config: &WorkspaceConfig, issue_identifier: &str) -> St
     format!("{}/{}", config.branch_prefix, sanitized_identifier)
 }
 
-fn git_branch_exists(repo: &str, branch_name: &str) -> Result<bool> {
-    let mut command = Command::new("git");
-    command
-        .arg("-C")
-        .arg(repo)
-        .arg("show-ref")
-        .arg("--verify")
-        .arg("--quiet")
-        .arg(format!("refs/heads/{branch_name}"));
-    let output = command.output().map_err(SymphonyError::Io)?;
-    match output.status.code() {
-        Some(0) => Ok(true),
-        Some(1) => Ok(false),
-        _ => git_output_error(output, "workspace branch existence check"),
-    }
-}
-
 fn refresh_existing_workspace_from_clone_branch(
     workspace: &Path,
     config: &WorkspaceConfig,

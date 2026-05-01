@@ -323,6 +323,8 @@ server:
 | Variable              | Description                                                                                                                                                          |
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `LINEAR_API_KEY`      | Linear personal API key. Used directly or as the canonical fallback when `tracker.api_key: $LINEAR_API_KEY` is set in the workflow file.                             |
+| `GH_TOKEN`            | GitHub classic PAT for GitHub-backed Symphony runs. Required scopes: `repo`, `project`, `workflow`, `read:org`, and `read:discussion`.                               |
+| `GITHUB_TOKEN`        | Alternative GitHub PAT env var when `GH_TOKEN` is unset. Use the same scopes as `GH_TOKEN`.                                                                          |
 | `SYMPHONY_LOG`        | Log filter directives for `tracing_subscriber`. Examples: `info`, `debug`, `symphony=trace`. Default: `info`.                                                        |
 | `SYMPHONY_LOG_ROOT`   | Default directory root for file logs when `--logs-root` is omitted. The active log is `<SYMPHONY_LOG_ROOT>/log/symphony.log`.                                         |
 | `RUST_LOG`            | Legacy fallback for log filtering when `SYMPHONY_LOG` is unset. Prefer `SYMPHONY_LOG` in new docs and local setup.                                                   |
