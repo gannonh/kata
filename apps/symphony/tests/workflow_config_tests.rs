@@ -347,6 +347,7 @@ tracker:
   api_key: github-test-token
   repo_owner: kata-sh
   repo_name: kata-mono
+  github_project_owner_type: user
 "#;
 
     let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
@@ -365,6 +366,7 @@ tracker:
   api_key: github-test-token
   repo_owner: kata-sh
   repo_name: kata-mono
+  github_project_owner_type: user
   github_project_number: 42
   label_prefix: orchestration
 "#;
@@ -374,6 +376,47 @@ tracker:
 
     assert_eq!(config.tracker.github_project_number, Some(42));
     assert_eq!(config.tracker.label_prefix, None);
+}
+
+#[test]
+fn test_github_tracker_config_requires_project_owner_type() {
+    let yaml_str = r#"
+tracker:
+  kind: github
+  api_key: github-test-token
+  repo_owner: kata-sh
+  repo_name: kata-mono
+  github_project_number: 42
+"#;
+
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let err = from_workflow(&raw).expect_err("missing project owner type should fail");
+    assert!(
+        err.to_string()
+            .contains("tracker.github_project_owner_type"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
+fn test_github_tracker_config_rejects_invalid_project_owner_type() {
+    let yaml_str = r#"
+tracker:
+  kind: github
+  api_key: github-test-token
+  repo_owner: kata-sh
+  repo_name: kata-mono
+  github_project_owner_type: team
+  github_project_number: 42
+"#;
+
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let err = from_workflow(&raw).expect_err("invalid project owner type should fail");
+    assert!(
+        err.to_string()
+            .contains("tracker.github_project_owner_type must be either 'user' or 'org'"),
+        "unexpected error: {err}"
+    );
 }
 
 #[test]
@@ -947,6 +990,7 @@ tracker:
   api_key: $SYMPHONY_TEST_GITHUB_TOKEN_MISSING
   repo_owner: kata-sh
   repo_name: kata
+  github_project_owner_type: org
   github_project_number: 42
 "#;
 

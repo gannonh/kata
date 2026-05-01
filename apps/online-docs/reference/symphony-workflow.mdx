@@ -169,6 +169,10 @@ When `tracker.kind` is `"github"`, replace `project_slug` with these fields:
   GitHub repository name.
 </ParamField>
 
+<ParamField path="tracker.github_project_owner_type" type="string" required>
+  Owner namespace for the GitHub Projects v2 board. Use `"user"` for `https://github.com/users/{owner}/projects/{number}` or `"org"` for `https://github.com/orgs/{owner}/projects/{number}`.
+</ParamField>
+
 <ParamField path="tracker.github_project_number" type="number" required>
   GitHub Projects v2 number. Required when `tracker.kind` is `"github"`. Symphony reads and writes state from the project's `Status` field.
 </ParamField>

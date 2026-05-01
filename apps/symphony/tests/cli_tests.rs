@@ -176,7 +176,7 @@ fn test_github_tracker_kind_accepted() {
     fs::write(
         &workflow_path,
         format!(
-            "---\ntracker:\n  kind: github\n  api_key: test-token\n  repo_owner: kata-sh\n  repo_name: kata-mono\n  github_project_number: 42\nworkspace:\n  root: {}\n---\nPrompt\n",
+            "---\ntracker:\n  kind: github\n  api_key: test-token\n  repo_owner: kata-sh\n  repo_name: kata-mono\n  github_project_owner_type: org\n  github_project_number: 42\nworkspace:\n  root: {}\n---\nPrompt\n",
             workspace_root.display()
         ),
     )

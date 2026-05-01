@@ -139,6 +139,10 @@ Configures the issue tracker connection.
   GitHub repository name. Required when `kind` is `"github"`.
 </ParamField>
 
+<ParamField path="tracker.github_project_owner_type" type="string">
+  Owner namespace for the GitHub Projects v2 board. Required when `kind` is `"github"`. Use `"user"` for user-owned projects or `"org"` for organization-owned projects.
+</ParamField>
+
 <ParamField path="tracker.github_project_number" type="number">
   GitHub Projects v2 project number. Required when `tracker.kind` is `"github"`. Symphony reads and writes state from the project's `Status` single-select field.
 </ParamField>

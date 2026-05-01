@@ -663,6 +663,11 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
                 "tracker.repo_name is required when tracker.kind is github".to_string(),
             ));
         }
+        if github_project_owner_type.is_none() {
+            return Err(SymphonyError::InvalidWorkflowConfig(
+                "tracker.github_project_owner_type is required when tracker.kind is github; use 'user' or 'org'".to_string(),
+            ));
+        }
         if github_project_number.is_none() {
             return Err(SymphonyError::InvalidWorkflowConfig(
                 "tracker.github_project_number is required when tracker.kind is github; GitHub Projects v2 is the only supported GitHub state backend".to_string(),
