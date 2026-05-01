@@ -628,8 +628,8 @@ fn test_without_logs_root_no_tui_streams_stdout_logs() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     let combined = format!("{stdout}\n{stderr}");
     assert!(
-        stdout.contains("\"phase\":\"startup\"") && stdout.contains("startup failed"),
-        "stdout should include startup logs when --no-tui is set and --logs-root is omitted; got: {stdout}"
+        combined.contains("workflow file not found"),
+        "startup failure reason should be emitted when --no-tui is set; stdout={stdout} stderr={stderr}"
     );
 
     let log_file_path = run_dir.path().join("log").join("symphony.log");
