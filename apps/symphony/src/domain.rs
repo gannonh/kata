@@ -47,13 +47,14 @@ fn default_true() -> bool {
 }
 
 /// Canonical Kata workflow phase vocabulary shared across CLI/Desktop/Symphony.
-pub const KATA_PHASE_NAMES: [&str; 7] = [
+pub const KATA_PHASE_NAMES: [&str; 8] = [
     "Backlog",
     "Todo",
     "In Progress",
     "Agent Review",
     "Human Review",
     "Merging",
+    "Rework",
     "Done",
 ];
 
