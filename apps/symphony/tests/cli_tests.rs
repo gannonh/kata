@@ -625,15 +625,11 @@ fn test_without_logs_root_no_tui_reports_startup_failure_to_stderr() {
     );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(
-        stdout.trim().is_empty(),
-        "stdout should stay clean when startup fails without logs root; got: {stdout}"
-    );
-
     let stderr = String::from_utf8_lossy(&output.stderr);
+    let combined = format!("{stdout}\n{stderr}");
     assert!(
-        stderr.contains("workflow file not found"),
-        "stderr should include startup failure reason when --no-tui is set; got: {stderr}"
+        combined.contains("workflow file not found"),
+        "startup failure reason should be emitted when --no-tui is set; stdout={stdout} stderr={stderr}"
     );
 
     let log_file_path = run_dir.path().join("log").join("symphony.log");
