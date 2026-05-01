@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ -z "${SYMPHONY_BIN:-}" ]]; then
+  echo "SYMPHONY_BIN is not set; Symphony helper calls require the running orchestrator binary path." >&2
+  exit 2
+fi
+
+if [[ -z "${SYMPHONY_WORKFLOW_PATH:-}" ]]; then
+  echo "SYMPHONY_WORKFLOW_PATH is not set; Symphony helper calls require the active workflow path." >&2
+  exit 2
+fi
+
+exec "$SYMPHONY_BIN" helper "$@" --workflow "$SYMPHONY_WORKFLOW_PATH"

@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::io;
 use std::io::IsTerminal;
 use std::time::Duration;
@@ -17,7 +18,8 @@ use ratatui::{Frame, Terminal};
 use tokio::sync::watch;
 use tokio::time::MissedTickBehavior;
 
-use crate::domain::{OrchestratorSnapshot, SupervisorStatus};
+use crate::domain::{EventSeverity, OrchestratorSnapshot, SupervisorStatus, SymphonyEventEnvelope};
+use crate::event_stream::EventHub;
 use crate::orchestrator::SnapshotHandle;
 use crate::session_summary::{
     compact_session_id as compact_session_id_value, truncate_for_display,
@@ -32,6 +34,10 @@ const SPARKLINE_BLOCKS: [char; 8] = ['▁', '▂', '▃', '▄', '▅', '▆', '
 const STALE_ACTIVITY_THRESHOLD_MS: i64 = 120_000;
 const LAST_EVENT_COLUMN_WIDTH: u16 = 24;
 const MESSAGE_COLUMN_TRUNCATE_WIDTH: usize = 60;
+const ACTIVITY_LOG_CAPACITY: usize = 200;
+const ACTIVITY_LOG_MESSAGE_WIDTH: usize = 100;
+const PINNED_ERROR_LIMIT: usize = 20;
+const RUNNING_SESSIONS_HEIGHT: u16 = 10;
 
 #[derive(Debug, Default)]
 struct ThroughputTracker {
@@ -268,6 +274,43 @@ pub enum TuiExitReason {
     DrawError,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ActivityLogEntry {
+    timestamp: DateTime<Utc>,
+    severity: EventSeverity,
+    issue: Option<String>,
+    event: String,
+    message: Option<String>,
+}
+
+#[derive(Debug, Default)]
+struct ActivityLog {
+    entries: VecDeque<ActivityLogEntry>,
+}
+
+impl ActivityLog {
+    fn push(&mut self, entry: ActivityLogEntry) {
+        self.entries.push_back(entry);
+        while self.entries.len() > ACTIVITY_LOG_CAPACITY {
+            let _ = self.entries.pop_front();
+        }
+    }
+
+    fn len(&self) -> usize {
+        self.entries.len()
+    }
+
+    fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+
+    fn has_errors(&self) -> bool {
+        self.entries
+            .iter()
+            .any(|entry| entry.severity == EventSeverity::Error)
+    }
+}
+
 pub fn validate_terminal_for_tui() -> Result<(), String> {
     if !io::stdout().is_terminal() {
         return Err("stdout is not a terminal; --tui requires an interactive terminal".to_string());
@@ -287,6 +330,7 @@ pub fn validate_terminal_for_tui() -> Result<(), String> {
 
 pub async fn run_tui(
     snapshot_handle: SnapshotHandle,
+    event_hub: EventHub,
     mut shutdown: watch::Receiver<bool>,
 ) -> TuiExitReason {
     let mut terminal = match setup_terminal() {
@@ -301,6 +345,8 @@ pub async fn run_tui(
     ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
     ticker.tick().await;
     let mut throughput_tracker = ThroughputTracker::default();
+    let mut event_rx = event_hub.subscribe();
+    let mut activity_log = ActivityLog::default();
     let exit_reason = loop {
         match ctrl_c_pressed() {
             Ok(true) => break TuiExitReason::CtrlC,
@@ -311,6 +357,7 @@ pub async fn run_tui(
             }
         }
 
+        drain_activity_events(&mut event_rx, &mut activity_log);
         let snapshot = snapshot_handle.read();
         let now = Utc::now();
         let now_ms = now.timestamp_millis();
@@ -320,8 +367,8 @@ pub async fn run_tui(
             snapshot.codex_totals.event_count,
         );
         let throughput_line = throughput_tracker.throughput_line(now_ms);
-        if let Err(err) =
-            terminal.draw(|frame| draw_dashboard(frame, &snapshot, now, &throughput_line))
+        if let Err(err) = terminal
+            .draw(|frame| draw_dashboard(frame, &snapshot, &activity_log, now, &throughput_line))
         {
             tracing::error!(error = %err, "failed drawing tui frame");
             break TuiExitReason::DrawError;
@@ -362,6 +409,67 @@ fn ctrl_c_pressed() -> io::Result<bool> {
     }
 
     Ok(false)
+}
+
+fn drain_activity_events(
+    event_rx: &mut tokio::sync::broadcast::Receiver<SymphonyEventEnvelope>,
+    activity_log: &mut ActivityLog,
+) {
+    loop {
+        match event_rx.try_recv() {
+            Ok(envelope) => activity_log.push(activity_entry_from_envelope(envelope)),
+            Err(tokio::sync::broadcast::error::TryRecvError::Empty) => break,
+            Err(tokio::sync::broadcast::error::TryRecvError::Lagged(count)) => {
+                activity_log.push(ActivityLogEntry {
+                    timestamp: Utc::now(),
+                    severity: EventSeverity::Warn,
+                    issue: None,
+                    event: "event_log_lagged".to_string(),
+                    message: Some(format!("missed {count} events")),
+                });
+            }
+            Err(tokio::sync::broadcast::error::TryRecvError::Closed) => break,
+        }
+    }
+}
+
+fn activity_entry_from_envelope(envelope: SymphonyEventEnvelope) -> ActivityLogEntry {
+    ActivityLogEntry {
+        timestamp: envelope.timestamp,
+        severity: envelope.severity,
+        issue: envelope.issue,
+        event: envelope.event,
+        message: activity_message_from_payload(&envelope.payload),
+    }
+}
+
+fn activity_message_from_payload(payload: &serde_json::Value) -> Option<String> {
+    for key in [
+        "error_preview",
+        "output_preview",
+        "command_preview",
+        "tool_args_preview",
+        "summary",
+        "error",
+        "instruction_preview",
+        "issue_identifier",
+        "request_id",
+        "session_id",
+    ] {
+        if let Some(value) = payload.get(key).and_then(|value| value.as_str()) {
+            let normalized = normalize_whitespace(value);
+            if !normalized.is_empty() {
+                return Some(truncate_for_display(
+                    &normalized,
+                    ACTIVITY_LOG_MESSAGE_WIDTH,
+                ));
+            }
+        }
+    }
+
+    let normalized = normalize_whitespace(&payload.to_string());
+    (!normalized.is_empty() && normalized != "{}")
+        .then(|| truncate_for_display(&normalized, ACTIVITY_LOG_MESSAGE_WIDTH))
 }
 
 fn setup_terminal() -> io::Result<Terminal<CrosstermBackend<io::Stdout>>> {
@@ -459,6 +567,7 @@ fn supervisor_summary_line(snapshot: &OrchestratorSnapshot) -> String {
 fn draw_dashboard(
     frame: &mut Frame,
     snapshot: &OrchestratorSnapshot,
+    activity_log: &ActivityLog,
     now: DateTime<Utc>,
     throughput_line: &str,
 ) {
@@ -471,20 +580,24 @@ fn draw_dashboard(
     let summary_lines_data = build_summary_lines(snapshot, throughput_line);
     let summary_height = summary_lines_data.len() as u16;
     let has_blocked = !snapshot.blocked.is_empty();
+    let has_pinned_errors = activity_log.has_errors();
     let blocked_height = if has_blocked {
         // borders (2) + header (1) + data rows
         (snapshot.blocked.len() as u16 + 3).min(8)
     } else {
         0
     };
+    let pinned_error_height = if has_pinned_errors { 5 } else { 0 };
     let sections = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(summary_height),
-            Constraint::Min(8),
+            Constraint::Length(RUNNING_SESSIONS_HEIGHT),
             Constraint::Length(blocked_height),
             Constraint::Length(7),
-            Constraint::Length(7),
+            Constraint::Length(5),
+            Constraint::Length(pinned_error_height),
+            Constraint::Min(10),
             Constraint::Length(2),
         ])
         .split(inner);
@@ -601,6 +714,23 @@ fn draw_dashboard(
         List::new(completed_items).block(Block::default().title("Completed").borders(Borders::ALL));
     frame.render_widget(completed_list, sections[4]);
 
+    if has_pinned_errors {
+        let pinned_error_items = pinned_error_items(activity_log, now, sections[5].height);
+        let pinned_error_list = List::new(pinned_error_items).block(
+            Block::default()
+                .title("Pinned Errors")
+                .title_style(Style::default().fg(Color::Red))
+                .borders(Borders::ALL),
+        );
+        frame.render_widget(pinned_error_list, sections[5]);
+    }
+
+    let activity_items = activity_items(activity_log, now, sections[6].height);
+    let activity_title = format!("Activity Log (last {})", activity_log.len());
+    let activity_list = List::new(activity_items)
+        .block(Block::default().title(activity_title).borders(Borders::ALL));
+    frame.render_widget(activity_list, sections[6]);
+
     let polling_last = snapshot
         .polling
         .last_poll_at
@@ -617,7 +747,7 @@ fn draw_dashboard(
     let rate_summary = rate_summary(snapshot, now);
     let footer = Paragraph::new(vec![Line::from(polling_line), Line::from(rate_summary)])
         .wrap(Wrap { trim: true });
-    frame.render_widget(footer, sections[5]);
+    frame.render_widget(footer, sections[7]);
 }
 
 fn running_rows(snapshot: &OrchestratorSnapshot, now: DateTime<Utc>) -> Vec<Row<'static>> {
@@ -884,6 +1014,85 @@ fn completed_items(snapshot: &OrchestratorSnapshot) -> Vec<ListItem<'static>> {
         .collect()
 }
 
+fn activity_items(
+    activity_log: &ActivityLog,
+    now: DateTime<Utc>,
+    area_height: u16,
+) -> Vec<ListItem<'static>> {
+    if activity_log.is_empty() {
+        return vec![ListItem::new("(no events yet)")];
+    }
+
+    let visible_rows = usize::from(area_height.saturating_sub(2)).max(1);
+    activity_log
+        .entries
+        .iter()
+        .rev()
+        .take(visible_rows)
+        .map(|entry| {
+            let age = format_age(Some(entry.timestamp), now);
+            let issue = entry.issue.as_deref().unwrap_or("-");
+            let message = entry.message.as_deref().unwrap_or("-");
+            let text = format!(
+                "{age:>8}  {:<5}  {:<10}  {:<24}  {}",
+                entry.severity.as_str(),
+                truncate_for_display(issue, 10),
+                truncate_for_display(&entry.event, 24),
+                message
+            );
+            ListItem::new(Line::from(Span::styled(
+                text,
+                Style::default().fg(activity_severity_color(entry.severity)),
+            )))
+        })
+        .collect()
+}
+
+fn pinned_error_items(
+    activity_log: &ActivityLog,
+    now: DateTime<Utc>,
+    area_height: u16,
+) -> Vec<ListItem<'static>> {
+    let visible_rows = usize::from(area_height.saturating_sub(2)).clamp(1, PINNED_ERROR_LIMIT);
+    let items: Vec<ListItem<'static>> = activity_log
+        .entries
+        .iter()
+        .rev()
+        .filter(|entry| entry.severity == EventSeverity::Error)
+        .take(visible_rows)
+        .map(|entry| {
+            let age = format_age(Some(entry.timestamp), now);
+            let issue = entry.issue.as_deref().unwrap_or("-");
+            let message = entry.message.as_deref().unwrap_or("-");
+            let text = format!(
+                "{age:>8}  {:<10}  {:<24}  {}",
+                truncate_for_display(issue, 10),
+                truncate_for_display(&entry.event, 24),
+                message
+            );
+            ListItem::new(Line::from(Span::styled(
+                text,
+                Style::default().fg(Color::Red),
+            )))
+        })
+        .collect();
+
+    if items.is_empty() {
+        vec![ListItem::new("(no errors)")]
+    } else {
+        items
+    }
+}
+
+fn activity_severity_color(severity: EventSeverity) -> Color {
+    match severity {
+        EventSeverity::Debug => Color::DarkGray,
+        EventSeverity::Info => Color::White,
+        EventSeverity::Warn => Color::Yellow,
+        EventSeverity::Error => Color::Red,
+    }
+}
+
 fn rate_summary(snapshot: &OrchestratorSnapshot, now: DateTime<Utc>) -> String {
     let Some(rate_limits) = snapshot.codex_rate_limits.as_ref() else {
         return "Rate: n/a".to_string();
@@ -993,6 +1202,10 @@ fn format_age(timestamp: Option<DateTime<Utc>>, now: DateTime<Utc>) -> String {
     } else {
         format!("{} ago", format_duration(delta_ms))
     }
+}
+
+fn normalize_whitespace(value: &str) -> String {
+    value.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 fn format_retry_delay(due_in_ms: i64) -> String {
@@ -1218,10 +1431,19 @@ mod tests {
             },
         );
 
-        let backend = TestBackend::new(160, 30);
+        let backend = TestBackend::new(160, 48);
         let mut terminal = Terminal::new(backend).expect("test terminal");
+        let activity_log = ActivityLog::default();
         terminal
-            .draw(|frame| draw_dashboard(frame, &snapshot, now, "Throughput: 42.3 tps ▁▂▃▄▅▆▇█"))
+            .draw(|frame| {
+                draw_dashboard(
+                    frame,
+                    &snapshot,
+                    &activity_log,
+                    now,
+                    "Throughput: 42.3 tps ▁▂▃▄▅▆▇█",
+                )
+            })
             .expect("dashboard draw should succeed");
 
         let rendered = render_text(terminal.backend());
@@ -1273,10 +1495,19 @@ mod tests {
             },
         );
 
-        let backend = TestBackend::new(200, 30);
+        let backend = TestBackend::new(200, 48);
         let mut terminal = Terminal::new(backend).expect("test terminal");
+        let activity_log = ActivityLog::default();
         terminal
-            .draw(|frame| draw_dashboard(frame, &snapshot, now, "Throughput: 0.0 tps ▁▁▁▁▁▁▁▁"))
+            .draw(|frame| {
+                draw_dashboard(
+                    frame,
+                    &snapshot,
+                    &activity_log,
+                    now,
+                    "Throughput: 0.0 tps ▁▁▁▁▁▁▁▁",
+                )
+            })
             .expect("dashboard draw should succeed");
 
         let rendered = render_text(terminal.backend());
@@ -1313,16 +1544,56 @@ mod tests {
             },
         );
 
-        let backend = TestBackend::new(180, 30);
+        let backend = TestBackend::new(180, 48);
         let mut terminal = Terminal::new(backend).expect("test terminal");
+        let activity_log = ActivityLog::default();
         terminal
-            .draw(|frame| draw_dashboard(frame, &snapshot, now, "Throughput: 0.0 tps ▁▁▁▁▁▁▁▁"))
+            .draw(|frame| {
+                draw_dashboard(
+                    frame,
+                    &snapshot,
+                    &activity_log,
+                    now,
+                    "Throughput: 0.0 tps ▁▁▁▁▁▁▁▁",
+                )
+            })
             .expect("dashboard draw should succeed");
 
         let rendered = render_text(terminal.backend());
         assert!(
             rendered.contains("#42"),
             "running table should render github issue identifiers verbatim, got:\n{rendered}"
+        );
+    }
+
+    #[test]
+    fn pinned_errors_prefer_error_preview_from_payload() {
+        let now = Utc
+            .with_ymd_and_hms(2026, 3, 22, 16, 20, 0)
+            .single()
+            .expect("valid fixture timestamp");
+        let envelope = SymphonyEventEnvelope {
+            version: "1".to_string(),
+            sequence: 1,
+            timestamp: now,
+            kind: crate::domain::EventKind::Tool,
+            severity: EventSeverity::Error,
+            issue: Some("#456".to_string()),
+            event: "tool_error".to_string(),
+            payload: serde_json::json!({
+                "summary": "bash",
+                "error_preview": "bash: cd apps/symphony && pnpm test"
+            }),
+        };
+
+        let mut activity_log = ActivityLog::default();
+        activity_log.push(activity_entry_from_envelope(envelope));
+
+        let items = pinned_error_items(&activity_log, now, 5);
+        let rendered = format!("{items:?}");
+        assert!(
+            rendered.contains("bash: cd apps/symphony && pnpm test"),
+            "pinned errors should show useful command preview, got: {rendered}"
         );
     }
 
@@ -1554,10 +1825,11 @@ mod tests {
         let snapshot = snapshot_fixture(1_337, None);
         let throughput_line = "Throughput: 42.3 tps ▁▂▃▄▅▆▇█";
 
-        let backend = TestBackend::new(120, 30);
+        let backend = TestBackend::new(120, 48);
         let mut terminal = Terminal::new(backend).expect("test terminal");
+        let activity_log = ActivityLog::default();
         terminal
-            .draw(|frame| draw_dashboard(frame, &snapshot, now, throughput_line))
+            .draw(|frame| draw_dashboard(frame, &snapshot, &activity_log, now, throughput_line))
             .expect("dashboard draw should succeed");
 
         let rendered = render_text(terminal.backend());

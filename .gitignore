@@ -84,6 +84,7 @@ kata-cloud-agents.code-workspace
 
 # skill eval workspaces
 .agents/skills/*-workspace/
+.agents/skills/sym-*
 
 # ── Kata baseline (auto-generated) ──
 .kata/activity/

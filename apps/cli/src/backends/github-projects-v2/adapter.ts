@@ -47,6 +47,7 @@ interface GithubIssue {
   body?: string | null;
   state?: string;
   html_url?: string;
+  milestone?: { number?: number | string } | null;
   pull_request?: unknown;
 }
 
@@ -68,6 +69,7 @@ interface TrackedEntity {
   body: string;
   state: string;
   url?: string;
+  githubMilestoneNumber?: number;
 }
 
 interface EntityMarker {
@@ -252,6 +254,7 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
 
   async createSlice(input: KataSliceCreateInput): Promise<KataSlice> {
     await this.discoverEntities();
+    const milestoneEntity = await this.requireEntity(input.milestoneId, "Milestone");
     const kataId = this.nextKataId("Slice");
     const entity = await this.createIssueEntity({
       kataId,
@@ -265,6 +268,9 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
         status: "backlog",
         content: input.goal,
       }),
+      issueBody: {
+        milestone: requireNativeGithubMilestoneNumber(milestoneEntity),
+      },
     });
 
     await this.syncProjectFields(entity, {
@@ -309,6 +315,9 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
   async createTask(input: KataTaskCreateInput): Promise<KataTask> {
     await this.discoverEntities();
     const sliceEntity = await this.requireEntity(input.sliceId, "Slice");
+    const milestoneEntity = sliceEntity.parentId
+      ? await this.requireEntity(sliceEntity.parentId, "Milestone")
+      : null;
     const kataId = this.nextKataId("Task");
     const entity = await this.createIssueEntity({
       kataId,
@@ -323,6 +332,9 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
         verificationState: "pending",
         content: input.description,
       }),
+      issueBody: {
+        milestone: requireNativeGithubMilestoneNumber(milestoneEntity ?? sliceEntity),
+      },
     });
 
     await this.attachSubIssue(sliceEntity, entity);
@@ -756,7 +768,22 @@ function entityFromIssue(issue: GithubIssue, marker: EntityMarker): TrackedEntit
     body: issue.body ?? "",
     state: issue.state ?? "open",
     url: issue.html_url,
+    githubMilestoneNumber: nativeGithubMilestoneNumberFromIssue(issue),
   };
+}
+
+function nativeGithubMilestoneNumberFromIssue(issue: GithubIssue): number | undefined {
+  const rawNumber = issue.milestone?.number;
+  const number = typeof rawNumber === "string" ? Number(rawNumber) : rawNumber;
+  return typeof number === "number" && Number.isFinite(number) ? number : undefined;
+}
+
+function requireNativeGithubMilestoneNumber(entity: TrackedEntity): number {
+  if (entity.githubMilestoneNumber !== undefined) return entity.githubMilestoneNumber;
+  throw new KataDomainError(
+    "INVALID_CONFIG",
+    `GitHub ${entity.type} tracking issue ${entity.kataId} is missing a native GitHub milestone.`,
+  );
 }
 
 function milestoneFromEntity(entity: TrackedEntity): KataMilestone {

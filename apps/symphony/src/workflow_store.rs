@@ -149,6 +149,11 @@ impl WorkflowStore {
         self.path.parent().unwrap_or(Path::new("."))
     }
 
+    /// Return the canonical workflow file path used by this store.
+    pub fn workflow_path(&self) -> &Path {
+        &self.path
+    }
+
     /// Return a snapshot of the current effective config (workflow definition
     /// + service config).
     ///

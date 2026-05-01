@@ -2,16 +2,17 @@
 name: sym-pull
 description:
   Pull latest origin/<base-branch> into the current local branch and resolve
-  merge conflicts (aka update-branch). Use when Codex needs to sync a feature
-  branch with origin, perform a merge-based update (not rebase), and guide
-  conflict resolution best practices.
+  merge conflicts (aka update-branch). Use when Symphony running through Pi or
+  the explicit Codex app-server path needs to sync a feature branch with origin,
+  perform a merge-based update (not rebase), and guide conflict resolution best
+  practices.
 ---
 
 # Pull
 
 ## Workflow
 
-1. Verify git status is clean or commit/stash changes before merging.
+1. Verify git status is clean or commit/stash changes before merging. If this is part of a Kata-backed Symphony run, keep task/slice status and summary artifacts in the active backend-state workflow; this skill only handles git synchronization.
 2. Ensure rerere is enabled locally:
    - `git config rerere.enabled true`
    - `git config rerere.autoupdate true`
@@ -35,7 +36,7 @@ description:
 8. If conflicts appear, resolve them (see conflict guidance below), then:
    - `git add <files>`
    - `git commit` (or `git merge --continue` if the merge is paused)
-9. Verify with project checks (follow repo policy in `AGENTS.md`).
+9. Verify with project checks (follow repo policy in `AGENTS.md`). Do not use `--no-verify` to bypass hooks or checks.
 10. Summarize the merge:
    - Call out the most challenging conflicts/files and how they were resolved.
    - Note any assumptions or follow-ups.
@@ -83,23 +84,4 @@ description:
 - When unsure, note assumptions and ask for confirmation before finalizing the
   merge.
 
-## When To Ask The User (Keep To A Minimum)
 
-Do not ask for input unless there is no safe, reversible alternative. Prefer
-making a best-effort decision, documenting the rationale, and proceeding.
-
-Ask the user only when:
-
-- The correct resolution depends on product intent or behavior not inferable
-  from code, tests, or nearby documentation.
-- The conflict crosses a user-visible contract, API surface, or migration where
-  choosing incorrectly could break external consumers.
-- A conflict requires selecting between two mutually exclusive designs with
-  equivalent technical merit and no clear local signal.
-- The merge introduces data loss, schema changes, or irreversible side effects
-  without an obvious safe default.
-- The branch is not the intended target, or the remote/branch names do not exist
-  and cannot be determined locally.
-
-Otherwise, proceed with the merge, explain the decision briefly in notes, and
-leave a clear, reviewable commit history.

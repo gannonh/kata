@@ -17,7 +17,7 @@ description:
 
 ## Inputs
 
-- Codex session history for intent and rationale.
+- Active Pi/Symphony agent session history for intent and rationale (including Codex-originated context when Symphony is running the Codex app-server harness explicitly).
 - `git status`, `git diff`, and `git diff --staged` for actual changes.
 - Repo-specific commit conventions if documented.
 
@@ -26,8 +26,7 @@ description:
 1. Read session history to identify scope, intent, and rationale.
 2. Inspect the working tree and staged changes (`git status`, `git diff`,
    `git diff --staged`).
-3. Stage intended changes, including new files (`git add -A`) after confirming
-   scope.
+3. Stage only intended changes, including new files after confirming scope. Avoid broad `git add -A` when unrelated user changes, generated files, logs, or harness scratch files are present; use path-specific `git add` in those cases.
 4. Sanity-check newly added files; if anything looks random or likely ignored
    (build artifacts, logs, temp files), flag it to the user before committing.
 5. If staging is incomplete or includes unrelated files, fix the index or ask
@@ -40,18 +39,17 @@ description:
    - Summary of key changes (what changed).
    - Rationale and trade-offs (why it changed).
    - Tests or validation run (or explicit note if not run).
-9. Append a `Co-authored-by` trailer for Codex using `Codex <codex@openai.com>`
-   unless the user explicitly requests a different identity.
-10. Wrap body lines at 72 characters.
-11. Create the commit message with a here-doc or temp file and use
+9. Wrap body lines at 72 characters.
+10. Create the commit message with a here-doc or temp file and use
     `git commit -F <file>` so newlines are literal (avoid `-m` with `\n`).
-12. Commit only when the message matches the staged changes: if the staged diff
+11. Commit only when the message matches the staged changes: if the staged diff
     includes unrelated files or the message describes work that isn't staged,
     fix the index or revise the message before committing.
+12. Never use `git commit --no-verify` or `git push --no-verify`; if hooks or validation fail, fix the underlying issue.
 
 ## Output
 
-- A single commit created with `git commit` whose message reflects the session.
+- A single commit created with `git commit` whose message reflects the session, staged diff, and validation evidence without bypassing hooks.
 
 ## Template
 
@@ -71,5 +69,5 @@ Rationale:
 Tests:
 - <command or "not run (reason)">
 
-Co-authored-by: Codex <codex@openai.com>
+Co-authored-by: <active harness identity when required>
 ```

@@ -7,14 +7,37 @@ use std::{fs, io};
 
 use main_bin::{BootstrapDeps, Cli, CliCommand};
 use mockito::{Matcher, Server};
+use serial_test::serial;
 use symphony::config::validate;
 use symphony::doctor::{self, CheckStatus};
 use symphony::domain::{
-    AgentBackend, ApiKey, ServiceConfig, TrackerConfig, WorkspaceConfig, WorkspaceIsolation,
-    WorkspaceRepoStrategy,
+    AgentBackend, ApiKey, GithubProjectOwnerType, ServiceConfig, TrackerConfig, WorkspaceConfig,
+    WorkspaceIsolation, WorkspaceRepoStrategy,
 };
 use symphony::linear::adapter::LinearAdapter;
 use symphony::linear::client::LinearClient;
+
+struct EnvVarGuard {
+    key: &'static str,
+    previous: Option<String>,
+}
+
+impl EnvVarGuard {
+    fn set(key: &'static str, value: &str) -> Self {
+        let previous = std::env::var(key).ok();
+        std::env::set_var(key, value);
+        Self { key, previous }
+    }
+}
+
+impl Drop for EnvVarGuard {
+    fn drop(&mut self) {
+        match &self.previous {
+            Some(value) => std::env::set_var(self.key, value),
+            None => std::env::remove_var(self.key),
+        }
+    }
+}
 
 struct FakeDeps {
     calls: Vec<String>,
@@ -106,6 +129,33 @@ fn test_doctor_subcommand_parses() {
 }
 
 #[test]
+fn test_helper_subcommand_parses_backend_neutral_operation() {
+    let parsed = main_bin::parse_cli_from([
+        "symphony",
+        "helper",
+        "issue.update-state",
+        "--workflow",
+        "WORKFLOW-github.md",
+        "--input",
+        "/tmp/sym-input.json",
+    ])
+    .expect("CLI parse should succeed");
+
+    assert_eq!(
+        parsed.command,
+        Some(CliCommand::Helper {
+            operation: "issue.update-state".to_string(),
+            workflow: "WORKFLOW-github.md".to_string(),
+            input: Some("/tmp/sym-input.json".to_string()),
+        })
+    );
+    assert_eq!(
+        main_bin::resolve_workflow_path(&parsed),
+        Path::new("WORKFLOW-github.md")
+    );
+}
+
+#[test]
 fn test_run_subcommand_backward_compat() {
     let parsed =
         main_bin::parse_cli_from(["symphony", "WORKFLOW.md"]).expect("CLI parse should succeed");
@@ -126,7 +176,7 @@ fn test_github_tracker_kind_accepted() {
     fs::write(
         &workflow_path,
         format!(
-            "---\ntracker:\n  kind: github\n  api_key: test-token\n  repo_owner: kata-sh\n  repo_name: kata-mono\nworkspace:\n  root: {}\n---\nPrompt\n",
+            "---\ntracker:\n  kind: github\n  api_key: test-token\n  repo_owner: kata-sh\n  repo_name: kata-mono\n  github_project_owner_type: org\n  github_project_number: 42\nworkspace:\n  root: {}\n---\nPrompt\n",
             workspace_root.display()
         ),
     )
@@ -414,6 +464,70 @@ fn test_startup_banner_marks_ephemeral_dashboard_port() {
 }
 
 #[test]
+#[serial]
+fn test_symphony_log_root_env_sets_default_logs_root() {
+    let _guard = EnvVarGuard::set("SYMPHONY_LOG_ROOT", "/tmp/symphony-env-logs");
+    let mut cli =
+        main_bin::parse_cli_from(["symphony", "WORKFLOW.md"]).expect("CLI parse should succeed");
+
+    main_bin::apply_env_defaults(&mut cli);
+
+    assert_eq!(
+        cli.logs_root.as_deref(),
+        Some("/tmp/symphony-env-logs"),
+        "SYMPHONY_LOG_ROOT should provide the default logs root"
+    );
+}
+
+#[test]
+#[serial]
+fn test_logs_root_flag_overrides_symphony_log_root_env() {
+    let _guard = EnvVarGuard::set("SYMPHONY_LOG_ROOT", "/tmp/symphony-env-logs");
+    let mut cli = main_bin::parse_cli_from([
+        "symphony",
+        "WORKFLOW.md",
+        "--logs-root",
+        "/tmp/symphony-flag-logs",
+    ])
+    .expect("CLI parse should succeed");
+
+    main_bin::apply_env_defaults(&mut cli);
+
+    assert_eq!(
+        cli.logs_root.as_deref(),
+        Some("/tmp/symphony-flag-logs"),
+        "--logs-root should override SYMPHONY_LOG_ROOT"
+    );
+}
+
+#[test]
+#[serial]
+fn test_symphony_log_env_sets_log_filter() {
+    let _symphony_log = EnvVarGuard::set("SYMPHONY_LOG", "symphony=debug,info");
+    let _rust_log = EnvVarGuard::set("RUST_LOG", "error");
+
+    assert_eq!(
+        main_bin::resolve_log_filter_directive(),
+        "symphony=debug,info",
+        "SYMPHONY_LOG should be the project-facing log filter"
+    );
+}
+
+#[test]
+#[serial]
+fn test_rust_log_env_remains_legacy_fallback() {
+    let _symphony_log = EnvVarGuard::set("SYMPHONY_LOG", "");
+    let _rust_log = EnvVarGuard::set("RUST_LOG", "debug");
+
+    assert_eq!(
+        main_bin::resolve_log_filter_directive(),
+        "debug",
+        "RUST_LOG should remain a fallback for tracing compatibility"
+    );
+}
+
+#[test]
+#[serial]
 fn test_logs_root_writes_startup_logs_to_file_and_suppresses_stdout_logs() {
     let logs_root = tempfile::tempdir().expect("temp dir should be created");
     let missing_workflow = logs_root.path().join("missing-workflow.md");
@@ -449,12 +563,14 @@ fn test_logs_root_writes_startup_logs_to_file_and_suppresses_stdout_logs() {
 
     let log_file_contents = read_to_string_or_panic(&log_file_path);
     assert!(
-        log_file_contents.contains("starting CLI bootstrap"),
+        log_file_contents.contains("\"phase\":\"startup\"")
+            && log_file_contents.contains("startup failed"),
         "log file should mirror startup log events; got: {log_file_contents}"
     );
 }
 
 #[test]
+#[serial]
 fn test_without_logs_root_suppresses_stdout_logs_when_tui_defaults_on() {
     let run_dir = tempfile::tempdir().expect("temp dir should be created");
     let missing_workflow = run_dir.path().join("missing-workflow.md");
@@ -462,6 +578,7 @@ fn test_without_logs_root_suppresses_stdout_logs_when_tui_defaults_on() {
     let output = Command::new(env!("CARGO_BIN_EXE_symphony"))
         .current_dir(run_dir.path())
         .arg(&missing_workflow)
+        .env_remove("SYMPHONY_LOG_ROOT")
         .output()
         .expect("symphony binary should execute");
 
@@ -489,7 +606,8 @@ fn test_without_logs_root_suppresses_stdout_logs_when_tui_defaults_on() {
 }
 
 #[test]
-fn test_without_logs_root_no_tui_streams_stdout_logs() {
+#[serial]
+fn test_without_logs_root_no_tui_reports_startup_failure_to_stderr() {
     let run_dir = tempfile::tempdir().expect("temp dir should be created");
     let missing_workflow = run_dir.path().join("missing-workflow.md");
 
@@ -497,6 +615,7 @@ fn test_without_logs_root_no_tui_streams_stdout_logs() {
         .current_dir(run_dir.path())
         .arg(&missing_workflow)
         .arg("--no-tui")
+        .env_remove("SYMPHONY_LOG_ROOT")
         .output()
         .expect("symphony binary should execute");
 
@@ -506,9 +625,11 @@ fn test_without_logs_root_no_tui_streams_stdout_logs() {
     );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let combined = format!("{stdout}\n{stderr}");
     assert!(
-        stdout.contains("starting CLI bootstrap"),
-        "stdout should include startup logs when --no-tui is set and --logs-root is omitted; got: {stdout}"
+        combined.contains("workflow file not found"),
+        "startup failure reason should be emitted when --no-tui is set; stdout={stdout} stderr={stderr}"
     );
 
     let log_file_path = run_dir.path().join("log").join("symphony.log");
@@ -617,6 +738,7 @@ fn github_tracker_config(endpoint: String) -> TrackerConfig {
         workspace_slug: None,
         repo_owner: Some("test-owner".to_string()),
         repo_name: Some("test-repo".to_string()),
+        github_project_owner_type: Some(GithubProjectOwnerType::User),
         github_project_number: None,
         label_prefix: Some("symphony".to_string()),
         assignee: None,
@@ -746,6 +868,7 @@ async fn test_doctor_github_project_found() {
         .await;
 
     let mut config = github_tracker_config(server.url());
+    config.github_project_owner_type = Some(GithubProjectOwnerType::User);
     config.github_project_number = Some(7);
 
     let results = doctor::check_github(&config).await;
@@ -786,6 +909,7 @@ async fn test_doctor_github_project_status_field_missing_message() {
         .await;
 
     let mut config = github_tracker_config(server.url());
+    config.github_project_owner_type = Some(GithubProjectOwnerType::User);
     config.github_project_number = Some(7);
 
     let results = doctor::check_github(&config).await;
@@ -859,6 +983,7 @@ async fn test_check_linear_auth_failure() {
         workspace_slug: None,
         repo_owner: None,
         repo_name: None,
+        github_project_owner_type: None,
         github_project_number: None,
         label_prefix: None,
         assignee: None,

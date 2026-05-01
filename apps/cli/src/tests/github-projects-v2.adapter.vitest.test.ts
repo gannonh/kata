@@ -331,6 +331,26 @@ describe("GithubProjectsV2Adapter", () => {
     expect(client.rest).toHaveBeenCalledWith(
       expect.objectContaining({
         method: "POST",
+        path: "/repos/kata-sh/uat/issues",
+        body: expect.objectContaining({
+          title: "[S001] Wire adapter",
+          milestone: 1,
+        }),
+      }),
+    );
+    expect(client.rest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "POST",
+        path: "/repos/kata-sh/uat/issues",
+        body: expect.objectContaining({
+          title: "[T001] Set project fields",
+          milestone: 1,
+        }),
+      }),
+    );
+    expect(client.rest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "POST",
         path: "/repos/kata-sh/uat/issues/3/comments",
         body: expect.objectContaining({
           body: expect.stringContaining("<!-- kata:artifact "),
@@ -723,6 +743,7 @@ function createFakeGithubClient(input: { issues?: any[]; projectFields?: any[] }
           body: request.body.body,
           state: "open",
           html_url: `https://github.test/kata-sh/uat/issues/${number}`,
+          milestone: request.body.milestone ? { number: request.body.milestone } : null,
         };
         issues.push(issue);
         return issue;

@@ -204,6 +204,10 @@ fn create_branch_with_commit(path: &Path, branch: &str, file: &str, contents: &s
     checkout.current_dir(path).args(["checkout", "-b", branch]);
     command_success(checkout, "git checkout new source branch");
 
+    commit_file(path, file, contents, "branch-specific commit");
+}
+
+fn commit_file(path: &Path, file: &str, contents: &str, message: &str) {
     fs::write(path.join(file), contents).unwrap();
 
     let mut add = Command::new("git");
@@ -211,9 +215,7 @@ fn create_branch_with_commit(path: &Path, branch: &str, file: &str, contents: &s
     command_success(add, "git add branch-specific file");
 
     let mut commit = Command::new("git");
-    commit
-        .current_dir(path)
-        .args(["commit", "-m", "branch-specific commit"]);
+    commit.current_dir(path).args(["commit", "-m", message]);
     command_success(commit, "git commit branch-specific file");
 }
 
@@ -781,6 +783,174 @@ fn test_workspace_worktree_bootstrap_and_cleanup() {
     assert!(
         !list_after.contains(&ws.path),
         "source repo should no longer track removed worktree"
+    );
+}
+
+#[test]
+fn test_workspace_worktree_attaches_existing_issue_branch() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path().join("workspaces");
+    let source_repo = tmp.path().join("source-repo");
+    fs::create_dir_all(&root).unwrap();
+    init_git_repo(&source_repo);
+
+    let mut branch = Command::new("git");
+    branch
+        .current_dir(&source_repo)
+        .args(["branch", "symphony/KAT-810"]);
+    command_success(branch, "create existing issue branch");
+
+    let config = WorkspaceConfig {
+        root: root.to_string_lossy().to_string(),
+        repo: Some(source_repo.to_string_lossy().to_string()),
+        strategy: WorkspaceRepoStrategy::Worktree,
+        isolation: WorkspaceIsolation::Local,
+        docker: None,
+        branch_prefix: "symphony".to_string(),
+        clone_branch: Some("main".to_string()),
+        base_branch: Some("main".to_string()),
+        cleanup_on_done: false,
+    };
+    let hooks = hooks_config_none();
+    let issue = make_test_issue("KAT-810");
+
+    let ws = symphony::workspace::ensure_workspace_for_issue(&issue, &config, &hooks).unwrap();
+
+    let mut branch_cmd = Command::new("git");
+    branch_cmd.args(["-C", &ws.path, "branch", "--show-current"]);
+    let current_branch = command_success(branch_cmd, "read worktree branch");
+    assert_eq!(
+        current_branch, "symphony/KAT-810",
+        "worktree bootstrap should attach an existing issue branch instead of recreating it"
+    );
+}
+
+#[test]
+fn test_existing_worktree_fast_forwards_from_clone_branch_when_clean() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path().join("workspaces");
+    let source_repo = tmp.path().join("source-repo");
+    fs::create_dir_all(&root).unwrap();
+    init_git_repo(&source_repo);
+    create_branch_with_commit(&source_repo, "feature-base", "BASE.txt", "initial base\n");
+
+    let config = WorkspaceConfig {
+        root: root.to_string_lossy().to_string(),
+        repo: Some(source_repo.to_string_lossy().to_string()),
+        strategy: WorkspaceRepoStrategy::Worktree,
+        isolation: WorkspaceIsolation::Local,
+        docker: None,
+        branch_prefix: "symphony".to_string(),
+        clone_branch: Some("feature-base".to_string()),
+        base_branch: Some("main".to_string()),
+        cleanup_on_done: false,
+    };
+    let hooks = hooks_config_none();
+    let issue = make_test_issue("KAT-807");
+
+    let first = symphony::workspace::ensure_workspace_for_issue(&issue, &config, &hooks).unwrap();
+    assert!(first.created_now);
+
+    commit_file(
+        &source_repo,
+        "LATER.txt",
+        "later base fix\n",
+        "later base fix",
+    );
+
+    let second = symphony::workspace::ensure_workspace_for_issue(&issue, &config, &hooks).unwrap();
+    assert!(!second.created_now);
+    assert!(
+        Path::new(&second.path).join("LATER.txt").exists(),
+        "clean reused worktree should fast-forward from clone_branch"
+    );
+}
+
+#[test]
+fn test_existing_worktree_reports_stale_when_dirty() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path().join("workspaces");
+    let source_repo = tmp.path().join("source-repo");
+    fs::create_dir_all(&root).unwrap();
+    init_git_repo(&source_repo);
+    create_branch_with_commit(&source_repo, "feature-base", "BASE.txt", "initial base\n");
+
+    let config = WorkspaceConfig {
+        root: root.to_string_lossy().to_string(),
+        repo: Some(source_repo.to_string_lossy().to_string()),
+        strategy: WorkspaceRepoStrategy::Worktree,
+        isolation: WorkspaceIsolation::Local,
+        docker: None,
+        branch_prefix: "symphony".to_string(),
+        clone_branch: Some("feature-base".to_string()),
+        base_branch: Some("main".to_string()),
+        cleanup_on_done: false,
+    };
+    let hooks = hooks_config_none();
+    let issue = make_test_issue("KAT-808");
+
+    let first = symphony::workspace::ensure_workspace_for_issue(&issue, &config, &hooks).unwrap();
+    fs::write(Path::new(&first.path).join("README.md"), "worker edit\n").unwrap();
+    commit_file(
+        &source_repo,
+        "LATER.txt",
+        "later base fix\n",
+        "later base fix",
+    );
+
+    let err = symphony::workspace::ensure_workspace_for_issue(&issue, &config, &hooks)
+        .expect_err("dirty stale worktree should fail before dispatch");
+    let message = err.to_string();
+    assert!(
+        message.contains(
+            "workspace stale: local changes block refresh from clone_branch `feature-base`"
+        ) && message.contains("rebase manually"),
+        "expected explicit stale workspace error, got: {message}"
+    );
+}
+
+#[test]
+fn test_existing_worktree_ignores_injected_symphony_skills_for_staleness() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path().join("workspaces");
+    let source_repo = tmp.path().join("source-repo");
+    fs::create_dir_all(&root).unwrap();
+    init_git_repo(&source_repo);
+    create_branch_with_commit(&source_repo, "feature-base", "BASE.txt", "initial base\n");
+
+    let config = WorkspaceConfig {
+        root: root.to_string_lossy().to_string(),
+        repo: Some(source_repo.to_string_lossy().to_string()),
+        strategy: WorkspaceRepoStrategy::Worktree,
+        isolation: WorkspaceIsolation::Local,
+        docker: None,
+        branch_prefix: "symphony".to_string(),
+        clone_branch: Some("feature-base".to_string()),
+        base_branch: Some("main".to_string()),
+        cleanup_on_done: false,
+    };
+    let hooks = hooks_config_none();
+    let issue = make_test_issue("KAT-809");
+
+    let first = symphony::workspace::ensure_workspace_for_issue(&issue, &config, &hooks).unwrap();
+    let injected_skill = Path::new(&first.path)
+        .join(".agents")
+        .join("skills")
+        .join("sym-state")
+        .join("SKILL.md");
+    fs::create_dir_all(injected_skill.parent().unwrap()).unwrap();
+    fs::write(&injected_skill, "runtime skill\n").unwrap();
+    commit_file(
+        &source_repo,
+        "LATER.txt",
+        "later base fix\n",
+        "later base fix",
+    );
+
+    let second = symphony::workspace::ensure_workspace_for_issue(&issue, &config, &hooks).unwrap();
+    assert!(
+        Path::new(&second.path).join("LATER.txt").exists(),
+        "injected sym-* skills should be ignored so clean worktrees can refresh"
     );
 }
 
