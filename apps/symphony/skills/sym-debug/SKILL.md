@@ -18,14 +18,15 @@ description:
 ## Log Sources
 
 - Primary runtime log file: `<logs-root>/log/symphony.log`
-  - When Symphony runs with `--logs-root`, it writes rotating JSON logs under
-    this path (see `apps/symphony/README.md`).
+  - When Symphony runs with `--logs-root` or `SYMPHONY_LOG_ROOT`, it writes
+    rotating JSON logs under this path (see `apps/symphony/README.md`).
   - Includes orchestrator, agent runner, Pi RPC bridge, and Codex
     app-server lifecycle logs.
 - Rotated runtime logs: `<logs-root>/log/symphony.log*`
   - Check these when the relevant run is older than the active file.
 - Stdout fallback: structured JSON log stream
-  - Without `--logs-root`, logs stream to stdout instead of a file.
+  - Without `--logs-root`/`SYMPHONY_LOG_ROOT`, TUI mode suppresses stdout logs;
+    use `--no-tui` to stream structured logs to stdout.
 
 ## Correlation Keys
 

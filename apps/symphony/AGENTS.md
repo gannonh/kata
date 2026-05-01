@@ -60,17 +60,20 @@ symphony [WORKFLOW.md] [--port PORT] [--logs-root PATH] [--no-tui]
 ### Log Verbosity
 
 Symphony emits structured JSON logs via `tracing`. Control verbosity with
-`RUST_LOG`:
+`SYMPHONY_LOG`:
 
 ```sh
-RUST_LOG=debug symphony WORKFLOW.md
-RUST_LOG=symphony=trace,info symphony WORKFLOW.md   # trace symphony, info everything else
+SYMPHONY_LOG=debug symphony WORKFLOW.md
+SYMPHONY_LOG=symphony=trace,info symphony WORKFLOW.md   # trace symphony, info everything else
 ```
 
-Default level is `info`.
+Default level is `info`. `RUST_LOG` is still accepted as a legacy fallback
+when `SYMPHONY_LOG` is unset.
 
 When `--logs-root` is set, logs write to rotating files under
 `<logs-root>/log/symphony.log` and stdout shows only the startup banner.
+`SYMPHONY_LOG_ROOT` provides the default logs root when the flag is omitted;
+the flag wins when both are set.
 Without `--logs-root`, stdout logs are suppressed while the default TUI is
 active. Pass `--no-tui` to stream structured JSON logs to stdout instead.
 
@@ -320,7 +323,9 @@ server:
 | Variable              | Description                                                                                                                                                          |
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `LINEAR_API_KEY`      | Linear personal API key. Used directly or as the canonical fallback when `tracker.api_key: $LINEAR_API_KEY` is set in the workflow file.                             |
-| `RUST_LOG`            | Log filter directives for `tracing_subscriber`. Examples: `info`, `debug`, `symphony=trace`. Default: `info`.                                                        |
+| `SYMPHONY_LOG`        | Log filter directives for `tracing_subscriber`. Examples: `info`, `debug`, `symphony=trace`. Default: `info`.                                                        |
+| `SYMPHONY_LOG_ROOT`   | Default directory root for file logs when `--logs-root` is omitted. The active log is `<SYMPHONY_LOG_ROOT>/log/symphony.log`.                                         |
+| `RUST_LOG`            | Legacy fallback for log filtering when `SYMPHONY_LOG` is unset. Prefer `SYMPHONY_LOG` in new docs and local setup.                                                   |
 | `HOME`                | Used for tilde (`~`) expansion in `workspace.root`.                                                                                                                  |
 | `SYMPHONY_SSH_CONFIG` | Path to a custom SSH config file. When set, Symphony passes `-F <path>` to every `ssh` invocation. Useful for custom host keys, ProxyJump, or IdentityFile settings. |
 
@@ -794,7 +799,7 @@ for line in open(sys.argv[1]):
 
 ### Symphony-side logs
 
-Symphony's own structured logs (via `RUST_LOG`) show the orchestrator
+Symphony's own structured logs (via `SYMPHONY_LOG`) show the orchestrator
 perspective. Cross-reference with session logs using the issue identifier:
 
 ```bash

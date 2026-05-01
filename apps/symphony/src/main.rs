@@ -105,6 +105,33 @@ pub struct Cli {
     pub no_tui: bool,
 }
 
+const SYMPHONY_LOG_ENV: &str = "SYMPHONY_LOG";
+const LEGACY_RUST_LOG_ENV: &str = "RUST_LOG";
+const SYMPHONY_LOG_ROOT_ENV: &str = "SYMPHONY_LOG_ROOT";
+
+pub(crate) fn apply_env_defaults(cli: &mut Cli) {
+    if cli.logs_root.is_none() {
+        if let Ok(logs_root) = std::env::var(SYMPHONY_LOG_ROOT_ENV) {
+            let logs_root = logs_root.trim();
+            if !logs_root.is_empty() {
+                cli.logs_root = Some(logs_root.to_string());
+            }
+        }
+    }
+}
+
+pub(crate) fn resolve_log_filter_directive() -> String {
+    env_var_non_empty(SYMPHONY_LOG_ENV)
+        .or_else(|| env_var_non_empty(LEGACY_RUST_LOG_ENV))
+        .unwrap_or_else(|| "info".to_string())
+}
+
+fn env_var_non_empty(key: &str) -> Option<String> {
+    let value = std::env::var(key).ok()?;
+    let trimmed = value.trim();
+    (!trimmed.is_empty()).then(|| trimmed.to_string())
+}
+
 pub trait BootstrapDeps {
     fn workflow_exists(&mut self, workflow_path: &Path) -> bool;
     fn startup_validate(&mut self, workflow_path: &Path) -> Result<(), String>;
@@ -1416,7 +1443,8 @@ fn init_tracing(logs_root: Option<&Path>, tui_enabled: bool) {
     static INIT: Once = Once::new();
 
     INIT.call_once(|| {
-        let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+        let filter = EnvFilter::try_new(resolve_log_filter_directive())
+            .unwrap_or_else(|_| EnvFilter::new("info"));
         let subscriber_builder = tracing_subscriber::fmt()
             .with_env_filter(filter)
             .with_target(false)
@@ -1464,13 +1492,14 @@ fn init_tracing(logs_root: Option<&Path>, tui_enabled: bool) {
 
 #[cfg(not(test))]
 fn run_entrypoint(args: impl IntoIterator<Item = OsString>) -> i32 {
-    let cli = match parse_cli_from(args) {
+    let mut cli = match parse_cli_from(args) {
         Ok(cli) => cli,
         Err(err) => {
             eprintln!("{err}");
             return 2;
         }
     };
+    apply_env_defaults(&mut cli);
 
     init_tracing(cli.logs_root.as_deref().map(Path::new), cli.tui);
 

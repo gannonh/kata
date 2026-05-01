@@ -37,6 +37,7 @@ const MESSAGE_COLUMN_TRUNCATE_WIDTH: usize = 60;
 const ACTIVITY_LOG_CAPACITY: usize = 200;
 const ACTIVITY_LOG_MESSAGE_WIDTH: usize = 100;
 const PINNED_ERROR_LIMIT: usize = 20;
+const RUNNING_SESSIONS_HEIGHT: u16 = 10;
 
 #[derive(Debug, Default)]
 struct ThroughputTracker {
@@ -587,12 +588,12 @@ fn draw_dashboard(
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(summary_height),
-            Constraint::Min(8),
+            Constraint::Length(RUNNING_SESSIONS_HEIGHT),
             Constraint::Length(blocked_height),
             Constraint::Length(7),
             Constraint::Length(5),
             Constraint::Length(pinned_error_height),
-            Constraint::Length(9),
+            Constraint::Min(10),
             Constraint::Length(2),
         ])
         .split(inner);
@@ -1428,10 +1429,19 @@ mod tests {
             },
         );
 
-        let backend = TestBackend::new(160, 30);
+        let backend = TestBackend::new(160, 48);
         let mut terminal = Terminal::new(backend).expect("test terminal");
+        let activity_log = ActivityLog::default();
         terminal
-            .draw(|frame| draw_dashboard(frame, &snapshot, now, "Throughput: 42.3 tps ▁▂▃▄▅▆▇█"))
+            .draw(|frame| {
+                draw_dashboard(
+                    frame,
+                    &snapshot,
+                    &activity_log,
+                    now,
+                    "Throughput: 42.3 tps ▁▂▃▄▅▆▇█",
+                )
+            })
             .expect("dashboard draw should succeed");
 
         let rendered = render_text(terminal.backend());
@@ -1483,10 +1493,19 @@ mod tests {
             },
         );
 
-        let backend = TestBackend::new(200, 30);
+        let backend = TestBackend::new(200, 48);
         let mut terminal = Terminal::new(backend).expect("test terminal");
+        let activity_log = ActivityLog::default();
         terminal
-            .draw(|frame| draw_dashboard(frame, &snapshot, now, "Throughput: 0.0 tps ▁▁▁▁▁▁▁▁"))
+            .draw(|frame| {
+                draw_dashboard(
+                    frame,
+                    &snapshot,
+                    &activity_log,
+                    now,
+                    "Throughput: 0.0 tps ▁▁▁▁▁▁▁▁",
+                )
+            })
             .expect("dashboard draw should succeed");
 
         let rendered = render_text(terminal.backend());
@@ -1523,10 +1542,19 @@ mod tests {
             },
         );
 
-        let backend = TestBackend::new(180, 30);
+        let backend = TestBackend::new(180, 48);
         let mut terminal = Terminal::new(backend).expect("test terminal");
+        let activity_log = ActivityLog::default();
         terminal
-            .draw(|frame| draw_dashboard(frame, &snapshot, now, "Throughput: 0.0 tps ▁▁▁▁▁▁▁▁"))
+            .draw(|frame| {
+                draw_dashboard(
+                    frame,
+                    &snapshot,
+                    &activity_log,
+                    now,
+                    "Throughput: 0.0 tps ▁▁▁▁▁▁▁▁",
+                )
+            })
             .expect("dashboard draw should succeed");
 
         let rendered = render_text(terminal.backend());
@@ -1764,10 +1792,11 @@ mod tests {
         let snapshot = snapshot_fixture(1_337, None);
         let throughput_line = "Throughput: 42.3 tps ▁▂▃▄▅▆▇█";
 
-        let backend = TestBackend::new(120, 30);
+        let backend = TestBackend::new(120, 48);
         let mut terminal = Terminal::new(backend).expect("test terminal");
+        let activity_log = ActivityLog::default();
         terminal
-            .draw(|frame| draw_dashboard(frame, &snapshot, now, throughput_line))
+            .draw(|frame| draw_dashboard(frame, &snapshot, &activity_log, now, throughput_line))
             .expect("dashboard draw should succeed");
 
         let rendered = render_text(terminal.backend());
