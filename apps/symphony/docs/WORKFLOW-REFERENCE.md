@@ -88,10 +88,6 @@ tracker:
 
   # GitHub-only: Projects v2 project number.
   # Required when kind: github. State is read from the project's Status field.
-  # github_project_owner_type chooses the GitHub Projects URL namespace:
-  #   user -> https://github.com/users/<repo_owner>/projects/<number>
-  #   org  -> https://github.com/orgs/<repo_owner>/projects/<number>
-  # github_project_owner_type: org
   # github_project_number: 7
 
   # Optional: filter candidate issues to this assignee.
@@ -297,8 +293,8 @@ agent:
   name: pi
 
   # Command to start the selected worker runner. Can be a shell-style string
-  # or a list. Include the runner mode in the command; Symphony only appends
-  # dynamic per-run args such as `--cwd <workspace>`.
+  # or a list. Include the runner mode in the command. For local workers,
+  # Symphony starts the runner with the workspace as the process cwd.
   command: pi --mode rpc
 
   # Codex example:

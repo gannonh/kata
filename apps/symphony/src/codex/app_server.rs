@@ -156,7 +156,6 @@ pub async fn start_session(
 }
 
 /// Start a Codex app-server session with Symphony helper environment injected.
-#[allow(clippy::too_many_arguments)]
 pub async fn start_session_with_helper_env(
     config: &CodexConfig,
     issue: &Issue,

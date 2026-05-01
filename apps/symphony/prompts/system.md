@@ -40,12 +40,6 @@ Available operations:
 - `comment.upsert`
 - `issue.update-state`
 - `issue.create-followup`
-- `pr.inspect-feedback`
-- `pr.inspect-checks`
-- `pr.land-status`
-
-`document.read` accepts `{"issueId":"<current-issue-id>"}` to list marker documents, or `{"issueId":"<current-issue-id>","title":"Context"}` to read one marker document.
-For large helper inputs such as workpad bodies, use the JSON payload recipes in `.agents/skills/sym-state/SKILL.md`.
 
 If a required operation is unavailable, treat it as a blocker and stop with a clear diagnostic in the workpad.
 Do not fall back to backend-specific tracker operations (`linear_*`, GitHub tracker mutations, etc.) for normal worker flow.

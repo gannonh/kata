@@ -18,8 +18,8 @@ description:
 ## Log Sources
 
 - Primary runtime log file: `<logs-root>/log/symphony.log`
-  - When Symphony runs with `--logs-root` or `SYMPHONY_LOG_ROOT`, it writes
-    rotating JSON logs under this path (see `apps/symphony/README.md`).
+  - When Symphony runs with `--logs-root`, it writes rotating JSON logs under
+    this path (see `apps/symphony/README.md`).
   - Includes orchestrator, agent runner, Pi RPC bridge, and Codex
     app-server lifecycle logs.
 - Rotated runtime logs: `<logs-root>/log/symphony.log*`
