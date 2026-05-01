@@ -39,14 +39,13 @@ description:
    - Summary of key changes (what changed).
    - Rationale and trade-offs (why it changed).
    - Tests or validation run (or explicit note if not run).
-9. Use the co-author trailer that matches the active harness identity when the repository or user expects one. For explicit Codex app-server work, use `Co-authored-by: Codex <codex@openai.com>` unless the user requests a different identity; otherwise omit or use the project-approved Pi/Symphony identity.
-10. Wrap body lines at 72 characters.
-11. Create the commit message with a here-doc or temp file and use
+9. Wrap body lines at 72 characters.
+10. Create the commit message with a here-doc or temp file and use
     `git commit -F <file>` so newlines are literal (avoid `-m` with `\n`).
 11. Commit only when the message matches the staged changes: if the staged diff
     includes unrelated files or the message describes work that isn't staged,
     fix the index or revise the message before committing.
-13. Never use `git commit --no-verify` or `git push --no-verify`; if hooks or validation fail, fix the underlying issue.
+12. Never use `git commit --no-verify` or `git push --no-verify`; if hooks or validation fail, fix the underlying issue.
 
 ## Output
 
