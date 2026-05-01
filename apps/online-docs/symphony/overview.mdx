@@ -5,7 +5,7 @@ description: "Headless orchestrator that polls Linear or GitHub for issues and d
 
 Kata Symphony is a headless orchestrator. You point it at a Linear or GitHub project, and it picks up tickets, clones your repo into isolated workspaces, runs an agent on each issue, creates pull requests, addresses review feedback, and merges — all without human intervention.
 
-All configuration lives in a single `WORKFLOW.md` file: the YAML front-matter is your config, and the body is a [Liquid](https://shopify.github.io/liquid/) prompt template rendered per issue.
+All configuration lives in a single `WORKFLOW.md` file: Symphony reads the YAML front-matter as config, and ignores content outside the front-matter at runtime.
 
 ## How it works
 
@@ -17,10 +17,10 @@ All configuration lives in a single `WORKFLOW.md` file: the YAML front-matter is
     For each new issue, Symphony creates an isolated workspace — a clone or worktree of your repo — in the configured `workspace.root` directory.
   </Step>
   <Step title="Run an agent session">
-    The agent reads the issue, writes code, runs tests, and pushes a branch. The Liquid prompt template is rendered with issue and workspace variables for each session.
+    The agent reads the issue, writes code, runs tests, and pushes a branch. Runtime prompts come from `prompts` in front-matter (and referenced prompt files).
   </Step>
   <Step title="Manage the PR lifecycle">
-    Symphony moves the issue through workflow states (`In Progress` → `Agent Review` → `Merging` → `Done`) as work progresses. Review feedback triggers new agent sessions that address comments on the open PR.
+    As work progresses, you will see the issue move through workflow states (`In Progress` → `Agent Review` → `Merging` → `Done`). `Merging` is set by a human, and review feedback triggers new agent sessions that address comments on the open PR.
   </Step>
   <Step title="Clean up">
     When the issue reaches a terminal state (`Done`, `Closed`), Symphony optionally removes the workspace. Multiple issues run in parallel up to your configured concurrency limit.
@@ -118,13 +118,6 @@ agent:
   max_concurrent_agents: 3
   max_turns: 20
 ---
-
-You are working on {{ issue.identifier }}: {{ issue.title }}.
-
-{{ issue.description }}
-
-Work on branch origin/{{ workspace.base_branch }}.
-Complete the task described in the issue.
 ```
 
 **3. Run Symphony**
