@@ -596,9 +596,7 @@ my-project/
     ├── sym-commit/
     │   └── SKILL.md
     └── sym-fix-ci/
-        ├── SKILL.md
-        └── scripts/
-            └── inspect_pr_checks.py
+        └── SKILL.md
 ```
 
 After injection, the workspace looks like:

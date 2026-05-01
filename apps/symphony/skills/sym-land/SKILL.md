@@ -23,7 +23,7 @@ description:
 
 - `gh` CLI is authenticated for GitHub PR, review, check, and merge operations.
 - You are on the PR branch with a clean working tree.
-- When this is part of a Kata-backed Symphony run, use the active backend-state workflow for durable Kata task/slice/artifact state; PR mergeability, reviews, checks, comments, and merge execution remain GitHub operations handled through `gh`.
+- When this is part of a Kata-backed Symphony run, use the active backend-state workflow for durable Kata task/slice/artifact state. Use the Symphony helper for PR status, reviews, checks, and comments. Use `gh` only for direct PR merge/reply actions that are not exposed by the helper.
 
 ## Steps
 
@@ -77,51 +77,46 @@ if [ "$mergeable" = "CONFLICTING" ]; then
   # Then run the `push` skill to publish the updated branch.
 fi
 
-# Preferred: use the Async Watch Helper below. The manual loop is a fallback
-# when Python cannot run or the helper script is unavailable.
 # Wait for automated review feedback. Codex reviews arrive as issue comments
 # that start with "## Codex Review — <persona>". Treat them like reviewer
 # feedback: reply with a `[codex]` issue comment acknowledging the findings and
 # whether you're addressing or deferring them. Kata backend state is not a
 # substitute for GitHub review/comment acknowledgement.
 while true; do
-  gh api repos/{owner}/{repo}/issues/"$pr_number"/comments \
-    --jq '.[] | select(.body | startswith("## Codex Review")) | .id' | rg -q '.' \
-    && break
+  tmp=$(mktemp)
+  printf '{"pr":"%s","includeLogs":false}\n' "$pr_number" > "$tmp"
+  .agents/skills/sym-state/scripts/sym-call pr.land-status --input "$tmp"
   sleep 10
 done
 
 # Watch checks
-if ! gh pr checks --watch; then
-  gh pr checks
-  # Identify failing run and inspect logs
-  # gh run list --branch "$branch"
-  # gh run view <run-id> --log
-  exit 1
-fi
+tmp=$(mktemp)
+printf '{"pr":"%s","includeLogs":true,"maxLines":160}\n' "$pr_number" > "$tmp"
+.agents/skills/sym-state/scripts/sym-call pr.inspect-checks --input "$tmp"
 
 # Squash-merge (remote branches auto-delete on merge in this repo)
 gh pr merge --squash --subject "$pr_title" --body "$pr_body"
 ```
 
-## Async Watch Helper
+## PR Status Helper
 
-Preferred: use the asyncio watcher to monitor review comments, CI, and head
-updates in parallel:
+Use the Symphony helper to monitor review comments, CI, and head updates:
 
 ```
-python3 .agents/skills/sym-land/land_watch.py
+.agents/skills/sym-state/scripts/sym-call pr.land-status --input /tmp/sym-land-status.json
 ```
 
-Exit codes:
+Example input:
 
-- 2: Review comments detected (address feedback)
-- 3: CI checks failed
-- 4: PR head updated (autofix commit detected)
+```
+{"pr":"123","includeLogs":false}
+```
+
+The helper returns PR metadata, feedback collections, and check status. Treat non-empty `checks.failing` as CI work to fix before merge.
 
 ## Failure Handling
 
-- If checks fail, pull details with `gh pr checks` and `gh run view --log`, then
+- If checks fail, pull details with `pr.inspect-checks` and `includeLogs:true`, then
   fix locally, commit with the `commit` skill, push with the `push` skill, and
   re-run the watch.
 - Use judgment to identify flaky failures. If a failure is a flake (e.g., a
