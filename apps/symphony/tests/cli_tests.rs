@@ -607,7 +607,7 @@ fn test_without_logs_root_suppresses_stdout_logs_when_tui_defaults_on() {
 
 #[test]
 #[serial]
-fn test_without_logs_root_no_tui_streams_stdout_logs() {
+fn test_without_logs_root_no_tui_reports_startup_failure_to_stderr() {
     let run_dir = tempfile::tempdir().expect("temp dir should be created");
     let missing_workflow = run_dir.path().join("missing-workflow.md");
 
@@ -626,8 +626,14 @@ fn test_without_logs_root_no_tui_streams_stdout_logs() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stdout.contains("\"phase\":\"startup\"") && stdout.contains("startup failed"),
-        "stdout should include startup logs when --no-tui is set and --logs-root is omitted; got: {stdout}"
+        stdout.trim().is_empty(),
+        "stdout should stay clean when startup fails without logs root; got: {stdout}"
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("workflow file not found"),
+        "stderr should include startup failure reason when --no-tui is set; got: {stderr}"
     );
 
     let log_file_path = run_dir.path().join("log").join("symphony.log");
