@@ -508,6 +508,7 @@ impl BootstrapDeps for RuntimeBootstrapDeps {
         let tui_snapshot_handle = snapshot_handle.clone();
         let refresh_sender = orchestrator.create_refresh_channel();
         let event_hub = orchestrator.create_event_hub();
+        let tui_event_hub = event_hub.clone();
         let steer_sender = orchestrator.create_steer_sender();
         let http_state = HttpServerState::with_event_stream(
             Arc::new(snapshot_handle),
@@ -528,7 +529,7 @@ impl BootstrapDeps for RuntimeBootstrapDeps {
             tui_shutdown = Some(shutdown_tx);
             tui_exit = Some(exit_rx);
             tui_task = Some(tokio::spawn(async move {
-                let reason = tui::run_tui(tui_snapshot_handle, shutdown_rx).await;
+                let reason = tui::run_tui(tui_snapshot_handle, tui_event_hub, shutdown_rx).await;
                 let _ = exit_tx.send(Some(reason));
             }));
         }
