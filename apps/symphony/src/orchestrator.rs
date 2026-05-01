@@ -2859,8 +2859,13 @@ impl Orchestrator {
                 continue;
             };
 
+            let Some(workspace_path) = self.prepare_workspace_for_active_dispatch(&refreshed_issue)
+            else {
+                continue;
+            };
+
             let Some(refreshed_issue) =
-                self.enforce_agent_review_pr_gate(&refreshed_issue, None, port)?
+                self.enforce_agent_review_pr_gate(&refreshed_issue, &workspace_path, port)?
             else {
                 continue;
             };
@@ -2891,7 +2896,12 @@ impl Orchestrator {
                 WorkerHostSelection::Remote(ref host) => Some(host.clone()),
                 _ => None,
             };
-            self.dispatch_issue(&refreshed_issue, None, None, worker_host.clone());
+            self.dispatch_issue(
+                &refreshed_issue,
+                None,
+                Some(workspace_path),
+                worker_host.clone(),
+            );
             dispatched_issue_ids.push(refreshed_issue.id.clone());
             dispatched_issues.push(DispatchedIssue {
                 issue: refreshed_issue,
@@ -4775,19 +4785,36 @@ impl Orchestrator {
         true
     }
 
+    fn prepare_workspace_for_active_dispatch(&self, issue: &Issue) -> Option<String> {
+        match workspace::ensure_workspace_for_issue(
+            issue,
+            &self.config.workspace,
+            &self.config.hooks,
+        ) {
+            Ok(info) => Some(info.path),
+            Err(err) => {
+                tracing::warn!(
+                    event = "dispatch_workspace_prepare_failed",
+                    issue_id = %issue.id,
+                    issue_identifier = %issue.identifier,
+                    error = %err,
+                    "workspace preparation failed before dispatch; skipping issue for this tick"
+                );
+                None
+            }
+        }
+    }
+
     fn enforce_agent_review_pr_gate(
         &mut self,
         issue: &Issue,
-        workspace_path_hint: Option<&str>,
+        workspace_path: &str,
         port: &mut dyn OrchestratorPort,
     ) -> Result<Option<Issue>> {
         if normalize_issue_state(&issue.state) != "agent review" {
             return Ok(Some(issue.clone()));
         }
 
-        let workspace_path = workspace_path_hint
-            .map(str::to_string)
-            .unwrap_or_else(|| self.default_workspace_path_for_issue(issue));
         let pr_status = check_agent_review_pr_status(
             Path::new(&workspace_path),
             self.config.workspace.base_branch.as_deref(),
@@ -5136,23 +5163,25 @@ impl Orchestrator {
                 continue;
             };
 
-            let Some(issue) = (match self.enforce_agent_review_pr_gate(
-                &issue,
-                retry.workspace_path.as_deref(),
-                port,
-            ) {
-                Ok(issue) => issue,
-                Err(err) => {
-                    tracing::warn!(
-                        event = "agent_review_gate_failed_retry",
-                        issue_id = %issue.id,
-                        issue_identifier = %issue.identifier,
-                        error = %err,
-                        "agent review PR gate failed during retry dispatch"
-                    );
-                    continue;
-                }
-            }) else {
+            let Some(workspace_path) = self.prepare_workspace_for_active_dispatch(&issue) else {
+                continue;
+            };
+
+            let Some(issue) =
+                (match self.enforce_agent_review_pr_gate(&issue, &workspace_path, port) {
+                    Ok(issue) => issue,
+                    Err(err) => {
+                        tracing::warn!(
+                            event = "agent_review_gate_failed_retry",
+                            issue_id = %issue.id,
+                            issue_identifier = %issue.identifier,
+                            error = %err,
+                            "agent review PR gate failed during retry dispatch"
+                        );
+                        continue;
+                    }
+                })
+            else {
                 continue;
             };
 
@@ -5195,7 +5224,7 @@ impl Orchestrator {
                 self.dispatch_issue(
                     &issue,
                     Some(retry.attempt),
-                    retry.workspace_path.clone(),
+                    Some(workspace_path),
                     worker_host.clone(),
                 );
                 dispatched.push(DispatchedIssue {

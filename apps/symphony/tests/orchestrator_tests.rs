@@ -4210,6 +4210,86 @@ fn test_unblocked_issue_dispatches_normally() {
 }
 
 #[test]
+fn test_active_issue_prepares_workspace_before_dispatch() {
+    let workspace_root = tempdir().expect("workspace root should be created");
+    let mut config = test_config(2);
+    config.workspace.root = workspace_root.path().to_string_lossy().to_string();
+    config.workspace.repo = None;
+
+    let mut orchestrator = Orchestrator::new(config, String::new());
+    let candidate = issue("issue-workspace", "SIM-81", "Todo", Some(1), 0);
+
+    let mut port = FakePort {
+        candidate_issues: vec![candidate.clone()],
+        ..FakePort::default()
+    };
+
+    let tick = orchestrator.tick(&mut port).expect("tick should succeed");
+
+    assert_eq!(
+        tick.dispatched_issue_ids,
+        vec![candidate.id.clone()],
+        "active issue should dispatch normally"
+    );
+
+    let expected_workspace = workspace_root.path().join("SIM-81");
+    assert!(
+        expected_workspace.exists(),
+        "workspace should be prepared before the worker run starts"
+    );
+    let run_attempt = orchestrator
+        .state()
+        .running
+        .get(&candidate.id)
+        .expect("dispatch should create a scheduled run attempt");
+    let actual_workspace =
+        fs::canonicalize(&run_attempt.workspace_path).expect("run workspace should canonicalize");
+    let expected_workspace =
+        fs::canonicalize(expected_workspace).expect("expected workspace should canonicalize");
+    assert_eq!(
+        actual_workspace, expected_workspace,
+        "scheduled attempt should retain the prepared workspace path"
+    );
+}
+
+#[test]
+fn test_agent_review_prepares_workspace_before_pr_gate() {
+    let workspace_root = tempdir().expect("workspace root should be created");
+    let mut config = test_config(2);
+    config.workspace.root = workspace_root.path().to_string_lossy().to_string();
+    config.workspace.repo = None;
+    config
+        .tracker
+        .active_states
+        .push("Agent Review".to_string());
+
+    let mut orchestrator = Orchestrator::new(config, String::new());
+    let candidate = issue("issue-agent-review", "SIM-82", "Agent Review", Some(1), 0);
+
+    let mut port = FakePort {
+        candidate_issues: vec![candidate.clone()],
+        ..FakePort::default()
+    };
+
+    let tick = orchestrator.tick(&mut port).expect("tick should succeed");
+
+    assert!(
+        tick.dispatched_issue_ids.is_empty(),
+        "Agent Review issue without a valid PR should not dispatch"
+    );
+    assert!(
+        workspace_root.path().join("SIM-82").exists(),
+        "Agent Review PR gate should run after workspace preparation"
+    );
+    assert!(
+        port.call_history()
+            .iter()
+            .any(|call| call == "update_issue_state:issue-agent-review:In Progress"),
+        "missing PR should still move the issue back to In Progress after workspace preparation"
+    );
+}
+
+#[test]
 fn test_snapshot_includes_blocked_issues() {
     let mut orchestrator = Orchestrator::new(test_config(2), String::new());
 
@@ -4620,7 +4700,7 @@ fn test_e2e_github_snapshot_state_json_complete() {
         .expect("running snapshot should serialize to JSON");
     assert_eq!(
         running_snapshot["tracker_project_url"],
-        "https://github.com/test-owner/test-repo/issues"
+        "https://github.com/users/test-owner/projects/1"
     );
     assert_eq!(
         running_snapshot["running"]["gh-42"]["issue_identifier"],
