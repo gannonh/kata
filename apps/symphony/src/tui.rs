@@ -37,7 +37,6 @@ const MESSAGE_COLUMN_TRUNCATE_WIDTH: usize = 60;
 const ACTIVITY_LOG_CAPACITY: usize = 200;
 const ACTIVITY_LOG_MESSAGE_WIDTH: usize = 100;
 const PINNED_ERROR_LIMIT: usize = 20;
-const RUNNING_SESSIONS_HEIGHT: u16 = 10;
 
 #[derive(Debug, Default)]
 struct ThroughputTracker {
@@ -445,10 +444,6 @@ fn activity_entry_from_envelope(envelope: SymphonyEventEnvelope) -> ActivityLogE
 
 fn activity_message_from_payload(payload: &serde_json::Value) -> Option<String> {
     for key in [
-        "error_preview",
-        "output_preview",
-        "command_preview",
-        "tool_args_preview",
         "summary",
         "error",
         "instruction_preview",
@@ -597,7 +592,7 @@ fn draw_dashboard(
             Constraint::Length(7),
             Constraint::Length(5),
             Constraint::Length(pinned_error_height),
-            Constraint::Min(10),
+            Constraint::Length(9),
             Constraint::Length(2),
         ])
         .split(inner);
@@ -1053,7 +1048,9 @@ fn pinned_error_items(
     now: DateTime<Utc>,
     area_height: u16,
 ) -> Vec<ListItem<'static>> {
-    let visible_rows = usize::from(area_height.saturating_sub(2)).clamp(1, PINNED_ERROR_LIMIT);
+    let visible_rows = usize::from(area_height.saturating_sub(2))
+        .max(1)
+        .min(PINNED_ERROR_LIMIT);
     let items: Vec<ListItem<'static>> = activity_log
         .entries
         .iter()
