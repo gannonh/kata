@@ -1,184 +1,63 @@
 ---
-title: "Agent backends"
-description: "Configure the Kata CLI or Codex agent backend for Symphony worker sessions."
+title: "Agent runners"
+description: "Configure Symphony worker runtime runners (Pi or Codex)."
 ---
 
-Symphony supports two agent backends. Select one with `agent.backend` in your `WORKFLOW.md`.
+Symphony uses `agent.*` to configure the worker runtime harness.
 
-| Backend | Config value | What it runs | Models |
-| --- | --- | --- | --- |
-| **Kata CLI** | `kata-cli` (alias: `kata`) | Kata CLI in RPC mode | Any model via pi-ai: Anthropic, OpenAI, Google, Mistral, Bedrock, Azure |
-| **Codex** | `codex` | OpenAI Codex app-server | OpenAI Codex models |
+| Runner | `agent.name` | Typical `agent.command` |
+| --- | --- | --- |
+| Pi | `pi` | `pi --mode rpc` |
+| Codex | `codex` | `codex app-server` |
 
 <Note>
-  The Kata CLI backend is recommended. It supports a wider range of model providers and enables per-state model selection.
+  This runtime selection is separate from tracker/document/state operations. In worker prompts and skills, use `.agents/skills/sym-state/scripts/sym-call` for backend-neutral issue/document/state actions.
 </Note>
 
----
-
-## Kata CLI backend
-
-<Tabs>
-  <Tab title="Configuration">
-    ```yaml
-    agent:
-      backend: kata-cli
-      max_concurrent_agents: 3
-      max_turns: 20
-      escalation_timeout_ms: 300000
-
-    kata_agent:                # alias: pi_agent
-      command: kata            # or: npx @kata-sh/cli
-      model: anthropic/claude-sonnet-4-6
-      stall_timeout_ms: 300000
-    ```
-  </Tab>
-  <Tab title="Prerequisites">
-    <Steps>
-      <Step title="Install Kata CLI">
-        ```bash
-        npm install -g @kata-sh/cli
-        ```
-
-        Alternatively, use `npx @kata-sh/cli` as the `command` value and skip the global install.
-      </Step>
-      <Step title="Authenticate with your provider">
-        Run `kata` once interactively to log in via browser, or set your provider's API key in the environment:
-
-        ```bash
-        # Anthropic
-        export ANTHROPIC_API_KEY=sk-ant-...
-
-        # OpenAI
-        export OPENAI_API_KEY=sk-...
-
-        # Google
-        export GOOGLE_API_KEY=...
-        ```
-      </Step>
-    </Steps>
-  </Tab>
-</Tabs>
-
-### Kata CLI configuration fields
-
-<ParamField path="kata_agent.command" type="string | string[]" default='["kata"]'>
-  Kata CLI executable and base arguments. Symphony appends `--mode rpc --cwd <workspace>` automatically. Accepts a whitespace-split string or an explicit list.
-</ParamField>
-
-<ParamField path="kata_agent.model" type="string">
-  Default model passed to Kata CLI via `--model`. Accepts any model supported by pi-ai (e.g. `anthropic/claude-sonnet-4-6`, `openai/gpt-4o`).
-</ParamField>
-
-<ParamField path="kata_agent.model_by_state" type="object">
-  Per-Linear-state model overrides. Keys are lowercased state names; values are model identifiers. Falls back to `model` for states not listed. See [per-state model selection](#per-state-model-selection) below.
-</ParamField>
-
-<ParamField path="kata_agent.stall_timeout_ms" type="number" default="300000">
-  Time before a non-progressing session is considered stalled, in milliseconds.
-</ParamField>
-
-<ParamField path="kata_agent.no_session" type="boolean" default="true">
-  Pass `--no-session` to disable persistent session storage.
-</ParamField>
-
-<ParamField path="kata_agent.append_system_prompt" type="string">
-  Optional path passed via `--append-system-prompt`.
-</ParamField>
-
-<ParamField path="kata_agent.read_timeout_ms" type="number" default="5000">
-  Timeout waiting for Kata CLI process output, in milliseconds.
-</ParamField>
-
-### Per-state model selection
-
-When using the Kata CLI backend, you can assign different models to different workflow states. This lets you use a powerful model for implementation and a faster, cheaper model for mechanical tasks like addressing review comments or merging.
+## Pi runner (default in Kata workflows)
 
 ```yaml
-kata_agent:
-  model: anthropic/claude-opus-4-6          # default for all states
-  model_by_state:                           # keys are Linear state names (case-insensitive)
+agent:
+  name: pi
+  command: pi --mode rpc
+  model: anthropic/claude-opus-4-6
+  model_by_state:
     Agent Review: anthropic/claude-sonnet-4-6
     Merging: anthropic/claude-sonnet-4-6
+  no_session: true
+  max_concurrent_agents: 1
+  max_turns: 20
+  approval_policy: never
+  thread_sandbox: danger-full-access
+  stall_timeout_ms: 300000
+  read_timeout_ms: 5000
 ```
 
-If a state is not listed in `model_by_state`, the default `model` is used. The active model is visible in both the TUI and web dashboard.
+## Codex runner
 
----
+```yaml
+agent:
+  name: codex
+  command: codex app-server
+  model: gpt-5-codex
+  max_concurrent_agents: 1
+  max_turns: 20
+  approval_policy: never
+  thread_sandbox: danger-full-access
+  turn_timeout_ms: 3600000
+  stall_timeout_ms: 300000
+  read_timeout_ms: 5000
+```
 
-## Codex backend
+## Key fields
 
-<Tabs>
-  <Tab title="Configuration">
-    ```yaml
-    agent:
-      backend: codex
-      max_concurrent_agents: 3
-      max_turns: 20
+- `agent.name`: runner protocol (`pi` or `codex`)
+- `agent.command`: executable + fixed args
+- `agent.model`: default model override
+- `agent.model_by_state`: per-workflow-state model overrides
+- `agent.no_session`: Pi-only `--no-session` behavior
+- `agent.max_concurrent_agents`, `agent.max_turns`: execution limits
+- `agent.approval_policy`, `agent.thread_sandbox`, `agent.turn_sandbox_policy`: safety controls
+- `agent.stall_timeout_ms`, `agent.read_timeout_ms`, `agent.turn_timeout_ms`: timeout controls
 
-    codex:
-      command: codex app-server
-      stall_timeout_ms: 900000
-      approval_policy: never
-    ```
-  </Tab>
-  <Tab title="Prerequisites">
-    <Steps>
-      <Step title="Install Codex">
-        ```bash
-        npm install -g @openai/codex
-        ```
-      </Step>
-      <Step title="Authenticate">
-        Run `codex` once interactively to log in via browser, or set the API key:
-
-        ```bash
-        export OPENAI_API_KEY=sk-...
-        ```
-      </Step>
-    </Steps>
-  </Tab>
-</Tabs>
-
-### Codex configuration fields
-
-<ParamField path="codex.command" type="string | string[]" default='["codex", "app-server"]'>
-  Codex executable and arguments. Accepts a whitespace-split string or an explicit list.
-</ParamField>
-
-<ParamField path="codex.approval_policy" type="object">
-  JSON/YAML object passed to Codex as the approval policy. Default rejects sandbox approvals, rules, and MCP elicitations. Use `never` to disable all approval prompts.
-</ParamField>
-
-<ParamField path="codex.stall_timeout_ms" type="number" default="300000">
-  Time before a non-progressing session is considered stalled, in milliseconds.
-</ParamField>
-
-<ParamField path="codex.thread_sandbox" type="string" default="workspace-write">
-  Codex sandbox mode for the agent thread.
-</ParamField>
-
-<ParamField path="codex.turn_timeout_ms" type="number" default="3600000">
-  Hard timeout per Codex turn (default: 1 hour), in milliseconds.
-</ParamField>
-
-<ParamField path="codex.read_timeout_ms" type="number" default="5000">
-  Timeout waiting for Codex process output, in milliseconds.
-</ParamField>
-
-<ParamField path="codex.turn_sandbox_policy" type="object">
-  Per-turn sandbox policy override passed to Codex.
-</ParamField>
-
----
-
-## Choosing a backend
-
-| Consideration | Kata CLI | Codex |
-| --- | --- | --- |
-| Model providers | Anthropic, OpenAI, Google, Mistral, Bedrock, Azure | OpenAI only |
-| Per-state model selection | Yes — `model_by_state` | No |
-| Docker container auth | Any provider API key | `OPENAI_API_KEY` or `~/.codex/auth.json` |
-| Recommended | **Yes** | For OpenAI-only setups |
-
-Use the Kata CLI backend unless you have a specific reason to use Codex (such as an existing Codex workflow or organization policy).
+For complete config details, see `/reference/symphony-workflow`.

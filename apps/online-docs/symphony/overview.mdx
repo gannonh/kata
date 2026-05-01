@@ -20,7 +20,7 @@ All configuration lives in a single `WORKFLOW.md` file: the YAML front-matter is
     The agent reads the issue, writes code, runs tests, and pushes a branch. The Liquid prompt template is rendered with issue and workspace variables for each session.
   </Step>
   <Step title="Manage the PR lifecycle">
-    Symphony moves the issue through Linear states (`In Progress` → `Agent Review` → `Human Review` → `Merging` → `Done`) as the agent progresses. Review feedback triggers new agent sessions that address comments on the open PR.
+    Symphony moves the issue through workflow states (`In Progress` → `Agent Review` → `Merging` → `Done`) as work progresses. Review feedback triggers new agent sessions that address comments on the open PR.
   </Step>
   <Step title="Clean up">
     When the issue reaches a terminal state (`Done`, `Closed`), Symphony optionally removes the workspace. Multiple issues run in parallel up to your configured concurrency limit.
@@ -30,9 +30,9 @@ All configuration lives in a single `WORKFLOW.md` file: the YAML front-matter is
 ## Ticket lifecycle
 
 ```
-Todo → In Progress → Agent Review → Human Review → Merging → Done
-                         ↑               |
-                         └── Rework ←────┘
+Todo → In Progress → Agent Review → Merging → Done
+                         ↑            |
+                         └─ Rework ←──┘
 ```
 
 | Status | Who sets it | What happens |
@@ -40,7 +40,6 @@ Todo → In Progress → Agent Review → Human Review → Merging → Done
 | **Todo** | Human | Issue is queued — Symphony picks it up on the next poll |
 | **In Progress** | Orchestrator | Agent is working — writing code, running tests |
 | **Agent Review** | Agent or Human | Agent addresses PR review comments |
-| **Human Review** | Agent | PR is ready for human approval |
 | **Merging** | Human | Agent merges the approved PR |
 | **Rework** | Human | Agent scraps current approach, starts fresh on a new branch |
 | **Done** | Agent | Terminal — PR merged, workspace cleaned up |
@@ -112,13 +111,12 @@ workspace:
   cleanup_on_done: true
 
 agent:
-  backend: kata-cli
+  name: pi
+  command: pi --mode rpc
+  model: anthropic/claude-sonnet-4-6
+  no_session: true
   max_concurrent_agents: 3
   max_turns: 20
-
-kata_agent:
-  command: kata
-  model: anthropic/claude-sonnet-4-6
 ---
 
 You are working on {{ issue.identifier }}: {{ issue.title }}.
