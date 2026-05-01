@@ -354,18 +354,16 @@ fn bootstrap_repository(
             }
 
             let mut worktree_cmd = Command::new("git");
-            worktree_cmd
-                .arg("-C")
-                .arg(repo)
-                .arg("worktree")
-                .arg("add")
-                .arg(&workspace_str)
-                .arg("-b")
-                .arg(&branch_name);
-            if let Some(clone_branch) = config.clone_branch.as_deref() {
-                // Start point: create the worktree branch from this ref
-                // instead of the repo's current HEAD.
-                worktree_cmd.arg(clone_branch);
+            worktree_cmd.arg("-C").arg(repo).arg("worktree").arg("add");
+            if git_branch_exists(repo, &branch_name)? {
+                worktree_cmd.arg(&workspace_str).arg(&branch_name);
+            } else {
+                worktree_cmd.arg(&workspace_str).arg("-b").arg(&branch_name);
+                if let Some(clone_branch) = config.clone_branch.as_deref() {
+                    // Start point: create the worktree branch from this ref
+                    // instead of the repo's current HEAD.
+                    worktree_cmd.arg(clone_branch);
+                }
             }
             run_git_command(worktree_cmd, "workspace worktree bootstrap")
         }
@@ -376,6 +374,23 @@ fn bootstrap_repository(
 fn branch_name_for_issue(config: &WorkspaceConfig, issue_identifier: &str) -> String {
     let sanitized_identifier = path_safety::sanitize_identifier(issue_identifier);
     format!("{}/{}", config.branch_prefix, sanitized_identifier)
+}
+
+fn git_branch_exists(repo: &str, branch_name: &str) -> Result<bool> {
+    let mut command = Command::new("git");
+    command
+        .arg("-C")
+        .arg(repo)
+        .arg("show-ref")
+        .arg("--verify")
+        .arg("--quiet")
+        .arg(format!("refs/heads/{branch_name}"));
+    let output = command.output().map_err(SymphonyError::Io)?;
+    match output.status.code() {
+        Some(0) => Ok(true),
+        Some(1) => Ok(false),
+        _ => git_output_error(output, "workspace branch existence check"),
+    }
 }
 
 fn refresh_existing_workspace_from_clone_branch(

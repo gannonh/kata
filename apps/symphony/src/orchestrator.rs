@@ -1652,6 +1652,11 @@ pub enum RuntimeEvent {
         session_id: Option<String>,
         error: String,
     },
+    WorkspacePrepareFailed {
+        issue_id: String,
+        issue_identifier: String,
+        error: String,
+    },
     WorkerStalled {
         issue_id: String,
         issue_identifier: String,
@@ -3971,6 +3976,20 @@ impl Orchestrator {
                     "error": truncate_for_display(error, 160),
                 }),
             ),
+            RuntimeEvent::WorkspacePrepareFailed {
+                issue_id,
+                issue_identifier,
+                error,
+            } => (
+                EventKind::Runtime,
+                EventSeverity::Error,
+                Some(issue_identifier.clone()),
+                "workspace_prepare_failed",
+                serde_json::json!({
+                    "issue_id": issue_id,
+                    "error": truncate_for_display(error, 240),
+                }),
+            ),
             RuntimeEvent::WorkerStalled {
                 issue_id,
                 issue_identifier,
@@ -4785,7 +4804,7 @@ impl Orchestrator {
         true
     }
 
-    fn prepare_workspace_for_active_dispatch(&self, issue: &Issue) -> Option<String> {
+    fn prepare_workspace_for_active_dispatch(&mut self, issue: &Issue) -> Option<String> {
         match workspace::ensure_workspace_for_issue(
             issue,
             &self.config.workspace,
@@ -4793,13 +4812,19 @@ impl Orchestrator {
         ) {
             Ok(info) => Some(info.path),
             Err(err) => {
+                let error = err.to_string();
                 tracing::warn!(
                     event = "dispatch_workspace_prepare_failed",
                     issue_id = %issue.id,
                     issue_identifier = %issue.identifier,
-                    error = %err,
+                    error = %error,
                     "workspace preparation failed before dispatch; skipping issue for this tick"
                 );
+                self.emit_runtime_event(RuntimeEvent::WorkspacePrepareFailed {
+                    issue_id: issue.id.clone(),
+                    issue_identifier: issue.identifier.clone(),
+                    error,
+                });
                 None
             }
         }
