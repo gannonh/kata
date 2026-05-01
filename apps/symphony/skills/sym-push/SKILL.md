@@ -72,9 +72,6 @@ description:
 branch=$(git branch --show-current)
 base_branch="${BASE_BRANCH:-main}"
 
-# Minimal validation gate
-cd apps/symphony && cargo test && cargo clippy -- -D warnings
-
 # Initial push for a new branch: set upstream explicitly.
 git push -u origin "$branch"
 

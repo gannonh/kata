@@ -39,7 +39,7 @@ Guide to find the open PR for the current branch and address its comments during
 ### Step 6: Monitor CI Actions and address any new failures
 
 - After pushing, monitor the PR's CI checks for any new failures that may arise from the changes.
-- If new failures occur, use the `fix-ci` skill to analyze the CI logs, identify the root cause, and apply necessary fixes.
+- If new failures occur, use the `sym-fix-ci` skill to analyze the CI logs, identify the root cause, and apply necessary fixes.
 
 ## Final verification and summary
 

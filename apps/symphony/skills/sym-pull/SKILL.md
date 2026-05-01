@@ -84,23 +84,4 @@ description:
 - When unsure, note assumptions and ask for confirmation before finalizing the
   merge.
 
-## When To Ask The User (Keep To A Minimum)
 
-Do not ask for input unless there is no safe, reversible alternative. Prefer
-making a best-effort decision, documenting the rationale, and proceeding.
-
-Ask the user only when:
-
-- The correct resolution depends on product intent or behavior not inferable
-  from code, tests, or nearby documentation.
-- The conflict crosses a user-visible contract, API surface, or migration where
-  choosing incorrectly could break external consumers.
-- A conflict requires selecting between two mutually exclusive designs with
-  equivalent technical merit and no clear local signal.
-- The merge introduces data loss, schema changes, or irreversible side effects
-  without an obvious safe default.
-- The branch is not the intended target, or the remote/branch names do not exist
-  and cannot be determined locally.
-
-Otherwise, proceed with the merge, explain the decision briefly in notes, and
-leave a clear, reviewable commit history.
