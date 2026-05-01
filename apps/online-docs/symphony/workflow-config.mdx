@@ -3,10 +3,12 @@ title: "WORKFLOW.md configuration"
 description: "Current Symphony WORKFLOW.md configuration shape and runtime semantics."
 ---
 
-`WORKFLOW.md` has two parts:
+`WORKFLOW.md` has one runtime-significant part:
 
 1. YAML front-matter: orchestrator configuration
-2. Markdown body: Liquid prompt template (unless per-state `prompts` is configured)
+2. Markdown body: ignored by Symphony at runtime
+
+Use `prompts` in front-matter (and referenced prompt files) for runtime prompt content.
 
 Symphony hot-reloads config updates from this file.
 
