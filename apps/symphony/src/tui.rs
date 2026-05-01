@@ -1053,9 +1053,7 @@ fn pinned_error_items(
     now: DateTime<Utc>,
     area_height: u16,
 ) -> Vec<ListItem<'static>> {
-    let visible_rows = usize::from(area_height.saturating_sub(2))
-        .max(1)
-        .min(PINNED_ERROR_LIMIT);
+    let visible_rows = usize::from(area_height.saturating_sub(2)).clamp(1, PINNED_ERROR_LIMIT);
     let items: Vec<ListItem<'static>> = activity_log
         .entries
         .iter()

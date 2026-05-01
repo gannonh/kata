@@ -980,8 +980,10 @@ async fn run_worker_task(
                             Path::new("/"),
                             None,
                             Some(&container_id),
-                            symphony_bin.as_deref(),
-                            Some(symphony_workflow_path.as_str()),
+                            app_server::HelperEnv {
+                                symphony_bin: symphony_bin.as_deref(),
+                                symphony_workflow_path: Some(symphony_workflow_path.as_str()),
+                            },
                         )
                         .await
                         .map_err(|err| format!("codex session start failed: {err}"))?;
@@ -1257,8 +1259,10 @@ async fn run_worker_task(
                 workspace_root,
                 worker_host,
                 None,
-                symphony_bin.as_deref(),
-                Some(symphony_workflow_path.as_str()),
+                app_server::HelperEnv {
+                    symphony_bin: symphony_bin.as_deref(),
+                    symphony_workflow_path: Some(symphony_workflow_path.as_str()),
+                },
             )
             .await
             {
@@ -3611,8 +3615,10 @@ impl Orchestrator {
                     Path::new(&self.config.workspace.root),
                     prior_worker_host.as_deref(),
                     None,
-                    symphony_bin.as_deref(),
-                    symphony_workflow_path.as_deref(),
+                    app_server::HelperEnv {
+                        symphony_bin: symphony_bin.as_deref(),
+                        symphony_workflow_path: symphony_workflow_path.as_deref(),
+                    },
                 )
                 .await
                 {

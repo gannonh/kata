@@ -1577,7 +1577,7 @@ async fn run_linear_helper(
         "issue.get" => {
             let issue_id = helper_required_str(&input, "issueId")?;
             let issues = adapter
-                .fetch_issue_states_by_ids(&[issue_id.clone()])
+                .fetch_issue_states_by_ids(std::slice::from_ref(&issue_id))
                 .await
                 .map_err(|err| err.to_string())?;
             let issue = issues
@@ -2072,6 +2072,9 @@ mod tests {
 
     #[test]
     fn parse_symphony_document_comment_ignores_non_document_comments() {
-        assert_eq!(parse_symphony_document_comment("## Agent Workpad\n\nNope"), None);
+        assert_eq!(
+            parse_symphony_document_comment("## Agent Workpad\n\nNope"),
+            None
+        );
     }
 }
