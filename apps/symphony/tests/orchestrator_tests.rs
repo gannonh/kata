@@ -4290,6 +4290,45 @@ fn test_agent_review_prepares_workspace_before_pr_gate() {
 }
 
 #[test]
+fn test_workspace_prepare_failure_is_emitted_for_tui_visibility() {
+    let tmp = tempdir().expect("temp dir should be created");
+    let root_file = tmp.path().join("not-a-directory");
+    fs::write(&root_file, "not a directory").expect("root sentinel file should be written");
+
+    let mut config = test_config(2);
+    config.workspace.root = root_file.to_string_lossy().to_string();
+    config.workspace.repo = None;
+
+    let mut orchestrator = Orchestrator::new(config, String::new());
+    let candidate = issue("issue-workspace-error", "SIM-83", "Todo", Some(1), 0);
+
+    let mut port = FakePort {
+        candidate_issues: vec![candidate.clone()],
+        ..FakePort::default()
+    };
+
+    let tick = orchestrator.tick(&mut port).expect("tick should succeed");
+
+    assert!(
+        tick.dispatched_issue_ids.is_empty(),
+        "workspace failure should skip dispatch for this tick"
+    );
+    assert!(
+        orchestrator.events().iter().any(|event| matches!(
+            event,
+            RuntimeEvent::WorkspacePrepareFailed {
+                issue_id,
+                issue_identifier,
+                error
+            } if issue_id == "issue-workspace-error"
+                && issue_identifier == "SIM-83"
+                && error.contains("Not a directory")
+        )),
+        "workspace prep failure should be emitted so the TUI can pin it"
+    );
+}
+
+#[test]
 fn test_snapshot_includes_blocked_issues() {
     let mut orchestrator = Orchestrator::new(test_config(2), String::new());
 
