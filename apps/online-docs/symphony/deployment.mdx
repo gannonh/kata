@@ -186,7 +186,7 @@ worker:
   max_concurrent_agents_per_host: 3
 ```
 
-Each host must have the agent backend (Kata CLI or Codex) installed and on `PATH`. Symphony connects via `ssh -T` and spawns the agent remotely.
+Each host must have the configured agent runner command (for example `pi --mode rpc` or `codex app-server`) available on `PATH`. Symphony connects via `ssh -T` and spawns the worker remotely.
 
 ### Host selection behavior
 
