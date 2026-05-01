@@ -3,12 +3,12 @@ title: "WORKFLOW.md reference"
 description: "Current Symphony WORKFLOW.md configuration and worker contract."
 ---
 
-Symphony `WORKFLOW.md` has two parts:
+Symphony `WORKFLOW.md` has one runtime-significant part:
 
 - **YAML front-matter** for orchestrator config
-- **Markdown body** for the fallback monolith prompt
+- **Markdown body** is ignored at runtime
 
-When `prompts` front-matter is configured, runtime prompts come from those prompt files. Without per-state prompts, the markdown body after the second `---` is rendered as the fallback monolith prompt.
+Runtime prompts come from `prompts` front-matter entries (or external prompt files they reference), not the document body.
 
 ## Worker tracker contract (current)
 
