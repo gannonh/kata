@@ -90,6 +90,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-lines", type=int, default=DEFAULT_MAX_LINES)
     parser.add_argument("--context", type=int, default=DEFAULT_CONTEXT_LINES)
     parser.add_argument("--json", action="store_true", help="Emit JSON instead of text output.")
+    parser.add_argument(
+        "--fail-on-failure",
+        action="store_true",
+        help=(
+            "Exit non-zero when failing checks are detected. By default, failing checks are "
+            "reported as inspection results and only inspection errors exit non-zero."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -135,7 +143,7 @@ def main() -> int:
     else:
         render_results(pr_value, results)
 
-    return 1
+    return 1 if args.fail_on_failure else 0
 
 
 def find_git_root(start: Path) -> Path | None:

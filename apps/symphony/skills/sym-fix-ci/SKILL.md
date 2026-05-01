@@ -18,6 +18,7 @@ Use the active Symphony workflow to reason about the task, Kata CLI only for dur
 
 - `python3 "<path-to-skill>/scripts/inspect_pr_checks.py" --repo "." --pr "<number-or-url>"`
 - Add `--json` if you want machine-friendly output for summarization.
+- The script exits zero when it successfully reports failing checks; use `--fail-on-failure` only for automation that must fail red CI.
 
 ## Workflow
 
@@ -33,6 +34,7 @@ Use the active Symphony workflow to reason about the task, Kata CLI only for dur
      - Add `--json` for machine-friendly output.
    - Manual fallback:
      - `gh pr checks <pr> --json name,state,bucket,link,startedAt,completedAt,workflow`
+       - `gh pr checks` exits non-zero when checks are failing. Treat that as CI data, not as a broken tool call; prefer the bundled script or append `|| true` when collecting raw status output.
        - If a field is rejected, rerun with the available fields reported by `gh`.
      - For each failing check, extract the run id from `detailsUrl` and run:
        - `gh run view <run_id> --json name,workflowName,conclusion,status,url,event,headBranch,headSha`
@@ -51,7 +53,8 @@ Use the active Symphony workflow to reason about the task, Kata CLI only for dur
    - Apply the plan, summarize diffs/tests, commit and push changes.
    - If the work is attached to a Kata task, keep Kata status/artifact updates in the active backend-state workflow and keep GitHub CI state in GitHub.
 8. Recheck status.
-   - After changes, re-run the relevant tests and `gh pr checks` to confirm.
+   - After changes, re-run the relevant tests and the bundled inspection script to confirm.
+   - If collecting raw `gh pr checks` output, remember that red checks produce a non-zero exit code even when GitHub returned valid check data.
    - If new or existing failures remain, repeat the workflow until CI passes
 9. Summarize outcome.
    - Once CI checks pass, summarize the fix and confirm with the user before merging or proceeding to the next steps in their workflow.
@@ -60,7 +63,7 @@ Use the active Symphony workflow to reason about the task, Kata CLI only for dur
 
 ### <path-to-skill>/scripts/inspect_pr_checks.py
 
-Fetch failing PR checks, pull GitHub Actions logs, and extract a failure snippet. Exits non-zero when failures remain so it can be used in automation.
+Fetch failing PR checks, pull GitHub Actions logs, and extract a failure snippet. Exits zero when failing checks are successfully reported, and exits non-zero only for inspection errors unless `--fail-on-failure` is set.
 
 Usage examples:
 
