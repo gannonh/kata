@@ -179,17 +179,36 @@ fn test_tracker_project_url_uses_linear_project_and_workspace_slug() {
 }
 
 #[test]
-fn test_tracker_project_url_uses_github_repo_path_for_github_kind() {
+fn test_tracker_project_url_uses_github_project_path_for_github_kind() {
     let tracker = TrackerConfig {
         kind: Some("github".to_string()),
         repo_owner: Some("kata-sh".to_string()),
         repo_name: Some("kata-mono".to_string()),
+        github_project_owner_type: Some(GithubProjectOwnerType::User),
+        github_project_number: Some(17),
         ..TrackerConfig::default()
     };
 
     assert_eq!(
         tracker.tracker_project_url().as_deref(),
-        Some("https://github.com/kata-sh/kata-mono/issues")
+        Some("https://github.com/users/kata-sh/projects/17")
+    );
+}
+
+#[test]
+fn test_tracker_project_url_uses_github_org_project_path_for_github_kind() {
+    let tracker = TrackerConfig {
+        kind: Some("github".to_string()),
+        repo_owner: Some("kata-sh".to_string()),
+        repo_name: Some("kata-mono".to_string()),
+        github_project_owner_type: Some(GithubProjectOwnerType::Org),
+        github_project_number: Some(17),
+        ..TrackerConfig::default()
+    };
+
+    assert_eq!(
+        tracker.tracker_project_url().as_deref(),
+        Some("https://github.com/orgs/kata-sh/projects/17")
     );
 }
 

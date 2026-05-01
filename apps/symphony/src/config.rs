@@ -12,9 +12,10 @@ use serde_yaml::{Mapping, Value};
 
 use crate::domain::{
     canonical_kata_phase_name, AgentBackend, AgentConfig, ApiKey, CodexConfig, DockerCodexAuth,
-    DockerConfig, HooksConfig, NotificationsConfig, PiAgentConfig, PollingConfig, PromptsConfig,
-    ServerConfig, ServiceConfig, SharedContextConfig, SlackConfig, SupervisorConfig, TrackerConfig,
-    WorkerConfig, WorkspaceConfig, WorkspaceIsolation, WorkspaceRepoStrategy, KATA_PHASE_NAMES,
+    DockerConfig, GithubProjectOwnerType, HooksConfig, NotificationsConfig, PiAgentConfig,
+    PollingConfig, PromptsConfig, ServerConfig, ServiceConfig, SharedContextConfig, SlackConfig,
+    SupervisorConfig, TrackerConfig, WorkerConfig, WorkspaceConfig, WorkspaceIsolation,
+    WorkspaceRepoStrategy, KATA_PHASE_NAMES,
 };
 use crate::error::{Result, SymphonyError};
 use crate::github::auth::{github_token_missing_message, resolve_github_token};
@@ -194,6 +195,7 @@ struct RawTrackerConfig {
     workspace_slug: Option<String>,
     repo_owner: Option<String>,
     repo_name: Option<String>,
+    github_project_owner_type: Option<String>,
     github_project_number: Option<u64>,
     label_prefix: Option<String>,
     assignee: Option<String>,
@@ -633,6 +635,19 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         .map(|v| resolve_env(&v))
         .map(|v| v.trim().to_string())
         .filter(|v| !v.is_empty());
+    let github_project_owner_type = raw_tracker
+        .github_project_owner_type
+        .map(|v| resolve_env(&v))
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty())
+        .map(|v| {
+            GithubProjectOwnerType::parse(&v).ok_or_else(|| {
+                SymphonyError::InvalidWorkflowConfig(
+                    "tracker.github_project_owner_type must be either 'user' or 'org'".to_string(),
+                )
+            })
+        })
+        .transpose()?;
     let github_project_number = raw_tracker.github_project_number;
 
     let label_prefix = None;
@@ -646,6 +661,11 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         if repo_name.is_none() {
             return Err(SymphonyError::InvalidWorkflowConfig(
                 "tracker.repo_name is required when tracker.kind is github".to_string(),
+            ));
+        }
+        if github_project_owner_type.is_none() {
+            return Err(SymphonyError::InvalidWorkflowConfig(
+                "tracker.github_project_owner_type is required when tracker.kind is github; use 'user' or 'org'".to_string(),
             ));
         }
         if github_project_number.is_none() {
@@ -669,6 +689,7 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         workspace_slug,
         repo_owner,
         repo_name,
+        github_project_owner_type,
         github_project_number,
         label_prefix,
         assignee,
@@ -1282,6 +1303,18 @@ pub fn validate(config: &ServiceConfig) -> Result<ValidatedServiceConfig> {
         {
             return Err(SymphonyError::InvalidWorkflowConfig(
                 "tracker.repo_name is required when tracker.kind is github".to_string(),
+            ));
+        }
+
+        if config.tracker.github_project_owner_type.is_none() {
+            return Err(SymphonyError::InvalidWorkflowConfig(
+                "tracker.github_project_owner_type is required when tracker.kind is github; use 'user' or 'org'".to_string(),
+            ));
+        }
+
+        if config.tracker.github_project_number.is_none() {
+            return Err(SymphonyError::InvalidWorkflowConfig(
+                "tracker.github_project_number is required when tracker.kind is github; GitHub Projects v2 is the only supported GitHub state backend".to_string(),
             ));
         }
 

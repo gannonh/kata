@@ -11,8 +11,8 @@ use serial_test::serial;
 use symphony::config::validate;
 use symphony::doctor::{self, CheckStatus};
 use symphony::domain::{
-    AgentBackend, ApiKey, ServiceConfig, TrackerConfig, WorkspaceConfig, WorkspaceIsolation,
-    WorkspaceRepoStrategy,
+    AgentBackend, ApiKey, GithubProjectOwnerType, ServiceConfig, TrackerConfig, WorkspaceConfig,
+    WorkspaceIsolation, WorkspaceRepoStrategy,
 };
 use symphony::linear::adapter::LinearAdapter;
 use symphony::linear::client::LinearClient;
@@ -176,7 +176,7 @@ fn test_github_tracker_kind_accepted() {
     fs::write(
         &workflow_path,
         format!(
-            "---\ntracker:\n  kind: github\n  api_key: test-token\n  repo_owner: kata-sh\n  repo_name: kata-mono\n  github_project_number: 42\nworkspace:\n  root: {}\n---\nPrompt\n",
+            "---\ntracker:\n  kind: github\n  api_key: test-token\n  repo_owner: kata-sh\n  repo_name: kata-mono\n  github_project_owner_type: org\n  github_project_number: 42\nworkspace:\n  root: {}\n---\nPrompt\n",
             workspace_root.display()
         ),
     )
@@ -734,6 +734,7 @@ fn github_tracker_config(endpoint: String) -> TrackerConfig {
         workspace_slug: None,
         repo_owner: Some("test-owner".to_string()),
         repo_name: Some("test-repo".to_string()),
+        github_project_owner_type: Some(GithubProjectOwnerType::User),
         github_project_number: None,
         label_prefix: Some("symphony".to_string()),
         assignee: None,
@@ -863,6 +864,7 @@ async fn test_doctor_github_project_found() {
         .await;
 
     let mut config = github_tracker_config(server.url());
+    config.github_project_owner_type = Some(GithubProjectOwnerType::User);
     config.github_project_number = Some(7);
 
     let results = doctor::check_github(&config).await;
@@ -903,6 +905,7 @@ async fn test_doctor_github_project_status_field_missing_message() {
         .await;
 
     let mut config = github_tracker_config(server.url());
+    config.github_project_owner_type = Some(GithubProjectOwnerType::User);
     config.github_project_number = Some(7);
 
     let results = doctor::check_github(&config).await;
@@ -976,6 +979,7 @@ async fn test_check_linear_auth_failure() {
         workspace_slug: None,
         repo_owner: None,
         repo_name: None,
+        github_project_owner_type: None,
         github_project_number: None,
         label_prefix: None,
         assignee: None,

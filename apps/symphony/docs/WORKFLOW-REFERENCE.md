@@ -88,6 +88,10 @@ tracker:
 
   # GitHub-only: Projects v2 project number.
   # Required when kind: github. State is read from the project's Status field.
+  # github_project_owner_type chooses the GitHub Projects URL namespace:
+  #   user -> https://github.com/users/<repo_owner>/projects/<number>
+  #   org  -> https://github.com/orgs/<repo_owner>/projects/<number>
+  # github_project_owner_type: org
   # github_project_number: 7
 
   # Optional: filter candidate issues to this assignee.
@@ -133,6 +137,7 @@ tracker:
 #   api_key: $GH_TOKEN
 #   repo_owner: kata-sh
 #   repo_name: kata-mono
+#   github_project_owner_type: org
 #   github_project_number: 7
 #   active_states:
 #     - Todo

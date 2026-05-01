@@ -13,8 +13,8 @@ use tempfile::{tempdir, NamedTempFile};
 
 use symphony::domain::{
     AgentBackend, AgentConfig, AgentEvent, ApiKey, BlockerRef, ContextScope, EscalationRequest,
-    EscalationResponse, Issue, NotificationsConfig, ServiceConfig, SlackConfig, TrackerConfig,
-    WorkspaceIsolation,
+    EscalationResponse, GithubProjectOwnerType, Issue, NotificationsConfig, ServiceConfig,
+    SlackConfig, TrackerConfig, WorkspaceIsolation,
 };
 use symphony::error::{Result, SymphonyError};
 use symphony::orchestrator::{
@@ -126,6 +126,8 @@ fn github_test_config(max_concurrent_agents: u32) -> ServiceConfig {
         api_key: Some("github-test-token".into()),
         repo_owner: Some("test-owner".to_string()),
         repo_name: Some("test-repo".to_string()),
+        github_project_owner_type: Some(GithubProjectOwnerType::User),
+        github_project_number: Some(1),
         active_states: vec!["Todo".to_string(), "In Progress".to_string()],
         terminal_states: vec!["Done".to_string(), "Canceled".to_string()],
         ..TrackerConfig::default()
@@ -4496,7 +4498,7 @@ fn test_github_snapshot_contains_tracker_project_url() {
     let snapshot = orchestrator.snapshot(0);
     assert_eq!(
         snapshot.tracker_project_url.as_deref(),
-        Some("https://github.com/test-owner/test-repo/issues")
+        Some("https://github.com/users/test-owner/projects/1")
     );
 }
 
@@ -4556,6 +4558,7 @@ fn test_e2e_github_label_mode_full_lifecycle() {
 fn test_e2e_github_projects_v2_mode_full_lifecycle() {
     let mut config = github_test_config(1);
     config.tracker.github_project_number = Some(7);
+    config.tracker.github_project_owner_type = Some(GithubProjectOwnerType::User);
 
     let mut orchestrator = Orchestrator::new(config, String::new());
 

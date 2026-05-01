@@ -11,8 +11,8 @@ use tempfile::NamedTempFile;
 
 use symphony::config::{from_workflow, validate};
 use symphony::domain::{
-    AgentBackend, CodexConfig, DockerCodexAuth, ServiceConfig, TrackerConfig, WorkspaceConfig,
-    WorkspaceIsolation, WorkspaceRepoStrategy,
+    AgentBackend, CodexConfig, DockerCodexAuth, GithubProjectOwnerType, ServiceConfig,
+    TrackerConfig, WorkspaceConfig, WorkspaceIsolation, WorkspaceRepoStrategy,
 };
 use symphony::error::SymphonyError;
 use symphony::notifications::should_notify;
@@ -264,6 +264,7 @@ fn test_config_defaults() {
     assert_eq!(config.tracker.workspace_slug, None);
     assert_eq!(config.tracker.repo_owner, None);
     assert_eq!(config.tracker.repo_name, None);
+    assert_eq!(config.tracker.github_project_owner_type, None);
     assert_eq!(config.tracker.github_project_number, None);
     assert_eq!(config.tracker.label_prefix, None);
     assert_eq!(config.polling.interval_ms, 30_000);
@@ -301,6 +302,7 @@ tracker:
   api_key: github-test-token
   repo_owner: kata-sh
   repo_name: kata-mono
+  github_project_owner_type: org
   github_project_number: 42
 "#;
 
@@ -310,6 +312,10 @@ tracker:
     assert_eq!(config.tracker.kind.as_deref(), Some("github"));
     assert_eq!(config.tracker.repo_owner.as_deref(), Some("kata-sh"));
     assert_eq!(config.tracker.repo_name.as_deref(), Some("kata-mono"));
+    assert_eq!(
+        config.tracker.github_project_owner_type,
+        Some(GithubProjectOwnerType::Org)
+    );
     assert_eq!(config.tracker.github_project_number, Some(42));
     assert_eq!(config.tracker.label_prefix, None);
     assert_eq!(config.tracker.project_slug, None);
@@ -341,6 +347,7 @@ tracker:
   api_key: github-test-token
   repo_owner: kata-sh
   repo_name: kata-mono
+  github_project_owner_type: user
 "#;
 
     let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
@@ -359,6 +366,7 @@ tracker:
   api_key: github-test-token
   repo_owner: kata-sh
   repo_name: kata-mono
+  github_project_owner_type: user
   github_project_number: 42
   label_prefix: orchestration
 "#;
@@ -368,6 +376,47 @@ tracker:
 
     assert_eq!(config.tracker.github_project_number, Some(42));
     assert_eq!(config.tracker.label_prefix, None);
+}
+
+#[test]
+fn test_github_tracker_config_requires_project_owner_type() {
+    let yaml_str = r#"
+tracker:
+  kind: github
+  api_key: github-test-token
+  repo_owner: kata-sh
+  repo_name: kata-mono
+  github_project_number: 42
+"#;
+
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let err = from_workflow(&raw).expect_err("missing project owner type should fail");
+    assert!(
+        err.to_string()
+            .contains("tracker.github_project_owner_type"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
+fn test_github_tracker_config_rejects_invalid_project_owner_type() {
+    let yaml_str = r#"
+tracker:
+  kind: github
+  api_key: github-test-token
+  repo_owner: kata-sh
+  repo_name: kata-mono
+  github_project_owner_type: team
+  github_project_number: 42
+"#;
+
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let err = from_workflow(&raw).expect_err("invalid project owner type should fail");
+    assert!(
+        err.to_string()
+            .contains("tracker.github_project_owner_type must be either 'user' or 'org'"),
+        "unexpected error: {err}"
+    );
 }
 
 #[test]
@@ -941,6 +990,7 @@ tracker:
   api_key: $SYMPHONY_TEST_GITHUB_TOKEN_MISSING
   repo_owner: kata-sh
   repo_name: kata
+  github_project_owner_type: org
   github_project_number: 42
 "#;
 
@@ -1522,6 +1572,8 @@ fn test_config_validation_github_valid() {
             api_key: Some("test-key".into()),
             repo_owner: Some("kata-sh".to_string()),
             repo_name: Some("kata".to_string()),
+            github_project_owner_type: Some(GithubProjectOwnerType::Org),
+            github_project_number: Some(42),
             ..TrackerConfig::default()
         },
         ..ServiceConfig::default()
@@ -1551,6 +1603,8 @@ fn test_config_validation_github_missing_token_errors() {
             api_key: None,
             repo_owner: Some("kata-sh".to_string()),
             repo_name: Some("kata".to_string()),
+            github_project_owner_type: Some(GithubProjectOwnerType::Org),
+            github_project_number: Some(42),
             ..TrackerConfig::default()
         },
         ..ServiceConfig::default()
@@ -1591,6 +1645,8 @@ fn test_config_validation_github_missing_repo_owner_errors() {
             api_key: Some("test-key".into()),
             repo_owner: None,
             repo_name: Some("kata".to_string()),
+            github_project_owner_type: Some(GithubProjectOwnerType::Org),
+            github_project_number: Some(42),
             ..TrackerConfig::default()
         },
         ..ServiceConfig::default()
@@ -1612,6 +1668,8 @@ fn test_config_validation_github_missing_repo_name_errors() {
             api_key: Some("test-key".into()),
             repo_owner: Some("kata-sh".to_string()),
             repo_name: None,
+            github_project_owner_type: Some(GithubProjectOwnerType::Org),
+            github_project_number: Some(42),
             ..TrackerConfig::default()
         },
         ..ServiceConfig::default()
