@@ -45,6 +45,7 @@ Available operations:
 - `pr.land-status`
 
 `document.read` accepts `{"issueId":"<current-issue-id>"}` to list marker documents, or `{"issueId":"<current-issue-id>","title":"Context"}` to read one marker document.
+Helper calls are JSON-in/JSON-out; when you need to inspect helper output locally, use Node.js snippets so the handling matches the JS-oriented helper workflow.
 
 If a required operation is unavailable, treat it as a blocker and stop with a clear diagnostic in the workpad.
 Do not fall back to backend-specific tracker operations (`linear_*`, GitHub tracker mutations, etc.) for normal worker flow.

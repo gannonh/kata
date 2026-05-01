@@ -578,6 +578,7 @@ fn test_without_logs_root_suppresses_stdout_logs_when_tui_defaults_on() {
     let output = Command::new(env!("CARGO_BIN_EXE_symphony"))
         .current_dir(run_dir.path())
         .arg(&missing_workflow)
+        .env_remove("SYMPHONY_LOG_ROOT")
         .output()
         .expect("symphony binary should execute");
 
@@ -614,6 +615,7 @@ fn test_without_logs_root_no_tui_streams_stdout_logs() {
         .current_dir(run_dir.path())
         .arg(&missing_workflow)
         .arg("--no-tui")
+        .env_remove("SYMPHONY_LOG_ROOT")
         .output()
         .expect("symphony binary should execute");
 
