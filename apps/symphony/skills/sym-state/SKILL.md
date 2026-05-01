@@ -19,7 +19,7 @@ The script calls the running Symphony binary through `SYMPHONY_BIN` and `SYMPHON
 - `comment.upsert`: create or update a marker comment. Input: `{"issueId":"123","marker":"## Agent Workpad","body":"..."}`.
 - `issue.update-state`: move an issue through the configured workflow states. Input: `{"issueId":"123","state":"Agent Review"}`.
 - `issue.create-followup`: create a follow-up issue. Input: `{"parentIssueId":"123","title":"...","description":"..."}`.
-- `document.read`: read a marker document comment on an issue. Input: `{"issueId":"123","title":"Context"}`.
+- `document.read`: read marker document comments on an issue. Input: `{"issueId":"123"}` lists all marker docs; `{"issueId":"123","title":"Context"}` reads one marker doc.
 - `document.write`: write a marker document comment on an issue. Input: `{"issueId":"123","title":"Context","content":"..."}`.
 - `pr.inspect-feedback`: read PR conversation comments, reviews, and inline review comments. Input: `{"pr":"123"}`; omit `pr` to use the current branch PR.
 - `pr.inspect-checks`: read PR check status. Input: `{"pr":"123","includeLogs":true,"maxLines":160}`; omit `pr` to use the current branch PR.

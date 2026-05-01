@@ -966,6 +966,21 @@ fn normalize_github_issue_id(issue_id: &str) -> String {
 }
 
 #[cfg(not(test))]
+fn symphony_document_marker(title: &str) -> String {
+    format!("<!-- symphony:document:{} -->", title.trim())
+}
+
+fn parse_symphony_document_comment(body: &str) -> Option<(String, String)> {
+    let rest = body.strip_prefix("<!-- symphony:document:")?;
+    let (title, content) = rest.split_once("-->")?;
+    let title = title.trim();
+    if title.is_empty() {
+        return None;
+    }
+    Some((title.to_string(), content.trim_start().to_string()))
+}
+
+#[cfg(not(test))]
 fn helper_bool(input: &serde_json::Value, field: &str, default: bool) -> bool {
     input
         .get(field)
@@ -1505,27 +1520,41 @@ async fn run_github_helper(
         }
         "document.read" => {
             let issue_id = normalize_github_issue_id(&helper_required_str(&input, "issueId")?);
-            let title = helper_required_str(&input, "title")?;
-            let marker = format!("<!-- symphony:document:{} -->", title);
             let number = parse_github_issue_number(&issue_id)?;
-            let content = adapter
+            let documents: Vec<serde_json::Value> = adapter
                 .client
                 .list_comments(number)
                 .await
                 .map_err(|err| err.to_string())?
                 .into_iter()
-                .find_map(|comment| {
+                .filter_map(|comment| {
                     let body = comment.body?;
-                    body.strip_prefix(&marker)
-                        .map(|content| content.trim_start().to_string())
-                });
-            Ok(serde_json::json!({ "title": title, "content": content }))
+                    let (title, content) = parse_symphony_document_comment(&body)?;
+                    Some(serde_json::json!({ "title": title, "content": content }))
+                })
+                .collect();
+
+            if let Some(title) = helper_optional_str(&input, "title") {
+                let content = documents
+                    .iter()
+                    .find(|document| {
+                        document
+                            .get("title")
+                            .and_then(|value| value.as_str())
+                            .is_some_and(|candidate| candidate == title)
+                    })
+                    .and_then(|document| document.get("content"))
+                    .cloned();
+                Ok(serde_json::json!({ "title": title, "content": content }))
+            } else {
+                Ok(serde_json::json!({ "documents": documents }))
+            }
         }
         "document.write" => {
             let issue_id = normalize_github_issue_id(&helper_required_str(&input, "issueId")?);
             let title = helper_required_str(&input, "title")?;
             let content = helper_required_str(&input, "content")?;
-            let marker = format!("<!-- symphony:document:{} -->", title);
+            let marker = symphony_document_marker(&title);
             let body = format!("{marker}\n\n{content}");
             let comment = github_upsert_comment(&adapter, &issue_id, Some(&marker), &body).await?;
             Ok(serde_json::json!({ "title": title, "comment": comment }))
@@ -2024,5 +2053,25 @@ mod tests {
         assert_eq!(normalize_github_issue_id("  #456  "), "456");
         assert_eq!(normalize_github_issue_id("456"), "456");
         assert_eq!(normalize_github_issue_id("#not-a-number"), "#not-a-number");
+    }
+
+    #[test]
+    fn parse_symphony_document_comment_reads_marker_title_and_content() {
+        let parsed = parse_symphony_document_comment(
+            "<!-- symphony:document:Context -->\n\nThis is the context body.",
+        );
+
+        assert_eq!(
+            parsed,
+            Some((
+                "Context".to_string(),
+                "This is the context body.".to_string()
+            ))
+        );
+    }
+
+    #[test]
+    fn parse_symphony_document_comment_ignores_non_document_comments() {
+        assert_eq!(parse_symphony_document_comment("## Agent Workpad\n\nNope"), None);
     }
 }
