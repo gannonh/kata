@@ -1,19 +1,26 @@
 # Symphony
 
-Symphony is a headless orchestrator that polls a Linear project for candidate
-issues and dispatches each one to an agent session running in an isolated
-workspace. It supports both Codex app-server and Pi RPC (`agent.name`),
-tracks concurrency limits, retries failures with exponential back-off,
-reconciles issue state on each poll cycle, and optionally exposes a live HTTP
-dashboard and JSON API for observability. SSH remote worker pools are supported
-for distributing agent sessions across multiple machines.
+Symphony is a headless orchestrator that polls a configured issue tracker for
+candidate issues and dispatches each one to an agent session running in an
+isolated workspace. It supports both Codex app-server and Pi RPC
+(`agent.name`), tracks concurrency limits, retries failures with exponential
+back-off, reconciles issue state on each poll cycle, and optionally exposes a
+live HTTP dashboard and JSON API for observability. SSH remote worker pools are
+supported for distributing agent sessions across multiple machines.
+
+## How It Works
+
+1. Symphony polls the configured tracker for issues in active states, such as `Todo` and `In Progress`.
+2. For each routable issue, it creates an isolated workspace and starts the configured worker runner.
+3. The worker reads the issue, updates the Agent Workpad, changes code, validates, publishes a PR, and advances the tracker state through the configured lifecycle.
+4. When the issue reaches a terminal state, Symphony reconciles bookkeeping and optionally cleans up the workspace.
 
 ---
 
 ## Prerequisites
 
 - **Rust stable toolchain** (install via [rustup](https://rustup.rs/))
-- A Linear personal API key (`LINEAR_API_KEY`)
+- Tracker credentials for the configured backend, such as GitHub token env vars or a Linear personal API key.
 - Agent runtime binary reachable on `PATH`:
   - Codex runner: `codex ... app-server`
   - Pi runner: `pi --mode rpc`
@@ -72,26 +79,32 @@ active. Pass `--no-tui` to stream structured JSON logs to stdout instead.
 ## WORKFLOW.md Format
 
 The workflow file is a Markdown document with a YAML front-matter block.
-Everything outside the front-matter is ignored by Symphony.
+The YAML front matter is parsed as runtime configuration and is never sent to
+the worker as prompt text.
+
+The Markdown body after the second `---` is the fallback prompt. When the
+`prompts` section is configured and a matching state prompt (or default prompt)
+resolves, Symphony sends the configured prompt files instead of the Markdown
+body. When `prompts` is absent or no prompt resolves, Symphony sends the
+Markdown body for all states.
 
 A fully documented reference template with all settings and inline comments
-is at `docs/WORKFLOW-REFERENCE.md`. Copy it to your project root as
-`WORKFLOW.md` and customize the settings.
+is at `docs/WORKFLOW-REFERENCE.md`. Copy it to your project root as `WORKFLOW.md` and customize the settings.
 
 ### Config Field Reference
 
 #### `tracker` section
 
-| Field                     | Type     | Default                                                    | Description                                                                                                                                      |
-| ------------------------- | -------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `tracker.kind`            | string   | _(required)_                                               | Must be `"linear"`.                                                                                                                              |
-| `tracker.api_key`         | string   | _(required)_                                               | Linear personal API key. Supports `$VAR` env-var indirection (e.g. `$LINEAR_API_KEY`). Never logged.                                             |
-| `tracker.project_slug`    | string   | _(required)_                                               | Linear project URL slug (the identifier shown in project URLs). Supports `$VAR` indirection.                                                     |
-| `tracker.workspace_slug`  | string   | `"kata-sh"`                                                | Linear workspace slug used when building dashboard project links (`https://linear.app/<workspace>/project/<slug>`). Supports `$VAR` indirection. |
-| `tracker.endpoint`        | string   | `https://api.linear.app/graphql`                           | Linear GraphQL endpoint. Override for self-hosted Linear.                                                                                        |
-| `tracker.assignee`        | string   | _(none)_                                                   | Filter candidate issues to this Linear username. Supports `$VAR` indirection.                                                                    |
-| `tracker.active_states`   | string[] | `["Todo", "In Progress"]`                                  | Issue states that are eligible for dispatch.                                                                                                     |
-| `tracker.terminal_states` | string[] | `["Closed", "Cancelled", "Canceled", "Duplicate", "Done"]` | Issue states that mark an agent run as complete.                                                                                                 |
+| Field                     | Type     | Default                                                    | Description                                                                                                                                                                                                               |
+| ------------------------- | -------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tracker.kind`            | string   | _(required)_                                               | Must be `"linear"`.                                                                                                                                                                                                       |
+| `tracker.api_key`         | string   | _(required)_                                               | Linear personal API key. Supports `$VAR` env-var indirection (e.g. `$LINEAR_API_KEY`). Never logged.                                                                                                                      |
+| `tracker.project_slug`    | string   | _(required)_                                               | Linear project URL slug (the identifier shown in project URLs). Supports `$VAR` indirection.                                                                                                                              |
+| `tracker.workspace_slug`  | string   | `"kata-sh"`                                                | Linear workspace slug used when building dashboard project links (`https://linear.app/<workspace>/project/<slug>`). Supports `$VAR` indirection.                                                                          |
+| `tracker.endpoint`        | string   | `https://api.linear.app/graphql`                           | Linear GraphQL endpoint. Override for self-hosted Linear.                                                                                                                                                                 |
+| `tracker.assignee`        | string   | _(none)_                                                   | Filter candidate issues to this Linear username. Supports `$VAR` indirection.                                                                                                                                             |
+| `tracker.active_states`   | string[] | `["Todo", "In Progress"]`                                  | Issue states that are eligible for dispatch.                                                                                                                                                                              |
+| `tracker.terminal_states` | string[] | `["Closed", "Cancelled", "Canceled", "Duplicate", "Done"]` | Issue states that mark an agent run as complete.                                                                                                                                                                          |
 | `tracker.exclude_labels`  | string[] | `[]`                                                       | Labels that disqualify an issue from dispatch. Any issue carrying at least one of these labels is skipped (case-insensitive). Use `["kata:task"]` to prevent Kata sub-tasks from being dispatched as independent workers. |
 
 #### `polling` section
@@ -121,24 +134,24 @@ is at `docs/WORKFLOW-REFERENCE.md`. Copy it to your project root as
 
 #### `agent` section
 
-| Field                         | Type   | Default   | Description                                                                                              |
-| ----------------------------- | ------ | --------- | -------------------------------------------------------------------------------------------------------- |
-| `agent.max_concurrent_agents` | u32    | `10`      | Global cap on simultaneously running agent sessions.                                                     |
-| `agent.max_turns`             | u32    | `20`      | Maximum prompt turns per session attempt before the worker run ends.                                     |
-| `agent.max_retry_backoff_ms`  | u64    | `300000`  | Maximum exponential back-off delay (ms) between retries.                                                 |
-| `agent.escalation_timeout_ms` | u64    | `300000`  | Timeout (ms) to wait for a human escalation response before falling back to auto-cancel/reject behavior. |
-| `agent.name`                  | string | `"pi"`    | Worker runner: `"pi"` or `"codex"`. This is not the tracker/backend-state backend.                  |
-| `agent.command`               | string or string[] | `["pi", "--mode", "rpc"]` | Complete static launch command. Symphony appends dynamic per-run args such as `--cwd <workspace>`. |
-| `agent.model`                 | string | _(none)_ | Optional default model override passed to runners that support it.                                  |
-| `agent.model_by_state`        | map<string, string> | `{}` | Optional per-state model overrides. Keys are lowercased state names; falls back to `model`.          |
-| `agent.no_session`            | bool   | `true`    | Pass `--no-session` to Pi.                                                                         |
-| `agent.append_system_prompt`  | string | _(none)_  | Optional path passed via `--append-system-prompt` to Pi.                                            |
-| `agent.turn_timeout_ms`       | u64    | `3600000` | Hard timeout per Codex turn (1 hour default).                                                       |
-| `agent.read_timeout_ms`       | u64    | `5000`    | Timeout waiting for runtime process output (ms).                                                    |
-| `agent.stall_timeout_ms`      | u64    | `300000`  | Time before a non-progressing session is considered stalled (5 min default).                        |
-| `agent.approval_policy`       | object | _(reject all)_ | Codex approval policy.                                                                          |
-| `agent.thread_sandbox`        | string | `"workspace-write"` | Codex sandbox mode for the agent thread.                                                     |
-| `agent.turn_sandbox_policy`   | object | _(none)_  | Per-turn Codex sandbox policy override.                                                            |
+| Field                         | Type                | Default                   | Description                                                                                              |
+| ----------------------------- | ------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `agent.max_concurrent_agents` | u32                 | `10`                      | Global cap on simultaneously running agent sessions.                                                     |
+| `agent.max_turns`             | u32                 | `20`                      | Maximum prompt turns per session attempt before the worker run ends.                                     |
+| `agent.max_retry_backoff_ms`  | u64                 | `300000`                  | Maximum exponential back-off delay (ms) between retries.                                                 |
+| `agent.escalation_timeout_ms` | u64                 | `300000`                  | Timeout (ms) to wait for a human escalation response before falling back to auto-cancel/reject behavior. |
+| `agent.name`                  | string              | `"pi"`                    | Worker runner: `"pi"` or `"codex"`. This is not the tracker/backend-state backend.                       |
+| `agent.command`               | string or string[]  | `["pi", "--mode", "rpc"]` | Complete static launch command. Local workers start with the workspace as process cwd.                   |
+| `agent.model`                 | string              | _(none)_                  | Optional default model override passed to runners that support it.                                       |
+| `agent.model_by_state`        | map<string, string> | `{}`                      | Optional per-state model overrides. Keys are lowercased state names; falls back to `model`.              |
+| `agent.no_session`            | bool                | `true`                    | Pass `--no-session` to Pi.                                                                               |
+| `agent.append_system_prompt`  | string              | _(none)_                  | Optional path passed via `--append-system-prompt` to Pi.                                                 |
+| `agent.turn_timeout_ms`       | u64                 | `3600000`                 | Hard timeout per Codex turn (1 hour default).                                                            |
+| `agent.read_timeout_ms`       | u64                 | `5000`                    | Timeout waiting for runtime process output (ms).                                                         |
+| `agent.stall_timeout_ms`      | u64                 | `300000`                  | Time before a non-progressing session is considered stalled (5 min default).                             |
+| `agent.approval_policy`       | object              | _(reject all)_            | Codex approval policy.                                                                                   |
+| `agent.thread_sandbox`        | string              | `"workspace-write"`       | Codex sandbox mode for the agent thread.                                                                 |
+| `agent.turn_sandbox_policy`   | object              | _(none)_                  | Per-turn Codex sandbox policy override.                                                                  |
 
 #### `hooks` section
 
@@ -188,20 +201,19 @@ Optional. When configured, the orchestrator selects a prompt template based on t
 | ------------------ | ------------------ | -------- | ---------------------------------------------------------------------------------------------------------------------- |
 | `prompts.system`   | string             | _(none)_ | Path to system-level preamble (agent identity, tool guidance). Injected every turn. Relative to WORKFLOW.md directory. |
 | `prompts.repo`     | string             | _(none)_ | Path to repository-specific context (build commands, layout). Injected every turn. Relative to WORKFLOW.md directory.  |
-| `prompts.shared`   | string             | _(none)_ | Legacy single-file preamble. Superseded by `system` + `repo` but still honoured for backward compatibility.            |
 | `prompts.by_state` | map<string,string> | `{}`     | Map of Linear state name → prompt file path. State matching is case-insensitive.                                       |
 | `prompts.default`  | string             | _(none)_ | Fallback prompt file for states not listed in `by_state`.                                                              |
 
 When `prompts` is absent, the markdown body after `---` is used as the prompt for all states (backward compatible).
 
-Prompt files are concatenated in order: `system` + `repo` + `shared` (legacy) + state-specific, separated by `---`.
+Prompt files are concatenated in order: `system` + `repo` + state-specific, separated by `---`.
 
 Example:
 
 ```yaml
 prompts:
   system: prompts/system.md
-  repo: prompts/repo-sym.md
+  repo: prompts/my-repo.md
   by_state:
     Todo: prompts/in-progress.md
     In Progress: prompts/in-progress.md
@@ -615,16 +627,16 @@ After injection, the workspace looks like:
 
 Symphony ships these skills in `apps/symphony/skills/`:
 
-| Skill                  | Purpose                                                      |
-| ---------------------- | ------------------------------------------------------------ |
-| `sym-address-comments` | Address PR review comments (human and bot)                   |
-| `sym-commit`           | Produce clean, well-formed git commits                       |
-| `sym-debug`            | Debug stuck runs and agent execution failures                |
-| `sym-fix-ci`           | Diagnose and fix failing GitHub Actions CI checks            |
-| `sym-land`             | Land a PR: resolve conflicts, wait for CI, squash-merge      |
-| `sym-linear`           | Raw Linear GraphQL operations (comment editing, uploads)     |
-| `sym-pull`             | Pull latest base branch and resolve merge conflicts          |
-| `sym-push`             | Push branch to origin and create/update the PR               |
+| Skill                  | Purpose                                                  |
+| ---------------------- | -------------------------------------------------------- |
+| `sym-address-comments` | Address PR review comments (human and bot)               |
+| `sym-commit`           | Produce clean, well-formed git commits                   |
+| `sym-debug`            | Debug stuck runs and agent execution failures            |
+| `sym-fix-ci`           | Diagnose and fix failing GitHub Actions CI checks        |
+| `sym-land`             | Land a PR: resolve conflicts, wait for CI, squash-merge  |
+| `sym-linear`           | Raw Linear GraphQL operations (comment editing, uploads) |
+| `sym-pull`             | Pull latest base branch and resolve merge conflicts      |
+| `sym-push`             | Push branch to origin and create/update the PR           |
 
 ### Referencing Skills in Prompts
 
@@ -799,11 +811,6 @@ no output.
 
 ## Development
 
-See **[AGENTS.md](AGENTS.md)** for:
-
-- Full module layout and architecture overview
-- Reference to the Elixir implementation and SPEC.md (authoritative behavioural contract)
-- Module-to-source-file mapping table
-- Hard rules for maintaining spec parity
-- Build, test, and lint commands
-- Git workflow (worktrees, standby branches, commit conventions)
+This file is the source of truth for both human-facing README content and
+agent-facing repository instructions. `README.md` is intentionally a symlink to
+`AGENTS.md` so the two cannot drift.

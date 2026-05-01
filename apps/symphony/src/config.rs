@@ -635,17 +635,7 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         .filter(|v| !v.is_empty());
     let github_project_number = raw_tracker.github_project_number;
 
-    let label_prefix = match tracker_kind.as_deref() {
-        Some("github") => Some(
-            raw_tracker
-                .label_prefix
-                .map(|v| resolve_env(&v))
-                .map(|v| v.trim().trim_end_matches(':').to_string())
-                .filter(|v| !v.is_empty())
-                .unwrap_or_else(|| "symphony".to_string()),
-        ),
-        _ => None,
-    };
+    let label_prefix = None;
 
     if matches!(tracker_kind.as_deref(), Some("github")) {
         if repo_owner.is_none() {
@@ -656,6 +646,11 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         if repo_name.is_none() {
             return Err(SymphonyError::InvalidWorkflowConfig(
                 "tracker.repo_name is required when tracker.kind is github".to_string(),
+            ));
+        }
+        if github_project_number.is_none() {
+            return Err(SymphonyError::InvalidWorkflowConfig(
+                "tracker.github_project_number is required when tracker.kind is github; GitHub Projects v2 is the only supported GitHub state backend".to_string(),
             ));
         }
     }

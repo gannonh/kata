@@ -425,6 +425,8 @@ struct WorkerTaskConfig {
     /// Directory containing the WORKFLOW.md file. Used to locate sibling
     /// `skills/` directory for workspace injection.
     workflow_dir: PathBuf,
+    /// Canonical WORKFLOW.md path passed to worker helper scripts.
+    workflow_path: PathBuf,
 }
 
 enum IssueCheck {
@@ -966,13 +968,20 @@ async fn run_worker_task(
 
                 let loop_result = match config.agent_backend {
                     AgentBackend::Codex => {
-                        let mut session = app_server::start_session(
+                        let symphony_bin = std::env::current_exe()
+                            .ok()
+                            .map(|path| path.to_string_lossy().to_string());
+                        let symphony_workflow_path =
+                            config.workflow_path.to_string_lossy().to_string();
+                        let mut session = app_server::start_session_with_helper_env(
                             &config.codex,
                             issue,
                             Path::new("/workspace"),
                             Path::new("/"),
                             None,
                             Some(&container_id),
+                            symphony_bin.as_deref(),
+                            Some(symphony_workflow_path.as_str()),
                         )
                         .await
                         .map_err(|err| format!("codex session start failed: {err}"))?;
@@ -1035,6 +1044,12 @@ async fn run_worker_task(
                                 escalation_tx: config.escalation_tx.clone(),
                                 escalation_timeout_ms: config.escalation_timeout_ms,
                                 model_override: config.pi_model_override.clone(),
+                                symphony_bin: std::env::current_exe()
+                                    .ok()
+                                    .map(|path| path.to_string_lossy().to_string()),
+                                symphony_workflow_path: Some(
+                                    config.workflow_path.to_string_lossy().to_string(),
+                                ),
                             },
                         )
                         .await
@@ -1231,13 +1246,19 @@ async fn run_worker_task(
     let workspace_root = Path::new(&config.workspace.root);
     let loop_result = match config.agent_backend {
         AgentBackend::Codex => {
-            let mut session = match app_server::start_session(
+            let symphony_bin = std::env::current_exe()
+                .ok()
+                .map(|path| path.to_string_lossy().to_string());
+            let symphony_workflow_path = config.workflow_path.to_string_lossy().to_string();
+            let mut session = match app_server::start_session_with_helper_env(
                 &config.codex,
                 issue,
                 workspace_path,
                 workspace_root,
                 worker_host,
                 None,
+                symphony_bin.as_deref(),
+                Some(symphony_workflow_path.as_str()),
             )
             .await
             {
@@ -1316,6 +1337,12 @@ async fn run_worker_task(
                     escalation_tx: config.escalation_tx.clone(),
                     escalation_timeout_ms: config.escalation_timeout_ms,
                     model_override: config.pi_model_override.clone(),
+                    symphony_bin: std::env::current_exe()
+                        .ok()
+                        .map(|path| path.to_string_lossy().to_string()),
+                    symphony_workflow_path: Some(
+                        config.workflow_path.to_string_lossy().to_string(),
+                    ),
                 },
             )
             .await
@@ -2376,6 +2403,11 @@ impl Orchestrator {
                 .as_ref()
                 .map(|ws| ws.workflow_dir().to_path_buf())
                 .unwrap_or_else(|| PathBuf::from("."));
+            let workflow_path = self
+                .workflow_store
+                .as_ref()
+                .map(|ws| ws.workflow_path().to_path_buf())
+                .unwrap_or_else(|| workflow_dir.join("WORKFLOW.md"));
 
             let task_config = WorkerTaskConfig {
                 workspace: self.config.workspace.clone(),
@@ -2392,6 +2424,7 @@ impl Orchestrator {
                 escalation_tx: self.worker_escalation_tx.clone(),
                 escalation_timeout_ms: self.config.agent.escalation_timeout_ms,
                 workflow_dir,
+                workflow_path,
             };
 
             tokio::spawn(async move {
@@ -3549,13 +3582,22 @@ impl Orchestrator {
 
         let loop_result = match self.config.agent_backend {
             AgentBackend::Codex => {
-                let mut session = match app_server::start_session(
+                let symphony_bin = std::env::current_exe()
+                    .ok()
+                    .map(|path| path.to_string_lossy().to_string());
+                let symphony_workflow_path = self
+                    .workflow_store
+                    .as_ref()
+                    .map(|store| store.workflow_path().to_string_lossy().to_string());
+                let mut session = match app_server::start_session_with_helper_env(
                     &self.config.codex,
                     issue,
                     workspace_path,
                     Path::new(&self.config.workspace.root),
                     prior_worker_host.as_deref(),
                     None,
+                    symphony_bin.as_deref(),
+                    symphony_workflow_path.as_deref(),
                 )
                 .await
                 {
@@ -3616,6 +3658,13 @@ impl Orchestrator {
                         escalation_tx: self.worker_escalation_tx.clone(),
                         escalation_timeout_ms: self.config.agent.escalation_timeout_ms,
                         model_override: pi_model_override.clone(),
+                        symphony_bin: std::env::current_exe()
+                            .ok()
+                            .map(|path| path.to_string_lossy().to_string()),
+                        symphony_workflow_path: self
+                            .workflow_store
+                            .as_ref()
+                            .map(|store| store.workflow_path().to_string_lossy().to_string()),
                     },
                 )
                 .await
@@ -4637,6 +4686,13 @@ impl Orchestrator {
         }
 
         if !self.active_state_set().contains(&normalized_state) {
+            return false;
+        }
+
+        // Kata-shaped work uses parent slice issues to coordinate child tasks.
+        // Child task issues must not be dispatched as independent workers; the
+        // parent slice worker is responsible for executing them in order.
+        if issue.parent_identifier.is_some() {
             return false;
         }
 

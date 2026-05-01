@@ -5180,6 +5180,30 @@ fn test_exclude_labels_empty_skips_no_issues() {
 }
 
 #[test]
+fn test_parent_issue_child_task_is_not_dispatched_without_label_filter() {
+    let config = test_config(1);
+    assert!(config.tracker.exclude_labels.is_empty());
+
+    let mut task_issue = issue("issue-child-task", "KAT-1886", "Todo", None, 0);
+    task_issue.parent_identifier = Some("KAT-1800".to_string());
+
+    let mut port = FakePort {
+        candidate_issues: vec![task_issue],
+        ..FakePort::default()
+    };
+    let mut orchestrator = Orchestrator::new(config, String::new());
+
+    let tick = orchestrator
+        .tick(&mut port)
+        .expect("tick should succeed with parent-child task candidate");
+
+    assert!(
+        tick.dispatched_issue_ids.is_empty(),
+        "child task issues with a parent_identifier should not dispatch independently"
+    );
+}
+
+#[test]
 fn test_exclude_labels_blank_entries_are_ignored() {
     let mut config = test_config(1);
     // Blank/whitespace-only entries in exclude_labels must not match anything

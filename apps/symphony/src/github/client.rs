@@ -84,6 +84,19 @@ pub struct GithubIssue {
     pub parent_issue_url: Option<String>,
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+pub struct GithubIssueComment {
+    pub id: u64,
+    #[serde(default)]
+    pub body: Option<String>,
+    #[serde(default)]
+    pub html_url: Option<String>,
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
 #[derive(Clone)]
 pub struct GithubClient {
     pub http_client: reqwest::Client,
@@ -235,6 +248,61 @@ impl GithubClient {
         let payload = serde_json::json!({ "body": body });
         self.request_empty(Method::POST, &path, Some(&payload))
             .await
+    }
+
+    pub async fn create_comment_record(
+        &self,
+        number: u64,
+        body: &str,
+    ) -> Result<GithubIssueComment> {
+        let path = format!(
+            "/repos/{}/{}/issues/{number}/comments",
+            self.repo_owner, self.repo_name
+        );
+        let payload = serde_json::json!({ "body": body });
+        self.request_json(Method::POST, &path, Some(&payload)).await
+    }
+
+    pub async fn update_comment(&self, comment_id: u64, body: &str) -> Result<GithubIssueComment> {
+        let path = format!(
+            "/repos/{}/{}/issues/comments/{comment_id}",
+            self.repo_owner, self.repo_name
+        );
+        let payload = serde_json::json!({ "body": body });
+        self.request_json(Method::PATCH, &path, Some(&payload))
+            .await
+    }
+
+    pub async fn list_comments(&self, number: u64) -> Result<Vec<GithubIssueComment>> {
+        let mut url = reqwest::Url::parse(&format!(
+            "{}/repos/{}/{}/issues/{number}/comments",
+            self.base_url, self.repo_owner, self.repo_name
+        ))
+        .map_err(|err| SymphonyError::GithubApiRequest(format!("invalid comments URL: {err}")))?;
+
+        {
+            let mut query = url.query_pairs_mut();
+            query.append_pair("per_page", "100");
+        }
+
+        self.paginated_get(url.as_ref()).await
+    }
+
+    pub async fn create_issue(&self, title: &str, body: &str) -> Result<GithubIssue> {
+        let path = format!("/repos/{}/{}/issues", self.repo_owner, self.repo_name);
+        let payload = serde_json::json!({
+            "title": title,
+            "body": body,
+        });
+        self.request_json(Method::POST, &path, Some(&payload)).await
+    }
+
+    pub async fn list_sub_issues(&self, number: u64) -> Result<Vec<GithubIssue>> {
+        let path = format!(
+            "/repos/{}/{}/issues/{number}/sub_issues",
+            self.repo_owner, self.repo_name
+        );
+        self.request_json(Method::GET, &path, None).await
     }
 
     pub async fn add_label(&self, number: u64, label: &str) -> Result<()> {

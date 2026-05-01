@@ -5,18 +5,18 @@ The issue is in `Rework`. The current approach was rejected. Close/replace the o
 ## Canonical tracker contract (required)
 
 Use only backend-neutral tracker/artifact/state operations:
-- `kata_get_issue`
-- `kata_list_tasks`
-- `kata_read_document`
-- `kata_upsert_comment`
-- `kata_update_issue_state`
-- `kata_create_followup_issue`
+- `.agents/skills/sym-state/scripts/sym-call issue.get --input /tmp/input.json`
+- `.agents/skills/sym-state/scripts/sym-call issue.list-children --input /tmp/input.json`
+- `.agents/skills/sym-state/scripts/sym-call document.read --input /tmp/input.json`
+- `.agents/skills/sym-state/scripts/sym-call comment.upsert --input /tmp/input.json`
+- `.agents/skills/sym-state/scripts/sym-call issue.update-state --input /tmp/input.json`
+- `.agents/skills/sym-state/scripts/sym-call issue.create-followup --input /tmp/input.json`
 
 ## Rework flow
 
 1. Re-read issue, PR discussion, and rejection rationale.
 2. Close old PR if still open.
-3. Upsert `## Agent Workpad` via `kata_upsert_comment` with:
+3. Upsert `## Agent Workpad` via `comment.upsert` with:
    - rejected approach summary
    - replacement plan
    - validation checklist
@@ -27,7 +27,7 @@ Use only backend-neutral tracker/artifact/state operations:
 ## State transition
 
 When replacement implementation + publish proofs are complete:
-- `kata_update_issue_state({ issueId: "<current-issue-id>", phase: "agent-review" })`.
+- `issue.update-state` using `{"issueId":"<current-issue-id>","state":"Agent Review"}`.
 
 ## Guardrails
 

@@ -1,7 +1,7 @@
 ---
 name: sym-debug
 description:
-  Investigate stuck runs and execution failures by tracing Symphony, Pi/Kata CLI,
+  Investigate stuck runs and execution failures by tracing Symphony, Pi runner,
   and Codex logs with issue/session identifiers; use when runs stall, retry
   repeatedly, or fail unexpectedly.
 ---
@@ -11,7 +11,7 @@ description:
 ## Goals
 
 - Find why a run is stuck, retrying, or failing.
-- Correlate tracker issue identity to a Pi/Kata CLI or Codex session quickly.
+- Correlate tracker issue identity to a Pi or Codex session quickly.
 - Read the right logs in the right order to isolate root cause across the
   primary Pi path and the explicit Codex app-server continuity path.
 
@@ -20,7 +20,7 @@ description:
 - Primary runtime log file: `<logs-root>/log/symphony.log`
   - When Symphony runs with `--logs-root`, it writes rotating JSON logs under
     this path (see `apps/symphony/README.md`).
-  - Includes orchestrator, agent runner, Pi/Kata CLI RPC bridge, and Codex
+  - Includes orchestrator, agent runner, Pi RPC bridge, and Codex
     app-server lifecycle logs.
 - Rotated runtime logs: `<logs-root>/log/symphony.log*`
   - Check these when the relevant run is older than the active file.
@@ -31,7 +31,7 @@ description:
 
 - `issue_identifier`: human ticket key (example: `MT-625`)
 - `issue_id`: tracker internal ID (stable backend identifier)
-- `session_id`: agent session identifier. For the Pi/Kata CLI backend this is
+- `session_id`: agent session identifier. For the Pi runner this is
   the stable session ID returned by pi RPC. For the Codex backend this is the
   Codex thread-turn pair (`<thread_id>-<turn_id>`).
 - `agent.backend` / config backend: `kata-cli` (aliases: `kata`, `pi`) is the
@@ -113,7 +113,7 @@ docker logs <symphony-container> --since 30m 2>&1 \
       `session_id`.
     - Record probable root cause and the exact failing stage.
 
-## Reading Pi/Kata CLI Session Logs
+## Reading Pi Session Logs
 
 In Symphony's primary backend, pi-agent diagnostics are emitted into
 `log/symphony.log` by `apps/symphony/src/pi_agent/rpc_bridge.rs` and keyed by

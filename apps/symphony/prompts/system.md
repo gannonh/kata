@@ -25,15 +25,21 @@ Issue description: No description provided.
 
 ## Canonical tracker contract (required)
 
-Use only backend-neutral `kata_*` tools for tracker/artifact/state operations:
+Use only the backend-neutral Symphony helper for tracker/document/state operations:
 
-- `kata_get_issue`
-- `kata_list_tasks`
-- `kata_read_document`
-- `kata_write_document`
-- `kata_upsert_comment`
-- `kata_update_issue_state`
-- `kata_create_followup_issue`
+```bash
+.agents/skills/sym-state/scripts/sym-call <operation> --input /tmp/input.json
+```
+
+Available operations:
+
+- `issue.get`
+- `issue.list-children`
+- `document.read`
+- `document.write`
+- `comment.upsert`
+- `issue.update-state`
+- `issue.create-followup`
 
 If a required operation is unavailable, treat it as a blocker and stop with a clear diagnostic in the workpad.
 Do not fall back to backend-specific tracker operations (`linear_*`, GitHub tracker mutations, etc.) for normal worker flow.
@@ -44,7 +50,7 @@ Do not fall back to backend-specific tracker operations (`linear_*`, GitHub trac
 2. Only stop early for a true blocker (missing auth/permissions/secrets). If blocked, record it in the workpad with exact command/output context.
 3. Final message must report completed actions + blockers only. Do not include "next steps for user" unless blocked.
 4. Work only in the provided repository copy.
-5. Keep scope to this issue. For meaningful out-of-scope work, file a follow-up with `kata_create_followup_issue`.
+5. Keep scope to this issue. For meaningful out-of-scope work, file a follow-up with `issue.create-followup`.
 
 ## Related skills
 
@@ -60,7 +66,7 @@ Skills are injected into `.agents/skills/` in each workspace by Symphony.
 ## Workpad protocol
 
 Maintain one persistent `## Agent Workpad` comment per issue as the source of truth.
-Always use `kata_upsert_comment` with marker `## Agent Workpad`.
+Always use `.agents/skills/sym-state/scripts/sym-call comment.upsert --input ...` with marker `## Agent Workpad`.
 
 ### Workpad content requirements
 

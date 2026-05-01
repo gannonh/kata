@@ -81,7 +81,7 @@ fn next_command_id(prefix: &str) -> String {
 
 fn build_command_parts(
     config: &PiAgentConfig,
-    workspace_path: &str,
+    _workspace_path: &str,
     issue_state: &str,
     model_override: Option<&str>,
 ) -> Result<Vec<String>> {
@@ -92,8 +92,6 @@ fn build_command_parts(
     }
 
     let mut parts = config.command.clone();
-    parts.push("--cwd".to_string());
-    parts.push(workspace_path.to_string());
 
     if config.no_session {
         parts.push("--no-session".to_string());
@@ -122,6 +120,27 @@ fn shell_join(parts: &[String]) -> String {
         .map(|part| ssh::shell_escape(part))
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+fn shell_env_prefix(
+    symphony_bin: &Option<String>,
+    symphony_workflow_path: &Option<String>,
+) -> String {
+    let mut assignments = Vec::new();
+    if let Some(symphony_bin) = symphony_bin {
+        assignments.push(format!("SYMPHONY_BIN={}", ssh::shell_escape(symphony_bin)));
+    }
+    if let Some(symphony_workflow_path) = symphony_workflow_path {
+        assignments.push(format!(
+            "SYMPHONY_WORKFLOW_PATH={}",
+            ssh::shell_escape(symphony_workflow_path)
+        ));
+    }
+    if assignments.is_empty() {
+        String::new()
+    } else {
+        format!("{} ", assignments.join(" "))
+    }
 }
 
 async fn send_command(stdin: &mut tokio::process::ChildStdin, command: &RpcCommand) -> Result<()> {
@@ -551,6 +570,8 @@ pub struct StartSessionOptions {
     pub escalation_tx: UnboundedSender<EscalationDispatch>,
     pub escalation_timeout_ms: u64,
     pub model_override: Option<String>,
+    pub symphony_bin: Option<String>,
+    pub symphony_workflow_path: Option<String>,
 }
 
 /// Start a pi-agent session process for an issue.
@@ -567,6 +588,8 @@ pub async fn start_session(
         escalation_tx,
         escalation_timeout_ms,
         model_override,
+        symphony_bin,
+        symphony_workflow_path,
     } = options;
 
     let container_id_ref = container_id.as_deref();
@@ -594,8 +617,9 @@ pub async fn start_session(
         (Some(container_id), _) => {
             let workspace_str = workspace_path.to_string_lossy().to_string();
             let remote_cmd = format!(
-                "cd {} && {}",
+                "cd {} && {}{}",
                 ssh::shell_escape(&workspace_str),
+                shell_env_prefix(&symphony_bin, &symphony_workflow_path),
                 shell_join(&command_parts)
             );
 
@@ -614,8 +638,9 @@ pub async fn start_session(
             let workspace_str =
                 crate::ssh::validate_remote_workspace_cwd(&workspace_path.to_string_lossy())?;
             let remote_cmd = format!(
-                "cd {} && {}",
+                "cd {} && {}{}",
                 ssh::shell_escape(&workspace_str),
+                shell_env_prefix(&symphony_bin, &symphony_workflow_path),
                 shell_join(&command_parts)
             );
             let child = SshRunner::start_process(host, &remote_cmd).await?;
@@ -629,12 +654,20 @@ pub async fn start_session(
                 .cloned()
                 .ok_or_else(|| SymphonyError::PiAgentError("empty pi-agent command".to_string()))?;
 
-            let child = tokio::process::Command::new(program)
+            let mut command = tokio::process::Command::new(program);
+            command
                 .args(command_parts.iter().skip(1))
                 .current_dir(&canonical_workspace)
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
+                .stderr(Stdio::piped());
+            if let Some(symphony_bin) = &symphony_bin {
+                command.env("SYMPHONY_BIN", symphony_bin);
+            }
+            if let Some(symphony_workflow_path) = &symphony_workflow_path {
+                command.env("SYMPHONY_WORKFLOW_PATH", symphony_workflow_path);
+            }
+            let child = command
                 .spawn()
                 .map_err(|err| SymphonyError::PiAgentError(format!("spawn failed: {err}")))?;
 
@@ -1146,6 +1179,7 @@ mod tests {
         let parts = build_command_parts(&config, "/tmp/workspace", "Merging", None)
             .expect("command should build");
         let joined = parts.join(" ");
+        assert!(!parts.iter().any(|part| part == "--cwd"));
         assert!(joined.contains("--model anthropic/claude-sonnet-4-6"));
     }
 

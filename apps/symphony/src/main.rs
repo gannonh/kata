@@ -24,7 +24,7 @@ use std::sync::{Arc, Mutex, Once};
 #[cfg(not(test))]
 use std::time::Duration;
 #[cfg(not(test))]
-use symphony::domain::Issue;
+use symphony::domain::{Issue, TrackerConfig};
 #[cfg(not(test))]
 use symphony::github::adapter::GithubAdapter;
 #[cfg(not(test))]
@@ -32,7 +32,7 @@ use symphony::github::auth::{
     github_token_missing_message, github_token_source_name, resolve_github_token,
 };
 #[cfg(not(test))]
-use symphony::github::client::GithubClient;
+use symphony::github::client::{GithubClient, GithubIssueComment};
 #[cfg(not(test))]
 use symphony::http_server::{
     bind_http_listener_with_fallback, start_http_server, HttpServerState, HTTP_PORT_RETRY_LIMIT,
@@ -61,6 +61,17 @@ pub enum CliCommand {
         /// Path to WORKFLOW.md
         #[arg(default_value = "WORKFLOW.md")]
         workflow_path: String,
+    },
+    /// Run a backend-neutral Symphony helper operation for worker sessions
+    Helper {
+        /// Helper operation, such as issue.get or issue.update-state
+        operation: String,
+        /// Path to WORKFLOW.md
+        #[arg(long, default_value = "WORKFLOW.md")]
+        workflow: String,
+        /// JSON input file for the helper operation
+        #[arg(long)]
+        input: Option<String>,
     },
 }
 
@@ -600,6 +611,7 @@ where
 pub fn resolve_workflow_path(cli: &Cli) -> PathBuf {
     match &cli.command {
         Some(CliCommand::Doctor { workflow_path }) => PathBuf::from(workflow_path),
+        Some(CliCommand::Helper { workflow, .. }) => PathBuf::from(workflow),
         None => PathBuf::from(&cli.workflow_path),
     }
 }
@@ -856,6 +868,393 @@ fn run_doctor(workflow_path: &Path) -> Result<i32, String> {
 }
 
 #[cfg(not(test))]
+fn helper_success(data: serde_json::Value) -> i32 {
+    println!("{}", serde_json::json!({ "ok": true, "data": data }));
+    0
+}
+
+#[cfg(not(test))]
+fn helper_error(message: impl Into<String>) -> i32 {
+    println!(
+        "{}",
+        serde_json::json!({
+            "ok": false,
+            "error": {
+                "code": "HELPER_ERROR",
+                "message": message.into(),
+            },
+        })
+    );
+    1
+}
+
+#[cfg(not(test))]
+fn read_helper_input(input_path: Option<&str>) -> Result<serde_json::Value, String> {
+    let Some(input_path) = input_path else {
+        return Ok(serde_json::json!({}));
+    };
+    let raw = std::fs::read_to_string(input_path)
+        .map_err(|err| format!("failed to read helper input {input_path}: {err}"))?;
+    serde_json::from_str(&raw)
+        .map_err(|err| format!("helper input must be valid JSON object: {err}"))
+        .and_then(|value: serde_json::Value| {
+            if value.is_object() {
+                Ok(value)
+            } else {
+                Err("helper input must be a JSON object".to_string())
+            }
+        })
+}
+
+#[cfg(not(test))]
+fn helper_required_str(input: &serde_json::Value, field: &str) -> Result<String, String> {
+    input
+        .get(field)
+        .and_then(|value| value.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToString::to_string)
+        .ok_or_else(|| format!("helper input field `{field}` must be a non-empty string"))
+}
+
+#[cfg(not(test))]
+fn helper_optional_str(input: &serde_json::Value, field: &str) -> Option<String> {
+    input
+        .get(field)
+        .and_then(|value| value.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToString::to_string)
+}
+
+#[cfg(not(test))]
+fn helper_bool(input: &serde_json::Value, field: &str, default: bool) -> bool {
+    input
+        .get(field)
+        .and_then(|value| value.as_bool())
+        .unwrap_or(default)
+}
+
+#[cfg(not(test))]
+fn github_adapter_from_tracker(tracker: &TrackerConfig) -> error::Result<GithubAdapter> {
+    let inputs = github_adapter_inputs(tracker)?;
+    let client = GithubClient::with_base_url(
+        inputs.token,
+        inputs.repo_owner,
+        inputs.repo_name,
+        inputs.label_prefix,
+        inputs.endpoint.as_str(),
+    );
+    Ok(GithubAdapter::new(client, tracker.clone()))
+}
+
+#[cfg(not(test))]
+fn parse_github_issue_number(issue_id: &str) -> Result<u64, String> {
+    issue_id
+        .trim()
+        .trim_start_matches('#')
+        .parse::<u64>()
+        .map_err(|err| format!("invalid GitHub issue id `{issue_id}`: {err}"))
+}
+
+#[cfg(not(test))]
+async fn github_issue_payload(
+    adapter: &GithubAdapter,
+    issue_id: &str,
+    include_children: bool,
+    include_comments: bool,
+) -> Result<serde_json::Value, String> {
+    let issue_ids = vec![issue_id.to_string()];
+    let issue = adapter
+        .fetch_issue_states_by_ids(&issue_ids)
+        .await
+        .map_err(|err| err.to_string())?
+        .into_iter()
+        .next()
+        .ok_or_else(|| format!("issue not found: {issue_id}"))?;
+
+    let number = parse_github_issue_number(&issue.id)?;
+    let children = if include_children {
+        let child_numbers: Vec<String> = adapter
+            .client
+            .list_sub_issues(number)
+            .await
+            .map_err(|err| err.to_string())?
+            .into_iter()
+            .map(|issue| issue.number.to_string())
+            .collect();
+        if child_numbers.is_empty() {
+            Vec::new()
+        } else {
+            adapter
+                .fetch_issue_states_by_ids(&child_numbers)
+                .await
+                .map_err(|err| err.to_string())?
+        }
+    } else {
+        Vec::new()
+    };
+
+    let comments = if include_comments {
+        adapter
+            .client
+            .list_comments(number)
+            .await
+            .map_err(|err| err.to_string())?
+    } else {
+        Vec::new()
+    };
+
+    Ok(serde_json::json!({
+        "issue": issue,
+        "children": children,
+        "comments": comments,
+    }))
+}
+
+#[cfg(not(test))]
+async fn github_upsert_comment(
+    adapter: &GithubAdapter,
+    issue_id: &str,
+    marker: Option<&str>,
+    body: &str,
+) -> Result<GithubIssueComment, String> {
+    let number = parse_github_issue_number(issue_id)?;
+    let marker = marker.map(str::trim).filter(|value| !value.is_empty());
+    let body = match marker {
+        Some(marker) if !body.contains(marker) => format!("{marker}\n\n{body}"),
+        _ => body.to_string(),
+    };
+
+    let existing = match marker {
+        Some(marker) => adapter
+            .client
+            .list_comments(number)
+            .await
+            .map_err(|err| err.to_string())?
+            .into_iter()
+            .find(|comment| {
+                comment
+                    .body
+                    .as_deref()
+                    .is_some_and(|body| body.contains(marker))
+            }),
+        None => None,
+    };
+
+    match existing {
+        Some(comment) => adapter
+            .client
+            .update_comment(comment.id, &body)
+            .await
+            .map_err(|err| err.to_string()),
+        None => adapter
+            .client
+            .create_comment_record(number, &body)
+            .await
+            .map_err(|err| err.to_string()),
+    }
+}
+
+#[cfg(not(test))]
+async fn run_github_helper(
+    tracker: &TrackerConfig,
+    operation: &str,
+    input: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let adapter = github_adapter_from_tracker(tracker).map_err(|err| err.to_string())?;
+
+    match operation {
+        "issue.get" => {
+            let issue_id = helper_required_str(&input, "issueId")?;
+            github_issue_payload(
+                &adapter,
+                &issue_id,
+                helper_bool(&input, "includeChildren", true),
+                helper_bool(&input, "includeComments", true),
+            )
+            .await
+        }
+        "issue.list-children" => {
+            let issue_id = helper_required_str(&input, "issueId")?;
+            let number = parse_github_issue_number(&issue_id)?;
+            let child_ids: Vec<String> = adapter
+                .client
+                .list_sub_issues(number)
+                .await
+                .map_err(|err| err.to_string())?
+                .into_iter()
+                .map(|issue| issue.number.to_string())
+                .collect();
+            let children = if child_ids.is_empty() {
+                Vec::new()
+            } else {
+                adapter
+                    .fetch_issue_states_by_ids(&child_ids)
+                    .await
+                    .map_err(|err| err.to_string())?
+            };
+            Ok(serde_json::json!({ "children": children }))
+        }
+        "comment.upsert" => {
+            let issue_id = helper_required_str(&input, "issueId")?;
+            let body = helper_required_str(&input, "body")?;
+            let marker = helper_optional_str(&input, "marker");
+            let comment =
+                github_upsert_comment(&adapter, &issue_id, marker.as_deref(), &body).await?;
+            Ok(serde_json::json!({ "comment": comment }))
+        }
+        "issue.update-state" => {
+            let issue_id = helper_required_str(&input, "issueId")?;
+            let state = helper_required_str(&input, "state")?;
+            adapter
+                .update_issue_state(&issue_id, &state)
+                .await
+                .map_err(|err| err.to_string())?;
+            Ok(serde_json::json!({ "issueId": issue_id, "state": state }))
+        }
+        "issue.create-followup" => {
+            let title = helper_required_str(&input, "title")?;
+            let description = helper_required_str(&input, "description")?;
+            let parent_issue_id = helper_optional_str(&input, "parentIssueId");
+            let issue = adapter
+                .client
+                .create_issue(&title, &description)
+                .await
+                .map_err(|err| err.to_string())?;
+            if let Some(parent_issue_id) = parent_issue_id {
+                let body = format!(
+                    "Follow-up issue created: {}",
+                    issue
+                        .html_url
+                        .clone()
+                        .unwrap_or_else(|| format!("#{}", issue.number))
+                );
+                let _ = github_upsert_comment(
+                    &adapter,
+                    &parent_issue_id,
+                    Some(&format!("<!-- symphony:followup:{} -->", issue.number)),
+                    &body,
+                )
+                .await?;
+            }
+            Ok(serde_json::json!({ "issue": issue }))
+        }
+        "document.read" => {
+            let issue_id = helper_required_str(&input, "issueId")?;
+            let title = helper_required_str(&input, "title")?;
+            let marker = format!("<!-- symphony:document:{} -->", title);
+            let number = parse_github_issue_number(&issue_id)?;
+            let content = adapter
+                .client
+                .list_comments(number)
+                .await
+                .map_err(|err| err.to_string())?
+                .into_iter()
+                .find_map(|comment| {
+                    let body = comment.body?;
+                    body.strip_prefix(&marker)
+                        .map(|content| content.trim_start().to_string())
+                });
+            Ok(serde_json::json!({ "title": title, "content": content }))
+        }
+        "document.write" => {
+            let issue_id = helper_required_str(&input, "issueId")?;
+            let title = helper_required_str(&input, "title")?;
+            let content = helper_required_str(&input, "content")?;
+            let marker = format!("<!-- symphony:document:{} -->", title);
+            let body = format!("{marker}\n\n{content}");
+            let comment = github_upsert_comment(&adapter, &issue_id, Some(&marker), &body).await?;
+            Ok(serde_json::json!({ "title": title, "comment": comment }))
+        }
+        other => Err(format!("unsupported Symphony helper operation: {other}")),
+    }
+}
+
+#[cfg(not(test))]
+async fn run_linear_helper(
+    tracker: &TrackerConfig,
+    operation: &str,
+    input: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let adapter = LinearAdapter::new(LinearClient::new(tracker.clone()));
+    match operation {
+        "issue.get" => {
+            let issue_id = helper_required_str(&input, "issueId")?;
+            let issues = adapter
+                .fetch_issue_states_by_ids(&[issue_id.clone()])
+                .await
+                .map_err(|err| err.to_string())?;
+            let issue = issues
+                .into_iter()
+                .next()
+                .ok_or_else(|| format!("issue not found: {issue_id}"))?;
+            Ok(serde_json::json!({ "issue": issue, "children": [], "comments": [] }))
+        }
+        "comment.upsert" => {
+            let issue_id = helper_required_str(&input, "issueId")?;
+            let body = helper_required_str(&input, "body")?;
+            adapter
+                .create_comment(&issue_id, &body)
+                .await
+                .map_err(|err| err.to_string())?;
+            Ok(serde_json::json!({ "issueId": issue_id, "upserted": false, "created": true }))
+        }
+        "issue.update-state" => {
+            let issue_id = helper_required_str(&input, "issueId")?;
+            let state = helper_required_str(&input, "state")?;
+            adapter
+                .update_issue_state(&issue_id, &state)
+                .await
+                .map_err(|err| err.to_string())?;
+            Ok(serde_json::json!({ "issueId": issue_id, "state": state }))
+        }
+        "issue.list-children" => Ok(serde_json::json!({ "children": [] })),
+        other => Err(format!(
+            "operation `{other}` is not supported for Linear-backed Symphony helpers yet"
+        )),
+    }
+}
+
+#[cfg(not(test))]
+fn run_helper(workflow_path: &Path, operation: &str, input_path: Option<&str>) -> i32 {
+    let input = match read_helper_input(input_path) {
+        Ok(input) => input,
+        Err(err) => return helper_error(err),
+    };
+
+    let context = match RuntimeBootstrapDeps::load_startup_context(workflow_path) {
+        Ok(context) => context,
+        Err(err) => return helper_error(err),
+    };
+    if let Err(err) = config::validate(&context.effective_config) {
+        return helper_error(format!("invalid workflow config: {err}"));
+    }
+
+    let tracker = context.effective_config.tracker;
+    let tracker_kind = tracker.kind.as_deref().unwrap_or("linear");
+    let runtime = match tokio::runtime::Handle::try_current() {
+        Ok(handle) => handle,
+        Err(err) => return helper_error(format!("missing tokio runtime for helper: {err}")),
+    };
+
+    let result = tokio::task::block_in_place(|| {
+        runtime.block_on(async {
+            if tracker_kind == "github" {
+                run_github_helper(&tracker, operation, input).await
+            } else {
+                run_linear_helper(&tracker, operation, input).await
+            }
+        })
+    });
+
+    match result {
+        Ok(data) => helper_success(data),
+        Err(err) => helper_error(err),
+    }
+}
+
+#[cfg(not(test))]
 async fn wait_for_shutdown_signal() -> Result<&'static str, String> {
     #[cfg(unix)]
     {
@@ -1082,6 +1481,15 @@ fn run_entrypoint(args: impl IntoIterator<Item = OsString>) -> i32 {
                 return 1;
             }
         }
+    }
+
+    if let Some(CliCommand::Helper {
+        operation,
+        workflow,
+        input,
+    }) = &cli.command
+    {
+        return run_helper(Path::new(workflow), operation, input.as_deref());
     }
 
     let mut deps = RuntimeBootstrapDeps::default();

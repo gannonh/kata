@@ -408,6 +408,8 @@ async fn rpc_bridge_start_turn_stop_smoke() {
             escalation_tx,
             escalation_timeout_ms: 60_000,
             model_override: None,
+            symphony_bin: None,
+            symphony_workflow_path: None,
         },
     )
     .await
@@ -461,6 +463,8 @@ async fn rpc_bridge_run_turn_handles_stdin_write_failure() {
             escalation_tx,
             escalation_timeout_ms: 60_000,
             model_override: None,
+            symphony_bin: None,
+            symphony_workflow_path: None,
         },
     )
     .await
@@ -514,6 +518,8 @@ async fn rpc_bridge_run_turn_handles_agent_end_before_message_end() {
             escalation_tx,
             escalation_timeout_ms: 60_000,
             model_override: None,
+            symphony_bin: None,
+            symphony_workflow_path: None,
         },
     )
     .await
@@ -560,6 +566,8 @@ async fn rpc_bridge_run_turn_surfaces_stall_timeout() {
             escalation_tx,
             escalation_timeout_ms: 60_000,
             model_override: None,
+            symphony_bin: None,
+            symphony_workflow_path: None,
         },
     )
     .await
@@ -611,6 +619,8 @@ async fn rpc_bridge_stop_session_handles_process_already_exited() {
             escalation_tx,
             escalation_timeout_ms: 60_000,
             model_override: None,
+            symphony_bin: None,
+            symphony_workflow_path: None,
         },
     )
     .await
@@ -653,6 +663,8 @@ async fn rpc_bridge_turn_continues_past_message_end_error_stop_reason() {
             escalation_tx,
             escalation_timeout_ms: 60_000,
             model_override: None,
+            symphony_bin: None,
+            symphony_workflow_path: None,
         },
     )
     .await
@@ -730,6 +742,8 @@ async fn rpc_bridge_escalation_holds_and_resumes_with_response() {
             escalation_tx,
             escalation_timeout_ms: 5_000,
             model_override: None,
+            symphony_bin: None,
+            symphony_workflow_path: None,
         },
     )
     .await
@@ -830,6 +844,8 @@ async fn rpc_bridge_escalation_times_out_and_falls_back() {
             escalation_tx,
             escalation_timeout_ms: 50,
             model_override: None,
+            symphony_bin: None,
+            symphony_workflow_path: None,
         },
     )
     .await
@@ -886,6 +902,8 @@ async fn rpc_bridge_escalation_channel_close_emits_cancelled() {
             escalation_tx,
             escalation_timeout_ms: 5_000,
             model_override: None,
+            symphony_bin: None,
+            symphony_workflow_path: None,
         },
     )
     .await

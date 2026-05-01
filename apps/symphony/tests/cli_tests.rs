@@ -7,6 +7,7 @@ use std::{fs, io};
 
 use main_bin::{BootstrapDeps, Cli, CliCommand};
 use mockito::{Matcher, Server};
+use serial_test::serial;
 use symphony::config::validate;
 use symphony::doctor::{self, CheckStatus};
 use symphony::domain::{
@@ -106,6 +107,33 @@ fn test_doctor_subcommand_parses() {
 }
 
 #[test]
+fn test_helper_subcommand_parses_backend_neutral_operation() {
+    let parsed = main_bin::parse_cli_from([
+        "symphony",
+        "helper",
+        "issue.update-state",
+        "--workflow",
+        "WORKFLOW-github.md",
+        "--input",
+        "/tmp/sym-input.json",
+    ])
+    .expect("CLI parse should succeed");
+
+    assert_eq!(
+        parsed.command,
+        Some(CliCommand::Helper {
+            operation: "issue.update-state".to_string(),
+            workflow: "WORKFLOW-github.md".to_string(),
+            input: Some("/tmp/sym-input.json".to_string()),
+        })
+    );
+    assert_eq!(
+        main_bin::resolve_workflow_path(&parsed),
+        Path::new("WORKFLOW-github.md")
+    );
+}
+
+#[test]
 fn test_run_subcommand_backward_compat() {
     let parsed =
         main_bin::parse_cli_from(["symphony", "WORKFLOW.md"]).expect("CLI parse should succeed");
@@ -126,7 +154,7 @@ fn test_github_tracker_kind_accepted() {
     fs::write(
         &workflow_path,
         format!(
-            "---\ntracker:\n  kind: github\n  api_key: test-token\n  repo_owner: kata-sh\n  repo_name: kata-mono\nworkspace:\n  root: {}\n---\nPrompt\n",
+            "---\ntracker:\n  kind: github\n  api_key: test-token\n  repo_owner: kata-sh\n  repo_name: kata-mono\n  github_project_number: 42\nworkspace:\n  root: {}\n---\nPrompt\n",
             workspace_root.display()
         ),
     )
@@ -414,6 +442,7 @@ fn test_startup_banner_marks_ephemeral_dashboard_port() {
 }
 
 #[test]
+#[serial]
 fn test_logs_root_writes_startup_logs_to_file_and_suppresses_stdout_logs() {
     let logs_root = tempfile::tempdir().expect("temp dir should be created");
     let missing_workflow = logs_root.path().join("missing-workflow.md");
@@ -449,12 +478,14 @@ fn test_logs_root_writes_startup_logs_to_file_and_suppresses_stdout_logs() {
 
     let log_file_contents = read_to_string_or_panic(&log_file_path);
     assert!(
-        log_file_contents.contains("starting CLI bootstrap"),
+        log_file_contents.contains("\"phase\":\"startup\"")
+            && log_file_contents.contains("startup failed"),
         "log file should mirror startup log events; got: {log_file_contents}"
     );
 }
 
 #[test]
+#[serial]
 fn test_without_logs_root_suppresses_stdout_logs_when_tui_defaults_on() {
     let run_dir = tempfile::tempdir().expect("temp dir should be created");
     let missing_workflow = run_dir.path().join("missing-workflow.md");
@@ -489,6 +520,7 @@ fn test_without_logs_root_suppresses_stdout_logs_when_tui_defaults_on() {
 }
 
 #[test]
+#[serial]
 fn test_without_logs_root_no_tui_streams_stdout_logs() {
     let run_dir = tempfile::tempdir().expect("temp dir should be created");
     let missing_workflow = run_dir.path().join("missing-workflow.md");
@@ -507,7 +539,7 @@ fn test_without_logs_root_no_tui_streams_stdout_logs() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stdout.contains("starting CLI bootstrap"),
+        stdout.contains("\"phase\":\"startup\"") && stdout.contains("startup failed"),
         "stdout should include startup logs when --no-tui is set and --logs-root is omitted; got: {stdout}"
     );
 

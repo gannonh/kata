@@ -29,8 +29,7 @@
 #   - Config: parse + validate + env-var resolution + prompt file paths + Slack event names
 #   - Tracker:
 #       Linear: auth (viewer), project slug resolution, workflow state alignment, assignee lookup
-#       GitHub: PAT auth, repo access, Projects v2 check (when github_project_number is set),
-#               label presence checks (label mode)
+#       GitHub: PAT auth, repo access, Projects v2 Status field check
 #   - Backend: configured backend command present on PATH and responds to `--version`
 #   - Workspace: root path writable/creatable, repo reference sanity, git strategy compatibility,
 #                Docker daemon availability when isolation=docker
@@ -80,14 +79,8 @@ tracker:
   # repo_name: kata-mono
 
   # GitHub-only: Projects v2 project number.
-  # - Set this for Projects v2 mode (state from Status field)
-  # - Omit for label mode (state from labels)
+  # Required when kind: github. State is read from the project's Status field.
   # github_project_number: 7
-
-  # GitHub-only (label mode): prefix for state labels.
-  # Labels are expected as {label_prefix}:{normalized-state}.
-  # Default: symphony
-  # label_prefix: symphony
 
   # Optional: filter candidate issues to this assignee.
   # - Linear: username/display name/email/user id lookup
@@ -126,20 +119,7 @@ tracker:
   # exclude_labels:
   #   - kata:task
 
-# GitHub label mode example (omit github_project_number):
-# tracker:
-#   kind: github
-#   api_key: $GH_TOKEN
-#   repo_owner: kata-sh
-#   repo_name: kata-mono
-#   label_prefix: symphony
-#   active_states:
-#     - Todo
-#     - In Progress
-#   terminal_states:
-#     - Done
-#
-# GitHub Projects v2 example (set github_project_number):
+# GitHub Projects v2 example:
 # tracker:
 #   kind: github
 #   api_key: $GH_TOKEN
@@ -304,8 +284,8 @@ agent:
   name: pi
 
   # Command to start the selected worker runner. Can be a shell-style string
-  # or a list. Include the runner mode in the command; Symphony only appends
-  # dynamic per-run args such as `--cwd <workspace>`.
+  # or a list. Include the runner mode in the command. For local workers,
+  # Symphony starts the runner with the workspace as the process cwd.
   command: pi --mode rpc
 
   # Codex example:

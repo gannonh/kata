@@ -142,8 +142,8 @@ fn test_repo_workflow_requires_publish_gate_before_agent_review() {
         "in-progress.md must transition to Agent Review (not Human Review)"
     );
     assert!(
-        content.contains("phase: \"agent-review\""),
-        "in-progress.md must move state via kata_update_issue_state(... phase: \"agent-review\")"
+        content.contains("Move the issue to `Agent Review`"),
+        "in-progress.md must instruct workers to move issue to Agent Review"
     );
     assert!(
         !content.contains("phase: \"verifying\""),
@@ -158,7 +158,7 @@ fn test_agent_review_prompt_transitions_to_human_review() {
         .expect("prompts/agent-review.md should exist for review-transition assertions");
 
     assert!(
-        content.contains("phase: \"human-review\""),
+        content.contains("move the issue to `Human Review`"),
         "agent-review.md must advance to human-review after feedback is resolved"
     );
     assert!(
@@ -186,7 +186,7 @@ fn test_repo_workflow_example_uses_per_state_prompts() {
     );
     assert!(
         config.prompts.is_some(),
-        "example WORKFLOW-linear.md should use per-state prompts config"
+        "active WORKFLOW-github.md should use per-state prompts config"
     );
     let prompts = config.prompts.unwrap();
     assert!(prompts.system.is_some(), "should have system prompt");
@@ -206,7 +206,7 @@ fn test_repo_workflow_example_uses_per_state_prompts() {
 }
 
 #[test]
-fn test_worker_prompts_use_backend_neutral_kata_contract() {
+fn test_worker_prompts_do_not_reference_legacy_kata_tools() {
     let prompts_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("prompts");
     let files = [
         "system.md",
@@ -216,15 +216,14 @@ fn test_worker_prompts_use_backend_neutral_kata_contract() {
         "merging.md",
     ];
 
-    let required = [
+    let forbidden = [
         "kata_get_issue",
         "kata_list_tasks",
         "kata_read_document",
+        "kata_write_document",
         "kata_upsert_comment",
         "kata_update_issue_state",
-    ];
-
-    let forbidden = [
+        "kata_create_followup_issue",
         "linear_get_issue",
         "linear_update_issue",
         "linear_add_comment",
@@ -236,19 +235,17 @@ fn test_worker_prompts_use_backend_neutral_kata_contract() {
         let content =
             std::fs::read_to_string(prompts_dir.join(file)).expect("prompt file should exist");
 
-        for needle in required {
-            assert!(
-                content.contains(needle),
-                "{file} must include required operation {needle}"
-            );
-        }
-
         for needle in forbidden {
             assert!(
                 !content.contains(needle),
-                "{file} must not include backend-specific token {needle}"
+                "{file} must not include unavailable or backend-specific token {needle}"
             );
         }
+
+        assert!(
+            content.contains(".agents/skills/sym-state/scripts/sym-call"),
+            "{file} must route tracker operations through the Symphony helper"
+        );
     }
 }
 
@@ -314,7 +311,7 @@ tracker:
     assert_eq!(config.tracker.repo_owner.as_deref(), Some("kata-sh"));
     assert_eq!(config.tracker.repo_name.as_deref(), Some("kata-mono"));
     assert_eq!(config.tracker.github_project_number, Some(42));
-    assert_eq!(config.tracker.label_prefix.as_deref(), Some("symphony"));
+    assert_eq!(config.tracker.label_prefix, None);
     assert_eq!(config.tracker.project_slug, None);
 }
 
@@ -337,60 +334,40 @@ tracker:
 }
 
 #[test]
-fn test_github_tracker_config_with_label_prefix() {
+fn test_github_tracker_config_requires_project_number() {
     let yaml_str = r#"
 tracker:
   kind: github
   api_key: github-test-token
   repo_owner: kata-sh
   repo_name: kata-mono
-  label_prefix: orchestration
 "#;
 
     let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
-    let config =
-        from_workflow(&raw).expect("github tracker config with custom label prefix should parse");
-
-    assert_eq!(
-        config.tracker.label_prefix.as_deref(),
-        Some("orchestration")
+    let err = from_workflow(&raw).expect_err("github tracker without project number should fail");
+    assert!(
+        err.to_string().contains("tracker.github_project_number"),
+        "unexpected error: {err}"
     );
 }
 
 #[test]
-fn test_github_tracker_config_trims_trailing_colon_from_label_prefix() {
+fn test_github_tracker_config_ignores_legacy_label_prefix_when_project_number_is_set() {
     let yaml_str = r#"
 tracker:
   kind: github
   api_key: github-test-token
   repo_owner: kata-sh
   repo_name: kata-mono
-  label_prefix: 'kata:'
+  github_project_number: 42
+  label_prefix: orchestration
 "#;
 
     let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
-    let config = from_workflow(&raw)
-        .expect("github tracker config with trailing-colon label prefix should parse");
+    let config = from_workflow(&raw).expect("projects v2 github tracker should parse");
 
-    assert_eq!(config.tracker.label_prefix.as_deref(), Some("kata"));
-}
-
-#[test]
-fn test_github_tracker_config_falls_back_to_symphony_for_blank_label_prefix() {
-    let yaml_str = r#"
-tracker:
-  kind: github
-  api_key: github-test-token
-  repo_owner: kata-sh
-  repo_name: kata-mono
-  label_prefix: ':'
-"#;
-
-    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
-    let config =
-        from_workflow(&raw).expect("github tracker config with blank label prefix should parse");
-
-    assert_eq!(config.tracker.label_prefix.as_deref(), Some("symphony"));
+    assert_eq!(config.tracker.github_project_number, Some(42));
+    assert_eq!(config.tracker.label_prefix, None);
 }
 
 #[test]
@@ -964,6 +941,7 @@ tracker:
   api_key: $SYMPHONY_TEST_GITHUB_TOKEN_MISSING
   repo_owner: kata-sh
   repo_name: kata
+  github_project_number: 42
 "#;
 
     let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
