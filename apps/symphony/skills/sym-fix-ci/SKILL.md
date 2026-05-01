@@ -5,20 +5,22 @@ description: "Use when a user asks to debug or fix failing GitHub PR checks that
 
 ## Overview
 
-Use the active Symphony workflow to reason about the task, Kata CLI only for durable Kata project/slice/task/artifact backend-state when applicable, and `gh` to locate failing PR checks, fetch GitHub Actions logs for actionable failures, summarize the failures, and implement fixes. GitHub Actions check/log APIs are GitHub workflow operations, so preserve the `gh` path for CI inspection.
+Use the active Symphony workflow to reason about the task, Kata CLI only for durable Kata project/slice/task/artifact backend-state when applicable, and the Symphony helper to locate failing PR checks, fetch GitHub Actions logs for actionable failures, summarize the failures, and implement fixes.
 
 ## Inputs
 
 - `repo`: path inside the repo (default `.`)
 - `pr`: PR number or URL (optional; defaults to current branch PR)
-- `gh` authentication for the repo host
+- `gh` authentication or the GitHub token configured in the active Symphony workflow
 - Optional active Kata task/slice context when CI work is part of a Kata-backed Symphony run
 
 ## Quick start
 
-- `python3 "<path-to-skill>/scripts/inspect_pr_checks.py" --repo "." --pr "<number-or-url>"`
-- Add `--json` if you want machine-friendly output for summarization.
-- The script exits zero when it successfully reports failing checks; use `--fail-on-failure` only for automation that must fail red CI.
+- Write an input file, for example `/tmp/sym-pr-checks.json`:
+  `{"pr":"<number-or-url>","includeLogs":true,"maxLines":160}`
+- Run:
+  `.agents/skills/sym-state/scripts/sym-call pr.inspect-checks --input /tmp/sym-pr-checks.json`
+- Omit `pr` to inspect the current branch PR.
 
 ## Workflow
 
@@ -29,12 +31,11 @@ Use the active Symphony workflow to reason about the task, Kata CLI only for dur
    - Prefer the current branch PR: `gh pr view --json number,url`.
    - If the user provides a PR number or URL, use that directly.
 3. Inspect failing checks (GitHub Actions only).
-   - Preferred: run the bundled script (handles gh field drift and job-log fallbacks):
-     - `python3 "<path-to-skill>/scripts/inspect_pr_checks.py" --repo "." --pr "<number-or-url>"`
-     - Add `--json` for machine-friendly output.
+   - Preferred: run the Symphony helper:
+     - `.agents/skills/sym-state/scripts/sym-call pr.inspect-checks --input /tmp/sym-pr-checks.json`
    - Manual fallback:
      - `gh pr checks <pr> --json name,state,bucket,link,startedAt,completedAt,workflow`
-       - `gh pr checks` exits non-zero when checks are failing. Treat that as CI data, not as a broken tool call; prefer the bundled script or append `|| true` when collecting raw status output.
+       - `gh pr checks` exits non-zero when checks are failing. Treat that as CI data, not as a broken tool call; prefer the Symphony helper or append `|| true` when collecting raw status output.
        - If a field is rejected, rerun with the available fields reported by `gh`.
      - For each failing check, extract the run id from `detailsUrl` and run:
        - `gh run view <run_id> --json name,workflowName,conclusion,status,url,event,headBranch,headSha`
@@ -53,7 +54,7 @@ Use the active Symphony workflow to reason about the task, Kata CLI only for dur
    - Apply the plan, summarize diffs/tests, commit and push changes.
    - If the work is attached to a Kata task, keep Kata status/artifact updates in the active backend-state workflow and keep GitHub CI state in GitHub.
 8. Recheck status.
-   - After changes, re-run the relevant tests and the bundled inspection script to confirm.
+   - After changes, re-run the relevant tests and `pr.inspect-checks` to confirm.
    - If collecting raw `gh pr checks` output, remember that red checks produce a non-zero exit code even when GitHub returned valid check data.
    - If new or existing failures remain, repeat the workflow until CI passes
 9. Summarize outcome.
@@ -63,7 +64,7 @@ Use the active Symphony workflow to reason about the task, Kata CLI only for dur
 
 ### Symphony helper
 
-Fetch failing PR checks, pull GitHub Actions logs, and extract a failure snippet. Exits zero when failing checks are successfully reported, and exits non-zero only for inspection errors unless `--fail-on-failure` is set.
+Fetch failing PR checks and optionally include GitHub Actions log tails through the backend-neutral helper surface used by injected prompts.
 
 Usage examples:
 

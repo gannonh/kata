@@ -23,7 +23,7 @@ description:
 
 - `gh` CLI is authenticated for GitHub PR, review, check, and merge operations.
 - You are on the PR branch with a clean working tree.
-- When this is part of a Kata-backed Symphony run, use the active backend-state workflow for durable Kata task/slice/artifact state; PR mergeability, reviews, checks, comments, and merge execution remain GitHub operations handled through `gh`.
+- When this is part of a Kata-backed Symphony run, use the active backend-state workflow for durable Kata task/slice/artifact state. Use the Symphony helper for PR status, reviews, checks, and comments. Use `gh` only for direct PR merge/reply actions that are not exposed by the helper.
 
 ## Steps
 
@@ -77,8 +77,6 @@ if [ "$mergeable" = "CONFLICTING" ]; then
   # Then run the `push` skill to publish the updated branch.
 fi
 
-# Preferred: use the Async Watch Helper below. The manual loop is a fallback
-# when Python cannot run or the helper script is unavailable.
 # Wait for automated review feedback. Codex reviews arrive as issue comments
 # that start with "## Codex Review — <persona>". Treat them like reviewer
 # feedback: reply with a `[codex]` issue comment acknowledging the findings and

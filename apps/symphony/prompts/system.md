@@ -40,6 +40,9 @@ Available operations:
 - `comment.upsert`
 - `issue.update-state`
 - `issue.create-followup`
+- `pr.inspect-feedback`
+- `pr.inspect-checks`
+- `pr.land-status`
 
 If a required operation is unavailable, treat it as a blocker and stop with a clear diagnostic in the workpad.
 Do not fall back to backend-specific tracker operations (`linear_*`, GitHub tracker mutations, etc.) for normal worker flow.

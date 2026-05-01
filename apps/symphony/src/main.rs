@@ -994,6 +994,330 @@ fn parse_github_issue_number(issue_id: &str) -> Result<u64, String> {
 }
 
 #[cfg(not(test))]
+fn command_output_text(output: &std::process::Output) -> String {
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    [stderr, stdout]
+        .into_iter()
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+#[cfg(not(test))]
+fn github_helper_token_env(mut command: Command, token: &str) -> Command {
+    command.env("GH_TOKEN", token);
+    command.env("GITHUB_TOKEN", token);
+    command
+}
+
+#[cfg(not(test))]
+fn run_gh_json(args: &[String], token: &str) -> Result<serde_json::Value, String> {
+    let mut command = Command::new("gh");
+    command.args(args);
+    let output = github_helper_token_env(command, token)
+        .output()
+        .map_err(|err| format!("failed to run gh {}: {err}", args.join(" ")))?;
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if !output.status.success() && stdout.is_empty() {
+        return Err(format!(
+            "gh {} failed: {}",
+            args.join(" "),
+            command_output_text(&output)
+        ));
+    }
+    serde_json::from_str(&stdout).map_err(|err| {
+        format!(
+            "failed to parse gh {} JSON output: {err}; output={}",
+            args.join(" "),
+            stdout
+        )
+    })
+}
+
+#[cfg(not(test))]
+fn run_gh_text(args: &[String], token: &str) -> Result<String, String> {
+    let mut command = Command::new("gh");
+    command.args(args);
+    let output = github_helper_token_env(command, token)
+        .output()
+        .map_err(|err| format!("failed to run gh {}: {err}", args.join(" ")))?;
+    if !output.status.success() {
+        return Err(format!(
+            "gh {} failed: {}",
+            args.join(" "),
+            command_output_text(&output)
+        ));
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
+#[cfg(not(test))]
+fn gh_check_is_failing(check: &serde_json::Value) -> bool {
+    fn field(check: &serde_json::Value, name: &str) -> String {
+        check
+            .get(name)
+            .and_then(|value| value.as_str())
+            .unwrap_or_default()
+            .trim()
+            .to_ascii_lowercase()
+    }
+
+    matches!(
+        field(check, "state").as_str(),
+        "failure" | "error" | "cancelled" | "timed_out" | "action_required"
+    ) || matches!(
+        field(check, "conclusion").as_str(),
+        "failure" | "cancelled" | "timed_out" | "action_required"
+    ) || field(check, "bucket") == "fail"
+}
+
+#[cfg(not(test))]
+fn extract_github_actions_run_id(url: &str) -> Option<String> {
+    let marker = "/actions/runs/";
+    let start = url.find(marker)? + marker.len();
+    let run_id: String = url[start..]
+        .chars()
+        .take_while(|ch| ch.is_ascii_digit())
+        .collect();
+    if run_id.is_empty() {
+        None
+    } else {
+        Some(run_id)
+    }
+}
+
+#[cfg(not(test))]
+fn tail_lines(text: &str, max_lines: usize) -> String {
+    let lines = text.lines().collect::<Vec<_>>();
+    let start = lines.len().saturating_sub(max_lines.max(1));
+    lines[start..].join("\n")
+}
+
+#[cfg(not(test))]
+fn gh_check_url(check: &serde_json::Value) -> Option<&str> {
+    check
+        .get("detailsUrl")
+        .or_else(|| check.get("link"))
+        .and_then(|value| value.as_str())
+}
+
+#[cfg(not(test))]
+fn helper_usize(input: &serde_json::Value, field: &str, default: usize) -> usize {
+    input
+        .get(field)
+        .and_then(|value| value.as_u64())
+        .and_then(|value| usize::try_from(value).ok())
+        .unwrap_or(default)
+}
+
+#[cfg(not(test))]
+fn github_pr_checks_payload(
+    tracker: &TrackerConfig,
+    input: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let inputs = github_adapter_inputs(tracker).map_err(|err| err.to_string())?;
+    let pr =
+        helper_optional_str(&input, "pr").or_else(|| helper_optional_str(&input, "pullRequest"));
+    let include_logs = helper_bool(&input, "includeLogs", false);
+    let max_lines = helper_usize(&input, "maxLines", 160);
+
+    let mut args = vec!["pr".to_string(), "checks".to_string()];
+    if let Some(pr) = pr.as_deref() {
+        args.push(pr.to_string());
+    }
+    args.extend([
+        "--json".to_string(),
+        "name,state,bucket,link,startedAt,completedAt,workflow".to_string(),
+    ]);
+
+    let checks_value = run_gh_json(&args, &inputs.token)?;
+    let checks = checks_value
+        .as_array()
+        .cloned()
+        .ok_or_else(|| "gh pr checks returned unexpected JSON shape".to_string())?;
+
+    let mut failing = Vec::new();
+    for mut check in checks
+        .iter()
+        .filter(|check| gh_check_is_failing(check))
+        .cloned()
+    {
+        if include_logs {
+            if let Some(run_id) = gh_check_url(&check).and_then(extract_github_actions_run_id) {
+                let log_args = vec![
+                    "run".to_string(),
+                    "view".to_string(),
+                    run_id.clone(),
+                    "--log".to_string(),
+                ];
+                match run_gh_text(&log_args, &inputs.token) {
+                    Ok(log) => {
+                        check["runId"] = serde_json::Value::String(run_id);
+                        check["logTail"] = serde_json::Value::String(tail_lines(&log, max_lines));
+                    }
+                    Err(err) => {
+                        check["runId"] = serde_json::Value::String(run_id);
+                        check["logError"] = serde_json::Value::String(err);
+                    }
+                }
+            }
+        }
+        failing.push(check);
+    }
+
+    Ok(serde_json::json!({
+        "pr": pr,
+        "checks": checks,
+        "failing": failing,
+        "failingCount": failing.len(),
+        "okToProceed": failing.is_empty(),
+    }))
+}
+
+#[cfg(not(test))]
+fn parse_github_pr_number(pr: &str) -> Result<u64, String> {
+    let trimmed = pr.trim();
+    if let Some((_, number)) = trimmed.rsplit_once("/pull/") {
+        return number
+            .trim_matches('/')
+            .parse::<u64>()
+            .map_err(|err| format!("invalid GitHub PR URL `{pr}`: {err}"));
+    }
+    normalize_github_issue_id(trimmed)
+        .parse::<u64>()
+        .map_err(|err| format!("invalid GitHub PR value `{pr}`: {err}"))
+}
+
+#[cfg(not(test))]
+fn github_pr_number_from_input(input: &serde_json::Value, token: &str) -> Result<u64, String> {
+    if let Some(pr) =
+        helper_optional_str(input, "pr").or_else(|| helper_optional_str(input, "pullRequest"))
+    {
+        return parse_github_pr_number(&pr);
+    }
+    let value = run_gh_json(
+        &[
+            "pr".to_string(),
+            "view".to_string(),
+            "--json".to_string(),
+            "number".to_string(),
+        ],
+        token,
+    )?;
+    value
+        .get("number")
+        .and_then(|value| value.as_u64())
+        .ok_or_else(|| "gh pr view did not return a PR number".to_string())
+}
+
+#[cfg(not(test))]
+async fn github_get_paginated_array(
+    client: &GithubClient,
+    path: &str,
+) -> Result<Vec<serde_json::Value>, String> {
+    let mut page = 1;
+    let mut items = Vec::new();
+    loop {
+        let delimiter = if path.contains('?') { '&' } else { '?' };
+        let page_path = format!("{path}{delimiter}per_page=100&page={page}");
+        let response = client
+            .request(reqwest::Method::GET, &page_path, None)
+            .await
+            .map_err(|err| err.to_string())?;
+        let batch = response
+            .json::<Vec<serde_json::Value>>()
+            .await
+            .map_err(|err| format!("failed to decode GitHub REST response: {err}"))?;
+        if batch.is_empty() {
+            break;
+        }
+        let batch_len = batch.len();
+        items.extend(batch);
+        if batch_len < 100 {
+            break;
+        }
+        page += 1;
+    }
+    Ok(items)
+}
+
+#[cfg(not(test))]
+async fn github_pr_feedback_payload(
+    adapter: &GithubAdapter,
+    tracker: &TrackerConfig,
+    input: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let inputs = github_adapter_inputs(tracker).map_err(|err| err.to_string())?;
+    let pr_number = github_pr_number_from_input(&input, &inputs.token)?;
+    let owner = &adapter.client.repo_owner;
+    let repo = &adapter.client.repo_name;
+    let issue_comments = github_get_paginated_array(
+        &adapter.client,
+        &format!("/repos/{owner}/{repo}/issues/{pr_number}/comments"),
+    )
+    .await?;
+    let reviews = github_get_paginated_array(
+        &adapter.client,
+        &format!("/repos/{owner}/{repo}/pulls/{pr_number}/reviews"),
+    )
+    .await?;
+    let review_comments = github_get_paginated_array(
+        &adapter.client,
+        &format!("/repos/{owner}/{repo}/pulls/{pr_number}/comments"),
+    )
+    .await?;
+
+    Ok(serde_json::json!({
+        "pullRequest": {
+            "number": pr_number,
+            "owner": owner,
+            "repo": repo,
+            "url": format!("https://github.com/{owner}/{repo}/pull/{pr_number}"),
+        },
+        "conversationComments": issue_comments,
+        "reviews": reviews,
+        "reviewComments": review_comments,
+    }))
+}
+
+#[cfg(not(test))]
+fn github_pr_view_payload(
+    input: &serde_json::Value,
+    token: &str,
+) -> Result<serde_json::Value, String> {
+    let mut args = vec!["pr".to_string(), "view".to_string()];
+    if let Some(pr) =
+        helper_optional_str(input, "pr").or_else(|| helper_optional_str(input, "pullRequest"))
+    {
+        args.push(pr);
+    }
+    args.extend([
+        "--json".to_string(),
+        "number,url,title,body,state,headRefName,baseRefName,headRefOid,mergeable,mergeStateStatus,reviewDecision".to_string(),
+    ]);
+    run_gh_json(&args, token)
+}
+
+#[cfg(not(test))]
+async fn github_pr_land_status_payload(
+    adapter: &GithubAdapter,
+    tracker: &TrackerConfig,
+    input: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let inputs = github_adapter_inputs(tracker).map_err(|err| err.to_string())?;
+    let pr = github_pr_view_payload(&input, &inputs.token)?;
+    let checks = github_pr_checks_payload(tracker, input.clone())?;
+    let feedback = github_pr_feedback_payload(adapter, tracker, input).await?;
+
+    Ok(serde_json::json!({
+        "pullRequest": pr,
+        "checks": checks,
+        "feedback": feedback,
+    }))
+}
+
+#[cfg(not(test))]
 async fn github_issue_payload(
     adapter: &GithubAdapter,
     issue_id: &str,
@@ -1206,6 +1530,9 @@ async fn run_github_helper(
             let comment = github_upsert_comment(&adapter, &issue_id, Some(&marker), &body).await?;
             Ok(serde_json::json!({ "title": title, "comment": comment }))
         }
+        "pr.inspect-checks" => github_pr_checks_payload(tracker, input),
+        "pr.inspect-feedback" => github_pr_feedback_payload(&adapter, tracker, input).await,
+        "pr.land-status" => github_pr_land_status_payload(&adapter, tracker, input).await,
         other => Err(format!("unsupported Symphony helper operation: {other}")),
     }
 }
@@ -1249,6 +1576,9 @@ async fn run_linear_helper(
             Ok(serde_json::json!({ "issueId": issue_id, "state": state }))
         }
         "issue.list-children" => Ok(serde_json::json!({ "children": [] })),
+        "pr.inspect-checks" | "pr.inspect-feedback" | "pr.land-status" => Err(format!(
+            "operation `{operation}` is only available when tracker.kind is github"
+        )),
         other => Err(format!(
             "operation `{other}` is not supported for Linear-backed Symphony helpers yet"
         )),
