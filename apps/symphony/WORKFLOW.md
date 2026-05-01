@@ -3,7 +3,6 @@ tracker:
   kind: github
   repo_owner: gannonh
   repo_name: kata
-  github_project_owner_type: user
   github_project_number: 17
   active_states:
     - Todo
