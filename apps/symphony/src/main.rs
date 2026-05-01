@@ -955,6 +955,16 @@ fn helper_optional_str(input: &serde_json::Value, field: &str) -> Option<String>
         .map(ToString::to_string)
 }
 
+fn normalize_github_issue_id(issue_id: &str) -> String {
+    let trimmed = issue_id.trim();
+    if let Some(number) = trimmed.strip_prefix('#') {
+        if !number.is_empty() && number.chars().all(|ch| ch.is_ascii_digit()) {
+            return number.to_string();
+        }
+    }
+    trimmed.to_string()
+}
+
 #[cfg(not(test))]
 fn helper_bool(input: &serde_json::Value, field: &str, default: bool) -> bool {
     input
@@ -978,9 +988,7 @@ fn github_adapter_from_tracker(tracker: &TrackerConfig) -> error::Result<GithubA
 
 #[cfg(not(test))]
 fn parse_github_issue_number(issue_id: &str) -> Result<u64, String> {
-    issue_id
-        .trim()
-        .trim_start_matches('#')
+    normalize_github_issue_id(issue_id)
         .parse::<u64>()
         .map_err(|err| format!("invalid GitHub issue id `{issue_id}`: {err}"))
 }
@@ -992,7 +1000,8 @@ async fn github_issue_payload(
     include_children: bool,
     include_comments: bool,
 ) -> Result<serde_json::Value, String> {
-    let issue_ids = vec![issue_id.to_string()];
+    let issue_id = normalize_github_issue_id(issue_id);
+    let issue_ids = vec![issue_id.clone()];
     let issue = adapter
         .fetch_issue_states_by_ids(&issue_ids)
         .await
@@ -1047,7 +1056,8 @@ async fn github_upsert_comment(
     marker: Option<&str>,
     body: &str,
 ) -> Result<GithubIssueComment, String> {
-    let number = parse_github_issue_number(issue_id)?;
+    let issue_id = normalize_github_issue_id(issue_id);
+    let number = parse_github_issue_number(&issue_id)?;
     let marker = marker.map(str::trim).filter(|value| !value.is_empty());
     let body = match marker {
         Some(marker) if !body.contains(marker) => format!("{marker}\n\n{body}"),
@@ -1094,7 +1104,7 @@ async fn run_github_helper(
 
     match operation {
         "issue.get" => {
-            let issue_id = helper_required_str(&input, "issueId")?;
+            let issue_id = normalize_github_issue_id(&helper_required_str(&input, "issueId")?);
             github_issue_payload(
                 &adapter,
                 &issue_id,
@@ -1104,7 +1114,7 @@ async fn run_github_helper(
             .await
         }
         "issue.list-children" => {
-            let issue_id = helper_required_str(&input, "issueId")?;
+            let issue_id = normalize_github_issue_id(&helper_required_str(&input, "issueId")?);
             let number = parse_github_issue_number(&issue_id)?;
             let child_ids: Vec<String> = adapter
                 .client
@@ -1125,7 +1135,7 @@ async fn run_github_helper(
             Ok(serde_json::json!({ "children": children }))
         }
         "comment.upsert" => {
-            let issue_id = helper_required_str(&input, "issueId")?;
+            let issue_id = normalize_github_issue_id(&helper_required_str(&input, "issueId")?);
             let body = helper_required_str(&input, "body")?;
             let marker = helper_optional_str(&input, "marker");
             let comment =
@@ -1133,7 +1143,7 @@ async fn run_github_helper(
             Ok(serde_json::json!({ "comment": comment }))
         }
         "issue.update-state" => {
-            let issue_id = helper_required_str(&input, "issueId")?;
+            let issue_id = normalize_github_issue_id(&helper_required_str(&input, "issueId")?);
             let state = helper_required_str(&input, "state")?;
             adapter
                 .update_issue_state(&issue_id, &state)
@@ -1144,7 +1154,8 @@ async fn run_github_helper(
         "issue.create-followup" => {
             let title = helper_required_str(&input, "title")?;
             let description = helper_required_str(&input, "description")?;
-            let parent_issue_id = helper_optional_str(&input, "parentIssueId");
+            let parent_issue_id = helper_optional_str(&input, "parentIssueId")
+                .map(|issue_id| normalize_github_issue_id(&issue_id));
             let issue = adapter
                 .client
                 .create_issue(&title, &description)
@@ -1169,7 +1180,7 @@ async fn run_github_helper(
             Ok(serde_json::json!({ "issue": issue }))
         }
         "document.read" => {
-            let issue_id = helper_required_str(&input, "issueId")?;
+            let issue_id = normalize_github_issue_id(&helper_required_str(&input, "issueId")?);
             let title = helper_required_str(&input, "title")?;
             let marker = format!("<!-- symphony:document:{} -->", title);
             let number = parse_github_issue_number(&issue_id)?;
@@ -1187,7 +1198,7 @@ async fn run_github_helper(
             Ok(serde_json::json!({ "title": title, "content": content }))
         }
         "document.write" => {
-            let issue_id = helper_required_str(&input, "issueId")?;
+            let issue_id = normalize_github_issue_id(&helper_required_str(&input, "issueId")?);
             let title = helper_required_str(&input, "title")?;
             let content = helper_required_str(&input, "content")?;
             let marker = format!("<!-- symphony:document:{} -->", title);
@@ -1675,5 +1686,13 @@ mod tests {
 
         let banner_binding = startup_banner_binding(&configured, 43123);
         assert_eq!(banner_binding.port, 0);
+    }
+
+    #[test]
+    fn normalize_github_issue_id_accepts_hash_prefixed_numbers() {
+        assert_eq!(normalize_github_issue_id("#456"), "456");
+        assert_eq!(normalize_github_issue_id("  #456  "), "456");
+        assert_eq!(normalize_github_issue_id("456"), "456");
+        assert_eq!(normalize_github_issue_id("#not-a-number"), "#not-a-number");
     }
 }

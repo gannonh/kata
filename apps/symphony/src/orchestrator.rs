@@ -1170,12 +1170,12 @@ async fn run_worker_task(
                     issue_id = %issue_id,
                     issue_identifier = %issue.identifier,
                     error = %err,
-                    "workspace creation failed"
+                    "workspace preparation failed"
                 );
                 return WorkerResult {
                     issue_id,
                     completion: WorkerCompletion::Failed {
-                        error: format!("workspace creation failed: {err}"),
+                        error: format!("workspace preparation failed: {err}"),
                     },
                     events: vec![],
                     metrics: None,
@@ -1185,16 +1185,16 @@ async fn run_worker_task(
 
     let workspace_path = Path::new(&workspace_info.path);
 
-    // 1b. Inject skills from workflow dir into workspace (convention: skills/ sibling to WORKFLOW.md)
-    if workspace_info.created_now {
-        if let Err(err) = workspace::inject_skills(&config.workflow_dir, workspace_path) {
-            tracing::warn!(
-                event = "worker_skill_injection_failed",
-                issue_id = %issue_id,
-                error = %err,
-                "skill injection failed (non-fatal)"
-            );
-        }
+    // 1b. Refresh Symphony runtime skills on every run. They are ephemeral
+    // worker scaffolding, ignored in the target repo, and must track the
+    // workflow directory rather than becoming worker-owned source files.
+    if let Err(err) = workspace::inject_skills(&config.workflow_dir, workspace_path) {
+        tracing::warn!(
+            event = "worker_skill_injection_failed",
+            issue_id = %issue_id,
+            error = %err,
+            "skill injection failed (non-fatal)"
+        );
     }
 
     // 2. Before-run hook
@@ -3527,21 +3527,21 @@ impl Orchestrator {
 
         let workspace_path = Path::new(&workspace_info.path);
 
-        // Inject skills from workflow dir into workspace
-        if workspace_info.created_now {
-            let workflow_dir = self
-                .workflow_store
-                .as_ref()
-                .map(|ws| ws.workflow_dir().to_path_buf())
-                .unwrap_or_else(|| PathBuf::from("."));
-            if let Err(err) = workspace::inject_skills(&workflow_dir, workspace_path) {
-                tracing::warn!(
-                    event = "worker_skill_injection_failed",
-                    issue_id = %issue.id,
-                    error = %err,
-                    "skill injection failed (non-fatal)"
-                );
-            }
+        // Refresh Symphony runtime skills on every run. They are ephemeral
+        // worker scaffolding, ignored in the target repo, and must track the
+        // workflow directory rather than becoming worker-owned source files.
+        let workflow_dir = self
+            .workflow_store
+            .as_ref()
+            .map(|ws| ws.workflow_dir().to_path_buf())
+            .unwrap_or_else(|| PathBuf::from("."));
+        if let Err(err) = workspace::inject_skills(&workflow_dir, workspace_path) {
+            tracing::warn!(
+                event = "worker_skill_injection_failed",
+                issue_id = %issue.id,
+                error = %err,
+                "skill injection failed (non-fatal)"
+            );
         }
 
         if let Err(err) =
@@ -4045,7 +4045,7 @@ impl Orchestrator {
         let kind = event_kind_for_agent_event(event);
         let severity = event_severity_for_agent_event(event);
 
-        let payload = match event {
+        let mut payload = match event {
             AgentEvent::EscalationCreated { request, .. } => serde_json::json!({
                 "request_id": request.id.clone(),
                 "issue_id": request.issue_id.clone(),
@@ -4088,6 +4088,16 @@ impl Orchestrator {
                 "session_id": self.worker_session_ids.get(issue_id).cloned(),
             }),
         };
+        if matches!(severity, EventSeverity::Error) {
+            if let Some(error_preview) = self.error_preview_for_agent_event(issue_id, event) {
+                if let Some(object) = payload.as_object_mut() {
+                    object.insert(
+                        "error_preview".to_string(),
+                        serde_json::Value::String(error_preview),
+                    );
+                }
+            }
+        }
 
         hub.publish_with_timestamp(
             kind,
@@ -4097,6 +4107,56 @@ impl Orchestrator {
             payload,
             event_timestamp(event),
         );
+    }
+
+    fn error_preview_for_agent_event(&self, issue_id: &str, event: &AgentEvent) -> Option<String> {
+        match event {
+            AgentEvent::Notification { message, .. } => {
+                let notification = parse_tool_notification(message)?;
+                if notification.event_name != "tool_error" {
+                    return None;
+                }
+
+                let tool_name = notification.tool_name.as_deref().unwrap_or("tool");
+                let last_tool = self
+                    .running_session_stats
+                    .get(issue_id)
+                    .and_then(|stats| stats.current_tool_name.as_deref());
+                let args_preview = self
+                    .running_session_stats
+                    .get(issue_id)
+                    .and_then(|stats| stats.current_tool_args_preview.as_deref())
+                    .or(notification.args_preview.as_deref());
+
+                match args_preview {
+                    Some(preview)
+                        if last_tool.is_none()
+                            || last_tool == Some(tool_name)
+                            || notification.tool_name.is_none() =>
+                    {
+                        Some(format!("{tool_name}: {preview}"))
+                    }
+                    _ => notification.summary.clone(),
+                }
+            }
+            AgentEvent::ToolCallFailed { tool_name, .. } => tool_name
+                .as_deref()
+                .map(|tool_name| format!("tool failed: {tool_name}")),
+            AgentEvent::TurnFailed { error, .. }
+            | AgentEvent::StartupFailed { error, .. }
+            | AgentEvent::TurnEndedWithError { error, .. } => Some(error.clone()),
+            AgentEvent::Malformed {
+                parse_error,
+                raw_text,
+                ..
+            } => Some(format!(
+                "malformed event: {parse_error}; {}",
+                normalize_whitespace(raw_text)
+            )),
+            _ => None,
+        }
+        .map(|preview| truncate_for_display(&preview, 160))
+        .filter(|preview| !preview.is_empty())
     }
 
     fn issue_identifier_from_issue_id(&self, issue_id: &str) -> Option<String> {

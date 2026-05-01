@@ -57,6 +57,14 @@ tracker:
   #   3) GITHUB_TOKEN
   #   4) `gh auth token` (local fallback only; requires `gh auth login`)
   #
+  # GitHub classic PAT scopes required for end-to-end Symphony runs:
+  #   repo, project, workflow, read:org, read:discussion
+  #
+  # `repo`/`project` are required for issue and Projects v2 state management.
+  # `workflow` is required for workflow/Actions operations. `read:org` and
+  # `read:discussion` are required by GitHub PR review/comment GraphQL fields
+  # used during Agent Review and CI inspection.
+  #
   # For cloud/VPS, prefer explicit env secrets (GH_TOKEN/GITHUB_TOKEN).
   api_key: $LINEAR_API_KEY
 

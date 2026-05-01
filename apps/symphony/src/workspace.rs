@@ -13,6 +13,8 @@ use crate::error::{Result, SymphonyError};
 use crate::path_safety;
 use crate::repo_url::{redact_url_credentials, repo_is_remote};
 
+const SYMPHONY_INJECTED_SKILL_IGNORE: &str = ".agents/skills/sym-*";
+
 #[derive(Debug, Clone)]
 struct HookIssueContext {
     issue_id: String,
@@ -123,6 +125,8 @@ fn ensure_workspace_internal(
                 return Err(err);
             }
         }
+    } else {
+        refresh_existing_workspace_from_clone_branch(&final_path, config)?;
     }
 
     Ok(Workspace {
@@ -374,6 +378,185 @@ fn branch_name_for_issue(config: &WorkspaceConfig, issue_identifier: &str) -> St
     format!("{}/{}", config.branch_prefix, sanitized_identifier)
 }
 
+fn refresh_existing_workspace_from_clone_branch(
+    workspace: &Path,
+    config: &WorkspaceConfig,
+) -> Result<()> {
+    if config.strategy != WorkspaceRepoStrategy::Worktree {
+        return Ok(());
+    }
+
+    let Some(clone_branch) = config.clone_branch.as_deref() else {
+        return Ok(());
+    };
+
+    ensure_symphony_skill_ignore(workspace)?;
+
+    let clone_commit = git_rev_parse(workspace, clone_branch, "workspace clone_branch lookup")?;
+    if git_is_ancestor(
+        workspace,
+        &clone_commit,
+        "HEAD",
+        "workspace freshness check",
+    )? {
+        return Ok(());
+    }
+
+    if let Some(status) = git_dirty_status(workspace)? {
+        return Err(SymphonyError::WorkspaceError(format!(
+            "workspace stale: local changes block refresh from clone_branch `{clone_branch}`; rebase manually before retrying: {}; changes: {status}",
+            workspace.display()
+        )));
+    }
+
+    if !git_is_ancestor(
+        workspace,
+        "HEAD",
+        &clone_commit,
+        "workspace fast-forward check",
+    )? {
+        return Err(SymphonyError::WorkspaceError(format!(
+            "workspace stale: local commits or divergence block refresh from clone_branch `{clone_branch}`; rebase manually before retrying: {}",
+            workspace.display()
+        )));
+    }
+
+    let mut merge_cmd = Command::new("git");
+    merge_cmd
+        .arg("-C")
+        .arg(workspace)
+        .arg("merge")
+        .arg("--ff-only")
+        .arg(&clone_commit);
+    run_git_command(merge_cmd, "workspace clone_branch fast-forward")?;
+
+    tracing::info!(
+        workspace = %workspace.display(),
+        clone_branch,
+        clone_commit,
+        "fast-forwarded existing workspace from clone_branch"
+    );
+
+    Ok(())
+}
+
+fn ensure_symphony_skill_ignore(workspace: &Path) -> Result<()> {
+    let mut git_path_cmd = Command::new("git");
+    git_path_cmd
+        .arg("-C")
+        .arg(workspace)
+        .arg("rev-parse")
+        .arg("--git-path")
+        .arg("info/exclude");
+    let output = git_path_cmd.output().map_err(SymphonyError::Io)?;
+    if !output.status.success() {
+        tracing::debug!(
+            workspace = %workspace.display(),
+            "workspace is not a git checkout; skipping Symphony skill exclude"
+        );
+        return Ok(());
+    }
+
+    let raw_path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if raw_path.is_empty() {
+        return Ok(());
+    }
+
+    let exclude_path = {
+        let candidate = PathBuf::from(raw_path);
+        if candidate.is_absolute() {
+            candidate
+        } else {
+            workspace.join(candidate)
+        }
+    };
+
+    let existing = std::fs::read_to_string(&exclude_path).unwrap_or_default();
+    if existing
+        .lines()
+        .map(str::trim)
+        .any(|line| line == SYMPHONY_INJECTED_SKILL_IGNORE)
+    {
+        return Ok(());
+    }
+
+    if let Some(parent) = exclude_path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+
+    let mut next = existing;
+    if !next.is_empty() && !next.ends_with('\n') {
+        next.push('\n');
+    }
+    next.push_str(SYMPHONY_INJECTED_SKILL_IGNORE);
+    next.push('\n');
+    std::fs::write(&exclude_path, next)?;
+    Ok(())
+}
+
+fn git_rev_parse(workspace: &Path, rev: &str, context: &str) -> Result<String> {
+    let mut command = Command::new("git");
+    command
+        .arg("-C")
+        .arg(workspace)
+        .arg("rev-parse")
+        .arg("--verify")
+        .arg(format!("{rev}^{{commit}}"));
+    let output = command.output().map_err(SymphonyError::Io)?;
+    if output.status.success() {
+        return Ok(String::from_utf8_lossy(&output.stdout).trim().to_string());
+    }
+
+    git_output_error(output, context)
+}
+
+fn git_is_ancestor(
+    workspace: &Path,
+    ancestor: &str,
+    descendant: &str,
+    context: &str,
+) -> Result<bool> {
+    let mut command = Command::new("git");
+    command
+        .arg("-C")
+        .arg(workspace)
+        .arg("merge-base")
+        .arg("--is-ancestor")
+        .arg(ancestor)
+        .arg(descendant);
+    let output = command.output().map_err(SymphonyError::Io)?;
+    match output.status.code() {
+        Some(0) => Ok(true),
+        Some(1) => Ok(false),
+        _ => git_output_error(output, context),
+    }
+}
+
+fn git_dirty_status(workspace: &Path) -> Result<Option<String>> {
+    let mut command = Command::new("git");
+    command
+        .arg("-C")
+        .arg(workspace)
+        .arg("status")
+        .arg("--porcelain=v1")
+        .arg("--untracked-files=normal");
+    let output = command.output().map_err(SymphonyError::Io)?;
+    if !output.status.success() {
+        return git_output_error(output, "workspace dirty status check");
+    }
+
+    let status = String::from_utf8_lossy(&output.stdout);
+    let summary = status
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .take(5)
+        .collect::<Vec<_>>()
+        .join("; ");
+
+    Ok((!summary.is_empty()).then_some(summary))
+}
+
 /// Inject skills from a `skills/` directory (sibling to the WORKFLOW.md file)
 /// into `.agents/skills/` inside the workspace.
 ///
@@ -395,6 +578,8 @@ pub fn inject_skills(workflow_dir: &Path, workspace: &Path) -> Result<()> {
         );
         return Ok(());
     }
+
+    ensure_symphony_skill_ignore(workspace)?;
 
     let target_skills = workspace.join(".agents").join("skills");
 
@@ -421,7 +606,7 @@ pub fn inject_skills(workflow_dir: &Path, workspace: &Path) -> Result<()> {
         let skill_name = entry.file_name();
         let target_skill_dir = target_skills.join(&skill_name);
 
-        copy_dir_recursive(&entry_path, &target_skill_dir)?;
+        replace_dir_recursive(&entry_path, &target_skill_dir)?;
         injected_count += 1;
         injected_names.push(skill_name.to_string_lossy().to_string());
     }
@@ -439,8 +624,25 @@ pub fn inject_skills(workflow_dir: &Path, workspace: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Replace a target directory with the source directory tree.
+///
+/// Symphony-injected skills are runtime scaffolding, not worker-owned source.
+/// Replacing the whole `sym-*` skill directory on each dispatch prevents stale
+/// scripts from surviving when files are removed or renamed upstream.
+fn replace_dir_recursive(source: &Path, target: &Path) -> Result<()> {
+    if target.exists() {
+        std::fs::remove_dir_all(target).map_err(|err| {
+            SymphonyError::WorkspaceError(format!(
+                "failed to remove existing injected skill directory {}: {err}",
+                target.display()
+            ))
+        })?;
+    }
+
+    copy_dir_recursive(source, target)
+}
+
 /// Recursively copy a directory tree. Creates target dirs as needed.
-/// Overwrites files that already exist (skills may be updated between runs).
 fn copy_dir_recursive(source: &Path, target: &Path) -> Result<()> {
     std::fs::create_dir_all(target).map_err(|err| {
         SymphonyError::WorkspaceError(format!(
@@ -632,6 +834,10 @@ fn run_git_command(mut command: Command, context: &str) -> Result<()> {
         return Ok(());
     }
 
+    git_output_error(output, context)
+}
+
+fn git_output_error<T>(output: std::process::Output, context: &str) -> Result<T> {
     let status = output.status.code().unwrap_or(-1);
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
@@ -1121,6 +1327,37 @@ mod tests {
         assert_eq!(
             content, "new content",
             "skill files should be overwritten on re-injection"
+        );
+    }
+
+    #[test]
+    fn inject_skills_removes_stale_files_from_existing_symphony_skill() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let workflow_dir = temp.path().join("workflow");
+        let workspace = temp.path().join("workspace");
+        std::fs::create_dir_all(&workflow_dir).unwrap();
+        std::fs::create_dir_all(&workspace).unwrap();
+
+        let existing = workspace.join(".agents").join("skills").join("sym-land");
+        std::fs::create_dir_all(existing.join("scripts")).unwrap();
+        std::fs::write(existing.join("SKILL.md"), "old content").unwrap();
+        std::fs::write(existing.join("scripts").join("stale.py"), "stale").unwrap();
+
+        let source = workflow_dir.join("skills").join("sym-land");
+        std::fs::create_dir_all(&source).unwrap();
+        std::fs::write(source.join("SKILL.md"), "new content").unwrap();
+
+        inject_skills(&workflow_dir, &workspace).unwrap();
+
+        assert!(
+            !workspace
+                .join(".agents")
+                .join("skills")
+                .join("sym-land")
+                .join("scripts")
+                .join("stale.py")
+                .exists(),
+            "re-injection should replace sym-* skill directories, not merge stale files"
         );
     }
 

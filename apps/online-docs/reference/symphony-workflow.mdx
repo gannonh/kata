@@ -154,7 +154,7 @@ prompts:
 </ParamField>
 
 <ParamField path="tracker.api_key" type="string" required>
-  API key for the tracker. Supports `$VAR` environment variable indirection (e.g. `$LINEAR_API_KEY`). Never logged.
+  API key for the tracker. Supports `$VAR` environment variable indirection (for example `$LINEAR_API_KEY`, `$GH_TOKEN`, or `$GITHUB_TOKEN`). For GitHub-backed workflows, use a classic personal access token with `repo`, `project`, `workflow`, `read:org`, and `read:discussion` scopes. Never logged.
 </ParamField>
 
 <ParamField path="tracker.project_slug" type="string" required>
@@ -197,12 +197,8 @@ When `tracker.kind` is `"github"`, replace `project_slug` with these fields:
   GitHub repository name.
 </ParamField>
 
-<ParamField path="tracker.github_project_number" type="number">
-  GitHub Projects v2 number. When set, Symphony reads and writes state from the project's `Status` field. When omitted, Symphony uses label mode (`{label_prefix}:{state}`).
-</ParamField>
-
-<ParamField path="tracker.label_prefix" type="string" default="symphony">
-  Label prefix for label mode (when `github_project_number` is omitted).
+<ParamField path="tracker.github_project_number" type="number" required>
+  GitHub Projects v2 number. Required when `tracker.kind` is `"github"`. Symphony reads and writes state from the project's `Status` field.
 </ParamField>
 
 ---

@@ -445,6 +445,10 @@ fn activity_entry_from_envelope(envelope: SymphonyEventEnvelope) -> ActivityLogE
 
 fn activity_message_from_payload(payload: &serde_json::Value) -> Option<String> {
     for key in [
+        "error_preview",
+        "output_preview",
+        "command_preview",
+        "tool_args_preview",
         "summary",
         "error",
         "instruction_preview",
@@ -1561,6 +1565,37 @@ mod tests {
         assert!(
             rendered.contains("#42"),
             "running table should render github issue identifiers verbatim, got:\n{rendered}"
+        );
+    }
+
+    #[test]
+    fn pinned_errors_prefer_error_preview_from_payload() {
+        let now = Utc
+            .with_ymd_and_hms(2026, 3, 22, 16, 20, 0)
+            .single()
+            .expect("valid fixture timestamp");
+        let envelope = SymphonyEventEnvelope {
+            version: "1".to_string(),
+            sequence: 1,
+            timestamp: now,
+            kind: crate::domain::EventKind::Tool,
+            severity: EventSeverity::Error,
+            issue: Some("#456".to_string()),
+            event: "tool_error".to_string(),
+            payload: serde_json::json!({
+                "summary": "bash",
+                "error_preview": "bash: cd apps/symphony && pnpm test"
+            }),
+        };
+
+        let mut activity_log = ActivityLog::default();
+        activity_log.push(activity_entry_from_envelope(envelope));
+
+        let items = pinned_error_items(&activity_log, now, 5);
+        let rendered = format!("{items:?}");
+        assert!(
+            rendered.contains("bash: cd apps/symphony && pnpm test"),
+            "pinned errors should show useful command preview, got: {rendered}"
         );
     }
 

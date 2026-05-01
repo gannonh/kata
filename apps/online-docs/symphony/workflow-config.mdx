@@ -74,7 +74,7 @@ Configures the issue tracker connection.
 </ParamField>
 
 <ParamField path="tracker.api_key" type="string" required>
-  API key for the tracker. Supports `$VAR` env indirection. For Linear, use a personal API key. For GitHub, use a personal access token (`GH_TOKEN` or `GITHUB_TOKEN`). Never logged.
+  API key for the tracker. Supports `$VAR` env indirection. For Linear, use a personal API key. For GitHub, use a classic personal access token (`GH_TOKEN` or `GITHUB_TOKEN`) with `repo`, `project`, `workflow`, `read:org`, and `read:discussion` scopes. Never logged.
 </ParamField>
 
 <ParamField path="tracker.project_slug" type="string">
@@ -114,11 +114,7 @@ Configures the issue tracker connection.
 </ParamField>
 
 <ParamField path="tracker.github_project_number" type="number">
-  GitHub Projects v2 project number. When set, Symphony reads and writes state from the project's `Status` single-select field. When omitted, Symphony uses label mode with `{label_prefix}:{state}` labels.
-</ParamField>
-
-<ParamField path="tracker.label_prefix" type="string" default="symphony">
-  Label prefix for GitHub label mode (when `github_project_number` is omitted). Labels are formatted as `{prefix}:{state}`.
+  GitHub Projects v2 project number. Required when `tracker.kind` is `"github"`. Symphony reads and writes state from the project's `Status` single-select field.
 </ParamField>
 
 ---
