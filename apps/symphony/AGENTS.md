@@ -326,7 +326,7 @@ server:
 | `GH_TOKEN`            | GitHub classic PAT for GitHub-backed Symphony runs. Required scopes: `repo`, `project`, `workflow`, `read:org`, and `read:discussion`.                               |
 | `GITHUB_TOKEN`        | Alternative GitHub PAT env var when `GH_TOKEN` is unset. Use the same scopes as `GH_TOKEN`.                                                                          |
 | `SYMPHONY_LOG`        | Log filter directives for `tracing_subscriber`. Examples: `info`, `debug`, `symphony=trace`. Default: `info`.                                                        |
-| `SYMPHONY_LOG_ROOT`   | Default directory root for file logs when `--logs-root` is omitted. The active log is `<SYMPHONY_LOG_ROOT>/log/symphony.log`.                                         |
+| `SYMPHONY_LOG_ROOT`   | Default directory root for file logs when `--logs-root` is omitted. The active log is `<SYMPHONY_LOG_ROOT>/log/symphony.log`.                                        |
 | `RUST_LOG`            | Legacy fallback for log filtering when `SYMPHONY_LOG` is unset. Prefer `SYMPHONY_LOG` in new docs and local setup.                                                   |
 | `HOME`                | Used for tilde (`~`) expansion in `workspace.root`.                                                                                                                  |
 | `SYMPHONY_SSH_CONFIG` | Path to a custom SSH config file. When set, Symphony passes `-F <path>` to every `ssh` invocation. Useful for custom host keys, ProxyJump, or IdentityFile settings. |
@@ -636,7 +636,6 @@ Symphony ships these skills in `apps/symphony/skills/`:
 | ---------------------- | -------------------------------------------------------- |
 | `sym-address-comments` | Address PR review comments (human and bot)               |
 | `sym-commit`           | Produce clean, well-formed git commits                   |
-| `sym-debug`            | Debug stuck runs and agent execution failures            |
 | `sym-fix-ci`           | Diagnose and fix failing GitHub Actions CI checks        |
 | `sym-land`             | Land a PR: resolve conflicts, wait for CI, squash-merge  |
 | `sym-linear`           | Raw Linear GraphQL operations (comment editing, uploads) |
