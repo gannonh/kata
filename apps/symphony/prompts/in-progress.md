@@ -22,7 +22,7 @@ This issue is a Kata-planned slice with {{ issue.children_count }} child task(s)
 1. Call `issue.get` with `{"issueId":"<current-issue-id>","includeChildren":true,"includeComments":true}`.
 2. Call `issue.list-children` with `{"issueId":"<current-issue-id>"}` and order tasks by `T##` (fallback numeric id order).
 3. Read each task issue via `issue.get` before implementation.
-4. Load referenced docs with `document.read`.
+4. Load marker docs with `document.read` using `{"issueId":"<current-issue-id>"}`; read a known single doc with `{"issueId":"<current-issue-id>","title":"Context"}`.
 
 ### Execution flow
 
