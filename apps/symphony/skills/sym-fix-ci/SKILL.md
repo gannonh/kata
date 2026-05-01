@@ -31,17 +31,7 @@ Use the active Symphony workflow to reason about the task, Kata CLI only for dur
    - Prefer the current branch PR: `gh pr view --json number,url`.
    - If the user provides a PR number or URL, use that directly.
 3. Inspect failing checks (GitHub Actions only).
-   - Preferred: run the Symphony helper:
-     - `.agents/skills/sym-state/scripts/sym-call pr.inspect-checks --input /tmp/sym-pr-checks.json`
-   - Manual fallback:
-     - `gh pr checks <pr> --json name,state,bucket,link,startedAt,completedAt,workflow`
-       - `gh pr checks` exits non-zero when checks are failing. Treat that as CI data, not as a broken tool call; prefer the Symphony helper or append `|| true` when collecting raw status output.
-       - If a field is rejected, rerun with the available fields reported by `gh`.
-     - For each failing check, extract the run id from `detailsUrl` and run:
-       - `gh run view <run_id> --json name,workflowName,conclusion,status,url,event,headBranch,headSha`
-       - `gh run view <run_id> --log`
-     - If the run log says it is still in progress, fetch job logs directly:
-       - `gh api "/repos/<owner>/<repo>/actions/jobs/<job_id>/logs" > "<path>"`
+   - `.agents/skills/sym-state/scripts/sym-call pr.inspect-checks --input /tmp/sym-pr-checks.json`
 4. Scope non-GitHub Actions checks.
    - If `detailsUrl` is not a GitHub Actions run, label it as external and only report the URL.
    - Do not attempt Buildkite or other providers; keep the workflow lean.
@@ -55,7 +45,6 @@ Use the active Symphony workflow to reason about the task, Kata CLI only for dur
    - If the work is attached to a Kata task, keep Kata status/artifact updates in the active backend-state workflow and keep GitHub CI state in GitHub.
 8. Recheck status.
    - After changes, re-run the relevant tests and `pr.inspect-checks` to confirm.
-   - If collecting raw `gh pr checks` output, remember that red checks produce a non-zero exit code even when GitHub returned valid check data.
    - If new or existing failures remain, repeat the workflow until CI passes
 9. Summarize outcome.
    - Once CI checks pass, summarize the fix and confirm with the user before merging or proceeding to the next steps in their workflow.
