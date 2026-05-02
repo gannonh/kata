@@ -219,8 +219,8 @@ Controls where and how agent workspaces are created.
 
 Global agent execution settings.
 
-<ParamField path="agent.backend" type="string" default="codex">
-  Agent runtime backend. `"kata-cli"` (alias: `"kata"`) for Kata CLI in RPC mode, or `"codex"` for OpenAI Codex app-server.
+<ParamField path="agent.name" type="string" default="pi">
+  Agent runtime backend. Use `"pi"` for Kata CLI in RPC mode, or `"codex"` for OpenAI Codex app-server. The legacy `agent.backend` key is still accepted as a compatibility alias.
 </ParamField>
 
 <ParamField path="agent.max_concurrent_agents" type="number" default="10">
