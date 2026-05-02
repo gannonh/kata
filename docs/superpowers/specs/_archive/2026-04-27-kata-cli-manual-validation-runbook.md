@@ -1,69 +1,37 @@
-# Kata CLI Manual Validation Runbook (Two-Phase)
+# Kata CLI Phase A Manual Validation Runbook
 
-Date: `2026-04-27`  
-Owner: Kata CLI migration stabilization
+Date: `2026-04-28`
 
 ## Goal
 
-Validate the new `@kata-sh/cli` + Skills model in two passes:
+Validate the Phase A vertical slice with Pi as the harness and GitHub Projects v2 as the real backend.
 
-1. Monorepo validation (use this repo itself as the project)
-2. UAT validation (separate todo-app repo on GitHub)
+Phase A is not accepted by unit tests alone. The final proof is a Pi session that runs the core Kata skill chain and leaves durable project, milestone, slice, task, and artifact state in GitHub.
 
-This runbook is intentionally manual and pragmatic so we can quickly confirm what works, what does not, and what to spec next.
+## Scope
 
-## Scope and Constraints
+This runbook has two passes:
 
-- Pi remains the harness for this validation.
-- GitHub backend is **Projects v2 only**.
-- Setup uses one skills source policy:
-  - Local monorepo/dev: `apps/orchestrator/dist/skills`
-  - Packaged CLI usage: bundled skills shipped with the CLI package
+1. Monorepo validation using this repository as the project.
+2. UAT validation using a separate todo-app repository with its own GitHub repo and GitHub Projects v2 project item state.
+
+## Hard Constraints
+
+- Run commands from the repository under test unless a step says otherwise.
+- Use the CLI-owned skill source only.
+- Local repo/dev skill source: `apps/cli/skills`.
+- Published package skill source: bundled `skills/` inside `@kata-sh/cli`.
+- Do not build or install skills from `apps/orchestrator-legacy`.
+- GitHub backend means Projects v2 only.
+- Do not use local markdown files as acceptance evidence for durable Kata state.
 
 ## Prerequisites
 
-- Node 20+
-- `pnpm`
-- Pi coding agent installed and runnable via `pi`
-- GitHub token in environment:
-
-```bash
-export GITHUB_TOKEN="<token-with-repo-and-project-access>"
-```
-
-## One-Time Build (from monorepo root)
-
-Run from:
-
-`/Users/gannonhall/.codex/worktrees/edf7/kata-mono`
-
-```bash
-pnpm --dir apps/orchestrator run build:skills
-pnpm --dir apps/cli run build
-```
-
-## Phase 1: Monorepo as Project Under Test
-
-### 1) Install Kata skills into Pi (no extra directory env vars)
-
-```bash
-node apps/cli/dist/loader.js setup --pi
-```
-
-Expected:
-
-- JSON output with `"ok": true`
-- `mode` should be `"pi-install"`
-- Pi agent integration files exist under `~/.pi/agent`:
-  - `~/.pi/agent/skills/`
-  - `~/.pi/agent/settings.json`
-  - `~/.pi/agent/kata-setup-manifest.json`
-
-### 2) Configure backend for this repo
-
-Create or update:
-
-`/Users/gannonhall/.codex/worktrees/edf7/kata-mono/.kata/preferences.md`
+- Node 20+.
+- `pnpm`.
+- Pi coding agent installed and runnable as `pi`.
+- GitHub token available as `GITHUB_TOKEN` or `GH_TOKEN`.
+- `.kata/preferences.md` configured with:
 
 ```yaml
 ---
@@ -77,7 +45,48 @@ github:
 ---
 ```
 
-### 3) Run doctor in the monorepo
+## Build From Monorepo Root
+
+Run from this repo:
+
+```bash
+pnpm --dir apps/cli run build
+```
+
+Expected:
+
+- `apps/cli/dist/loader.js` exists.
+- `apps/cli/skills` contains exactly the Phase A skill bundle.
+- `apps/cli/skills/kata-new-milestone/SKILL.md` exists.
+- `apps/cli/skills/kata-complete-milestone/SKILL.md` exists.
+- `apps/cli/skills/kata-discuss-phase` does not exist.
+- `apps/cli/skills/kata-quick` does not exist.
+
+## Pass 1: Monorepo Project
+
+### 1. Install Skills Into Pi
+
+Run from the monorepo root:
+
+```bash
+node apps/cli/dist/loader.js setup --pi
+```
+
+Expected:
+
+- JSON output has `"ok": true`.
+- `mode` is `"pi-install"`.
+- `pi.skillsSourceResolution` is `"cli-workspace"`.
+- `pi.skillsSourceDir` points to `apps/cli/skills`.
+- `~/.pi/agent/skills/kata-health/SKILL.md` exists.
+- `~/.pi/agent/skills/kata-new-milestone/SKILL.md` exists.
+- `~/.pi/agent/skills/kata-complete-milestone/SKILL.md` exists.
+- `~/.pi/agent/skills/kata-discuss-phase` does not exist.
+- `~/.pi/agent/skills/kata-quick` does not exist.
+
+### 2. Run Doctor
+
+Run from the monorepo root:
 
 ```bash
 node apps/cli/dist/loader.js doctor
@@ -85,102 +94,90 @@ node apps/cli/dist/loader.js doctor
 
 Expected:
 
-- `summary` includes `kata doctor ok` (or at worst `warn`, but not `invalid`)
-- `backend-config` parses as GitHub `projects_v2`
-- `skills-source` resolves successfully
+- `skills-source` is `ok`.
+- `pi-skills-dir` is `ok`.
+- `pi-settings` is `ok`.
+- `backend-config` is `ok` and reports `github projects_v2`.
+- `github-token` is not `invalid`.
 
-### 4) Validate skills are installed and invokable in Pi
+Note: `github-token` may currently be `warn` because doctor checks token presence but does not yet perform live Project v2 field validation. Real backend operations below are the acceptance proof.
 
-```bash
-ls ~/.pi/agent/skills | rg "^kata-"
-```
+### 3. Smoke Test Real Backend Contract
 
-Start Pi from monorepo root:
-
-```bash
-pi
-```
-
-Manual skill checks in Pi (run each as a separate prompt/command):
-
-```text
-/skill:kata-health
-/skill:kata-progress
-/skill:kata-plan-phase
-/skill:kata-execute-phase
-```
-
-Expected:
-
-- Skills resolve and run
-- Prompts align to the new skill workflow shape (not legacy extension behavior)
-
-### 5) Validate JSON runtime contract in monorepo
-
-Create request:
+Create a temporary input:
 
 ```bash
-cat > /tmp/kata-project-context.json <<'JSON'
-{
-  "operation": "project.getContext",
-  "payload": {}
-}
+cat > /tmp/kata-health-check.json <<'JSON'
+{}
 JSON
 ```
 
 Run:
 
 ```bash
-node apps/cli/dist/loader.js json /tmp/kata-project-context.json
+node apps/cli/dist/loader.js call health.check --input /tmp/kata-health-check.json
 ```
 
 Expected:
 
-- Response contains `"ok": true`
-- Backend resolves as GitHub
+- Response has `"ok": true`.
+- Response includes GitHub backend health data.
+- Any failure is investigated before launching Pi.
 
-Write + read-back artifact:
+### 4. Run Phase A Skill Chain In Pi
+
+Start Pi from the monorepo root:
 
 ```bash
-cat > /tmp/kata-write-roadmap.json <<'JSON'
-{
-  "operation": "artifact.write",
-  "payload": {
-    "scopeType": "project",
-    "scopeId": "PROJECT",
-    "artifactType": "roadmap",
-    "title": "PROJECT-ROADMAP",
-    "content": "Phase1 monorepo validation marker",
-    "format": "markdown"
-  }
-}
-JSON
+pi
+```
 
-cat > /tmp/kata-read-roadmap.json <<'JSON'
-{
-  "operation": "artifact.read",
-  "payload": {
-    "scopeType": "project",
-    "scopeId": "PROJECT",
-    "artifactType": "roadmap"
-  }
-}
-JSON
+Run these skills in order:
 
-node apps/cli/dist/loader.js json /tmp/kata-write-roadmap.json
-node apps/cli/dist/loader.js json /tmp/kata-read-roadmap.json
+```text
+/skill:kata-setup
+/skill:kata-new-project
+/skill:kata-new-milestone
+/skill:kata-plan-phase
+/skill:kata-execute-phase
+/skill:kata-verify-work
+/skill:kata-complete-milestone
+/skill:kata-new-milestone
+/skill:kata-plan-phase
 ```
 
 Expected:
 
-- Both return `"ok": true`
-- Read-back includes `Phase1 monorepo validation marker`
+- Each skill is discoverable by Pi.
+- Each skill uses `@kata-sh/cli` for durable backend IO.
+- The workflow does not ask for legacy `.planning` files.
+- The workflow does not reference `kata-tools.cjs`.
+- Discussion is integrated into the active workflow, not routed to a standalone discuss skill.
 
-## Phase 2: Separate UAT Todo App Repo
+### 5. Capture Monorepo Evidence
 
-Purpose: validate real usage on a non-monorepo project with its own GitHub repo.
+Record these URLs or IDs:
 
-### 1) Create local UAT repo
+```text
+GitHub Project URL:
+Project tracking issue URL:
+First milestone issue URL:
+First slice issue URL:
+First task issue URL:
+Plan artifact comment URL:
+Execution summary artifact comment URL:
+UAT or verification artifact comment URL:
+Completed milestone evidence URL:
+Second milestone issue URL:
+Second plan artifact comment URL:
+Pi transcript location:
+```
+
+## Pass 2: UAT Todo App Project
+
+### 1. Create UAT Repository
+
+Run outside the monorepo:
 
 ```bash
 mkdir -p ~/kata-cli-uat-todo
@@ -190,17 +187,12 @@ pnpm install
 git init
 git add .
 git commit -m "chore: initialize uat todo app"
-```
-
-### 2) Create GitHub repo and push
-
-```bash
 gh repo create kata-cli-uat-todo --private --source=. --remote=origin --push
 ```
 
-### 3) Add `.kata/preferences.md` in UAT repo (Projects v2 only)
+### 2. Configure UAT Backend
 
-`~/kata-cli-uat-todo/.kata/preferences.md`
+Create `~/kata-cli-uat-todo/.kata/preferences.md`:
 
 ```yaml
 ---
@@ -214,66 +206,72 @@ github:
 ---
 ```
 
-### 4) Validate CLI from UAT repo
+Use a GitHub Projects v2 project that the token can read and mutate.
 
-From UAT repo, run the monorepo-built CLI directly:
+### 3. Validate CLI From UAT Repo
+
+Run from `~/kata-cli-uat-todo`:
 
 ```bash
 node /Users/gannonhall/.codex/worktrees/edf7/kata-mono/apps/cli/dist/loader.js doctor
 ```
 
-Then run JSON contract checks:
-
-```bash
-cat > /tmp/kata-uat-project-context.json <<'JSON'
-{
-  "operation": "project.getContext",
-  "payload": {}
-}
-JSON
-
-node /Users/gannonhall/.codex/worktrees/edf7/kata-mono/apps/cli/dist/loader.js json /tmp/kata-uat-project-context.json
-```
-
 Expected:
 
-- Doctor does not report `invalid`
-- Context request returns `"ok": true`
+- `backend-config` is `ok`.
+- `github-token` is not `invalid`.
 
-### 5) Validate skills workflows in Pi against UAT repo
+### 4. Run UAT Skill Chain In Pi
 
-Open Pi from UAT repo:
+Run from `~/kata-cli-uat-todo`:
 
 ```bash
-cd ~/kata-cli-uat-todo
 pi
 ```
 
-Run a workflow slice manually:
+Run:
 
 ```text
+/skill:kata-setup
 /skill:kata-new-project
+/skill:kata-new-milestone
 /skill:kata-plan-phase
-/skill:kata-progress
+/skill:kata-execute-phase
 /skill:kata-verify-work
 ```
 
 Expected:
 
-- Skills execute cleanly in a fresh non-monorepo repository
-- Skill instructions and CLI backend behavior stay consistent with Phase 1
+- The todo app repo receives durable GitHub-backed Kata state.
+- The work creates or updates real GitHub issues/project items.
+- Artifacts are written as GitHub issue comments.
+- The workflow can be evaluated independently from the monorepo.
 
-## Test Log Template (fill during execution)
+### 5. Capture UAT Evidence
 
-For each step, capture:
+Record:
 
-- Command/prompt
-- Result (`pass` / `fail`)
-- Evidence (stdout snippet, screenshot, issue link)
-- Follow-up (if fail: bug ticket + owner)
+```text
+UAT repo URL:
+GitHub Project URL:
+Project tracking issue URL:
+Milestone issue URL:
+Slice issue URL:
+Task issue URL:
+Plan artifact comment URL:
+Verification artifact comment URL:
+Pi transcript location:
+```
 
-## Pass Criteria
+## Acceptance Decision
 
-- Phase 1 completes without `invalid` health state and confirms working skills + JSON contract.
-- Phase 2 completes in independent todo-app repo with the same core behavior.
-- Issues discovered are documented with concrete reproduction steps.
+Phase A is accepted only when:
+
+1. `pnpm --dir apps/cli run build` passes.
+2. `node apps/cli/dist/loader.js setup --pi` installs the nine Phase A skills into Pi.
+3. `node apps/cli/dist/loader.js doctor` is not `invalid`.
+4. The monorepo Pi skill chain completes against real GitHub Projects v2.
+5. The UAT todo-app Pi skill chain completes against real GitHub Projects v2.
+6. Evidence URLs are recorded for both passes.
+
+If any step fails, stop and create a focused fix before continuing the acceptance chain.
