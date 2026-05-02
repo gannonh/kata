@@ -446,7 +446,7 @@ SSH remote worker pool for distributing agent sessions across multiple machines.
 
 ## `prompts`
 
-Per-state prompt injection. When configured, Symphony selects a prompt template based on the issue's Linear state instead of using the monolithic markdown body after `---`.
+Per-state prompt injection. When configured, Symphony selects a prompt template based on the issue's current workflow state instead of using the monolithic markdown body after `---`.
 
 <ParamField path="prompts.system" type="string">
   Path to a system-level preamble (agent identity, tool guidance). Injected every turn. Relative to the WORKFLOW.md directory.
