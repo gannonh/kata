@@ -80,7 +80,9 @@ CHECKPOINT: Which approach should I turn into the design?
 
 ## Stage 4: Design Gate
 
-After the user chooses an approach, present the design only. Do not include the implementation plan yet. Use this structure:
+After the user chooses an approach, draft the design only. Do not include the implementation plan yet. Before showing the design to the user, run the Design Self-Review below and fix any issues inline.
+
+Use this structure:
 
 ```markdown
 Issue title: <short imperative title>
@@ -102,7 +104,19 @@ Issue title: <short imperative title>
 ## Verification
 ```
 
-Stop here. Ask whether the design looks right before writing the plan. If the user requests changes, revise the design and ask again. Do not draft the plan until the design is approved.
+### Design Self-Review
+
+Before presenting the design, review it with fresh eyes:
+
+1. **Scope:** Is this truly one isolated issue, not milestone-sized or multi-slice work?
+2. **Clarity:** Can a fresh execution agent understand the problem, outcome, and selected approach without extra conversation?
+3. **Non-goals:** Are exclusions explicit enough to prevent scope creep?
+4. **Verification:** Is there a concrete way to prove the issue is done?
+5. **Consistency:** Do the goals, non-goals, proposed approach, affected surfaces, risks, and verification notes agree with each other?
+
+If you find a problem, fix the design before showing it to the user. Do not mention every self-review thought unless a trade-off needs user input.
+
+Stop here after presenting the reviewed design. Ask whether the design looks right before writing the plan. If the user requests changes, revise the design and run the Design Self-Review again. Do not draft the plan until the design is approved.
 
 Example ending:
 
@@ -112,7 +126,7 @@ CHECKPOINT: Does this design look right? Once you approve it, I’ll write the i
 
 ## Stage 5: Plan Gate
 
-After the user approves the design, write the implementation plan only. The plan should be concrete enough for a fresh execution agent, but still sized for one isolated issue.
+After the user approves the design, write the implementation plan only. The plan should be concrete enough for a fresh execution agent, but still sized for one isolated issue. Before showing the plan to the user, run the Plan Self-Review below and fix any issues inline.
 
 Use this structure:
 
@@ -133,7 +147,21 @@ Use this structure:
 - ...
 ```
 
-Stop here. Ask whether the plan looks right. Do not run `issue.create` until the user approves both the design and the plan.
+### Plan Self-Review
+
+Before presenting the plan, review it against the approved design:
+
+1. **Design coverage:** Does every important design goal, non-goal, affected surface, risk, and verification expectation map to a task, acceptance criterion, or execution note?
+2. **No placeholders:** Remove `TBD`, `TODO`, "handle edge cases", "add appropriate tests", "as needed", and other vague instructions unless they are explicit investigation steps with a concrete output.
+3. **Task size:** Is each task actionable and small enough for one issue-oriented execution pass?
+4. **Ordering:** Do tasks build in a sensible order, with tests or contract checks before implementation where appropriate?
+5. **Verification coverage:** Are exact validation commands or concrete human checks included when known?
+6. **Backend constraint:** Does the plan avoid creating milestones, slices, or tasks?
+7. **Single-issue constraint:** Does the plan still fit as one GitHub backlog issue containing the approved design and this plan?
+
+If you find a problem, fix the plan before showing it to the user. Do not mention every self-review thought unless a trade-off needs user input.
+
+Stop here after presenting the reviewed plan. Ask whether the plan looks right. Do not run `issue.create` until the user approves both the design and the plan.
 
 Example ending:
 

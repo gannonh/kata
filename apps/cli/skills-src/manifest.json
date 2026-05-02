@@ -134,13 +134,15 @@
       "operatingBrief": [
         "When this skill is invoked, help the user turn a standalone request into one durable backlog issue in the configured backend.",
         "",
-        "Borrow the Superpowers-style discipline: explore context, ask focused clarifying questions, propose viable approaches with trade-offs, get approval on one approach, then present a design for approval, then present a plan for approval. Unlike Superpowers, do not create local design or plan markdown files; after both approvals, persist both documents together in one backend issue through `issue.create`.",
+        "Borrow the Superpowers-style discipline: explore context, ask focused clarifying questions, propose viable approaches with trade-offs, get approval on one approach, then present a self-reviewed design for approval, then present a self-reviewed plan for approval. Unlike Superpowers, do not create local design or plan markdown files; after both approvals, persist both documents together in one backend issue through `issue.create`.",
         "",
         "Use this for slice-sized work that should be planned and executed in isolation, not attached to a milestone roadmap. The created issue body must contain both `# Design` and `# Plan` sections, but do not draft those sections in the same turn as the approach options."
       ],
       "successCriteria": [
         "The user chose or approved one approach before seeing the design.",
+        "The design was self-reviewed and fixed before the user saw it.",
         "The user approved the design before the implementation plan was written.",
+        "The plan was self-reviewed against the approved design and fixed before the user saw it.",
         "The user approved the plan before backend issue creation.",
         "The planned work is represented by exactly one backend issue in the GitHub Project v2 backlog.",
         "The issue body contains a concise design section and a concrete implementation plan section.",

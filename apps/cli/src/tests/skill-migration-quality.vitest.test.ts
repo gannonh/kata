@@ -112,6 +112,9 @@ describe("skill migration quality gates", () => {
     expect(planIssueWorkflow).toContain("Do not create milestones, slices, or tasks");
     expect(planIssueWorkflow).toContain("Do not draft the design, do not draft the implementation plan");
     expect(planIssueWorkflow).toContain("Do not include the implementation plan yet");
+    expect(planIssueWorkflow).toContain("### Design Self-Review");
+    expect(planIssueWorkflow).toContain("### Plan Self-Review");
+    expect(planIssueWorkflow).toContain("Does every important design goal");
     expect(planIssueWorkflow).toContain("Do not run `issue.create` until the user approves both the design and the plan");
   });
 });
