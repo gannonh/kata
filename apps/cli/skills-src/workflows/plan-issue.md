@@ -141,7 +141,7 @@ After the user approves the design, do not immediately write the plan. First cho
 
 ### Planning Depth
 
-Classify the issue as one of these depths and show the classification to the user before researching:
+Classify the issue as one of these depths before researching:
 
 - **Fast plan** — one package or surface, obvious implementation path, known tests, no runtime/backend contract change, low regression risk.
 - **Research plan** — multiple files or packages, generated files/docs involved, existing behavior unclear, test strategy needs discovery, or backend/runtime contract details matter.
