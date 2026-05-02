@@ -2,8 +2,8 @@ import { readFile } from "node:fs/promises";
 
 import { createKataDomainApi } from "./domain/service.js";
 import { resolveBackend } from "./backends/resolve-backend.js";
-import { runSetup } from "./commands/setup.js";
-import { runDoctor } from "./commands/doctor.js";
+import { runSetup, type SetupResult } from "./commands/setup.js";
+import { runDoctor, type DoctorReport } from "./commands/doctor.js";
 import { jsonResultIndicatesFailure } from "./commands/json-result.js";
 import { loadDotEnv } from "./env.js";
 import { isSupportedJsonOperation, runJsonCommand } from "./transports/json.js";
@@ -46,6 +46,61 @@ function toJsonRuntimeError(error: unknown): { code: string; message: string } {
   };
 }
 
+function renderDoctorResult(report: DoctorReport): string {
+  const lines = [`Kata doctor: ${report.status}`];
+  for (const check of report.checks) {
+    const icon = check.status === "ok" ? "✓" : check.status === "warn" ? "!" : "✗";
+    const messageLines = check.message.split(/\r?\n/);
+    const [firstMessageLine = "", ...remainingMessageLines] = messageLines;
+    lines.push(`${icon} ${check.name}: ${firstMessageLine}`);
+    for (const line of remainingMessageLines) {
+      lines.push(line.trim().length > 0 ? `  ${line}` : "");
+    }
+    if (check.action) {
+      lines.push("");
+      const actionLines = check.action.split(/\r?\n/);
+      const [firstActionLine = "", ...remainingActionLines] = actionLines;
+      lines.push(`  Next: ${firstActionLine}`);
+      for (const line of remainingActionLines) {
+        lines.push(line.trim().length > 0 ? `    ${line}` : "");
+      }
+    }
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+function renderSetupResult(result: SetupResult): string {
+  if (!result.ok) {
+    return [
+      "Kata setup failed.",
+      `Reason: ${result.error.message}`,
+      result.error.code === "NON_INTERACTIVE_SETUP_REQUIRED"
+        ? "Next: rerun in an interactive terminal, or pass --yes --repo owner/name --project-number <number>."
+        : null,
+      result.error.code === "GITHUB_AUTH_MISSING"
+        ? "Next: run `gh auth login` or set GITHUB_TOKEN/GH_TOKEN, then retry."
+        : null,
+    ].filter(Boolean).join("\n") + "\n";
+  }
+
+  const lines = ["Kata setup complete."];
+  if (result.preferences) {
+    lines.push(
+      result.preferences.status === "created"
+        ? `Created preferences: ${result.preferences.path}`
+        : `Found preferences: ${result.preferences.path}`,
+    );
+  }
+  for (const target of result.targets ?? []) {
+    lines.push(`Installed skills (${target.kind}): ${target.skillsDir}`);
+  }
+  if (result.pi?.settingsPath) {
+    lines.push(`Updated Pi settings: ${result.pi.settingsPath}`);
+  }
+  lines.push("Next: run `kata doctor` to verify setup.");
+  return `${lines.join("\n")}\n`;
+}
+
 let cachedPackageVersion: string | null = null;
 
 async function getPackageVersion(): Promise<string> {
@@ -74,29 +129,52 @@ async function main(argv = process.argv.slice(2)) {
   const packageVersion = await getPackageVersion();
 
   if (command === "setup") {
-    const setupForPi = rest.includes("--pi");
+    const flagSet = new Set(rest.filter((value) => value.startsWith("--")));
+    const valueAfter = (flag: string): string | undefined => {
+      const index = rest.indexOf(flag);
+      if (index < 0) return undefined;
+      const value = rest[index + 1];
+      return value && !value.startsWith("--") ? value : undefined;
+    };
+    const repo = valueAfter("--repo");
+    const [repoOwnerFromRepo, repoNameFromRepo] = repo?.includes("/") ? repo.split("/", 2) : [];
+    const rawProjectNumber = valueAfter("--project-number") ?? valueAfter("--github-project-number");
+    const githubProjectNumber = rawProjectNumber ? Number(rawProjectNumber) : undefined;
     const result = await runSetup({
-      pi: setupForPi,
+      pi: flagSet.has("--pi"),
+      local: flagSet.has("--local"),
+      global: flagSet.has("--global"),
+      cursor: flagSet.has("--cursor"),
+      claude: flagSet.has("--claude"),
+      interactive: !flagSet.has("--yes") && Boolean(process.stdin.isTTY),
+      onboarding: {
+        backend: valueAfter("--backend") === "linear" ? "linear" : "github",
+        repoOwner: valueAfter("--repo-owner") ?? repoOwnerFromRepo,
+        repoName: valueAfter("--repo-name") ?? repoNameFromRepo,
+        githubProjectNumber,
+      },
       env: process.env,
       packageVersion,
     });
 
-    if (!setupForPi && result.ok) {
-      process.stdout.write(`${JSON.stringify({ ok: true, harness: result.harness })}\n`);
-      return;
+    process.stdout.write(flagSet.has("--json") ? `${JSON.stringify(result, null, 2)}\n` : renderSetupResult(result));
+    if (!result.ok) {
+      process.exitCode = 1;
     }
-
-    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     return;
   }
 
   if (command === "doctor") {
+    const flagSet = new Set(rest.filter((value) => value.startsWith("--")));
     const report = await runDoctor({
       cwd: process.cwd(),
       env: process.env,
       packageVersion,
     });
-    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+    process.stdout.write(flagSet.has("--json") ? `${JSON.stringify(report, null, 2)}\n` : renderDoctorResult(report));
+    if (report.status === "invalid") {
+      process.exitCode = 1;
+    }
     return;
   }
 
@@ -189,7 +267,8 @@ async function main(argv = process.argv.slice(2)) {
 
   process.stdout.write([
     "Usage:",
-    "  kata setup",
+    "  kata setup [--local] [--global] [--cursor] [--claude] [--pi] [--json]",
+    "  kata setup --yes --repo owner/name --project-number 12",
     "  kata doctor",
     "  kata call <operation> --input <request.json>",
     "  kata json <request.json>",

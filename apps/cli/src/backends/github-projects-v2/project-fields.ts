@@ -32,6 +32,10 @@ const REQUIRED_TEXT_FIELD_NAMES = [
   KATA_PROJECT_FIELDS.blockedBy,
 ] as const;
 
+function formatBulletList(items: readonly string[]): string {
+  return items.map((item) => `  - ${item}`).join("\n");
+}
+
 export interface ProjectFieldIndex {
   projectId: string;
   fields: Record<string, { id: string; options?: Record<string, string> }>;
@@ -161,33 +165,22 @@ function isProjectFieldNode(node: ProjectFieldNode | null): node is ProjectField
 }
 
 function validateProjectFieldIndex(fields: ProjectFieldIndex["fields"]): void {
-  const missingFields = Object.values(KATA_PROJECT_FIELDS).filter((fieldName) => !fields[fieldName]);
+  const missingFields = REQUIRED_TEXT_FIELD_NAMES.filter((fieldName) => !fields[fieldName]);
 
   if (missingFields.length) {
     throw new KataDomainError(
       "INVALID_CONFIG",
       [
-        `GitHub Projects v2 project is missing required Kata fields: ${missingFields.join(", ")}.`,
+        "GitHub Projects v2 project is missing required Kata fields:",
+        formatBulletList(missingFields),
         "",
-        "Add each missing field in the GitHub Project table view: click the rightmost + field header, choose New field, enter the exact field name, choose Text, and save.",
-        "",
-        `Required Kata text fields: ${REQUIRED_TEXT_FIELD_NAMES.join(", ")}.`,
-        `Required Status options: ${KATA_STATUS_OPTIONS.join(", ")}.`,
+        "Add each missing field in the GitHub Project table view:",
+        "  1. Click the rightmost + field header.",
+        "  2. Choose New field.",
+        "  3. Enter the exact field name.",
+        "  4. Choose Text and save.",
       ].join("\n"),
     );
   }
 
-  const statusOptions = fields[KATA_PROJECT_FIELDS.status]?.options;
-  const missingStatusOptions = KATA_STATUS_OPTIONS.filter((optionName) => !statusOptions?.[optionName]);
-
-  if (missingStatusOptions.length) {
-    throw new KataDomainError(
-      "INVALID_CONFIG",
-      [
-        `GitHub Projects v2 Status field is missing required options: ${missingStatusOptions.join(", ")}.`,
-        "",
-        `Open the Status field settings in the GitHub Project and add these options exactly: ${KATA_STATUS_OPTIONS.join(", ")}.`,
-      ].join("\n"),
-    );
-  }
 }

@@ -683,7 +683,7 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
     const statusField = fieldIndex.fields[KATA_PROJECT_FIELDS.status];
     const optionId = statusField?.options?.[status];
     if (!statusField || !optionId) {
-      throw new KataDomainError("INVALID_CONFIG", `GitHub Projects v2 Status field is missing option: ${status}.`);
+      return;
     }
     await this.client.graphql({
       query: UPDATE_PROJECT_FIELD_MUTATION,

@@ -138,7 +138,7 @@ After execution checks pass, run `git status --short` again:
 
 - If repository files changed for this task, create one atomic commit containing only the task-scoped changes before marking the task done.
 - Use a conventional commit message that includes the task ID, for example `test(T001): verify project initialization artifacts`.
-- If the committed task changes skill sources, generated skill bundles, or skill helper scripts, run the project install command such as `node apps/cli/dist/loader.js setup --pi` after building so the active Pi skill installation matches the committed bundle before the task is marked done.
+- If the committed task changes skill sources, generated skill bundles, or skill helper scripts, run the project install command such as `node apps/cli/dist/loader.js setup` after building so installed Kata skills match the committed bundle before the task is marked done.
 - If no repository files changed, do not create an empty commit; record "no code commit required" with the evidence in the summary artifact.
 - Do not commit Kata backend artifacts directly. Durable Kata artifacts are persisted through `artifact.write`.
 - If unrelated pre-existing user changes are present, leave them unstaged and mention them in the summary.

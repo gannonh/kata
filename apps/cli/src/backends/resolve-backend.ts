@@ -1,5 +1,9 @@
+import { execFile } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { promisify } from "node:util";
+
+const execFileAsync = promisify(execFile);
 
 import type {
   KataArtifact,
@@ -78,6 +82,19 @@ export function resolveGithubToken(env: NodeJS.ProcessEnv = process.env): string
     if (token) return token;
   }
   return null;
+}
+
+export async function resolveGithubTokenForRuntime(env: NodeJS.ProcessEnv = process.env): Promise<string | null> {
+  const envToken = resolveGithubToken(env);
+  if (envToken) return envToken;
+
+  try {
+    const { stdout } = await execFileAsync("gh", ["auth", "token"], { env, timeout: 5000 });
+    const token = stdout.trim();
+    return token.length > 0 ? token : null;
+  } catch {
+    return null;
+  }
 }
 
 const ARTIFACT_SUFFIX_BY_TYPE: Record<KataArtifactType, string> = {
@@ -514,12 +531,12 @@ export async function resolveBackend(input: {
   const config = await readTrackerConfig({ preferencesContent });
 
   if (config.kind === "github") {
-    const token = resolveGithubToken(input.env);
+    const token = await resolveGithubTokenForRuntime(input.env);
     const client = input.githubClients ?? (token ? createGithubClient({ token }) : null);
     if (!client) {
       throw new KataDomainError(
         "UNAUTHORIZED",
-        "GitHub mode requires GITHUB_TOKEN or GH_TOKEN with access to the configured GitHub Project v2.",
+        "GitHub mode requires GITHUB_TOKEN/GH_TOKEN or `gh auth login` access to the configured GitHub Project v2.",
       );
     }
 

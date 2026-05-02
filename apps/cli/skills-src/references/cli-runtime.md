@@ -20,7 +20,7 @@ CLI commands:
 
 ```bash
 node ./scripts/kata-call.mjs doctor
-node ./scripts/kata-call.mjs setup --pi
+node ./scripts/kata-call.mjs setup
 ```
 
 No-input operations:

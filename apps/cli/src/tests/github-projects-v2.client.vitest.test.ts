@@ -146,12 +146,11 @@ describe("loadProjectFieldIndex", () => {
       }),
     ).rejects.toMatchObject({
       code: "INVALID_CONFIG",
-      message:
-        "GitHub Projects v2 project is missing required Kata fields: Kata Type, Kata ID, Kata Parent ID, Kata Artifact Scope, Kata Verification State, Kata Blocking, Kata Blocked By.\n\nAdd each missing field in the GitHub Project table view: click the rightmost + field header, choose New field, enter the exact field name, choose Text, and save.\n\nRequired Kata text fields: Kata Type, Kata ID, Kata Parent ID, Kata Artifact Scope, Kata Verification State, Kata Blocking, Kata Blocked By.\nRequired Status options: Backlog, Todo, In Progress, Agent Review, Human Review, Merging, Done.",
+      message: expect.stringContaining("GitHub Projects v2 project is missing required Kata fields:\n  - Kata Type"),
     });
   });
 
-  it("rejects when required Status options are missing", async () => {
+  it("allows missing Status options", async () => {
     const client = {
       graphql: vi.fn(async () => ({
         organization: {
@@ -167,18 +166,12 @@ describe("loadProjectFieldIndex", () => {
       })),
     } as unknown as Parameters<typeof loadProjectFieldIndex>[0]["client"];
 
-    await expect(
-      loadProjectFieldIndex({
-        client,
-        owner: "kata-sh",
-        repo: "uat",
-        projectNumber: 1,
-      }),
-    ).rejects.toMatchObject({
-      code: "INVALID_CONFIG",
-      message:
-        "GitHub Projects v2 Status field is missing required options: Done.\n\nOpen the Status field settings in the GitHub Project and add these options exactly: Backlog, Todo, In Progress, Agent Review, Human Review, Merging, Done.",
-    });
+    await expect(loadProjectFieldIndex({
+      client,
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 1,
+    })).resolves.toMatchObject({ projectId: "project-id" });
   });
 
   it("returns a field index with Status options for a valid project", async () => {

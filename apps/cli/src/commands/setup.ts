@@ -3,6 +3,11 @@ import { cp, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promi
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { createInterface } from "node:readline/promises";
+
+const execFileAsync = promisify(execFile);
 
 export type HarnessKind = "codex" | "claude" | "cursor" | "pi" | "skills-sh";
 
@@ -25,13 +30,15 @@ export const PI_SETTINGS_FILENAME = "settings.json";
 const PI_REQUIRED_SKILLS_ENTRY = "./skills";
 const KATA_MANAGED_SKILL_MARKER_FILENAME = ".kata-managed-by-kata-cli";
 export type SkillsSourceResolution = "cli-workspace" | "bundled-package";
+export type SetupInstallTargetKind = "local-agents" | "global-agents" | "cursor" | "claude" | "pi";
 
-export interface PiSetupManifest {
+export interface SetupManifest {
   schemaVersion: 1;
   installedBy: "@kata-sh/cli";
   packageVersion: string;
   harnessDetected: HarnessKind;
-  agentDir: string;
+  targetKind: SetupInstallTargetKind;
+  targetDir: string;
   skillsDir: string;
   skillsSourceDir: string;
   firstInstalledAt: string;
@@ -39,11 +46,41 @@ export interface PiSetupManifest {
   managedSkillEntries?: string[];
 }
 
+export interface PiSetupManifest extends SetupManifest {
+  targetKind: "pi";
+  agentDir: string;
+}
+
+export interface SetupInstallTargetResult {
+  kind: SetupInstallTargetKind;
+  targetDir: string;
+  skillsDir: string;
+  skillsSourceDir: string;
+  markerPath: string;
+  markerWritten: true;
+  skillsSourceResolution: SkillsSourceResolution;
+  installedEntries: string[];
+  settingsPath?: string;
+  settingsWritten?: true;
+  agentDirResolution?: PiAgentDirResolution;
+}
+
+export interface SetupPreferencesResult {
+  path: string;
+  status: "existing" | "created";
+  backend?: "github";
+  repoOwner?: string;
+  repoName?: string;
+  githubProjectNumber?: number;
+}
+
 export interface SetupSuccessResult {
   ok: true;
   harness: HarnessKind;
-  mode: "lightweight" | "pi-install";
+  mode: "lightweight" | "setup" | "pi-install";
   message: string;
+  preferences?: SetupPreferencesResult;
+  targets?: SetupInstallTargetResult[];
   pi?: {
     agentDir: string;
     skillsDir: string;
@@ -60,21 +97,34 @@ export interface SetupSuccessResult {
 export interface SetupErrorResult {
   ok: false;
   harness: HarnessKind;
-  mode: "pi-install";
+  mode: "setup" | "pi-install";
   error: {
-    code: "SKILLS_SOURCE_MISSING" | "SETUP_FAILED";
+    code: "SKILLS_SOURCE_MISSING" | "SETUP_FAILED" | "NON_INTERACTIVE_SETUP_REQUIRED" | "GITHUB_AUTH_MISSING" | "INVALID_INPUT";
     message: string;
   };
 }
 
 export type SetupResult = SetupSuccessResult | SetupErrorResult;
 
+export interface SetupOnboardingInput {
+  backend?: "github" | "linear";
+  repoOwner?: string;
+  repoName?: string;
+  githubProjectNumber?: number;
+}
+
 export interface RunSetupInput {
   pi?: boolean;
+  local?: boolean;
+  global?: boolean;
+  cursor?: boolean;
+  claude?: boolean;
   env?: NodeJS.ProcessEnv;
   packageVersion?: string;
   now?: Date;
   cwd?: string;
+  interactive?: boolean;
+  onboarding?: SetupOnboardingInput;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -82,6 +132,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function readEnvPath(value: string | undefined): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function cleanString(value: string | undefined): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
@@ -262,12 +318,12 @@ async function upsertPiSettings(agentDir: string): Promise<{ settingsPath: strin
   return { settingsPath };
 }
 
-async function readExistingManifest(markerPath: string): Promise<PiSetupManifest | null> {
+async function readExistingManifest(markerPath: string): Promise<SetupManifest | null> {
   try {
     const content = await readFile(markerPath, "utf8");
-    const parsed = JSON.parse(content) as Partial<PiSetupManifest>;
+    const parsed = JSON.parse(content) as Partial<SetupManifest>;
     if (parsed && parsed.schemaVersion === 1 && typeof parsed.firstInstalledAt === "string") {
-      return parsed as PiSetupManifest;
+      return parsed as SetupManifest;
     }
   } catch {
     // Ignore malformed/absent manifests; setup will rewrite it.
@@ -275,28 +331,381 @@ async function readExistingManifest(markerPath: string): Promise<PiSetupManifest
   return null;
 }
 
+function parseGithubRemoteUrl(remoteUrl: string): { owner: string; name: string } | null {
+  const trimmed = remoteUrl.trim();
+  const sshMatch = /^git@github\.com:([^/]+)\/(.+?)(?:\.git)?$/.exec(trimmed);
+  if (sshMatch) {
+    return { owner: sshMatch[1]!, name: sshMatch[2]! };
+  }
+
+  const httpsMatch = /^https:\/\/github\.com\/([^/]+)\/(.+?)(?:\.git)?$/.exec(trimmed);
+  if (httpsMatch) {
+    return { owner: httpsMatch[1]!, name: httpsMatch[2]! };
+  }
+
+  return null;
+}
+
+async function inferGithubRepository(cwd: string): Promise<{ owner: string; name: string } | null> {
+  try {
+    const { stdout } = await execFileAsync("git", ["config", "--get", "remote.origin.url"], {
+      cwd,
+      timeout: 3000,
+    });
+    return parseGithubRemoteUrl(stdout);
+  } catch {
+    return null;
+  }
+}
+
+async function hasGithubAuth(env: NodeJS.ProcessEnv): Promise<boolean> {
+  if (cleanString(env.GITHUB_TOKEN) || cleanString(env.GH_TOKEN)) return true;
+  try {
+    await execFileAsync("gh", ["auth", "status"], { env, timeout: 5000 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function renderGithubPreferences(input: {
+  repoOwner: string;
+  repoName: string;
+  githubProjectNumber: number;
+}): string {
+  return `---\nworkflow:\n  mode: github\ngithub:\n  repoOwner: ${input.repoOwner}\n  repoName: ${input.repoName}\n  stateMode: projects_v2\n  githubProjectNumber: ${input.githubProjectNumber}\n---\n`;
+}
+
+async function askRequired(question: (prompt: string) => Promise<string>, label: string, defaultValue?: string): Promise<string> {
+  const suffix = defaultValue ? ` [${defaultValue}]` : "";
+  while (true) {
+    const answer = (await question(`${label}${suffix}: `)).trim();
+    const value = answer.length > 0 ? answer : defaultValue;
+    if (value && value.trim().length > 0) return value.trim();
+  }
+}
+
+async function askPositiveInteger(
+  question: (prompt: string) => Promise<string>,
+  label: string,
+  defaultValue?: number,
+): Promise<number> {
+  const suffix = defaultValue ? ` [${defaultValue}]` : "";
+  while (true) {
+    const answer = (await question(`${label}${suffix}: `)).trim();
+    const value = answer.length > 0 ? Number(answer) : defaultValue;
+    if (typeof value === "number" && Number.isInteger(value) && value > 0) return value;
+  }
+}
+
+function hasCompleteGithubOnboarding(input: SetupOnboardingInput | undefined): input is Required<Pick<SetupOnboardingInput, "repoOwner" | "repoName" | "githubProjectNumber">> & SetupOnboardingInput {
+  return Boolean(
+    cleanString(input?.repoOwner) &&
+    cleanString(input?.repoName) &&
+    typeof input?.githubProjectNumber === "number" &&
+    Number.isInteger(input.githubProjectNumber) &&
+    input.githubProjectNumber > 0,
+  );
+}
+
+async function ensurePreferences(input: {
+  cwd: string;
+  env: NodeJS.ProcessEnv;
+  interactive: boolean;
+  onboarding?: SetupOnboardingInput;
+}): Promise<SetupPreferencesResult> {
+  const preferencesPath = join(input.cwd, ".kata", "preferences.md");
+  if (existsSync(preferencesPath)) {
+    return { path: preferencesPath, status: "existing" };
+  }
+
+  if (!(await hasGithubAuth(input.env))) {
+    throw Object.assign(new Error("GitHub auth is required before creating .kata/preferences.md. Run `gh auth login` or set GITHUB_TOKEN/GH_TOKEN."), {
+      code: "GITHUB_AUTH_MISSING",
+    });
+  }
+
+  let repoOwner = cleanString(input.onboarding?.repoOwner) ?? undefined;
+  let repoName = cleanString(input.onboarding?.repoName) ?? undefined;
+  let githubProjectNumber = input.onboarding?.githubProjectNumber;
+
+  if (!hasCompleteGithubOnboarding(input.onboarding)) {
+    if (!input.interactive) {
+      throw Object.assign(new Error("Interactive setup is required to create .kata/preferences.md. Rerun in a TTY or pass repo owner, repo name, and GitHub Project number."), {
+        code: "NON_INTERACTIVE_SETUP_REQUIRED",
+      });
+    }
+
+    const inferredRepository = await inferGithubRepository(input.cwd);
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    try {
+      const backend = (await rl.question("Kata backend [github]: ")).trim().toLowerCase() || "github";
+      if (backend !== "github") {
+        throw Object.assign(new Error("Only GitHub setup is available in this CLI build. Linear setup is coming later."), {
+          code: "INVALID_INPUT",
+        });
+      }
+
+      repoOwner = await askRequired(rl.question.bind(rl), "GitHub repo owner", repoOwner ?? inferredRepository?.owner);
+      repoName = await askRequired(rl.question.bind(rl), "GitHub repo name", repoName ?? inferredRepository?.name);
+      githubProjectNumber = await askPositiveInteger(rl.question.bind(rl), "GitHub Project number", githubProjectNumber);
+    } finally {
+      rl.close();
+    }
+  }
+
+  const normalizedRepoOwner = cleanString(repoOwner);
+  const normalizedRepoName = cleanString(repoName);
+  if (!normalizedRepoOwner || !normalizedRepoName || !githubProjectNumber || !Number.isInteger(githubProjectNumber) || githubProjectNumber <= 0) {
+    throw Object.assign(new Error("GitHub setup requires repo owner, repo name, and a positive GitHub Project number."), {
+      code: "INVALID_INPUT",
+    });
+  }
+
+  await mkdir(dirname(preferencesPath), { recursive: true });
+  await writeFile(
+    preferencesPath,
+    renderGithubPreferences({
+      repoOwner: normalizedRepoOwner,
+      repoName: normalizedRepoName,
+      githubProjectNumber,
+    }),
+    "utf8",
+  );
+
+  return {
+    path: preferencesPath,
+    status: "created",
+    backend: "github",
+    repoOwner: normalizedRepoOwner,
+    repoName: normalizedRepoName,
+    githubProjectNumber,
+  };
+}
+
+function explicitTargetKinds(input: RunSetupInput): SetupInstallTargetKind[] {
+  const selected: SetupInstallTargetKind[] = [];
+  if (input.local) selected.push("local-agents");
+  if (input.global) selected.push("global-agents");
+  if (input.cursor) selected.push("cursor");
+  if (input.claude) selected.push("claude");
+  if (input.pi) selected.push("pi");
+  return selected;
+}
+
+async function askYesNo(
+  question: (prompt: string) => Promise<string>,
+  label: string,
+  defaultValue: boolean,
+): Promise<boolean> {
+  const suffix = defaultValue ? " [Y/n]" : " [y/N]";
+  while (true) {
+    const answer = (await question(`${label}${suffix}: `)).trim().toLowerCase();
+    if (answer.length === 0) return defaultValue;
+    if (["y", "yes"].includes(answer)) return true;
+    if (["n", "no"].includes(answer)) return false;
+  }
+}
+
+async function askInstallScope(question: (prompt: string) => Promise<string>): Promise<"local" | "global"> {
+  while (true) {
+    const answer = (await question("Install skills globally or local to this project? [local/global] (local): ")).trim().toLowerCase();
+    if (answer.length === 0 || answer === "local" || answer === "l") return "local";
+    if (answer === "global" || answer === "g") return "global";
+  }
+}
+
+async function resolveTargetKinds(input: RunSetupInput & { interactive: boolean }): Promise<SetupInstallTargetKind[]> {
+  const explicit = explicitTargetKinds(input);
+  if (explicit.length > 0 || !input.interactive) {
+    return explicit.length > 0 ? explicit : ["local-agents"];
+  }
+
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    const selected: SetupInstallTargetKind[] = [];
+    const scope = await askInstallScope(rl.question.bind(rl));
+    const agentsPrompt = scope === "global" ? "Install skills to ~/.agents" : "Install skills to .agents";
+
+    if (await askYesNo(rl.question.bind(rl), agentsPrompt, true)) {
+      selected.push(scope === "global" ? "global-agents" : "local-agents");
+    }
+
+    if (scope === "local" && await askYesNo(rl.question.bind(rl), "Install Claude Code skills to .claude/skills", false)) {
+      selected.push("claude");
+    }
+
+    if (scope === "local" && await askYesNo(rl.question.bind(rl), "Install Cursor skills to .cursor/skills", false)) {
+      selected.push("cursor");
+    }
+
+    if (input.pi) {
+      selected.push("pi");
+    }
+    return selected.length > 0 ? selected : [scope === "global" ? "global-agents" : "local-agents"];
+  } finally {
+    rl.close();
+  }
+}
+
+function resolveInstallTarget(input: {
+  kind: SetupInstallTargetKind;
+  cwd: string;
+  env: NodeJS.ProcessEnv;
+}): { kind: SetupInstallTargetKind; targetDir: string; skillsDir: string; agentDirResolution?: PiAgentDirResolution } {
+  if (input.kind === "local-agents") {
+    const targetDir = join(input.cwd, ".agents");
+    return { kind: input.kind, targetDir, skillsDir: join(targetDir, "skills") };
+  }
+
+  if (input.kind === "global-agents") {
+    const targetDir = join(readEnvPath(input.env.HOME) ?? homedir(), ".agents");
+    return { kind: input.kind, targetDir, skillsDir: join(targetDir, "skills") };
+  }
+
+  if (input.kind === "cursor") {
+    const targetDir = join(input.cwd, ".cursor");
+    return { kind: input.kind, targetDir, skillsDir: join(targetDir, "skills") };
+  }
+
+  if (input.kind === "claude") {
+    const targetDir = join(input.cwd, ".claude");
+    return { kind: input.kind, targetDir, skillsDir: join(targetDir, "skills") };
+  }
+
+  const agentDir = resolvePiAgentDir(input.env);
+  return {
+    kind: input.kind,
+    targetDir: agentDir.path,
+    skillsDir: join(agentDir.path, "skills"),
+    agentDirResolution: agentDir.resolution,
+  };
+}
+
+async function upsertGitignoreEntries(cwd: string, entries: string[]): Promise<void> {
+  if (entries.length === 0) return;
+
+  const gitignorePath = join(cwd, ".gitignore");
+  let existing = "";
+  try {
+    existing = await readFile(gitignorePath, "utf8");
+  } catch {
+    // Missing .gitignore; create it below.
+  }
+
+  const existingLines = new Set(existing.split(/\r?\n/).map((line) => line.trim()));
+  const missingEntries = entries.filter((entry) => !existingLines.has(entry));
+  if (missingEntries.length === 0) return;
+
+  const prefix = existing.length > 0 && !existing.endsWith("\n") ? "\n" : "";
+  const needsHeading = !existing.includes("# Kata CLI generated files");
+  const block = [
+    needsHeading ? "# Kata CLI generated files" : null,
+    ...missingEntries,
+  ].filter((line): line is string => Boolean(line)).join("\n");
+
+  await writeFile(gitignorePath, `${existing}${prefix}${block}\n`, "utf8");
+}
+
+function gitignoreEntriesForTargets(targetKinds: SetupInstallTargetKind[]): string[] {
+  const entries: string[] = [];
+  if (targetKinds.includes("local-agents")) {
+    entries.push(".agents/skills/", ".agents/kata-setup-manifest.json");
+  }
+  if (targetKinds.includes("cursor")) {
+    entries.push(".cursor/skills/", ".cursor/kata-setup-manifest.json");
+  }
+  if (targetKinds.includes("claude")) {
+    entries.push(".claude/skills/", ".claude/kata-setup-manifest.json");
+  }
+  return entries;
+}
+
+async function installSkillsToTarget(input: {
+  target: ReturnType<typeof resolveInstallTarget>;
+  source: { path: string; resolution: SkillsSourceResolution };
+  packageVersion: string;
+  harness: HarnessKind;
+  now: string;
+}): Promise<SetupInstallTargetResult> {
+  await mkdir(input.target.targetDir, { recursive: true });
+  const markerPath = join(input.target.targetDir, PI_SETUP_MARKER_FILENAME);
+  const existing = await readExistingManifest(markerPath);
+  const copiedSkillEntries = await copyDirectoryContents(input.source.path, input.target.skillsDir);
+  await markManagedSkillEntries(input.target.skillsDir, copiedSkillEntries);
+  await pruneRemovedManagedSkills(
+    input.target.skillsDir,
+    Array.isArray(existing?.managedSkillEntries) ? existing.managedSkillEntries : [],
+    copiedSkillEntries,
+  );
+
+  const manifest: SetupManifest = {
+    schemaVersion: 1,
+    installedBy: "@kata-sh/cli",
+    packageVersion: input.packageVersion,
+    harnessDetected: input.harness,
+    targetKind: input.target.kind,
+    targetDir: input.target.targetDir,
+    skillsDir: input.target.skillsDir,
+    skillsSourceDir: input.source.path,
+    firstInstalledAt: existing?.firstInstalledAt ?? input.now,
+    installedAt: input.now,
+    managedSkillEntries: copiedSkillEntries,
+  };
+
+  await writeFile(markerPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+
+  const result: SetupInstallTargetResult = {
+    kind: input.target.kind,
+    targetDir: input.target.targetDir,
+    skillsDir: input.target.skillsDir,
+    skillsSourceDir: input.source.path,
+    markerPath,
+    markerWritten: true,
+    skillsSourceResolution: input.source.resolution,
+    installedEntries: copiedSkillEntries,
+  };
+
+  if (input.target.kind === "pi") {
+    const { settingsPath } = await upsertPiSettings(input.target.targetDir);
+    result.settingsPath = settingsPath;
+    result.settingsWritten = true;
+    result.agentDirResolution = input.target.agentDirResolution;
+  }
+
+  return result;
+}
+
+function setupErrorCode(error: unknown): SetupErrorResult["error"]["code"] {
+  if (isRecord(error) && typeof error.code === "string") {
+    const code = error.code;
+    if (
+      code === "SKILLS_SOURCE_MISSING" ||
+      code === "SETUP_FAILED" ||
+      code === "NON_INTERACTIVE_SETUP_REQUIRED" ||
+      code === "GITHUB_AUTH_MISSING" ||
+      code === "INVALID_INPUT"
+    ) {
+      return code;
+    }
+  }
+  return "SETUP_FAILED";
+}
+
 export async function runSetup(input: RunSetupInput = {}): Promise<SetupResult> {
   const env = input.env ?? process.env;
   const harness = detectHarness(env);
   const cwd = input.cwd ?? process.cwd();
-
-  if (!input.pi) {
-    return {
-      ok: true,
-      harness,
-      mode: "lightweight",
-      message: harness === "pi"
-        ? "Pi harness detected. Run `kata setup --pi` to install Kata skills."
-        : "Setup completed (no harness-specific install requested).",
-    };
-  }
+  const interactive = input.interactive ?? Boolean(process.stdin.isTTY);
+  const targetKinds = await resolveTargetKinds({ ...input, interactive });
+  const mode: SetupSuccessResult["mode"] = targetKinds.length === 1 && targetKinds[0] === "pi" ? "pi-install" : "setup";
 
   const source = resolveSkillsSource(cwd);
   if (!source.exists) {
     return {
       ok: false,
       harness,
-      mode: "pi-install",
+      mode: mode === "pi-install" ? "pi-install" : "setup",
       error: {
         code: "SKILLS_SOURCE_MISSING",
         message: source.resolution === "cli-workspace"
@@ -312,7 +721,7 @@ export async function runSetup(input: RunSetupInput = {}): Promise<SetupResult> 
       return {
         ok: false,
         harness,
-        mode: "pi-install",
+        mode: mode === "pi-install" ? "pi-install" : "setup",
         error: {
           code: "SKILLS_SOURCE_MISSING",
           message: `Kata skills path is not a directory: ${source.path}.`,
@@ -320,61 +729,62 @@ export async function runSetup(input: RunSetupInput = {}): Promise<SetupResult> 
       };
     }
 
-    const agentDir = resolvePiAgentDir(env);
-    const skillsDir = join(agentDir.path, "skills");
-    await mkdir(agentDir.path, { recursive: true });
+    const preferences = await ensurePreferences({
+      cwd,
+      env,
+      interactive,
+      onboarding: input.onboarding,
+    });
+    await upsertGitignoreEntries(cwd, gitignoreEntriesForTargets(targetKinds));
 
-    const markerPath = join(agentDir.path, PI_SETUP_MARKER_FILENAME);
     const now = (input.now ?? new Date()).toISOString();
-    const existing = await readExistingManifest(markerPath);
-    const copiedSkillEntries = await copyDirectoryContents(source.path, skillsDir);
-    await markManagedSkillEntries(skillsDir, copiedSkillEntries);
-    await pruneRemovedManagedSkills(
-      skillsDir,
-      Array.isArray(existing?.managedSkillEntries) ? existing.managedSkillEntries : [],
-      copiedSkillEntries,
-    );
-    const { settingsPath } = await upsertPiSettings(agentDir.path);
+    const packageVersion = input.packageVersion ?? "0.0.0-dev";
+    const targets: SetupInstallTargetResult[] = [];
 
-    const manifest: PiSetupManifest = {
-      schemaVersion: 1,
-      installedBy: "@kata-sh/cli",
-      packageVersion: input.packageVersion ?? existing?.packageVersion ?? "0.0.0-dev",
-      harnessDetected: harness,
-      agentDir: agentDir.path,
-      skillsDir,
-      skillsSourceDir: source.path,
-      firstInstalledAt: existing?.firstInstalledAt ?? now,
-      installedAt: now,
-      managedSkillEntries: copiedSkillEntries,
-    };
+    for (const kind of targetKinds) {
+      const target = resolveInstallTarget({ kind, cwd, env });
+      targets.push(await installSkillsToTarget({
+        target,
+        source,
+        packageVersion,
+        harness,
+        now,
+      }));
+    }
 
-    await writeFile(markerPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+    const piTarget = targets.find((target) => target.kind === "pi");
+    const installedLabels = targets.map((target) => target.skillsDir).join(", ");
 
     return {
       ok: true,
       harness,
-      mode: "pi-install",
-      message: "Pi setup completed. Kata skills are installed and ready to use.",
-      pi: {
-        agentDir: agentDir.path,
-        skillsDir,
-        skillsSourceDir: source.path,
-        markerPath,
-        markerWritten: true,
-        settingsPath,
-        settingsWritten: true,
-        agentDirResolution: agentDir.resolution,
-        skillsSourceResolution: source.resolution,
-      },
+      mode,
+      message: `Kata setup completed. Preferences ${preferences.status === "created" ? "created" : "found"}; skills installed to ${installedLabels}.`,
+      preferences,
+      targets,
+      ...(piTarget && piTarget.settingsPath && piTarget.agentDirResolution
+        ? {
+          pi: {
+            agentDir: piTarget.targetDir,
+            skillsDir: piTarget.skillsDir,
+            skillsSourceDir: piTarget.skillsSourceDir,
+            markerPath: piTarget.markerPath,
+            markerWritten: true as const,
+            settingsPath: piTarget.settingsPath,
+            settingsWritten: true as const,
+            agentDirResolution: piTarget.agentDirResolution,
+            skillsSourceResolution: piTarget.skillsSourceResolution,
+          },
+        }
+        : {}),
     };
   } catch (error) {
     return {
       ok: false,
       harness,
-      mode: "pi-install",
+      mode: mode === "pi-install" ? "pi-install" : "setup",
       error: {
-        code: "SETUP_FAILED",
+        code: setupErrorCode(error),
         message: error instanceof Error ? error.message : "Unexpected setup failure",
       },
     };

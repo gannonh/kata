@@ -68,10 +68,10 @@ describe("skill bundle generation", () => {
     expect(workflow).not.toContain("apps/cli/dist/loader.js");
     expect(runtime).toContain("project.getContext");
     expect(runtime).toContain("slice.create");
-    expect(setup).toContain("`setup --pi` installs or refreshes local Pi skills");
+    expect(setup).toContain("`setup` installs or refreshes Kata skills for the selected target");
     expect(setup).toContain("Kata Type");
     expect(setup).toContain("Kata Artifact Scope");
-    expect(setup).toContain("In Progress");
+    expect(setup).not.toContain("The Project `Status` field must include these options");
     expect(helperScript).toContain("loadDotEnv(process.cwd())");
     expect(helperScript).toContain("path.resolve(process.cwd(), process.env.KATA_CLI_ROOT)");
     expect(artifactInputHelperScript).toContain("JSON.stringify(payload, null, 2)");
