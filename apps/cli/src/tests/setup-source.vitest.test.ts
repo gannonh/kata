@@ -74,7 +74,9 @@ describe("skills source resolution", () => {
       expect(existsSync(join(tmp, ".kata", "preferences.md"))).toBe(true);
       expect(readFileSync(join(tmp, ".kata", "preferences.md"), "utf8")).toContain("githubProjectNumber: 12");
       expect(existsSync(join(tmp, ".agents", "skills", "kata-health", "SKILL.md"))).toBe(true);
-      expect(readFileSync(join(tmp, ".gitignore"), "utf8")).toContain(".agents/skills/");
+      const gitignore = readFileSync(join(tmp, ".gitignore"), "utf8");
+      expect(gitignore).toContain(".agents/kata-setup-manifest.json");
+      expect(gitignore).not.toContain(".agents/skills/");
       expect(result.targets?.map((target) => target.kind)).toEqual(["local-agents"]);
     } finally {
       rmSync(tmp, { recursive: true, force: true });
@@ -119,9 +121,12 @@ describe("skills source resolution", () => {
       expect(existsSync(join(tmp, ".claude", "skills", "kata-health", "SKILL.md"))).toBe(true);
       expect(existsSync(join(tmp, "pi-agent", "skills", "kata-health", "SKILL.md"))).toBe(true);
       const gitignore = readFileSync(join(tmp, ".gitignore"), "utf8");
-      expect(gitignore).toContain(".agents/skills/");
-      expect(gitignore).toContain(".cursor/skills/");
-      expect(gitignore).toContain(".claude/skills/");
+      expect(gitignore).toContain(".agents/kata-setup-manifest.json");
+      expect(gitignore).toContain(".cursor/kata-setup-manifest.json");
+      expect(gitignore).toContain(".claude/kata-setup-manifest.json");
+      expect(gitignore).not.toContain(".agents/skills/");
+      expect(gitignore).not.toContain(".cursor/skills/");
+      expect(gitignore).not.toContain(".claude/skills/");
       expect(result.pi?.settingsPath).toBe(join(tmp, "pi-agent", "settings.json"));
     } finally {
       rmSync(tmp, { recursive: true, force: true });

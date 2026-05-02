@@ -610,13 +610,13 @@ async function upsertGitignoreEntries(cwd: string, entries: string[]): Promise<v
 function gitignoreEntriesForTargets(targetKinds: SetupInstallTargetKind[]): string[] {
   const entries: string[] = [];
   if (targetKinds.includes("local-agents")) {
-    entries.push(".agents/skills/", ".agents/kata-setup-manifest.json");
+    entries.push(".agents/kata-setup-manifest.json");
   }
   if (targetKinds.includes("cursor")) {
-    entries.push(".cursor/skills/", ".cursor/kata-setup-manifest.json");
+    entries.push(".cursor/kata-setup-manifest.json");
   }
   if (targetKinds.includes("claude")) {
-    entries.push(".claude/skills/", ".claude/kata-setup-manifest.json");
+    entries.push(".claude/kata-setup-manifest.json");
   }
   return entries;
 }
