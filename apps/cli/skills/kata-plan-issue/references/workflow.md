@@ -116,19 +116,79 @@ Before presenting the design, review it with fresh eyes:
 4. **Verification:** Is there a concrete way to prove the issue is done?
 5. **Consistency:** Do the goals, non-goals, proposed approach, affected surfaces, risks, and verification notes agree with each other?
 
-If you find a problem, fix the design before showing it to the user. Do not mention every self-review thought unless a trade-off needs user input.
+If you find a problem, fix the design before showing it to the user.
 
-Stop here after presenting the reviewed design. Ask whether the design looks right before writing the plan. If the user requests changes, revise the design and run the Design Self-Review again. Do not draft the plan until the design is approved.
+Always include a brief visible self-review summary before the checkpoint. Keep it concise and factual; do not reveal hidden chain-of-thought. Use pass/fix language:
+
+```text
+Design self-review
+- Scope: Pass — one isolated issue, not milestone-sized.
+- Clarity: Pass — a fresh execution agent can understand the outcome.
+- Non-goals: Pass — excluded scope is explicit.
+- Verification: Pass — completion can be proven.
+- Consistency: Pass — goals, approach, risks, and verification align.
+```
+
+Stop here after presenting the reviewed design and visible self-review summary. Ask whether the design looks right before planning. If the user requests changes, revise the design and run the Design Self-Review again. Do not draft the plan until the design is approved.
 
 Example ending:
 
 ```text
-CHECKPOINT: Does this design look right? Once you approve it, I’ll write the implementation plan for the same issue.
+CHECKPOINT: Does this design look right? Once you approve it, I’ll do the planning research needed for this issue and then write the implementation plan.
 ```
 
-## Stage 5: Plan Gate
+## Stage 5: Planning Depth and Research
 
-After the user approves the design, write the implementation plan only. The plan should be concrete enough for a fresh execution agent, but still sized for one isolated issue. Before showing the plan to the user, run the Plan Self-Review below and fix any issues inline.
+After the user approves the design, do not immediately write the plan. First choose the planning depth and do the amount of planning work the issue deserves.
+
+### Planning Depth
+
+Classify the issue as one of these depths and show the classification to the user before researching:
+
+- **Fast plan** — one package or surface, obvious implementation path, known tests, no runtime/backend contract change, low regression risk.
+- **Research plan** — multiple files or packages, generated files/docs involved, existing behavior unclear, test strategy needs discovery, or backend/runtime contract details matter.
+- **Reviewed plan** — cross-system or cross-language changes, scheduling/execution semantics, backend contract changes, high regression risk, release/security/CI impact, or user explicitly requests extra rigor.
+
+Default to the higher depth when uncertain. For reviewed plans, use a reviewer subagent if the harness provides subagents. If subagents are not available, perform the reviewer pass inline and say so.
+
+Example classification:
+
+```text
+Planning depth: Reviewed
+Reason: This crosses CLI TypeScript, GitHub Projects v2 backend fields, Rust Symphony dispatch, and Linear regression behavior.
+```
+
+### Planning Research
+
+Before drafting the plan, inspect the concrete implementation surfaces required by the chosen depth.
+
+For **Fast plan**, inspect only the obvious files/tests needed to avoid guessing.
+
+For **Research plan**, inspect at least:
+
+- relevant source files and existing patterns,
+- nearby tests and validation commands,
+- generated-source or bundle implications,
+- runtime/backend contract shape.
+
+For **Reviewed plan**, do the Research plan work, then draft a candidate plan and run a reviewer pass before showing the plan to the user. The reviewer should look for missing files, incorrect assumptions, missing tests, sequencing problems, scope creep, and contract violations. Incorporate valid feedback before presenting the plan.
+
+Always present a concise planning research summary before the plan:
+
+```text
+Planning research summary
+- CLI dependency metadata currently lives/should live in ...
+- Existing tests for this behavior are in ...
+- Generated files affected: ...
+- Validation commands: ...
+- Reviewer pass: completed; incorporated N changes.  # for Reviewed depth
+```
+
+If research reveals the approved design is wrong or too broad, stop and return to the Design Gate with the new information instead of forcing a plan.
+
+## Stage 6: Plan Gate
+
+After planning research is complete, write the implementation plan only. The plan should be concrete enough for a fresh execution agent, but still sized for one isolated issue. Before showing the plan to the user, run the Plan Self-Review below and fix any issues inline.
 
 Use this structure:
 
@@ -161,9 +221,21 @@ Before presenting the plan, review it against the approved design:
 6. **Backend constraint:** Does the plan avoid creating milestones, slices, or tasks?
 7. **Single-issue constraint:** Does the plan still fit as one GitHub backlog issue containing the approved design and this plan?
 
-If you find a problem, fix the plan before showing it to the user. Do not mention every self-review thought unless a trade-off needs user input.
+If you find a problem, fix the plan before showing it to the user.
 
-Stop here after presenting the reviewed plan. Ask whether the plan looks right. Do not run `issue.create` until the user approves both the design and the plan.
+Always include a brief visible self-review summary before the checkpoint. Keep it concise and factual; do not reveal hidden chain-of-thought. Use pass/fix language:
+
+```text
+Plan self-review
+- Design coverage: Pass — every design goal maps to tasks or acceptance criteria.
+- No placeholders: Pass — no TBD/TODO/vague edge-case instructions remain.
+- Task size/order: Pass — tasks are actionable and sequenced.
+- Verification coverage: Pass — concrete validation commands/checks are included.
+- Backend constraint: Pass — this planning issue creates no milestones, slices, or tasks.
+- Single-issue constraint: Pass — this remains one backlog issue.
+```
+
+Stop here after presenting the planning research summary, reviewed plan, and visible self-review summary. Ask whether the plan looks right. Do not run `issue.create` until the user approves both the design and the plan.
 
 Example ending:
 
@@ -171,7 +243,7 @@ Example ending:
 CHECKPOINT: Does this plan look right? Once you approve it, I’ll create one Kata backlog issue containing the design and plan.
 ```
 
-## Stage 6: Create One Backend Issue
+## Stage 7: Create One Backend Issue
 
 Create `/tmp/kata-issue-create.json` with exactly one issue payload. The `design` field should contain the approved design document. The `plan` field should contain the approved implementation plan. Do not create separate issues for design and plan.
 

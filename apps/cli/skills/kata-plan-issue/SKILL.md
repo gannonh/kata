@@ -9,16 +9,19 @@ description: "Use when the user wants to plan a one-off Kata issue, standalone i
 
 When this skill is invoked, help the user turn a standalone request into one durable backlog issue in the configured backend.
 
-Borrow the Superpowers-style discipline: explore context, ask focused clarifying questions, propose viable approaches with trade-offs, get approval on one approach, then present a self-reviewed design for approval, then present a self-reviewed plan for approval. Unlike Superpowers, do not create local design or plan markdown files; after both approvals, persist both documents together in one backend issue through `issue.create`.
+Borrow the Superpowers-style discipline: explore context, ask focused clarifying questions, propose viable approaches with trade-offs, get approval on one approach, present a visible self-reviewed design for approval, then do planning-depth classification and planning research before presenting a visible self-reviewed implementation plan. Unlike Superpowers, do not create local design or plan markdown files; after both approvals, persist both documents together in one backend issue through `issue.create`.
 
-Use this for slice-sized work that should be planned and executed in isolation, not attached to a milestone roadmap. The created issue body must contain both `# Design` and `# Plan` sections, but do not draft those sections in the same turn as the approach options.
+Use this for slice-sized work that should be planned and executed in isolation, not attached to a milestone roadmap. The created issue body must contain both `# Design` and `# Plan` sections, but do not draft those sections in the same turn as the approach options and do not write the plan immediately after design approval without planning research.
 
 ## Success Criteria
 
 - The user chose or approved one approach before seeing the design.
-- The design was self-reviewed and fixed before the user saw it.
-- The user approved the design before the implementation plan was written.
-- The plan was self-reviewed against the approved design and fixed before the user saw it.
+- The design was self-reviewed and a concise self-review summary was shown before design approval.
+- The user approved the design before implementation planning began.
+- The plan depth was classified as fast, research, or reviewed before plan drafting.
+- Planning research was performed at the selected depth before the plan was shown.
+- Reviewed-depth plans used a reviewer subagent when available, or an explicit inline reviewer pass otherwise.
+- The plan was self-reviewed against the approved design and a concise self-review summary was shown before plan approval.
 - The user approved the plan before backend issue creation.
 - The planned work is represented by exactly one backend issue in the GitHub Project v2 backlog.
 - The issue body contains a concise design section and a concrete implementation plan section.
@@ -32,6 +35,7 @@ Use this for slice-sized work that should be planned and executed in isolation, 
 - Do not write durable local design or plan files for this workflow.
 - Do not execute implementation work in this skill.
 - Do not one-shot the full design and plan in the same response as the approach options.
+- Do not write the plan immediately after design approval without classifying planning depth and doing planning research.
 - Do not ask to create the backend issue until the user has approved both the design and the plan.
 - Do not use this for roadmap-sized or multi-slice work; route that to kata-new-milestone or kata-plan-phase.
 
