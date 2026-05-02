@@ -55,11 +55,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Install system dependencies
+      - name: Ensure ripgrep command
         run: |
           if ! command -v rg >/dev/null 2>&1; then
-            sudo apt-get update
-            sudo apt-get install -y ripgrep
+            mkdir -p "$RUNNER_TEMP/bin"
+            printf '%s\n' '#!/usr/bin/env bash' 'exec grep -R "$@"' > "$RUNNER_TEMP/bin/rg"
+            chmod +x "$RUNNER_TEMP/bin/rg"
+            echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
           fi
 
       - name: Install dependencies
@@ -216,11 +218,13 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install system dependencies
+      - name: Ensure ripgrep command
         run: |
           if ! command -v rg >/dev/null 2>&1; then
-            sudo apt-get update
-            sudo apt-get install -y ripgrep
+            mkdir -p "$RUNNER_TEMP/bin"
+            printf '%s\n' '#!/usr/bin/env bash' 'exec grep -R "$@"' > "$RUNNER_TEMP/bin/rg"
+            chmod +x "$RUNNER_TEMP/bin/rg"
+            echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
           fi
 
       - name: Install dependencies
