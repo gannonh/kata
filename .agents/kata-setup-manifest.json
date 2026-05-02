@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "installedBy": "@kata-sh/cli",
+  "packageVersion": "0.16.0-alpha.0",
+  "harnessDetected": "skills-sh",
+  "targetKind": "local-agents",
+  "targetDir": "/Volumes/EVO/kata/kata-mono/.agents",
+  "skillsDir": "/Volumes/EVO/kata/kata-mono/.agents/skills",
+  "skillsSourceDir": "/Volumes/EVO/kata/kata-mono/apps/cli/skills",
+  "firstInstalledAt": "2026-05-02T21:55:03.892Z",
+  "installedAt": "2026-05-02T21:55:03.892Z",
+  "managedSkillEntries": [
+    "kata-complete-milestone",
+    "kata-execute-phase",
+    "kata-health",
+    "kata-new-milestone",
+    "kata-new-project",
+    "kata-plan-issue",
+    "kata-plan-phase",
+    "kata-progress",
+    "kata-setup",
+    "kata-verify-work"
+  ]
+}
