@@ -2,7 +2,7 @@
 
 # Plan Issue Workflow
 
-Use this workflow to plan a one-off, slice-sized unit of work in isolation and persist it as one backend issue in the GitHub Project v2 backlog. This workflow borrows Superpowers-style design and planning discipline, but Kata stores the result through the backend contract instead of local markdown files.
+Use this workflow to plan a one-off, slice-sized unit of work in isolation and persist it as one backend issue in the GitHub Project v2 backlog. This workflow uses a staged design-and-planning process, but Kata stores the approved design and plan through the backend contract instead of local markdown files.
 
 ## Required Reading
 
