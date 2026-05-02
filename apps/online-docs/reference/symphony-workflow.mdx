@@ -302,10 +302,10 @@ Docker mode requires `workspace.repo` to be a remote URL. Local paths are not ac
 
 Configuration for the Kata CLI backend (`agent.name: pi`). The legacy `agent.backend` key is also accepted as a compatibility alias.
 
-<ParamField path="kata_agent.command" type="string | string[]" default='["kata"]'>
-  Kata CLI executable and base arguments. Symphony appends `--mode rpc --cwd <workspace>` automatically.
+<ParamField path="kata_agent.command" type="string | string[]" default='["pi", "--mode", "rpc"]'>
+  Pi executable and base arguments. Symphony runs the command with the workspace as the process working directory.
 
-  Example: `kata` or `npx @kata-sh/cli`.
+  Example: `pi --mode rpc` or `"/tmp/pi runtime/pi" --mode rpc`.
 </ParamField>
 
 <ParamField path="kata_agent.model" type="string">
@@ -491,7 +491,7 @@ The markdown body (or prompt files) is rendered as a Liquid template. These vari
 | `{{ issue.identifier }}` | Issue identifier, e.g. `KAT-42` |
 | `{{ issue.title }}` | Issue title |
 | `{{ issue.state }}` | Current Linear state name |
-| `{{ issue.labels }}` | Comma-separated label names |
+| `{{ issue.labels }}` | Array of label names. Use a Liquid loop or `join` filter if you need a comma-separated string. |
 | `{{ issue.description }}` | Issue description body |
 | `{{ issue.url }}` | URL to the issue in Linear |
 | `{{ issue.children_count }}` | Number of child (sub) issues |

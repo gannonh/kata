@@ -607,7 +607,7 @@ fn test_without_logs_root_suppresses_stdout_logs_when_tui_defaults_on() {
 
 #[test]
 #[serial]
-fn test_without_logs_root_no_tui_streams_stdout_logs() {
+fn test_without_logs_root_no_tui_reports_startup_failure() {
     let run_dir = tempfile::tempdir().expect("temp dir should be created");
     let missing_workflow = run_dir.path().join("missing-workflow.md");
 
