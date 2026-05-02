@@ -56,7 +56,11 @@ jobs:
             ${{ runner.os }}-cargo-
 
       - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y ripgrep
+        run: |
+          if ! command -v rg >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y ripgrep
+          fi
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -213,7 +217,11 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y ripgrep
+        run: |
+          if ! command -v rg >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y ripgrep
+          fi
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
