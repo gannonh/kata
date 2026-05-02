@@ -502,6 +502,67 @@ async fn tool_error_notification_maps_to_tool_error_envelope() {
 }
 
 #[tokio::test]
+async fn tool_error_envelope_includes_last_tool_command_preview() {
+    let hub = EventHub::new(64);
+    let mut receiver = hub.subscribe();
+
+    let mut orchestrator = Orchestrator::new(Default::default(), "prompt".to_string());
+    orchestrator.attach_event_hub(hub.clone());
+    orchestrator.state_mut().running.insert(
+        "issue-921".to_string(),
+        RunAttempt {
+            issue_id: "issue-921".to_string(),
+            issue_identifier: "KAT-921".to_string(),
+            issue_title: Some("Worker issue".to_string()),
+            attempt: Some(1),
+            workspace_path: "/tmp/symphony/issue-921".to_string(),
+            started_at: Utc::now(),
+            status: "running".to_string(),
+            error: None,
+            worker_host: None,
+            model: None,
+            linear_state: Some("In Progress".to_string()),
+            issue_url: None,
+        },
+    );
+
+    orchestrator.ingest_agent_event(
+        "issue-921",
+        &AgentEvent::Notification {
+            timestamp: Utc::now(),
+            codex_app_server_pid: None,
+            message:
+                r#"tool_start: bash {"command":"cd apps/symphony && pnpm test","timeout":1200}"#
+                    .to_string(),
+        },
+    );
+    let _ = receiver.recv().await.expect("tool_start envelope");
+
+    orchestrator.ingest_agent_event(
+        "issue-921",
+        &AgentEvent::Notification {
+            timestamp: Utc::now(),
+            codex_app_server_pid: None,
+            message: "tool_error: bash".to_string(),
+        },
+    );
+
+    let envelope = tokio::time::timeout(Duration::from_secs(1), receiver.recv())
+        .await
+        .expect("tool_error envelope should arrive")
+        .expect("tool_error envelope should decode");
+
+    assert_eq!(envelope.event, "tool_error");
+    assert_eq!(
+        envelope
+            .payload
+            .get("error_preview")
+            .and_then(|value| value.as_str()),
+        Some("bash: cd apps/symphony && pnpm test")
+    );
+}
+
+#[tokio::test]
 async fn slow_consumer_backpressure() {
     let config = EventStreamConfig {
         heartbeat_interval: Duration::from_secs(30),

@@ -425,6 +425,8 @@ struct WorkerTaskConfig {
     /// Directory containing the WORKFLOW.md file. Used to locate sibling
     /// `skills/` directory for workspace injection.
     workflow_dir: PathBuf,
+    /// Canonical WORKFLOW.md path passed to worker helper scripts.
+    workflow_path: PathBuf,
 }
 
 enum IssueCheck {
@@ -966,13 +968,22 @@ async fn run_worker_task(
 
                 let loop_result = match config.agent_backend {
                     AgentBackend::Codex => {
-                        let mut session = app_server::start_session(
+                        let symphony_bin = std::env::current_exe()
+                            .ok()
+                            .map(|path| path.to_string_lossy().to_string());
+                        let symphony_workflow_path =
+                            config.workflow_path.to_string_lossy().to_string();
+                        let mut session = app_server::start_session_with_helper_env(
                             &config.codex,
                             issue,
                             Path::new("/workspace"),
                             Path::new("/"),
                             None,
                             Some(&container_id),
+                            app_server::HelperEnv {
+                                symphony_bin: symphony_bin.as_deref(),
+                                symphony_workflow_path: Some(symphony_workflow_path.as_str()),
+                            },
                         )
                         .await
                         .map_err(|err| format!("codex session start failed: {err}"))?;
@@ -1035,6 +1046,12 @@ async fn run_worker_task(
                                 escalation_tx: config.escalation_tx.clone(),
                                 escalation_timeout_ms: config.escalation_timeout_ms,
                                 model_override: config.pi_model_override.clone(),
+                                symphony_bin: std::env::current_exe()
+                                    .ok()
+                                    .map(|path| path.to_string_lossy().to_string()),
+                                symphony_workflow_path: Some(
+                                    config.workflow_path.to_string_lossy().to_string(),
+                                ),
                             },
                         )
                         .await
@@ -1042,7 +1059,7 @@ async fn run_worker_task(
 
                         tracing::info!(
                             event = "worker_started",
-                            backend = "kata-cli",
+                            backend = "pi",
                             issue_id = %issue.id,
                             issue_identifier = %issue.identifier,
                             session_id = %session.session_id,
@@ -1155,12 +1172,12 @@ async fn run_worker_task(
                     issue_id = %issue_id,
                     issue_identifier = %issue.identifier,
                     error = %err,
-                    "workspace creation failed"
+                    "workspace preparation failed"
                 );
                 return WorkerResult {
                     issue_id,
                     completion: WorkerCompletion::Failed {
-                        error: format!("workspace creation failed: {err}"),
+                        error: format!("workspace preparation failed: {err}"),
                     },
                     events: vec![],
                     metrics: None,
@@ -1170,16 +1187,16 @@ async fn run_worker_task(
 
     let workspace_path = Path::new(&workspace_info.path);
 
-    // 1b. Inject skills from workflow dir into workspace (convention: skills/ sibling to WORKFLOW.md)
-    if workspace_info.created_now {
-        if let Err(err) = workspace::inject_skills(&config.workflow_dir, workspace_path) {
-            tracing::warn!(
-                event = "worker_skill_injection_failed",
-                issue_id = %issue_id,
-                error = %err,
-                "skill injection failed (non-fatal)"
-            );
-        }
+    // 1b. Refresh Symphony runtime skills on every run. They are ephemeral
+    // worker scaffolding, ignored in the target repo, and must track the
+    // workflow directory rather than becoming worker-owned source files.
+    if let Err(err) = workspace::inject_skills(&config.workflow_dir, workspace_path) {
+        tracing::warn!(
+            event = "worker_skill_injection_failed",
+            issue_id = %issue_id,
+            error = %err,
+            "skill injection failed (non-fatal)"
+        );
     }
 
     // 2. Before-run hook
@@ -1231,13 +1248,21 @@ async fn run_worker_task(
     let workspace_root = Path::new(&config.workspace.root);
     let loop_result = match config.agent_backend {
         AgentBackend::Codex => {
-            let mut session = match app_server::start_session(
+            let symphony_bin = std::env::current_exe()
+                .ok()
+                .map(|path| path.to_string_lossy().to_string());
+            let symphony_workflow_path = config.workflow_path.to_string_lossy().to_string();
+            let mut session = match app_server::start_session_with_helper_env(
                 &config.codex,
                 issue,
                 workspace_path,
                 workspace_root,
                 worker_host,
                 None,
+                app_server::HelperEnv {
+                    symphony_bin: symphony_bin.as_deref(),
+                    symphony_workflow_path: Some(symphony_workflow_path.as_str()),
+                },
             )
             .await
             {
@@ -1316,6 +1341,12 @@ async fn run_worker_task(
                     escalation_tx: config.escalation_tx.clone(),
                     escalation_timeout_ms: config.escalation_timeout_ms,
                     model_override: config.pi_model_override.clone(),
+                    symphony_bin: std::env::current_exe()
+                        .ok()
+                        .map(|path| path.to_string_lossy().to_string()),
+                    symphony_workflow_path: Some(
+                        config.workflow_path.to_string_lossy().to_string(),
+                    ),
                 },
             )
             .await
@@ -1342,7 +1373,7 @@ async fn run_worker_task(
 
             tracing::info!(
                 event = "worker_started",
-                backend = "kata-cli",
+                backend = "pi",
                 issue_id = %issue_id,
                 issue_identifier = %issue.identifier,
                 session_id = %session.session_id,
@@ -1623,6 +1654,11 @@ pub enum RuntimeEvent {
         issue_id: String,
         issue_identifier: String,
         session_id: Option<String>,
+        error: String,
+    },
+    WorkspacePrepareFailed {
+        issue_id: String,
+        issue_identifier: String,
         error: String,
     },
     WorkerStalled {
@@ -2376,6 +2412,11 @@ impl Orchestrator {
                 .as_ref()
                 .map(|ws| ws.workflow_dir().to_path_buf())
                 .unwrap_or_else(|| PathBuf::from("."));
+            let workflow_path = self
+                .workflow_store
+                .as_ref()
+                .map(|ws| ws.workflow_path().to_path_buf())
+                .unwrap_or_else(|| workflow_dir.join("WORKFLOW.md"));
 
             let task_config = WorkerTaskConfig {
                 workspace: self.config.workspace.clone(),
@@ -2392,6 +2433,7 @@ impl Orchestrator {
                 escalation_tx: self.worker_escalation_tx.clone(),
                 escalation_timeout_ms: self.config.agent.escalation_timeout_ms,
                 workflow_dir,
+                workflow_path,
             };
 
             tokio::spawn(async move {
@@ -2826,8 +2868,13 @@ impl Orchestrator {
                 continue;
             };
 
+            let Some(workspace_path) = self.prepare_workspace_for_active_dispatch(&refreshed_issue)
+            else {
+                continue;
+            };
+
             let Some(refreshed_issue) =
-                self.enforce_agent_review_pr_gate(&refreshed_issue, None, port)?
+                self.enforce_agent_review_pr_gate(&refreshed_issue, &workspace_path, port)?
             else {
                 continue;
             };
@@ -2858,7 +2905,12 @@ impl Orchestrator {
                 WorkerHostSelection::Remote(ref host) => Some(host.clone()),
                 _ => None,
             };
-            self.dispatch_issue(&refreshed_issue, None, None, worker_host.clone());
+            self.dispatch_issue(
+                &refreshed_issue,
+                None,
+                Some(workspace_path),
+                worker_host.clone(),
+            );
             dispatched_issue_ids.push(refreshed_issue.id.clone());
             dispatched_issues.push(DispatchedIssue {
                 issue: refreshed_issue,
@@ -3494,21 +3546,21 @@ impl Orchestrator {
 
         let workspace_path = Path::new(&workspace_info.path);
 
-        // Inject skills from workflow dir into workspace
-        if workspace_info.created_now {
-            let workflow_dir = self
-                .workflow_store
-                .as_ref()
-                .map(|ws| ws.workflow_dir().to_path_buf())
-                .unwrap_or_else(|| PathBuf::from("."));
-            if let Err(err) = workspace::inject_skills(&workflow_dir, workspace_path) {
-                tracing::warn!(
-                    event = "worker_skill_injection_failed",
-                    issue_id = %issue.id,
-                    error = %err,
-                    "skill injection failed (non-fatal)"
-                );
-            }
+        // Refresh Symphony runtime skills on every run. They are ephemeral
+        // worker scaffolding, ignored in the target repo, and must track the
+        // workflow directory rather than becoming worker-owned source files.
+        let workflow_dir = self
+            .workflow_store
+            .as_ref()
+            .map(|ws| ws.workflow_dir().to_path_buf())
+            .unwrap_or_else(|| PathBuf::from("."));
+        if let Err(err) = workspace::inject_skills(&workflow_dir, workspace_path) {
+            tracing::warn!(
+                event = "worker_skill_injection_failed",
+                issue_id = %issue.id,
+                error = %err,
+                "skill injection failed (non-fatal)"
+            );
         }
 
         if let Err(err) =
@@ -3549,13 +3601,24 @@ impl Orchestrator {
 
         let loop_result = match self.config.agent_backend {
             AgentBackend::Codex => {
-                let mut session = match app_server::start_session(
+                let symphony_bin = std::env::current_exe()
+                    .ok()
+                    .map(|path| path.to_string_lossy().to_string());
+                let symphony_workflow_path = self
+                    .workflow_store
+                    .as_ref()
+                    .map(|store| store.workflow_path().to_string_lossy().to_string());
+                let mut session = match app_server::start_session_with_helper_env(
                     &self.config.codex,
                     issue,
                     workspace_path,
                     Path::new(&self.config.workspace.root),
                     prior_worker_host.as_deref(),
                     None,
+                    app_server::HelperEnv {
+                        symphony_bin: symphony_bin.as_deref(),
+                        symphony_workflow_path: symphony_workflow_path.as_deref(),
+                    },
                 )
                 .await
                 {
@@ -3616,6 +3679,13 @@ impl Orchestrator {
                         escalation_tx: self.worker_escalation_tx.clone(),
                         escalation_timeout_ms: self.config.agent.escalation_timeout_ms,
                         model_override: pi_model_override.clone(),
+                        symphony_bin: std::env::current_exe()
+                            .ok()
+                            .map(|path| path.to_string_lossy().to_string()),
+                        symphony_workflow_path: self
+                            .workflow_store
+                            .as_ref()
+                            .map(|store| store.workflow_path().to_string_lossy().to_string()),
                     },
                 )
                 .await
@@ -3635,7 +3705,7 @@ impl Orchestrator {
 
                 tracing::info!(
                     event = "worker_started",
-                    backend = "kata-cli",
+                    backend = "pi",
                     issue_id = %issue.id,
                     issue_identifier = %issue.identifier,
                     session_id = %session.session_id,
@@ -3912,6 +3982,20 @@ impl Orchestrator {
                     "error": truncate_for_display(error, 160),
                 }),
             ),
+            RuntimeEvent::WorkspacePrepareFailed {
+                issue_id,
+                issue_identifier,
+                error,
+            } => (
+                EventKind::Runtime,
+                EventSeverity::Error,
+                Some(issue_identifier.clone()),
+                "workspace_prepare_failed",
+                serde_json::json!({
+                    "issue_id": issue_id,
+                    "error": truncate_for_display(error, 240),
+                }),
+            ),
             RuntimeEvent::WorkerStalled {
                 issue_id,
                 issue_identifier,
@@ -3996,7 +4080,7 @@ impl Orchestrator {
         let kind = event_kind_for_agent_event(event);
         let severity = event_severity_for_agent_event(event);
 
-        let payload = match event {
+        let mut payload = match event {
             AgentEvent::EscalationCreated { request, .. } => serde_json::json!({
                 "request_id": request.id.clone(),
                 "issue_id": request.issue_id.clone(),
@@ -4039,6 +4123,16 @@ impl Orchestrator {
                 "session_id": self.worker_session_ids.get(issue_id).cloned(),
             }),
         };
+        if matches!(severity, EventSeverity::Error) {
+            if let Some(error_preview) = self.error_preview_for_agent_event(issue_id, event) {
+                if let Some(object) = payload.as_object_mut() {
+                    object.insert(
+                        "error_preview".to_string(),
+                        serde_json::Value::String(error_preview),
+                    );
+                }
+            }
+        }
 
         hub.publish_with_timestamp(
             kind,
@@ -4048,6 +4142,56 @@ impl Orchestrator {
             payload,
             event_timestamp(event),
         );
+    }
+
+    fn error_preview_for_agent_event(&self, issue_id: &str, event: &AgentEvent) -> Option<String> {
+        match event {
+            AgentEvent::Notification { message, .. } => {
+                let notification = parse_tool_notification(message)?;
+                if notification.event_name != "tool_error" {
+                    return None;
+                }
+
+                let tool_name = notification.tool_name.as_deref().unwrap_or("tool");
+                let last_tool = self
+                    .running_session_stats
+                    .get(issue_id)
+                    .and_then(|stats| stats.current_tool_name.as_deref());
+                let args_preview = self
+                    .running_session_stats
+                    .get(issue_id)
+                    .and_then(|stats| stats.current_tool_args_preview.as_deref())
+                    .or(notification.args_preview.as_deref());
+
+                match args_preview {
+                    Some(preview)
+                        if last_tool.is_none()
+                            || last_tool == Some(tool_name)
+                            || notification.tool_name.is_none() =>
+                    {
+                        Some(format!("{tool_name}: {preview}"))
+                    }
+                    _ => notification.summary.clone(),
+                }
+            }
+            AgentEvent::ToolCallFailed { tool_name, .. } => tool_name
+                .as_deref()
+                .map(|tool_name| format!("tool failed: {tool_name}")),
+            AgentEvent::TurnFailed { error, .. }
+            | AgentEvent::StartupFailed { error, .. }
+            | AgentEvent::TurnEndedWithError { error, .. } => Some(error.clone()),
+            AgentEvent::Malformed {
+                parse_error,
+                raw_text,
+                ..
+            } => Some(format!(
+                "malformed event: {parse_error}; {}",
+                normalize_whitespace(raw_text)
+            )),
+            _ => None,
+        }
+        .map(|preview| truncate_for_display(&preview, 160))
+        .filter(|preview| !preview.is_empty())
     }
 
     fn issue_identifier_from_issue_id(&self, issue_id: &str) -> Option<String> {
@@ -4640,6 +4784,13 @@ impl Orchestrator {
             return false;
         }
 
+        // Kata-shaped work uses parent slice issues to coordinate child tasks.
+        // Child task issues must not be dispatched as independent workers; the
+        // parent slice worker is responsible for executing them in order.
+        if issue.parent_identifier.is_some() {
+            return false;
+        }
+
         // Skip issues carrying any of the configured exclude_labels.
         if self.issue_has_excluded_label(issue) {
             return false;
@@ -4659,19 +4810,42 @@ impl Orchestrator {
         true
     }
 
+    fn prepare_workspace_for_active_dispatch(&mut self, issue: &Issue) -> Option<String> {
+        match workspace::ensure_workspace_for_issue(
+            issue,
+            &self.config.workspace,
+            &self.config.hooks,
+        ) {
+            Ok(info) => Some(info.path),
+            Err(err) => {
+                let error = err.to_string();
+                tracing::warn!(
+                    event = "dispatch_workspace_prepare_failed",
+                    issue_id = %issue.id,
+                    issue_identifier = %issue.identifier,
+                    error = %error,
+                    "workspace preparation failed before dispatch; skipping issue for this tick"
+                );
+                self.emit_runtime_event(RuntimeEvent::WorkspacePrepareFailed {
+                    issue_id: issue.id.clone(),
+                    issue_identifier: issue.identifier.clone(),
+                    error,
+                });
+                None
+            }
+        }
+    }
+
     fn enforce_agent_review_pr_gate(
         &mut self,
         issue: &Issue,
-        workspace_path_hint: Option<&str>,
+        workspace_path: &str,
         port: &mut dyn OrchestratorPort,
     ) -> Result<Option<Issue>> {
         if normalize_issue_state(&issue.state) != "agent review" {
             return Ok(Some(issue.clone()));
         }
 
-        let workspace_path = workspace_path_hint
-            .map(str::to_string)
-            .unwrap_or_else(|| self.default_workspace_path_for_issue(issue));
         let pr_status = check_agent_review_pr_status(
             Path::new(&workspace_path),
             self.config.workspace.base_branch.as_deref(),
@@ -5020,23 +5194,25 @@ impl Orchestrator {
                 continue;
             };
 
-            let Some(issue) = (match self.enforce_agent_review_pr_gate(
-                &issue,
-                retry.workspace_path.as_deref(),
-                port,
-            ) {
-                Ok(issue) => issue,
-                Err(err) => {
-                    tracing::warn!(
-                        event = "agent_review_gate_failed_retry",
-                        issue_id = %issue.id,
-                        issue_identifier = %issue.identifier,
-                        error = %err,
-                        "agent review PR gate failed during retry dispatch"
-                    );
-                    continue;
-                }
-            }) else {
+            let Some(workspace_path) = self.prepare_workspace_for_active_dispatch(&issue) else {
+                continue;
+            };
+
+            let Some(issue) =
+                (match self.enforce_agent_review_pr_gate(&issue, &workspace_path, port) {
+                    Ok(issue) => issue,
+                    Err(err) => {
+                        tracing::warn!(
+                            event = "agent_review_gate_failed_retry",
+                            issue_id = %issue.id,
+                            issue_identifier = %issue.identifier,
+                            error = %err,
+                            "agent review PR gate failed during retry dispatch"
+                        );
+                        continue;
+                    }
+                })
+            else {
                 continue;
             };
 
@@ -5079,7 +5255,7 @@ impl Orchestrator {
                 self.dispatch_issue(
                     &issue,
                     Some(retry.attempt),
-                    retry.workspace_path.clone(),
+                    Some(workspace_path),
                     worker_host.clone(),
                 );
                 dispatched.push(DispatchedIssue {

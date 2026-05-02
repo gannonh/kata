@@ -66,13 +66,13 @@ Inputs include `.ts`, `.tsx`, `.js`, `.cjs`, `.mjs`, `.rs`, and `Cargo.toml` so 
 
 Turborepo orchestrates package-local test scripts via `turbo run test`.
 
-| Package  | Runner / command | Notes |
-| -------- | ---------------- | ----- |
+| Package  | Runner / command | Notes                                                                                 |
+| -------- | ---------------- | ------------------------------------------------------------------------------------- |
 | cli      | `pnpm test`      | Vitest suite for CLI domain, backend adapters, skill bundle, and golden-path contract |
-| desktop  | `pnpm run test`  | Vitest with coverage; Playwright lives under `pnpm run test:e2e` |
-| context  | Vitest           | Uses better-sqlite3 (native Node addon; Node runtime required) |
-| symphony | `cargo test`     | Rust binary |
-| shared   | Vitest           | Package-local `vitest run` |
+| desktop  | `pnpm run test`  | Vitest with coverage; Playwright lives under `pnpm run test:e2e`                      |
+| context  | Vitest           | Uses better-sqlite3 (native Node addon; Node runtime required)                        |
+| symphony | `cargo test`     | Rust binary                                                                           |
+| shared   | Vitest           | Package-local `vitest run`                                                            |
 
 Pre-push hook runs `pnpm exec turbo run lint typecheck test --affected` — same command as CI.
 
@@ -100,11 +100,7 @@ Release workflows trigger on push to main with path filters:
 ## Hard Rules
 
 - Never use `git push --no-verify` or `git commit --no-verify`. If the gate fails, fix the problem.
-- `git push --force` to main/master is forbidden.
-
-## Git Workflow
-
-This repo uses git worktrees. Each worktree has a standby branch (e.g. `wt-cli-standby`) that tracks `main`. Standby branches are not working branches. Never commit to them.
+- `git push --force` to main/master is forbidden( unless explcitly approved by an admin).
 
 ## Gotchas
 
@@ -114,3 +110,17 @@ This repo uses git worktrees. Each worktree has a standby branch (e.g. `wt-cli-s
 - Electron main process runs in Node.js, not Bun. Don't use `import.meta.dir` or Bun-only APIs in code that runs there.
 - Asset paths: use `getBundledAssetsDir(subfolder)` for bundled assets, never `import.meta.dir`.
 - Desktop debug logs: check Electron main process console or `apps/desktop/src/main/logger.ts`.
+
+## Agent skills
+
+### Issue tracker
+
+Issues are tracked in GitHub Issues for `gannonh/kata`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Triage uses the default five-label vocabulary. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Domain docs use a single-context layout. See `docs/agents/domain.md`.

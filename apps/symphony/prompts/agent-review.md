@@ -5,12 +5,12 @@ The issue is in `Agent Review`. A PR must exist for the current branch. Read all
 ## Canonical tracker contract (required)
 
 Use only backend-neutral tracker/artifact/state operations:
-- `kata_get_issue`
-- `kata_list_tasks`
-- `kata_read_document`
-- `kata_upsert_comment`
-- `kata_update_issue_state`
-- `kata_create_followup_issue`
+- `.agents/skills/sym-state/scripts/sym-call issue.get --input /tmp/input.json`
+- `.agents/skills/sym-state/scripts/sym-call issue.list-children --input /tmp/input.json`
+- `.agents/skills/sym-state/scripts/sym-call document.read --input /tmp/input.json`
+- `.agents/skills/sym-state/scripts/sym-call comment.upsert --input /tmp/input.json`
+- `.agents/skills/sym-state/scripts/sym-call issue.update-state --input /tmp/input.json`
+- `.agents/skills/sym-state/scripts/sym-call issue.create-followup --input /tmp/input.json`
 
 ## PR existence preflight (required)
 
@@ -21,7 +21,7 @@ Before review work:
 If no open PR exists for current branch:
 1. Upsert blocker in `## Agent Workpad`.
 2. Move issue back to execution with:
-   `kata_update_issue_state({ issueId: "<current-issue-id>", phase: "in-progress" })`.
+   `issue.update-state` using `{"issueId":"<current-issue-id>","state":"In Progress"}`.
 3. Stop.
 
 ## Feedback sweep protocol
@@ -50,10 +50,10 @@ If CI fails, run `.agents/skills/sym-fix-ci/SKILL.md`, fix failures, and re-run 
 
 ## State transitions
 
-- If all actionable feedback is resolved and checks are green:
-  `kata_update_issue_state({ issueId: "<current-issue-id>", phase: "human-review" })`.
+- If all actionable feedback is resolved and checks are green, move the issue to `Human Review`:
+  `issue.update-state` using `{"issueId":"<current-issue-id>","state":"Human Review"}`.
 - If PR missing for current branch: upsert blocker in workpad and move back to execution:
-  `kata_update_issue_state({ issueId: "<current-issue-id>", phase: "in-progress" })`.
+  `issue.update-state` using `{"issueId":"<current-issue-id>","state":"In Progress"}`.
 
 ## Guardrails
 

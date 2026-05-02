@@ -12,9 +12,10 @@ use serde_yaml::{Mapping, Value};
 
 use crate::domain::{
     canonical_kata_phase_name, AgentBackend, AgentConfig, ApiKey, CodexConfig, DockerCodexAuth,
-    DockerConfig, HooksConfig, NotificationsConfig, PiAgentConfig, PollingConfig, PromptsConfig,
-    ServerConfig, ServiceConfig, SharedContextConfig, SlackConfig, SupervisorConfig, TrackerConfig,
-    WorkerConfig, WorkspaceConfig, WorkspaceIsolation, WorkspaceRepoStrategy, KATA_PHASE_NAMES,
+    DockerConfig, GithubProjectOwnerType, HooksConfig, NotificationsConfig, PiAgentConfig,
+    PollingConfig, PromptsConfig, ServerConfig, ServiceConfig, SharedContextConfig, SlackConfig,
+    SupervisorConfig, TrackerConfig, WorkerConfig, WorkspaceConfig, WorkspaceIsolation,
+    WorkspaceRepoStrategy, KATA_PHASE_NAMES,
 };
 use crate::error::{Result, SymphonyError};
 use crate::github::auth::{github_token_missing_message, resolve_github_token};
@@ -27,7 +28,8 @@ use crate::repo_url::repo_is_remote;
 /// - coerce all mapping keys to `Value::String`
 /// - drop mapping entries whose value is `Value::Null`
 ///
-/// Note: only `pi_agent.model_by_state` and `pi_agent.model_by_label`
+/// Note: only `agent.model_by_state` / legacy `pi_agent.model_by_state` and
+/// `agent.model_by_label` / legacy `pi_agent.model_by_label`
 /// map keys are lowercased (done separately in `from_workflow`).
 /// General key casing is NOT changed.
 fn normalize_keys(val: Value) -> Value {
@@ -193,6 +195,7 @@ struct RawTrackerConfig {
     workspace_slug: Option<String>,
     repo_owner: Option<String>,
     repo_name: Option<String>,
+    github_project_owner_type: Option<String>,
     github_project_number: Option<u64>,
     label_prefix: Option<String>,
     assignee: Option<String>,
@@ -242,11 +245,24 @@ struct RawWorkerConfig {
 #[derive(Deserialize, Default)]
 #[serde(default)]
 struct RawAgentConfig {
+    name: Option<String>,
+    command: Option<Value>,
     backend: Option<String>,
     max_concurrent_agents: Option<u32>,
     max_turns: Option<u32>,
     max_retry_backoff_ms: Option<u64>,
     escalation_timeout_ms: Option<u64>,
+    model: Option<String>,
+    model_by_label: Option<HashMap<String, String>>,
+    model_by_state: Option<HashMap<String, String>>,
+    no_session: Option<bool>,
+    append_system_prompt: Option<String>,
+    read_timeout_ms: Option<u64>,
+    stall_timeout_ms: Option<u64>,
+    approval_policy: Option<Value>,
+    thread_sandbox: Option<String>,
+    turn_sandbox_policy: Option<Value>,
+    turn_timeout_ms: Option<u64>,
 }
 
 #[derive(Deserialize, Default)]
@@ -372,7 +388,7 @@ fn yaml_to_json(val: Value) -> Result<serde_json::Value> {
     })
 }
 
-// ── codex.command parsing ─────────────────────────────────────────────────────
+// ── command parsing ───────────────────────────────────────────────────────────
 
 /// Parse `codex.command` from YAML.
 ///
@@ -402,6 +418,29 @@ fn parse_codex_command(val: Value) -> Result<Vec<String>> {
     parse_command_value(val, "codex.command")
 }
 
+fn parse_agent_command(val: Value) -> Result<Vec<String>> {
+    match val {
+        Value::String(s) if s.is_empty() => Ok(vec![]),
+        Value::String(s) => shell_words::split(&s).map_err(|err| {
+            SymphonyError::InvalidWorkflowConfig(format!(
+                "agent.command string could not be parsed: {err}"
+            ))
+        }),
+        Value::Sequence(seq) => seq
+            .into_iter()
+            .map(|v| match v {
+                Value::String(s) => Ok(s),
+                other => Err(SymphonyError::InvalidWorkflowConfig(format!(
+                    "agent.command list elements must be strings, got: {other:?}"
+                ))),
+            })
+            .collect(),
+        other => Err(SymphonyError::InvalidWorkflowConfig(format!(
+            "agent.command must be a string or list of strings, got: {other:?}"
+        ))),
+    }
+}
+
 fn parse_pi_agent_command(val: Value) -> Result<Vec<String>> {
     match val {
         Value::String(s) if s.is_empty() => Ok(vec![]),
@@ -421,6 +460,16 @@ fn parse_pi_agent_command(val: Value) -> Result<Vec<String>> {
             .collect(),
         other => Err(SymphonyError::InvalidWorkflowConfig(format!(
             "pi_agent.command must be a string or list of strings, got: {other:?}"
+        ))),
+    }
+}
+
+fn parse_agent_name(value: &str) -> Result<AgentBackend> {
+    match value {
+        "pi" => Ok(AgentBackend::KataCli),
+        "codex" => Ok(AgentBackend::Codex),
+        other => Err(SymphonyError::InvalidWorkflowConfig(format!(
+            "agent.name must be 'pi' or 'codex' (got '{other}')"
         ))),
     }
 }
@@ -586,19 +635,22 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         .map(|v| resolve_env(&v))
         .map(|v| v.trim().to_string())
         .filter(|v| !v.is_empty());
+    let github_project_owner_type = raw_tracker
+        .github_project_owner_type
+        .map(|v| resolve_env(&v))
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty())
+        .map(|v| {
+            GithubProjectOwnerType::parse(&v).ok_or_else(|| {
+                SymphonyError::InvalidWorkflowConfig(
+                    "tracker.github_project_owner_type must be either 'user' or 'org'".to_string(),
+                )
+            })
+        })
+        .transpose()?;
     let github_project_number = raw_tracker.github_project_number;
 
-    let label_prefix = match tracker_kind.as_deref() {
-        Some("github") => Some(
-            raw_tracker
-                .label_prefix
-                .map(|v| resolve_env(&v))
-                .map(|v| v.trim().trim_end_matches(':').to_string())
-                .filter(|v| !v.is_empty())
-                .unwrap_or_else(|| "symphony".to_string()),
-        ),
-        _ => None,
-    };
+    let label_prefix = None;
 
     if matches!(tracker_kind.as_deref(), Some("github")) {
         if repo_owner.is_none() {
@@ -609,6 +661,16 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         if repo_name.is_none() {
             return Err(SymphonyError::InvalidWorkflowConfig(
                 "tracker.repo_name is required when tracker.kind is github".to_string(),
+            ));
+        }
+        if github_project_owner_type.is_none() {
+            return Err(SymphonyError::InvalidWorkflowConfig(
+                "tracker.github_project_owner_type is required when tracker.kind is github; use 'user' or 'org'".to_string(),
+            ));
+        }
+        if github_project_number.is_none() {
+            return Err(SymphonyError::InvalidWorkflowConfig(
+                "tracker.github_project_number is required when tracker.kind is github; GitHub Projects v2 is the only supported GitHub state backend".to_string(),
             ));
         }
     }
@@ -627,6 +689,7 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         workspace_slug,
         repo_owner,
         repo_name,
+        github_project_owner_type,
         github_project_number,
         label_prefix,
         assignee,
@@ -858,10 +921,26 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
             .unwrap_or(defaults.agent.escalation_timeout_ms),
     };
 
+    // ── Agent runtime selection ─────────────────────────────────────────
+    //
+    // Public config uses `agent.name` plus `agent.command`.  The older
+    // `agent.backend` key is accepted as a compatibility alias for the key
+    // name only; values still must be real worker runtime names.
+    let agent_backend = raw_agent
+        .name
+        .as_ref()
+        .or(raw_agent.backend.as_ref())
+        .map(|value| resolve_env(value))
+        .map(|value| value.trim().to_ascii_lowercase())
+        .filter(|value| !value.is_empty())
+        .map(|value| parse_agent_name(&value))
+        .transpose()?
+        .unwrap_or(defaults.agent_backend);
+
     // ── CodexConfig ───────────────────────────────────────────────────────
     // approval_policy: propagate conversion errors rather than silently
     // substituting null, which could bypass configured safety constraints.
-    let approval_policy = match raw_codex.approval_policy {
+    let approval_policy = match raw_agent.approval_policy.or(raw_codex.approval_policy) {
         Some(v) => yaml_to_json(v)?,
         None => defaults.codex.approval_policy.clone(),
     };
@@ -869,29 +948,42 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
     // turn_sandbox_policy: also propagate errors (Option<Result> → Result<Option>).
     let turn_sandbox_policy: Option<serde_json::Value> = raw_codex
         .turn_sandbox_policy
+        .or(raw_agent.turn_sandbox_policy)
         .map(yaml_to_json)
         .transpose()?;
 
-    let command = match raw_codex.command {
-        Some(val) => parse_codex_command(val)?,
-        None => defaults.codex.command.clone(),
+    let codex_command = if agent_backend == AgentBackend::Codex {
+        match raw_agent.command.clone().or(raw_codex.command) {
+            Some(val) if raw_agent.command.is_some() => parse_agent_command(val)?,
+            Some(val) => parse_codex_command(val)?,
+            None => defaults.codex.command.clone(),
+        }
+    } else {
+        match raw_codex.command {
+            Some(val) => parse_codex_command(val)?,
+            None => defaults.codex.command.clone(),
+        }
     };
 
     let codex = CodexConfig {
-        command,
+        command: codex_command,
         approval_policy,
-        thread_sandbox: raw_codex
+        thread_sandbox: raw_agent
             .thread_sandbox
+            .or(raw_codex.thread_sandbox)
             .unwrap_or(defaults.codex.thread_sandbox.clone()),
         turn_sandbox_policy,
-        turn_timeout_ms: raw_codex
+        turn_timeout_ms: raw_agent
             .turn_timeout_ms
+            .or(raw_codex.turn_timeout_ms)
             .unwrap_or(defaults.codex.turn_timeout_ms),
-        read_timeout_ms: raw_codex
+        read_timeout_ms: raw_agent
             .read_timeout_ms
+            .or(raw_codex.read_timeout_ms)
             .unwrap_or(defaults.codex.read_timeout_ms),
-        stall_timeout_ms: raw_codex
+        stall_timeout_ms: raw_agent
             .stall_timeout_ms
+            .or(raw_codex.stall_timeout_ms)
             .unwrap_or(defaults.codex.stall_timeout_ms),
     };
 
@@ -902,17 +994,27 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         raw_pi_agent
     };
 
-    let pi_agent_command = match selected_agent_config.command {
-        Some(val) => parse_pi_agent_command(val)?,
-        None => defaults.pi_agent.command.clone(),
+    let pi_agent_command = if agent_backend == AgentBackend::KataCli {
+        match raw_agent.command.clone().or(selected_agent_config.command) {
+            Some(val) if raw_agent.command.is_some() => parse_agent_command(val)?,
+            Some(val) => parse_pi_agent_command(val)?,
+            None => defaults.pi_agent.command.clone(),
+        }
+    } else {
+        match selected_agent_config.command {
+            Some(val) => parse_pi_agent_command(val)?,
+            None => defaults.pi_agent.command.clone(),
+        }
     };
-    let pi_agent_model = selected_agent_config
+    let pi_agent_model = raw_agent
         .model
+        .or(selected_agent_config.model)
         .map(|value| resolve_env(&value))
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty());
-    let pi_agent_model_by_label: HashMap<String, String> = selected_agent_config
+    let pi_agent_model_by_label: HashMap<String, String> = raw_agent
         .model_by_label
+        .or(selected_agent_config.model_by_label)
         .unwrap_or_default()
         .into_iter()
         .map(|(label, model)| {
@@ -923,8 +1025,9 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         })
         .filter(|(label, model)| !label.is_empty() && !model.is_empty())
         .collect();
-    let pi_agent_model_by_state: HashMap<String, String> = selected_agent_config
+    let pi_agent_model_by_state: HashMap<String, String> = raw_agent
         .model_by_state
+        .or(selected_agent_config.model_by_state)
         .unwrap_or_default()
         .into_iter()
         .map(|(state, model)| {
@@ -935,8 +1038,9 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         })
         .filter(|(state, model)| !state.is_empty() && !model.is_empty())
         .collect();
-    let pi_agent_append_system_prompt = selected_agent_config
+    let pi_agent_append_system_prompt = raw_agent
         .append_system_prompt
+        .or(selected_agent_config.append_system_prompt)
         .map(|value| resolve_env(&value))
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty());
@@ -945,33 +1049,20 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         model: pi_agent_model,
         model_by_label: pi_agent_model_by_label,
         model_by_state: pi_agent_model_by_state,
-        no_session: selected_agent_config
+        no_session: raw_agent
             .no_session
+            .or(selected_agent_config.no_session)
             .unwrap_or(defaults.pi_agent.no_session),
         append_system_prompt: pi_agent_append_system_prompt,
-        read_timeout_ms: selected_agent_config
+        read_timeout_ms: raw_agent
             .read_timeout_ms
+            .or(selected_agent_config.read_timeout_ms)
             .unwrap_or(defaults.pi_agent.read_timeout_ms),
-        stall_timeout_ms: selected_agent_config
+        stall_timeout_ms: raw_agent
             .stall_timeout_ms
+            .or(selected_agent_config.stall_timeout_ms)
             .unwrap_or(defaults.pi_agent.stall_timeout_ms),
     };
-
-    // ── AgentBackend ───────────────────────────────────────────────────
-    let agent_backend = raw_agent
-        .backend
-        .map(|value| resolve_env(&value))
-        .map(|value| value.trim().to_ascii_lowercase())
-        .filter(|value| !value.is_empty())
-        .map(|value| match value.as_str() {
-            "kata-cli" | "kata" | "pi" => Ok(AgentBackend::KataCli),
-            "codex" => Ok(AgentBackend::Codex),
-            other => Err(SymphonyError::InvalidWorkflowConfig(format!(
-                "agent.backend must be 'kata-cli' (aliases: 'kata', 'pi') or 'codex' (got '{other}')"
-            ))),
-        })
-        .transpose()?
-        .unwrap_or(defaults.agent_backend);
 
     // ── HooksConfig ───────────────────────────────────────────────────────
     let hooks = HooksConfig {
@@ -1215,6 +1306,18 @@ pub fn validate(config: &ServiceConfig) -> Result<ValidatedServiceConfig> {
             ));
         }
 
+        if config.tracker.github_project_owner_type.is_none() {
+            return Err(SymphonyError::InvalidWorkflowConfig(
+                "tracker.github_project_owner_type is required when tracker.kind is github; use 'user' or 'org'".to_string(),
+            ));
+        }
+
+        if config.tracker.github_project_number.is_none() {
+            return Err(SymphonyError::InvalidWorkflowConfig(
+                "tracker.github_project_number is required when tracker.kind is github; GitHub Projects v2 is the only supported GitHub state backend".to_string(),
+            ));
+        }
+
         if let Some(project_number) = config.tracker.github_project_number {
             tracing::debug!(project_number, "Projects v2 mode active");
         }
@@ -1223,12 +1326,12 @@ pub fn validate(config: &ServiceConfig) -> Result<ValidatedServiceConfig> {
     // backend-specific command requirements
     if config.agent_backend == AgentBackend::Codex && config.codex.command.is_empty() {
         return Err(SymphonyError::InvalidWorkflowConfig(
-            "codex.command is required when agent.backend is 'codex'".to_string(),
+            "agent.command is required when agent.name is 'codex'".to_string(),
         ));
     }
     if config.agent_backend == AgentBackend::KataCli && config.pi_agent.command.is_empty() {
         return Err(SymphonyError::InvalidWorkflowConfig(
-            "kata_agent.command (alias: pi_agent.command) is required when agent.backend is 'kata-cli' (aliases: 'kata', 'pi')".to_string(),
+            "agent.command is required when agent.name is 'pi'".to_string(),
         ));
     }
 
@@ -1374,13 +1477,13 @@ mod tests {
     #[test]
     fn parse_pi_agent_command_string_shell_words() {
         let val = Value::String(
-            "\"/tmp/kata cli/kata\" --mode rpc --model \"anthropic/claude sonnet\"".to_string(),
+            "\"/tmp/pi runtime/pi\" --mode rpc --model \"anthropic/claude sonnet\"".to_string(),
         );
         let cmd = parse_pi_agent_command(val).unwrap();
         assert_eq!(
             cmd,
             vec![
-                "/tmp/kata cli/kata",
+                "/tmp/pi runtime/pi",
                 "--mode",
                 "rpc",
                 "--model",
@@ -1391,9 +1494,9 @@ mod tests {
 
     #[test]
     fn parse_pi_agent_command_list() {
-        let val: Value = serde_yaml::from_str("- kata\n- --mode\n- rpc").unwrap();
+        let val: Value = serde_yaml::from_str("- pi\n- --mode\n- rpc").unwrap();
         let cmd = parse_pi_agent_command(val).unwrap();
-        assert_eq!(cmd, vec!["kata", "--mode", "rpc"]);
+        assert_eq!(cmd, vec!["pi", "--mode", "rpc"]);
     }
 
     #[test]

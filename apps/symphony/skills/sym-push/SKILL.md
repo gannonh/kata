@@ -12,6 +12,7 @@ description:
 
 - `gh` CLI is installed and available in `PATH`.
 - `gh auth status` succeeds for GitHub operations in this repo.
+- When this is part of a Kata-backed Symphony run, use the active Kata backend-state workflow for durable Kata task/slice/artifact state. PR creation/update remains a GitHub operation handled through `gh`.
 
 ## Goals
 
@@ -31,8 +32,8 @@ description:
    - Use a workflow-configured base branch when task context provides one (for
      Symphony workflows, this is `workspace.base_branch`).
    - Default to `main` when no explicit base branch is available.
-3. Run local validation (`cd apps/symphony && cargo test && cargo clippy -- -D warnings`) before pushing.
-4. Push branch to `origin` using explicit first-push upstream setup:
+3. Run local validation (`cd apps/symphony && cargo test && cargo clippy -- -D warnings`) before pushing. Use project-appropriate checks when the touched files are outside Symphony.
+4. Push branch to `origin` using explicit first-push upstream setup. Never use `git push --no-verify`:
    - first publish of a new branch: `git push -u origin "$branch"`
    - subsequent updates: `git push`
    Use whatever remote URL is already configured.
@@ -62,7 +63,7 @@ description:
      scope (all intended work on the branch), not just the newest commits,
      including newly added work, removed work, or changed approach.
    - Do not reuse stale description text from earlier iterations.
-8. Reply with the PR URL from `gh pr view`.
+8. Reply with the PR URL from `gh pr view`, and if a Kata task is active, record PR URL/evidence in the appropriate Kata summary or verification artifact through the active workflow.
 
 ## Commands
 
@@ -70,9 +71,6 @@ description:
 # Identify branch
 branch=$(git branch --show-current)
 base_branch="${BASE_BRANCH:-main}"
-
-# Minimal validation gate
-cd apps/symphony && cargo test && cargo clippy -- -D warnings
 
 # Initial push for a new branch: set upstream explicitly.
 git push -u origin "$branch"

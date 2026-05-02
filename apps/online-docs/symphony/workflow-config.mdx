@@ -1,12 +1,38 @@
 ---
 title: "WORKFLOW.md configuration"
-description: "Complete reference for the WORKFLOW.md file format: YAML front-matter configuration and Liquid prompt templates."
+description: "Current Symphony WORKFLOW.md configuration shape and runtime semantics."
 ---
 
-All Symphony configuration lives in a single `WORKFLOW.md` file. The file has two parts:
+`WORKFLOW.md` has one runtime-significant part:
 
-- **YAML front-matter** (between `---` delimiters) — orchestrator configuration
-- **Markdown body** — a [Liquid](https://shopify.github.io/liquid/) template rendered as the agent prompt
+1. YAML front-matter: orchestrator configuration
+2. Markdown body: ignored by Symphony at runtime
+
+Use `prompts` in front-matter (and referenced prompt files) for runtime prompt content.
+
+Symphony hot-reloads config updates from this file.
+
+## Current worker/helper flow
+
+Use `agent.*` to define how Symphony launches the worker runtime, and use the sym-state helper for tracker/document/state operations from worker prompts/skills:
+
+```bash
+.agents/skills/sym-state/scripts/sym-call <operation> --input /tmp/input.json
+```
+
+Operations:
+
+- `issue.get`
+- `issue.list-children`
+- `document.read`
+- `document.write`
+- `comment.upsert`
+- `issue.update-state`
+- `issue.create-followup`
+
+Legacy `kata_*` worker tool names are not the current contract.
+
+## Minimal config
 
 ```yaml
 ---
@@ -74,7 +100,7 @@ Configures the issue tracker connection.
 </ParamField>
 
 <ParamField path="tracker.api_key" type="string" required>
-  API key for the tracker. Supports `$VAR` env indirection. For Linear, use a personal API key. For GitHub, use a personal access token (`GH_TOKEN` or `GITHUB_TOKEN`). Never logged.
+  API key for the tracker. Supports `$VAR` env indirection. For Linear, use a personal API key. For GitHub, use a classic personal access token (`GH_TOKEN` or `GITHUB_TOKEN`) with `repo`, `project`, `workflow`, `read:org`, and `read:discussion` scopes. Never logged.
 </ParamField>
 
 <ParamField path="tracker.project_slug" type="string">
@@ -113,12 +139,12 @@ Configures the issue tracker connection.
   GitHub repository name. Required when `kind` is `"github"`.
 </ParamField>
 
-<ParamField path="tracker.github_project_number" type="number">
-  GitHub Projects v2 project number. When set, Symphony reads and writes state from the project's `Status` single-select field. When omitted, Symphony uses label mode with `{label_prefix}:{state}` labels.
+<ParamField path="tracker.github_project_owner_type" type="string">
+  Owner namespace for the GitHub Projects v2 board. Required when `kind` is `"github"`. Use `"user"` for user-owned projects or `"org"` for organization-owned projects.
 </ParamField>
 
-<ParamField path="tracker.label_prefix" type="string" default="symphony">
-  Label prefix for GitHub label mode (when `github_project_number` is omitted). Labels are formatted as `{prefix}:{state}`.
+<ParamField path="tracker.github_project_number" type="number">
+  GitHub Projects v2 project number. Required when `tracker.kind` is `"github"`. Symphony reads and writes state from the project's `Status` single-select field.
 </ParamField>
 
 ---
@@ -193,8 +219,8 @@ Controls where and how agent workspaces are created.
 
 Global agent execution settings.
 
-<ParamField path="agent.backend" type="string" default="codex">
-  Agent runtime backend. `"kata-cli"` (alias: `"kata"`) for Kata CLI in RPC mode, or `"codex"` for OpenAI Codex app-server.
+<ParamField path="agent.name" type="string" default="pi">
+  Agent runtime backend. Use `"pi"` for Kata CLI in RPC mode, or `"codex"` for OpenAI Codex app-server. The legacy `agent.backend` key is still accepted as a compatibility alias.
 </ParamField>
 
 <ParamField path="agent.max_concurrent_agents" type="number" default="10">
@@ -361,58 +387,81 @@ tracker:
   project_slug: eng-infra
   assignee: alice
   active_states:
-    - "In Progress"
-    - "Todo"
+    - Todo
+    - In Progress
+    - Agent Review
+    - Merging
+    - Rework
   terminal_states:
-    - "Done"
-    - "Cancelled"
-
-polling:
-  interval_ms: 15000
+    - Closed
+    - Cancelled
+    - Canceled
+    - Duplicate
+    - Done
 
 workspace:
-  root: ~/workspaces/symphony
-  repo: https://github.com/example/myrepo.git
+  root: ~/symphony-workspaces
+  repo: /absolute/path/to/repo
   git_strategy: worktree
   isolation: local
   branch_prefix: symphony
+  clone_branch: main
   base_branch: main
-  cleanup_on_done: true
 
 agent:
-  backend: kata-cli
-  max_concurrent_agents: 5
-  max_turns: 30
-  max_retry_backoff_ms: 120000
-
-kata_agent:
-  command: kata
+  name: pi
+  command: pi --mode rpc
   model: anthropic/claude-opus-4-6
   model_by_state:
     Agent Review: anthropic/claude-sonnet-4-6
     Merging: anthropic/claude-sonnet-4-6
+  no_session: true
+  max_concurrent_agents: 1
+  max_turns: 20
+  approval_policy: never
+  thread_sandbox: danger-full-access
+---
+```
 
-hooks:
-  before_run: echo "Starting session for $SYMPHONY_ISSUE_IDENTIFIER"
-  after_run: ./scripts/notify.sh
-  timeout_ms: 30000
+## Section reference
 
-notifications:
-  slack:
-    webhook_url: $SLACK_WEBHOOK_URL
-    events:
-      - human_review
-      - stalled
-      - failed
+### `tracker`
 
-supervisor:
-  enabled: true
-  model: anthropic/claude-sonnet-4-6
-  steer_cooldown_ms: 120000
+- `kind`: `linear` or `github`
+- `api_key`: token (`$VAR` supported)
+- Linear fields: `project_slug`, optional `workspace_slug`
+- GitHub fields: `repo_owner`, `repo_name`, optional `github_project_number`
+- dispatch filters: `active_states`, `terminal_states`, `exclude_labels`
 
+### `workspace`
+
+- `root`, `repo`, `branch_prefix`, `clone_branch`, `base_branch`
+- `git_strategy`: `auto`, `clone-local`, `clone-remote`, `worktree`
+- `isolation`: `local` or `docker`
+
+Worktree bootstrap behavior:
+
+- requires local-path `workspace.repo`
+- bootstraps with `git worktree add`
+- cleanup removes with `git worktree remove`
+
+### `agent`
+
+- runner: `name` (`pi` or `codex`)
+- launch command: `command`
+- model controls: `model`, `model_by_state`
+- execution limits: `max_concurrent_agents`, `max_turns`
+- runtime safety: `approval_policy`, `thread_sandbox`, `turn_sandbox_policy`
+- timeouts: `stall_timeout_ms`, `read_timeout_ms`, `turn_timeout_ms` (runner-dependent)
+
+### `prompts`
+
+Per-state prompt injection:
+
+```yaml
 prompts:
   system: prompts/system.md
-  repo: prompts/repo-context.md
+  repo: prompts/repo.md
   by_state:
     Todo: prompts/in-progress.md
     In Progress: prompts/in-progress.md
@@ -420,5 +469,9 @@ prompts:
     Merging: prompts/merging.md
     Rework: prompts/rework.md
   default: prompts/in-progress.md
----
 ```
+
+## Canonical detailed reference
+
+- `apps/symphony/docs/WORKFLOW-REFERENCE.md`
+- `/reference/symphony-workflow`

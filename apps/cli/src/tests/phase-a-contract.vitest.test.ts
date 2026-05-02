@@ -312,7 +312,9 @@ describe("Phase A domain contract", () => {
         scopeId: input.scopeId,
         artifactType: input.artifactType,
         title: input.artifactType,
-        content: input.artifactType === "roadmap" ? "S001 covers E2E-01\nS002 covers E2E-02" : "E2E-01\nE2E-02",
+        content: input.artifactType === "roadmap"
+          ? "Backend Slice: S001 covers E2E-01\nBackend Slice: S002 covers E2E-02"
+          : "E2E-01\nE2E-02",
         format: "markdown",
         updatedAt: "2026-04-28T00:00:00.000Z",
         provenance: { backend: "github", backendId: "comment:2" },
@@ -339,6 +341,148 @@ describe("Phase A domain contract", () => {
       nextAction: {
         workflow: "kata-plan-phase",
         target: { sliceId: "S002" },
+      },
+    });
+  });
+
+  it("does not treat milestone roadmap planned-slice labels as backend slice ids", async () => {
+    const api = createKataDomainApi({
+      ...createFakeAdapter(),
+      getActiveMilestone: async () => ({
+        id: "M002",
+        title: "Symphony Migration",
+        goal: "Validate global slice sequencing",
+        status: "active",
+        active: true,
+      }),
+      listSlices: async () => [
+        {
+          id: "S005",
+          milestoneId: "M002",
+          title: "Map Symphony migration baseline",
+          goal: "Cover SYM-03 and SYM-08",
+          status: "backlog",
+          order: 1,
+        },
+      ],
+      listTasks: async () => [],
+      listArtifacts: async (input: KataArtifactListInput) =>
+        input.scopeType === "slice"
+          ? [
+              {
+                id: `${input.scopeType}:${input.scopeId}:plan`,
+                scopeType: input.scopeType,
+                scopeId: input.scopeId,
+                artifactType: "plan",
+                title: "Plan",
+                content: "Covers SYM-03 and SYM-08",
+                format: "markdown",
+                updatedAt: "2026-04-29T00:00:00.000Z",
+                provenance: { backend: "github", backendId: "comment:1" },
+              },
+            ]
+          : [],
+      readArtifact: async (input: KataArtifactReadInput) => ({
+        id: `${input.scopeType}:${input.scopeId}:${input.artifactType}`,
+        scopeType: input.scopeType,
+        scopeId: input.scopeId,
+        artifactType: input.artifactType,
+        title: input.artifactType,
+        content: input.artifactType === "roadmap"
+          ? [
+              "## Planned Slices",
+              "- [ ] S001: Map Symphony migration baseline",
+              "",
+              "| Requirement | Phase/Planned Slice | Status |",
+              "|---|---|---|",
+              "| SYM-03 | Phase 1 / S001 | Pending |",
+              "| SYM-08 | Phase 1 / S001 | Pending |",
+            ].join("\n")
+          : "SYM-03\nSYM-08",
+        format: "markdown",
+        updatedAt: "2026-04-29T00:00:00.000Z",
+        provenance: { backend: "github", backendId: "comment:2" },
+      }),
+    });
+
+    await expect(dispatchKataOperation(api, "project.getSnapshot")).resolves.toMatchObject({
+      roadmap: {
+        plannedSliceIds: [],
+        existingSliceIds: ["S005"],
+        missingSliceIds: [],
+        requirementToSliceIds: {},
+      },
+      requirements: {
+        coveredIds: ["SYM-03", "SYM-08"],
+        missingIds: [],
+      },
+      nextAction: {
+        workflow: "kata-execute-phase",
+        reason: "Slice S005 still has execution work remaining.",
+        target: { milestoneId: "M002", sliceId: "S005" },
+      },
+    });
+  });
+
+  it("extracts backend slice ids from structured roadmap table columns", async () => {
+    const api = createKataDomainApi({
+      ...createFakeAdapter(),
+      getActiveMilestone: async () => ({
+        id: "M003",
+        title: "Structured Roadmap",
+        goal: "Validate backend slice table extraction",
+        status: "active",
+        active: true,
+      }),
+      listSlices: async () => [
+        {
+          id: "S012",
+          milestoneId: "M003",
+          title: "Build the first path",
+          goal: "Cover REQ-01",
+          status: "done",
+          order: 1,
+        },
+      ],
+      listTasks: async () => [],
+      listArtifacts: async () => [],
+      readArtifact: async (input: KataArtifactReadInput) => ({
+        id: `${input.scopeType}:${input.scopeId}:${input.artifactType}`,
+        scopeType: input.scopeType,
+        scopeId: input.scopeId,
+        artifactType: input.artifactType,
+        title: input.artifactType,
+        content: input.artifactType === "roadmap"
+          ? [
+              "| Requirement | Backend Slice ID | Status |",
+              "|---|---|---|",
+              "| REQ-01 | S012 | Done |",
+              "| REQ-02 | S013 | Pending |",
+            ].join("\n")
+          : "REQ-01\nREQ-02",
+        format: "markdown",
+        updatedAt: "2026-04-29T00:00:00.000Z",
+        provenance: { backend: "github", backendId: "comment:3" },
+      }),
+    });
+
+    await expect(dispatchKataOperation(api, "project.getSnapshot")).resolves.toMatchObject({
+      roadmap: {
+        plannedSliceIds: ["S012", "S013"],
+        existingSliceIds: ["S012"],
+        missingSliceIds: ["S013"],
+        requirementToSliceIds: {
+          "REQ-01": ["S012"],
+          "REQ-02": ["S013"],
+        },
+      },
+      requirements: {
+        coveredIds: ["REQ-01"],
+        missingIds: ["REQ-02"],
+      },
+      nextAction: {
+        workflow: "kata-plan-phase",
+        target: { sliceId: "S013" },
       },
     });
   });
@@ -413,7 +557,7 @@ describe("Phase A domain contract", () => {
         artifactType: input.artifactType,
         title: input.artifactType,
         content: input.artifactType === "roadmap"
-          ? "S001 covers E2E-01\nS003 covers E2E-06\nS004 covers E2E-10"
+          ? "Backend Slice: S001 covers E2E-01\nBackend Slice: S003 covers E2E-06\nBackend Slice: S004 covers E2E-10"
           : "E2E-01\nE2E-06\nE2E-10",
         format: "markdown",
         updatedAt: "2026-04-28T00:00:00.000Z",
@@ -521,7 +665,9 @@ describe("Phase A domain contract", () => {
         scopeId: input.scopeId,
         artifactType: input.artifactType,
         title: input.artifactType,
-        content: input.artifactType === "roadmap" ? "S003 covers E2E-06\nS004 covers E2E-08" : "E2E-06\nE2E-08",
+        content: input.artifactType === "roadmap"
+          ? "Backend Slice: S003 covers E2E-06\nBackend Slice: S004 covers E2E-08"
+          : "E2E-06\nE2E-08",
         format: "markdown",
         updatedAt: "2026-04-28T00:00:00.000Z",
         provenance: { backend: "github", backendId: "comment:2" },
@@ -623,7 +769,7 @@ describe("Phase A domain contract", () => {
         artifactType: input.artifactType,
         title: input.artifactType,
         content: input.artifactType === "roadmap"
-          ? "S001 covers E2E-01\nS004 covers E2E-10\nFuture note mentions FUT-01"
+          ? "Backend Slice: S001 covers E2E-01\nBackend Slice: S004 covers E2E-10\nFuture note mentions FUT-01"
           : [
               "## Active Requirements",
               "E2E-01",

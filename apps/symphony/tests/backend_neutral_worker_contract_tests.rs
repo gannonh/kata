@@ -6,7 +6,7 @@ fn sym_skills_do_not_instruct_backend_specific_tracker_ops_for_workers() {
     let checked = [
         "sym-address-comments",
         "sym-land",
-        "sym-debug",
+        "sym-fix-ci",
         "sym-linear",
     ];
 

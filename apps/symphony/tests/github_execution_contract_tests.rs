@@ -1,6 +1,6 @@
 use mockito::{Matcher, Server, ServerGuard};
 use serde_json::json;
-use symphony::domain::{ApiKey, TrackerConfig};
+use symphony::domain::{ApiKey, GithubProjectOwnerType, TrackerConfig};
 use symphony::error::SymphonyError;
 use symphony::github::adapter::GithubAdapter;
 use symphony::github::client::GithubClient;
@@ -15,6 +15,7 @@ fn base_config() -> TrackerConfig {
         workspace_slug: None,
         repo_owner: Some("kata-sh".to_string()),
         repo_name: Some("kata-mono".to_string()),
+        github_project_owner_type: Some(GithubProjectOwnerType::Org),
         github_project_number: None,
         label_prefix: Some("symphony".to_string()),
         assignee: None,
@@ -43,6 +44,7 @@ fn label_adapter(server: &ServerGuard) -> GithubAdapter {
 
 fn projects_adapter(server: &ServerGuard) -> GithubAdapter {
     let mut config = base_config();
+    config.github_project_owner_type = Some(GithubProjectOwnerType::Org);
     config.github_project_number = Some(42);
     config.active_states = vec!["Todo".to_string(), "In Progress".to_string()];
 

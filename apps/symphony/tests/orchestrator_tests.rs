@@ -13,8 +13,8 @@ use tempfile::{tempdir, NamedTempFile};
 
 use symphony::domain::{
     AgentBackend, AgentConfig, AgentEvent, ApiKey, BlockerRef, ContextScope, EscalationRequest,
-    EscalationResponse, Issue, NotificationsConfig, ServiceConfig, SlackConfig, TrackerConfig,
-    WorkspaceIsolation,
+    EscalationResponse, GithubProjectOwnerType, Issue, NotificationsConfig, ServiceConfig,
+    SlackConfig, TrackerConfig, WorkspaceIsolation,
 };
 use symphony::error::{Result, SymphonyError};
 use symphony::orchestrator::{
@@ -126,6 +126,8 @@ fn github_test_config(max_concurrent_agents: u32) -> ServiceConfig {
         api_key: Some("github-test-token".into()),
         repo_owner: Some("test-owner".to_string()),
         repo_name: Some("test-repo".to_string()),
+        github_project_owner_type: Some(GithubProjectOwnerType::User),
+        github_project_number: Some(1),
         active_states: vec!["Todo".to_string(), "In Progress".to_string()],
         terminal_states: vec!["Done".to_string(), "Canceled".to_string()],
         ..TrackerConfig::default()
@@ -3504,6 +3506,9 @@ fn make_worker_config(
     max_turns: u32,
 ) -> ServiceConfig {
     let mut config = test_config(1);
+    // These worker-attempt tests exercise the fake Codex app-server path
+    // directly. Keep that explicit now that Kata CLI/Pi is the default backend.
+    config.agent_backend = AgentBackend::Codex;
     config.workspace.root = workspace_root.to_string_lossy().to_string();
     config.workspace.repo = None;
     config.codex.command = vec![script_path.to_string_lossy().to_string()];
@@ -4205,6 +4210,125 @@ fn test_unblocked_issue_dispatches_normally() {
 }
 
 #[test]
+fn test_active_issue_prepares_workspace_before_dispatch() {
+    let workspace_root = tempdir().expect("workspace root should be created");
+    let mut config = test_config(2);
+    config.workspace.root = workspace_root.path().to_string_lossy().to_string();
+    config.workspace.repo = None;
+
+    let mut orchestrator = Orchestrator::new(config, String::new());
+    let candidate = issue("issue-workspace", "SIM-81", "Todo", Some(1), 0);
+
+    let mut port = FakePort {
+        candidate_issues: vec![candidate.clone()],
+        ..FakePort::default()
+    };
+
+    let tick = orchestrator.tick(&mut port).expect("tick should succeed");
+
+    assert_eq!(
+        tick.dispatched_issue_ids,
+        vec![candidate.id.clone()],
+        "active issue should dispatch normally"
+    );
+
+    let expected_workspace = workspace_root.path().join("SIM-81");
+    assert!(
+        expected_workspace.exists(),
+        "workspace should be prepared before the worker run starts"
+    );
+    let run_attempt = orchestrator
+        .state()
+        .running
+        .get(&candidate.id)
+        .expect("dispatch should create a scheduled run attempt");
+    let actual_workspace =
+        fs::canonicalize(&run_attempt.workspace_path).expect("run workspace should canonicalize");
+    let expected_workspace =
+        fs::canonicalize(expected_workspace).expect("expected workspace should canonicalize");
+    assert_eq!(
+        actual_workspace, expected_workspace,
+        "scheduled attempt should retain the prepared workspace path"
+    );
+}
+
+#[test]
+fn test_agent_review_prepares_workspace_before_pr_gate() {
+    let workspace_root = tempdir().expect("workspace root should be created");
+    let mut config = test_config(2);
+    config.workspace.root = workspace_root.path().to_string_lossy().to_string();
+    config.workspace.repo = None;
+    config
+        .tracker
+        .active_states
+        .push("Agent Review".to_string());
+
+    let mut orchestrator = Orchestrator::new(config, String::new());
+    let candidate = issue("issue-agent-review", "SIM-82", "Agent Review", Some(1), 0);
+
+    let mut port = FakePort {
+        candidate_issues: vec![candidate.clone()],
+        ..FakePort::default()
+    };
+
+    let tick = orchestrator.tick(&mut port).expect("tick should succeed");
+
+    assert!(
+        tick.dispatched_issue_ids.is_empty(),
+        "Agent Review issue without a valid PR should not dispatch"
+    );
+    assert!(
+        workspace_root.path().join("SIM-82").exists(),
+        "Agent Review PR gate should run after workspace preparation"
+    );
+    assert!(
+        port.call_history()
+            .iter()
+            .any(|call| call == "update_issue_state:issue-agent-review:In Progress"),
+        "missing PR should still move the issue back to In Progress after workspace preparation"
+    );
+}
+
+#[test]
+fn test_workspace_prepare_failure_is_emitted_for_tui_visibility() {
+    let tmp = tempdir().expect("temp dir should be created");
+    let root_file = tmp.path().join("not-a-directory");
+    fs::write(&root_file, "not a directory").expect("root sentinel file should be written");
+
+    let mut config = test_config(2);
+    config.workspace.root = root_file.to_string_lossy().to_string();
+    config.workspace.repo = None;
+
+    let mut orchestrator = Orchestrator::new(config, String::new());
+    let candidate = issue("issue-workspace-error", "SIM-83", "Todo", Some(1), 0);
+
+    let mut port = FakePort {
+        candidate_issues: vec![candidate.clone()],
+        ..FakePort::default()
+    };
+
+    let tick = orchestrator.tick(&mut port).expect("tick should succeed");
+
+    assert!(
+        tick.dispatched_issue_ids.is_empty(),
+        "workspace failure should skip dispatch for this tick"
+    );
+    assert!(
+        orchestrator.events().iter().any(|event| matches!(
+            event,
+            RuntimeEvent::WorkspacePrepareFailed {
+                issue_id,
+                issue_identifier,
+                error
+            } if issue_id == "issue-workspace-error"
+                && issue_identifier == "SIM-83"
+                && error.contains("Not a directory")
+        )),
+        "workspace prep failure should be emitted so the TUI can pin it"
+    );
+}
+
+#[test]
 fn test_snapshot_includes_blocked_issues() {
     let mut orchestrator = Orchestrator::new(test_config(2), String::new());
 
@@ -4493,7 +4617,7 @@ fn test_github_snapshot_contains_tracker_project_url() {
     let snapshot = orchestrator.snapshot(0);
     assert_eq!(
         snapshot.tracker_project_url.as_deref(),
-        Some("https://github.com/test-owner/test-repo/issues")
+        Some("https://github.com/users/test-owner/projects/1")
     );
 }
 
@@ -4553,6 +4677,7 @@ fn test_e2e_github_label_mode_full_lifecycle() {
 fn test_e2e_github_projects_v2_mode_full_lifecycle() {
     let mut config = github_test_config(1);
     config.tracker.github_project_number = Some(7);
+    config.tracker.github_project_owner_type = Some(GithubProjectOwnerType::User);
 
     let mut orchestrator = Orchestrator::new(config, String::new());
 
@@ -4614,7 +4739,7 @@ fn test_e2e_github_snapshot_state_json_complete() {
         .expect("running snapshot should serialize to JSON");
     assert_eq!(
         running_snapshot["tracker_project_url"],
-        "https://github.com/test-owner/test-repo/issues"
+        "https://github.com/users/test-owner/projects/1"
     );
     assert_eq!(
         running_snapshot["running"]["gh-42"]["issue_identifier"],
@@ -5173,6 +5298,30 @@ fn test_exclude_labels_empty_skips_no_issues() {
         tick.dispatched_issue_ids,
         vec![task_issue.id.clone()],
         "with no exclude_labels, kata:task issue should dispatch normally"
+    );
+}
+
+#[test]
+fn test_parent_issue_child_task_is_not_dispatched_without_label_filter() {
+    let config = test_config(1);
+    assert!(config.tracker.exclude_labels.is_empty());
+
+    let mut task_issue = issue("issue-child-task", "KAT-1886", "Todo", None, 0);
+    task_issue.parent_identifier = Some("KAT-1800".to_string());
+
+    let mut port = FakePort {
+        candidate_issues: vec![task_issue],
+        ..FakePort::default()
+    };
+    let mut orchestrator = Orchestrator::new(config, String::new());
+
+    let tick = orchestrator
+        .tick(&mut port)
+        .expect("tick should succeed with parent-child task candidate");
+
+    assert!(
+        tick.dispatched_issue_ids.is_empty(),
+        "child task issues with a parent_identifier should not dispatch independently"
     );
 }
 

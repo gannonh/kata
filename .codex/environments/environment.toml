@@ -15,5 +15,5 @@ cp "$CODEX_SOURCE_TREE_PATH"/apps/symphony/WORKFLOW-desktop.md "$CODEX_WORKTREE_
 cd "$CODEX_WORKTREE_PATH" && pnpm install
 
 cd "$CODEX_WORKTREE_PATH"/apps/symphony && cargo build --release
-cd "$CODEX_WORKTREE_PATH"/apps/cli && npm run build
+cd "$CODEX_WORKTREE_PATH" && pnpm build:cli:pi
 '''

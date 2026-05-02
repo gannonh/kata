@@ -47,13 +47,14 @@ fn default_true() -> bool {
 }
 
 /// Canonical Kata workflow phase vocabulary shared across CLI/Desktop/Symphony.
-pub const KATA_PHASE_NAMES: [&str; 7] = [
+pub const KATA_PHASE_NAMES: [&str; 8] = [
     "Backlog",
     "Todo",
     "In Progress",
     "Agent Review",
     "Human Review",
     "Merging",
+    "Rework",
     "Done",
 ];
 
@@ -591,6 +592,7 @@ pub struct TrackerConfig {
     // GitHub-specific fields
     pub repo_owner: Option<String>,
     pub repo_name: Option<String>,
+    pub github_project_owner_type: Option<GithubProjectOwnerType>,
     pub github_project_number: Option<u64>,
     pub label_prefix: Option<String>,
     // Shared tracker fields
@@ -605,6 +607,29 @@ pub struct TrackerConfig {
 
 const DEFAULT_LINEAR_WORKSPACE_SLUG: &str = "kata-sh";
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GithubProjectOwnerType {
+    User,
+    Org,
+}
+
+impl GithubProjectOwnerType {
+    pub fn parse(value: &str) -> Option<Self> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "user" => Some(Self::User),
+            "org" | "organization" => Some(Self::Org),
+            _ => None,
+        }
+    }
+
+    pub fn url_segment(self) -> &'static str {
+        match self {
+            Self::User => "users",
+            Self::Org => "orgs",
+        }
+    }
+}
+
 impl Default for TrackerConfig {
     fn default() -> Self {
         Self {
@@ -615,6 +640,7 @@ impl Default for TrackerConfig {
             workspace_slug: None,
             repo_owner: None,
             repo_name: None,
+            github_project_owner_type: None,
             github_project_number: None,
             label_prefix: None,
             assignee: None,
@@ -634,7 +660,7 @@ impl Default for TrackerConfig {
 impl TrackerConfig {
     /// Build a browser URL for the configured tracker project.
     ///
-    /// - GitHub kind: `https://github.com/{owner}/{repo}/issues`
+    /// - GitHub kind: `https://github.com/{users|orgs}/{owner}/projects/{project_number}`
     /// - Linear kind (or default): `https://linear.app/{workspace}/project/{slug}`
     pub fn tracker_project_url(&self) -> Option<String> {
         match self
@@ -645,12 +671,16 @@ impl TrackerConfig {
         {
             Some(kind) if kind.eq_ignore_ascii_case("github") => {
                 let owner = self.repo_owner.as_deref()?.trim();
-                let repo = self.repo_name.as_deref()?.trim();
-                if owner.is_empty() || repo.is_empty() {
+                let owner_type = self.github_project_owner_type?;
+                let project_number = self.github_project_number?;
+                if owner.is_empty() {
                     return None;
                 }
 
-                Some(format!("https://github.com/{owner}/{repo}/issues"))
+                Some(format!(
+                    "https://github.com/{}/{owner}/projects/{project_number}",
+                    owner_type.url_segment()
+                ))
             }
             _ => self.build_linear_url(),
         }
@@ -951,18 +981,18 @@ impl Default for CodexConfig {
     }
 }
 
-/// Which runtime backend to use for agent sessions.
+/// Which worker runtime to use for agent sessions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum AgentBackend {
-    KataCli,
     #[default]
+    KataCli,
     Codex,
 }
 
-/// Pi-agent (Kata RPC) runtime configuration.
+/// Pi runtime configuration.
 #[derive(Debug, Clone)]
 pub struct PiAgentConfig {
-    /// Command and arguments to launch pi-agent.
+    /// Command and arguments to launch the Pi runtime.
     pub command: Vec<String>,
     /// Optional default model identifier passed via `--model`.
     pub model: Option<String>,
@@ -983,7 +1013,7 @@ pub struct PiAgentConfig {
 impl Default for PiAgentConfig {
     fn default() -> Self {
         Self {
-            command: vec!["kata".to_string()],
+            command: vec!["pi".to_string(), "--mode".to_string(), "rpc".to_string()],
             model: None,
             model_by_label: HashMap::new(),
             model_by_state: HashMap::new(),

@@ -99,6 +99,7 @@ Use for the phase/slice structure derived from milestone requirements.
 ```
 
 Every active requirement should map to exactly one phase/slice unless the workflow explicitly records a split.
+Milestone roadmaps should use planned slice labels, phases, or titles before backend slices exist. Do not preassign backend slice IDs such as `S001`; slice IDs are global and are only authoritative after `slice.create` returns them.
 
 ### Milestone Summary
 

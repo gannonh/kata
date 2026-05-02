@@ -744,6 +744,7 @@ async fn test_error_transport_error() {
         workspace_slug: None,
         repo_owner: None,
         repo_name: None,
+        github_project_owner_type: None,
         github_project_number: None,
         label_prefix: None,
         assignee: None,

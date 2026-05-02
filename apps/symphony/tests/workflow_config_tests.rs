@@ -11,8 +11,8 @@ use tempfile::NamedTempFile;
 
 use symphony::config::{from_workflow, validate};
 use symphony::domain::{
-    AgentBackend, CodexConfig, DockerCodexAuth, ServiceConfig, TrackerConfig, WorkspaceConfig,
-    WorkspaceIsolation, WorkspaceRepoStrategy,
+    AgentBackend, CodexConfig, DockerCodexAuth, GithubProjectOwnerType, ServiceConfig,
+    TrackerConfig, WorkspaceConfig, WorkspaceIsolation, WorkspaceRepoStrategy,
 };
 use symphony::error::SymphonyError;
 use symphony::notifications::should_notify;
@@ -142,8 +142,8 @@ fn test_repo_workflow_requires_publish_gate_before_agent_review() {
         "in-progress.md must transition to Agent Review (not Human Review)"
     );
     assert!(
-        content.contains("phase: \"agent-review\""),
-        "in-progress.md must move state via kata_update_issue_state(... phase: \"agent-review\")"
+        content.contains("Move the issue to `Agent Review`"),
+        "in-progress.md must instruct workers to move issue to Agent Review"
     );
     assert!(
         !content.contains("phase: \"verifying\""),
@@ -158,7 +158,7 @@ fn test_agent_review_prompt_transitions_to_human_review() {
         .expect("prompts/agent-review.md should exist for review-transition assertions");
 
     assert!(
-        content.contains("phase: \"human-review\""),
+        content.contains("move the issue to `Human Review`"),
         "agent-review.md must advance to human-review after feedback is resolved"
     );
     assert!(
@@ -169,15 +169,24 @@ fn test_agent_review_prompt_transitions_to_human_review() {
 
 #[test]
 fn test_repo_workflow_example_uses_per_state_prompts() {
-    let workflow_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("docs/WORKFLOW-linear.md");
-    let def = parse_workflow(&workflow_path).expect("example WORKFLOW-linear.md should parse");
+    let workflow_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("WORKFLOW.md");
+    let def = parse_workflow(&workflow_path).expect("active WORKFLOW.md should parse");
+    let mut test_config = def.config.clone();
+    if let Some(map) = test_config.as_mapping_mut() {
+        map.remove(serde_yaml::Value::String("notifications".to_string()));
+    }
 
     // When using per-state prompts, the body after --- should be empty or minimal
     // The config should have a prompts section
-    let config = from_workflow(&def.config).expect("config should parse");
+    let config = from_workflow(&test_config).expect("config should parse");
+    assert_eq!(config.agent_backend, AgentBackend::KataCli);
+    assert_eq!(
+        config.pi_agent.command,
+        vec!["pi".to_string(), "--mode".to_string(), "rpc".to_string()]
+    );
     assert!(
         config.prompts.is_some(),
-        "example WORKFLOW-linear.md should use per-state prompts config"
+        "active WORKFLOW.md should use per-state prompts config"
     );
     let prompts = config.prompts.unwrap();
     assert!(prompts.system.is_some(), "should have system prompt");
@@ -197,7 +206,7 @@ fn test_repo_workflow_example_uses_per_state_prompts() {
 }
 
 #[test]
-fn test_worker_prompts_use_backend_neutral_kata_contract() {
+fn test_worker_prompts_do_not_reference_legacy_kata_tools() {
     let prompts_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("prompts");
     let files = [
         "system.md",
@@ -207,15 +216,14 @@ fn test_worker_prompts_use_backend_neutral_kata_contract() {
         "merging.md",
     ];
 
-    let required = [
+    let forbidden = [
         "kata_get_issue",
         "kata_list_tasks",
         "kata_read_document",
+        "kata_write_document",
         "kata_upsert_comment",
         "kata_update_issue_state",
-    ];
-
-    let forbidden = [
+        "kata_create_followup_issue",
         "linear_get_issue",
         "linear_update_issue",
         "linear_add_comment",
@@ -227,19 +235,17 @@ fn test_worker_prompts_use_backend_neutral_kata_contract() {
         let content =
             std::fs::read_to_string(prompts_dir.join(file)).expect("prompt file should exist");
 
-        for needle in required {
-            assert!(
-                content.contains(needle),
-                "{file} must include required operation {needle}"
-            );
-        }
-
         for needle in forbidden {
             assert!(
                 !content.contains(needle),
-                "{file} must not include backend-specific token {needle}"
+                "{file} must not include unavailable or backend-specific token {needle}"
             );
         }
+
+        assert!(
+            content.contains(".agents/skills/sym-state/scripts/sym-call"),
+            "{file} must route tracker operations through the Symphony helper"
+        );
     }
 }
 
@@ -258,6 +264,7 @@ fn test_config_defaults() {
     assert_eq!(config.tracker.workspace_slug, None);
     assert_eq!(config.tracker.repo_owner, None);
     assert_eq!(config.tracker.repo_name, None);
+    assert_eq!(config.tracker.github_project_owner_type, None);
     assert_eq!(config.tracker.github_project_number, None);
     assert_eq!(config.tracker.label_prefix, None);
     assert_eq!(config.polling.interval_ms, 30_000);
@@ -271,8 +278,11 @@ fn test_config_defaults() {
     assert_eq!(config.workspace.clone_branch, None);
     assert_eq!(config.workspace.base_branch.as_deref(), Some("main"));
     assert!(!config.workspace.cleanup_on_done);
-    assert_eq!(config.agent_backend, AgentBackend::Codex);
-    assert_eq!(config.pi_agent.command, vec!["kata".to_string()]);
+    assert_eq!(config.agent_backend, AgentBackend::KataCli);
+    assert_eq!(
+        config.pi_agent.command,
+        vec!["pi".to_string(), "--mode".to_string(), "rpc".to_string()]
+    );
     assert_eq!(config.pi_agent.model, None);
     assert!(config.pi_agent.model_by_label.is_empty());
     assert!(config.pi_agent.model_by_state.is_empty());
@@ -292,6 +302,7 @@ tracker:
   api_key: github-test-token
   repo_owner: kata-sh
   repo_name: kata-mono
+  github_project_owner_type: org
   github_project_number: 42
 "#;
 
@@ -301,8 +312,12 @@ tracker:
     assert_eq!(config.tracker.kind.as_deref(), Some("github"));
     assert_eq!(config.tracker.repo_owner.as_deref(), Some("kata-sh"));
     assert_eq!(config.tracker.repo_name.as_deref(), Some("kata-mono"));
+    assert_eq!(
+        config.tracker.github_project_owner_type,
+        Some(GithubProjectOwnerType::Org)
+    );
     assert_eq!(config.tracker.github_project_number, Some(42));
-    assert_eq!(config.tracker.label_prefix.as_deref(), Some("symphony"));
+    assert_eq!(config.tracker.label_prefix, None);
     assert_eq!(config.tracker.project_slug, None);
 }
 
@@ -325,60 +340,83 @@ tracker:
 }
 
 #[test]
-fn test_github_tracker_config_with_label_prefix() {
+fn test_github_tracker_config_requires_project_number() {
     let yaml_str = r#"
 tracker:
   kind: github
   api_key: github-test-token
   repo_owner: kata-sh
   repo_name: kata-mono
-  label_prefix: orchestration
+  github_project_owner_type: user
 "#;
 
     let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
-    let config =
-        from_workflow(&raw).expect("github tracker config with custom label prefix should parse");
-
-    assert_eq!(
-        config.tracker.label_prefix.as_deref(),
-        Some("orchestration")
+    let err = from_workflow(&raw).expect_err("github tracker without project number should fail");
+    assert!(
+        err.to_string().contains("tracker.github_project_number"),
+        "unexpected error: {err}"
     );
 }
 
 #[test]
-fn test_github_tracker_config_trims_trailing_colon_from_label_prefix() {
+fn test_github_tracker_config_ignores_legacy_label_prefix_when_project_number_is_set() {
     let yaml_str = r#"
 tracker:
   kind: github
   api_key: github-test-token
   repo_owner: kata-sh
   repo_name: kata-mono
-  label_prefix: 'kata:'
+  github_project_owner_type: user
+  github_project_number: 42
+  label_prefix: orchestration
 "#;
 
     let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
-    let config = from_workflow(&raw)
-        .expect("github tracker config with trailing-colon label prefix should parse");
+    let config = from_workflow(&raw).expect("projects v2 github tracker should parse");
 
-    assert_eq!(config.tracker.label_prefix.as_deref(), Some("kata"));
+    assert_eq!(config.tracker.github_project_number, Some(42));
+    assert_eq!(config.tracker.label_prefix, None);
 }
 
 #[test]
-fn test_github_tracker_config_falls_back_to_symphony_for_blank_label_prefix() {
+fn test_github_tracker_config_requires_project_owner_type() {
     let yaml_str = r#"
 tracker:
   kind: github
   api_key: github-test-token
   repo_owner: kata-sh
   repo_name: kata-mono
-  label_prefix: ':'
+  github_project_number: 42
 "#;
 
     let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
-    let config =
-        from_workflow(&raw).expect("github tracker config with blank label prefix should parse");
+    let err = from_workflow(&raw).expect_err("missing project owner type should fail");
+    assert!(
+        err.to_string()
+            .contains("tracker.github_project_owner_type"),
+        "unexpected error: {err}"
+    );
+}
 
-    assert_eq!(config.tracker.label_prefix.as_deref(), Some("symphony"));
+#[test]
+fn test_github_tracker_config_rejects_invalid_project_owner_type() {
+    let yaml_str = r#"
+tracker:
+  kind: github
+  api_key: github-test-token
+  repo_owner: kata-sh
+  repo_name: kata-mono
+  github_project_owner_type: team
+  github_project_number: 42
+"#;
+
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let err = from_workflow(&raw).expect_err("invalid project owner type should fail");
+    assert!(
+        err.to_string()
+            .contains("tracker.github_project_owner_type must be either 'user' or 'org'"),
+        "unexpected error: {err}"
+    );
 }
 
 #[test]
@@ -497,12 +535,40 @@ fn test_server_public_url_rejects_malformed_or_relative_values() {
 }
 
 #[test]
-fn test_agent_backend_kata_cli_with_kata_agent_config() {
+fn test_agent_name_codex_uses_agent_command() {
     let yaml_str = r#"
 agent:
-  backend: kata-cli
-kata_agent:
-  command: "kata"
+  name: codex
+  command:
+    - codex
+    - --model
+    - gpt-5.3-codex
+    - app-server
+  stall_timeout_ms: 900000
+"#;
+
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let config = from_workflow(&raw).expect("codex agent config should parse");
+
+    assert_eq!(config.agent_backend, AgentBackend::Codex);
+    assert_eq!(
+        config.codex.command,
+        vec![
+            "codex".to_string(),
+            "--model".to_string(),
+            "gpt-5.3-codex".to_string(),
+            "app-server".to_string()
+        ]
+    );
+    assert_eq!(config.codex.stall_timeout_ms, 900_000);
+}
+
+#[test]
+fn test_agent_name_pi_uses_agent_command_and_params() {
+    let yaml_str = r#"
+agent:
+  name: pi
+  command: "pi --mode rpc"
   model: "anthropic/claude-sonnet-4-6"
   no_session: false
   append_system_prompt: "/tmp/system.md"
@@ -510,10 +576,13 @@ kata_agent:
   stall_timeout_ms: 90000
 "#;
     let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
-    let config = from_workflow(&raw).expect("kata-cli backend config should parse");
+    let config = from_workflow(&raw).expect("pi agent config should parse");
 
     assert_eq!(config.agent_backend, AgentBackend::KataCli);
-    assert_eq!(config.pi_agent.command, vec!["kata".to_string()]);
+    assert_eq!(
+        config.pi_agent.command,
+        vec!["pi".to_string(), "--mode".to_string(), "rpc".to_string()]
+    );
     assert_eq!(
         config.pi_agent.model.as_deref(),
         Some("anthropic/claude-sonnet-4-6")
@@ -530,12 +599,27 @@ kata_agent:
 }
 
 #[test]
+fn test_legacy_kata_runtime_name_is_rejected() {
+    let yaml_str = r#"
+agent:
+  name: kata-cli
+  command: "kata"
+"#;
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let err = from_workflow(&raw).expect_err("kata-cli is not a worker runtime name");
+    assert!(
+        err.to_string()
+            .contains("agent.name must be 'pi' or 'codex'"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
 fn test_pi_agent_model_by_label_normalizes_keys() {
     let yaml_str = r#"
 agent:
-  backend: kata-cli
-pi_agent:
-  command: kata
+  name: pi
+  command: pi --mode rpc
   model_by_label:
     Model:Sonnet: anthropic/claude-sonnet-4-6
     MODEL:OPUS: anthropic/claude-opus-4-6
@@ -571,9 +655,8 @@ pi_agent:
 fn test_pi_agent_model_by_state_normalizes_keys() {
     let yaml_str = r#"
 agent:
-  backend: kata-cli
-pi_agent:
-  command: kata
+  name: pi
+  command: pi --mode rpc
   model: anthropic/claude-opus-4-6
   model_by_state:
     Agent Review: anthropic/claude-sonnet-4-6
@@ -608,33 +691,34 @@ pi_agent:
 
 #[test]
 fn test_agent_backend_aliases_map_to_kata_cli() {
-    for backend in ["kata-cli", "kata", "pi"] {
-        let yaml_str = format!("agent:\n  backend: {backend}\nkata_agent:\n  command: kata\n");
-        let raw: serde_yaml::Value = serde_yaml::from_str(&yaml_str).unwrap();
-        let config = from_workflow(&raw).expect("backend alias should parse");
-        assert_eq!(config.agent_backend, AgentBackend::KataCli);
-    }
+    let raw: serde_yaml::Value =
+        serde_yaml::from_str("agent:\n  name: pi\n  command: pi --mode rpc\n").unwrap();
+    let config = from_workflow(&raw).expect("pi agent name should parse");
+    assert_eq!(config.agent_backend, AgentBackend::KataCli);
 }
 
 #[test]
 fn test_pi_agent_section_still_supported_as_alias() {
     let yaml_str = r#"
 agent:
-  backend: kata
+  name: pi
 pi_agent:
-  command: "kata"
+  command: "pi --mode rpc"
 "#;
     let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
     let config = from_workflow(&raw).expect("pi_agent alias section should parse");
     assert_eq!(config.agent_backend, AgentBackend::KataCli);
-    assert_eq!(config.pi_agent.command, vec!["kata".to_string()]);
+    assert_eq!(
+        config.pi_agent.command,
+        vec!["pi".to_string(), "--mode".to_string(), "rpc".to_string()]
+    );
 }
 
 #[test]
 fn test_kata_agent_and_pi_agent_sections_conflict() {
     let yaml_str = r#"
 agent:
-  backend: kata-cli
+  name: pi
 kata_agent:
   command: "kata"
 pi_agent:
@@ -653,12 +737,12 @@ pi_agent:
 fn test_agent_backend_invalid_value_errors() {
     let yaml_str = r#"
 agent:
-  backend: unknown
+  name: unknown
 "#;
     let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
-    let err = from_workflow(&raw).expect_err("unknown backend should fail");
+    let err = from_workflow(&raw).expect_err("unknown agent name should fail");
     assert!(
-        err.to_string().contains("agent.backend"),
+        err.to_string().contains("agent.name"),
         "unexpected error: {err}"
     );
 }
@@ -906,6 +990,8 @@ tracker:
   api_key: $SYMPHONY_TEST_GITHUB_TOKEN_MISSING
   repo_owner: kata-sh
   repo_name: kata
+  github_project_owner_type: org
+  github_project_number: 42
 "#;
 
     let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
@@ -1486,6 +1572,8 @@ fn test_config_validation_github_valid() {
             api_key: Some("test-key".into()),
             repo_owner: Some("kata-sh".to_string()),
             repo_name: Some("kata".to_string()),
+            github_project_owner_type: Some(GithubProjectOwnerType::Org),
+            github_project_number: Some(42),
             ..TrackerConfig::default()
         },
         ..ServiceConfig::default()
@@ -1515,6 +1603,8 @@ fn test_config_validation_github_missing_token_errors() {
             api_key: None,
             repo_owner: Some("kata-sh".to_string()),
             repo_name: Some("kata".to_string()),
+            github_project_owner_type: Some(GithubProjectOwnerType::Org),
+            github_project_number: Some(42),
             ..TrackerConfig::default()
         },
         ..ServiceConfig::default()
@@ -1555,6 +1645,8 @@ fn test_config_validation_github_missing_repo_owner_errors() {
             api_key: Some("test-key".into()),
             repo_owner: None,
             repo_name: Some("kata".to_string()),
+            github_project_owner_type: Some(GithubProjectOwnerType::Org),
+            github_project_number: Some(42),
             ..TrackerConfig::default()
         },
         ..ServiceConfig::default()
@@ -1576,6 +1668,8 @@ fn test_config_validation_github_missing_repo_name_errors() {
             api_key: Some("test-key".into()),
             repo_owner: Some("kata-sh".to_string()),
             repo_name: None,
+            github_project_owner_type: Some(GithubProjectOwnerType::Org),
+            github_project_number: Some(42),
             ..TrackerConfig::default()
         },
         ..ServiceConfig::default()
@@ -1591,10 +1685,10 @@ fn test_config_validation_github_missing_repo_name_errors() {
 
 #[test]
 fn test_config_validation_missing_codex_command() {
-    // Build a fully valid base config so validation reaches the codex.command
+    // Build a fully valid base config so validation reaches the agent.command
     // check.  Previously this test used ServiceConfig::default() which has
     // tracker.kind=None, causing validation to fail on kind before ever
-    // reaching the codex.command check.
+    // reaching the agent.command check.
     let config = ServiceConfig {
         tracker: TrackerConfig {
             kind: Some("linear".to_string()),
@@ -1606,13 +1700,14 @@ fn test_config_validation_missing_codex_command() {
             command: vec![],
             ..CodexConfig::default()
         },
+        agent_backend: AgentBackend::Codex,
         ..ServiceConfig::default()
     };
 
     let result = validate(&config);
     assert!(
-        matches!(result, Err(SymphonyError::InvalidWorkflowConfig(ref msg)) if msg.contains("codex.command")),
-        "empty codex.command should return codex-specific InvalidWorkflowConfig, got: {:?}",
+        matches!(result, Err(SymphonyError::InvalidWorkflowConfig(ref msg)) if msg.contains("agent.command")),
+        "empty command should return agent-specific InvalidWorkflowConfig, got: {:?}",
         result
     );
 }

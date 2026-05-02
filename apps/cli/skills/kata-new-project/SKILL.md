@@ -52,6 +52,7 @@ Read when needed:
 - CLI command patterns: `references/cli-runtime.md`
 - Artifact conventions: `references/artifact-contract.md`
 - CLI helper: `scripts/kata-call.mjs`
+- Artifact input helper: `scripts/kata-artifact-input.mjs`
 
 Additional references:
 

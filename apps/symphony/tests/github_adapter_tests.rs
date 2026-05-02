@@ -1,6 +1,6 @@
 use mockito::{Matcher, Server, ServerGuard};
 use serde_json::json;
-use symphony::domain::{ApiKey, TrackerConfig, KATA_PHASE_NAMES};
+use symphony::domain::{ApiKey, GithubProjectOwnerType, TrackerConfig, KATA_PHASE_NAMES};
 use symphony::error::SymphonyError;
 use symphony::github::adapter::{GithubAdapter, StateMode};
 use symphony::github::client::GithubClient;
@@ -15,6 +15,7 @@ fn test_config(assignee: Option<&str>) -> TrackerConfig {
         workspace_slug: None,
         repo_owner: Some("kata-sh".to_string()),
         repo_name: Some("kata-mono".to_string()),
+        github_project_owner_type: Some(GithubProjectOwnerType::Org),
         github_project_number: None,
         label_prefix: Some("symphony".to_string()),
         assignee: assignee.map(|value| value.to_string()),
@@ -41,6 +42,7 @@ fn test_projects_adapter(
     project_number: u64,
 ) -> GithubAdapter {
     let mut config = test_config(assignee);
+    config.github_project_owner_type = Some(GithubProjectOwnerType::Org);
     config.github_project_number = Some(project_number);
 
     let client = GithubClient::with_base_url(

@@ -111,6 +111,13 @@ pub struct TurnResult {
     pub rate_limits: Option<Value>,
 }
 
+/// Optional Symphony helper environment passed through to worker subprocesses.
+#[derive(Clone, Copy)]
+pub struct HelperEnv<'a> {
+    pub symphony_bin: Option<&'a str>,
+    pub symphony_workflow_path: Option<&'a str>,
+}
+
 // ── Public API ────────────────────────────────────────────────────────
 
 /// Launch a Codex app-server subprocess and perform the startup handshake.
@@ -142,6 +149,32 @@ pub async fn start_session(
     worker_host: Option<&str>,
     container_id: Option<&str>,
 ) -> Result<SessionHandle> {
+    start_session_with_helper_env(
+        config,
+        issue,
+        workspace_path,
+        workspace_root,
+        worker_host,
+        container_id,
+        HelperEnv {
+            symphony_bin: None,
+            symphony_workflow_path: None,
+        },
+    )
+    .await
+}
+
+/// Start a Codex app-server session with Symphony helper environment injected.
+#[allow(clippy::too_many_arguments)]
+pub async fn start_session_with_helper_env(
+    config: &CodexConfig,
+    issue: &Issue,
+    workspace_path: &Path,
+    workspace_root: &Path,
+    worker_host: Option<&str>,
+    container_id: Option<&str>,
+    helper_env: HelperEnv<'_>,
+) -> Result<SessionHandle> {
     let cmd_str = config.command.join(" ");
     let cmd_label = command_label(&config.command);
 
@@ -158,8 +191,9 @@ pub async fn start_session(
             );
 
             let remote_cmd = format!(
-                "cd {} && {}",
+                "cd {} && {}{}",
                 crate::ssh::shell_escape(&workspace_str),
+                shell_env_prefix(helper_env.symphony_bin, helper_env.symphony_workflow_path),
                 cmd_str
             );
             let child = crate::docker::exec_command(container_id, &remote_cmd)
@@ -183,20 +217,26 @@ pub async fn start_session(
                 "Spawning Codex app-server"
             );
 
-            let child = tokio::process::Command::new("bash")
+            let mut command = tokio::process::Command::new("bash");
+            command
                 .args(["-lc", &cmd_str])
                 .current_dir(&canonical_workspace)
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .spawn()
-                .map_err(|e| {
-                    if e.kind() == std::io::ErrorKind::NotFound {
-                        SymphonyError::CodexNotFound
-                    } else {
-                        SymphonyError::Io(e)
-                    }
-                })?;
+                .stderr(Stdio::piped());
+            if let Some(symphony_bin) = helper_env.symphony_bin {
+                command.env("SYMPHONY_BIN", symphony_bin);
+            }
+            if let Some(symphony_workflow_path) = helper_env.symphony_workflow_path {
+                command.env("SYMPHONY_WORKFLOW_PATH", symphony_workflow_path);
+            }
+            let child = command.spawn().map_err(|e| {
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    SymphonyError::CodexNotFound
+                } else {
+                    SymphonyError::Io(e)
+                }
+            })?;
 
             (workspace_str, child)
         }
@@ -215,8 +255,9 @@ pub async fn start_session(
             // Prepend `cd <workspace> &&` so the remote shell starts in the
             // workspace directory — matching the local path's `.current_dir()`.
             let remote_cmd = format!(
-                "cd {} && {}",
+                "cd {} && {}{}",
                 crate::ssh::shell_escape(&workspace_str),
+                shell_env_prefix(helper_env.symphony_bin, helper_env.symphony_workflow_path),
                 cmd_str
             );
             let child = SshRunner::start_process(host, &remote_cmd).await?;
@@ -277,6 +318,27 @@ pub async fn start_session(
         read_timeout_ms: config.read_timeout_ms,
         auto_approve_requests,
     })
+}
+
+fn shell_env_prefix(symphony_bin: Option<&str>, symphony_workflow_path: Option<&str>) -> String {
+    let mut assignments = Vec::new();
+    if let Some(symphony_bin) = symphony_bin {
+        assignments.push(format!(
+            "SYMPHONY_BIN={}",
+            crate::ssh::shell_escape(symphony_bin)
+        ));
+    }
+    if let Some(symphony_workflow_path) = symphony_workflow_path {
+        assignments.push(format!(
+            "SYMPHONY_WORKFLOW_PATH={}",
+            crate::ssh::shell_escape(symphony_workflow_path)
+        ));
+    }
+    if assignments.is_empty() {
+        String::new()
+    } else {
+        format!("{} ", assignments.join(" "))
+    }
 }
 
 /// Run a single agent turn and stream events via the provided callback.
