@@ -1,6 +1,6 @@
 export type KataBackendKind = "github" | "linear";
 
-export type KataScopeType = "project" | "milestone" | "slice" | "task";
+export type KataScopeType = "project" | "milestone" | "slice" | "task" | "issue";
 
 export type KataArtifactType =
   | "project-brief"
@@ -113,6 +113,14 @@ export interface KataTask {
   verificationState: "pending" | "verified" | "failed";
 }
 
+export interface KataIssue {
+  id: string;
+  title: string;
+  body: string;
+  status: "backlog" | "todo" | "in_progress" | "done";
+  url?: string;
+}
+
 export interface KataArtifact {
   id: string;
   scopeType: KataScopeType;
@@ -184,6 +192,12 @@ export interface KataTaskUpdateStatusInput {
   verificationState?: KataTask["verificationState"];
 }
 
+export interface KataIssueCreateInput {
+  title: string;
+  design: string;
+  plan: string;
+}
+
 export interface KataArtifactListInput {
   scopeType: KataScopeType;
   scopeId: string;
@@ -240,6 +254,7 @@ export interface KataBackendAdapter {
   listTasks(input: KataTaskListInput): Promise<KataTask[]>;
   createTask(input: KataTaskCreateInput): Promise<KataTask>;
   updateTaskStatus(input: KataTaskUpdateStatusInput): Promise<KataTask>;
+  createIssue(input: KataIssueCreateInput): Promise<KataIssue>;
   listArtifacts(input: KataArtifactListInput): Promise<KataArtifact[]>;
   readArtifact(input: KataArtifactReadInput): Promise<KataArtifact | null>;
   writeArtifact(input: KataArtifactWriteInput): Promise<KataArtifact>;

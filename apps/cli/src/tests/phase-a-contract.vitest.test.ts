@@ -15,6 +15,7 @@ import type {
   KataArtifactWriteInput,
   KataBackendAdapter,
   KataExecutionStatus,
+  KataIssueCreateInput,
   KataMilestoneCompleteInput,
   KataMilestoneCreateInput,
   KataOpenPullRequestInput,
@@ -39,6 +40,7 @@ const payloadRequiredCallOperations = [
   "task.list",
   "task.create",
   "task.updateStatus",
+  "issue.create",
   "artifact.list",
   "artifact.read",
   "artifact.write",
@@ -141,6 +143,13 @@ function createFakeAdapter(): KataBackendAdapter {
       status: input.status,
       verificationState: input.verificationState ?? "pending",
     }),
+    createIssue: async (input: KataIssueCreateInput) => ({
+      id: "issue-1",
+      title: input.title,
+      body: `# Design\n\n${input.design}\n\n# Plan\n\n${input.plan}`,
+      status: "backlog",
+      url: "https://github.com/kata/repo/issues/1",
+    }),
     listArtifacts: async (_input: KataArtifactListInput) => [artifact],
     readArtifact: async (_input: KataArtifactReadInput) => artifact,
     writeArtifact: async (input: KataArtifactWriteInput) => ({
@@ -203,6 +212,7 @@ describe("Phase A domain contract", () => {
       "task.list",
       "task.create",
       "task.updateStatus",
+      "issue.create",
       "artifact.list",
       "artifact.read",
       "artifact.write",
@@ -260,6 +270,18 @@ describe("Phase A domain contract", () => {
       id: "task-1",
       status: "backlog",
       verificationState: "pending",
+    });
+
+    await expect(
+      dispatchKataOperation(api, "issue.create", {
+        title: "Plan standalone fix",
+        design: "## Problem\n\nA one-off fix needs design.",
+        plan: "## Tasks\n\n- [ ] Implement the fix.",
+      }),
+    ).resolves.toMatchObject({
+      id: "issue-1",
+      status: "backlog",
+      body: expect.stringContaining("# Design"),
     });
   });
 

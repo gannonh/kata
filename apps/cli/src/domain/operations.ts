@@ -4,6 +4,7 @@ import type {
   KataArtifactReadInput,
   KataArtifactType,
   KataArtifactWriteInput,
+  KataIssueCreateInput,
   KataMilestoneCompleteInput,
   KataMilestoneCreateInput,
   KataProjectUpsertInput,
@@ -32,6 +33,7 @@ export const KATA_OPERATION_NAMES = [
   "task.list",
   "task.create",
   "task.updateStatus",
+  "issue.create",
   "artifact.list",
   "artifact.read",
   "artifact.write",
@@ -69,7 +71,7 @@ const SLICE_STATUSES = [
 
 const TASK_STATUSES = ["backlog", "todo", "in_progress", "done"] as const satisfies readonly KataTask["status"][];
 const TASK_VERIFICATION_STATES = ["pending", "verified", "failed"] as const satisfies readonly KataTask["verificationState"][];
-const SCOPE_TYPES = ["project", "milestone", "slice", "task"] as const satisfies readonly KataScopeType[];
+const SCOPE_TYPES = ["project", "milestone", "slice", "task", "issue"] as const satisfies readonly KataScopeType[];
 const ARTIFACT_TYPES = [
   "project-brief",
   "requirements",
@@ -213,6 +215,12 @@ export function validateKataOperationPayload(
         (input) => requireEnum(input, "status", TASK_STATUSES),
         (input) => requireOptionalEnum(input, "verificationState", TASK_VERIFICATION_STATES),
       ]);
+    case "issue.create":
+      return requireFields(payload, [
+        (input) => requireNonEmptyString(input, "title"),
+        (input) => requireNonEmptyString(input, "design"),
+        (input) => requireNonEmptyString(input, "plan"),
+      ]);
     case "artifact.list":
       return requireFields(payload, [
         (input) => requireEnum(input, "scopeType", SCOPE_TYPES),
@@ -280,6 +288,8 @@ export async function dispatchKataOperation(
       return api.task.create(payload as KataTaskCreateInput);
     case "task.updateStatus":
       return api.task.updateStatus(payload as KataTaskUpdateStatusInput);
+    case "issue.create":
+      return api.issue.create(payload as KataIssueCreateInput);
     case "artifact.list":
       return api.artifact.list(payload as KataArtifactListInput);
     case "artifact.read":

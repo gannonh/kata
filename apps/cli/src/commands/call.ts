@@ -25,6 +25,7 @@ const PAYLOAD_REQUIRED_OPERATIONS = new Set<KataOperationName>([
   "task.list",
   "task.create",
   "task.updateStatus",
+  "issue.create",
   "artifact.list",
   "artifact.read",
   "artifact.write",

@@ -35,6 +35,7 @@ Required-input operations:
 
 ```bash
 node <path-to-skill-directory>/scripts/kata-call.mjs milestone.create --input /tmp/kata-milestone-create.json
+node <path-to-skill-directory>/scripts/kata-call.mjs issue.create --input /tmp/kata-issue-create.json
 node <path-to-skill-directory>/scripts/kata-call.mjs artifact.write --input /tmp/kata-artifact-write.json
 ```
 
@@ -169,6 +170,36 @@ Expected data:
   "goal": "Deliver persistent task creation, completion, editing, and deletion.",
   "status": "active",
   "active": true
+}
+```
+
+### `issue.create`
+
+Payload:
+
+```json
+{
+  "title": "Fix first-run setup messaging",
+  "design": "## Problem\n\nThe setup output is confusing.\n\n## Proposed approach\n\nRender concrete supported skill locations.",
+  "plan": "## Tasks\n\n- [ ] Add a focused test.\n- [ ] Update the renderer.\n- [ ] Run CLI validation."
+}
+```
+
+Command:
+
+```bash
+node <path-to-skill-directory>/scripts/kata-call.mjs issue.create --input /tmp/kata-issue-create.json
+```
+
+Expected data:
+
+```json
+{
+  "id": "I001",
+  "title": "Fix first-run setup messaging",
+  "body": "# Design\n\n...\n\n# Plan\n\n...",
+  "status": "backlog",
+  "url": "https://github.com/owner/repo/issues/123"
 }
 ```
 

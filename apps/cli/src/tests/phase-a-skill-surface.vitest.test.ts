@@ -16,6 +16,7 @@ describe("Phase A skill surface", () => {
       "kata-health",
       "kata-new-milestone",
       "kata-new-project",
+      "kata-plan-issue",
       "kata-plan-phase",
       "kata-progress",
       "kata-setup",

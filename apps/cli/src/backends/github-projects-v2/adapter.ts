@@ -5,6 +5,8 @@ import type {
   KataBackendAdapter,
   KataExecutionStatus,
   KataHealthReport,
+  KataIssue,
+  KataIssueCreateInput,
   KataMilestone,
   KataMilestoneCompleteInput,
   KataMilestoneCreateInput,
@@ -25,7 +27,7 @@ import { parseArtifactComment, upsertArtifactComment } from "./artifacts.js";
 import { KATA_PROJECT_FIELDS, loadProjectFieldIndex, type ProjectFieldIndex } from "./project-fields.js";
 
 type GithubClient = ReturnType<typeof createGithubClient>;
-type KataEntityType = "Project" | "Milestone" | "Slice" | "Task";
+type KataEntityType = "Project" | "Milestone" | "Slice" | "Task" | "Issue";
 type ProjectStatusName = "Backlog" | "Todo" | "In Progress" | "Agent Review" | "Human Review" | "Merging" | "Done";
 type KataSliceStatus = KataSlice["status"];
 type KataTaskStatus = KataTask["status"];
@@ -373,6 +375,34 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
     };
   }
 
+  async createIssue(input: KataIssueCreateInput): Promise<KataIssue> {
+    await this.discoverEntities();
+    const kataId = this.nextKataId("Issue");
+    const body = formatEntityBody({
+      kataId,
+      type: "Issue",
+      status: "backlog",
+      content: formatPlannedIssueBody(input.design, input.plan),
+    });
+    const entity = await this.createIssueEntity({
+      kataId,
+      type: "Issue",
+      title: `[${kataId}] ${input.title}`,
+      body,
+    });
+
+    await this.syncProjectFields(entity, {
+      type: "Issue",
+      status: "Backlog",
+      artifactScope: kataId,
+      verificationState: "pending",
+      blocking: "",
+      blockedBy: "",
+    });
+
+    return issueFromEntity(entity);
+  }
+
   async listArtifacts(input: { scopeType: KataScopeType; scopeId: string }): Promise<KataArtifact[]> {
     const entity = await this.findArtifactEntity(input.scopeType, input.scopeId);
     if (!entity) return [];
@@ -496,8 +526,8 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
     throw new KataDomainError("UNKNOWN", `Unable to discover Kata issues after ${MAX_ISSUE_PAGES} full pages.`);
   }
 
-  private nextKataId(type: "Milestone" | "Slice" | "Task"): string {
-    const prefix = type === "Milestone" ? "M" : type === "Slice" ? "S" : "T";
+  private nextKataId(type: "Milestone" | "Slice" | "Task" | "Issue"): string {
+    const prefix = type === "Milestone" ? "M" : type === "Slice" ? "S" : type === "Task" ? "T" : "I";
     const maxExisting = [...this.entities.keys()].reduce((max, kataId) => {
       const match = kataId.match(new RegExp(`^${prefix}(\\d+)$`));
       return match ? Math.max(max, Number(match[1])) : max;
@@ -818,6 +848,16 @@ function taskFromEntity(entity: TrackedEntity): KataTask {
   };
 }
 
+function issueFromEntity(entity: TrackedEntity): KataIssue {
+  return {
+    id: entity.kataId,
+    title: entity.title,
+    body: bodyContent(entity.body),
+    status: issueStatusFromEntity(entity),
+    url: entity.url,
+  };
+}
+
 function artifactFromParsedComment(input: {
   comment: GithubIssueComment;
   parsed: NonNullable<ReturnType<typeof parseArtifactComment>>;
@@ -853,7 +893,7 @@ function isEntityMarker(value: unknown): value is EntityMarker {
   if (candidate.status !== undefined) {
     const statusValid = candidate.type === "Slice"
       ? isKataSliceStatus(candidate.status)
-      : candidate.type === "Task"
+      : candidate.type === "Task" || candidate.type === "Issue"
         ? isKataTaskStatus(candidate.status)
         : false;
     if (!statusValid) return false;
@@ -865,7 +905,7 @@ function isEntityMarker(value: unknown): value is EntityMarker {
 }
 
 function isKataEntityType(value: unknown): value is KataEntityType {
-  return value === "Project" || value === "Milestone" || value === "Slice" || value === "Task";
+  return value === "Project" || value === "Milestone" || value === "Slice" || value === "Task" || value === "Issue";
 }
 
 function normalizeArtifactScopeId(scopeType: KataScopeType, scopeId: string): string {
@@ -910,6 +950,10 @@ function sliceStatusFromEntity(entity: TrackedEntity): KataSliceStatus {
 }
 
 function taskStatusFromEntity(entity: TrackedEntity): KataTaskStatus {
+  return isKataTaskStatus(entity.status) ? entity.status : entity.state === "closed" ? "done" : "backlog";
+}
+
+function issueStatusFromEntity(entity: TrackedEntity): KataIssue["status"] {
   return isKataTaskStatus(entity.status) ? entity.status : entity.state === "closed" ? "done" : "backlog";
 }
 
@@ -968,4 +1012,8 @@ function bodyContent(body: string): string {
 
 function appendBodySection(body: string, heading: string, content: string): string {
   return `${body.trimEnd()}\n\n## ${heading}\n\n${content}`;
+}
+
+function formatPlannedIssueBody(design: string, plan: string): string {
+  return `# Design\n\n${design.trim()}\n\n# Plan\n\n${plan.trim()}`;
 }

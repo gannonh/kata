@@ -428,6 +428,68 @@ describe("GithubProjectsV2Adapter", () => {
     );
   });
 
+  it("creates standalone planned issues as one Project v2 backlog item", async () => {
+    const client = createFakeGithubClient();
+    const adapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+
+    const issue = await adapter.createIssue({
+      title: "Plan isolated fix",
+      design: "## Problem\n\nThe workflow needs one standalone issue.",
+      plan: "## Tasks\n\n- [ ] Create one backend issue.",
+    });
+
+    expect(issue).toMatchObject({
+      id: "I001",
+      title: "Plan isolated fix",
+      status: "backlog",
+      url: "https://github.test/kata-sh/uat/issues/1",
+    });
+    expect(issue.body).toContain("# Design");
+    expect(issue.body).toContain("# Plan");
+    expect(client.rest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "POST",
+        path: "/repos/kata-sh/uat/issues",
+        body: expect.objectContaining({
+          title: "[I001] Plan isolated fix",
+          body: expect.stringContaining('"type":"Issue"'),
+        }),
+      }),
+    );
+
+    const updateCalls = client.graphql.mock.calls.filter(([input]) =>
+      input.query.includes("updateProjectV2ItemFieldValue")
+    );
+    expect(updateCalls).toEqual(
+      expect.arrayContaining([
+        [
+          expect.objectContaining({
+            variables: expect.objectContaining({
+              itemId: "project-item-1",
+              fieldId: "kata-type-field-id",
+              value: { text: "Issue" },
+            }),
+          }),
+        ],
+        [
+          expect.objectContaining({
+            variables: expect.objectContaining({
+              itemId: "project-item-1",
+              fieldId: "status-field-id",
+              value: { singleSelectOptionId: "status-backlog" },
+            }),
+          }),
+        ],
+      ]),
+    );
+  });
+
   it("rediscovers marker issues before writing artifacts from a fresh adapter", async () => {
     const client = createFakeGithubClient({
       issues: [

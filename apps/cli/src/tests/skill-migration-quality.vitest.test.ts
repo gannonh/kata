@@ -16,6 +16,7 @@ const inputRequiredOperations = new Set([
   "task.list",
   "task.create",
   "task.updateStatus",
+  "issue.create",
   "artifact.list",
   "artifact.read",
   "artifact.write",
@@ -103,5 +104,14 @@ describe("skill migration quality gates", () => {
     expect(planWorkflow).toContain("task.create");
     expect(planWorkflow).toContain("plan");
     expect(planWorkflow).toContain("phase gate");
+
+    const planIssueWorkflow = readSourceWorkflow("plan-issue");
+    expect(planIssueWorkflow).toContain("issue.create");
+    expect(planIssueWorkflow).toContain("# Design");
+    expect(planIssueWorkflow).toContain("# Plan");
+    expect(planIssueWorkflow).toContain("Do not create milestones, slices, or tasks");
+    expect(planIssueWorkflow).toContain("Do not draft the design, do not draft the implementation plan");
+    expect(planIssueWorkflow).toContain("Do not include the implementation plan yet");
+    expect(planIssueWorkflow).toContain("Do not run `issue.create` until the user approves both the design and the plan");
   });
 });
