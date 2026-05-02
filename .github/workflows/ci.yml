@@ -59,7 +59,7 @@ jobs:
         run: |
           if ! command -v rg >/dev/null 2>&1; then
             mkdir -p "$RUNNER_TEMP/bin"
-            printf '%s\n' '#!/usr/bin/env bash' 'exec grep -R "$@"' > "$RUNNER_TEMP/bin/rg"
+            printf '%s\n' '#!/usr/bin/env bash' 'exec grep -R -E "$@"' > "$RUNNER_TEMP/bin/rg"
             chmod +x "$RUNNER_TEMP/bin/rg"
             echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
           fi
@@ -222,7 +222,7 @@ jobs:
         run: |
           if ! command -v rg >/dev/null 2>&1; then
             mkdir -p "$RUNNER_TEMP/bin"
-            printf '%s\n' '#!/usr/bin/env bash' 'exec grep -R "$@"' > "$RUNNER_TEMP/bin/rg"
+            printf '%s\n' '#!/usr/bin/env bash' 'exec grep -R -E "$@"' > "$RUNNER_TEMP/bin/rg"
             chmod +x "$RUNNER_TEMP/bin/rg"
             echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
           fi
