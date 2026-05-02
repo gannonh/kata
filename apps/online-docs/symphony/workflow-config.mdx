@@ -39,7 +39,353 @@ Legacy `kata_*` worker tool names are not the current contract.
 tracker:
   kind: linear
   api_key: $LINEAR_API_KEY
-  project_slug: your-project
+  project_slug: my-project
+# ... more config ...
+---
+
+You are working on {{ issue.identifier }}: {{ issue.title }}.
+
+{{ issue.description }}
+```
+
+Symphony watches `WORKFLOW.md` for changes and applies updates without restart.
+
+## Environment variable indirection
+
+Any string value starting with `$` followed by a bare identifier is resolved from the environment at startup:
+
+```yaml
+tracker:
+  api_key: $LINEAR_API_KEY      # reads LINEAR_API_KEY from env
+  assignee: $SYMPHONY_ASSIGNEE  # reads SYMPHONY_ASSIGNEE from env
+```
+
+If the variable is unset, Symphony logs a warning and treats the field as absent. Note that `$HOME/path` is **not** treated as env indirection — use tilde expansion in `workspace.root` instead.
+
+## Liquid template variables
+
+The markdown body is a Liquid template. These variables are available:
+
+| Variable | Example value |
+| --- | --- |
+| `{{ issue.identifier }}` | `KAT-42` |
+| `{{ issue.title }}` | `Add retry logic` |
+| `{{ issue.state }}` | `In Progress` |
+| `{{ issue.description }}` | Full issue body |
+| `{{ issue.labels }}` | Array of label names |
+| `{{ issue.url }}` | Issue URL |
+| `{{ issue.children_count }}` | `3` |
+| `{{ issue.parent_identifier }}` | `KAT-10` |
+| `{{ attempt }}` | `1` |
+| `{{ workspace.base_branch }}` | `main` |
+
+You can use standard Liquid tags such as `{% if %}`, `{% for %}`, and filters:
+
+```liquid
+{% if issue.children_count > 0 %}
+This is a parent issue with {{ issue.children_count }} sub-tasks.
+{% else %}
+This is a standalone issue.
+{% endif %}
+```
+
+---
+
+## `tracker` section
+
+Configures the issue tracker connection.
+
+<ParamField path="tracker.kind" type="string" required>
+  Tracker backend. Use `"linear"` for Linear or `"github"` for GitHub Issues.
+</ParamField>
+
+<ParamField path="tracker.api_key" type="string" required>
+  API key for the tracker. Supports `$VAR` env indirection. For Linear, use a personal API key. For GitHub, use a classic personal access token (`GH_TOKEN` or `GITHUB_TOKEN`) with `repo`, `project`, `workflow`, `read:org`, and `read:discussion` scopes. Never logged.
+</ParamField>
+
+<ParamField path="tracker.project_slug" type="string">
+  Linear project URL slug (shown in project URLs). Required when `kind` is `"linear"`. Supports `$VAR` indirection.
+</ParamField>
+
+<ParamField path="tracker.workspace_slug" type="string" default="kata-sh">
+  Linear workspace slug used when building dashboard project links. Supports `$VAR` indirection.
+</ParamField>
+
+<ParamField path="tracker.endpoint" type="string" default="https://api.linear.app/graphql">
+  Linear GraphQL endpoint. Override for self-hosted Linear.
+</ParamField>
+
+<ParamField path="tracker.assignee" type="string">
+  Filter candidate issues to this Linear username. Leave unset to pick up all issues in active states. Supports `$VAR` indirection.
+</ParamField>
+
+<ParamField path="tracker.active_states" type="string[]" default='["Todo", "In Progress"]'>
+  Issue states that are eligible for dispatch. Must match the state names in your Linear team workflow (case-insensitive).
+</ParamField>
+
+<ParamField path="tracker.terminal_states" type="string[]" default='["Closed", "Cancelled", "Canceled", "Duplicate", "Done"]'>
+  Issue states that mark a run as complete. Symphony stops managing the issue and optionally cleans up the workspace.
+</ParamField>
+
+<ParamField path="tracker.exclude_labels" type="string[]" default="[]">
+  Labels that disqualify an issue from dispatch. Any issue carrying at least one of these labels is skipped (case-insensitive). Use `["kata:task"]` to prevent Kata sub-tasks from being dispatched as independent workers.
+</ParamField>
+
+<ParamField path="tracker.repo_owner" type="string">
+  GitHub repository owner. Required when `kind` is `"github"`.
+</ParamField>
+
+<ParamField path="tracker.repo_name" type="string">
+  GitHub repository name. Required when `kind` is `"github"`.
+</ParamField>
+
+<ParamField path="tracker.github_project_owner_type" type="string">
+  Owner namespace for the GitHub Projects v2 board. Required when `kind` is `"github"`. Use `"user"` for user-owned projects or `"org"` for organization-owned projects.
+</ParamField>
+
+<ParamField path="tracker.github_project_number" type="number">
+  GitHub Projects v2 project number. Required when `tracker.kind` is `"github"`. Symphony reads and writes state from the project's `Status` single-select field.
+</ParamField>
+
+---
+
+## `polling` section
+
+<ParamField path="polling.interval_ms" type="number" default="30000">
+  How often to check for new or changed issues, in milliseconds.
+</ParamField>
+
+---
+
+## `workspace` section
+
+Controls where and how agent workspaces are created.
+
+<ParamField path="workspace.root" type="string" default="$TMPDIR/symphony_workspaces">
+  Root directory for per-issue agent workspaces. Supports `~` tilde expansion.
+</ParamField>
+
+<ParamField path="workspace.repo" type="string">
+  Repository URL or local path to clone into each workspace. Required for all git strategies.
+</ParamField>
+
+<ParamField path="workspace.git_strategy" type="string" default="auto">
+  Git bootstrap strategy. See the [deployment guide](/symphony/deployment) for a full comparison table. Options: `"auto"`, `"worktree"`, `"clone-local"`, `"clone-remote"`.
+</ParamField>
+
+<ParamField path="workspace.isolation" type="string" default="local">
+  Workspace runtime isolation model. `"local"` runs agents as bare processes. `"docker"` uses an ephemeral container per issue.
+</ParamField>
+
+<ParamField path="workspace.branch_prefix" type="string" default="symphony">
+  Prefix for auto-created issue branches. Branches are named `{prefix}/{issue-identifier}`.
+</ParamField>
+
+<ParamField path="workspace.base_branch" type="string" default="main">
+  Base branch for merge and rebase targets. Available in prompt templates as `{{ workspace.base_branch }}`.
+</ParamField>
+
+<ParamField path="workspace.clone_branch" type="string">
+  Optional source branch for clone-based bootstraps (`clone-local`, `clone-remote`, or `auto` when clone is selected).
+</ParamField>
+
+<ParamField path="workspace.cleanup_on_done" type="boolean" default="false">
+  Remove the workspace when the issue reaches a terminal state. Runs `hooks.before_remove` before deletion.
+</ParamField>
+
+<ParamField path="workspace.docker.image" type="string" default="symphony-worker:latest">
+  Base Docker image for container-isolated workspaces.
+</ParamField>
+
+<ParamField path="workspace.docker.setup" type="string">
+  Path to a shell script that installs toolchains or extra dependencies on top of the base image. The derived image is cached by content hash.
+</ParamField>
+
+<ParamField path="workspace.docker.codex_auth" type="string" default="auto">
+  How the agent authenticates inside the container. `"auto"` uses `OPENAI_API_KEY` if set, otherwise mounts `~/.codex/auth.json`. `"env"` requires `OPENAI_API_KEY`. `"mount"` bind-mounts `~/.codex/auth.json`.
+</ParamField>
+
+<ParamField path="workspace.docker.env" type="string[]" default="[]">
+  Additional `KEY=value` environment variables passed to `docker run`.
+</ParamField>
+
+<ParamField path="workspace.docker.volumes" type="string[]" default="[]">
+  Additional bind mounts passed to `docker run`, in `host:container[:options]` format.
+</ParamField>
+
+---
+
+## `agent` section
+
+Global agent execution settings.
+
+<ParamField path="agent.name" type="string" default="pi">
+  Agent runtime backend. Use `"pi"` for Kata CLI in RPC mode, or `"codex"` for OpenAI Codex app-server. The legacy `agent.backend` key is still accepted as a compatibility alias.
+</ParamField>
+
+<ParamField path="agent.max_concurrent_agents" type="number" default="10">
+  Global cap on simultaneously running agent sessions.
+</ParamField>
+
+<ParamField path="agent.max_turns" type="number" default="20">
+  Maximum prompt turns per session attempt before the worker run ends.
+</ParamField>
+
+<ParamField path="agent.max_retry_backoff_ms" type="number" default="300000">
+  Maximum exponential back-off delay between retries, in milliseconds.
+</ParamField>
+
+<ParamField path="agent.escalation_timeout_ms" type="number" default="300000">
+  Timeout to wait for a human escalation response before falling back to auto-cancel behavior, in milliseconds.
+</ParamField>
+
+---
+
+## `hooks` section
+
+Shell commands that run at workspace lifecycle events.
+
+```yaml
+hooks:
+  after_create: ./scripts/setup-workspace.sh
+  before_run: echo "Starting $SYMPHONY_ISSUE_IDENTIFIER"
+  after_run: ./scripts/collect-artifacts.sh
+  before_remove: tar czf /tmp/$SYMPHONY_ISSUE_IDENTIFIER.tar.gz $SYMPHONY_WORKSPACE_PATH
+  timeout_ms: 120000
+```
+
+<ParamField path="hooks.after_create" type="string">
+  Shell command run after the workspace is created and the repo is bootstrapped.
+</ParamField>
+
+<ParamField path="hooks.before_run" type="string">
+  Shell command run before the agent session starts.
+</ParamField>
+
+<ParamField path="hooks.after_run" type="string">
+  Shell command run after the agent session ends (success or failure). Failures are logged but don't affect the session result.
+</ParamField>
+
+<ParamField path="hooks.before_remove" type="string">
+  Shell command run before the workspace is deleted (when `cleanup_on_done: true`).
+</ParamField>
+
+<ParamField path="hooks.timeout_ms" type="number" default="60000">
+  Timeout for each hook invocation, in milliseconds. If `after_create` or `before_run` times out, the worker attempt is aborted and the issue retries.
+</ParamField>
+
+All hooks receive these environment variables:
+
+| Variable | Example |
+| --- | --- |
+| `SYMPHONY_ISSUE_ID` | Linear issue UUID |
+| `SYMPHONY_ISSUE_IDENTIFIER` | `KAT-911` |
+| `SYMPHONY_ISSUE_TITLE` | Issue title text |
+| `SYMPHONY_WORKSPACE_PATH` | `/home/user/symphony-workspaces/KAT-911` |
+
+---
+
+## `notifications.slack` section
+
+Send webhook notifications to Slack on state transitions or runtime events.
+
+```yaml
+notifications:
+  slack:
+    webhook_url: $SLACK_WEBHOOK_URL
+    events:
+      - human_review     # PR ready for human approval
+      - stalled          # agent exceeded stall timeout
+      - failed           # agent failed after max retries
+```
+
+<ParamField path="notifications.slack.webhook_url" type="string">
+  Slack incoming webhook URL. Supports `$VAR` env indirection.
+</ParamField>
+
+<ParamField path="notifications.slack.events" type="string[]" default="[]">
+  Events to notify on. Use `"all"` to subscribe to everything. Available values: `todo`, `in_progress`, `agent_review`, `human_review`, `merging`, `rework`, `done`, `closed`, `cancelled`, `stalled`, `failed`. Notification failures are logged as warnings and never block the orchestrator.
+</ParamField>
+
+---
+
+## `supervisor` section
+
+Optional autonomous supervisor loop that watches worker events and intervenes when workers are stuck or conflicting.
+
+```yaml
+supervisor:
+  enabled: true
+  model: anthropic/claude-sonnet-4-6
+  steer_cooldown_ms: 120000
+```
+
+<ParamField path="supervisor.enabled" type="boolean" default="false">
+  Enable the supervisor loop.
+</ParamField>
+
+<ParamField path="supervisor.model" type="string">
+  Model for the supervisor to use. Defaults to `kata_agent.model` when omitted.
+</ParamField>
+
+<ParamField path="supervisor.steer_cooldown_ms" type="number" default="120000">
+  Minimum delay between steering interventions to the same issue, in milliseconds.
+</ParamField>
+
+---
+
+## `prompts` section
+
+Per-state prompt injection. When configured, Symphony selects a prompt file based on the issue's current Linear state instead of using the monolithic markdown body.
+
+```yaml
+prompts:
+  system: prompts/system.md
+  repo: prompts/repo-context.md
+  by_state:
+    Todo: prompts/in-progress.md
+    In Progress: prompts/in-progress.md
+    Agent Review: prompts/agent-review.md
+    Merging: prompts/merging.md
+    Rework: prompts/rework.md
+  default: prompts/in-progress.md
+```
+
+Prompt files are concatenated in order: `system` + `repo` + `shared` (legacy) + state-specific file, separated by `---`.
+
+<ParamField path="prompts.system" type="string">
+  Path to a system-level preamble (agent identity, tool guidance). Injected every turn. Path is relative to the WORKFLOW.md directory.
+</ParamField>
+
+<ParamField path="prompts.repo" type="string">
+  Path to repository-specific context (build commands, layout). Injected every turn. Path is relative to the WORKFLOW.md directory.
+</ParamField>
+
+<ParamField path="prompts.shared" type="string">
+  Legacy single-file preamble. Superseded by `system` + `repo` but still honoured for backward compatibility.
+</ParamField>
+
+<ParamField path="prompts.by_state" type="object">
+  Map of Linear state name to prompt file path. State matching is case-insensitive. Paths are relative to the WORKFLOW.md directory.
+</ParamField>
+
+<ParamField path="prompts.default" type="string">
+  Fallback prompt file for states not listed in `by_state`. Relative to the WORKFLOW.md directory.
+</ParamField>
+
+When `prompts` is absent, the markdown body after `---` is used as the prompt for all states.
+
+---
+
+## Complete example
+
+```yaml
+---
+tracker:
+  kind: linear
+  api_key: $LINEAR_API_KEY
+  project_slug: eng-infra
+  assignee: alice
   active_states:
     - Todo
     - In Progress

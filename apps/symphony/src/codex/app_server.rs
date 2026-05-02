@@ -111,6 +111,13 @@ pub struct TurnResult {
     pub rate_limits: Option<Value>,
 }
 
+/// Optional Symphony helper environment passed through to worker subprocesses.
+#[derive(Clone, Copy)]
+pub struct HelperEnv<'a> {
+    pub symphony_bin: Option<&'a str>,
+    pub symphony_workflow_path: Option<&'a str>,
+}
+
 // ── Public API ────────────────────────────────────────────────────────
 
 /// Launch a Codex app-server subprocess and perform the startup handshake.
@@ -149,8 +156,10 @@ pub async fn start_session(
         workspace_root,
         worker_host,
         container_id,
-        None,
-        None,
+        HelperEnv {
+            symphony_bin: None,
+            symphony_workflow_path: None,
+        },
     )
     .await
 }
@@ -164,8 +173,7 @@ pub async fn start_session_with_helper_env(
     workspace_root: &Path,
     worker_host: Option<&str>,
     container_id: Option<&str>,
-    symphony_bin: Option<&str>,
-    symphony_workflow_path: Option<&str>,
+    helper_env: HelperEnv<'_>,
 ) -> Result<SessionHandle> {
     let cmd_str = config.command.join(" ");
     let cmd_label = command_label(&config.command);
@@ -185,7 +193,7 @@ pub async fn start_session_with_helper_env(
             let remote_cmd = format!(
                 "cd {} && {}{}",
                 crate::ssh::shell_escape(&workspace_str),
-                shell_env_prefix(symphony_bin, symphony_workflow_path),
+                shell_env_prefix(helper_env.symphony_bin, helper_env.symphony_workflow_path),
                 cmd_str
             );
             let child = crate::docker::exec_command(container_id, &remote_cmd)
@@ -216,10 +224,10 @@ pub async fn start_session_with_helper_env(
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped());
-            if let Some(symphony_bin) = symphony_bin {
+            if let Some(symphony_bin) = helper_env.symphony_bin {
                 command.env("SYMPHONY_BIN", symphony_bin);
             }
-            if let Some(symphony_workflow_path) = symphony_workflow_path {
+            if let Some(symphony_workflow_path) = helper_env.symphony_workflow_path {
                 command.env("SYMPHONY_WORKFLOW_PATH", symphony_workflow_path);
             }
             let child = command.spawn().map_err(|e| {
@@ -249,7 +257,7 @@ pub async fn start_session_with_helper_env(
             let remote_cmd = format!(
                 "cd {} && {}{}",
                 crate::ssh::shell_escape(&workspace_str),
-                shell_env_prefix(symphony_bin, symphony_workflow_path),
+                shell_env_prefix(helper_env.symphony_bin, helper_env.symphony_workflow_path),
                 cmd_str
             );
             let child = SshRunner::start_process(host, &remote_cmd).await?;
