@@ -2,7 +2,7 @@
 
 # Plan Issue Workflow
 
-Use this workflow to plan a one-off, slice-sized unit of work in isolation and persist it as one backend issue in the GitHub Project v2 backlog. This workflow uses a staged design-and-planning process, but Kata stores the approved design and plan through the backend contract instead of local markdown files.
+Use this workflow to plan a one-off, slice-sized unit of work in isolation and persist it as one backlog issue. This workflow uses a staged design-and-planning process, and Kata stores the approved design and plan through the backend contract.
 
 ## Required Reading
 
@@ -18,7 +18,7 @@ Use `kata-plan-issue` when the request is:
 
 - A standalone bugfix, enhancement, cleanup, spike, or integration task.
 - Roughly slice-sized: meaningful enough to need design, but not large enough to become a milestone.
-- Intended to sit in the project backlog as one executable GitHub issue.
+- Intended to sit in the project backlog as one executable issue.
 - Planned and executed independently from the milestone/slice/task roadmap.
 
 Do not use this workflow for roadmap-sized work, multi-slice work, or work that must attach to an active milestone. Route those to `kata-new-milestone` or `kata-plan-phase`.
@@ -143,7 +143,7 @@ After the user approves the design, do not immediately write the plan. First cho
 
 ### Planning Depth
 
-Classify the issue as one of these depths and show the classification to the user before researching:
+Classify the issue as one of these depths before researching:
 
 - **Fast plan** — one package or surface, obvious implementation path, known tests, no runtime/backend contract change, low regression risk.
 - **Research plan** — multiple files or packages, generated files/docs involved, existing behavior unclear, test strategy needs discovery, or backend/runtime contract details matter.
@@ -155,7 +155,7 @@ Example classification:
 
 ```text
 Planning depth: Reviewed
-Reason: This crosses CLI TypeScript, GitHub Projects v2 backend fields, Rust Symphony dispatch, and Linear regression behavior.
+Reason: This crosses CLI TypeScript, backend fields, Rust Symphony dispatch, and regression behavior.
 ```
 
 ### Planning Research
@@ -219,7 +219,7 @@ Before presenting the plan, review it against the approved design:
 4. **Ordering:** Do tasks build in a sensible order, with tests or contract checks before implementation where appropriate?
 5. **Verification coverage:** Are exact validation commands or concrete human checks included when known?
 6. **Backend constraint:** Does the plan avoid creating milestones, slices, or tasks?
-7. **Single-issue constraint:** Does the plan still fit as one GitHub backlog issue containing the approved design and this plan?
+7. **Single-issue constraint:** Does the plan still fit as one backlog issue containing the approved design and this plan?
 
 If you find a problem, fix the plan before showing it to the user.
 
@@ -261,7 +261,7 @@ Run:
 node <path-to-skill-directory>/scripts/kata-call.mjs issue.create --input /tmp/kata-issue-create.json
 ```
 
-The backend creates one GitHub issue, adds it to the configured GitHub Project v2, sets status to Backlog when the Project has a Status field, and records Kata metadata fields.
+The backend creates one issue, adds it to the configured project, sets status to Backlog when the project has a Status field, and records Kata metadata fields.
 
 ## Completion
 

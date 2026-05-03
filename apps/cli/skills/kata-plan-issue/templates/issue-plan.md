@@ -1,6 +1,6 @@
 # One-Off Issue Template
 
-Use this template when creating a `kata-plan-issue` backend issue. The final GitHub issue body is assembled from the `design` and `plan` fields passed to `issue.create`, so keep both sections complete and self-contained.
+Use this template when creating a `kata-plan-issue` backend issue. The final issue body is assembled from the `design` and `plan` fields passed to `issue.create`, so keep both sections complete and self-contained.
 
 ## Title
 

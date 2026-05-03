@@ -8,7 +8,7 @@
   "skillsDir": "/Volumes/EVO/kata/kata-mono/.agents/skills",
   "skillsSourceDir": "/Volumes/EVO/kata/kata-mono/apps/cli/skills",
   "firstInstalledAt": "2026-05-02T21:55:03.892Z",
-  "installedAt": "2026-05-02T23:03:04.366Z",
+  "installedAt": "2026-05-03T15:14:54.183Z",
   "managedSkillEntries": [
     "kata-complete-milestone",
     "kata-execute-phase",

@@ -25,21 +25,7 @@
     "desktop:dev": "pnpm --dir apps/desktop run desktop:dev",
     "desktop:build": "pnpm --dir apps/desktop run desktop:build",
     "desktop:dist:mac": "pnpm --dir apps/desktop run desktop:dist:mac",
-    "sync-secrets": "bash scripts/sync-secrets.sh",
-    "fresh-start": "bun run scripts/fresh-start.ts",
-    "fresh-start:token": "bun run scripts/fresh-start.ts --token-only",
-    "print:system-prompt": "pnpm exec tsx packages/shared/src/prompts/print-system-prompt.ts",
-    "marketing:dev": "vite dev --config apps/marketing/vite.config.ts",
-    "marketing:build": "vite build --config apps/marketing/vite.config.ts",
-    "marketing:preview": "vite preview --config apps/marketing/vite.config.ts",
-    "docs:dev": "pnpm --dir apps/online-docs run docs:dev",
-    "release": "bun run scripts/release.ts",
-    "check-version": "bun run scripts/check-version.ts",
-    "oss:sync": "bun run scripts/oss-sync.ts",
-    "demo:setup": "bun run scripts/setup-demo.ts",
-    "demo:reset": "bun run scripts/setup-demo.ts --reset",
-    "demo:launch": "bash scripts/launch-demo.sh",
-    "demo:repo": "bash scripts/create-demo-repo.sh"
+    "sync-secrets": "bash scripts/sync-secrets.sh"
   },
   "devDependencies": {
     "@aws-sdk/client-s3": "^3.1039.0",
