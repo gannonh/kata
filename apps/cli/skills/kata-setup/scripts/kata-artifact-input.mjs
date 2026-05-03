@@ -11,17 +11,30 @@ function usage() {
 }
 
 function parseArgs(argv) {
+  const allowed = new Set([
+    "content-file",
+    "output",
+    "scope-type",
+    "scope-id",
+    "artifact-type",
+    "title",
+    "format",
+  ]);
   const values = new Map();
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
     if (!key.startsWith("--")) {
       throw new Error(`Unexpected positional argument: ${key}`);
     }
+    const name = key.slice(2);
+    if (!allowed.has(name)) {
+      throw new Error(`Unknown argument: ${key}`);
+    }
     const value = argv[index + 1];
     if (value === undefined || value.startsWith("--")) {
       throw new Error(`Missing value for ${key}`);
     }
-    values.set(key.slice(2), value);
+    values.set(name, value);
     index += 1;
   }
   return values;

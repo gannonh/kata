@@ -197,7 +197,16 @@ describe("loadProjectFieldIndex", () => {
       projectNumber: 1,
     })).rejects.toMatchObject({
       code: "INVALID_CONFIG",
-      message: expect.stringContaining("Kata ID must be Text"),
+      message: expect.stringMatching(/Kata ID must be Text[\s\S]*Fix incorrectly typed fields/),
+    });
+
+    await expect(loadProjectFieldIndex({
+      client,
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 1,
+    })).rejects.not.toMatchObject({
+      message: expect.stringContaining("Add each missing field"),
     });
   });
 

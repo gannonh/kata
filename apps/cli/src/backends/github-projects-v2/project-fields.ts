@@ -193,12 +193,24 @@ function validateProjectFieldIndex(fields: ProjectFieldIndex["fields"]): void {
               "",
             ]
           : []),
-        "",
-        "Add each missing field in the GitHub Project table view:",
-        "  1. Click the rightmost + field header.",
-        "  2. Choose New field.",
-        "  3. Enter the exact field name.",
-        "  4. Choose Text and save.",
+        ...(missingFields.length
+          ? [
+              "Add each missing field in the GitHub Project table view:",
+              "  1. Click the rightmost + field header.",
+              "  2. Choose New field.",
+              "  3. Enter the exact field name.",
+              "  4. Choose Text and save.",
+              "",
+            ]
+          : []),
+        ...(incorrectlyTypedFields.length
+          ? [
+              "Fix incorrectly typed fields in the GitHub Project table view:",
+              "  1. Open each field menu.",
+              "  2. Recreate the field as Text with the exact field name.",
+              "  3. Reapply existing values if needed.",
+            ]
+          : []),
       ].join("\n"),
     );
   }

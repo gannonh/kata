@@ -19,6 +19,8 @@ describe("loadDotEnv", () => {
           "GH_TOKEN=ghp_from_file",
           "GITHUB_TOKEN=from-file",
           "QUOTED=\"hello world\"",
+          "QUOTED_WITH_COMMENT=\"hello # world\" # comment",
+          "SINGLE_QUOTED_WITH_COMMENT='hello # world' # comment",
           "INLINE=value # comment",
           "INVALID-KEY=ignored",
         ].join("\n"),
@@ -34,6 +36,8 @@ describe("loadDotEnv", () => {
       expect(env.GH_TOKEN).toBe("ghp_from_file");
       expect(env.GITHUB_TOKEN).toBe("from-shell");
       expect(env.QUOTED).toBe("hello world");
+      expect(env.QUOTED_WITH_COMMENT).toBe("hello # world");
+      expect(env.SINGLE_QUOTED_WITH_COMMENT).toBe("hello # world");
       expect(env.INLINE).toBe("value");
       expect(env["INVALID-KEY"]).toBeUndefined();
     } finally {
@@ -41,4 +45,3 @@ describe("loadDotEnv", () => {
     }
   });
 });
-

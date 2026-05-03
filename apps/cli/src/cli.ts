@@ -141,8 +141,30 @@ async function main(argv = process.argv.slice(2)) {
     const rawProjectNumber = valueAfter("--project-number") ?? valueAfter("--github-project-number");
     const githubProjectNumber = rawProjectNumber ? Number(rawProjectNumber) : undefined;
     if (githubProjectNumber !== undefined && !Number.isInteger(githubProjectNumber)) {
-      process.stderr.write(`Error: --project-number must be an integer, got: ${rawProjectNumber}\n`);
+      const message = `--project-number must be an integer, got: ${rawProjectNumber}`;
+      if (flagSet.has("--json")) {
+        process.stdout.write(`${JSON.stringify({ ok: false, error: { code: "INVALID_REQUEST", message } }, null, 2)}\n`);
+      } else {
+        process.stderr.write(`Error: ${message}\n`);
+      }
       process.exitCode = 1;
+      return;
+    }
+    const rawBackend = valueAfter("--backend");
+    const writeSetupValidationError = (message: string) => {
+      if (flagSet.has("--json")) {
+        process.stdout.write(`${JSON.stringify({ ok: false, error: { code: "INVALID_REQUEST", message } }, null, 2)}\n`);
+      } else {
+        process.stderr.write(`Error: ${message}\n`);
+      }
+      process.exitCode = 1;
+    };
+    if (flagSet.has("--backend") && rawBackend === undefined) {
+      writeSetupValidationError("--backend requires a value: github or linear");
+      return;
+    }
+    if (rawBackend !== undefined && rawBackend !== "github" && rawBackend !== "linear") {
+      writeSetupValidationError(`--backend must be one of: github, linear. Got: ${rawBackend}`);
       return;
     }
     const result = await runSetup({
@@ -153,7 +175,7 @@ async function main(argv = process.argv.slice(2)) {
       claude: flagSet.has("--claude"),
       interactive: !flagSet.has("--yes") && Boolean(process.stdin.isTTY),
       onboarding: {
-        backend: valueAfter("--backend") === "linear" ? "linear" : "github",
+        backend: rawBackend ?? "github",
         repoOwner: valueAfter("--repo-owner") ?? repoOwnerFromRepo,
         repoName: valueAfter("--repo-name") ?? repoNameFromRepo,
         githubProjectNumber,

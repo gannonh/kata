@@ -4,16 +4,27 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 function parseDotEnvValue(rawValue) {
-  if (rawValue.length >= 2) {
-    const quote = rawValue[0];
-    if ((quote === `"` || quote === `'`) && rawValue[rawValue.length - 1] === quote) {
-      const inner = rawValue.slice(1, -1);
-      return quote === `"` ? decodeDoubleQuotedDotEnvValue(inner) : inner;
+  const value = rawValue.trim();
+  if (value.length >= 2) {
+    const quote = value[0];
+    if (quote === `"` || quote === `'`) {
+      for (let index = 1; index < value.length; index += 1) {
+        const char = value[index];
+        const escaped = quote === `"` && value[index - 1] === "\\";
+        if (char === quote && !escaped) {
+          const trailing = value.slice(index + 1).trim();
+          if (!trailing || trailing.startsWith("#")) {
+            const inner = value.slice(1, index);
+            return quote === `"` ? decodeDoubleQuotedDotEnvValue(inner) : inner;
+          }
+          break;
+        }
+      }
     }
   }
 
-  const commentIndex = rawValue.search(/\s#/);
-  return (commentIndex >= 0 ? rawValue.slice(0, commentIndex) : rawValue).trim();
+  const commentIndex = value.search(/\s#/);
+  return (commentIndex >= 0 ? value.slice(0, commentIndex) : value).trim();
 }
 
 function decodeDoubleQuotedDotEnvValue(value) {

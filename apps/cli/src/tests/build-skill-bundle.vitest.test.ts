@@ -99,6 +99,34 @@ describe("skill bundle generation", () => {
     );
     writeFileSync(markdownPath, "# Verification\n\n- `pnpm test` passed.\n| A | B |\n|---|---|\n", "utf8");
 
+    const unknownFlag = spawnSync(
+      process.execPath,
+      [
+        "scripts/kata-artifact-input.mjs",
+        "--scope-type",
+        "task",
+        "--scope-id",
+        "T001",
+        "--artifact-type",
+        "verification",
+        "--title",
+        "T001 Verification",
+        "--content-file",
+        markdownPath,
+        "--output",
+        outputPath,
+        "--typo",
+        "value",
+      ],
+      {
+        cwd: fixtureDir,
+        encoding: "utf8",
+      },
+    );
+
+    expect(unknownFlag.status).toBe(1);
+    expect(unknownFlag.stderr).toContain("Unknown argument: --typo");
+
     const result = spawnSync(
       process.execPath,
       [
@@ -141,7 +169,11 @@ describe("skill bundle generation", () => {
 
     mkdirSync(scriptsDir, { recursive: true });
     mkdirSync(fakeCliDir, { recursive: true });
-    writeFileSync(path.join(fixtureDir, ".env"), "KATA_CLI_ROOT=./fake-cli\nESCAPED=\"path\\\\to\\\"file\"\n", "utf8");
+    writeFileSync(
+      path.join(fixtureDir, ".env"),
+      "KATA_CLI_ROOT=./fake-cli\nESCAPED=\"path\\\\to\\\"file\" # trailing comment\n",
+      "utf8",
+    );
     writeFileSync(
       path.join(fakeCliDir, "loader.js"),
       [
