@@ -216,6 +216,54 @@
       ]
     },
     {
+      "name": "kata-execute-issue",
+      "description": "Use when the user wants to execute a standalone Kata issue, one-off issue plan, backlog issue, or isolated implementation plan created by kata-plan-issue. This skill selects or retrieves an open issue from the backend, confirms the issue with the user, then executes its approved plan with fresh subagents and two-stage review per task.",
+      "workflow": "execute-issue",
+      "contractOperations": [
+        "project.getContext",
+        "health.check",
+        "issue.listOpen",
+        "issue.get",
+        "issue.updateStatus"
+      ],
+      "setupHint": "If Kata CLI is not configured, run setup and health checks through `scripts/kata-call.mjs` from the installed skill.",
+      "operatingBrief": [
+        "When this skill is invoked, execute one standalone backend issue created by kata-plan-issue.",
+        "",
+        "If the user did not provide an issue reference, list open standalone issues with `issue.listOpen` and ask the user to choose. If the user provided an issue number, Kata ID, or partial title, match it against open standalone issues, retrieve the matching issue with `issue.get`, summarize it with a link, and ask for confirmation before execution.",
+        "",
+        "After confirmation, follow subagent-driven development as closely as possible: fresh implementer subagent per task, spec compliance review first, code quality review second, review loops until approved, then the next task. Update the issue status through `issue.updateStatus`."
+      ],
+      "successCriteria": [
+        "The selected standalone issue is confirmed by the user before execution starts.",
+        "The issue design and plan are retrieved from the backend, not from a local markdown plan file.",
+        "Each plan task is implemented by a fresh subagent with full task text and curated context.",
+        "Each task passes spec compliance review before code quality review starts.",
+        "Reviewer findings are fixed and re-reviewed before moving to the next task.",
+        "A final whole-change code review runs after all tasks complete.",
+        "The backend issue status reflects real execution state."
+      ],
+      "doNot": [
+        "Do not execute without confirming the selected issue with the user.",
+        "Do not load all open issue bodies when listing issues; use `issue.listOpen` summaries first.",
+        "Do not execute milestone slices or tasks here; this skill is for standalone issues only.",
+        "Do not dispatch implementation subagents in parallel.",
+        "Do not skip spec compliance review or code quality review.",
+        "Do not move to the next task while either review has open issues.",
+        "Do not let implementer self-review replace the two required review stages."
+      ],
+      "requiredReferences": [
+        "cli-runtime",
+        "artifact-contract",
+        "ui-brand"
+      ],
+      "requiredTemplates": [
+        "implementer-prompt",
+        "spec-reviewer-prompt",
+        "code-quality-reviewer-prompt"
+      ]
+    },
+    {
       "name": "kata-execute-phase",
       "description": "Use when the user wants Kata to execute planned phase work or advance tasks in the active milestone.",
       "workflow": "execute-phase",

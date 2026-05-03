@@ -70,6 +70,9 @@ describe("skill bundle generation", () => {
     expect(runtime).toContain("slice.create");
     expect(existsSync(path.join(cliRoot, "skills", "kata-plan-issue", "SKILL.md"))).toBe(true);
     expect(readFileSync(path.join(cliRoot, "skills", "kata-plan-issue", "references", "workflow.md"), "utf8")).toContain("issue.create");
+    expect(existsSync(path.join(cliRoot, "skills", "kata-execute-issue", "SKILL.md"))).toBe(true);
+    expect(readFileSync(path.join(cliRoot, "skills", "kata-execute-issue", "references", "workflow.md"), "utf8")).toContain("issue.listOpen");
+    expect(existsSync(path.join(cliRoot, "skills", "kata-execute-issue", "templates", "implementer-prompt.md"))).toBe(true);
     expect(setup).toContain("`setup` installs or refreshes Kata skills for the selected target");
     expect(setup).toContain("Kata Type");
     expect(setup).toContain("Kata Artifact Scope");

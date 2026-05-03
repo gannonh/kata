@@ -21,7 +21,10 @@ const supportedOperations = new Set([
   "task.list",
   "task.create",
   "task.updateStatus",
+  "issue.listOpen",
   "issue.create",
+  "issue.get",
+  "issue.updateStatus",
   "artifact.list",
   "artifact.read",
   "artifact.write",
@@ -31,6 +34,7 @@ const supportedOperations = new Set([
 
 const requiredSkillNames = [
   "kata-complete-milestone",
+  "kata-execute-issue",
   "kata-execute-phase",
   "kata-health",
   "kata-new-milestone",
@@ -53,6 +57,8 @@ const inputRequiredOperations = new Set([
   "task.create",
   "task.updateStatus",
   "issue.create",
+  "issue.get",
+  "issue.updateStatus",
   "artifact.list",
   "artifact.read",
   "artifact.write",
@@ -204,6 +210,10 @@ function renderPayloadExample(operation, skill) {
         design: "Clarify the user-facing setup states and accepted install targets.",
         plan: "1. Add focused tests for the CLI output.\n2. Update the setup renderer.\n3. Run CLI validation.",
       }, null, 2);
+    case "issue.get":
+      return JSON.stringify({ issueRef: "I001" }, null, 2);
+    case "issue.updateStatus":
+      return JSON.stringify({ issueId: "I001", status: "in_progress" }, null, 2);
     case "artifact.list":
       return JSON.stringify({ scopeType: "milestone", scopeId: "M001" }, null, 2);
     case "artifact.read":

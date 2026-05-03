@@ -105,6 +105,16 @@ describe("skill migration quality gates", () => {
     expect(planWorkflow).toContain("plan");
     expect(planWorkflow).toContain("phase gate");
 
+    const executeIssueWorkflow = readSourceWorkflow("execute-issue");
+    expect(executeIssueWorkflow).toContain("issue.listOpen");
+    expect(executeIssueWorkflow).toContain("issue.get");
+    expect(executeIssueWorkflow).toContain("issue.updateStatus");
+    expect(executeIssueWorkflow).toContain("fresh subagent per task");
+    expect(executeIssueWorkflow).toContain("spec compliance review first");
+    expect(executeIssueWorkflow).toContain("code quality review");
+    expect(executeIssueWorkflow).toContain("Do not retrieve full issue bodies while listing open issues");
+    expect(executeIssueWorkflow).toContain("Do not dispatch multiple implementation subagents in parallel");
+
     const planIssueWorkflow = readSourceWorkflow("plan-issue");
     expect(planIssueWorkflow).toContain("issue.create");
     expect(planIssueWorkflow).toContain("# Design");

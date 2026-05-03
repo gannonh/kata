@@ -5,6 +5,9 @@ import type {
   KataArtifactType,
   KataArtifactWriteInput,
   KataIssueCreateInput,
+  KataIssueGetInput,
+  KataIssueStatus,
+  KataIssueUpdateStatusInput,
   KataMilestoneCompleteInput,
   KataMilestoneCreateInput,
   KataProjectUpsertInput,
@@ -33,7 +36,10 @@ export const KATA_OPERATION_NAMES = [
   "task.list",
   "task.create",
   "task.updateStatus",
+  "issue.listOpen",
   "issue.create",
+  "issue.get",
+  "issue.updateStatus",
   "artifact.list",
   "artifact.read",
   "artifact.write",
@@ -55,6 +61,7 @@ const NO_PAYLOAD_OPERATIONS = new Set<KataOperationName>([
   "project.getSnapshot",
   "milestone.list",
   "milestone.getActive",
+  "issue.listOpen",
   "execution.getStatus",
   "health.check",
 ]);
@@ -70,6 +77,7 @@ const SLICE_STATUSES = [
 ] as const satisfies readonly KataSlice["status"][];
 
 const TASK_STATUSES = ["backlog", "todo", "in_progress", "done"] as const satisfies readonly KataTask["status"][];
+const ISSUE_STATUSES = ["backlog", "todo", "in_progress", "done"] as const satisfies readonly KataIssueStatus[];
 const TASK_VERIFICATION_STATES = ["pending", "verified", "failed"] as const satisfies readonly KataTask["verificationState"][];
 const SCOPE_TYPES = ["project", "milestone", "slice", "task", "issue"] as const satisfies readonly KataScopeType[];
 const ARTIFACT_TYPES = [
@@ -169,6 +177,7 @@ export function validateKataOperationPayload(
     case "project.getSnapshot":
     case "milestone.list":
     case "milestone.getActive":
+    case "issue.listOpen":
     case "execution.getStatus":
     case "health.check":
       return valid();
@@ -220,6 +229,13 @@ export function validateKataOperationPayload(
         (input) => requireNonEmptyString(input, "title"),
         (input) => requireNonEmptyString(input, "design"),
         (input) => requireNonEmptyString(input, "plan"),
+      ]);
+    case "issue.get":
+      return requireNonEmptyString(payload, "issueRef");
+    case "issue.updateStatus":
+      return requireFields(payload, [
+        (input) => requireNonEmptyString(input, "issueId"),
+        (input) => requireEnum(input, "status", ISSUE_STATUSES),
       ]);
     case "artifact.list":
       return requireFields(payload, [
@@ -288,8 +304,14 @@ export async function dispatchKataOperation(
       return api.task.create(payload as KataTaskCreateInput);
     case "task.updateStatus":
       return api.task.updateStatus(payload as KataTaskUpdateStatusInput);
+    case "issue.listOpen":
+      return api.issue.listOpen();
     case "issue.create":
       return api.issue.create(payload as KataIssueCreateInput);
+    case "issue.get":
+      return api.issue.get(payload as KataIssueGetInput);
+    case "issue.updateStatus":
+      return api.issue.updateStatus(payload as KataIssueUpdateStatusInput);
     case "artifact.list":
       return api.artifact.list(payload as KataArtifactListInput);
     case "artifact.read":

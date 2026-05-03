@@ -16,6 +16,8 @@ import type {
   KataBackendAdapter,
   KataExecutionStatus,
   KataIssueCreateInput,
+  KataIssueGetInput,
+  KataIssueUpdateStatusInput,
   KataMilestoneCompleteInput,
   KataMilestoneCreateInput,
   KataOpenPullRequestInput,
@@ -41,6 +43,8 @@ const payloadRequiredCallOperations = [
   "task.create",
   "task.updateStatus",
   "issue.create",
+  "issue.get",
+  "issue.updateStatus",
   "artifact.list",
   "artifact.read",
   "artifact.write",
@@ -145,9 +149,35 @@ function createFakeAdapter(): KataBackendAdapter {
     }),
     createIssue: async (input: KataIssueCreateInput) => ({
       id: "issue-1",
+      number: 1,
       title: input.title,
       body: `# Design\n\n${input.design}\n\n# Plan\n\n${input.plan}`,
       status: "backlog",
+      url: "https://github.com/kata/repo/issues/1",
+    }),
+    listOpenIssues: async () => [
+      {
+        id: "issue-1",
+        number: 1,
+        title: "Plan standalone fix",
+        status: "backlog",
+        url: "https://github.com/kata/repo/issues/1",
+      },
+    ],
+    getIssue: async (input: KataIssueGetInput) => ({
+      id: "issue-1",
+      number: 1,
+      title: `Issue ${input.issueRef}`,
+      body: "# Design\n\nDesign\n\n# Plan\n\n- [ ] Task",
+      status: "backlog",
+      url: "https://github.com/kata/repo/issues/1",
+    }),
+    updateIssueStatus: async (input: KataIssueUpdateStatusInput) => ({
+      id: input.issueId,
+      number: 1,
+      title: "Issue",
+      body: "# Design\n\nDesign\n\n# Plan\n\n- [ ] Task",
+      status: input.status,
       url: "https://github.com/kata/repo/issues/1",
     }),
     listArtifacts: async (_input: KataArtifactListInput) => [artifact],
@@ -212,7 +242,10 @@ describe("Phase A domain contract", () => {
       "task.list",
       "task.create",
       "task.updateStatus",
+      "issue.listOpen",
       "issue.create",
+      "issue.get",
+      "issue.updateStatus",
       "artifact.list",
       "artifact.read",
       "artifact.write",
@@ -283,6 +316,18 @@ describe("Phase A domain contract", () => {
       status: "backlog",
       body: expect.stringContaining("# Design"),
     });
+
+    await expect(dispatchKataOperation(api, "issue.listOpen")).resolves.toEqual([
+      expect.objectContaining({ id: "issue-1", title: "Plan standalone fix" }),
+    ]);
+
+    await expect(dispatchKataOperation(api, "issue.get", { issueRef: "issue-1" })).resolves.toMatchObject({
+      id: "issue-1",
+      body: expect.stringContaining("# Plan"),
+    });
+
+    await expect(dispatchKataOperation(api, "issue.updateStatus", { issueId: "issue-1", status: "in_progress" }))
+      .resolves.toMatchObject({ id: "issue-1", status: "in_progress" });
   });
 
   it("builds a project snapshot with a concrete next action", async () => {

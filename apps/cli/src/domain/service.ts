@@ -5,6 +5,8 @@ import type {
   KataArtifactWriteInput,
   KataBackendAdapter,
   KataIssueCreateInput,
+  KataIssueGetInput,
+  KataIssueUpdateStatusInput,
   KataMilestoneCompleteInput,
   KataMilestoneCreateInput,
   KataOpenPullRequestInput,
@@ -46,6 +48,9 @@ export function createKataDomainApi(adapter: KataBackendAdapter) {
     },
     issue: {
       create: (input: KataIssueCreateInput) => adapter.createIssue(input),
+      listOpen: () => adapter.listOpenIssues(),
+      get: (input: KataIssueGetInput) => adapter.getIssue(input),
+      updateStatus: (input: KataIssueUpdateStatusInput) => adapter.updateIssueStatus(input),
     },
     artifact: {
       list: (input: KataArtifactListInput) => adapter.listArtifacts(input),

@@ -36,6 +36,8 @@ Required-input operations:
 ```bash
 node <path-to-skill-directory>/scripts/kata-call.mjs milestone.create --input /tmp/kata-milestone-create.json
 node <path-to-skill-directory>/scripts/kata-call.mjs issue.create --input /tmp/kata-issue-create.json
+node <path-to-skill-directory>/scripts/kata-call.mjs issue.get --input /tmp/kata-issue-get.json
+node <path-to-skill-directory>/scripts/kata-call.mjs issue.updateStatus --input /tmp/kata-issue-status.json
 node <path-to-skill-directory>/scripts/kata-call.mjs artifact.write --input /tmp/kata-artifact-write.json
 ```
 
@@ -173,6 +175,28 @@ Expected data:
 }
 ```
 
+### `issue.listOpen`
+
+Command:
+
+```bash
+node <path-to-skill-directory>/scripts/kata-call.mjs issue.listOpen
+```
+
+Expected data includes summary records only, without issue bodies:
+
+```json
+[
+  {
+    "id": "I001",
+    "number": 462,
+    "title": "Fix first-run setup messaging",
+    "status": "backlog",
+    "url": "https://github.com/owner/repo/issues/462"
+  }
+]
+```
+
 ### `issue.create`
 
 Payload:
@@ -202,6 +226,56 @@ Expected data:
   "url": "https://github.com/owner/repo/issues/123"
 }
 ```
+
+### `issue.get`
+
+Payload:
+
+```json
+{
+  "issueRef": "I001"
+}
+```
+
+`issueRef` may be a Kata issue ID, GitHub issue number such as `462` or `#462`, or an unambiguous title substring.
+
+Command:
+
+```bash
+node <path-to-skill-directory>/scripts/kata-call.mjs issue.get --input /tmp/kata-issue-get.json
+```
+
+Expected data includes the full issue body:
+
+```json
+{
+  "id": "I001",
+  "number": 462,
+  "title": "Fix first-run setup messaging",
+  "body": "# Design\n\n...\n\n# Plan\n\n...",
+  "status": "backlog",
+  "url": "https://github.com/owner/repo/issues/462"
+}
+```
+
+### `issue.updateStatus`
+
+Payload:
+
+```json
+{
+  "issueId": "I001",
+  "status": "in_progress"
+}
+```
+
+Command:
+
+```bash
+node <path-to-skill-directory>/scripts/kata-call.mjs issue.updateStatus --input /tmp/kata-issue-status.json
+```
+
+Supported statuses: `backlog`, `todo`, `in_progress`, `done`.
 
 ### `artifact.write`
 

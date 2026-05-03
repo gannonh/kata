@@ -113,12 +113,18 @@ export interface KataTask {
   verificationState: "pending" | "verified" | "failed";
 }
 
-export interface KataIssue {
+export type KataIssueStatus = "backlog" | "todo" | "in_progress" | "done";
+
+export interface KataIssueSummary {
   id: string;
+  number?: number;
   title: string;
-  body: string;
-  status: "backlog" | "todo" | "in_progress" | "done";
+  status: KataIssueStatus;
   url?: string;
+}
+
+export interface KataIssue extends KataIssueSummary {
+  body: string;
 }
 
 export interface KataArtifact {
@@ -198,6 +204,15 @@ export interface KataIssueCreateInput {
   plan: string;
 }
 
+export interface KataIssueGetInput {
+  issueRef: string;
+}
+
+export interface KataIssueUpdateStatusInput {
+  issueId: string;
+  status: KataIssueStatus;
+}
+
 export interface KataArtifactListInput {
   scopeType: KataScopeType;
   scopeId: string;
@@ -255,6 +270,9 @@ export interface KataBackendAdapter {
   createTask(input: KataTaskCreateInput): Promise<KataTask>;
   updateTaskStatus(input: KataTaskUpdateStatusInput): Promise<KataTask>;
   createIssue(input: KataIssueCreateInput): Promise<KataIssue>;
+  listOpenIssues(): Promise<KataIssueSummary[]>;
+  getIssue(input: KataIssueGetInput): Promise<KataIssue>;
+  updateIssueStatus(input: KataIssueUpdateStatusInput): Promise<KataIssue>;
   listArtifacts(input: KataArtifactListInput): Promise<KataArtifact[]>;
   readArtifact(input: KataArtifactReadInput): Promise<KataArtifact | null>;
   writeArtifact(input: KataArtifactWriteInput): Promise<KataArtifact>;

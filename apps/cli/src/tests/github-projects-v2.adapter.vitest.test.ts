@@ -446,12 +446,28 @@ describe("GithubProjectsV2Adapter", () => {
 
     expect(issue).toMatchObject({
       id: "I001",
+      number: 1,
       title: "Plan isolated fix",
       status: "backlog",
       url: "https://github.test/kata-sh/uat/issues/1",
     });
     expect(issue.body).toContain("# Design");
     expect(issue.body).toContain("# Plan");
+
+    await expect(adapter.listOpenIssues()).resolves.toEqual([
+      expect.objectContaining({ id: "I001", number: 1, title: "Plan isolated fix", status: "backlog" }),
+    ]);
+    await expect(adapter.getIssue({ issueRef: "#1" })).resolves.toMatchObject({
+      id: "I001",
+      number: 1,
+      body: expect.stringContaining("# Plan"),
+    });
+    await expect(adapter.getIssue({ issueRef: "isolated" })).resolves.toMatchObject({ id: "I001" });
+    await expect(adapter.updateIssueStatus({ issueId: "I001", status: "in_progress" })).resolves.toMatchObject({
+      id: "I001",
+      status: "in_progress",
+    });
+
     expect(client.rest).toHaveBeenCalledWith(
       expect.objectContaining({
         method: "POST",
@@ -483,6 +499,15 @@ describe("GithubProjectsV2Adapter", () => {
               itemId: "project-item-1",
               fieldId: "status-field-id",
               value: { singleSelectOptionId: "status-backlog" },
+            }),
+          }),
+        ],
+        [
+          expect.objectContaining({
+            variables: expect.objectContaining({
+              itemId: "project-item-2",
+              fieldId: "status-field-id",
+              value: { singleSelectOptionId: "status-in-progress" },
             }),
           }),
         ],

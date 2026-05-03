@@ -16,6 +16,9 @@ import type {
   KataHealthReport,
   KataIssue,
   KataIssueCreateInput,
+  KataIssueGetInput,
+  KataIssueSummary,
+  KataIssueUpdateStatusInput,
   KataMilestone,
   KataMilestoneCompleteInput,
   KataMilestoneCreateInput,
@@ -433,6 +436,15 @@ function createRuntimeBackedAdapter(input: {
     },
     createIssue: async (_payload: KataIssueCreateInput): Promise<KataIssue> => {
       throw new KataDomainError("NOT_SUPPORTED", "Runtime-backed standalone issue creation is not implemented yet.");
+    },
+    listOpenIssues: async (): Promise<KataIssueSummary[]> => {
+      throw new KataDomainError("NOT_SUPPORTED", "Runtime-backed standalone issue listing is not implemented yet.");
+    },
+    getIssue: async (_payload: KataIssueGetInput): Promise<KataIssue> => {
+      throw new KataDomainError("NOT_SUPPORTED", "Runtime-backed standalone issue retrieval is not implemented yet.");
+    },
+    updateIssueStatus: async (_payload: KataIssueUpdateStatusInput): Promise<KataIssue> => {
+      throw new KataDomainError("NOT_SUPPORTED", "Runtime-backed standalone issue status updates are not implemented yet.");
     },
     listArtifacts: async (payload: KataArtifactListInput): Promise<KataArtifact[]> => {
       const backend = await getBackend();
