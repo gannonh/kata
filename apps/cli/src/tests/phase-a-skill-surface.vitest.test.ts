@@ -108,12 +108,40 @@ describe("Phase A skill surface", () => {
     expect(completeWorkflow).toContain("task.list");
     expect(completeWorkflow).toContain("verificationState` other than `verified`");
     expect(completeWorkflow).toContain("task verification artifacts live on task scope");
+    expect(completeWorkflow).toContain("Read task summaries and verification artifacts selectively");
     expect(completeWorkflow).not.toContain("todo app MVP");
     expect(manifest).toContain('"slice.list"');
     expect(manifest).toContain('"task.list"');
     expect(manifest).toContain('"artifact.list"');
     expect(manifest).toContain('"artifact.read"');
     expect(manifest).toContain("Every required task is done with `verificationState: verified`.");
+  });
+
+  it("requires complete-milestone to update project closeout artifacts before completion", () => {
+    const completeWorkflow = readFileSync(
+      path.join(sourceRoot, "skills-src", "workflows", "complete-milestone.md"),
+      "utf8",
+    );
+    const artifactContract = readFileSync(
+      path.join(sourceRoot, "skills-src", "references", "artifact-contract.md"),
+      "utf8",
+    );
+    const manifest = readFileSync(path.join(sourceRoot, "skills-src", "manifest.json"), "utf8");
+
+    expect(completeWorkflow).toContain('"scopeType": "project"');
+    expect(completeWorkflow).toContain('"artifactType": "project-brief"');
+    expect(completeWorkflow).toContain('"artifactType": "requirements"');
+    expect(completeWorkflow).toContain("These live on the project tracking issue");
+    expect(completeWorkflow).toContain("Update Project Closeout Artifacts");
+    expect(completeWorkflow).toContain("Stop before `milestone.complete` if a required project artifact read or write is missing or fails.");
+    expect(completeWorkflow.indexOf("Update Project Closeout Artifacts")).toBeLessThan(
+      completeWorkflow.indexOf("## Stage 7: Complete Milestone"),
+    );
+    expect(completeWorkflow).toContain("kata-artifact-input.mjs");
+    expect(artifactContract).toContain("Milestone closeout updates may add or refresh these sections");
+    expect(artifactContract).toContain("During milestone closeout, update project requirements");
+    expect(manifest).toContain("update project closeout artifacts");
+    expect(manifest).toContain("Do not run `milestone.complete` after a failed project closeout artifact read or write.");
   });
 
   it("uses project snapshots for concrete next-step recommendations", () => {

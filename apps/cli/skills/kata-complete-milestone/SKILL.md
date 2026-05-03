@@ -9,7 +9,7 @@ description: "Use when the user wants to finish, close, ship, archive, or mark t
 
 When this skill is invoked, close the active release-sized milestone after all milestone slices and tasks are done and verified.
 
-Load the project snapshot and active milestone, list slices, list tasks for each slice when detail is needed, inspect milestone/slice/task artifacts, confirm every required task is done and verified, summarize delivered outcomes, capture retrospective notes, write completion artifacts, and then complete the milestone through `milestone.complete`.
+Load the project snapshot and active milestone, list slices, list tasks for each slice when detail is needed, inspect milestone/slice/task artifacts, read project-scoped closeout artifacts, confirm every required task is done and verified, summarize delivered outcomes, capture retrospective notes, write milestone completion artifacts, update project closeout artifacts, and then complete the milestone through `milestone.complete`.
 
 If readiness is uncertain, stop and explain what must be verified or resolved first.
 
@@ -18,9 +18,10 @@ If readiness is uncertain, stop and explain what must be verified or resolved fi
 - The active milestone has an accepted completion summary.
 - Every required slice is done.
 - Every required task is done with `verificationState: verified`.
-- Completion evidence includes milestone, slice, and task-scoped artifacts.
+- Completion evidence includes milestone, slice, task, and project-scoped artifacts.
 - Retrospective or archive artifacts are persisted when useful.
-- The milestone is completed through `milestone.complete` only after readiness is confirmed.
+- Project brief and project requirements artifacts are updated before `milestone.complete`, or the workflow stops to repair missing project artifacts.
+- The milestone is completed through `milestone.complete` only after readiness is confirmed and closeout artifact writes succeed.
 - The user knows what remains, if anything, after completion.
 
 ## Do Not
@@ -28,6 +29,7 @@ If readiness is uncertain, stop and explain what must be verified or resolved fi
 - Do not complete a milestone with unverified required work.
 - Do not invent completion evidence.
 - Do not rely only on milestone-level artifacts when task verification artifacts live on task scope.
+- Do not run `milestone.complete` after a failed project closeout artifact read or write.
 - Do not create a new milestone here.
 - Do not skip the readiness check.
 

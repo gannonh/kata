@@ -49,9 +49,19 @@ Required sections:
 - Active assumptions
 - Out of scope
 
+Milestone closeout updates may add or refresh these sections when the completed milestone changes durable project state:
+
+- Current Status
+- Completed Milestones
+- Validated Outcomes
+- Open Questions
+- Last updated note
+
+Keep milestone closeout entries concise. Link or reference milestone summaries for detailed evidence instead of copying the full milestone archive into the project brief.
+
 ### Project Requirements
 
-Use for durable project-level requirements hypotheses gathered before the first milestone.
+Use for durable project-level requirements hypotheses gathered before the first milestone and project-level traceability across completed milestones.
 
 ```json
 {
@@ -63,6 +73,14 @@ Use for durable project-level requirements hypotheses gathered before the first 
   "format": "markdown"
 }
 ```
+
+During milestone closeout, update project requirements when the milestone provides evidence:
+
+- Move completed project-level requirements into a validated or completed section, or mark them complete in place when the existing artifact uses checklist status.
+- Update traceability rows with the completed milestone ID and evidence source.
+- Preserve active requirements that remain in scope for later milestones.
+- Preserve future requirements and carry-forward candidates with source milestone and deferred reason.
+- Do not mark requirements complete from milestone title alone; use requirements, roadmap, task verification, UAT, or milestone summary evidence.
 
 ## Milestone Artifacts
 
