@@ -132,7 +132,7 @@
       ],
       "setupHint": "If Kata CLI is not configured, run setup and health checks through `scripts/kata-call.mjs` from the installed skill.",
       "operatingBrief": [
-        "When this skill is invoked, help the user turn a standalone request into one durable backlog issue in the configured backend.",
+        "When this skill is invoked, help the user turn a standalone request into one durable backlog issue in a backend that supports `issue.create`.",
         "",
         "Use a staged planning workflow: explore context, ask focused clarifying questions, propose viable approaches with trade-offs, get approval on one approach, present a visible self-reviewed design for approval, then do planning-depth classification and planning research before presenting a visible self-reviewed implementation plan. Do not create local design or plan markdown files; after both approvals, persist both documents together in one backend issue through `issue.create`.",
         "",
@@ -228,7 +228,7 @@
       ],
       "setupHint": "If Kata CLI is not configured, run setup and health checks through `scripts/kata-call.mjs` from the installed skill.",
       "operatingBrief": [
-        "When this skill is invoked, execute one standalone backend issue created by kata-plan-issue.",
+        "When this skill is invoked, execute one standalone backend issue created by kata-plan-issue in a backend that supports issue operations.",
         "",
         "If the user did not provide an issue reference, list open standalone issues with `issue.listOpen` and ask the user to choose. If the user provided an issue number, Kata ID, or partial title, match it against open standalone issues, retrieve the matching issue with `issue.get`, summarize it with a link, and ask for confirmation before execution.",
         "",

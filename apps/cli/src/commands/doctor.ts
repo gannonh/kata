@@ -11,6 +11,7 @@ import { readTrackerConfig } from "../backends/read-tracker-config.js";
 import { resolveGithubTokenForRuntime } from "../backends/resolve-backend.js";
 import { createGithubClient } from "../backends/github-projects-v2/client.js";
 import { loadProjectFieldIndex } from "../backends/github-projects-v2/project-fields.js";
+import { KataDomainError } from "../domain/errors.js";
 import {
   PI_SETUP_MARKER_FILENAME,
   PI_SETTINGS_FILENAME,
@@ -373,11 +374,14 @@ export async function runDoctor(input: RunDoctorInput = {}): Promise<DoctorRepor
               message: "GitHub Project v2 has the required Kata fields.",
             });
           } catch (error) {
+            const isInvalidProjectConfig = error instanceof KataDomainError && error.code === "INVALID_CONFIG";
             checks.push({
               name: "github-project-fields",
               status: "invalid",
               message: error instanceof Error ? error.message : "Unable to validate GitHub Project v2 fields.",
-              action: "Add the required Kata Project fields, then rerun `kata doctor`.",
+              action: isInvalidProjectConfig
+                ? "Add the required Kata Project fields, then rerun `kata doctor`."
+                : "Verify GitHub auth, repository, and project number, then rerun `kata doctor`.",
             });
           }
         }

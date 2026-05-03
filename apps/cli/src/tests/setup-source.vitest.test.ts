@@ -86,13 +86,14 @@ describe("skills source resolution", () => {
   it("can install to multiple selected skill targets", async () => {
     const tmp = mkdtempSync(join(tmpdir(), "kata-setup-targets-"));
     try {
+      const home = join(tmp, "home");
       writeFileSync(join(tmp, "pnpm-workspace.yaml"), "packages:\n  - apps/*\n", "utf8");
       mkdirSync(join(tmp, "apps", "cli", "skills", "kata-health"), { recursive: true });
       writeFileSync(join(tmp, "apps", "cli", "skills", "kata-health", "SKILL.md"), "# Kata Health\n", "utf8");
 
       const result = await runSetup({
         cwd: tmp,
-        env: { HOME: tmp, PI_CODING_AGENT_DIR: join(tmp, "pi-agent"), GH_TOKEN: "ghp_test" },
+        env: { HOME: home, PI_CODING_AGENT_DIR: join(tmp, "pi-agent"), GH_TOKEN: "ghp_test" },
         packageVersion: "9.9.9-test",
         local: true,
         global: true,
@@ -117,6 +118,7 @@ describe("skills source resolution", () => {
         "pi",
       ]);
       expect(existsSync(join(tmp, ".agents", "skills", "kata-health", "SKILL.md"))).toBe(true);
+      expect(existsSync(join(home, ".agents", "skills", "kata-health", "SKILL.md"))).toBe(true);
       expect(existsSync(join(tmp, ".cursor", "skills", "kata-health", "SKILL.md"))).toBe(true);
       expect(existsSync(join(tmp, ".claude", "skills", "kata-health", "SKILL.md"))).toBe(true);
       expect(existsSync(join(tmp, "pi-agent", "skills", "kata-health", "SKILL.md"))).toBe(true);

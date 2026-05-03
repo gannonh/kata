@@ -37,7 +37,7 @@ Read project context:
 node <path-to-skill-directory>/scripts/kata-call.mjs project.getContext
 ```
 
-If either command returns `ok: false`, stop and fix setup before planning. If the project context is missing or points at the wrong repository, route to setup or project initialization instead of creating a backlog issue.
+If either command returns `ok: false`, stop and fix setup before planning. If the project context backend is not `github`, stop and report that standalone issue workflows require a backend with `issue.create` support. If the project context is missing or points at the wrong repository, route to setup or project initialization before creating a backlog issue.
 
 Briefly inspect relevant repository files or docs when the request depends on current implementation details. Keep this bounded: the goal is enough context to design one issue, not a full project audit.
 

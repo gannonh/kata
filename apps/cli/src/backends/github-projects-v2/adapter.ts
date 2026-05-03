@@ -575,6 +575,9 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
   private async findIssueEntity(issueRef: string): Promise<TrackedEntity> {
     await this.discoverEntities();
     const normalizedRef = issueRef.trim();
+    if (!normalizedRef) {
+      throw new KataDomainError("INVALID_CONFIG", "Standalone issue reference is required.");
+    }
     const normalizedId = normalizedRef.toUpperCase();
     const issueNumberMatch = normalizedRef.match(/^#?(\d+)$/);
     const issueNumber = issueNumberMatch ? Number(issueNumberMatch[1]) : null;
@@ -773,7 +776,10 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
     const statusField = fieldIndex.fields[KATA_PROJECT_FIELDS.status];
     const optionId = statusField?.options?.[status];
     if (!statusField || !optionId) {
-      return;
+      throw new KataDomainError(
+        "INVALID_CONFIG",
+        `GitHub Project v2 field "${KATA_PROJECT_FIELDS.status}" is missing option "${status}".`,
+      );
     }
     await this.client.graphql({
       query: UPDATE_PROJECT_FIELD_MUTATION,

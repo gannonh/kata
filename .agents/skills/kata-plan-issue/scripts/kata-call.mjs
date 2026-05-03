@@ -8,12 +8,34 @@ function parseDotEnvValue(rawValue) {
     const quote = rawValue[0];
     if ((quote === `"` || quote === `'`) && rawValue[rawValue.length - 1] === quote) {
       const inner = rawValue.slice(1, -1);
-      return quote === `"` ? inner.replace(/\\n/g, "\n").replace(/\\r/g, "\r").replace(/\\t/g, "\t") : inner;
+      return quote === `"` ? decodeDoubleQuotedDotEnvValue(inner) : inner;
     }
   }
 
   const commentIndex = rawValue.search(/\s#/);
   return (commentIndex >= 0 ? rawValue.slice(0, commentIndex) : rawValue).trim();
+}
+
+function decodeDoubleQuotedDotEnvValue(value) {
+  const escapes = new Map([
+    ["n", "\n"],
+    ["r", "\r"],
+    ["t", "\t"],
+    [`"`, `"`],
+    ["\\", "\\"],
+  ]);
+  let decoded = "";
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value[index];
+    if (char !== "\\" || index === value.length - 1) {
+      decoded += char;
+      continue;
+    }
+    const next = value[index + 1];
+    decoded += escapes.get(next) ?? `\\${next}`;
+    index += 1;
+  }
+  return decoded;
 }
 
 function loadDotEnv(cwd) {
@@ -41,6 +63,7 @@ loadDotEnv(process.cwd());
 const rawCliCommands = new Set([
   "doctor",
   "setup",
+  "json",
   "help",
   "--help",
   "-h",
@@ -55,7 +78,8 @@ const localLoader = process.env.KATA_CLI_ROOT
 const userArgs = process.argv.slice(2);
 const firstArg = userArgs[0] ?? "help";
 const isRawCliCommand = rawCliCommands.has(firstArg);
-const cliArgs = isRawCliCommand ? userArgs : ["call", ...userArgs];
+const normalizedUserArgs = userArgs.length > 0 ? userArgs : ["help"];
+const cliArgs = isRawCliCommand ? normalizedUserArgs : ["call", ...normalizedUserArgs];
 
 let command;
 let args;

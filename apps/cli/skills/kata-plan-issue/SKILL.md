@@ -7,7 +7,7 @@ description: "Use when the user wants to plan a one-off Kata issue, standalone i
 
 ## Operating Brief
 
-When this skill is invoked, help the user turn a standalone request into one durable backlog issue in the configured backend.
+When this skill is invoked, help the user turn a standalone request into one durable backlog issue in a backend that supports `issue.create`.
 
 Use a staged planning workflow: explore context, ask focused clarifying questions, propose viable approaches with trade-offs, get approval on one approach, present a visible self-reviewed design for approval, then do planning-depth classification and planning research before presenting a visible self-reviewed implementation plan. Do not create local design or plan markdown files; after both approvals, persist both documents together in one backend issue through `issue.create`.
 

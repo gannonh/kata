@@ -38,12 +38,13 @@ function formatBulletList(items: readonly string[]): string {
 
 export interface ProjectFieldIndex {
   projectId: string;
-  fields: Record<string, { id: string; options?: Record<string, string> }>;
+  fields: Record<string, { id: string; dataType?: string; options?: Record<string, string> }>;
 }
 
 interface ProjectFieldNode {
   id: string;
   name: string;
+  dataType?: string;
   options?: Array<{ id: string; name: string }>;
 }
 
@@ -79,6 +80,7 @@ const PROJECT_FIELDS_QUERY = `
             ... on ProjectV2Field {
               id
               name
+              dataType
             }
             ... on ProjectV2SingleSelectField {
               id
@@ -100,6 +102,7 @@ const PROJECT_FIELDS_QUERY = `
             ... on ProjectV2Field {
               id
               name
+              dataType
             }
             ... on ProjectV2SingleSelectField {
               id
@@ -145,6 +148,7 @@ export async function loadProjectFieldIndex(input: {
       field.name,
       {
         id: field.id,
+        dataType: field.dataType,
         options: field.options
           ? Object.fromEntries(field.options.map((option) => [option.name, option.id]))
           : undefined,
@@ -166,13 +170,29 @@ function isProjectFieldNode(node: ProjectFieldNode | null): node is ProjectField
 
 function validateProjectFieldIndex(fields: ProjectFieldIndex["fields"]): void {
   const missingFields = REQUIRED_TEXT_FIELD_NAMES.filter((fieldName) => !fields[fieldName]);
+  const incorrectlyTypedFields = REQUIRED_TEXT_FIELD_NAMES.filter((fieldName) => {
+    const field = fields[fieldName];
+    return field && field.dataType !== "TEXT";
+  });
 
-  if (missingFields.length) {
+  if (missingFields.length || incorrectlyTypedFields.length) {
     throw new KataDomainError(
       "INVALID_CONFIG",
       [
-        "GitHub Projects v2 project is missing required Kata fields:",
-        formatBulletList(missingFields),
+        ...(missingFields.length
+          ? [
+              "GitHub Projects v2 project is missing required Kata fields:",
+              formatBulletList(missingFields),
+              "",
+            ]
+          : []),
+        ...(incorrectlyTypedFields.length
+          ? [
+              "GitHub Projects v2 project has required Kata fields with the wrong type:",
+              formatBulletList(incorrectlyTypedFields.map((fieldName) => `${fieldName} must be Text`)),
+              "",
+            ]
+          : []),
         "",
         "Add each missing field in the GitHub Project table view:",
         "  1. Click the rightmost + field header.",

@@ -33,7 +33,7 @@ function parseDotEnvValue(rawValue: string): string {
     const quote = rawValue[0];
     if ((quote === `"` || quote === `'`) && rawValue[rawValue.length - 1] === quote) {
       const inner = rawValue.slice(1, -1);
-      return quote === `"` ? inner.replace(/\\n/g, "\n").replace(/\\r/g, "\r").replace(/\\t/g, "\t") : inner;
+      return quote === `"` ? decodeDoubleQuotedDotEnvValue(inner) : inner;
     }
   }
 
@@ -41,3 +41,24 @@ function parseDotEnvValue(rawValue: string): string {
   return (commentIndex >= 0 ? rawValue.slice(0, commentIndex) : rawValue).trim();
 }
 
+function decodeDoubleQuotedDotEnvValue(value: string): string {
+  const escapes = new Map<string, string>([
+    ["n", "\n"],
+    ["r", "\r"],
+    ["t", "\t"],
+    [`"`, `"`],
+    ["\\", "\\"],
+  ]);
+  let decoded = "";
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value[index];
+    if (char !== "\\" || index === value.length - 1) {
+      decoded += char;
+      continue;
+    }
+    const next = value[index + 1]!;
+    decoded += escapes.get(next) ?? `\\${next}`;
+    index += 1;
+  }
+  return decoded;
+}

@@ -710,8 +710,56 @@ describe("GithubProjectsV2Adapter", () => {
         path: "/repos/kata-sh/uat/issues/38/comments",
       }),
     );
+    });
   });
-});
+
+  it("rejects blank standalone issue refs before title matching", async () => {
+    const client = createFakeGithubClient();
+    const adapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+
+    await adapter.createIssue({
+      title: "Plan isolated fix",
+      design: "## Problem\n\nThe workflow needs one standalone issue.",
+      plan: "## Tasks\n\n- [ ] Create one backend issue.",
+    });
+
+    await expect(adapter.getIssue({ issueRef: "   " })).rejects.toMatchObject({
+      code: "INVALID_CONFIG",
+      message: "Standalone issue reference is required.",
+    });
+  });
+
+  it("fails status updates when the Project v2 status option is missing", async () => {
+    const client = createFakeGithubClient({
+      projectFields: validProjectFields({
+        statusOptions: validStatusOptions().filter((option) => option.name !== "In Progress"),
+      }),
+    });
+    const adapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+
+    const issue = await adapter.createIssue({
+      title: "Plan isolated fix",
+      design: "## Problem\n\nThe workflow needs one standalone issue.",
+      plan: "## Tasks\n\n- [ ] Create one backend issue.",
+    });
+
+    await expect(adapter.updateIssueStatus({ issueId: issue.id, status: "in_progress" })).rejects.toMatchObject({
+      code: "INVALID_CONFIG",
+      message: expect.stringContaining('field "Status" is missing option "In Progress"'),
+    });
+  });
 
 describe("resolveBackend GitHub token selection", () => {
   it("uses GH_TOKEN when GITHUB_TOKEN is empty", async () => {
@@ -766,14 +814,7 @@ function createFakeGithubClient(input: { issues?: any[]; projectFields?: any[] }
               id: "project-id",
               fields: {
                 nodes: input.projectFields ?? [
-                  { id: "status-field-id", name: "Status", options: validStatusOptions() },
-                  { id: "kata-type-field-id", name: "Kata Type" },
-                  { id: "kata-id-field-id", name: "Kata ID" },
-                  { id: "kata-parent-id-field-id", name: "Kata Parent ID" },
-                  { id: "kata-artifact-scope-field-id", name: "Kata Artifact Scope" },
-                  { id: "kata-verification-state-field-id", name: "Kata Verification State" },
-                  { id: "kata-blocking-field-id", name: "Kata Blocking" },
-                  { id: "kata-blocked-by-field-id", name: "Kata Blocked By" },
+                  ...validProjectFields(),
                 ],
               },
             },
@@ -873,5 +914,18 @@ function validStatusOptions() {
     { id: "status-human-review", name: "Human Review" },
     { id: "status-merging", name: "Merging" },
     { id: "status-done", name: "Done" },
+  ];
+}
+
+function validProjectFields(input: { statusOptions?: Array<{ id: string; name: string }> } = {}) {
+  return [
+    { id: "status-field-id", name: "Status", options: input.statusOptions ?? validStatusOptions() },
+    { id: "kata-type-field-id", name: "Kata Type", dataType: "TEXT" },
+    { id: "kata-id-field-id", name: "Kata ID", dataType: "TEXT" },
+    { id: "kata-parent-id-field-id", name: "Kata Parent ID", dataType: "TEXT" },
+    { id: "kata-artifact-scope-field-id", name: "Kata Artifact Scope", dataType: "TEXT" },
+    { id: "kata-verification-state-field-id", name: "Kata Verification State", dataType: "TEXT" },
+    { id: "kata-blocking-field-id", name: "Kata Blocking", dataType: "TEXT" },
+    { id: "kata-blocked-by-field-id", name: "Kata Blocked By", dataType: "TEXT" },
   ];
 }

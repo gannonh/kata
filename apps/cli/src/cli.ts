@@ -140,6 +140,11 @@ async function main(argv = process.argv.slice(2)) {
     const [repoOwnerFromRepo, repoNameFromRepo] = repo?.includes("/") ? repo.split("/", 2) : [];
     const rawProjectNumber = valueAfter("--project-number") ?? valueAfter("--github-project-number");
     const githubProjectNumber = rawProjectNumber ? Number(rawProjectNumber) : undefined;
+    if (githubProjectNumber !== undefined && !Number.isInteger(githubProjectNumber)) {
+      process.stderr.write(`Error: --project-number must be an integer, got: ${rawProjectNumber}\n`);
+      process.exitCode = 1;
+      return;
+    }
     const result = await runSetup({
       pi: flagSet.has("--pi"),
       local: flagSet.has("--local"),

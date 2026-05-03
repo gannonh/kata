@@ -174,6 +174,33 @@ describe("loadProjectFieldIndex", () => {
     })).resolves.toMatchObject({ projectId: "project-id" });
   });
 
+  it("rejects required Kata fields with non-text Project v2 types", async () => {
+    const client = {
+      graphql: vi.fn(async () => ({
+        organization: {
+          projectV2: {
+            id: "project-id",
+            fields: {
+              nodes: validProjectFields().map((field) =>
+                field.name === "Kata ID" ? { ...field, dataType: "NUMBER" } : field
+              ),
+            },
+          },
+        },
+      })),
+    } as unknown as Parameters<typeof loadProjectFieldIndex>[0]["client"];
+
+    await expect(loadProjectFieldIndex({
+      client,
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 1,
+    })).rejects.toMatchObject({
+      code: "INVALID_CONFIG",
+      message: expect.stringContaining("Kata ID must be Text"),
+    });
+  });
+
   it("returns a field index with Status options for a valid project", async () => {
     const client = {
       graphql: vi.fn(async () => ({
@@ -210,13 +237,13 @@ describe("loadProjectFieldIndex", () => {
 function validProjectFields(input: { statusOptions?: Array<{ id: string; name: string }> } = {}) {
   return [
     { id: "status-field-id", name: "Status", options: input.statusOptions ?? validStatusOptions() },
-    { id: "kata-type-field-id", name: "Kata Type" },
-    { id: "kata-id-field-id", name: "Kata ID" },
-    { id: "kata-parent-id-field-id", name: "Kata Parent ID" },
-    { id: "kata-artifact-scope-field-id", name: "Kata Artifact Scope" },
-    { id: "kata-verification-state-field-id", name: "Kata Verification State" },
-    { id: "kata-blocking-field-id", name: "Kata Blocking" },
-    { id: "kata-blocked-by-field-id", name: "Kata Blocked By" },
+    { id: "kata-type-field-id", name: "Kata Type", dataType: "TEXT" },
+    { id: "kata-id-field-id", name: "Kata ID", dataType: "TEXT" },
+    { id: "kata-parent-id-field-id", name: "Kata Parent ID", dataType: "TEXT" },
+    { id: "kata-artifact-scope-field-id", name: "Kata Artifact Scope", dataType: "TEXT" },
+    { id: "kata-verification-state-field-id", name: "Kata Verification State", dataType: "TEXT" },
+    { id: "kata-blocking-field-id", name: "Kata Blocking", dataType: "TEXT" },
+    { id: "kata-blocked-by-field-id", name: "Kata Blocked By", dataType: "TEXT" },
   ];
 }
 

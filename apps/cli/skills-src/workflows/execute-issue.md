@@ -45,7 +45,7 @@ Read project context:
 node ./scripts/kata-call.mjs project.getContext
 ```
 
-If either command returns `ok: false`, stop and fix setup before execution. Do not inspect helper scripts unless the helper command itself fails.
+If either command returns `ok: false`, stop and fix setup before execution. If the project context backend is not `github`, stop and report that standalone issue workflows require a backend with `issue.listOpen`, `issue.get`, and `issue.updateStatus` support. Do not inspect helper scripts unless the helper command itself fails.
 
 ## Stage 2: Select the Issue
 

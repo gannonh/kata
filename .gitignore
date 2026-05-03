@@ -141,5 +141,4 @@ apps/desktop/.env.development
 apps/desktop/.claude/scheduled_tasks.lock
 apps/desktop/bin/pi-mcp-adapter
 # Kata CLI generated files
-.agents/skills/
 .agents/kata-setup-manifest.json
