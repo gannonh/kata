@@ -4,24 +4,37 @@ import { readFileSync, writeFileSync } from "node:fs";
 function usage() {
   return [
     "Usage:",
-    "  node scripts/kata-artifact-input.mjs --scope-type task --scope-id T001 \\",
-    "    --artifact-type verification --title \"T001 Verification\" \\",
-    "    --content-file /tmp/T001-verification.md --output /tmp/kata-T001-verification.json",
+    "  node scripts/kata-artifact-input.mjs --scope-type issue --scope-id I001 \\",
+    "    --artifact-type plan --title \"I001 Issue Plan\" \\",
+    "    --content-file /tmp/I001-plan.md --output /tmp/kata-I001-plan.json",
   ].join("\n");
 }
 
 function parseArgs(argv) {
+  const allowed = new Set([
+    "content-file",
+    "output",
+    "scope-type",
+    "scope-id",
+    "artifact-type",
+    "title",
+    "format",
+  ]);
   const values = new Map();
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
     if (!key.startsWith("--")) {
       throw new Error(`Unexpected positional argument: ${key}`);
     }
+    const name = key.slice(2);
+    if (!allowed.has(name)) {
+      throw new Error(`Unknown argument: ${key}`);
+    }
     const value = argv[index + 1];
     if (value === undefined || value.startsWith("--")) {
       throw new Error(`Missing value for ${key}`);
     }
-    values.set(key.slice(2), value);
+    values.set(name, value);
     index += 1;
   }
   return values;

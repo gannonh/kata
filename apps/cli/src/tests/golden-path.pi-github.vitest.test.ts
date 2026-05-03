@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -21,6 +22,8 @@ describe("golden path: pi + github projects v2", () => {
     try {
       mkdirSync(workspaceDir, { recursive: true });
       writeFileSync(join(workspaceDir, "pnpm-workspace.yaml"), "packages:\n  - apps/*\n", "utf8");
+      execFileSync("git", ["init"], { cwd: workspaceDir, stdio: "ignore" });
+      execFileSync("git", ["remote", "add", "origin", "https://github.com/kata-sh/kata-mono.git"], { cwd: workspaceDir, stdio: "ignore" });
       mkdirSync(join(cliSkillsDir, "kata-health"), { recursive: true });
       writeFileSync(join(cliSkillsDir, "kata-health", "SKILL.md"), "# Kata Health\n", "utf8");
       mkdirSync(join(workspaceDir, ".kata"), { recursive: true });
@@ -55,26 +58,25 @@ github:
       expect(existsSync(join(agentDir, PI_SETUP_MARKER_FILENAME))).toBe(true);
       expect(existsSync(join(agentDir, PI_SETTINGS_FILENAME))).toBe(true);
 
-      const doctor = await runDoctor({
-        cwd: workspaceDir,
-        env,
-        packageVersion: "9.9.9-test",
-      });
-      expect(doctor.status).toBe("warn");
-      expect(doctor.harness).toBe("pi");
-      expect(doctor.checks.find((check) => check.name === "skills-source")?.status).toBe("ok");
-      expect(doctor.checks.find((check) => check.name === "pi-skills-dir")?.status).toBe("ok");
-      expect(doctor.checks.find((check) => check.name === "pi-settings")?.status).toBe("ok");
-      expect(doctor.checks.find((check) => check.name === "backend-config")?.status).toBe("ok");
-      expect(doctor.checks.find((check) => check.name === "github-token")).toMatchObject({
-        status: "warn",
-        action: "Run a live backend operation or future doctor validation to confirm GitHub Project v2 access.",
-      });
-
       const runtimeBackendFactory = vi.fn(async () => {
         throw new Error("GitHub mode must not use the runtime backend fallback");
       });
       const githubClient = createGoldenFakeGithubClient();
+
+      const doctor = await runDoctor({
+        cwd: workspaceDir,
+        env,
+        packageVersion: "9.9.9-test",
+        githubClients: githubClient as any,
+      });
+      expect(doctor.status).toBe("warn");
+      expect(doctor.harness).toBe("pi");
+      expect(doctor.checks.find((check) => check.name === "kata-skills")?.status).toBe("warn");
+      expect(doctor.checks.find((check) => check.name === "pi-skills-dir")?.status).toBe("ok");
+      expect(doctor.checks.find((check) => check.name === "pi-settings")?.status).toBe("ok");
+      expect(doctor.checks.find((check) => check.name === "backend-config")?.status).toBe("ok");
+      expect(doctor.checks.find((check) => check.name === "github-auth")).toMatchObject({ status: "ok" });
+      expect(doctor.checks.find((check) => check.name === "github-project-fields")).toMatchObject({ status: "ok" });
 
       const adapter = await resolveBackend({
         workspacePath: workspaceDir,
@@ -194,6 +196,8 @@ github:
 
     try {
       mkdirSync(join(workspaceDir, ".kata"), { recursive: true });
+      execFileSync("git", ["init"], { cwd: workspaceDir, stdio: "ignore" });
+      execFileSync("git", ["remote", "add", "origin", "https://github.com/kata-sh/kata-mono.git"], { cwd: workspaceDir, stdio: "ignore" });
       mkdirSync(join(workspaceDir, "apps", "cli", "skills", "kata-health"), { recursive: true });
       writeFileSync(join(workspaceDir, "apps", "cli", "skills", "kata-health", "SKILL.md"), "# Kata\n");
       writeFileSync(
@@ -218,10 +222,11 @@ github:
       });
 
       expect(doctor.status).toBe("invalid");
-      expect(doctor.checks.find((check) => check.name === "github-token")).toMatchObject({
+      expect(doctor.checks.find((check) => check.name === "github-auth")).toMatchObject({
         status: "invalid",
-        action: "Set GITHUB_TOKEN or GH_TOKEN with access to the configured GitHub Project v2.",
+        action: "Run `gh auth login` or set GITHUB_TOKEN/GH_TOKEN with access to the configured GitHub Project v2.",
       });
+      expect(doctor.checks.find((check) => check.name === "github-project-fields")).toBeUndefined();
     } finally {
       rmSync(tmp, { recursive: true, force: true });
     }
@@ -233,6 +238,8 @@ github:
 
     try {
       mkdirSync(join(workspaceDir, ".kata"), { recursive: true });
+      execFileSync("git", ["init"], { cwd: workspaceDir, stdio: "ignore" });
+      execFileSync("git", ["remote", "add", "origin", "https://github.com/kata-sh/kata-mono.git"], { cwd: workspaceDir, stdio: "ignore" });
       mkdirSync(join(workspaceDir, "apps", "cli", "skills", "kata-health"), { recursive: true });
       writeFileSync(join(workspaceDir, "apps", "cli", "skills", "kata-health", "SKILL.md"), "# Kata\n");
       writeFileSync(
@@ -257,13 +264,13 @@ github:
           GH_TOKEN: "ghp_test",
         },
         packageVersion: "9.9.9-test",
+        githubClients: createGoldenFakeGithubClient() as any,
       });
 
       expect(doctor.status).toBe("warn");
-      expect(doctor.checks.find((check) => check.name === "github-token")).toMatchObject({
-        status: "warn",
-        action: "Run a live backend operation or future doctor validation to confirm GitHub Project v2 access.",
-      });
+      expect(doctor.checks.find((check) => check.name === "kata-skills")?.status).toBe("warn");
+      expect(doctor.checks.find((check) => check.name === "github-auth")).toMatchObject({ status: "ok" });
+      expect(doctor.checks.find((check) => check.name === "github-project-fields")).toMatchObject({ status: "ok" });
     } finally {
       rmSync(tmp, { recursive: true, force: true });
     }
@@ -287,13 +294,13 @@ function createGoldenFakeGithubClient() {
               fields: {
                 nodes: [
                   { id: "status-field-id", name: "Status", options: validStatusOptions() },
-                  { id: "kata-type-field-id", name: "Kata Type" },
-                  { id: "kata-id-field-id", name: "Kata ID" },
-                  { id: "kata-parent-id-field-id", name: "Kata Parent ID" },
-                  { id: "kata-artifact-scope-field-id", name: "Kata Artifact Scope" },
-                  { id: "kata-verification-state-field-id", name: "Kata Verification State" },
-                  { id: "kata-blocking-field-id", name: "Kata Blocking" },
-                  { id: "kata-blocked-by-field-id", name: "Kata Blocked By" },
+                  { id: "kata-type-field-id", name: "Kata Type", dataType: "TEXT" },
+                  { id: "kata-id-field-id", name: "Kata ID", dataType: "TEXT" },
+                  { id: "kata-parent-id-field-id", name: "Kata Parent ID", dataType: "TEXT" },
+                  { id: "kata-artifact-scope-field-id", name: "Kata Artifact Scope", dataType: "TEXT" },
+                  { id: "kata-verification-state-field-id", name: "Kata Verification State", dataType: "TEXT" },
+                  { id: "kata-blocking-field-id", name: "Kata Blocking", dataType: "TEXT" },
+                  { id: "kata-blocked-by-field-id", name: "Kata Blocked By", dataType: "TEXT" },
                 ],
               },
             },

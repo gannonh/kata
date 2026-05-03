@@ -122,6 +122,57 @@
       ]
     },
     {
+      "name": "kata-plan-issue",
+      "description": "Use when the user wants to plan a one-off Kata issue, standalone issue, backlog item, bugfix, enhancement, or slice-sized unit of work outside the milestone/slice/task workflow. This skill turns an isolated request into a single issue containing both a design section and an implementation plan section. Use this instead of kata-new-milestone or kata-plan-phase when the work should be planned and executed in isolation rather than as part of an active milestone.",
+      "workflow": "plan-issue",
+      "contractOperations": [
+        "project.getContext",
+        "health.check",
+        "issue.create"
+      ],
+      "setupHint": "If Kata CLI is not configured, run setup and health checks through `scripts/kata-call.mjs` from the installed skill.",
+      "operatingBrief": [
+        "When this skill is invoked, help the user turn a standalone request into one durable backlog issue in a backend that supports `issue.create`.",
+        "",
+        "Use a staged planning workflow: explore context, ask focused clarifying questions, propose viable approaches with trade-offs, get approval on one approach, present a visible self-reviewed design for approval, then do planning-depth classification and planning research before presenting a visible self-reviewed implementation plan. Do not create local design or plan markdown files; after both approvals, persist both documents together in one backend issue through `issue.create`.",
+        "",
+        "Use this for slice-sized work that should be planned and executed in isolation, not attached to a milestone roadmap. The created issue body must contain both `# Design` and `# Plan` sections, but do not draft those sections in the same turn as the approach options and do not write the plan immediately after design approval without planning research."
+      ],
+      "successCriteria": [
+        "The user chose or approved one approach before seeing the design.",
+        "The design was self-reviewed and a concise self-review summary was shown before design approval.",
+        "The user approved the design before implementation planning began.",
+        "The plan depth was classified as fast, research, or reviewed before plan drafting.",
+        "Planning research was performed at the selected depth before the plan was shown.",
+        "Reviewed-depth plans used a reviewer subagent when available, or an explicit inline reviewer pass otherwise.",
+        "The plan was self-reviewed against the approved design and a concise self-review summary was shown before plan approval.",
+        "The user approved the plan before backend issue creation.",
+        "The planned work is represented by exactly one backlog issue.",
+        "The issue body contains a concise design section and a concrete implementation plan section.",
+        "The plan is small enough for a fresh execution agent to act on without milestone context.",
+        "No milestone, slice, or task state is created."
+      ],
+      "doNot": [
+        "Do not create milestones, slices, or tasks.",
+        "Do not split the design and plan across multiple issues.",
+        "Do not write durable local design or plan files for this workflow.",
+        "Do not execute implementation work in this skill.",
+        "Do not one-shot the full design and plan in the same response as the approach options.",
+        "Do not write the plan immediately after design approval without classifying planning depth and doing planning research.",
+        "Do not ask to create the backend issue until the user has approved both the design and the plan.",
+        "Do not use this for roadmap-sized or multi-slice work; route that to kata-new-milestone or kata-plan-phase."
+      ],
+      "requiredReferences": [
+        "cli-runtime",
+        "artifact-contract",
+        "questioning",
+        "ui-brand"
+      ],
+      "requiredTemplates": [
+        "issue-plan"
+      ]
+    },
+    {
       "name": "kata-plan-phase",
       "description": "Use when the user asks to plan a phase, slice upcoming work, or turn a milestone goal into executable Kata tasks.",
       "workflow": "plan-phase",
@@ -162,6 +213,54 @@
       ],
       "requiredTemplates": [
         "phase-prompt"
+      ]
+    },
+    {
+      "name": "kata-execute-issue",
+      "description": "Use when the user wants to execute a standalone Kata issue, one-off issue plan, backlog issue, or isolated implementation plan created by kata-plan-issue. This skill selects or retrieves an open issue from the backend, confirms the issue with the user, then executes its approved plan with fresh subagents and two-stage review per task.",
+      "workflow": "execute-issue",
+      "contractOperations": [
+        "project.getContext",
+        "health.check",
+        "issue.listOpen",
+        "issue.get",
+        "issue.updateStatus"
+      ],
+      "setupHint": "If Kata CLI is not configured, run setup and health checks through `scripts/kata-call.mjs` from the installed skill.",
+      "operatingBrief": [
+        "When this skill is invoked, execute one standalone backend issue created by kata-plan-issue in a backend that supports issue operations.",
+        "",
+        "If the user did not provide an issue reference, list open standalone issues with `issue.listOpen` and ask the user to choose. If the user provided an issue number, Kata ID, or partial title, match it against open standalone issues, retrieve the matching issue with `issue.get`, summarize it with a link, and ask for confirmation before execution.",
+        "",
+        "After confirmation, follow subagent-driven development as closely as possible: fresh implementer subagent per task, spec compliance review first, code quality review second, review loops until approved, then the next task. Update the issue status through `issue.updateStatus`."
+      ],
+      "successCriteria": [
+        "The selected standalone issue is confirmed by the user before execution starts.",
+        "The issue design and plan are retrieved from the backend, not from a local markdown plan file.",
+        "Each plan task is implemented by a fresh subagent with full task text and curated context.",
+        "Each task passes spec compliance review before code quality review starts.",
+        "Reviewer findings are fixed and re-reviewed before moving to the next task.",
+        "A final whole-change code review runs after all tasks complete.",
+        "The backend issue status reflects real execution state."
+      ],
+      "doNot": [
+        "Do not execute without confirming the selected issue with the user.",
+        "Do not load all open issue bodies when listing issues; use `issue.listOpen` summaries first.",
+        "Do not execute milestone slices or tasks here; this skill is for standalone issues only.",
+        "Do not dispatch implementation subagents in parallel.",
+        "Do not skip spec compliance review or code quality review.",
+        "Do not move to the next task while either review has open issues.",
+        "Do not let implementer self-review replace the two required review stages."
+      ],
+      "requiredReferences": [
+        "cli-runtime",
+        "artifact-contract",
+        "ui-brand"
+      ],
+      "requiredTemplates": [
+        "implementer-prompt",
+        "spec-reviewer-prompt",
+        "code-quality-reviewer-prompt"
       ]
     },
     {

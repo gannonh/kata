@@ -146,12 +146,11 @@ describe("loadProjectFieldIndex", () => {
       }),
     ).rejects.toMatchObject({
       code: "INVALID_CONFIG",
-      message:
-        "GitHub Projects v2 project is missing required Kata fields: Kata Type, Kata ID, Kata Parent ID, Kata Artifact Scope, Kata Verification State, Kata Blocking, Kata Blocked By.\n\nAdd each missing field in the GitHub Project table view: click the rightmost + field header, choose New field, enter the exact field name, choose Text, and save.\n\nRequired Kata text fields: Kata Type, Kata ID, Kata Parent ID, Kata Artifact Scope, Kata Verification State, Kata Blocking, Kata Blocked By.\nRequired Status options: Backlog, Todo, In Progress, Agent Review, Human Review, Merging, Done.",
+      message: expect.stringContaining("GitHub Projects v2 project is missing required Kata fields:\n  - Kata Type"),
     });
   });
 
-  it("rejects when required Status options are missing", async () => {
+  it("allows missing Status options", async () => {
     const client = {
       graphql: vi.fn(async () => ({
         organization: {
@@ -167,17 +166,47 @@ describe("loadProjectFieldIndex", () => {
       })),
     } as unknown as Parameters<typeof loadProjectFieldIndex>[0]["client"];
 
-    await expect(
-      loadProjectFieldIndex({
-        client,
-        owner: "kata-sh",
-        repo: "uat",
-        projectNumber: 1,
-      }),
-    ).rejects.toMatchObject({
+    await expect(loadProjectFieldIndex({
+      client,
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 1,
+    })).resolves.toMatchObject({ projectId: "project-id" });
+  });
+
+  it("rejects required Kata fields with non-text Project v2 types", async () => {
+    const client = {
+      graphql: vi.fn(async () => ({
+        organization: {
+          projectV2: {
+            id: "project-id",
+            fields: {
+              nodes: validProjectFields().map((field) =>
+                field.name === "Kata ID" ? { ...field, dataType: "NUMBER" } : field
+              ),
+            },
+          },
+        },
+      })),
+    } as unknown as Parameters<typeof loadProjectFieldIndex>[0]["client"];
+
+    await expect(loadProjectFieldIndex({
+      client,
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 1,
+    })).rejects.toMatchObject({
       code: "INVALID_CONFIG",
-      message:
-        "GitHub Projects v2 Status field is missing required options: Done.\n\nOpen the Status field settings in the GitHub Project and add these options exactly: Backlog, Todo, In Progress, Agent Review, Human Review, Merging, Done.",
+      message: expect.stringMatching(/Kata ID must be Text[\s\S]*Fix incorrectly typed fields/),
+    });
+
+    await expect(loadProjectFieldIndex({
+      client,
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 1,
+    })).rejects.not.toMatchObject({
+      message: expect.stringContaining("Add each missing field"),
     });
   });
 
@@ -217,13 +246,13 @@ describe("loadProjectFieldIndex", () => {
 function validProjectFields(input: { statusOptions?: Array<{ id: string; name: string }> } = {}) {
   return [
     { id: "status-field-id", name: "Status", options: input.statusOptions ?? validStatusOptions() },
-    { id: "kata-type-field-id", name: "Kata Type" },
-    { id: "kata-id-field-id", name: "Kata ID" },
-    { id: "kata-parent-id-field-id", name: "Kata Parent ID" },
-    { id: "kata-artifact-scope-field-id", name: "Kata Artifact Scope" },
-    { id: "kata-verification-state-field-id", name: "Kata Verification State" },
-    { id: "kata-blocking-field-id", name: "Kata Blocking" },
-    { id: "kata-blocked-by-field-id", name: "Kata Blocked By" },
+    { id: "kata-type-field-id", name: "Kata Type", dataType: "TEXT" },
+    { id: "kata-id-field-id", name: "Kata ID", dataType: "TEXT" },
+    { id: "kata-parent-id-field-id", name: "Kata Parent ID", dataType: "TEXT" },
+    { id: "kata-artifact-scope-field-id", name: "Kata Artifact Scope", dataType: "TEXT" },
+    { id: "kata-verification-state-field-id", name: "Kata Verification State", dataType: "TEXT" },
+    { id: "kata-blocking-field-id", name: "Kata Blocking", dataType: "TEXT" },
+    { id: "kata-blocked-by-field-id", name: "Kata Blocked By", dataType: "TEXT" },
   ];
 }
 

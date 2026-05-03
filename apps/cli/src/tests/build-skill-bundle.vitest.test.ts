@@ -68,10 +68,17 @@ describe("skill bundle generation", () => {
     expect(workflow).not.toContain("apps/cli/dist/loader.js");
     expect(runtime).toContain("project.getContext");
     expect(runtime).toContain("slice.create");
-    expect(setup).toContain("`setup --pi` installs or refreshes local Pi skills");
+    expect(existsSync(path.join(cliRoot, "skills", "kata-plan-issue", "SKILL.md"))).toBe(true);
+    expect(readFileSync(path.join(cliRoot, "skills", "kata-plan-issue", "references", "workflow.md"), "utf8")).toContain("issue.create");
+    expect(readFileSync(path.join(cliRoot, "skills", "kata-plan-issue", "references", "workflow.md"), "utf8")).toContain("backend with `issue.create` support");
+    expect(existsSync(path.join(cliRoot, "skills", "kata-execute-issue", "SKILL.md"))).toBe(true);
+    expect(readFileSync(path.join(cliRoot, "skills", "kata-execute-issue", "references", "workflow.md"), "utf8")).toContain("issue.listOpen");
+    expect(readFileSync(path.join(cliRoot, "skills", "kata-execute-issue", "references", "workflow.md"), "utf8")).toContain("backend with `issue.listOpen`, `issue.get`, and `issue.updateStatus` support");
+    expect(existsSync(path.join(cliRoot, "skills", "kata-execute-issue", "templates", "implementer-prompt.md"))).toBe(true);
+    expect(setup).toContain("`setup` installs or refreshes Kata skills for the selected target");
     expect(setup).toContain("Kata Type");
     expect(setup).toContain("Kata Artifact Scope");
-    expect(setup).toContain("In Progress");
+    expect(setup).not.toContain("The Project `Status` field must include these options");
     expect(helperScript).toContain("loadDotEnv(process.cwd())");
     expect(helperScript).toContain("path.resolve(process.cwd(), process.env.KATA_CLI_ROOT)");
     expect(artifactInputHelperScript).toContain("JSON.stringify(payload, null, 2)");
@@ -91,6 +98,34 @@ describe("skill bundle generation", () => {
       "utf8",
     );
     writeFileSync(markdownPath, "# Verification\n\n- `pnpm test` passed.\n| A | B |\n|---|---|\n", "utf8");
+
+    const unknownFlag = spawnSync(
+      process.execPath,
+      [
+        "scripts/kata-artifact-input.mjs",
+        "--scope-type",
+        "task",
+        "--scope-id",
+        "T001",
+        "--artifact-type",
+        "verification",
+        "--title",
+        "T001 Verification",
+        "--content-file",
+        markdownPath,
+        "--output",
+        outputPath,
+        "--typo",
+        "value",
+      ],
+      {
+        cwd: fixtureDir,
+        encoding: "utf8",
+      },
+    );
+
+    expect(unknownFlag.status).toBe(1);
+    expect(unknownFlag.stderr).toContain("Unknown argument: --typo");
 
     const result = spawnSync(
       process.execPath,
@@ -134,13 +169,17 @@ describe("skill bundle generation", () => {
 
     mkdirSync(scriptsDir, { recursive: true });
     mkdirSync(fakeCliDir, { recursive: true });
-    writeFileSync(path.join(fixtureDir, ".env"), "KATA_CLI_ROOT=./fake-cli\n", "utf8");
+    writeFileSync(
+      path.join(fixtureDir, ".env"),
+      "KATA_CLI_ROOT=./fake-cli\nESCAPED=\"path\\\\to\\\"file\" # trailing comment\n",
+      "utf8",
+    );
     writeFileSync(
       path.join(fakeCliDir, "loader.js"),
       [
         "#!/usr/bin/env node",
         "import { appendFileSync } from 'node:fs';",
-        `appendFileSync(${JSON.stringify(callsPath)}, JSON.stringify(process.argv.slice(2)) + "\\n");`,
+        `appendFileSync(${JSON.stringify(callsPath)}, JSON.stringify({ args: process.argv.slice(2), escaped: process.env.ESCAPED }) + "\\n");`,
       ].join("\n"),
       "utf8",
     );
@@ -161,12 +200,23 @@ describe("skill bundle generation", () => {
       encoding: "utf8",
     });
     expect(health.status, health.stderr || health.stdout).toBe(0);
+    const json = spawnSync(process.execPath, ["scripts/kata-call.mjs", "json", "request.json"], {
+      cwd: fixtureDir,
+      encoding: "utf8",
+    });
+    expect(json.status, json.stderr || json.stdout).toBe(0);
+    const help = spawnSync(process.execPath, ["scripts/kata-call.mjs"], {
+      cwd: fixtureDir,
+      encoding: "utf8",
+    });
+    expect(help.status, help.stderr || help.stdout).toBe(0);
 
     const calls = readFileSync(callsPath, "utf8")
       .trim()
       .split("\n")
       .map((line) => JSON.parse(line));
 
-    expect(calls).toEqual([["doctor"], ["call", "health.check"]]);
+    expect(calls.map((call) => call.args)).toEqual([["doctor"], ["call", "health.check"], ["json", "request.json"], ["help"]]);
+    expect(calls.every((call) => call.escaped === String.raw`path\to"file`)).toBe(true);
   });
 });

@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -30,13 +30,127 @@ describe("skills source resolution", () => {
       const result = await runSetup({
         pi: true,
         cwd: tmp,
-        env: { PI_CODING_AGENT_DIR: join(tmp, "pi-agent") },
+        env: { PI_CODING_AGENT_DIR: join(tmp, "pi-agent"), GH_TOKEN: "ghp_test" },
+        onboarding: {
+          repoOwner: "kata-sh",
+          repoName: "kata-mono",
+          githubProjectNumber: 12,
+        },
+        interactive: false,
       });
 
       expect(result.ok).toBe(false);
       if (result.ok) return;
       expect(result.error.code).toBe("SKILLS_SOURCE_MISSING");
       expect(result.error.message).toContain("apps/cli/skills");
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("defaults setup to local .agents skills and bootstraps GitHub preferences", async () => {
+    const tmp = mkdtempSync(join(tmpdir(), "kata-setup-local-"));
+    try {
+      writeFileSync(join(tmp, "pnpm-workspace.yaml"), "packages:\n  - apps/*\n", "utf8");
+      mkdirSync(join(tmp, "apps", "cli", "skills", "kata-health"), { recursive: true });
+      writeFileSync(join(tmp, "apps", "cli", "skills", "kata-health", "SKILL.md"), "# Kata Health\n", "utf8");
+
+      const result = await runSetup({
+        cwd: tmp,
+        env: { GH_TOKEN: "ghp_test" },
+        packageVersion: "9.9.9-test",
+        interactive: false,
+        onboarding: {
+          repoOwner: "kata-sh",
+          repoName: "kata-mono",
+          githubProjectNumber: 12,
+        },
+      });
+
+      expect(result).toMatchObject({ ok: true });
+      if (!result.ok) return;
+      expect(result.mode).toBe("setup");
+      expect(result.preferences?.status).toBe("created");
+      expect(existsSync(join(tmp, ".kata", "preferences.md"))).toBe(true);
+      expect(readFileSync(join(tmp, ".kata", "preferences.md"), "utf8")).toContain("githubProjectNumber: 12");
+      expect(existsSync(join(tmp, ".agents", "skills", "kata-health", "SKILL.md"))).toBe(true);
+      const gitignore = readFileSync(join(tmp, ".gitignore"), "utf8");
+      expect(gitignore).toContain(".agents/kata-setup-manifest.json");
+      expect(gitignore).not.toContain(".agents/skills/");
+      expect(result.targets?.map((target) => target.kind)).toEqual(["local-agents"]);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("can install to multiple selected skill targets", async () => {
+    const tmp = mkdtempSync(join(tmpdir(), "kata-setup-targets-"));
+    try {
+      const home = join(tmp, "home");
+      writeFileSync(join(tmp, "pnpm-workspace.yaml"), "packages:\n  - apps/*\n", "utf8");
+      mkdirSync(join(tmp, "apps", "cli", "skills", "kata-health"), { recursive: true });
+      writeFileSync(join(tmp, "apps", "cli", "skills", "kata-health", "SKILL.md"), "# Kata Health\n", "utf8");
+
+      const result = await runSetup({
+        cwd: tmp,
+        env: { HOME: home, PI_CODING_AGENT_DIR: join(tmp, "pi-agent"), GH_TOKEN: "ghp_test" },
+        packageVersion: "9.9.9-test",
+        local: true,
+        global: true,
+        cursor: true,
+        claude: true,
+        pi: true,
+        interactive: false,
+        onboarding: {
+          repoOwner: "kata-sh",
+          repoName: "kata-mono",
+          githubProjectNumber: 12,
+        },
+      });
+
+      expect(result).toMatchObject({ ok: true });
+      if (!result.ok) return;
+      expect(result.targets?.map((target) => target.kind)).toEqual([
+        "local-agents",
+        "global-agents",
+        "cursor",
+        "claude",
+        "pi",
+      ]);
+      expect(existsSync(join(tmp, ".agents", "skills", "kata-health", "SKILL.md"))).toBe(true);
+      expect(existsSync(join(home, ".agents", "skills", "kata-health", "SKILL.md"))).toBe(true);
+      expect(existsSync(join(tmp, ".cursor", "skills", "kata-health", "SKILL.md"))).toBe(true);
+      expect(existsSync(join(tmp, ".claude", "skills", "kata-health", "SKILL.md"))).toBe(true);
+      expect(existsSync(join(tmp, "pi-agent", "skills", "kata-health", "SKILL.md"))).toBe(true);
+      const gitignore = readFileSync(join(tmp, ".gitignore"), "utf8");
+      expect(gitignore).toContain(".agents/kata-setup-manifest.json");
+      expect(gitignore).toContain(".cursor/kata-setup-manifest.json");
+      expect(gitignore).toContain(".claude/kata-setup-manifest.json");
+      expect(gitignore).not.toContain(".agents/skills/");
+      expect(gitignore).not.toContain(".cursor/skills/");
+      expect(gitignore).not.toContain(".claude/skills/");
+      expect(result.pi?.settingsPath).toBe(join(tmp, "pi-agent", "settings.json"));
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("requires interactive setup details when preferences are missing in non-interactive mode", async () => {
+    const tmp = mkdtempSync(join(tmpdir(), "kata-setup-noninteractive-"));
+    try {
+      writeFileSync(join(tmp, "pnpm-workspace.yaml"), "packages:\n  - apps/*\n", "utf8");
+      mkdirSync(join(tmp, "apps", "cli", "skills", "kata-health"), { recursive: true });
+      writeFileSync(join(tmp, "apps", "cli", "skills", "kata-health", "SKILL.md"), "# Kata Health\n", "utf8");
+
+      const result = await runSetup({
+        cwd: tmp,
+        env: { GH_TOKEN: "ghp_test" },
+        interactive: false,
+      });
+
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.error.code).toBe("NON_INTERACTIVE_SETUP_REQUIRED");
     } finally {
       rmSync(tmp, { recursive: true, force: true });
     }

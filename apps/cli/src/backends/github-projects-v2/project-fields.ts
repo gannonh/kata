@@ -32,14 +32,19 @@ const REQUIRED_TEXT_FIELD_NAMES = [
   KATA_PROJECT_FIELDS.blockedBy,
 ] as const;
 
+function formatBulletList(items: readonly string[]): string {
+  return items.map((item) => `  - ${item}`).join("\n");
+}
+
 export interface ProjectFieldIndex {
   projectId: string;
-  fields: Record<string, { id: string; options?: Record<string, string> }>;
+  fields: Record<string, { id: string; dataType?: string; options?: Record<string, string> }>;
 }
 
 interface ProjectFieldNode {
   id: string;
   name: string;
+  dataType?: string;
   options?: Array<{ id: string; name: string }>;
 }
 
@@ -75,6 +80,7 @@ const PROJECT_FIELDS_QUERY = `
             ... on ProjectV2Field {
               id
               name
+              dataType
             }
             ... on ProjectV2SingleSelectField {
               id
@@ -96,6 +102,7 @@ const PROJECT_FIELDS_QUERY = `
             ... on ProjectV2Field {
               id
               name
+              dataType
             }
             ... on ProjectV2SingleSelectField {
               id
@@ -141,6 +148,7 @@ export async function loadProjectFieldIndex(input: {
       field.name,
       {
         id: field.id,
+        dataType: field.dataType,
         options: field.options
           ? Object.fromEntries(field.options.map((option) => [option.name, option.id]))
           : undefined,
@@ -161,33 +169,50 @@ function isProjectFieldNode(node: ProjectFieldNode | null): node is ProjectField
 }
 
 function validateProjectFieldIndex(fields: ProjectFieldIndex["fields"]): void {
-  const missingFields = Object.values(KATA_PROJECT_FIELDS).filter((fieldName) => !fields[fieldName]);
+  const missingFields = REQUIRED_TEXT_FIELD_NAMES.filter((fieldName) => !fields[fieldName]);
+  const incorrectlyTypedFields = REQUIRED_TEXT_FIELD_NAMES.filter((fieldName) => {
+    const field = fields[fieldName];
+    return field && field.dataType !== "TEXT";
+  });
 
-  if (missingFields.length) {
+  if (missingFields.length || incorrectlyTypedFields.length) {
     throw new KataDomainError(
       "INVALID_CONFIG",
       [
-        `GitHub Projects v2 project is missing required Kata fields: ${missingFields.join(", ")}.`,
-        "",
-        "Add each missing field in the GitHub Project table view: click the rightmost + field header, choose New field, enter the exact field name, choose Text, and save.",
-        "",
-        `Required Kata text fields: ${REQUIRED_TEXT_FIELD_NAMES.join(", ")}.`,
-        `Required Status options: ${KATA_STATUS_OPTIONS.join(", ")}.`,
+        ...(missingFields.length
+          ? [
+              "GitHub Projects v2 project is missing required Kata fields:",
+              formatBulletList(missingFields),
+              "",
+            ]
+          : []),
+        ...(incorrectlyTypedFields.length
+          ? [
+              "GitHub Projects v2 project has required Kata fields with the wrong type:",
+              formatBulletList(incorrectlyTypedFields.map((fieldName) => `${fieldName} must be Text`)),
+              "",
+            ]
+          : []),
+        ...(missingFields.length
+          ? [
+              "Add each missing field in the GitHub Project table view:",
+              "  1. Click the rightmost + field header.",
+              "  2. Choose New field.",
+              "  3. Enter the exact field name.",
+              "  4. Choose Text and save.",
+              "",
+            ]
+          : []),
+        ...(incorrectlyTypedFields.length
+          ? [
+              "Fix incorrectly typed fields in the GitHub Project table view:",
+              "  1. Open each field menu.",
+              "  2. Recreate the field as Text with the exact field name.",
+              "  3. Reapply existing values if needed.",
+            ]
+          : []),
       ].join("\n"),
     );
   }
 
-  const statusOptions = fields[KATA_PROJECT_FIELDS.status]?.options;
-  const missingStatusOptions = KATA_STATUS_OPTIONS.filter((optionName) => !statusOptions?.[optionName]);
-
-  if (missingStatusOptions.length) {
-    throw new KataDomainError(
-      "INVALID_CONFIG",
-      [
-        `GitHub Projects v2 Status field is missing required options: ${missingStatusOptions.join(", ")}.`,
-        "",
-        `Open the Status field settings in the GitHub Project and add these options exactly: ${KATA_STATUS_OPTIONS.join(", ")}.`,
-      ].join("\n"),
-    );
-  }
 }

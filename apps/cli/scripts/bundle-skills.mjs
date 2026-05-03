@@ -21,6 +21,10 @@ const supportedOperations = new Set([
   "task.list",
   "task.create",
   "task.updateStatus",
+  "issue.listOpen",
+  "issue.create",
+  "issue.get",
+  "issue.updateStatus",
   "artifact.list",
   "artifact.read",
   "artifact.write",
@@ -30,10 +34,12 @@ const supportedOperations = new Set([
 
 const requiredSkillNames = [
   "kata-complete-milestone",
+  "kata-execute-issue",
   "kata-execute-phase",
   "kata-health",
   "kata-new-milestone",
   "kata-new-project",
+  "kata-plan-issue",
   "kata-plan-phase",
   "kata-progress",
   "kata-setup",
@@ -50,6 +56,9 @@ const inputRequiredOperations = new Set([
   "task.list",
   "task.create",
   "task.updateStatus",
+  "issue.create",
+  "issue.get",
+  "issue.updateStatus",
   "artifact.list",
   "artifact.read",
   "artifact.write",
@@ -195,6 +204,16 @@ function renderPayloadExample(operation, skill) {
         null,
         2,
       );
+    case "issue.create":
+      return JSON.stringify({
+        title: "Fix first-run setup messaging",
+        design: "Clarify the user-facing setup states and accepted install targets.",
+        plan: "1. Add focused tests for the CLI output.\n2. Update the setup renderer.\n3. Run CLI validation.",
+      }, null, 2);
+    case "issue.get":
+      return JSON.stringify({ issueRef: "I001" }, null, 2);
+    case "issue.updateStatus":
+      return JSON.stringify({ issueId: "I001", status: "in_progress" }, null, 2);
     case "artifact.list":
       return JSON.stringify({ scopeType: "milestone", scopeId: "M001" }, null, 2);
     case "artifact.read":
@@ -304,7 +323,7 @@ function renderSetupReference(skill) {
     "",
     "## GitHub Projects V2 Setup",
     "",
-    "`setup --pi` installs or refreshes local Pi skills. It does not create or repair GitHub Project fields.",
+    "`setup` installs or refreshes Kata skills for the selected target: local `.agents/skills` for most coding agents, global `~/.agents/skills`, and optionally `.claude/skills` or `.cursor/skills`.",
     "",
     "If a backend operation reports missing GitHub Projects v2 fields, stop and instruct the user to add these exact Project fields before retrying:",
     "",
@@ -315,16 +334,6 @@ function renderSetupReference(skill) {
     "- `Kata Verification State` — Text field",
     "- `Kata Blocking` — Text field with comma-separated Kata IDs",
     "- `Kata Blocked By` — Text field with comma-separated Kata IDs",
-    "",
-    "The Project `Status` field must include these options:",
-    "",
-    "- `Backlog`",
-    "- `Todo`",
-    "- `In Progress`",
-    "- `Agent Review`",
-    "- `Human Review`",
-    "- `Merging`",
-    "- `Done`",
     "",
     "In GitHub Project table view, add a text field from the rightmost field header: click `+`, choose `New field`, enter the exact name, choose `Text`, and save.",
     "",

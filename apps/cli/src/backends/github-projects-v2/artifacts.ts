@@ -6,7 +6,7 @@ const MARKER_SUFFIX = " -->";
 const COMMENTS_PER_PAGE = 100;
 const MAX_COMMENT_PAGES = 100;
 
-const SCOPE_TYPES = ["project", "milestone", "slice", "task"] satisfies KataScopeType[];
+const SCOPE_TYPES = ["project", "milestone", "slice", "task", "issue"] satisfies KataScopeType[];
 const ARTIFACT_TYPES = [
   "project-brief",
   "requirements",

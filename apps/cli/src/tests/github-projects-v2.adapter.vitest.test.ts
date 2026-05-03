@@ -428,6 +428,157 @@ describe("GithubProjectsV2Adapter", () => {
     );
   });
 
+  it("allocates unique task IDs when separate adapters create tasks from the same discovered snapshot", async () => {
+    const initialIssues = [
+      {
+        id: 1,
+        node_id: "issue-node-1",
+        number: 1,
+        title: "[M001] Existing Milestone",
+        body: '<!-- kata:entity {"kataId":"M001","type":"Milestone"} -->\nExisting milestone',
+        state: "open",
+        html_url: "https://github.test/kata-sh/uat/issues/1",
+        milestone: { number: 1 },
+      },
+      {
+        id: 2,
+        node_id: "issue-node-2",
+        number: 2,
+        title: "[S001] Existing Slice",
+        body: '<!-- kata:entity {"kataId":"S001","type":"Slice","parentId":"M001"} -->\nExisting slice',
+        state: "open",
+        html_url: "https://github.test/kata-sh/uat/issues/2",
+        milestone: { number: 1 },
+      },
+    ];
+    const client = createFakeGithubClient({
+      issues: initialIssues,
+      issueListSnapshots: [initialIssues, initialIssues],
+    });
+    const firstAdapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+    const secondAdapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+
+    const [firstTask, secondTask] = await Promise.all([
+      firstAdapter.createTask({
+        sliceId: "S001",
+        title: "First concurrent task",
+        description: "Created by first adapter",
+      }),
+      secondAdapter.createTask({
+        sliceId: "S001",
+        title: "Second concurrent task",
+        description: "Created by second adapter",
+      }),
+    ]);
+
+    expect([firstTask.id, secondTask.id].sort()).toEqual(["T001", "T002"]);
+    await expect(secondAdapter.listTasks({ sliceId: "S001" })).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "T001", title: "First concurrent task" }),
+        expect.objectContaining({ id: "T002", title: "Second concurrent task" }),
+      ]),
+    );
+  });
+
+  it("creates standalone planned issues as one Project v2 backlog item", async () => {
+    const client = createFakeGithubClient();
+    const adapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+
+    const issue = await adapter.createIssue({
+      title: "Plan isolated fix",
+      design: "## Problem\n\nThe workflow needs one standalone issue.",
+      plan: "## Tasks\n\n- [ ] Create one backend issue.",
+    });
+
+    expect(issue).toMatchObject({
+      id: "I001",
+      number: 1,
+      title: "Plan isolated fix",
+      status: "backlog",
+      url: "https://github.test/kata-sh/uat/issues/1",
+    });
+    expect(issue.body).toContain("# Design");
+    expect(issue.body).toContain("# Plan");
+
+    await expect(adapter.listOpenIssues()).resolves.toEqual([
+      expect.objectContaining({ id: "I001", number: 1, title: "Plan isolated fix", status: "backlog" }),
+    ]);
+    await expect(adapter.getIssue({ issueRef: "#1" })).resolves.toMatchObject({
+      id: "I001",
+      number: 1,
+      body: expect.stringContaining("# Plan"),
+    });
+    await expect(adapter.getIssue({ issueRef: "isolated" })).resolves.toMatchObject({ id: "I001" });
+    await expect(adapter.updateIssueStatus({ issueId: "I001", status: "in_progress" })).resolves.toMatchObject({
+      id: "I001",
+      status: "in_progress",
+    });
+
+    expect(client.rest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "POST",
+        path: "/repos/kata-sh/uat/issues",
+        body: expect.objectContaining({
+          title: "[I001] Plan isolated fix",
+          body: expect.stringContaining('"type":"Issue"'),
+        }),
+      }),
+    );
+
+    const updateCalls = client.graphql.mock.calls.filter(([input]) =>
+      input.query.includes("updateProjectV2ItemFieldValue")
+    );
+    expect(updateCalls).toEqual(
+      expect.arrayContaining([
+        [
+          expect.objectContaining({
+            variables: expect.objectContaining({
+              itemId: "project-item-1",
+              fieldId: "kata-type-field-id",
+              value: { text: "Issue" },
+            }),
+          }),
+        ],
+        [
+          expect.objectContaining({
+            variables: expect.objectContaining({
+              itemId: "project-item-1",
+              fieldId: "status-field-id",
+              value: { singleSelectOptionId: "status-backlog" },
+            }),
+          }),
+        ],
+        [
+          expect.objectContaining({
+            variables: expect.objectContaining({
+              itemId: "project-item-2",
+              fieldId: "status-field-id",
+              value: { singleSelectOptionId: "status-in-progress" },
+            }),
+          }),
+        ],
+      ]),
+    );
+  });
+
   it("rediscovers marker issues before writing artifacts from a fresh adapter", async () => {
     const client = createFakeGithubClient({
       issues: [
@@ -623,8 +774,56 @@ describe("GithubProjectsV2Adapter", () => {
         path: "/repos/kata-sh/uat/issues/38/comments",
       }),
     );
+    });
   });
-});
+
+  it("rejects blank standalone issue refs before title matching", async () => {
+    const client = createFakeGithubClient();
+    const adapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+
+    await adapter.createIssue({
+      title: "Plan isolated fix",
+      design: "## Problem\n\nThe workflow needs one standalone issue.",
+      plan: "## Tasks\n\n- [ ] Create one backend issue.",
+    });
+
+    await expect(adapter.getIssue({ issueRef: "   " })).rejects.toMatchObject({
+      code: "INVALID_CONFIG",
+      message: "Standalone issue reference is required.",
+    });
+  });
+
+  it("fails status updates when the Project v2 status option is missing", async () => {
+    const client = createFakeGithubClient({
+      projectFields: validProjectFields({
+        statusOptions: validStatusOptions().filter((option) => option.name !== "In Progress"),
+      }),
+    });
+    const adapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+
+    const issue = await adapter.createIssue({
+      title: "Plan isolated fix",
+      design: "## Problem\n\nThe workflow needs one standalone issue.",
+      plan: "## Tasks\n\n- [ ] Create one backend issue.",
+    });
+
+    await expect(adapter.updateIssueStatus({ issueId: issue.id, status: "in_progress" })).rejects.toMatchObject({
+      code: "INVALID_CONFIG",
+      message: expect.stringContaining('field "Status" is missing option "In Progress"'),
+    });
+  });
 
 describe("resolveBackend GitHub token selection", () => {
   it("uses GH_TOKEN when GITHUB_TOKEN is empty", async () => {
@@ -663,12 +862,13 @@ github:
   });
 });
 
-function createFakeGithubClient(input: { issues?: any[]; projectFields?: any[] } = {}) {
+function createFakeGithubClient(input: { issues?: any[]; issueListSnapshots?: any[][]; projectFields?: any[] } = {}) {
   const issues = [...(input.issues ?? [])];
   const commentsByIssue = new Map<number, any[]>();
   let nextIssueNumber = issues.reduce((max, issue) => Math.max(max, Number(issue.number) || 0), 0) + 1;
   let nextProjectItemNumber = 1;
   let nextCommentId = 1;
+  let issueListCallCount = 0;
 
   return {
     graphql: vi.fn(async (request: any) => {
@@ -679,14 +879,7 @@ function createFakeGithubClient(input: { issues?: any[]; projectFields?: any[] }
               id: "project-id",
               fields: {
                 nodes: input.projectFields ?? [
-                  { id: "status-field-id", name: "Status", options: validStatusOptions() },
-                  { id: "kata-type-field-id", name: "Kata Type" },
-                  { id: "kata-id-field-id", name: "Kata ID" },
-                  { id: "kata-parent-id-field-id", name: "Kata Parent ID" },
-                  { id: "kata-artifact-scope-field-id", name: "Kata Artifact Scope" },
-                  { id: "kata-verification-state-field-id", name: "Kata Verification State" },
-                  { id: "kata-blocking-field-id", name: "Kata Blocking" },
-                  { id: "kata-blocked-by-field-id", name: "Kata Blocked By" },
+                  ...validProjectFields(),
                 ],
               },
             },
@@ -711,6 +904,8 @@ function createFakeGithubClient(input: { issues?: any[]; projectFields?: any[] }
     rest: vi.fn(async (request: any) => {
       if (request.method === "GET" && request.path.startsWith("/repos/kata-sh/uat/issues?")) {
         const page = Number(new URL(`https://example.test${request.path}`).searchParams.get("page") ?? "1");
+        const snapshot = input.issueListSnapshots?.[issueListCallCount++];
+        if (snapshot) return page === 1 ? snapshot : [];
         return page === 1 ? issues : [];
       }
 
@@ -786,5 +981,18 @@ function validStatusOptions() {
     { id: "status-human-review", name: "Human Review" },
     { id: "status-merging", name: "Merging" },
     { id: "status-done", name: "Done" },
+  ];
+}
+
+function validProjectFields(input: { statusOptions?: Array<{ id: string; name: string }> } = {}) {
+  return [
+    { id: "status-field-id", name: "Status", options: input.statusOptions ?? validStatusOptions() },
+    { id: "kata-type-field-id", name: "Kata Type", dataType: "TEXT" },
+    { id: "kata-id-field-id", name: "Kata ID", dataType: "TEXT" },
+    { id: "kata-parent-id-field-id", name: "Kata Parent ID", dataType: "TEXT" },
+    { id: "kata-artifact-scope-field-id", name: "Kata Artifact Scope", dataType: "TEXT" },
+    { id: "kata-verification-state-field-id", name: "Kata Verification State", dataType: "TEXT" },
+    { id: "kata-blocking-field-id", name: "Kata Blocking", dataType: "TEXT" },
+    { id: "kata-blocked-by-field-id", name: "Kata Blocked By", dataType: "TEXT" },
   ];
 }

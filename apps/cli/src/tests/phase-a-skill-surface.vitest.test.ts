@@ -12,10 +12,12 @@ describe("Phase A skill surface", () => {
 
     expect(names).toEqual([
       "kata-complete-milestone",
+      "kata-execute-issue",
       "kata-execute-phase",
       "kata-health",
       "kata-new-milestone",
       "kata-new-project",
+      "kata-plan-issue",
       "kata-plan-phase",
       "kata-progress",
       "kata-setup",

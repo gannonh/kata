@@ -5,6 +5,11 @@ import type {
   KataBackendAdapter,
   KataExecutionStatus,
   KataHealthReport,
+  KataIssue,
+  KataIssueCreateInput,
+  KataIssueGetInput,
+  KataIssueSummary,
+  KataIssueUpdateStatusInput,
   KataMilestone,
   KataMilestoneCompleteInput,
   KataMilestoneCreateInput,
@@ -124,6 +129,22 @@ export class GithubProjectsV2SnapshotAdapter implements KataBackendAdapter {
 
   async updateTaskStatus(_input: KataTaskUpdateStatusInput): Promise<KataTask> {
     throw new KataDomainError("NOT_SUPPORTED", "GitHub snapshot adapter cannot update task status.");
+  }
+
+  async createIssue(_input: KataIssueCreateInput): Promise<KataIssue> {
+    throw new KataDomainError("NOT_SUPPORTED", "GitHub snapshot adapter cannot create standalone issues.");
+  }
+
+  async listOpenIssues(): Promise<KataIssueSummary[]> {
+    throw new KataDomainError("NOT_SUPPORTED", "GitHub snapshot adapter cannot list standalone issues.");
+  }
+
+  async getIssue(_input: KataIssueGetInput): Promise<KataIssue> {
+    throw new KataDomainError("NOT_SUPPORTED", "GitHub snapshot adapter cannot retrieve standalone issues.");
+  }
+
+  async updateIssueStatus(_input: KataIssueUpdateStatusInput): Promise<KataIssue> {
+    throw new KataDomainError("NOT_SUPPORTED", "GitHub snapshot adapter cannot update standalone issue status.");
   }
 
   async listArtifacts(input: { scopeType: KataScopeType; scopeId: string }): Promise<KataArtifact[]> {

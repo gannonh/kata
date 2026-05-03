@@ -9,7 +9,7 @@ github:
   githubProjectNumber: 17
 symphony:
   url: http://localhost:8080
-  workflow_path: apps/symphony/WORKFLOW-desktop-github.md
+  workflow_path: apps/symphony/WORKFLOW.md
 ---
 
 # Kata Preferences

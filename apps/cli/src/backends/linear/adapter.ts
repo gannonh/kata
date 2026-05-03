@@ -5,6 +5,11 @@ import type {
   KataBackendAdapter,
   KataExecutionStatus,
   KataHealthReport,
+  KataIssue,
+  KataIssueCreateInput,
+  KataIssueGetInput,
+  KataIssueSummary,
+  KataIssueUpdateStatusInput,
   KataMilestone,
   KataMilestoneCompleteInput,
   KataMilestoneCreateInput,
@@ -124,6 +129,22 @@ export class LinearKataAdapter implements KataBackendAdapter {
 
   async updateTaskStatus(_input: KataTaskUpdateStatusInput): Promise<KataTask> {
     throw new KataDomainError("NOT_SUPPORTED", "Linear task status updates are not implemented yet.");
+  }
+
+  async createIssue(_input: KataIssueCreateInput): Promise<KataIssue> {
+    throw new KataDomainError("NOT_SUPPORTED", "Linear standalone issue creation is not implemented yet.");
+  }
+
+  async listOpenIssues(): Promise<KataIssueSummary[]> {
+    throw new KataDomainError("NOT_SUPPORTED", "Linear standalone issue listing is not implemented yet.");
+  }
+
+  async getIssue(_input: KataIssueGetInput): Promise<KataIssue> {
+    throw new KataDomainError("NOT_SUPPORTED", "Linear standalone issue retrieval is not implemented yet.");
+  }
+
+  async updateIssueStatus(_input: KataIssueUpdateStatusInput): Promise<KataIssue> {
+    throw new KataDomainError("NOT_SUPPORTED", "Linear standalone issue status updates are not implemented yet.");
   }
 
   async listArtifacts(_input: { scopeType: KataScopeType; scopeId: string }): Promise<KataArtifact[]> {

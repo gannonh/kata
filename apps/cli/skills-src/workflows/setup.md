@@ -13,7 +13,7 @@ Use this workflow to make Kata usable in the current harness before durable proj
 2. Run setup through the installed skill helper:
 
 ```bash
-node ./scripts/kata-call.mjs setup --pi
+node ./scripts/kata-call.mjs setup
 ```
 
 3. Verify CLI setup:
@@ -32,5 +32,5 @@ node ./scripts/kata-call.mjs health.check
 
 - Do not create project, milestone, slice, task, or artifact state during setup.
 - If `doctor` reports invalid backend configuration, ask the user to fix `.kata/preferences.md`.
-- If `doctor` reports missing GitHub auth, ask the user to set `GITHUB_TOKEN` or `GH_TOKEN`.
+- If `doctor` reports missing GitHub auth, ask the user to run `gh auth login` or set `GITHUB_TOKEN`/`GH_TOKEN`.
 - Continue to product workflows only after setup and backend health are good enough for the requested action.

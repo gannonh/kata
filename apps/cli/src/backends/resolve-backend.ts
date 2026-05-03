@@ -1,5 +1,9 @@
+import { execFile } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { promisify } from "node:util";
+
+const execFileAsync = promisify(execFile);
 
 import type {
   KataArtifact,
@@ -10,6 +14,11 @@ import type {
   KataBackendAdapter,
   KataExecutionStatus,
   KataHealthReport,
+  KataIssue,
+  KataIssueCreateInput,
+  KataIssueGetInput,
+  KataIssueSummary,
+  KataIssueUpdateStatusInput,
   KataMilestone,
   KataMilestoneCompleteInput,
   KataMilestoneCreateInput,
@@ -78,6 +87,19 @@ export function resolveGithubToken(env: NodeJS.ProcessEnv = process.env): string
     if (token) return token;
   }
   return null;
+}
+
+export async function resolveGithubTokenForRuntime(env: NodeJS.ProcessEnv = process.env): Promise<string | null> {
+  const envToken = resolveGithubToken(env);
+  if (envToken) return envToken;
+
+  try {
+    const { stdout } = await execFileAsync("gh", ["auth", "token"], { env, timeout: 5000 });
+    const token = stdout.trim();
+    return token.length > 0 ? token : null;
+  } catch {
+    return null;
+  }
 }
 
 const ARTIFACT_SUFFIX_BY_TYPE: Record<KataArtifactType, string> = {
@@ -412,6 +434,18 @@ function createRuntimeBackedAdapter(input: {
     updateTaskStatus: async (_payload: KataTaskUpdateStatusInput): Promise<KataTask> => {
       throw new KataDomainError("NOT_SUPPORTED", "Runtime-backed task status updates are not implemented yet.");
     },
+    createIssue: async (_payload: KataIssueCreateInput): Promise<KataIssue> => {
+      throw new KataDomainError("NOT_SUPPORTED", "Runtime-backed standalone issue creation is not implemented yet.");
+    },
+    listOpenIssues: async (): Promise<KataIssueSummary[]> => {
+      throw new KataDomainError("NOT_SUPPORTED", "Runtime-backed standalone issue listing is not implemented yet.");
+    },
+    getIssue: async (_payload: KataIssueGetInput): Promise<KataIssue> => {
+      throw new KataDomainError("NOT_SUPPORTED", "Runtime-backed standalone issue retrieval is not implemented yet.");
+    },
+    updateIssueStatus: async (_payload: KataIssueUpdateStatusInput): Promise<KataIssue> => {
+      throw new KataDomainError("NOT_SUPPORTED", "Runtime-backed standalone issue status updates are not implemented yet.");
+    },
     listArtifacts: async (payload: KataArtifactListInput): Promise<KataArtifact[]> => {
       const backend = await getBackend();
       const scope = documentScopeFrom(payload.scopeType, payload.scopeId);
@@ -514,12 +548,12 @@ export async function resolveBackend(input: {
   const config = await readTrackerConfig({ preferencesContent });
 
   if (config.kind === "github") {
-    const token = resolveGithubToken(input.env);
+    const token = await resolveGithubTokenForRuntime(input.env);
     const client = input.githubClients ?? (token ? createGithubClient({ token }) : null);
     if (!client) {
       throw new KataDomainError(
         "UNAUTHORIZED",
-        "GitHub mode requires GITHUB_TOKEN or GH_TOKEN with access to the configured GitHub Project v2.",
+        "GitHub mode requires GITHUB_TOKEN/GH_TOKEN or `gh auth login` access to the configured GitHub Project v2.",
       );
     }
 
