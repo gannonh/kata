@@ -1,6 +1,6 @@
 ---
 name: kata-plan-issue
-description: "Use when the user wants to plan a one-off Kata issue, standalone issue, backlog item, bugfix, enhancement, or slice-sized unit of work outside the milestone/slice/task workflow. This skill turns an isolated request into a single GitHub Project v2 backlog issue containing both a design section and an implementation plan section. Use this instead of kata-new-milestone or kata-plan-phase when the work should be planned and executed in isolation rather than as part of an active milestone."
+description: "Use when the user wants to plan a one-off Kata issue, standalone issue, backlog item, bugfix, enhancement, or slice-sized unit of work outside the milestone/slice/task workflow. This skill turns an isolated request into a single backlog issue containing both a design section and an implementation plan section. Use this instead of kata-new-milestone or kata-plan-phase when the work should be planned and executed in isolation rather than as part of an active milestone."
 ---
 
 # kata-plan-issue
