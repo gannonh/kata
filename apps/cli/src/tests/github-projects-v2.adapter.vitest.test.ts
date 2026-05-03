@@ -428,6 +428,70 @@ describe("GithubProjectsV2Adapter", () => {
     );
   });
 
+  it("allocates unique task IDs when separate adapters create tasks from the same discovered snapshot", async () => {
+    const initialIssues = [
+      {
+        id: 1,
+        node_id: "issue-node-1",
+        number: 1,
+        title: "[M001] Existing Milestone",
+        body: '<!-- kata:entity {"kataId":"M001","type":"Milestone"} -->\nExisting milestone',
+        state: "open",
+        html_url: "https://github.test/kata-sh/uat/issues/1",
+        milestone: { number: 1 },
+      },
+      {
+        id: 2,
+        node_id: "issue-node-2",
+        number: 2,
+        title: "[S001] Existing Slice",
+        body: '<!-- kata:entity {"kataId":"S001","type":"Slice","parentId":"M001"} -->\nExisting slice',
+        state: "open",
+        html_url: "https://github.test/kata-sh/uat/issues/2",
+        milestone: { number: 1 },
+      },
+    ];
+    const client = createFakeGithubClient({
+      issues: initialIssues,
+      issueListSnapshots: [initialIssues, initialIssues],
+    });
+    const firstAdapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+    const secondAdapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+
+    const [firstTask, secondTask] = await Promise.all([
+      firstAdapter.createTask({
+        sliceId: "S001",
+        title: "First concurrent task",
+        description: "Created by first adapter",
+      }),
+      secondAdapter.createTask({
+        sliceId: "S001",
+        title: "Second concurrent task",
+        description: "Created by second adapter",
+      }),
+    ]);
+
+    expect([firstTask.id, secondTask.id].sort()).toEqual(["T001", "T002"]);
+    await expect(secondAdapter.listTasks({ sliceId: "S001" })).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "T001", title: "First concurrent task" }),
+        expect.objectContaining({ id: "T002", title: "Second concurrent task" }),
+      ]),
+    );
+  });
+
   it("creates standalone planned issues as one Project v2 backlog item", async () => {
     const client = createFakeGithubClient();
     const adapter = new GithubProjectsV2Adapter({
@@ -798,12 +862,13 @@ github:
   });
 });
 
-function createFakeGithubClient(input: { issues?: any[]; projectFields?: any[] } = {}) {
+function createFakeGithubClient(input: { issues?: any[]; issueListSnapshots?: any[][]; projectFields?: any[] } = {}) {
   const issues = [...(input.issues ?? [])];
   const commentsByIssue = new Map<number, any[]>();
   let nextIssueNumber = issues.reduce((max, issue) => Math.max(max, Number(issue.number) || 0), 0) + 1;
   let nextProjectItemNumber = 1;
   let nextCommentId = 1;
+  let issueListCallCount = 0;
 
   return {
     graphql: vi.fn(async (request: any) => {
@@ -839,6 +904,8 @@ function createFakeGithubClient(input: { issues?: any[]; projectFields?: any[] }
     rest: vi.fn(async (request: any) => {
       if (request.method === "GET" && request.path.startsWith("/repos/kata-sh/uat/issues?")) {
         const page = Number(new URL(`https://example.test${request.path}`).searchParams.get("page") ?? "1");
+        const snapshot = input.issueListSnapshots?.[issueListCallCount++];
+        if (snapshot) return page === 1 ? snapshot : [];
         return page === 1 ? issues : [];
       }
 

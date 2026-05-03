@@ -341,21 +341,33 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
         milestone: requireNativeGithubMilestoneNumber(milestoneEntity ?? sliceEntity),
       },
     });
+    const uniqueEntity = await this.ensureCreatedEntityHasUniqueId(entity, {
+      title: input.title,
+      formatBody: (uniqueKataId) =>
+        formatEntityBody({
+          kataId: uniqueKataId,
+          type: "Task",
+          parentId: input.sliceId,
+          status: "backlog",
+          verificationState: "pending",
+          content: input.description,
+        }),
+    });
 
-    await this.attachSubIssue(sliceEntity, entity);
+    await this.attachSubIssue(sliceEntity, uniqueEntity);
 
-    await this.syncProjectFields(entity, {
+    await this.syncProjectFields(uniqueEntity, {
       type: "Task",
       parentId: input.sliceId,
       status: "Backlog",
-      artifactScope: kataId,
+      artifactScope: uniqueEntity.kataId,
       verificationState: "pending",
       blocking: "",
       blockedBy: "",
     });
 
     return {
-      id: kataId,
+      id: uniqueEntity.kataId,
       sliceId: input.sliceId,
       title: input.title,
       description: input.description,
@@ -530,6 +542,17 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
   private async discoverEntities(): Promise<void> {
     if (this.discovered) return;
 
+    const entities = await this.listTrackedEntitiesFromGithub();
+    for (const entity of entities) {
+      if (this.entities.has(entity.kataId)) continue;
+      this.entities.set(entity.kataId, entity);
+    }
+    this.discovered = true;
+  }
+
+  private async listTrackedEntitiesFromGithub(): Promise<TrackedEntity[]> {
+    const entities: TrackedEntity[] = [];
+
     for (let page = 1; page <= MAX_ISSUE_PAGES; page += 1) {
       const issues = await this.client.rest<GithubIssue[]>({
         method: "GET",
@@ -540,13 +563,11 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
         if (issue.pull_request) continue;
         const marker = typeof issue.body === "string" ? parseEntityMarker(issue.body) : null;
         if (!marker || !issue.node_id) continue;
-        if (this.entities.has(marker.kataId)) continue;
-        this.entities.set(marker.kataId, entityFromIssue(issue, marker));
+        entities.push(entityFromIssue(issue, marker));
       }
 
       if (issues.length < ISSUES_PER_PAGE) {
-        this.discovered = true;
-        return;
+        return entities;
       }
     }
 
@@ -554,13 +575,48 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
   }
 
   private nextKataId(type: "Milestone" | "Slice" | "Task" | "Issue"): string {
+    return this.nextAvailableKataId(type, new Set(this.entities.keys()));
+  }
+
+  private nextAvailableKataId(type: "Milestone" | "Slice" | "Task" | "Issue", usedIds: Set<string>): string {
     const prefix = type === "Milestone" ? "M" : type === "Slice" ? "S" : type === "Task" ? "T" : "I";
-    const maxExisting = [...this.entities.keys()].reduce((max, kataId) => {
+    const maxExisting = [...usedIds].reduce((max, kataId) => {
       const match = kataId.match(new RegExp(`^${prefix}(\\d+)$`));
       return match ? Math.max(max, Number(match[1])) : max;
     }, 0);
 
     return `${prefix}${String(maxExisting + 1).padStart(3, "0")}`;
+  }
+
+  private async ensureCreatedEntityHasUniqueId(
+    entity: TrackedEntity,
+    input: { title: string; formatBody(uniqueKataId: string): string },
+  ): Promise<TrackedEntity> {
+    const trackedEntities = await this.listTrackedEntitiesFromGithub();
+    const duplicates = trackedEntities
+      .filter((candidate) => candidate.type === entity.type && candidate.kataId === entity.kataId)
+      .sort((left, right) => left.issueNumber - right.issueNumber);
+    const canonical = duplicates[0];
+    if (!canonical || canonical.issueNumber === entity.issueNumber) {
+      this.entities.set(entity.kataId, entity);
+      return entity;
+    }
+
+    this.entities.set(entity.kataId, canonical);
+    const uniqueKataId = this.nextAvailableKataId(
+      "Task",
+      new Set(trackedEntities.map((candidate) => candidate.kataId)),
+    );
+    const retaggedEntity = {
+      ...entity,
+      kataId: uniqueKataId,
+    };
+    const updated = await this.updateIssueEntity(retaggedEntity, {
+      title: `[${uniqueKataId}] ${input.title}`,
+      body: input.formatBody(uniqueKataId),
+    });
+    this.entities.set(uniqueKataId, updated);
+    return updated;
   }
 
   private async requireEntity(kataId: string, type: KataEntityType): Promise<TrackedEntity> {
@@ -667,7 +723,11 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
       parentId: updatedMarker?.parentId ?? entity.parentId,
       status: updatedMarker?.status ?? entity.status,
       verificationState: updatedMarker?.verificationState ?? entity.verificationState,
-      title: updatedIssue.title ?? input.title ?? entity.title,
+      title: updatedIssue.title
+        ? stripKataPrefix(updatedIssue.title)
+        : input.title
+          ? stripKataPrefix(input.title)
+          : entity.title,
       body: updatedBody,
       state: updatedIssue.state ?? input.state ?? entity.state,
     };
