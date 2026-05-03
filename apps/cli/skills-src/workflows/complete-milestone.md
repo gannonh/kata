@@ -176,7 +176,13 @@ Before writing completion artifacts or completing the milestone, summarize:
 - Whether this milestone includes a release action or only validates a pre-release slice.
 - Project closeout updates that will be written to `PROJECT` project-scoped artifacts, including project brief changes, project requirements status/traceability changes, and preserved future requirements.
 
-Ask for explicit confirmation to complete the milestone and update project artifacts. If readiness is uncertain, stop and explain what remains.
+Ask for explicit confirmation to complete the milestone and update project artifacts.
+
+Use `Kata > VERIFYING` for the readiness checkpoint and reserve `Kata > MILESTONE COMPLETE` for the final success output after `milestone.complete` succeeds.
+
+If the milestone summary, retrospective, or project closeout artifacts already exist, enter idempotent closeout mode: read the existing content, preserve unchanged sections, and rewrite only the evidence-backed sections. Ask the user to confirm any carry-forward requirement reclassification before marking it validated.
+
+If readiness is uncertain, stop and explain what remains.
 
 ## Stage 4: Write Summary Artifact
 
@@ -218,7 +224,7 @@ node ./scripts/kata-call.mjs artifact.write --input /tmp/kata-retrospective.json
 
 ## Stage 6: Update Project Closeout Artifacts
 
-Rewrite project artifacts with the latest durable project state. Preserve existing durable sections unless the completed milestone gives explicit evidence to update them.
+Rewrite project artifacts with the latest durable project state. Preserve existing durable sections unless the completed milestone gives explicit evidence to update them. If the summary, retrospective, or project closeout artifacts already exist, read their current content first and update only the evidence-backed sections.
 
 Update `project-brief` to include or refresh closeout sections such as:
 
@@ -247,6 +253,7 @@ node ./scripts/kata-call.mjs artifact.write --input /tmp/kata-PROJECT-project-br
 Update project `requirements` to reflect milestone completion:
 
 - Mark project-level requirements as complete or validated only when milestone evidence supports the change.
+- Before reclassifying a carry-forward requirement as validated, ask for explicit confirmation and cite the evidence.
 - Update traceability rows from pending to the completed milestone, slices, tasks, or verification artifacts that prove coverage.
 - Preserve future requirements and carry-forward candidates, including their source milestone and deferred reason.
 - Keep still-active requirements in the active section.
@@ -283,7 +290,7 @@ node ./scripts/kata-call.mjs milestone.complete --input /tmp/kata-milestone-comp
 
 ## Completion
 
-Summarize the milestone outcome, known gaps, candidates for the next milestone, milestone artifacts written, and project artifacts updated. Include project artifact provenance when the backend reports it, such as the project tracking issue or artifact comment ID.
+Summarize the milestone outcome, known gaps, candidates for the next milestone, milestone artifacts written, and project artifacts updated. Report the changed artifact sections. Include project artifact provenance when the backend reports it, including the project tracking issue or URL when known and artifact comment ID.
 
 End with:
 
@@ -299,4 +306,5 @@ Next up: run `kata-new-milestone` to start the next cycle.
 - Preserve follow-up work in artifact content or backend task state.
 - Update project-scoped closeout artifacts before running `milestone.complete`.
 - Stop before `milestone.complete` if a required project artifact read or write is missing or fails.
+- Do not reclassify a carry-forward requirement as validated without explicit confirmation.
 - Keep lifecycle transitions in the CLI backend contract.

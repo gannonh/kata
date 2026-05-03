@@ -21,6 +21,9 @@ If readiness is uncertain, stop and explain what must be verified or resolved fi
 - Completion evidence includes milestone, slice, task, and project-scoped artifacts.
 - Retrospective or archive artifacts are persisted when useful.
 - Project brief and project requirements artifacts are updated before `milestone.complete`, or the workflow stops to repair missing project artifacts.
+- Existing milestone summary, retrospective, and project closeout artifacts are updated idempotently when they already exist.
+- Carry-forward requirements are only reclassified after explicit confirmation and evidence.
+- Completion output names the project tracking issue when the backend reports it and reports what changed in the project artifacts.
 - The milestone is completed through `milestone.complete` only after readiness is confirmed and closeout artifact writes succeed.
 - The user knows what remains, if anything, after completion.
 
@@ -30,6 +33,7 @@ If readiness is uncertain, stop and explain what must be verified or resolved fi
 - Do not invent completion evidence.
 - Do not rely only on milestone-level artifacts when task verification artifacts live on task scope.
 - Do not run `milestone.complete` after a failed project closeout artifact read or write.
+- Do not reclassify a carry-forward requirement as validated without explicit confirmation.
 - Do not create a new milestone here.
 - Do not skip the readiness check.
 

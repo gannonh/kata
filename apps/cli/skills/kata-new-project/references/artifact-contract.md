@@ -81,6 +81,7 @@ During milestone closeout, update project requirements when the milestone provid
 - Preserve active requirements that remain in scope for later milestones.
 - Preserve future requirements and carry-forward candidates with source milestone and deferred reason.
 - Do not mark requirements complete from milestone title alone; use requirements, roadmap, task verification, UAT, or milestone summary evidence.
+- When rewriting existing project artifacts, preserve unchanged sections and report which sections changed in the completion output.
 
 ## Milestone Artifacts
 

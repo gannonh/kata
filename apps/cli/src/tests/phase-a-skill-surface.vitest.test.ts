@@ -144,6 +144,31 @@ describe("Phase A skill surface", () => {
     expect(manifest).toContain("Do not run `milestone.complete` after a failed project closeout artifact read or write.");
   });
 
+  it("keeps milestone closeout idempotent and delays the complete banner until success", () => {
+    const completeWorkflow = readFileSync(
+      path.join(sourceRoot, "skills-src", "workflows", "complete-milestone.md"),
+      "utf8",
+    );
+    const artifactContract = readFileSync(
+      path.join(sourceRoot, "skills-src", "references", "artifact-contract.md"),
+      "utf8",
+    );
+    const manifest = readFileSync(path.join(sourceRoot, "skills-src", "manifest.json"), "utf8");
+
+    expect(completeWorkflow).toContain("Kata > VERIFYING");
+    expect(completeWorkflow).toContain("reserve `Kata > MILESTONE COMPLETE` for the final success output after `milestone.complete` succeeds");
+    expect(completeWorkflow).toContain("idempotent closeout mode");
+    expect(completeWorkflow).toContain("preserve unchanged sections");
+    expect(completeWorkflow).toContain("confirm any carry-forward requirement reclassification before marking it validated");
+    expect(completeWorkflow).toContain("project tracking issue or URL when known");
+    expect(completeWorkflow).toContain("Report the changed artifact sections");
+    expect(artifactContract).toContain("preserve unchanged sections and report which sections changed in the completion output");
+    expect(manifest).toContain("updated idempotently when they already exist");
+    expect(manifest).toContain("Carry-forward requirements are only reclassified after explicit confirmation and evidence.");
+    expect(manifest).toContain("project tracking issue when the backend reports it and reports what changed in the project artifacts");
+    expect(manifest).toContain("Do not reclassify a carry-forward requirement as validated without explicit confirmation.");
+  });
+
   it("uses project snapshots for concrete next-step recommendations", () => {
     const verifyWorkflow = readFileSync(
       path.join(sourceRoot, "skills-src", "workflows", "verify-work.md"),
