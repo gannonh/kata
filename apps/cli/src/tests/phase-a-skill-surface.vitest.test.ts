@@ -139,6 +139,7 @@ describe("Phase A skill surface", () => {
     );
     expect(completeWorkflow).toContain("kata-artifact-input.mjs");
     expect(artifactContract).toContain("Milestone closeout updates may add or refresh these sections");
+    expect(completeWorkflow).not.toContain("- `## Key Decisions`");
     expect(artifactContract).toContain("During milestone closeout, update project requirements");
     expect(manifest).toContain("update project closeout artifacts");
     expect(manifest).toContain("Do not run `milestone.complete` after a failed project closeout artifact read or write.");

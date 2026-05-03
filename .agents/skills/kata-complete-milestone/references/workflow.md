@@ -233,7 +233,6 @@ Update `project-brief` to include or refresh closeout sections such as:
 - `## Current Status`
 - `## Completed Milestones`
 - `## Validated Outcomes`
-- `## Key Decisions`
 - `## Open Questions`
 - A last-updated note
 
