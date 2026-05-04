@@ -25,6 +25,10 @@ import type {
   KataTaskUpdateStatusInput,
 } from "../../domain/types.js";
 import { KataDomainError } from "../../domain/errors.js";
+import {
+  formatSliceDependencyIdsForTextField,
+  parseSliceDependencyIds,
+} from "../../domain/dependencies.js";
 import type { createGithubClient } from "./client.js";
 import { parseArtifactComment, upsertArtifactComment } from "./artifacts.js";
 import { KATA_PROJECT_FIELDS, loadProjectFieldIndex, type ProjectFieldIndex } from "./project-fields.js";
@@ -261,6 +265,7 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
     await this.discoverEntities();
     const milestoneEntity = await this.requireEntity(input.milestoneId, "Milestone");
     const kataId = this.nextKataId("Slice");
+    const blockedBy = parseSliceDependencyIds(input.blockedBy ?? []);
     const entity = await this.createIssueEntity({
       kataId,
       type: "Slice",
@@ -278,6 +283,8 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
       },
     });
 
+    // Kata Blocked By is the authoritative dispatch input. createSlice leaves
+    // Kata Blocking empty because safe reverse metadata requires updating blocker slices.
     await this.syncProjectFields(entity, {
       type: "Slice",
       parentId: input.milestoneId,
@@ -285,7 +292,7 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
       artifactScope: kataId,
       verificationState: "",
       blocking: "",
-      blockedBy: "",
+      blockedBy: formatSliceDependencyIdsForTextField(blockedBy),
     });
 
     return {
@@ -295,7 +302,7 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
       goal: input.goal,
       status: "backlog",
       order: input.order ?? 0,
-      blockedBy: [],
+      blockedBy,
       blocking: [],
     };
   }

@@ -428,7 +428,7 @@ describe("GithubProjectsV2Adapter", () => {
     );
   });
 
-  it("returns stored slice dependency defaults when blockedBy input is not persisted", async () => {
+  it("serializes canonical blockedBy dependencies when creating slices", async () => {
     const client = createFakeGithubClient();
     const adapter = new GithubProjectsV2Adapter({
       owner: "kata-sh",
@@ -446,19 +446,29 @@ describe("GithubProjectsV2Adapter", () => {
       milestoneId: milestone.id,
       title: "Wire dependencies",
       goal: "Use stored values",
-      blockedBy: ["S999"],
+      blockedBy: ["s1", "[S002]", "S001"],
     });
 
     expect(slice).toMatchObject({
       id: "S001",
-      blockedBy: [],
+      blockedBy: ["S001", "S002"],
       blocking: [],
     });
-    expect(client.graphql).not.toHaveBeenCalledWith(
+    expect(client.graphql).toHaveBeenCalledWith(
       expect.objectContaining({
         variables: expect.objectContaining({
+          itemId: "project-item-2",
           fieldId: "kata-blocked-by-field-id",
-          value: { text: "S999" },
+          value: { text: "S001\nS002" },
+        }),
+      }),
+    );
+    expect(client.graphql).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variables: expect.objectContaining({
+          itemId: "project-item-2",
+          fieldId: "kata-blocking-field-id",
+          value: { text: "" },
         }),
       }),
     );
