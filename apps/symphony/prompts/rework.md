@@ -4,13 +4,13 @@ The issue is in `Rework`. The current approach was rejected. Close/replace the o
 
 ## Canonical tracker contract (required)
 
-Use only backend-neutral tracker/artifact/state operations:
-- `.agents/skills/sym-state/scripts/sym-call issue.get --input /tmp/input.json`
-- `.agents/skills/sym-state/scripts/sym-call issue.list-children --input /tmp/input.json`
-- `.agents/skills/sym-state/scripts/sym-call document.read --input /tmp/input.json`
-- `.agents/skills/sym-state/scripts/sym-call comment.upsert --input /tmp/input.json`
-- `.agents/skills/sym-state/scripts/sym-call issue.update-state --input /tmp/input.json`
-- `.agents/skills/sym-state/scripts/sym-call issue.create-followup --input /tmp/input.json`
+Use only backend-neutral tracker/artifact/state operations. Write each helper payload to a unique temp filename that includes the current issue ID plus operation or a unique suffix such as `$$`, a UUID, or `mktemp`; do not use shared generic paths such as `/tmp/input.json`.
+- `.agents/skills/sym-state/scripts/sym-call issue.get --input /tmp/sym-${SYMPHONY_ISSUE_ID:-current}-issue-get-$$.json`
+- `.agents/skills/sym-state/scripts/sym-call issue.list-children --input /tmp/sym-${SYMPHONY_ISSUE_ID:-current}-issue-list-children-$$.json`
+- `.agents/skills/sym-state/scripts/sym-call document.read --input /tmp/sym-${SYMPHONY_ISSUE_ID:-current}-document-read-$$.json`
+- `.agents/skills/sym-state/scripts/sym-call comment.upsert --input /tmp/sym-${SYMPHONY_ISSUE_ID:-current}-comment-upsert-$$.json`
+- `.agents/skills/sym-state/scripts/sym-call issue.update-state --input /tmp/sym-${SYMPHONY_ISSUE_ID:-current}-issue-update-state-$$.json`
+- `.agents/skills/sym-state/scripts/sym-call issue.create-followup --input /tmp/sym-${SYMPHONY_ISSUE_ID:-current}-issue-create-followup-$$.json`
 
 ## Rework flow
 

@@ -7,10 +7,12 @@ Use this skill when a Symphony worker needs to read or mutate tracker state, mai
 Use the helper script from the worker workspace:
 
 ```bash
-.agents/skills/sym-state/scripts/sym-call <operation> --input /tmp/input.json
+.agents/skills/sym-state/scripts/sym-call <operation> --input /tmp/sym-${SYMPHONY_ISSUE_ID:-current}-<operation>.json
 ```
 
 The script calls the running Symphony binary through `SYMPHONY_BIN` and `SYMPHONY_WORKFLOW_PATH`, so workers do not need to know the tracker backend. Use `SYMPHONY_ISSUE_ID` as the opaque current issue ID, or use `"@current"` in helper payloads. Treat `SYMPHONY_ISSUE_IDENTIFIER` as display text.
+
+Use unique temp filenames for helper input files. Include the current issue ID plus the operation or purpose, for example `/tmp/sym-${SYMPHONY_ISSUE_ID:-current}-issue-get.json`; add `$$`, a UUID, or `mktemp` when issuing multiple helper calls in parallel.
 
 ## Operations
 
@@ -30,9 +32,10 @@ The script calls the running Symphony binary through `SYMPHONY_BIN` and `SYMPHON
 For small inputs, build JSON with `jq`:
 
 ```bash
+INPUT="/tmp/sym-${SYMPHONY_ISSUE_ID:-current}-issue-update-state-$$.json"
 jq -n --arg issueId "$SYMPHONY_ISSUE_ID" --arg state "Agent Review" \
-  '{issueId:$issueId,state:$state}' > /tmp/sym-input.json
-.agents/skills/sym-state/scripts/sym-call issue.update-state --input /tmp/sym-input.json
+  '{issueId:$issueId,state:$state}' > "$INPUT"
+.agents/skills/sym-state/scripts/sym-call issue.update-state --input "$INPUT"
 ```
 
 For large Markdown bodies or helper output summaries, use Node.js as the JSON
@@ -41,24 +44,26 @@ invokes the Symphony Rust binary; Node is only used here to avoid quoting and
 escaping mistakes.
 
 ```bash
-cat > /tmp/workpad.md <<'MARKDOWN'
+WORKPAD="/tmp/sym-${SYMPHONY_ISSUE_ID:-current}-workpad.md"
+INPUT="/tmp/sym-${SYMPHONY_ISSUE_ID:-current}-workpad-input-$$.json"
+cat > "$WORKPAD" <<'MARKDOWN'
 ## Agent Workpad
 
 Environment: host:/workspace@abc123
 Issues / Blockers: None
 MARKDOWN
 
-node <<'NODE'
+WORKPAD="$WORKPAD" INPUT="$INPUT" node <<'NODE'
 const fs = require('node:fs');
 
-fs.writeFileSync('/tmp/workpad-input.json', JSON.stringify({
+fs.writeFileSync(process.env.INPUT, JSON.stringify({
   issueId: process.env.SYMPHONY_ISSUE_ID,
   marker: '## Agent Workpad',
-  body: fs.readFileSync('/tmp/workpad.md', 'utf8'),
+  body: fs.readFileSync(process.env.WORKPAD, 'utf8'),
 }));
 NODE
 
-.agents/skills/sym-state/scripts/sym-call comment.upsert --input /tmp/workpad-input.json
+.agents/skills/sym-state/scripts/sym-call comment.upsert --input "$INPUT"
 ```
 
 ```bash
@@ -81,5 +86,6 @@ NODE
 ## Guardrails
 
 - Use opaque backend issue IDs from `SYMPHONY_ISSUE_ID` or `"@current"`; do not use display identifiers as helper `issueId` values.
+- Use unique helper input filenames. Do not share a generic path such as `/tmp/input.json` across commands.
 - Do not call backend-specific tracker mutation commands for normal Symphony state flow.
 - If the helper returns `{"ok":false,...}`, record the exact error in the Agent Workpad and stop only when it is a true blocker.

@@ -29,7 +29,7 @@ Issue description: No description provided.
 Use only the backend-neutral Symphony helper for tracker/document/state operations:
 
 ```bash
-.agents/skills/sym-state/scripts/sym-call <operation> --input /tmp/input.json
+.agents/skills/sym-state/scripts/sym-call <operation> --input /tmp/sym-${SYMPHONY_ISSUE_ID:-current}-<operation>-$$.json
 ```
 
 Available operations:
@@ -48,7 +48,7 @@ Available operations:
 Helper `issueId` values must use the opaque backend issue ID, available as `SYMPHONY_ISSUE_ID`. You may also use `"@current"` for the current issue. Do not pass `{{ issue.identifier }}` as `issueId`; identifiers are display text.
 
 `document.read` accepts `{"issueId":"@current"}` to list marker documents, or `{"issueId":"@current","title":"Context"}` to read one marker document.
-For helper JSON, prefer `jq -n --arg issueId "$SYMPHONY_ISSUE_ID" '{issueId:$issueId}' > /tmp/input.json`. For large helper inputs such as workpad bodies, use the JSON payload recipes in `.agents/skills/sym-state/SKILL.md`.
+For helper JSON, write to a unique temp filename that includes the current issue ID plus operation or a unique suffix such as `$$`, a UUID, or `mktemp`. Example: `INPUT="/tmp/sym-${SYMPHONY_ISSUE_ID:-current}-issue-get-$$.json"; jq -n --arg issueId "$SYMPHONY_ISSUE_ID" '{issueId:$issueId}' > "$INPUT"`. Do not use shared generic paths such as `/tmp/input.json`. For large helper inputs such as workpad bodies, use the JSON payload recipes in `.agents/skills/sym-state/SKILL.md`.
 
 If a required operation is unavailable, treat it as a blocker and stop with a clear diagnostic in the workpad.
 Do not fall back to backend-specific tracker operations for normal worker flow.
