@@ -428,6 +428,42 @@ describe("GithubProjectsV2Adapter", () => {
     );
   });
 
+  it("returns stored slice dependency defaults when blockedBy input is not persisted", async () => {
+    const client = createFakeGithubClient();
+    const adapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+
+    const milestone = await adapter.createMilestone({
+      title: "Phase A",
+      goal: "Real backend",
+    });
+    const slice = await adapter.createSlice({
+      milestoneId: milestone.id,
+      title: "Wire dependencies",
+      goal: "Use stored values",
+      blockedBy: ["S999"],
+    });
+
+    expect(slice).toMatchObject({
+      id: "S001",
+      blockedBy: [],
+      blocking: [],
+    });
+    expect(client.graphql).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        variables: expect.objectContaining({
+          fieldId: "kata-blocked-by-field-id",
+          value: { text: "S999" },
+        }),
+      }),
+    );
+  });
+
   it("allocates unique task IDs when separate adapters create tasks from the same discovered snapshot", async () => {
     const initialIssues = [
       {
