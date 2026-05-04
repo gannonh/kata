@@ -15,6 +15,7 @@ import type {
   KataProjectSnapshotArtifact,
   KataProjectSnapshotNextAction,
   KataProjectSnapshotSlice,
+  KataProjectSnapshotSliceDependencies,
   KataSliceCreateInput,
   KataSliceListInput,
   KataSliceUpdateStatusInput,
@@ -22,6 +23,7 @@ import type {
   KataTaskListInput,
   KataTaskUpdateStatusInput,
 } from "./types.js";
+import { parseSliceDependencyIds } from "./dependencies.js";
 
 export function createKataDomainApi(adapter: KataBackendAdapter) {
   return {
@@ -89,6 +91,7 @@ async function getProjectSnapshot(adapter: KataBackendAdapter): Promise<KataProj
         existingSliceIds: [],
         missingSliceIds: [],
         requirementToSliceIds: {},
+        sliceDependencies: {},
       },
       slices: [],
       readiness: {
@@ -114,7 +117,7 @@ async function getProjectSnapshot(adapter: KataBackendAdapter): Promise<KataProj
     adapter.listSlices({ milestoneId: activeMilestone.id }),
   ]);
 
-  const snapshotSlices = await Promise.all(
+  const rawSnapshotSlices = await Promise.all(
     slices.map(async (slice): Promise<KataProjectSnapshotSlice> => {
       const [tasks, sliceArtifacts] = await Promise.all([
         adapter.listTasks({ sliceId: slice.id }),
@@ -158,12 +161,17 @@ async function getProjectSnapshot(adapter: KataBackendAdapter): Promise<KataProj
   const requiredIds = uniqueIds([...requirementScope.requiredIds, ...roadmapRequirementScope.requiredIds]).filter(
     (id) => !futureIds.includes(id) || requirementScope.requiredIds.includes(id),
   );
-  const coveredIds = uniqueIds(snapshotSlices.flatMap((slice) => slice.requirementIds).filter((id) => requiredIds.includes(id)));
+  const coveredIds = uniqueIds(rawSnapshotSlices.flatMap((slice) => slice.requirementIds).filter((id) => requiredIds.includes(id)));
   const missingIds = requiredIds.filter((id) => !coveredIds.includes(id));
   const plannedSliceIds = extractRoadmapBackendSliceIds(roadmapContent);
-  const existingSliceIds = snapshotSlices.map((slice) => slice.id);
+  const existingSliceIds = rawSnapshotSlices.map((slice) => slice.id);
   const missingSliceIds = plannedSliceIds.filter((id) => !existingSliceIds.includes(id));
   const requirementToSliceIds = extractRequirementToSliceIds(roadmapContent);
+  const sliceDependencies = mergeSliceDependencyMaps(
+    extractRoadmapSliceDependencies(roadmapContent),
+    extractBackendSliceDependencies(rawSnapshotSlices),
+  );
+  const snapshotSlices = mergeSnapshotSliceDependencies(rawSnapshotSlices, sliceDependencies);
 
   const readiness = {
     hasActiveMilestone: true,
@@ -199,6 +207,7 @@ async function getProjectSnapshot(adapter: KataBackendAdapter): Promise<KataProj
       existingSliceIds,
       missingSliceIds,
       requirementToSliceIds,
+      sliceDependencies,
     },
     slices: snapshotSlices,
     readiness,
@@ -277,7 +286,9 @@ function determineNextAction(
     };
   }
 
-  const executableSlice = slices.find((slice) => slice.status !== "done" || slice.tasks.some((task) => task.status !== "done"));
+  const executableSlice = slices.find((slice) =>
+    hasExecutionWorkRemaining(slice) && findOpenKnownBlockerIds(slice, slices).length === 0
+  );
   if (executableSlice) {
     return {
       workflow: "kata-execute-phase",
@@ -329,10 +340,13 @@ function determineOtherActions(
   const actions: KataProjectSnapshotNextAction[] = [];
 
   for (const slice of slices) {
-    if (slice.status === "done" && slice.tasks.every((task) => task.status === "done")) continue;
+    if (!hasExecutionWorkRemaining(slice)) continue;
+    const openBlockerIds = findOpenKnownBlockerIds(slice, slices);
     actions.push({
       workflow: "kata-execute-phase",
-      reason: `Slice ${slice.id} has execution work remaining and can be explicitly selected.`,
+      reason: openBlockerIds.length > 0
+        ? `Slice ${slice.id} is blocked by ${openBlockerIds.join(", ")}.`
+        : `Slice ${slice.id} has execution work remaining and can be explicitly selected.`,
       target: { milestoneId, sliceId: slice.id },
     });
   }
@@ -374,6 +388,18 @@ function determineOtherActions(
   }
 
   return dedupeActions(actions).filter((action) => !sameAction(action, nextAction));
+}
+
+function hasExecutionWorkRemaining(slice: KataProjectSnapshotSlice): boolean {
+  return slice.status !== "done" || slice.tasks.some((task) => task.status !== "done");
+}
+
+function findOpenKnownBlockerIds(slice: KataProjectSnapshotSlice, slices: KataProjectSnapshotSlice[]): string[] {
+  const sliceById = new Map(slices.map((snapshotSlice) => [sliceDependencyMapKey(snapshotSlice.id), snapshotSlice]));
+  return parseSliceDependencyIds(slice.blockedBy).filter((blockedById) => {
+    const blocker = sliceById.get(sliceDependencyMapKey(blockedById));
+    return blocker ? blocker.status !== "done" : false;
+  });
 }
 
 function extractRequirementIds(content: string): string[] {
@@ -419,12 +445,25 @@ function extractRequirementScope(content: string): { requiredIds: string[]; futu
 }
 
 function extractSliceIds(content: string): string[] {
-  return uniqueIds(content.match(/\bS\d+\b/g) ?? []);
+  return uniqueIds(parseSliceDependencyIds(content));
 }
 
 function extractRoadmapBackendSliceIdsFromLine(line: string): string[] {
-  if (!/\b(?:backend\s+slice|backend\s+id|slice\s+id)\b/i.test(line)) return [];
-  return extractSliceIds(line);
+  const ids: string[] = [];
+  const labelPattern = /\b(?:backend\s+slice|backend\s+id|slice\s+id)\b\s*:?\s*(.*)$/i;
+
+  for (const segment of splitRoadmapMetadataSegments(line)) {
+    const match = labelPattern.exec(segment);
+    if (!match) continue;
+    const value = match[1]?.split(ROADMAP_METADATA_LABEL_TERMINATOR_PATTERN)[0] ?? "";
+    ids.push(...extractSliceIds(value));
+  }
+
+  return uniqueIds(ids);
+}
+
+function splitRoadmapMetadataSegments(line: string): string[] {
+  return line.split(/\s*(?:;|\||\s[-–—]\s)\s*/);
 }
 
 function parseMarkdownTableRow(line: string): string[] | null {
@@ -441,6 +480,185 @@ function backendSliceColumnIndexes(cells: string[]): number[] {
   return cells
     .map((cell, index) => (/\b(?:backend\s+slice(?:\s+id)?|backend\s+id|slice\s+id)\b/i.test(cell) ? index : -1))
     .filter((index) => index >= 0);
+}
+
+type SliceDependencyMap = Record<string, KataProjectSnapshotSliceDependencies>;
+
+const ROADMAP_METADATA_LABEL_TERMINATOR_PATTERN = /\b(?:depends\s+on|blocked\s+by|dependency|dependencies|blocking|blocks)\b/i;
+const BLOCKED_BY_ROADMAP_LABEL_PATTERN = /\b(?:kata\s+blocked\s+by|blocked\s+by|depends\s+on|dependency|dependencies)\b/i;
+const INLINE_BLOCKED_BY_ROADMAP_LABEL_PATTERN = /\b(?:depends\s+on|blocked\s+by|dependency|dependencies)\b\s*:?\s*(.*)$/i;
+
+function blockedByDependencyColumnIndexes(cells: string[]): number[] {
+  return cells
+    .map((cell, index) => (BLOCKED_BY_ROADMAP_LABEL_PATTERN.test(cell) ? index : -1))
+    .filter((index) => index >= 0);
+}
+
+function blockingDependencyColumnIndexes(cells: string[]): number[] {
+  return cells
+    .map((cell, index) => (/\b(?:kata\s+blocking|blocking|blocks)\b/i.test(cell) ? index : -1))
+    .filter((index) => index >= 0);
+}
+
+function extractRoadmapSliceDependencies(content: string): SliceDependencyMap {
+  const dependencies: SliceDependencyMap = {};
+  let backendSliceColumns: number[] = [];
+  let blockedByColumns: number[] = [];
+  let blockingColumns: number[] = [];
+
+  for (const line of content.split(/\r?\n/)) {
+    const cells = parseMarkdownTableRow(line);
+    if (cells) {
+      if (isMarkdownTableDivider(cells)) continue;
+
+      const headerBackendColumns = backendSliceColumnIndexes(cells);
+      if (headerBackendColumns.length > 0 && extractSliceIds(line).length === 0) {
+        backendSliceColumns = headerBackendColumns;
+        blockedByColumns = blockedByDependencyColumnIndexes(cells);
+        blockingColumns = blockingDependencyColumnIndexes(cells);
+        continue;
+      }
+
+      const sliceIds = uniqueIds([
+        ...backendSliceColumns.flatMap((index) => extractSliceIds(cells[index] ?? "")),
+        ...extractRoadmapBackendSliceIdsFromLine(line),
+      ]);
+      if (sliceIds.length > 0) {
+        const blockedByIds = uniqueIds([
+          ...blockedByColumns.flatMap((index) => parseSliceDependencyIds(cells[index] ?? "")),
+          ...extractInlineDependencyIds(line, "blockedBy"),
+        ]);
+        const blockingIds = uniqueIds([
+          ...blockingColumns.flatMap((index) => parseSliceDependencyIds(cells[index] ?? "")),
+          ...extractInlineDependencyIds(line, "blocking"),
+        ]);
+        for (const sliceId of sliceIds) {
+          addBlockedByDependencies(dependencies, sliceId, blockedByIds);
+          addBlockingDependencies(dependencies, sliceId, blockingIds);
+        }
+      }
+      continue;
+    }
+
+    backendSliceColumns = [];
+    blockedByColumns = [];
+    blockingColumns = [];
+
+    const sliceIds = extractRoadmapBackendSliceIdsFromLine(line);
+    if (sliceIds.length === 0) continue;
+
+    const blockedByIds = extractInlineDependencyIds(line, "blockedBy");
+    const blockingIds = extractInlineDependencyIds(line, "blocking");
+    for (const sliceId of sliceIds) {
+      addBlockedByDependencies(dependencies, sliceId, blockedByIds);
+      addBlockingDependencies(dependencies, sliceId, blockingIds);
+    }
+  }
+
+  return finalizeDependencyMap(dependencies);
+}
+
+function extractBackendSliceDependencies(slices: KataProjectSnapshotSlice[]): SliceDependencyMap {
+  const dependencies: SliceDependencyMap = {};
+  for (const slice of slices) {
+    const sliceId = sliceDependencyMapKey(slice.id);
+    addBlockedByDependencies(dependencies, sliceId, parseSliceDependencyIds(slice.blockedBy));
+    addBlockingDependencies(dependencies, sliceId, parseSliceDependencyIds(slice.blocking));
+  }
+  return finalizeDependencyMap(dependencies);
+}
+
+function mergeSnapshotSliceDependencies(
+  slices: KataProjectSnapshotSlice[],
+  dependencies: SliceDependencyMap,
+): KataProjectSnapshotSlice[] {
+  return slices.map((slice) => {
+    const sliceDependencies = dependencies[sliceDependencyMapKey(slice.id)];
+    return {
+      ...slice,
+      blockedBy: uniqueIds([...parseSliceDependencyIds(slice.blockedBy), ...(sliceDependencies?.blockedBy ?? [])]),
+      blocking: uniqueIds([...parseSliceDependencyIds(slice.blocking), ...(sliceDependencies?.blocking ?? [])]),
+    };
+  });
+}
+
+function mergeSliceDependencyMaps(...maps: SliceDependencyMap[]): SliceDependencyMap {
+  const merged: SliceDependencyMap = {};
+  for (const map of maps) {
+    for (const [sliceId, dependencies] of Object.entries(map)) {
+      addBlockedByDependencies(merged, sliceId, dependencies.blockedBy);
+      addBlockingDependencies(merged, sliceId, dependencies.blocking);
+    }
+  }
+  return finalizeDependencyMap(merged);
+}
+
+function extractInlineDependencyIds(line: string, relation: "blockedBy" | "blocking"): string[] {
+  const ids: string[] = [];
+  const pattern = relation === "blockedBy"
+    ? INLINE_BLOCKED_BY_ROADMAP_LABEL_PATTERN
+    : /\b(?:blocking|blocks)\b\s*:?\s*(.*)$/i;
+
+  for (const segment of splitRoadmapMetadataSegments(line)) {
+    const match = pattern.exec(segment);
+    if (!match?.[1]) continue;
+    ids.push(...parseSliceDependencyIds(match[1]));
+  }
+
+  return uniqueIds(ids);
+}
+
+function addBlockedByDependencies(map: SliceDependencyMap, sliceId: string, blockedByIds: string[]): void {
+  const canonicalSliceId = sliceDependencyMapKey(sliceId);
+  for (const blockedById of parseSliceDependencyIds(blockedByIds)) {
+    if (blockedById === canonicalSliceId) continue;
+    ensureDependencyEntry(map, canonicalSliceId).blockedBy = uniqueIds([
+      ...ensureDependencyEntry(map, canonicalSliceId).blockedBy,
+      blockedById,
+    ]);
+    ensureDependencyEntry(map, blockedById).blocking = uniqueIds([
+      ...ensureDependencyEntry(map, blockedById).blocking,
+      canonicalSliceId,
+    ]);
+  }
+}
+
+function addBlockingDependencies(map: SliceDependencyMap, sliceId: string, blockingIds: string[]): void {
+  const canonicalSliceId = sliceDependencyMapKey(sliceId);
+  for (const blockingId of parseSliceDependencyIds(blockingIds)) {
+    if (blockingId === canonicalSliceId) continue;
+    ensureDependencyEntry(map, canonicalSliceId).blocking = uniqueIds([
+      ...ensureDependencyEntry(map, canonicalSliceId).blocking,
+      blockingId,
+    ]);
+    ensureDependencyEntry(map, blockingId).blockedBy = uniqueIds([
+      ...ensureDependencyEntry(map, blockingId).blockedBy,
+      canonicalSliceId,
+    ]);
+  }
+}
+
+function ensureDependencyEntry(map: SliceDependencyMap, sliceId: string): KataProjectSnapshotSliceDependencies {
+  const canonicalSliceId = sliceDependencyMapKey(sliceId);
+  map[canonicalSliceId] ??= { blockedBy: [], blocking: [] };
+  return map[canonicalSliceId];
+}
+
+function finalizeDependencyMap(map: SliceDependencyMap): SliceDependencyMap {
+  const finalized: SliceDependencyMap = {};
+  for (const sliceId of uniqueIds(Object.keys(map))) {
+    const dependencies = map[sliceId];
+    if (!dependencies) continue;
+    const blockedBy = uniqueIds(parseSliceDependencyIds(dependencies.blockedBy));
+    const blocking = uniqueIds(parseSliceDependencyIds(dependencies.blocking));
+    if (blockedBy.length === 0 && blocking.length === 0) continue;
+    finalized[sliceDependencyMapKey(sliceId)] = { blockedBy, blocking };
+  }
+  return finalized;
+}
+
+function sliceDependencyMapKey(sliceId: string): string {
+  return parseSliceDependencyIds(sliceId)[0] ?? sliceId;
 }
 
 function extractRoadmapBackendSliceIdsByLine(content: string): Array<{ line: string; sliceIds: string[] }> {

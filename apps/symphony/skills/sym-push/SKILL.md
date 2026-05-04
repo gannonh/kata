@@ -11,8 +11,8 @@ description:
 ## Prerequisites
 
 - `gh` CLI is installed and available in `PATH`.
-- `gh auth status` succeeds for GitHub operations in this repo.
-- When this is part of a Kata-backed Symphony run, use the active Kata backend-state workflow for durable Kata task/slice/artifact state. PR creation/update remains a GitHub operation handled through `gh`.
+- `gh auth status` succeeds for pull-request operations in this repo.
+- When this is part of a Kata-backed Symphony run, use the active Kata backend-state workflow for durable Kata task/slice/artifact state. PR creation/update remains a repository operation handled through `gh`.
 
 ## Goals
 
@@ -59,6 +59,10 @@ description:
    - Fill every section with concrete content for this change.
    - Replace all placeholder comments (`<!-- ... -->`).
    - Keep bullets/checkboxes where template expects them.
+   - If this is a Symphony issue run, include an issue reference line in the PR body:
+     - Use the PR host's closing-reference syntax when supported.
+     - Prefer the short issue reference, such as `#123`, over a URL when available.
+     - Use `Refs <issue-reference>` when no closing reference can be formed.
    - If PR already exists, refresh body content so it reflects the total PR
      scope (all intended work on the branch), not just the newest commits,
      including newly added work, removed work, or changed approach.
@@ -107,8 +111,12 @@ fi
 # Write/edit PR body to match .github/pull_request_template.md before validation.
 # Example workflow:
 # 1) open the template and draft body content for this PR
-# 2) gh pr edit --body-file /tmp/pr_body.md
-# 3) for branch updates, re-check that title/body still match current diff
+# 2) include an issue reference line:
+#    - use closing-reference syntax when supported
+#    - prefer a short issue reference such as #123 over a URL when available
+#    - use Refs <issue-reference> when no closing reference can be formed
+# 3) gh pr edit --body-file /tmp/pr_body.md
+# 4) for branch updates, re-check that title/body still match current diff
 
 tmp_pr_body=$(mktemp)
 gh pr view --json body -q .body > "$tmp_pr_body"

@@ -24,7 +24,7 @@ workspace:
   isolation: local
   cleanup_on_done: true
   branch_prefix: kata-mono
-  clone_branch: feat/M002-S007-S008
+  clone_branch: feat/1002-GitHub-Projects-dependency-aware
   base_branch: main
 hooks:
   timeout_ms: 1200000
@@ -36,7 +36,7 @@ agent:
   no_session: false
   max_concurrent_agents: 8
   max_turns: 20
-  model: openai-codex/gpt-5.5
+  model: openai-codex/gpt-5.3-codex
   model_by_state:
     Agent Review: openai-codex/gpt-5.3-codex
     Merging: openai-codex/gpt-5.3-codex

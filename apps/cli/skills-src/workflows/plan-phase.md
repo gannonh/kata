@@ -81,6 +81,8 @@ node ./scripts/kata-call.mjs slice.list --input /tmp/kata-slice-list.json
 
 Use the returned slices to avoid creating duplicate backend slices for roadmap work that is already planned.
 
+Inspect `snapshot.roadmap.sliceDependencies` and the selected roadmap/backend slice metadata before creating a slice. Resolve dependencies to canonical backend slice IDs such as `S001`. If the selected roadmap work depends on existing slices, include those IDs in the eventual `slice.create` payload as `blockedBy`. If dependency data is unknown, ambiguous, or names work that has no backend slice ID yet, ask at the phase gate before creating backend state.
+
 ## Stage 2: Phase Gate
 
 Present the phase or roadmap slice you plan to convert into executable work:
@@ -89,25 +91,29 @@ Present the phase or roadmap slice you plan to convert into executable work:
 - Requirements covered.
 - Success criteria.
 - Existing slice coverage, if any.
+- Dependency metadata from `snapshot.roadmap.sliceDependencies`, roadmap text, and existing backend slices.
 - Known constraints.
 - Assumptions.
 
-Ask for confirmation before creating backend slices/tasks. This is the phase gate.
+Ask for confirmation before creating backend slices/tasks. This is the phase gate. Resolve dependency questions here. Do not create backend state while selected work has unknown or ambiguous dependencies.
 
 ## Stage 3: Create Slice
 
 If an existing slice already covers the selected roadmap work, do not create a duplicate. Confirm whether to add missing tasks or update the slice-scoped plan artifact instead.
 
-Create `/tmp/kata-slice-create.json`:
+Before `slice.create`, carry forward resolved dependency graph metadata. When the selected roadmap work depends on existing slices, create `/tmp/kata-slice-create.json` with `blockedBy` set to canonical slice IDs:
 
 ```json
 {
   "milestoneId": "M001",
   "title": "Task Foundation",
   "goal": "Create the data model and UI shell for task management.",
-  "order": 1
+  "order": 1,
+  "blockedBy": ["S001", "S002"]
 }
 ```
+
+When the selected roadmap work has no dependencies, omit `blockedBy` or use an empty list only if the backend contract requires it.
 
 Run:
 
@@ -115,7 +121,7 @@ Run:
 node ./scripts/kata-call.mjs slice.create --input /tmp/kata-slice-create.json
 ```
 
-Capture the returned slice ID, for example `S001`.
+Capture the returned slice ID, for example `S003`. Record or retain machine-readable dependency metadata in the roadmap and plan artifacts once backend slice IDs are known.
 
 ## Stage 4: Create Tasks
 
@@ -123,7 +129,7 @@ For each execution task, create a payload:
 
 ```json
 {
-  "sliceId": "S001",
+  "sliceId": "S003",
   "title": "Implement task model",
   "description": "Create the task data model with create, update, complete, and delete behavior plus tests."
 }
@@ -146,9 +152,9 @@ Create `/tmp/kata-plan-artifact.json`:
 ```json
 {
   "scopeType": "slice",
-  "scopeId": "S001",
+  "scopeId": "S003",
   "artifactType": "plan",
-  "title": "S001 Plan",
+  "title": "S003 Plan",
   "content": "# Plan: Task Foundation\n\n## Goal\n\n...",
   "format": "markdown"
 }

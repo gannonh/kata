@@ -25,6 +25,7 @@ import type {
   KataTaskUpdateStatusInput,
 } from "../../domain/types.js";
 import { KataDomainError } from "../../domain/errors.js";
+import { parseSliceDependencyIds } from "../../domain/dependencies.js";
 import type { createGithubClient } from "./client.js";
 import { parseArtifactComment, upsertArtifactComment } from "./artifacts.js";
 import { KATA_PROJECT_FIELDS, loadProjectFieldIndex, type ProjectFieldIndex } from "./project-fields.js";
@@ -67,6 +68,8 @@ interface TrackedEntity {
   parentId?: string;
   status?: KataSliceStatus | KataTaskStatus;
   verificationState?: KataTaskVerificationState;
+  blockedBy?: string[];
+  blocking?: string[];
   issueId: number;
   issueNumber: number;
   contentId: string;
@@ -75,6 +78,73 @@ interface TrackedEntity {
   state: string;
   url?: string;
   githubMilestoneNumber?: number;
+}
+
+interface ProjectItemFields {
+  itemId: string;
+  kataId?: string;
+  contentId?: string;
+  issueNumber?: number;
+  status?: string;
+}
+
+interface ProjectItemTextFieldValue {
+  text?: string | null;
+}
+
+interface ProjectItemSingleSelectFieldValue {
+  name?: string | null;
+}
+
+interface ProjectItemFieldNode {
+  id?: string | null;
+  content?: {
+    id?: string | null;
+    number?: number | null;
+  } | null;
+  kataId?: ProjectItemTextFieldValue | null;
+  status?: ProjectItemSingleSelectFieldValue | null;
+}
+
+interface ProjectItemFieldsConnection {
+  pageInfo: {
+    hasNextPage: boolean;
+    endCursor?: string | null;
+  };
+  nodes: Array<ProjectItemFieldNode | null>;
+}
+
+interface ProjectItemFieldsProject {
+  items: ProjectItemFieldsConnection;
+}
+
+interface ProjectItemFieldsQueryData {
+  organization?: {
+    projectV2?: ProjectItemFieldsProject | null;
+  } | null;
+  user?: {
+    projectV2?: ProjectItemFieldsProject | null;
+  } | null;
+}
+
+interface IssueDependencyNode {
+  id?: string | null;
+  number?: number | null;
+}
+
+interface IssueDependencyConnection {
+  nodes?: Array<IssueDependencyNode | null> | null;
+}
+
+interface IssueDependencyIssueNode {
+  id?: string | null;
+  number?: number | null;
+  blockedBy?: IssueDependencyConnection | null;
+  blocking?: IssueDependencyConnection | null;
+}
+
+interface IssueDependenciesQueryData {
+  nodes?: Array<IssueDependencyIssueNode | null> | null;
 }
 
 interface EntityMarker {
@@ -89,6 +159,8 @@ const ENTITY_MARKER_PREFIX = "<!-- kata:entity ";
 const ENTITY_MARKER_SUFFIX = " -->";
 const ISSUES_PER_PAGE = 100;
 const MAX_ISSUE_PAGES = 100;
+const PROJECT_ITEMS_PER_PAGE = 100;
+const MAX_PROJECT_ITEM_PAGES = 100;
 const COMMENTS_PER_PAGE = 100;
 const MAX_COMMENT_PAGES = 100;
 
@@ -107,6 +179,105 @@ const UPDATE_PROJECT_FIELD_MUTATION = `
     updateProjectV2ItemFieldValue(input: { projectId: $projectId, itemId: $itemId, fieldId: $fieldId, value: $value }) {
       projectV2Item {
         id
+      }
+    }
+  }
+`;
+
+const ADD_BLOCKED_BY_MUTATION = `
+  mutation AddKataIssueBlockedBy($issueId: ID!, $blockingIssueId: ID!) {
+    addBlockedBy(input: { issueId: $issueId, blockingIssueId: $blockingIssueId }) {
+      issue {
+        id
+      }
+    }
+  }
+`;
+
+const ISSUE_DEPENDENCIES_QUERY = `
+  query LoadKataIssueDependencies($ids: [ID!]!) {
+    nodes(ids: $ids) {
+      ... on Issue {
+        id
+        number
+        blockedBy(first: 100) {
+          nodes {
+            id
+            number
+          }
+        }
+        blocking(first: 100) {
+          nodes {
+            id
+            number
+          }
+        }
+      }
+    }
+  }
+`;
+
+const PROJECT_ITEM_FIELDS_QUERY = `
+  query LoadKataProjectItemFields($owner: String!, $repo: String!, $projectNumber: Int!, $first: Int!, $after: String) {
+    repository(owner: $owner, name: $repo) {
+      id
+    }
+    organization(login: $owner) {
+      projectV2(number: $projectNumber) {
+        items(first: $first, after: $after) {
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+          nodes {
+            id
+            content {
+              ... on Issue {
+                id
+                number
+              }
+            }
+            kataId: fieldValueByName(name: ${JSON.stringify(KATA_PROJECT_FIELDS.id)}) {
+              ... on ProjectV2ItemFieldTextValue {
+                text
+              }
+            }
+            status: fieldValueByName(name: ${JSON.stringify(KATA_PROJECT_FIELDS.status)}) {
+              ... on ProjectV2ItemFieldSingleSelectValue {
+                name
+              }
+            }
+          }
+        }
+      }
+    }
+    user(login: $owner) {
+      projectV2(number: $projectNumber) {
+        items(first: $first, after: $after) {
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+          nodes {
+            id
+            content {
+              ... on Issue {
+                id
+                number
+              }
+            }
+            kataId: fieldValueByName(name: ${JSON.stringify(KATA_PROJECT_FIELDS.id)}) {
+              ... on ProjectV2ItemFieldTextValue {
+                text
+              }
+            }
+            status: fieldValueByName(name: ${JSON.stringify(KATA_PROJECT_FIELDS.status)}) {
+              ... on ProjectV2ItemFieldSingleSelectValue {
+                name
+              }
+            }
+          }
+        }
       }
     }
   }
@@ -166,8 +337,6 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
       status: "Backlog",
       artifactScope: "PROJECT",
       verificationState: "",
-      blocking: "",
-      blockedBy: "",
     });
 
     return {
@@ -226,8 +395,6 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
       status: "Backlog",
       artifactScope: kataId,
       verificationState: "",
-      blocking: "",
-      blockedBy: "",
     });
 
     return {
@@ -261,6 +428,7 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
     await this.discoverEntities();
     const milestoneEntity = await this.requireEntity(input.milestoneId, "Milestone");
     const kataId = this.nextKataId("Slice");
+    const blockedBy = parseSliceDependencyIds(input.blockedBy ?? []);
     const entity = await this.createIssueEntity({
       kataId,
       type: "Slice",
@@ -284,8 +452,12 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
       status: "Backlog",
       artifactScope: kataId,
       verificationState: "",
-      blocking: "",
-      blockedBy: "",
+    });
+    await this.createNativeIssueDependencies(entity, blockedBy);
+    this.entities.set(kataId, {
+      ...entity,
+      blockedBy,
+      blocking: [],
     });
 
     return {
@@ -295,6 +467,8 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
       goal: input.goal,
       status: "backlog",
       order: input.order ?? 0,
+      blockedBy,
+      blocking: [],
     };
   }
 
@@ -362,8 +536,6 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
       status: "Backlog",
       artifactScope: uniqueEntity.kataId,
       verificationState: "pending",
-      blocking: "",
-      blockedBy: "",
     });
 
     return {
@@ -411,8 +583,6 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
       status: "Backlog",
       artifactScope: kataId,
       verificationState: "pending",
-      blocking: "",
-      blockedBy: "",
     });
 
     return issueFromEntity(entity);
@@ -543,7 +713,12 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
     if (this.discovered) return;
 
     const entities = await this.listTrackedEntitiesFromGithub();
-    for (const entity of entities) {
+    const projectItemFields = entities.some((entity) => entity.type === "Slice")
+      ? await this.loadProjectItemFields()
+      : [];
+    const entitiesWithProjectFields = mergeProjectItemFields(entities, projectItemFields);
+    const entitiesWithNativeDependencies = await this.loadNativeIssueDependencies(entitiesWithProjectFields);
+    for (const entity of entitiesWithNativeDependencies) {
       if (this.entities.has(entity.kataId)) continue;
       this.entities.set(entity.kataId, entity);
     }
@@ -572,6 +747,92 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
     }
 
     throw new KataDomainError("UNKNOWN", `Unable to discover Kata issues after ${MAX_ISSUE_PAGES} full pages.`);
+  }
+
+  private async loadProjectItemFields(): Promise<ProjectItemFields[]> {
+    const fields: ProjectItemFields[] = [];
+    let after: string | null = null;
+
+    for (let page = 1; page <= MAX_PROJECT_ITEM_PAGES; page += 1) {
+      const data: ProjectItemFieldsQueryData = await this.client.graphql<ProjectItemFieldsQueryData>({
+        query: PROJECT_ITEM_FIELDS_QUERY,
+        variables: {
+          owner: this.owner,
+          repo: this.repo,
+          projectNumber: this.projectNumber,
+          first: PROJECT_ITEMS_PER_PAGE,
+          after,
+        },
+      });
+      const project: ProjectItemFieldsProject | null | undefined =
+        data.organization?.projectV2 ?? data.user?.projectV2;
+      const connection: ProjectItemFieldsConnection | undefined = project?.items;
+      if (!connection) return fields;
+
+      fields.push(...connection.nodes.map(projectItemFieldsFromNode).filter(isProjectItemFields));
+
+      if (!connection.pageInfo.hasNextPage) return fields;
+      after = connection.pageInfo.endCursor ?? null;
+    }
+
+    throw new KataDomainError("UNKNOWN", `Unable to list Project v2 items after ${MAX_PROJECT_ITEM_PAGES} full pages.`);
+  }
+
+  private async createNativeIssueDependencies(blockedEntity: TrackedEntity, blockedByIds: readonly string[]): Promise<void> {
+    const createdBlockedByIds: string[] = [];
+    for (const blockedById of blockedByIds) {
+      if (blockedById === blockedEntity.kataId) continue;
+      const blocker = await this.requireEntity(blockedById, "Slice");
+      await this.client.graphql({
+        query: ADD_BLOCKED_BY_MUTATION,
+        variables: {
+          issueId: blockedEntity.contentId,
+          blockingIssueId: blocker.contentId,
+        },
+      });
+      createdBlockedByIds.push(blocker.kataId);
+      this.entities.set(blocker.kataId, {
+        ...blocker,
+        blocking: parseSliceDependencyIds([...(blocker.blocking ?? []), blockedEntity.kataId]),
+      });
+    }
+    if (createdBlockedByIds.length > 0) {
+      this.entities.set(blockedEntity.kataId, {
+        ...blockedEntity,
+        blockedBy: parseSliceDependencyIds([...(blockedEntity.blockedBy ?? []), ...createdBlockedByIds]),
+      });
+    }
+  }
+
+  private async loadNativeIssueDependencies(entities: TrackedEntity[]): Promise<TrackedEntity[]> {
+    const slices = entities.filter((entity) => entity.type === "Slice");
+    if (slices.length === 0) return entities;
+
+    const sliceIdByContentId = new Map(slices.map((entity) => [entity.contentId, entity.kataId]));
+    const data = await this.client.graphql<IssueDependenciesQueryData>({
+      query: ISSUE_DEPENDENCIES_QUERY,
+      variables: { ids: slices.map((entity) => entity.contentId) },
+    });
+    const dependencyByContentId = new Map<string, { blockedBy: string[]; blocking: string[] }>();
+
+    for (const node of data.nodes ?? []) {
+      if (!node?.id) continue;
+      dependencyByContentId.set(node.id, {
+        blockedBy: dependencyIdsFromNodes(node.blockedBy?.nodes ?? [], sliceIdByContentId),
+        blocking: dependencyIdsFromNodes(node.blocking?.nodes ?? [], sliceIdByContentId),
+      });
+    }
+
+    return entities.map((entity) => {
+      if (entity.type !== "Slice") return entity;
+      const dependencies = dependencyByContentId.get(entity.contentId);
+      if (!dependencies) return entity;
+      return {
+        ...entity,
+        blockedBy: dependencies.blockedBy,
+        blocking: dependencies.blocking,
+      };
+    });
   }
 
   private nextKataId(type: "Milestone" | "Slice" | "Task" | "Issue"): string {
@@ -743,8 +1004,6 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
       status: ProjectStatusName;
       artifactScope: string;
       verificationState?: string;
-      blocking?: string;
-      blockedBy?: string;
     },
   ): Promise<string> {
     const fieldIndex = await this.getFieldIndex();
@@ -756,8 +1015,6 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
     }
     await this.updateProjectField(fieldIndex, projectItemId, KATA_PROJECT_FIELDS.artifactScope, input.artifactScope);
     await this.updateProjectField(fieldIndex, projectItemId, KATA_PROJECT_FIELDS.verificationState, input.verificationState ?? "");
-    await this.updateProjectField(fieldIndex, projectItemId, KATA_PROJECT_FIELDS.blocking, input.blocking ?? "");
-    await this.updateProjectField(fieldIndex, projectItemId, KATA_PROJECT_FIELDS.blockedBy, input.blockedBy ?? "");
     await this.updateProjectStatus(fieldIndex, projectItemId, input.status);
     return projectItemId;
   }
@@ -952,6 +1209,99 @@ function milestoneFromEntity(entity: TrackedEntity): KataMilestone {
   };
 }
 
+function mergeProjectItemFields(
+  entities: TrackedEntity[],
+  projectItemFields: ProjectItemFields[],
+): TrackedEntity[] {
+  const fieldsByContentId = new Map<string, ProjectItemFields>();
+  const fieldsByKataId = new Map<string, ProjectItemFields>();
+
+  for (const fields of projectItemFields) {
+    if (fields.contentId && !fieldsByContentId.has(fields.contentId)) {
+      fieldsByContentId.set(fields.contentId, fields);
+    }
+    const canonicalKataId = fields.kataId ? normalizeProjectItemSliceId(fields.kataId) : null;
+    if (canonicalKataId && !fieldsByKataId.has(canonicalKataId)) {
+      fieldsByKataId.set(canonicalKataId, fields);
+    }
+  }
+
+  return entities.map((entity) => {
+    if (entity.type !== "Slice") return entity;
+    const fields = fieldsByContentId.get(entity.contentId) ?? fieldsByKataId.get(entity.kataId);
+    if (!fields) return entity;
+    return {
+      ...entity,
+      status: entity.status ?? sliceStatusFromProjectStatusName(fields.status),
+    };
+  });
+}
+
+function projectItemFieldsFromNode(
+  node: ProjectItemFieldNode | null,
+): ProjectItemFields | null {
+  if (!node?.id) return null;
+  const kataId = textFieldValue(node.kataId);
+  const contentId = typeof node.content?.id === "string" && node.content.id ? node.content.id : undefined;
+  const issueNumber = typeof node.content?.number === "number" && Number.isFinite(node.content.number)
+    ? node.content.number
+    : undefined;
+  const status = singleSelectFieldName(node.status);
+  return {
+    itemId: node.id,
+    ...(kataId ? { kataId } : {}),
+    ...(contentId ? { contentId } : {}),
+    ...(issueNumber !== undefined ? { issueNumber } : {}),
+    ...(status ? { status } : {}),
+  };
+}
+
+function isProjectItemFields(value: ProjectItemFields | null): value is ProjectItemFields {
+  return value !== null;
+}
+
+function textFieldValue(value: ProjectItemTextFieldValue | null | undefined): string {
+  return typeof value?.text === "string" ? value.text : "";
+}
+
+function singleSelectFieldName(value: ProjectItemSingleSelectFieldValue | null | undefined): string | undefined {
+  return typeof value?.name === "string" && value.name ? value.name : undefined;
+}
+
+function normalizeProjectItemSliceId(value: string): string | null {
+  return parseSliceDependencyIds(value)[0] ?? null;
+}
+
+function dependencyIdsFromNodes(
+  nodes: readonly (IssueDependencyNode | null)[],
+  sliceIdByContentId: ReadonlyMap<string, string>,
+): string[] {
+  return parseSliceDependencyIds(
+    nodes.map((node) => (node?.id ? sliceIdByContentId.get(node.id) ?? "" : "")),
+  );
+}
+
+function sliceStatusFromProjectStatusName(value: string | undefined): KataSliceStatus | undefined {
+  switch (value) {
+    case "Backlog":
+      return "backlog";
+    case "Todo":
+      return "todo";
+    case "In Progress":
+      return "in_progress";
+    case "Agent Review":
+      return "agent_review";
+    case "Human Review":
+      return "human_review";
+    case "Merging":
+      return "merging";
+    case "Done":
+      return "done";
+    default:
+      return undefined;
+  }
+}
+
 function sliceFromEntity(entity: TrackedEntity, order: number): KataSlice {
   return {
     id: entity.kataId,
@@ -960,6 +1310,8 @@ function sliceFromEntity(entity: TrackedEntity, order: number): KataSlice {
     goal: bodyContent(entity.body) || entity.title,
     status: sliceStatusFromEntity(entity),
     order,
+    blockedBy: parseSliceDependencyIds(entity.blockedBy ?? []),
+    blocking: parseSliceDependencyIds(entity.blocking ?? []),
   };
 }
 

@@ -58,6 +58,11 @@ export interface KataProjectSnapshotNextAction {
   };
 }
 
+export interface KataProjectSnapshotSliceDependencies {
+  blockedBy: string[];
+  blocking: string[];
+}
+
 export interface KataProjectSnapshot {
   context: KataProjectContext;
   activeMilestone: KataMilestone | null;
@@ -73,6 +78,7 @@ export interface KataProjectSnapshot {
     existingSliceIds: string[];
     missingSliceIds: string[];
     requirementToSliceIds: Record<string, string[]>;
+    sliceDependencies: Record<string, KataProjectSnapshotSliceDependencies>;
   };
   slices: KataProjectSnapshotSlice[];
   readiness: {
@@ -102,6 +108,8 @@ export interface KataSlice {
   goal: string;
   status: "backlog" | "todo" | "in_progress" | "agent_review" | "human_review" | "merging" | "done";
   order: number;
+  blockedBy: string[];
+  blocking: string[];
 }
 
 export interface KataTask {
@@ -175,6 +183,7 @@ export interface KataSliceCreateInput {
   title: string;
   goal: string;
   order?: number;
+  blockedBy?: string[];
 }
 
 export interface KataSliceUpdateStatusInput {

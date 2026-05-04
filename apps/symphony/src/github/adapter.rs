@@ -4,11 +4,12 @@ use async_trait::async_trait;
 use tokio::sync::OnceCell;
 
 use crate::domain::{
-    canonical_kata_phase_name, parse_kata_identifier, Issue, TrackerConfig, KATA_PHASE_NAMES,
+    canonical_kata_phase_name, parse_kata_identifier, BlockerRef, Issue, TrackerConfig,
+    KATA_PHASE_NAMES,
 };
 use crate::error::{Result, SymphonyError};
 use crate::github::client::{GithubClient, GithubIssue};
-use crate::github::projects_v2::{ProjectsV2Client, StatusFieldInfo, StatusOption};
+use crate::github::projects_v2::{ProjectItem, ProjectsV2Client, StatusFieldInfo, StatusOption};
 use crate::linear::adapter::TrackerAdapter;
 
 #[derive(Debug, Clone)]
@@ -27,6 +28,30 @@ impl std::fmt::Display for StateMode {
                 write!(f, "projects_v2(project_number={project_number})")
             }
             Self::Labels => write!(f, "labels"),
+        }
+    }
+}
+
+struct ProjectItemBlockerLookup<'a> {
+    by_issue_number: HashMap<u64, &'a ProjectItem>,
+}
+
+impl<'a> ProjectItemBlockerLookup<'a> {
+    fn new(items: &'a [ProjectItem]) -> Self {
+        let by_issue_number = items.iter().map(|item| (item.issue_number, item)).collect();
+
+        Self { by_issue_number }
+    }
+
+    fn resolve_issue_number(&self, issue_number: u64) -> BlockerRef {
+        if let Some(item) = self.by_issue_number.get(&issue_number).copied() {
+            return project_item_to_blocker_ref(item);
+        }
+
+        BlockerRef {
+            id: Some(issue_number.to_string()),
+            identifier: Some(format_blocker_identifier(None, Some(issue_number))),
+            state: None,
         }
     }
 }
@@ -373,6 +398,19 @@ impl GithubAdapter {
             .query_items_by_status(&status_field.project_id, &option_ids)
             .await?;
 
+        let has_blockers = project_items
+            .iter()
+            .any(|item| !item.blocked_by_issue_numbers.is_empty());
+        let blocker_lookup_items = if has_blockers {
+            let no_filter: Vec<String> = Vec::new();
+            v2_client
+                .query_items_by_status(&status_field.project_id, &no_filter)
+                .await?
+        } else {
+            Vec::new()
+        };
+        let blocker_lookup = ProjectItemBlockerLookup::new(&blocker_lookup_items);
+
         let assignee_filter = self.assignee_filter();
         let mut issues = Vec::new();
 
@@ -413,7 +451,15 @@ impl GithubAdapter {
             }
 
             let issue_state = item.status.as_deref().unwrap_or_default();
-            issues.push(self.issue_to_domain_with_state(&issue, Some(issue_state)));
+            let mut domain_issue = self.issue_to_domain_with_state(&issue, Some(issue_state));
+            if !item.blocked_by_issue_numbers.is_empty() {
+                domain_issue.blocked_by = item
+                    .blocked_by_issue_numbers
+                    .iter()
+                    .map(|issue_number| blocker_lookup.resolve_issue_number(*issue_number))
+                    .collect();
+            }
+            issues.push(domain_issue);
         }
 
         Ok(issues)
@@ -783,6 +829,52 @@ fn parse_issue_number_from_url(url: &str) -> Option<u64> {
     let segment = trimmed.rsplit('/').next()?;
     let segment = segment.split(&['?', '#'][..]).next()?;
     segment.parse::<u64>().ok()
+}
+
+fn normalize_kata_field_id(value: &str) -> Option<String> {
+    let token = value
+        .trim()
+        .split('#')
+        .next()
+        .unwrap_or_default()
+        .trim()
+        .trim_start_matches('[')
+        .trim_end_matches(']')
+        .trim();
+
+    let mut chars = token.chars();
+    let prefix = chars.next()?.to_ascii_uppercase();
+    if !matches!(prefix, 'M' | 'S' | 'T') {
+        return None;
+    }
+
+    let digits = chars.as_str();
+    if digits.is_empty() || !digits.chars().all(|ch| ch.is_ascii_digit()) {
+        return None;
+    }
+
+    Some(format!("{prefix}{digits}"))
+}
+
+fn project_item_to_blocker_ref(item: &ProjectItem) -> BlockerRef {
+    let kata_id = item.kata_id.as_deref().and_then(normalize_kata_field_id);
+    BlockerRef {
+        id: Some(item.issue_number.to_string()),
+        identifier: Some(format_blocker_identifier(
+            kata_id.as_deref(),
+            Some(item.issue_number),
+        )),
+        state: item.status.clone(),
+    }
+}
+
+fn format_blocker_identifier(kata_id: Option<&str>, issue_number: Option<u64>) -> String {
+    match (kata_id, issue_number) {
+        (Some(kata_id), Some(issue_number)) => format!("{kata_id}#{issue_number}"),
+        (Some(kata_id), None) => kata_id.to_string(),
+        (None, Some(issue_number)) => format!("#{issue_number}"),
+        (None, None) => "unknown".to_string(),
+    }
 }
 
 fn extract_state_from_labels(

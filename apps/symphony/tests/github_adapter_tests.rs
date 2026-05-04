@@ -99,13 +99,73 @@ fn project_item_node(
     option_id: &str,
     status_name: &str,
 ) -> serde_json::Value {
+    project_item_node_with_fields(item_id, issue_number, option_id, status_name, None, None)
+}
+
+fn project_item_node_with_fields(
+    item_id: &str,
+    issue_number: u64,
+    option_id: &str,
+    status_name: &str,
+    kata_id: Option<&str>,
+    blocked_by: Option<&str>,
+) -> serde_json::Value {
+    let blocked_by_nodes = blocked_by_issue_numbers(blocked_by.unwrap_or_default())
+        .into_iter()
+        .map(|number| json!({ "number": number }))
+        .collect::<Vec<_>>();
+
+    json!({
+        "id": item_id,
+        "content": {
+            "number": issue_number,
+            "blockedBy": { "nodes": blocked_by_nodes }
+        },
+        "status": {
+            "name": status_name,
+            "optionId": option_id
+        },
+        "kataId": kata_id.map(|text| json!({ "text": text }))
+    })
+}
+
+fn blocked_by_issue_numbers(value: &str) -> Vec<u64> {
+    let after_hash = value
+        .split('#')
+        .skip(1)
+        .filter_map(|segment| {
+            let digits = segment
+                .chars()
+                .take_while(|ch| ch.is_ascii_digit())
+                .collect::<String>();
+            digits.parse::<u64>().ok()
+        })
+        .collect::<Vec<_>>();
+    if !after_hash.is_empty() {
+        return after_hash;
+    }
+
+    value
+        .split(|ch: char| !ch.is_ascii_digit())
+        .filter_map(|segment| segment.parse::<u64>().ok())
+        .collect()
+}
+
+fn project_item_node_without_dependency_fields(
+    item_id: &str,
+    issue_number: u64,
+    option_id: &str,
+    status_name: &str,
+    kata_id: Option<&str>,
+) -> serde_json::Value {
     json!({
         "id": item_id,
         "content": { "number": issue_number },
-        "fieldValueByName": {
+        "status": {
             "name": status_name,
             "optionId": option_id
-        }
+        },
+        "kataId": kata_id.map(|text| json!({ "text": text }))
     })
 }
 
@@ -1414,6 +1474,312 @@ async fn test_projects_v2_fetch_candidate_issues_queries_by_status() {
     assert_eq!(issues[0].state, "Todo");
     assert_eq!(issues[1].identifier, "#102");
     assert_eq!(issues[1].state, "In Progress");
+}
+
+#[tokio::test]
+async fn test_projects_v2_candidate_maps_resolved_blocker_status() {
+    let mut server = Server::new_async().await;
+    let adapter = test_projects_adapter(&server, None, 42);
+
+    let fields_mock = server
+        .mock("POST", "/graphql")
+        .match_body(Matcher::Regex("projectV2\\(number".to_string()))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(projects_v2_status_field_payload().to_string())
+        .expect(1)
+        .create_async()
+        .await;
+
+    let items_mock = server
+        .mock("POST", "/graphql")
+        .match_body(Matcher::Regex("fieldValueByName".to_string()))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            projects_v2_items_payload(&[
+                project_item_node_with_fields(
+                    "item_401",
+                    401,
+                    "opt_todo",
+                    "Todo",
+                    Some("S002"),
+                    Some("[S001]#400"),
+                ),
+                project_item_node_with_fields(
+                    "item_400",
+                    400,
+                    "opt_agent_review",
+                    "Agent Review",
+                    Some("S001"),
+                    None,
+                ),
+            ])
+            .to_string(),
+        )
+        .expect(2)
+        .create_async()
+        .await;
+
+    let issue_mock = server
+        .mock("GET", "/repos/kata-sh/kata-mono/issues/401")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(issue_json(401, &["symphony:todo"], "alice", &["alice"], None).to_string())
+        .expect(1)
+        .create_async()
+        .await;
+
+    let issues = adapter
+        .fetch_candidate_issues()
+        .await
+        .expect("projects v2 fetch_candidate_issues should succeed");
+
+    fields_mock.assert_async().await;
+    items_mock.assert_async().await;
+    issue_mock.assert_async().await;
+
+    assert_eq!(issues.len(), 1);
+    assert_eq!(issues[0].blocked_by.len(), 1);
+    assert_eq!(issues[0].blocked_by[0].id.as_deref(), Some("400"));
+    assert_eq!(
+        issues[0].blocked_by[0].identifier.as_deref(),
+        Some("S001#400")
+    );
+    assert_eq!(
+        issues[0].blocked_by[0].state.as_deref(),
+        Some("Agent Review")
+    );
+}
+
+#[tokio::test]
+async fn test_projects_v2_candidate_maps_terminal_blocker_status() {
+    let mut server = Server::new_async().await;
+    let adapter = test_projects_adapter(&server, None, 42);
+
+    let fields_mock = server
+        .mock("POST", "/graphql")
+        .match_body(Matcher::Regex("projectV2\\(number".to_string()))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(projects_v2_status_field_payload().to_string())
+        .expect(1)
+        .create_async()
+        .await;
+
+    let items_mock = server
+        .mock("POST", "/graphql")
+        .match_body(Matcher::Regex("fieldValueByName".to_string()))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            projects_v2_items_payload(&[
+                project_item_node_with_fields(
+                    "item_411",
+                    411,
+                    "opt_todo",
+                    "Todo",
+                    Some("S003"),
+                    Some("#410"),
+                ),
+                project_item_node_with_fields(
+                    "item_410",
+                    410,
+                    "opt_done",
+                    "Done",
+                    Some("S001"),
+                    None,
+                ),
+            ])
+            .to_string(),
+        )
+        .expect(2)
+        .create_async()
+        .await;
+
+    let issue_mock = server
+        .mock("GET", "/repos/kata-sh/kata-mono/issues/411")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(issue_json(411, &["symphony:todo"], "alice", &["alice"], None).to_string())
+        .expect(1)
+        .create_async()
+        .await;
+
+    let issues = adapter
+        .fetch_candidate_issues()
+        .await
+        .expect("projects v2 fetch_candidate_issues should succeed");
+
+    fields_mock.assert_async().await;
+    items_mock.assert_async().await;
+    issue_mock.assert_async().await;
+
+    assert_eq!(issues.len(), 1);
+    assert_eq!(issues[0].blocked_by.len(), 1);
+    assert_eq!(issues[0].blocked_by[0].id.as_deref(), Some("410"));
+    assert_eq!(
+        issues[0].blocked_by[0].identifier.as_deref(),
+        Some("S001#410")
+    );
+    assert_eq!(issues[0].blocked_by[0].state.as_deref(), Some("Done"));
+}
+
+#[tokio::test]
+async fn test_projects_v2_candidate_preserves_unknown_blocker_without_issue_fetch() {
+    let mut server = Server::new_async().await;
+    let adapter = test_projects_adapter(&server, None, 42);
+
+    let fields_mock = server
+        .mock("POST", "/graphql")
+        .match_body(Matcher::Regex("projectV2\\(number".to_string()))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(projects_v2_status_field_payload().to_string())
+        .expect(1)
+        .create_async()
+        .await;
+
+    let items_mock = server
+        .mock("POST", "/graphql")
+        .match_body(Matcher::Regex("fieldValueByName".to_string()))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            projects_v2_items_payload(&[project_item_node_with_fields(
+                "item_421",
+                421,
+                "opt_todo",
+                "Todo",
+                Some("S004"),
+                Some("#999"),
+            )])
+            .to_string(),
+        )
+        .expect(2)
+        .create_async()
+        .await;
+
+    let issue_mock = server
+        .mock("GET", "/repos/kata-sh/kata-mono/issues/421")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(issue_json(421, &["symphony:todo"], "alice", &["alice"], None).to_string())
+        .expect(1)
+        .create_async()
+        .await;
+
+    let unknown_issue_mock = server
+        .mock("GET", "/repos/kata-sh/kata-mono/issues/999")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(issue_json(999, &["symphony:todo"], "alice", &["alice"], None).to_string())
+        .expect(0)
+        .create_async()
+        .await;
+
+    let issues = adapter
+        .fetch_candidate_issues()
+        .await
+        .expect("projects v2 fetch_candidate_issues should succeed");
+
+    fields_mock.assert_async().await;
+    items_mock.assert_async().await;
+    issue_mock.assert_async().await;
+    unknown_issue_mock.assert_async().await;
+
+    assert_eq!(issues.len(), 1);
+    assert_eq!(issues[0].blocked_by.len(), 1);
+    assert_eq!(issues[0].blocked_by[0].id.as_deref(), Some("999"));
+    assert_eq!(issues[0].blocked_by[0].identifier.as_deref(), Some("#999"));
+    assert_eq!(issues[0].blocked_by[0].state, None);
+}
+
+#[tokio::test]
+async fn test_projects_v2_candidate_empty_and_absent_blocked_by_yields_empty_blocker_list() {
+    let mut server = Server::new_async().await;
+    let adapter = test_projects_adapter(&server, None, 42);
+
+    let fields_mock = server
+        .mock("POST", "/graphql")
+        .match_body(Matcher::Regex("projectV2\\(number".to_string()))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(projects_v2_status_field_payload().to_string())
+        .expect(1)
+        .create_async()
+        .await;
+
+    let items_mock = server
+        .mock("POST", "/graphql")
+        .match_body(Matcher::Regex("fieldValueByName".to_string()))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            projects_v2_items_payload(&[
+                project_item_node_with_fields(
+                    "item_431",
+                    431,
+                    "opt_todo",
+                    "Todo",
+                    Some("S005"),
+                    Some("   "),
+                ),
+                project_item_node("item_432", 432, "opt_in_progress", "In Progress"),
+                project_item_node_without_dependency_fields(
+                    "item_433",
+                    433,
+                    "opt_todo",
+                    "Todo",
+                    Some("S006"),
+                ),
+            ])
+            .to_string(),
+        )
+        .expect(1)
+        .create_async()
+        .await;
+
+    let issue_431 = server
+        .mock("GET", "/repos/kata-sh/kata-mono/issues/431")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(issue_json(431, &["symphony:todo"], "alice", &["alice"], None).to_string())
+        .expect(1)
+        .create_async()
+        .await;
+
+    let issue_432 = server
+        .mock("GET", "/repos/kata-sh/kata-mono/issues/432")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(issue_json(432, &["symphony:todo"], "alice", &["alice"], None).to_string())
+        .expect(1)
+        .create_async()
+        .await;
+
+    let issue_433 = server
+        .mock("GET", "/repos/kata-sh/kata-mono/issues/433")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(issue_json(433, &["symphony:todo"], "alice", &["alice"], None).to_string())
+        .expect(1)
+        .create_async()
+        .await;
+
+    let issues = adapter
+        .fetch_candidate_issues()
+        .await
+        .expect("projects v2 fetch_candidate_issues should succeed");
+
+    fields_mock.assert_async().await;
+    items_mock.assert_async().await;
+    issue_431.assert_async().await;
+    issue_432.assert_async().await;
+    issue_433.assert_async().await;
+
+    assert_eq!(issues.len(), 3);
+    assert!(issues.iter().all(|issue| issue.blocked_by.is_empty()));
 }
 
 #[tokio::test]

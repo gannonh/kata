@@ -125,8 +125,21 @@ fn shell_join(parts: &[String]) -> String {
 fn shell_env_prefix(
     symphony_bin: &Option<String>,
     symphony_workflow_path: &Option<String>,
+    issue: &Issue,
+    workspace_path: &str,
 ) -> String {
-    let mut assignments = Vec::new();
+    let mut assignments = vec![
+        format!("SYMPHONY_ISSUE_ID={}", ssh::shell_escape(&issue.id)),
+        format!(
+            "SYMPHONY_ISSUE_IDENTIFIER={}",
+            ssh::shell_escape(&issue.identifier)
+        ),
+        format!("SYMPHONY_ISSUE_TITLE={}", ssh::shell_escape(&issue.title)),
+        format!(
+            "SYMPHONY_WORKSPACE_PATH={}",
+            ssh::shell_escape(workspace_path)
+        ),
+    ];
     if let Some(symphony_bin) = symphony_bin {
         assignments.push(format!("SYMPHONY_BIN={}", ssh::shell_escape(symphony_bin)));
     }
@@ -136,11 +149,7 @@ fn shell_env_prefix(
             ssh::shell_escape(symphony_workflow_path)
         ));
     }
-    if assignments.is_empty() {
-        String::new()
-    } else {
-        format!("{} ", assignments.join(" "))
-    }
+    format!("{} ", assignments.join(" "))
 }
 
 async fn send_command(stdin: &mut tokio::process::ChildStdin, command: &RpcCommand) -> Result<()> {
@@ -619,7 +628,12 @@ pub async fn start_session(
             let remote_cmd = format!(
                 "cd {} && {}{}",
                 ssh::shell_escape(&workspace_str),
-                shell_env_prefix(&symphony_bin, &symphony_workflow_path),
+                shell_env_prefix(
+                    &symphony_bin,
+                    &symphony_workflow_path,
+                    issue,
+                    &workspace_str
+                ),
                 shell_join(&command_parts)
             );
 
@@ -640,7 +654,12 @@ pub async fn start_session(
             let remote_cmd = format!(
                 "cd {} && {}{}",
                 ssh::shell_escape(&workspace_str),
-                shell_env_prefix(&symphony_bin, &symphony_workflow_path),
+                shell_env_prefix(
+                    &symphony_bin,
+                    &symphony_workflow_path,
+                    issue,
+                    &workspace_str
+                ),
                 shell_join(&command_parts)
             );
             let child = SshRunner::start_process(host, &remote_cmd).await?;
@@ -661,6 +680,10 @@ pub async fn start_session(
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped());
+            command.env("SYMPHONY_ISSUE_ID", &issue.id);
+            command.env("SYMPHONY_ISSUE_IDENTIFIER", &issue.identifier);
+            command.env("SYMPHONY_ISSUE_TITLE", &issue.title);
+            command.env("SYMPHONY_WORKSPACE_PATH", &workspace_str);
             if let Some(symphony_bin) = &symphony_bin {
                 command.env("SYMPHONY_BIN", symphony_bin);
             }

@@ -4086,6 +4086,31 @@ fn test_blocked_issue_in_progress_not_dispatched() {
 }
 
 #[test]
+fn test_github_projects_candidate_with_non_terminal_blocker_not_dispatched() {
+    let mut orchestrator = Orchestrator::new(github_test_config(2), String::new());
+
+    let mut blocked = github_issue("101", 101, "Todo", 0);
+    blocked.blocked_by.push(BlockerRef {
+        id: Some("100".to_string()),
+        identifier: Some("S001#100".to_string()),
+        state: Some("In Progress".to_string()),
+    });
+    let unblocked = github_issue("102", 102, "Todo", 0);
+
+    let mut port = FakePort {
+        candidate_issues: vec![blocked, unblocked.clone()],
+        ..FakePort::default()
+    };
+
+    let tick = orchestrator.tick(&mut port).expect("tick should succeed");
+    assert_eq!(
+        tick.dispatched_issue_ids,
+        vec![unblocked.id],
+        "GitHub Projects candidate with non-terminal blocker must not dispatch"
+    );
+}
+
+#[test]
 fn test_blocked_issue_with_terminal_blocker_dispatched() {
     let mut orchestrator = Orchestrator::new(test_config(2), String::new());
 

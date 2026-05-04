@@ -36,6 +36,7 @@ import type {
   KataTaskUpdateStatusInput,
 } from "../domain/types.js";
 import { KataDomainError } from "../domain/errors.js";
+import { parseSliceDependencyIds } from "../domain/dependencies.js";
 import { createGithubClient } from "./github-projects-v2/client.js";
 import { readTrackerConfig } from "./read-tracker-config.js";
 import { GithubProjectsV2Adapter } from "./github-projects-v2/adapter.js";
@@ -57,6 +58,8 @@ interface RuntimeKataIssueRecord {
   state?: string;
   labels?: string[];
   milestoneName?: string | null;
+  blockedBy?: string[];
+  blocking?: string[];
 }
 
 interface RuntimeDocumentScope {
@@ -408,6 +411,8 @@ function createRuntimeBackedAdapter(input: {
         goal: String(slice.title ?? ""),
         status: toCanonicalSliceStatus(slice),
         order: index,
+        blockedBy: parseSliceDependencyIds(slice.blockedBy),
+        blocking: parseSliceDependencyIds(slice.blocking),
       }));
     },
     createSlice: async (_payload: KataSliceCreateInput): Promise<KataSlice> => {

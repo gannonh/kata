@@ -204,4 +204,26 @@ describe("Phase A skill surface", () => {
     expect(completeWorkflow).toContain("If `snapshot.nextAction.workflow` is not `kata-complete-milestone`");
     expect(manifest).toContain('"project.getSnapshot"');
   });
+
+  it("documents dependency-aware phase planning and execution", () => {
+    const planWorkflow = readFileSync(
+      path.join(sourceRoot, "skills-src", "workflows", "plan-phase.md"),
+      "utf8",
+    );
+    const executeWorkflow = readFileSync(
+      path.join(sourceRoot, "skills-src", "workflows", "execute-phase.md"),
+      "utf8",
+    );
+    const roadmapTemplate = readFileSync(path.join(sourceRoot, "skills-src", "templates", "roadmap.md"), "utf8");
+
+    expect(planWorkflow).toContain("Inspect `snapshot.roadmap.sliceDependencies`");
+    expect(planWorkflow).toContain('"blockedBy": ["S001", "S002"]');
+    expect(planWorkflow).toContain("unknown, ambiguous, or names work that has no backend slice ID yet");
+    expect(executeWorkflow).toContain("Use `snapshot.nextAction` as the source of truth for executable slice selection");
+    expect(executeWorkflow).toContain("Do not execute slices whose `blockedBy` dependencies include known non-done blockers");
+    expect(executeWorkflow).toContain("Do not move a Backlog blocked slice forward");
+    expect(roadmapTemplate).toContain("| Planned Slice | Backend Slice ID | Blocked By | Requirements |");
+    expect(roadmapTemplate).toContain("Backend Slice: S003; Depends on: S001, S002");
+    expect(roadmapTemplate).toContain("use `None` or an empty cell when there are no dependencies");
+  });
 });

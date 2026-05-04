@@ -23,7 +23,9 @@ Read the project snapshot:
 node ./scripts/kata-call.mjs project.getSnapshot
 ```
 
-Use `snapshot.nextAction` and slice/task state to choose the executable slice. If the snapshot recommends `kata-plan-phase` or `kata-verify-work`, stop and report that concrete next step instead of executing stale or duplicate scope.
+Use `snapshot.nextAction` as the source of truth for executable slice selection, then confirm with slice/task state. If the snapshot recommends `kata-plan-phase` or `kata-verify-work`, stop and report that concrete next step instead of executing stale or duplicate scope.
+
+Respect snapshot dependency state before selecting or mutating a slice. Do not execute slices whose `blockedBy` dependencies include known non-done blockers. If the user explicitly targets a blocked slice, report the blocker IDs and statuses, then stop unless the backend snapshot no longer marks it blocked. Do not move a Backlog blocked slice forward.
 
 Read active milestone:
 
@@ -79,7 +81,9 @@ Present the selected slice and all executable task work before mutating executio
 - Expected execution checks.
 - Files or subsystems likely affected.
 
-If the selected slice is `backlog`, ask for explicit confirmation that this slice is approved for execution. Do not move a Backlog slice forward without that confirmation.
+If the selected slice is blocked by snapshot dependency state, stop before approval or status updates. Report each blocker ID and status.
+
+If the selected slice is `backlog`, ask for explicit confirmation that this slice is approved for execution. Do not move a Backlog slice forward without that confirmation. Do not move a Backlog blocked slice forward.
 
 If the selected slice is already `todo`, treat it as approved for execution.
 
@@ -206,7 +210,11 @@ Next up: run `kata-verify-work` to record verification evidence.
 ## Rules
 
 - Do not bypass the CLI when reading or mutating Kata state.
+- Use `snapshot.nextAction` as the source of truth for executable slice selection.
+- Do not execute slices whose `blockedBy` dependencies include known non-done blockers.
+- If a user explicitly targets a blocked slice, report blocker IDs and statuses and stop unless the backend snapshot no longer marks it blocked.
 - Do not execute Backlog slices without an explicit execution approval checkpoint.
+- Do not move a Backlog blocked slice forward.
 - The slice is the primary execution unit. After a slice is approved, execute every executable task in that slice before routing to `kata-verify-work`.
 - Use the shared execution lifecycle for approved slices: `todo` -> `in_progress` -> `agent_review` -> `human_review` -> `merging` -> `done` as far as the current validated path requires.
 - Preserve atomic commits: one task-scoped code commit per completed task when repository files changed.

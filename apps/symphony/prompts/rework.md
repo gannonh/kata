@@ -22,12 +22,16 @@ Use only backend-neutral tracker/artifact/state operations:
    - validation checklist
 4. Rebase from `origin/{{ workspace.base_branch }}` and implement the replacement approach.
 5. Validate, push, and open/update PR.
-6. Upsert workpad with final evidence + publish proofs.
+6. Ensure the PR body references this issue:
+   - Use the PR host's closing-reference syntax when supported.
+   - Prefer the short issue reference, such as `#123`, over a URL when available.
+   - If no closing reference can be formed, include a `Refs` line using the best available issue reference.
+7. Upsert workpad with final evidence + publish proofs.
 
 ## State transition
 
 When replacement implementation + publish proofs are complete:
-- `issue.update-state` using `{"issueId":"<current-issue-id>","state":"Agent Review"}`.
+- `issue.update-state` using `{"issueId":"@current","state":"Agent Review"}`.
 
 ## Guardrails
 

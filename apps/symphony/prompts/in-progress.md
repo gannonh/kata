@@ -19,10 +19,10 @@ This issue is a Kata-planned slice with {{ issue.children_count }} child task(s)
 
 ### Context loading protocol (required order)
 
-1. Call `issue.get` with `{"issueId":"<current-issue-id>","includeChildren":true,"includeComments":true}`.
-2. Call `issue.list-children` with `{"issueId":"<current-issue-id>"}` and order tasks by `T##` (fallback numeric id order).
-3. Read each task issue via `issue.get` before implementation.
-4. Load marker docs with `document.read` using `{"issueId":"<current-issue-id>"}`; read a known single doc with `{"issueId":"<current-issue-id>","title":"Context"}`.
+1. Call `issue.get` with `{"issueId":"@current","includeChildren":true,"includeComments":true}`.
+2. Call `issue.list-children` with `{"issueId":"@current"}` and order tasks by `T##` (fallback numeric id order).
+3. Read each task issue via `issue.get` before implementation, using each child task's `id` field as `issueId`.
+4. Load marker docs with `document.read` using `{"issueId":"@current"}`; read a known single doc with `{"issueId":"@current","title":"Context"}`.
 
 ### Execution flow
 
@@ -61,17 +61,22 @@ This is a Kata task under parent slice {{ issue.parent_identifier }}.
 4. Run all required validation gates.
 5. Re-check acceptance criteria and close any gaps.
 6. Push branch updates and open/update PR targeting `{{ workspace.base_branch }}`.
+7. Ensure the PR body references this issue:
+   - Use the PR host's closing-reference syntax when supported.
+   - Prefer the short issue reference, such as `#123`, over a URL when available.
+   - If no closing reference can be formed, include a `Refs` line using the best available issue reference.
 
 ## Publish proofs (required)
 
 - `git ls-remote --exit-code --heads origin "$(git branch --show-current)"`
-- `gh pr view --json url,state,headRefName,baseRefName`
+- `gh pr view --json url,state,headRefName,baseRefName,body`
 - PR must be `OPEN` and `headRefName` must equal current branch.
+- PR body must reference this issue as described above.
 
 ## State transition
 
 After publish proofs succeed:
 - Upsert final workpad status via `comment.upsert`.
-- Move the issue to `Agent Review` with `issue.update-state` using `{"issueId":"<current-issue-id>","state":"Agent Review"}`.
+- Move the issue to `Agent Review` with `issue.update-state` using `{"issueId":"@current","state":"Agent Review"}`.
 
 If proofs fail, keep issue in `In Progress` and document blocker in workpad.

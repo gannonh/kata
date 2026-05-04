@@ -55,12 +55,24 @@ query($projectId: ID!, $first: Int!, $after: String) {
           content {
             ... on Issue {
               number
+              blockedBy(first: 100) {
+                nodes {
+                  ... on Issue {
+                    number
+                  }
+                }
+              }
             }
           }
-          fieldValueByName(name: "Status") {
+          status: fieldValueByName(name: "Status") {
             ... on ProjectV2ItemFieldSingleSelectValue {
               name
               optionId
+            }
+          }
+          kataId: fieldValueByName(name: "Kata ID") {
+            ... on ProjectV2ItemFieldTextValue {
+              text
             }
           }
         }
@@ -109,6 +121,8 @@ pub struct ProjectItem {
     pub item_id: String,
     pub issue_number: u64,
     pub status: Option<String>,
+    pub kata_id: Option<String>,
+    pub blocked_by_issue_numbers: Vec<u64>,
 }
 
 #[derive(Debug, Clone)]
@@ -194,9 +208,22 @@ impl ProjectsV2Client {
             })?;
 
             for node in node.items.nodes {
-                let Some(issue_number) = node.content.and_then(|content| content.number) else {
+                let Some(content) = node.content else {
                     continue;
                 };
+                let Some(issue_number) = content.number else {
+                    continue;
+                };
+                let blocked_by_issue_numbers = content
+                    .blocked_by
+                    .map(|connection| {
+                        connection
+                            .nodes
+                            .into_iter()
+                            .filter_map(|node| node.number)
+                            .collect()
+                    })
+                    .unwrap_or_default();
 
                 let status_option_id = node
                     .status
@@ -215,6 +242,8 @@ impl ProjectsV2Client {
                     item_id: node.id,
                     issue_number,
                     status: node.status.and_then(|status| status.name),
+                    kata_id: node.kata_id.and_then(|value| value.text),
+                    blocked_by_issue_numbers,
                 });
             }
 
@@ -392,12 +421,26 @@ struct PageInfo {
 struct ProjectItemNode {
     id: String,
     content: Option<ProjectItemContent>,
-    #[serde(rename = "fieldValueByName")]
     status: Option<ProjectItemStatus>,
+    #[serde(rename = "kataId")]
+    kata_id: Option<ProjectItemTextValue>,
 }
 
 #[derive(Debug, Deserialize)]
 struct ProjectItemContent {
+    number: Option<u64>,
+    #[serde(rename = "blockedBy")]
+    blocked_by: Option<ProjectIssueDependencyConnection>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ProjectIssueDependencyConnection {
+    #[serde(default)]
+    nodes: Vec<ProjectIssueDependencyNode>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ProjectIssueDependencyNode {
     number: Option<u64>,
 }
 
@@ -406,6 +449,11 @@ struct ProjectItemStatus {
     name: Option<String>,
     #[serde(rename = "optionId")]
     option_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ProjectItemTextValue {
+    text: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

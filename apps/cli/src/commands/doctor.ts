@@ -17,6 +17,7 @@ import {
   PI_SETTINGS_FILENAME,
   detectHarness,
   resolvePiAgentDir,
+  resolveSkillsSource,
 } from "./setup.js";
 
 export type DoctorCheckStatus = "ok" | "warn" | "invalid";
@@ -83,6 +84,11 @@ async function existsDirectory(path: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+function hasKataSkills(skillsDir: string): boolean {
+  return existsSync(join(skillsDir, "kata-setup", "SKILL.md")) ||
+    existsSync(join(skillsDir, "kata-health", "SKILL.md"));
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -175,14 +181,19 @@ export async function runDoctor(input: RunDoctorInput = {}): Promise<DoctorRepor
   const globalClaudeSkillsDir = join(homeDir, ".claude", "skills");
   const localCursorSkillsDir = join(cwd, ".cursor", "skills");
   const globalCursorSkillsDir = join(homeDir, ".cursor", "skills");
-  const hasKataSetupSkill = (skillsDir: string) => existsSync(join(skillsDir, "kata-setup", "SKILL.md"));
+  const piAgentDir = resolvePiAgentDir(env);
+  const piSkillsDir = join(piAgentDir.path, "skills");
+  const skillsSource = resolveSkillsSource(cwd);
+  const skillsSourceAvailable = skillsSource.exists && hasKataSkills(skillsSource.path);
   const detectedHarnesses = [
-    hasKataSetupSkill(localAgentsSkillsDir) ? "Harness detected (local): Universal (.agents/skills)" : null,
-    hasKataSetupSkill(globalAgentsSkillsDir) ? "Harness detected (global): Universal (~/.agents/skills)" : null,
-    hasKataSetupSkill(localClaudeSkillsDir) ? "Harness detected (local): Claude Code (.claude/skills)" : null,
-    hasKataSetupSkill(globalClaudeSkillsDir) ? "Harness detected (global): Claude Code (~/.claude/skills)" : null,
-    hasKataSetupSkill(localCursorSkillsDir) ? "Harness detected (local): Cursor (.cursor/skills)" : null,
-    hasKataSetupSkill(globalCursorSkillsDir) ? "Harness detected (global): Cursor (~/.cursor/skills)" : null,
+    hasKataSkills(localAgentsSkillsDir) ? "Harness detected (local): Universal (.agents/skills)" : null,
+    hasKataSkills(globalAgentsSkillsDir) ? "Harness detected (global): Universal (~/.agents/skills)" : null,
+    hasKataSkills(localClaudeSkillsDir) ? "Harness detected (local): Claude Code (.claude/skills)" : null,
+    hasKataSkills(globalClaudeSkillsDir) ? "Harness detected (global): Claude Code (~/.claude/skills)" : null,
+    hasKataSkills(localCursorSkillsDir) ? "Harness detected (local): Cursor (.cursor/skills)" : null,
+    hasKataSkills(globalCursorSkillsDir) ? "Harness detected (global): Cursor (~/.cursor/skills)" : null,
+    hasKataSkills(piSkillsDir) ? "Harness detected (pi): Pi agent skills" : null,
+    harness === "skills-sh" && skillsSourceAvailable ? `Harness detected: skills-sh (${skillsSource.path})` : null,
   ].filter((message): message is string => Boolean(message));
   const checks: DoctorCheck[] = [
     {
@@ -224,23 +235,31 @@ export async function runDoctor(input: RunDoctorInput = {}): Promise<DoctorRepor
     });
   }
 
-  const localKataSkillsInstalled = hasKataSetupSkill(localAgentsSkillsDir);
-  const globalKataSkillsInstalled = hasKataSetupSkill(globalAgentsSkillsDir);
+  const localKataSkillsInstalled = hasKataSkills(localAgentsSkillsDir);
+  const globalKataSkillsInstalled = hasKataSkills(globalAgentsSkillsDir);
+  const piKataSkillsInstalled = hasKataSkills(piSkillsDir);
   const sharedAgentsSkillsAvailable = localKataSkillsInstalled || globalKataSkillsInstalled;
+  const kataSkillsAvailable = sharedAgentsSkillsAvailable || piKataSkillsInstalled || skillsSourceAvailable;
   checks.push({
     name: "kata-skills",
-    status: sharedAgentsSkillsAvailable ? "ok" : "warn",
-    message: sharedAgentsSkillsAvailable
-      ? `Kata skills are installed at ${localKataSkillsInstalled ? localAgentsSkillsDir : globalAgentsSkillsDir}`
+    status: kataSkillsAvailable ? "ok" : "warn",
+    message: kataSkillsAvailable
+      ? `Kata skills are available at ${
+        localKataSkillsInstalled
+          ? localAgentsSkillsDir
+          : globalKataSkillsInstalled
+            ? globalAgentsSkillsDir
+            : piKataSkillsInstalled
+              ? piSkillsDir
+              : skillsSource.path
+      }`
       : `Kata skills were not found in ${localAgentsSkillsDir} or ${globalAgentsSkillsDir}`,
-    ...(sharedAgentsSkillsAvailable
+    ...(kataSkillsAvailable
       ? {}
       : { action: "Run `kata setup` to install Kata skills into .agents/skills, or `kata setup --global`." }),
   });
 
   if (harness === "pi") {
-    const piAgentDir = resolvePiAgentDir(env);
-    const piSkillsDir = join(piAgentDir.path, "skills");
     const markerPath = join(piAgentDir.path, PI_SETUP_MARKER_FILENAME);
     const settingsPath = join(piAgentDir.path, PI_SETTINGS_FILENAME);
     const skillsDirExists = await existsDirectory(piSkillsDir);

@@ -138,7 +138,7 @@ fn project_items_payload(status_name: &str, option_id: &str) -> serde_json::Valu
                         {
                             "id": "item_7",
                             "content": { "number": 7 },
-                            "fieldValueByName": {
+                            "status": {
                                 "name": status_name,
                                 "optionId": option_id
                             }

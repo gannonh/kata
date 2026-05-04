@@ -8,8 +8,6 @@ export const KATA_PROJECT_FIELDS = {
   parentId: "Kata Parent ID",
   artifactScope: "Kata Artifact Scope",
   verificationState: "Kata Verification State",
-  blocking: "Kata Blocking",
-  blockedBy: "Kata Blocked By",
 } as const;
 
 export const KATA_STATUS_OPTIONS = [
@@ -28,8 +26,6 @@ const REQUIRED_TEXT_FIELD_NAMES = [
   KATA_PROJECT_FIELDS.parentId,
   KATA_PROJECT_FIELDS.artifactScope,
   KATA_PROJECT_FIELDS.verificationState,
-  KATA_PROJECT_FIELDS.blocking,
-  KATA_PROJECT_FIELDS.blockedBy,
 ] as const;
 
 function formatBulletList(items: readonly string[]): string {
