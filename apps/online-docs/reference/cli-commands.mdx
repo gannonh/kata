@@ -1,103 +1,61 @@
 ---
 title: "CLI command reference"
-description: "Complete reference for all Kata CLI slash commands."
+description: "Reference for the current kata runtime commands."
 ---
 
-## Kata workflow
-
-Commands that drive the core Kata development lifecycle.
+## Commands
 
 | Command | Description |
 |---------|-------------|
-| `/kata` | Contextual wizard — suggests the next step based on project state |
-| `/kata step` | Execute one step (research, plan, task, etc.) then stop |
-| `/kata auto` | Start autonomous mode — research, plan, execute, verify, commit, and advance through every slice until the milestone is complete |
-| `/kata stop` | Stop auto-mode after the current task completes |
-| `/kata status` | Progress dashboard |
-| `/kata discuss` | Discuss gray areas before planning |
-| `/kata plan` | Enriched planning mode (plan/pick/add/resequence/revise/discuss) |
-| `/kata prefs` | Manage preferences (global and project-local) |
-| `/kata pr` | PR lifecycle management (see subcommands below) |
-| `/audit` | Audit the codebase against a goal; writes report to `.kata/audits/` |
+| `kata setup` | Installs bundled skills for selected targets and creates `.kata/preferences.md` when missing |
+| `kata doctor` | Validates setup, backend config, auth, and required GitHub Project fields |
+| `kata call <operation> --input <request.json>` | Executes one runtime operation with an optional JSON payload |
+| `kata json <request.json>` | Executes one runtime operation from a JSON request envelope |
 
-### `/kata pr` subcommands
+## Setup examples
 
-| Command | Description |
-|---------|-------------|
-| `/kata pr status` | Show PR lifecycle state (no LLM call) |
-| `/kata pr create` | Create a PR for the current slice branch |
-| `/kata pr review` | Run parallel multi-agent code review |
-| `/kata pr address` | Address review comments |
-| `/kata pr merge` | Merge PR and sync local state |
+```bash
+# Interactive setup
+kata setup
 
-<Note>
-PR commands require the `gh` CLI to be installed and authenticated (`gh auth login`). Enable PR mode in `.kata/preferences.md` before using these commands.
-</Note>
+# Non-interactive setup
+kata setup --yes --repo kata-sh/kata-mono --project-number 12
 
----
-
-## Session & model
-
-Commands for managing sessions, providers, and models.
-
-| Command | Description |
-|---------|-------------|
-| `/login` | Authenticate with an AI provider via OAuth (Anthropic, OpenAI, Google, and other supported providers) |
-| `/model` | Select a model from your authenticated providers |
-| `/scoped-models` | Enable or disable models for `Ctrl+P` cycling |
-| `/new` | Start a new session |
-| `/resume` | Resume a previous session |
-| `/compact` | Manually compact the session context |
-| `/fork` | Create a new session fork from a previous message |
-| `/tree` | Navigate the session tree and switch branches |
-| `/session` | Show session info and stats |
-
----
-
-## Utilities
-
-Helper commands for tools, extensions, and sharing.
-
-| Command | Description |
-|---------|-------------|
-| `/mcp` | Show MCP server status and available tools |
-| `/symphony` | Symphony operator workflows (`status`, `watch`, `console`, `config`) |
-| `/subagent` | List available subagents |
-| `/export` | Export the current session to an HTML file |
-| `/share` | Share the session as a secret GitHub gist |
-| `/copy` | Copy the last agent message to the clipboard |
-| `/hotkeys` | Show all keyboard shortcuts |
-| `/create-extension` | Scaffold a new extension with interview-driven setup |
-| `/create-slash-command` | Generate a new slash command from a plain-English description |
-
-### `/symphony` subcommands
-
-| Command | Description |
-|---------|-------------|
-| `/symphony status` | Fetch live worker and queue state from `GET /api/v1/state` |
-| `/symphony watch <issue>` | Stream live issue-scoped events from `GET /api/v1/events?issue=<id>` |
-| `/symphony console` | Toggle the live in-chat operator dashboard panel |
-| `/symphony console off` | Close the panel and disconnect the live stream |
-| `/symphony console refresh` | Force a manual snapshot refresh (shortcut: `Ctrl+Alt+S`) |
-| `/symphony config [WORKFLOW.md]` | Open the guided config editor for WORKFLOW.md frontmatter |
-
-Optional flags for `/symphony watch`:
-
-| Flag | Description |
-|------|-------------|
-| `--max-events <n>` | Stop after receiving this many events |
-| `--timeout-ms <ms>` | Stop after this many milliseconds |
-
-### Responding to escalations
-
-When escalations appear in the Symphony console panel, respond inline from chat input:
-
-```text
-!respond <answer>
+# Install Pi target metadata
+kata setup --pi
 ```
 
-When multiple escalations are pending, include the request ID or index:
+## Doctor examples
 
-```text
-!respond <request-id|index> <answer>
+```bash
+kata doctor
+kata doctor --json
 ```
+
+## `kata call` examples
+
+```bash
+# No payload operation
+kata call health.check
+
+# Payload operation
+jq -n '{issueRef:"#471"}' > /tmp/kata-issue-get.json
+kata call issue.get --input /tmp/kata-issue-get.json
+```
+
+## `kata json` example
+
+```bash
+jq -n '{operation:"health.check"}' > /tmp/kata-health.json
+kata json /tmp/kata-health.json
+```
+
+## Runtime operations
+
+- `project.getContext`, `project.getSnapshot`, `project.upsert`
+- `milestone.list`, `milestone.getActive`, `milestone.create`, `milestone.complete`
+- `slice.list`, `slice.create`, `slice.updateStatus`
+- `task.list`, `task.create`, `task.updateStatus`
+- `issue.listOpen`, `issue.create`, `issue.get`, `issue.updateStatus`
+- `artifact.list`, `artifact.read`, `artifact.write`
+- `execution.getStatus`, `health.check`

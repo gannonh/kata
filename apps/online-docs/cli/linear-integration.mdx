@@ -1,84 +1,28 @@
 ---
 title: "Linear integration"
-description: "Kata ships with 40 built-in Linear tools for managing issues, projects, milestones, and documents — no MCP server or OAuth setup required."
+description: "How Linear mode is represented in Kata runtime preferences."
 ---
 
-Kata has native Linear support built in. Forty tools cover the full Linear API surface — issues, sub-issues, projects, milestones, documents, labels, and workflow states — all accessible conversationally from the agent. No separate MCP server or OAuth flow required.
+Kata runtime accepts `workflow.mode: linear` in `.kata/preferences.md`.
 
-## Setup
-
-<Steps>
-  <Step title="Create a Linear personal API key">
-    Go to [Linear → Settings → API](https://linear.app/settings/api) and create a personal API key.
-  </Step>
-  <Step title="Start Kata and provide the key">
-    Start Kata normally. When prompted, enter your API key. It's stored in `~/.kata-cli/agent/auth.json` and loaded automatically on subsequent launches.
-
-    Alternatively, set the key in your environment:
-
-    ```bash
-    LINEAR_API_KEY=lin_api_... npx @kata-sh/cli
-    ```
-
-    `.env` is optional — the environment variable takes precedence when set.
-  </Step>
-  <Step title="Configure your project">
-    Ask Kata to set up your project:
-
-    ```
-    Configure this project to use Linear
-    ```
-
-    Kata lists your teams and projects, asks which to use, and writes the preferences file for you.
-  </Step>
-</Steps>
-
-## What you can do
-
-Once configured, you can manage your Linear workspace conversationally:
-
-- Create and update issues, sub-issues, and labels
-- List and search across projects, milestones, and workflow states
-- Read and write documents attached to projects or issues
-- Check team workflow states and transition issues between them
-
-## Linear workflow mode
-
-Beyond ad-hoc Linear operations, Kata uses Linear as the **backing store for its planning methodology**. In Linear workflow mode, all milestones, slices, tasks, plans, and summaries live as Linear entities — visible in the Linear UI alongside your team's other work.
-
-| Kata concept | Linear entity |
-|-------------|--------------|
-| Milestone | Linear project milestone |
-| Slice | Linear parent issue with `kata:slice` label |
-| Task | Linear sub-issue with `kata:task` label |
-| Plans and summaries | Linear documents attached to the project |
-
-`/kata auto` works the same way in Linear workflow mode — research, plan, execute, verify — but all state is read from and written to Linear.
-
-### Enabling Linear workflow mode
-
-Ask Kata to configure it:
-
-```
-Configure this project to use Linear workflow mode
-```
-
-Or set it manually in `.kata/preferences.md`:
+## Preferences
 
 ```yaml
 ---
 workflow:
   mode: linear
-linear:
-  teamKey: KAT
-  projectSlug: <your-project-slug>
 ---
 ```
 
-<Tip>
-  Use `linear_list_projects` or ask Kata to find your project slug if you're not sure what value to use.
-</Tip>
+## Runtime behavior
 
-<Note>
-  `linear_link: true` in the `pr` preferences block adds Linear issue references to PR bodies automatically. This requires Linear workflow mode to be enabled.
-</Note>
+- Config parsing accepts `linear` and `github` modes.
+- `kata doctor` reports parsed backend mode from `.kata/preferences.md`.
+- `kata setup` onboarding provisions GitHub mode fields.
+
+## Validate
+
+```bash
+kata doctor
+kata doctor --json
+```
