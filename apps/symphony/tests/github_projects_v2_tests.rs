@@ -121,7 +121,7 @@ async fn test_query_items_by_status_returns_matching_items() {
                                 {
                                     "id": "item_1",
                                     "content": { "number": 101 },
-                                    "fieldValueByName": {
+                                    "status": {
                                         "name": "Todo",
                                         "optionId": "opt_todo"
                                     }
@@ -129,7 +129,7 @@ async fn test_query_items_by_status_returns_matching_items() {
                                 {
                                     "id": "item_2",
                                     "content": { "number": 102 },
-                                    "fieldValueByName": {
+                                    "status": {
                                         "name": "Done",
                                         "optionId": "opt_done"
                                     }
@@ -137,7 +137,7 @@ async fn test_query_items_by_status_returns_matching_items() {
                                 {
                                     "id": "item_3",
                                     "content": { "number": 103 },
-                                    "fieldValueByName": null
+                                    "status": null
                                 }
                             ],
                             "pageInfo": {
@@ -163,6 +163,80 @@ async fn test_query_items_by_status_returns_matching_items() {
     assert_eq!(items[0].item_id, "item_1");
     assert_eq!(items[0].issue_number, 101);
     assert_eq!(items[0].status.as_deref(), Some("Todo"));
+}
+
+#[tokio::test]
+async fn test_query_items_decodes_aliased_text_fields() {
+    let mut server = Server::new_async().await;
+    let client = test_client(&server);
+
+    let mock = server
+        .mock("POST", "/graphql")
+        .match_body(Matcher::AllOf(vec![
+            Matcher::Regex("status:\\s*fieldValueByName".to_string()),
+            Matcher::Regex("kataId:\\s*fieldValueByName".to_string()),
+            Matcher::Regex("blockedBy:\\s*fieldValueByName".to_string()),
+            Matcher::Regex("blocking:\\s*fieldValueByName".to_string()),
+        ]))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            json!({
+                "data": {
+                    "node": {
+                        "items": {
+                            "nodes": [
+                                {
+                                    "id": "item_1",
+                                    "content": { "number": 201 },
+                                    "status": {
+                                        "name": "Todo",
+                                        "optionId": "opt_todo"
+                                    },
+                                    "kataId": { "text": "T201" },
+                                    "blockedBy": { "text": "T199, T200" },
+                                    "blocking": { "text": "T202" }
+                                },
+                                {
+                                    "id": "item_2",
+                                    "content": { "number": 202 },
+                                    "status": null,
+                                    "kataId": null,
+                                    "blockedBy": null
+                                }
+                            ],
+                            "pageInfo": {
+                                "hasNextPage": false,
+                                "endCursor": null
+                            }
+                        }
+                    }
+                }
+            })
+            .to_string(),
+        )
+        .create_async()
+        .await;
+
+    let items = client
+        .query_items_by_status("project_42", &[])
+        .await
+        .expect("item query should succeed");
+
+    mock.assert_async().await;
+    assert_eq!(items.len(), 2);
+    assert_eq!(items[0].item_id, "item_1");
+    assert_eq!(items[0].issue_number, 201);
+    assert_eq!(items[0].status.as_deref(), Some("Todo"));
+    assert_eq!(items[0].kata_id.as_deref(), Some("T201"));
+    assert_eq!(items[0].blocked_by.as_deref(), Some("T199, T200"));
+    assert_eq!(items[0].blocking.as_deref(), Some("T202"));
+    assert_eq!(items[1].item_id, "item_2");
+    assert_eq!(items[1].issue_number, 202);
+    assert_eq!(items[1].status, None);
+    assert_eq!(items[1].kata_id, None);
+    assert_eq!(items[1].blocked_by, None);
+    assert_eq!(items[1].blocking, None);
 }
 
 #[tokio::test]
@@ -215,8 +289,20 @@ fn test_projects_v2_queries_use_plain_status_literal() {
         "QUERY_PROJECT_FIELDS should use a plain GraphQL string literal"
     );
     assert!(
-        QUERY_PROJECT_ITEMS.contains("fieldValueByName(name: \"Status\")"),
-        "QUERY_PROJECT_ITEMS should use a plain GraphQL string literal"
+        QUERY_PROJECT_ITEMS.contains("status: fieldValueByName(name: \"Status\")"),
+        "QUERY_PROJECT_ITEMS should use a status alias and a plain GraphQL string literal"
+    );
+    assert!(
+        QUERY_PROJECT_ITEMS.contains("kataId: fieldValueByName(name: \"Kata ID\")"),
+        "QUERY_PROJECT_ITEMS should query the Kata ID text field"
+    );
+    assert!(
+        QUERY_PROJECT_ITEMS.contains("blockedBy: fieldValueByName(name: \"Kata Blocked By\")"),
+        "QUERY_PROJECT_ITEMS should query the Kata Blocked By text field"
+    );
+    assert!(
+        QUERY_PROJECT_ITEMS.contains("blocking: fieldValueByName(name: \"Kata Blocking\")"),
+        "QUERY_PROJECT_ITEMS should query the Kata Blocking text field"
     );
     assert!(
         !QUERY_PROJECT_FIELDS.contains("\\\"Status\\\""),

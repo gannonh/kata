@@ -102,7 +102,7 @@ fn project_item_node(
     json!({
         "id": item_id,
         "content": { "number": issue_number },
-        "fieldValueByName": {
+        "status": {
             "name": status_name,
             "optionId": option_id
         }

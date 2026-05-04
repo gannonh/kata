@@ -57,10 +57,25 @@ query($projectId: ID!, $first: Int!, $after: String) {
               number
             }
           }
-          fieldValueByName(name: "Status") {
+          status: fieldValueByName(name: "Status") {
             ... on ProjectV2ItemFieldSingleSelectValue {
               name
               optionId
+            }
+          }
+          kataId: fieldValueByName(name: "Kata ID") {
+            ... on ProjectV2ItemFieldTextValue {
+              text
+            }
+          }
+          blockedBy: fieldValueByName(name: "Kata Blocked By") {
+            ... on ProjectV2ItemFieldTextValue {
+              text
+            }
+          }
+          blocking: fieldValueByName(name: "Kata Blocking") {
+            ... on ProjectV2ItemFieldTextValue {
+              text
             }
           }
         }
@@ -109,6 +124,9 @@ pub struct ProjectItem {
     pub item_id: String,
     pub issue_number: u64,
     pub status: Option<String>,
+    pub kata_id: Option<String>,
+    pub blocked_by: Option<String>,
+    pub blocking: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -215,6 +233,9 @@ impl ProjectsV2Client {
                     item_id: node.id,
                     issue_number,
                     status: node.status.and_then(|status| status.name),
+                    kata_id: node.kata_id.and_then(|value| value.text),
+                    blocked_by: node.blocked_by.and_then(|value| value.text),
+                    blocking: node.blocking.and_then(|value| value.text),
                 });
             }
 
@@ -392,8 +413,12 @@ struct PageInfo {
 struct ProjectItemNode {
     id: String,
     content: Option<ProjectItemContent>,
-    #[serde(rename = "fieldValueByName")]
     status: Option<ProjectItemStatus>,
+    #[serde(rename = "kataId")]
+    kata_id: Option<ProjectItemTextValue>,
+    #[serde(rename = "blockedBy")]
+    blocked_by: Option<ProjectItemTextValue>,
+    blocking: Option<ProjectItemTextValue>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -406,6 +431,11 @@ struct ProjectItemStatus {
     name: Option<String>,
     #[serde(rename = "optionId")]
     option_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ProjectItemTextValue {
+    text: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
