@@ -618,6 +618,16 @@ describe("Phase A domain contract", () => {
           blockedBy: ["S001"],
           blocking: [],
         },
+        {
+          id: "S005",
+          milestoneId: "M004",
+          title: "Dependency label metadata",
+          goal: "Cover REQ-05",
+          status: "backlog",
+          order: 5,
+          blockedBy: [],
+          blocking: [],
+        },
       ],
       listTasks: async () => [],
       listArtifacts: async () => [],
@@ -635,8 +645,9 @@ describe("Phase A domain contract", () => {
               "| REQ-02 | S002 | S001 | Pending |",
               "Backend Slice: S003; Depends on: S001, S002; Covers REQ-03",
               "Slice ID: S004 — Blocked by [S003], [S001] — Covers REQ-04",
+              "Backend ID: S005; Dependencies: S002, S004; Covers REQ-05",
             ].join("\n")
-          : "REQ-01\nREQ-02\nREQ-03\nREQ-04",
+          : "REQ-01\nREQ-02\nREQ-03\nREQ-04\nREQ-05",
         format: "markdown",
         updatedAt: "2026-04-29T00:00:00.000Z",
         provenance: { backend: "github", backendId: "comment:4" },
@@ -646,20 +657,22 @@ describe("Phase A domain contract", () => {
     const snapshot = await dispatchKataOperation(api, "project.getSnapshot") as KataProjectSnapshot;
 
     expect(snapshot.roadmap).toMatchObject({
-      plannedSliceIds: ["S001", "S002", "S003", "S004"],
-      existingSliceIds: ["S001", "S002", "S003", "S004"],
+      plannedSliceIds: ["S001", "S002", "S003", "S004", "S005"],
+      existingSliceIds: ["S001", "S002", "S003", "S004", "S005"],
       missingSliceIds: [],
       requirementToSliceIds: {
         "REQ-01": ["S001"],
         "REQ-02": ["S002"],
         "REQ-03": ["S003"],
         "REQ-04": ["S004"],
+        "REQ-05": ["S005"],
       },
       sliceDependencies: {
         S001: { blockedBy: [], blocking: ["S002", "S003", "S004"] },
-        S002: { blockedBy: ["S001"], blocking: ["S003"] },
+        S002: { blockedBy: ["S001"], blocking: ["S003", "S005"] },
         S003: { blockedBy: ["S001", "S002"], blocking: ["S004"] },
-        S004: { blockedBy: ["S001", "S003"], blocking: [] },
+        S004: { blockedBy: ["S001", "S003"], blocking: ["S005"] },
+        S005: { blockedBy: ["S002", "S004"], blocking: [] },
       },
     });
     expect(snapshot.slices.find((slice) => slice.id === "S001")).toMatchObject({
@@ -672,6 +685,10 @@ describe("Phase A domain contract", () => {
     });
     expect(snapshot.slices.find((slice) => slice.id === "S004")).toMatchObject({
       blockedBy: ["S001", "S003"],
+      blocking: ["S005"],
+    });
+    expect(snapshot.slices.find((slice) => slice.id === "S005")).toMatchObject({
+      blockedBy: ["S002", "S004"],
       blocking: [],
     });
   });

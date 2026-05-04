@@ -438,7 +438,7 @@ function extractRoadmapBackendSliceIdsFromLine(line: string): string[] {
   for (const segment of splitRoadmapMetadataSegments(line)) {
     const match = labelPattern.exec(segment);
     if (!match) continue;
-    const value = match[1]?.split(/\b(?:depends\s+on|blocked\s+by|blocking|blocks)\b/i)[0] ?? "";
+    const value = match[1]?.split(/\b(?:depends\s+on|blocked\s+by|dependencies?|blocking|blocks)\b/i)[0] ?? "";
     ids.push(...extractSliceIds(value));
   }
 
@@ -575,7 +575,7 @@ function mergeSliceDependencyMaps(...maps: SliceDependencyMap[]): SliceDependenc
 function extractInlineDependencyIds(line: string, relation: "blockedBy" | "blocking"): string[] {
   const ids: string[] = [];
   const pattern = relation === "blockedBy"
-    ? /\b(?:depends\s+on|blocked\s+by)\b\s*:?\s*(.*)$/i
+    ? /\b(?:depends\s+on|blocked\s+by|dependencies?)\b\s*:?\s*(.*)$/i
     : /\b(?:blocking|blocks)\b\s*:?\s*(.*)$/i;
 
   for (const segment of splitRoadmapMetadataSegments(line)) {
