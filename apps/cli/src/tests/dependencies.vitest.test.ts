@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  formatSliceDependencyIdsForTextField,
   normalizeSliceDependencyId,
   parseSliceDependencyIds,
 } from "../domain/dependencies.js";
@@ -48,10 +47,5 @@ describe("slice dependency helpers", () => {
   it("ignores malformed dependency values without slice identifiers", () => {
     expect(parseSliceDependencyIds("M001, issue #1, task T001, []")).toEqual([]);
     expect(parseSliceDependencyIds(["S00A", 1, { id: "S001" }])).toEqual([]);
-  });
-
-  it("formats dependencies for GitHub Project text fields", () => {
-    expect(formatSliceDependencyIdsForTextField(["s002", "[S001] First slice", "S002", "bad"])).toBe("S002\nS001");
-    expect(formatSliceDependencyIdsForTextField([])).toBe("");
   });
 });

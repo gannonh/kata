@@ -166,7 +166,7 @@ async fn test_query_items_by_status_returns_matching_items() {
 }
 
 #[tokio::test]
-async fn test_query_items_decodes_aliased_text_fields() {
+async fn test_query_items_decodes_native_issue_dependencies() {
     let mut server = Server::new_async().await;
     let client = test_client(&server);
 
@@ -175,8 +175,7 @@ async fn test_query_items_decodes_aliased_text_fields() {
         .match_body(Matcher::AllOf(vec![
             Matcher::Regex("status:\\s*fieldValueByName".to_string()),
             Matcher::Regex("kataId:\\s*fieldValueByName".to_string()),
-            Matcher::Regex("blockedBy:\\s*fieldValueByName".to_string()),
-            Matcher::Regex("blocking:\\s*fieldValueByName".to_string()),
+            Matcher::Regex("blockedBy\\(first: 100\\)".to_string()),
         ]))
         .with_status(200)
         .with_header("content-type", "application/json")
@@ -188,21 +187,26 @@ async fn test_query_items_decodes_aliased_text_fields() {
                             "nodes": [
                                 {
                                     "id": "item_1",
-                                    "content": { "number": 201 },
+                                    "content": {
+                                        "number": 201,
+                                        "blockedBy": {
+                                            "nodes": [
+                                                { "number": 199 },
+                                                { "number": 200 }
+                                            ]
+                                        }
+                                    },
                                     "status": {
                                         "name": "Todo",
                                         "optionId": "opt_todo"
                                     },
-                                    "kataId": { "text": "T201" },
-                                    "blockedBy": { "text": "T199, T200" },
-                                    "blocking": { "text": "T202" }
+                                    "kataId": { "text": "T201" }
                                 },
                                 {
                                     "id": "item_2",
-                                    "content": { "number": 202 },
+                                    "content": { "number": 202, "blockedBy": { "nodes": [] } },
                                     "status": null,
-                                    "kataId": null,
-                                    "blockedBy": null
+                                    "kataId": null
                                 }
                             ],
                             "pageInfo": {
@@ -229,14 +233,12 @@ async fn test_query_items_decodes_aliased_text_fields() {
     assert_eq!(items[0].issue_number, 201);
     assert_eq!(items[0].status.as_deref(), Some("Todo"));
     assert_eq!(items[0].kata_id.as_deref(), Some("T201"));
-    assert_eq!(items[0].blocked_by.as_deref(), Some("T199, T200"));
-    assert_eq!(items[0].blocking.as_deref(), Some("T202"));
+    assert_eq!(items[0].blocked_by_issue_numbers, vec![199, 200]);
     assert_eq!(items[1].item_id, "item_2");
     assert_eq!(items[1].issue_number, 202);
     assert_eq!(items[1].status, None);
     assert_eq!(items[1].kata_id, None);
-    assert_eq!(items[1].blocked_by, None);
-    assert_eq!(items[1].blocking, None);
+    assert!(items[1].blocked_by_issue_numbers.is_empty());
 }
 
 #[tokio::test]
@@ -297,12 +299,13 @@ fn test_projects_v2_queries_use_plain_status_literal() {
         "QUERY_PROJECT_ITEMS should query the Kata ID text field"
     );
     assert!(
-        QUERY_PROJECT_ITEMS.contains("blockedBy: fieldValueByName(name: \"Kata Blocked By\")"),
-        "QUERY_PROJECT_ITEMS should query the Kata Blocked By text field"
+        QUERY_PROJECT_ITEMS.contains("blockedBy(first: 100)"),
+        "QUERY_PROJECT_ITEMS should query native issue dependencies"
     );
     assert!(
-        QUERY_PROJECT_ITEMS.contains("blocking: fieldValueByName(name: \"Kata Blocking\")"),
-        "QUERY_PROJECT_ITEMS should query the Kata Blocking text field"
+        !QUERY_PROJECT_ITEMS.contains("Kata Blocked By")
+            && !QUERY_PROJECT_ITEMS.contains("Kata Blocking"),
+        "QUERY_PROJECT_ITEMS should not query custom dependency text fields"
     );
     assert!(
         !QUERY_PROJECT_FIELDS.contains("\\\"Status\\\""),

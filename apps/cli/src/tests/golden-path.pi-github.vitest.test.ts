@@ -69,9 +69,9 @@ github:
         packageVersion: "9.9.9-test",
         githubClients: githubClient as any,
       });
-      expect(doctor.status).toBe("warn");
+      expect(doctor.status).toBe("ok");
       expect(doctor.harness).toBe("pi");
-      expect(doctor.checks.find((check) => check.name === "kata-skills")?.status).toBe("warn");
+      expect(doctor.checks.find((check) => check.name === "kata-skills")?.status).toBe("ok");
       expect(doctor.checks.find((check) => check.name === "pi-skills-dir")?.status).toBe("ok");
       expect(doctor.checks.find((check) => check.name === "pi-settings")?.status).toBe("ok");
       expect(doctor.checks.find((check) => check.name === "backend-config")?.status).toBe("ok");
@@ -267,8 +267,8 @@ github:
         githubClients: createGoldenFakeGithubClient() as any,
       });
 
-      expect(doctor.status).toBe("warn");
-      expect(doctor.checks.find((check) => check.name === "kata-skills")?.status).toBe("warn");
+      expect(doctor.status).toBe("ok");
+      expect(doctor.checks.find((check) => check.name === "kata-skills")?.status).toBe("ok");
       expect(doctor.checks.find((check) => check.name === "github-auth")).toMatchObject({ status: "ok" });
       expect(doctor.checks.find((check) => check.name === "github-project-fields")).toMatchObject({ status: "ok" });
     } finally {
@@ -299,8 +299,6 @@ function createGoldenFakeGithubClient() {
                   { id: "kata-parent-id-field-id", name: "Kata Parent ID", dataType: "TEXT" },
                   { id: "kata-artifact-scope-field-id", name: "Kata Artifact Scope", dataType: "TEXT" },
                   { id: "kata-verification-state-field-id", name: "Kata Verification State", dataType: "TEXT" },
-                  { id: "kata-blocking-field-id", name: "Kata Blocking", dataType: "TEXT" },
-                  { id: "kata-blocked-by-field-id", name: "Kata Blocked By", dataType: "TEXT" },
                 ],
               },
             },

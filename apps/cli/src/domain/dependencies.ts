@@ -25,10 +25,6 @@ export function parseSliceDependencyIds(value: unknown): string[] {
   return dependencies;
 }
 
-export function formatSliceDependencyIdsForTextField(value: readonly string[]): string {
-  return parseSliceDependencyIds(value).join("\n");
-}
-
 function parseDependencyValue(value: unknown): string[] {
   if (typeof value === "string") return parseDependencyString(value);
   if (Array.isArray(value)) return value.flatMap((item) => parseDependencyValue(item));

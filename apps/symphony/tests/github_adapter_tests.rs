@@ -110,17 +110,45 @@ fn project_item_node_with_fields(
     kata_id: Option<&str>,
     blocked_by: Option<&str>,
 ) -> serde_json::Value {
+    let blocked_by_nodes = blocked_by_issue_numbers(blocked_by.unwrap_or_default())
+        .into_iter()
+        .map(|number| json!({ "number": number }))
+        .collect::<Vec<_>>();
+
     json!({
         "id": item_id,
-        "content": { "number": issue_number },
+        "content": {
+            "number": issue_number,
+            "blockedBy": { "nodes": blocked_by_nodes }
+        },
         "status": {
             "name": status_name,
             "optionId": option_id
         },
-        "kataId": kata_id.map(|text| json!({ "text": text })),
-        "blockedBy": blocked_by.map(|text| json!({ "text": text })),
-        "blocking": null
+        "kataId": kata_id.map(|text| json!({ "text": text }))
     })
+}
+
+fn blocked_by_issue_numbers(value: &str) -> Vec<u64> {
+    let after_hash = value
+        .split('#')
+        .skip(1)
+        .filter_map(|segment| {
+            let digits = segment
+                .chars()
+                .take_while(|ch| ch.is_ascii_digit())
+                .collect::<String>();
+            digits.parse::<u64>().ok()
+        })
+        .collect::<Vec<_>>();
+    if !after_hash.is_empty() {
+        return after_hash;
+    }
+
+    value
+        .split(|ch: char| !ch.is_ascii_digit())
+        .filter_map(|segment| segment.parse::<u64>().ok())
+        .collect()
 }
 
 fn project_item_node_without_dependency_fields(
@@ -1662,7 +1690,7 @@ async fn test_projects_v2_candidate_preserves_unknown_blocker_without_issue_fetc
 
     assert_eq!(issues.len(), 1);
     assert_eq!(issues[0].blocked_by.len(), 1);
-    assert_eq!(issues[0].blocked_by[0].id, None);
+    assert_eq!(issues[0].blocked_by[0].id.as_deref(), Some("999"));
     assert_eq!(issues[0].blocked_by[0].identifier.as_deref(), Some("#999"));
     assert_eq!(issues[0].blocked_by[0].state, None);
 }

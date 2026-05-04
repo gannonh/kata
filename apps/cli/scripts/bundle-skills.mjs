@@ -332,8 +332,6 @@ function renderSetupReference(skill) {
     "- `Kata Parent ID` — Text field",
     "- `Kata Artifact Scope` — Text field",
     "- `Kata Verification State` — Text field",
-    "- `Kata Blocking` — Text field with comma-separated Kata IDs",
-    "- `Kata Blocked By` — Text field with comma-separated Kata IDs",
     "",
     "In GitHub Project table view, add a text field from the rightmost field header: click `+`, choose `New field`, enter the exact name, choose `Text`, and save.",
     "",

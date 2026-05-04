@@ -429,7 +429,7 @@ describe("GithubProjectsV2Adapter", () => {
     );
   });
 
-  it("serializes canonical blockedBy dependencies when creating slices", async () => {
+  it("creates native GitHub dependencies when creating blocked slices", async () => {
     const client = createFakeGithubClient();
     const adapter = new GithubProjectsV2Adapter({
       owner: "kata-sh",
@@ -443,42 +443,39 @@ describe("GithubProjectsV2Adapter", () => {
       title: "Phase A",
       goal: "Real backend",
     });
+    const blocker = await adapter.createSlice({
+      milestoneId: milestone.id,
+      title: "Foundation",
+      goal: "First slice",
+    });
     const slice = await adapter.createSlice({
       milestoneId: milestone.id,
       title: "Wire dependencies",
-      goal: "Use stored values",
-      blockedBy: ["s1", "[S002]", "S001"],
+      goal: "Use native relationships",
+      blockedBy: [blocker.id, "[S001]", "bad"],
     });
 
     expect(slice).toMatchObject({
-      id: "S001",
-      blockedBy: ["S001", "S002"],
+      id: "S002",
+      blockedBy: ["S001"],
       blocking: [],
     });
     await expect(adapter.listSlices({ milestoneId: milestone.id })).resolves.toMatchObject([
-      { id: "S001", blockedBy: ["S001", "S002"], blocking: [] },
+      { id: "S001", blockedBy: [], blocking: ["S002"] },
+      { id: "S002", blockedBy: ["S001"], blocking: [] },
     ]);
     expect(client.graphql).toHaveBeenCalledWith(
       expect.objectContaining({
-        variables: expect.objectContaining({
-          itemId: "project-item-2",
-          fieldId: "kata-blocked-by-field-id",
-          value: { text: "S001\nS002" },
-        }),
-      }),
-    );
-    expect(client.graphql).toHaveBeenCalledWith(
-      expect.objectContaining({
-        variables: expect.objectContaining({
-          itemId: "project-item-2",
-          fieldId: "kata-blocking-field-id",
-          value: { text: "" },
-        }),
+        query: expect.stringContaining("AddKataIssueBlockedBy"),
+        variables: {
+          issueId: "issue-node-3",
+          blockingIssueId: "issue-node-2",
+        },
       }),
     );
   });
 
-  it("reflects manually populated Project v2 dependency fields in project snapshots", async () => {
+  it("reflects native GitHub issue dependencies in project snapshots", async () => {
     const client = createFakeGithubClient({
       issues: [
         {
@@ -527,15 +524,11 @@ describe("GithubProjectsV2Adapter", () => {
           id: "project-item-2",
           content: { id: "issue-node-2", number: 2 },
           kataId: { text: "S001" },
-          blockedBy: { text: "" },
-          blocking: { text: "s2" },
           status: { name: "Backlog" },
         },
         {
           id: "project-item-3",
           kataId: { text: "S002" },
-          blockedBy: { text: "s1\n[S001]" },
-          blocking: { text: "" },
           status: { name: "In Progress" },
         },
         {
@@ -544,6 +537,7 @@ describe("GithubProjectsV2Adapter", () => {
           kataId: { text: "S003" },
         },
       ],
+      nativeDependencies: [{ blocked: 3, blocker: 2 }],
     });
     const adapter = new GithubProjectsV2Adapter({
       owner: "kata-sh",
@@ -569,7 +563,7 @@ describe("GithubProjectsV2Adapter", () => {
     });
     expect(client.graphql).toHaveBeenCalledWith(
       expect.objectContaining({
-        query: expect.stringContaining("LoadKataProjectItemDependencyFields"),
+        query: expect.stringContaining("LoadKataProjectItemFields"),
       }),
     );
     expect(client.graphql).toHaveBeenCalledWith(
@@ -1014,9 +1008,16 @@ github:
 });
 
 function createFakeGithubClient(
-  input: { issues?: any[]; issueListSnapshots?: any[][]; projectFields?: any[]; projectItems?: any[] } = {},
+  input: {
+    issues?: any[];
+    issueListSnapshots?: any[][];
+    projectFields?: any[];
+    projectItems?: any[];
+    nativeDependencies?: Array<{ blocked: number; blocker: number }>;
+  } = {},
 ) {
   const issues = [...(input.issues ?? [])];
+  const nativeDependencies = [...(input.nativeDependencies ?? [])];
   const commentsByIssue = new Map<number, any[]>();
   let nextIssueNumber = issues.reduce((max, issue) => Math.max(max, Number(issue.number) || 0), 0) + 1;
   let nextProjectItemNumber = 1;
@@ -1040,7 +1041,43 @@ function createFakeGithubClient(
         };
       }
 
-      if (request.query.includes("LoadKataProjectItemDependencyFields")) {
+      if (request.query.includes("LoadKataIssueDependencies")) {
+        return {
+          nodes: request.variables.ids.map((id: string) => {
+            const issue = issues.find((candidate) => candidate.node_id === id);
+            if (!issue) return null;
+            return {
+              id: issue.node_id,
+              number: issue.number,
+              blockedBy: {
+                nodes: nativeDependencies
+                  .filter((dependency) => dependency.blocked === issue.number)
+                  .map((dependency) => issues.find((candidate) => candidate.number === dependency.blocker))
+                  .filter(Boolean)
+                  .map((candidate) => ({ id: candidate.node_id, number: candidate.number })),
+              },
+              blocking: {
+                nodes: nativeDependencies
+                  .filter((dependency) => dependency.blocker === issue.number)
+                  .map((dependency) => issues.find((candidate) => candidate.number === dependency.blocked))
+                  .filter(Boolean)
+                  .map((candidate) => ({ id: candidate.node_id, number: candidate.number })),
+              },
+            };
+          }),
+        };
+      }
+
+      if (request.query.includes("AddKataIssueBlockedBy")) {
+        const blocked = issues.find((issue) => issue.node_id === request.variables.issueId);
+        const blocker = issues.find((issue) => issue.node_id === request.variables.blockingIssueId);
+        if (blocked && blocker && !nativeDependencies.some((dependency) => dependency.blocked === blocked.number && dependency.blocker === blocker.number)) {
+          nativeDependencies.push({ blocked: blocked.number, blocker: blocker.number });
+        }
+        return { addBlockedBy: { issue: { id: request.variables.issueId } } };
+      }
+
+      if (request.query.includes("LoadKataProjectItemFields")) {
         return {
           organization: {
             projectV2: {
@@ -1087,6 +1124,32 @@ function createFakeGithubClient(
         const comment = { id: nextCommentId++, body: request.body.body };
         commentsByIssue.set(issueNumber, [...(commentsByIssue.get(issueNumber) ?? []), comment]);
         return comment;
+      }
+
+      const blockedByMatch = request.path.match(/^\/repos\/kata-sh\/uat\/issues\/(\d+)\/dependencies\/blocked_by$/);
+      if (request.method === "GET" && blockedByMatch) {
+        const issueNumber = Number(blockedByMatch[1]);
+        return nativeDependencies
+          .filter((dependency) => dependency.blocked === issueNumber)
+          .map((dependency) => issues.find((issue) => issue.number === dependency.blocker))
+          .filter(Boolean);
+      }
+      if (request.method === "POST" && blockedByMatch) {
+        const issueNumber = Number(blockedByMatch[1]);
+        const blocker = issues.find((issue) => issue.id === request.body.issue_id);
+        if (blocker && !nativeDependencies.some((dependency) => dependency.blocked === issueNumber && dependency.blocker === blocker.number)) {
+          nativeDependencies.push({ blocked: issueNumber, blocker: blocker.number });
+        }
+        return undefined;
+      }
+
+      const blockingMatch = request.path.match(/^\/repos\/kata-sh\/uat\/issues\/(\d+)\/dependencies\/blocking$/);
+      if (request.method === "GET" && blockingMatch) {
+        const issueNumber = Number(blockingMatch[1]);
+        return nativeDependencies
+          .filter((dependency) => dependency.blocker === issueNumber)
+          .map((dependency) => issues.find((issue) => issue.number === dependency.blocked))
+          .filter(Boolean);
       }
 
       const subIssuesMatch = request.path.match(/^\/repos\/kata-sh\/uat\/issues\/(\d+)\/sub_issues$/);
@@ -1161,7 +1224,5 @@ function validProjectFields(input: { statusOptions?: Array<{ id: string; name: s
     { id: "kata-parent-id-field-id", name: "Kata Parent ID", dataType: "TEXT" },
     { id: "kata-artifact-scope-field-id", name: "Kata Artifact Scope", dataType: "TEXT" },
     { id: "kata-verification-state-field-id", name: "Kata Verification State", dataType: "TEXT" },
-    { id: "kata-blocking-field-id", name: "Kata Blocking", dataType: "TEXT" },
-    { id: "kata-blocked-by-field-id", name: "Kata Blocked By", dataType: "TEXT" },
   ];
 }

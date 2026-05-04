@@ -32,54 +32,25 @@ impl std::fmt::Display for StateMode {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct ParsedBlockerIdentifier {
-    kata_id: Option<String>,
-    issue_number: Option<u64>,
-    identifier: String,
-}
-
 struct ProjectItemBlockerLookup<'a> {
-    by_kata_id: HashMap<String, &'a ProjectItem>,
     by_issue_number: HashMap<u64, &'a ProjectItem>,
 }
 
 impl<'a> ProjectItemBlockerLookup<'a> {
     fn new(items: &'a [ProjectItem]) -> Self {
-        let mut by_kata_id = HashMap::new();
-        let mut by_issue_number = HashMap::new();
+        let by_issue_number = items.iter().map(|item| (item.issue_number, item)).collect();
 
-        for item in items {
-            by_issue_number.insert(item.issue_number, item);
-            if let Some(kata_id) = item.kata_id.as_deref().and_then(normalize_kata_field_id) {
-                by_kata_id.insert(kata_id, item);
-            }
-        }
-
-        Self {
-            by_kata_id,
-            by_issue_number,
-        }
+        Self { by_issue_number }
     }
 
-    fn resolve(&self, parsed: &ParsedBlockerIdentifier) -> BlockerRef {
-        let item = parsed
-            .kata_id
-            .as_deref()
-            .and_then(|kata_id| self.by_kata_id.get(kata_id).copied())
-            .or_else(|| {
-                parsed
-                    .issue_number
-                    .and_then(|number| self.by_issue_number.get(&number).copied())
-            });
-
-        if let Some(item) = item {
+    fn resolve_issue_number(&self, issue_number: u64) -> BlockerRef {
+        if let Some(item) = self.by_issue_number.get(&issue_number).copied() {
             return project_item_to_blocker_ref(item);
         }
 
         BlockerRef {
-            id: None,
-            identifier: Some(parsed.identifier.clone()),
+            id: Some(issue_number.to_string()),
+            identifier: Some(format_blocker_identifier(None, Some(issue_number))),
             state: None,
         }
     }
@@ -429,7 +400,7 @@ impl GithubAdapter {
 
         let has_blockers = project_items
             .iter()
-            .any(|item| project_item_blocked_by_text(item).is_some());
+            .any(|item| !item.blocked_by_issue_numbers.is_empty());
         let blocker_lookup_items = if has_blockers {
             let no_filter: Vec<String> = Vec::new();
             v2_client
@@ -481,8 +452,12 @@ impl GithubAdapter {
 
             let issue_state = item.status.as_deref().unwrap_or_default();
             let mut domain_issue = self.issue_to_domain_with_state(&issue, Some(issue_state));
-            if let Some(blocked_by) = project_item_blocked_by_text(&item) {
-                domain_issue.blocked_by = resolve_project_blockers(blocked_by, &blocker_lookup);
+            if !item.blocked_by_issue_numbers.is_empty() {
+                domain_issue.blocked_by = item
+                    .blocked_by_issue_numbers
+                    .iter()
+                    .map(|issue_number| blocker_lookup.resolve_issue_number(*issue_number))
+                    .collect();
             }
             issues.push(domain_issue);
         }
@@ -854,94 +829,6 @@ fn parse_issue_number_from_url(url: &str) -> Option<u64> {
     let segment = trimmed.rsplit('/').next()?;
     let segment = segment.split(&['?', '#'][..]).next()?;
     segment.parse::<u64>().ok()
-}
-
-fn project_item_blocked_by_text(item: &ProjectItem) -> Option<&str> {
-    item.blocked_by
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-}
-
-fn resolve_project_blockers(
-    blocked_by: &str,
-    lookup: &ProjectItemBlockerLookup<'_>,
-) -> Vec<BlockerRef> {
-    parse_project_blocker_identifiers(blocked_by)
-        .iter()
-        .map(|parsed| lookup.resolve(parsed))
-        .collect()
-}
-
-fn parse_project_blocker_identifiers(raw: &str) -> Vec<ParsedBlockerIdentifier> {
-    let mut parsed = Vec::new();
-
-    for segment in raw.split([',', '\n', ';']) {
-        let segment = clean_blocker_segment(segment);
-        if segment.is_empty() {
-            continue;
-        }
-
-        let mut segment_matches = parse_project_blocker_segment(&segment);
-        if segment_matches.is_empty() {
-            parsed.push(ParsedBlockerIdentifier {
-                kata_id: None,
-                issue_number: None,
-                identifier: segment,
-            });
-        } else {
-            parsed.append(&mut segment_matches);
-        }
-    }
-
-    parsed
-}
-
-fn parse_project_blocker_segment(segment: &str) -> Vec<ParsedBlockerIdentifier> {
-    if segment.contains('/') {
-        return Vec::new();
-    }
-
-    let pattern = regex::Regex::new(
-        r"(?i)\[([MST]\d+)\]\s*(?:#\s*(\d+))?|\b([MST]\d+)\b\s*(?:#\s*(\d+))?|#\s*(\d+)",
-    )
-    .expect("blocker identifier regex must compile");
-
-    pattern
-        .captures_iter(segment)
-        .filter_map(|captures| {
-            let kata_id = captures
-                .get(1)
-                .or_else(|| captures.get(3))
-                .and_then(|matched| normalize_kata_field_id(matched.as_str()));
-            let issue_number = captures
-                .get(2)
-                .or_else(|| captures.get(4))
-                .or_else(|| captures.get(5))
-                .and_then(|matched| matched.as_str().parse::<u64>().ok());
-
-            if kata_id.is_none() && issue_number.is_none() {
-                return None;
-            }
-
-            let identifier = format_blocker_identifier(kata_id.as_deref(), issue_number);
-            Some(ParsedBlockerIdentifier {
-                kata_id,
-                issue_number,
-                identifier,
-            })
-        })
-        .collect()
-}
-
-fn clean_blocker_segment(segment: &str) -> String {
-    segment
-        .trim()
-        .trim_start_matches(|ch: char| ch == '-' || ch == '*' || ch.is_whitespace())
-        .trim()
-        .trim_matches('`')
-        .trim()
-        .to_string()
 }
 
 fn normalize_kata_field_id(value: &str) -> Option<String> {

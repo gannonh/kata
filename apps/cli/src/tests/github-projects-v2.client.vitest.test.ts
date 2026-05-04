@@ -251,8 +251,6 @@ function validProjectFields(input: { statusOptions?: Array<{ id: string; name: s
     { id: "kata-parent-id-field-id", name: "Kata Parent ID", dataType: "TEXT" },
     { id: "kata-artifact-scope-field-id", name: "Kata Artifact Scope", dataType: "TEXT" },
     { id: "kata-verification-state-field-id", name: "Kata Verification State", dataType: "TEXT" },
-    { id: "kata-blocking-field-id", name: "Kata Blocking", dataType: "TEXT" },
-    { id: "kata-blocked-by-field-id", name: "Kata Blocked By", dataType: "TEXT" },
   ];
 }
 

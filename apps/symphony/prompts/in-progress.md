@@ -61,12 +61,17 @@ This is a Kata task under parent slice {{ issue.parent_identifier }}.
 4. Run all required validation gates.
 5. Re-check acceptance criteria and close any gaps.
 6. Push branch updates and open/update PR targeting `{{ workspace.base_branch }}`.
+7. Ensure the PR body references this issue:
+   - Use the PR host's closing-reference syntax when supported.
+   - Prefer the short issue reference, such as `#123`, over a URL when available.
+   - If no closing reference can be formed, include a `Refs` line using the best available issue reference.
 
 ## Publish proofs (required)
 
 - `git ls-remote --exit-code --heads origin "$(git branch --show-current)"`
-- `gh pr view --json url,state,headRefName,baseRefName`
+- `gh pr view --json url,state,headRefName,baseRefName,body`
 - PR must be `OPEN` and `headRefName` must equal current branch.
+- PR body must reference this issue as described above.
 
 ## State transition
 
