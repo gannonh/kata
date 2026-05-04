@@ -438,7 +438,7 @@ function extractRoadmapBackendSliceIdsFromLine(line: string): string[] {
   for (const segment of splitRoadmapMetadataSegments(line)) {
     const match = labelPattern.exec(segment);
     if (!match) continue;
-    const value = match[1]?.split(/\b(?:depends\s+on|blocked\s+by|dependency|dependencies|blocking|blocks)\b/i)[0] ?? "";
+    const value = match[1]?.split(ROADMAP_METADATA_LABEL_TERMINATOR_PATTERN)[0] ?? "";
     ids.push(...extractSliceIds(value));
   }
 
@@ -467,9 +467,13 @@ function backendSliceColumnIndexes(cells: string[]): number[] {
 
 type SliceDependencyMap = Record<string, KataProjectSnapshotSliceDependencies>;
 
+const ROADMAP_METADATA_LABEL_TERMINATOR_PATTERN = /\b(?:depends\s+on|blocked\s+by|dependency|dependencies|blocking|blocks)\b/i;
+const BLOCKED_BY_ROADMAP_LABEL_PATTERN = /\b(?:kata\s+blocked\s+by|blocked\s+by|depends\s+on|dependency|dependencies)\b/i;
+const INLINE_BLOCKED_BY_ROADMAP_LABEL_PATTERN = /\b(?:depends\s+on|blocked\s+by|dependency|dependencies)\b\s*:?\s*(.*)$/i;
+
 function blockedByDependencyColumnIndexes(cells: string[]): number[] {
   return cells
-    .map((cell, index) => (/\b(?:kata\s+blocked\s+by|blocked\s+by|depends\s+on|dependency|dependencies)\b/i.test(cell) ? index : -1))
+    .map((cell, index) => (BLOCKED_BY_ROADMAP_LABEL_PATTERN.test(cell) ? index : -1))
     .filter((index) => index >= 0);
 }
 
@@ -575,7 +579,7 @@ function mergeSliceDependencyMaps(...maps: SliceDependencyMap[]): SliceDependenc
 function extractInlineDependencyIds(line: string, relation: "blockedBy" | "blocking"): string[] {
   const ids: string[] = [];
   const pattern = relation === "blockedBy"
-    ? /\b(?:depends\s+on|blocked\s+by|dependency|dependencies)\b\s*:?\s*(.*)$/i
+    ? INLINE_BLOCKED_BY_ROADMAP_LABEL_PATTERN
     : /\b(?:blocking|blocks)\b\s*:?\s*(.*)$/i;
 
   for (const segment of splitRoadmapMetadataSegments(line)) {
