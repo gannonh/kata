@@ -18,6 +18,7 @@
     "build": "turbo run build",
     "build:cli:pi": "pnpm --dir apps/cli run build && node apps/cli/dist/loader.js setup --pi",
     "build:cli:local": "pnpm --dir apps/cli run build && node apps/cli/dist/loader.js setup --local",
+    "build:cli:global": "pnpm --dir apps/cli run build && node apps/cli/dist/loader.js setup --global",
     "validate": "pnpm exec turbo run lint typecheck test",
     "validate:affected": "pnpm exec turbo run lint typecheck test --affected",
     "verify:pnpm": "bash scripts/verify-pnpm-migration.sh",
