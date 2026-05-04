@@ -27,7 +27,7 @@ Use only backend-neutral tracker/artifact/state operations:
 ## State transition
 
 When replacement implementation + publish proofs are complete:
-- `issue.update-state` using `{"issueId":"<current-issue-id>","state":"Agent Review"}`.
+- `issue.update-state` using `{"issueId":"@current","state":"Agent Review"}`.
 
 ## Guardrails
 

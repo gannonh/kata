@@ -331,15 +331,15 @@ server:
 | `HOME`                | Used for tilde (`~`) expansion in `workspace.root`.                                                                                                                  |
 | `SYMPHONY_SSH_CONFIG` | Path to a custom SSH config file. When set, Symphony passes `-F <path>` to every `ssh` invocation. Useful for custom host keys, ProxyJump, or IdentityFile settings. |
 
-### Hook Environment Variables
+### Issue Environment Variables
 
-The following variables are injected for every lifecycle hook invocation:
+The following variables are injected for every lifecycle hook and worker session:
 
 | Variable                    | Description                                               |
 | --------------------------- | --------------------------------------------------------- |
-| `SYMPHONY_ISSUE_ID`         | Linear issue UUID.                                        |
-| `SYMPHONY_ISSUE_IDENTIFIER` | Human-readable issue identifier (for example, `KAT-800`). |
-| `SYMPHONY_ISSUE_TITLE`      | Linear issue title.                                       |
+| `SYMPHONY_ISSUE_ID`         | Opaque backend issue ID for helper payloads.               |
+| `SYMPHONY_ISSUE_IDENTIFIER` | Human-readable display identifier.                         |
+| `SYMPHONY_ISSUE_TITLE`      | Issue title.                                               |
 | `SYMPHONY_WORKSPACE_PATH`   | Absolute path to the workspace directory.                 |
 
 ### `$VAR` Indirection Pattern

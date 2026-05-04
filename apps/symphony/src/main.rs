@@ -934,7 +934,6 @@ fn read_helper_input(input_path: Option<&str>) -> Result<serde_json::Value, Stri
         })
 }
 
-#[cfg(not(test))]
 fn helper_required_str(input: &serde_json::Value, field: &str) -> Result<String, String> {
     input
         .get(field)
@@ -945,7 +944,6 @@ fn helper_required_str(input: &serde_json::Value, field: &str) -> Result<String,
         .ok_or_else(|| format!("helper input field `{field}` must be a non-empty string"))
 }
 
-#[cfg(not(test))]
 fn helper_optional_str(input: &serde_json::Value, field: &str) -> Option<String> {
     input
         .get(field)
@@ -953,6 +951,63 @@ fn helper_optional_str(input: &serde_json::Value, field: &str) -> Option<String>
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(ToString::to_string)
+}
+
+fn helper_current_issue_id() -> Option<String> {
+    std::env::var("SYMPHONY_ISSUE_ID")
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+fn helper_current_issue_identifier() -> Option<String> {
+    std::env::var("SYMPHONY_ISSUE_IDENTIFIER")
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+fn resolve_helper_issue_id_value(
+    raw: String,
+    field: &str,
+    current_id: Option<String>,
+    current_identifier: Option<String>,
+) -> Result<String, String> {
+    if raw == "@current" {
+        return current_id.ok_or_else(|| {
+            format!("helper input field `{field}` used @current, but SYMPHONY_ISSUE_ID is not set")
+        });
+    }
+
+    if let (Some(current_id), Some(current_identifier)) = (current_id, current_identifier) {
+        if raw == current_identifier {
+            return Ok(current_id);
+        }
+    }
+
+    Ok(raw)
+}
+
+fn helper_issue_id_value(raw: String, field: &str) -> Result<String, String> {
+    resolve_helper_issue_id_value(
+        raw,
+        field,
+        helper_current_issue_id(),
+        helper_current_issue_identifier(),
+    )
+}
+
+fn helper_issue_id(input: &serde_json::Value, field: &str) -> Result<String, String> {
+    helper_issue_id_value(helper_required_str(input, field)?, field)
+}
+
+fn helper_optional_issue_id(
+    input: &serde_json::Value,
+    field: &str,
+) -> Result<Option<String>, String> {
+    helper_optional_str(input, field)
+        .map(|value| helper_issue_id_value(value, field))
+        .transpose()
 }
 
 fn normalize_github_issue_id(issue_id: &str) -> String {
@@ -1443,7 +1498,7 @@ async fn run_github_helper(
 
     match operation {
         "issue.get" => {
-            let issue_id = normalize_github_issue_id(&helper_required_str(&input, "issueId")?);
+            let issue_id = normalize_github_issue_id(&helper_issue_id(&input, "issueId")?);
             github_issue_payload(
                 &adapter,
                 &issue_id,
@@ -1453,7 +1508,7 @@ async fn run_github_helper(
             .await
         }
         "issue.list-children" => {
-            let issue_id = normalize_github_issue_id(&helper_required_str(&input, "issueId")?);
+            let issue_id = normalize_github_issue_id(&helper_issue_id(&input, "issueId")?);
             let number = parse_github_issue_number(&issue_id)?;
             let child_ids: Vec<String> = adapter
                 .client
@@ -1474,7 +1529,7 @@ async fn run_github_helper(
             Ok(serde_json::json!({ "children": children }))
         }
         "comment.upsert" => {
-            let issue_id = normalize_github_issue_id(&helper_required_str(&input, "issueId")?);
+            let issue_id = normalize_github_issue_id(&helper_issue_id(&input, "issueId")?);
             let body = helper_required_str(&input, "body")?;
             let marker = helper_optional_str(&input, "marker");
             let comment =
@@ -1482,7 +1537,7 @@ async fn run_github_helper(
             Ok(serde_json::json!({ "comment": comment }))
         }
         "issue.update-state" => {
-            let issue_id = normalize_github_issue_id(&helper_required_str(&input, "issueId")?);
+            let issue_id = normalize_github_issue_id(&helper_issue_id(&input, "issueId")?);
             let state = helper_required_str(&input, "state")?;
             adapter
                 .update_issue_state(&issue_id, &state)
@@ -1493,7 +1548,7 @@ async fn run_github_helper(
         "issue.create-followup" => {
             let title = helper_required_str(&input, "title")?;
             let description = helper_required_str(&input, "description")?;
-            let parent_issue_id = helper_optional_str(&input, "parentIssueId")
+            let parent_issue_id = helper_optional_issue_id(&input, "parentIssueId")?
                 .map(|issue_id| normalize_github_issue_id(&issue_id));
             let issue = adapter
                 .client
@@ -1519,7 +1574,7 @@ async fn run_github_helper(
             Ok(serde_json::json!({ "issue": issue }))
         }
         "document.read" => {
-            let issue_id = normalize_github_issue_id(&helper_required_str(&input, "issueId")?);
+            let issue_id = normalize_github_issue_id(&helper_issue_id(&input, "issueId")?);
             let number = parse_github_issue_number(&issue_id)?;
             let documents: Vec<serde_json::Value> = adapter
                 .client
@@ -1551,7 +1606,7 @@ async fn run_github_helper(
             }
         }
         "document.write" => {
-            let issue_id = normalize_github_issue_id(&helper_required_str(&input, "issueId")?);
+            let issue_id = normalize_github_issue_id(&helper_issue_id(&input, "issueId")?);
             let title = helper_required_str(&input, "title")?;
             let content = helper_required_str(&input, "content")?;
             let marker = symphony_document_marker(&title);
@@ -1575,7 +1630,7 @@ async fn run_linear_helper(
     let adapter = LinearAdapter::new(LinearClient::new(tracker.clone()));
     match operation {
         "issue.get" => {
-            let issue_id = helper_required_str(&input, "issueId")?;
+            let issue_id = helper_issue_id(&input, "issueId")?;
             let issues = adapter
                 .fetch_issue_states_by_ids(std::slice::from_ref(&issue_id))
                 .await
@@ -1587,7 +1642,7 @@ async fn run_linear_helper(
             Ok(serde_json::json!({ "issue": issue, "children": [], "comments": [] }))
         }
         "comment.upsert" => {
-            let issue_id = helper_required_str(&input, "issueId")?;
+            let issue_id = helper_issue_id(&input, "issueId")?;
             let body = helper_required_str(&input, "body")?;
             adapter
                 .create_comment(&issue_id, &body)
@@ -1596,7 +1651,7 @@ async fn run_linear_helper(
             Ok(serde_json::json!({ "issueId": issue_id, "upserted": false, "created": true }))
         }
         "issue.update-state" => {
-            let issue_id = helper_required_str(&input, "issueId")?;
+            let issue_id = helper_issue_id(&input, "issueId")?;
             let state = helper_required_str(&input, "state")?;
             adapter
                 .update_issue_state(&issue_id, &state)
@@ -1999,6 +2054,28 @@ async fn main() {
 mod tests {
     use super::*;
 
+    struct EnvGuard {
+        key: &'static str,
+        previous: Option<String>,
+    }
+
+    impl EnvGuard {
+        fn set(key: &'static str, value: &str) -> Self {
+            let previous = std::env::var(key).ok();
+            std::env::set_var(key, value);
+            Self { key, previous }
+        }
+    }
+
+    impl Drop for EnvGuard {
+        fn drop(&mut self) {
+            match &self.previous {
+                Some(value) => std::env::set_var(self.key, value),
+                None => std::env::remove_var(self.key),
+            }
+        }
+    }
+
     #[test]
     fn parse_cli_accepts_tui_flag() {
         let cli = parse_cli_from(["symphony", "WORKFLOW.md", "--tui"]).expect("cli parse");
@@ -2053,6 +2130,78 @@ mod tests {
         assert_eq!(normalize_github_issue_id("  #456  "), "456");
         assert_eq!(normalize_github_issue_id("456"), "456");
         assert_eq!(normalize_github_issue_id("#not-a-number"), "#not-a-number");
+    }
+
+    #[test]
+    fn helper_issue_id_value_accepts_current_alias() {
+        assert_eq!(
+            resolve_helper_issue_id_value(
+                "@current".to_string(),
+                "issueId",
+                Some("opaque-backend-id".to_string()),
+                Some("DISPLAY-123".to_string()),
+            )
+            .expect("@current should resolve"),
+            "opaque-backend-id"
+        );
+    }
+
+    #[test]
+    fn helper_issue_id_value_rewrites_current_display_identifier() {
+        assert_eq!(
+            resolve_helper_issue_id_value(
+                "DISPLAY-123".to_string(),
+                "issueId",
+                Some("opaque-backend-id".to_string()),
+                Some("DISPLAY-123".to_string()),
+            )
+            .expect("display identifier should resolve"),
+            "opaque-backend-id"
+        );
+    }
+
+    #[test]
+    fn helper_issue_id_value_preserves_other_ids_as_opaque() {
+        assert_eq!(
+            resolve_helper_issue_id_value(
+                "external-backend-id".to_string(),
+                "issueId",
+                Some("opaque-backend-id".to_string()),
+                Some("DISPLAY-123".to_string()),
+            )
+            .expect("opaque ids should pass through"),
+            "external-backend-id"
+        );
+    }
+
+    #[test]
+    fn helper_issue_id_resolves_current_environment_values() {
+        let _issue_id_guard = EnvGuard::set("SYMPHONY_ISSUE_ID", "opaque-backend-id");
+        let _identifier_guard = EnvGuard::set("SYMPHONY_ISSUE_IDENTIFIER", "DISPLAY-123");
+        let input = serde_json::json!({
+            "issueId": "@current",
+            "parentIssueId": "DISPLAY-123"
+        });
+
+        assert_eq!(
+            helper_issue_id(&input, "issueId").expect("current alias should resolve"),
+            "opaque-backend-id"
+        );
+        assert_eq!(
+            helper_optional_issue_id(&input, "parentIssueId")
+                .expect("display parent should resolve"),
+            Some("opaque-backend-id".to_string())
+        );
+    }
+
+    #[test]
+    fn helper_issue_id_value_requires_current_id_for_current_alias() {
+        let error = resolve_helper_issue_id_value("@current".to_string(), "issueId", None, None)
+            .expect_err("@current without environment should fail");
+        assert!(
+            error.contains("SYMPHONY_ISSUE_ID"),
+            "error should name required env var, got {error}"
+        );
     }
 
     #[test]

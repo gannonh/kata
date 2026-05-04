@@ -193,7 +193,12 @@ pub async fn start_session_with_helper_env(
             let remote_cmd = format!(
                 "cd {} && {}{}",
                 crate::ssh::shell_escape(&workspace_str),
-                shell_env_prefix(helper_env.symphony_bin, helper_env.symphony_workflow_path),
+                shell_env_prefix(
+                    helper_env.symphony_bin,
+                    helper_env.symphony_workflow_path,
+                    issue,
+                    &workspace_str,
+                ),
                 cmd_str
             );
             let child = crate::docker::exec_command(container_id, &remote_cmd)
@@ -224,6 +229,10 @@ pub async fn start_session_with_helper_env(
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped());
+            command.env("SYMPHONY_ISSUE_ID", &issue.id);
+            command.env("SYMPHONY_ISSUE_IDENTIFIER", &issue.identifier);
+            command.env("SYMPHONY_ISSUE_TITLE", &issue.title);
+            command.env("SYMPHONY_WORKSPACE_PATH", &workspace_str);
             if let Some(symphony_bin) = helper_env.symphony_bin {
                 command.env("SYMPHONY_BIN", symphony_bin);
             }
@@ -257,7 +266,12 @@ pub async fn start_session_with_helper_env(
             let remote_cmd = format!(
                 "cd {} && {}{}",
                 crate::ssh::shell_escape(&workspace_str),
-                shell_env_prefix(helper_env.symphony_bin, helper_env.symphony_workflow_path),
+                shell_env_prefix(
+                    helper_env.symphony_bin,
+                    helper_env.symphony_workflow_path,
+                    issue,
+                    &workspace_str,
+                ),
                 cmd_str
             );
             let child = SshRunner::start_process(host, &remote_cmd).await?;
@@ -320,8 +334,27 @@ pub async fn start_session_with_helper_env(
     })
 }
 
-fn shell_env_prefix(symphony_bin: Option<&str>, symphony_workflow_path: Option<&str>) -> String {
-    let mut assignments = Vec::new();
+fn shell_env_prefix(
+    symphony_bin: Option<&str>,
+    symphony_workflow_path: Option<&str>,
+    issue: &Issue,
+    workspace_path: &str,
+) -> String {
+    let mut assignments = vec![
+        format!("SYMPHONY_ISSUE_ID={}", crate::ssh::shell_escape(&issue.id)),
+        format!(
+            "SYMPHONY_ISSUE_IDENTIFIER={}",
+            crate::ssh::shell_escape(&issue.identifier)
+        ),
+        format!(
+            "SYMPHONY_ISSUE_TITLE={}",
+            crate::ssh::shell_escape(&issue.title)
+        ),
+        format!(
+            "SYMPHONY_WORKSPACE_PATH={}",
+            crate::ssh::shell_escape(workspace_path)
+        ),
+    ];
     if let Some(symphony_bin) = symphony_bin {
         assignments.push(format!(
             "SYMPHONY_BIN={}",
@@ -334,11 +367,7 @@ fn shell_env_prefix(symphony_bin: Option<&str>, symphony_workflow_path: Option<&
             crate::ssh::shell_escape(symphony_workflow_path)
         ));
     }
-    if assignments.is_empty() {
-        String::new()
-    } else {
-        format!("{} ", assignments.join(" "))
-    }
+    format!("{} ", assignments.join(" "))
 }
 
 /// Run a single agent turn and stream events via the provided callback.

@@ -10,6 +10,7 @@ Continuation context:
 {% endif %}
 
 Issue context:
+- Backend issue ID: {{ issue.id }}
 - Identifier: {{ issue.identifier }}
 - Title: {{ issue.title }}
 - Current status: {{ issue.state }}
@@ -44,11 +45,13 @@ Available operations:
 - `pr.inspect-checks`
 - `pr.land-status`
 
-`document.read` accepts `{"issueId":"<current-issue-id>"}` to list marker documents, or `{"issueId":"<current-issue-id>","title":"Context"}` to read one marker document.
-For large helper inputs such as workpad bodies, use the JSON payload recipes in `.agents/skills/sym-state/SKILL.md`.
+Helper `issueId` values must use the opaque backend issue ID, available as `SYMPHONY_ISSUE_ID`. You may also use `"@current"` for the current issue. Do not pass `{{ issue.identifier }}` as `issueId`; identifiers are display text.
+
+`document.read` accepts `{"issueId":"@current"}` to list marker documents, or `{"issueId":"@current","title":"Context"}` to read one marker document.
+For helper JSON, prefer `jq -n --arg issueId "$SYMPHONY_ISSUE_ID" '{issueId:$issueId}' > /tmp/input.json`. For large helper inputs such as workpad bodies, use the JSON payload recipes in `.agents/skills/sym-state/SKILL.md`.
 
 If a required operation is unavailable, treat it as a blocker and stop with a clear diagnostic in the workpad.
-Do not fall back to backend-specific tracker operations (`linear_*`, GitHub tracker mutations, etc.) for normal worker flow.
+Do not fall back to backend-specific tracker operations for normal worker flow.
 
 ## General rules
 

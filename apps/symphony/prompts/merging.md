@@ -22,7 +22,7 @@ Use only backend-neutral tracker/artifact/state operations:
 ## State transition
 
 After successful merge:
-- `issue.update-state` using `{"issueId":"<current-issue-id>","state":"Done"}`.
+- `issue.update-state` using `{"issueId":"@current","state":"Done"}`.
 
 {% if issue.children_count > 0 %}
 Also verify child task issues are done before finalizing slice completion.

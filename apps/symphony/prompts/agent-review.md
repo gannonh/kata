@@ -21,7 +21,7 @@ Before review work:
 If no open PR exists for current branch:
 1. Upsert blocker in `## Agent Workpad`.
 2. Move issue back to execution with:
-   `issue.update-state` using `{"issueId":"<current-issue-id>","state":"In Progress"}`.
+   `issue.update-state` using `{"issueId":"@current","state":"In Progress"}`.
 3. Stop.
 
 ## Feedback sweep protocol
@@ -51,9 +51,9 @@ If CI fails, run `.agents/skills/sym-fix-ci/SKILL.md`, fix failures, and re-run 
 ## State transitions
 
 - If all actionable feedback is resolved and checks are green, move the issue to `Human Review`:
-  `issue.update-state` using `{"issueId":"<current-issue-id>","state":"Human Review"}`.
+  `issue.update-state` using `{"issueId":"@current","state":"Human Review"}`.
 - If PR missing for current branch: upsert blocker in workpad and move back to execution:
-  `issue.update-state` using `{"issueId":"<current-issue-id>","state":"In Progress"}`.
+  `issue.update-state` using `{"issueId":"@current","state":"In Progress"}`.
 
 ## Guardrails
 
