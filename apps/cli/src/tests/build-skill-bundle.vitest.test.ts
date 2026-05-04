@@ -18,6 +18,8 @@ describe("skill bundle generation", () => {
 
     const skillPath = path.join(cliRoot, "skills", "kata-plan-phase", "SKILL.md");
     const workflowReferencePath = path.join(cliRoot, "skills", "kata-plan-phase", "references", "workflow.md");
+    const executeWorkflowReferencePath = path.join(cliRoot, "skills", "kata-execute-phase", "references", "workflow.md");
+    const roadmapTemplatePath = path.join(cliRoot, "skills", "kata-new-milestone", "templates", "roadmap.md");
     const runtimeReferencePath = path.join(cliRoot, "skills", "kata-plan-phase", "references", "runtime-contract.md");
     const setupReferencePath = path.join(cliRoot, "skills", "kata-plan-phase", "references", "setup.md");
     const cliRuntimeReferencePath = path.join(cliRoot, "skills", "kata-plan-phase", "references", "cli-runtime.md");
@@ -47,6 +49,8 @@ describe("skill bundle generation", () => {
 
     const skill = readFileSync(skillPath, "utf8");
     const workflow = readFileSync(workflowReferencePath, "utf8");
+    const executeWorkflow = readFileSync(executeWorkflowReferencePath, "utf8");
+    const roadmapTemplate = readFileSync(roadmapTemplatePath, "utf8");
     const runtime = readFileSync(runtimeReferencePath, "utf8");
     const setup = readFileSync(setupReferencePath, "utf8");
     const helperScript = readFileSync(helperScriptPath, "utf8");
@@ -66,6 +70,12 @@ describe("skill bundle generation", () => {
     expect(skill).toContain("Read when needed:");
     expect(workflow).not.toContain("Source:");
     expect(workflow).not.toContain("apps/cli/dist/loader.js");
+    expect(workflow).toContain("Inspect `snapshot.roadmap.sliceDependencies`");
+    expect(workflow).toContain('"blockedBy": ["S001", "S002"]');
+    expect(executeWorkflow).toContain("Use `snapshot.nextAction` as the source of truth for executable slice selection");
+    expect(executeWorkflow).toContain("Do not execute slices whose `blockedBy` dependencies include known non-done blockers");
+    expect(roadmapTemplate).toContain("| Planned Slice | Backend Slice ID | Blocked By | Requirements |");
+    expect(roadmapTemplate).toContain("Backend Slice: S003; Depends on: S001, S002");
     expect(runtime).toContain("project.getContext");
     expect(runtime).toContain("slice.create");
     expect(existsSync(path.join(cliRoot, "skills", "kata-plan-issue", "SKILL.md"))).toBe(true);
