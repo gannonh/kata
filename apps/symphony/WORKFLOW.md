@@ -24,7 +24,7 @@ workspace:
   isolation: local
   cleanup_on_done: true
   branch_prefix: kata-mono
-  clone_branch: feat/M002-S007-S008
+  clone_branch: feat/1002-GitHub-Projects-dependency-aware
   base_branch: main
 hooks:
   timeout_ms: 1200000
