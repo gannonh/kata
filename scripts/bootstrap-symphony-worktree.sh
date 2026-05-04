@@ -79,10 +79,10 @@ copy_if_present "$SOURCE_TREE/apps/desktop/.env.development" "$WORKTREE/apps/des
 log "installing workspace dependencies"
 pnpm --dir "$WORKTREE" install
 
-log "building Symphony release binary"
-cargo build --manifest-path "$WORKTREE/apps/symphony/Cargo.toml" --release
+# log "building Symphony release binary"
+# cargo build --manifest-path "$WORKTREE/apps/symphony/Cargo.toml" --release
 
-log "building Kata CLI for Pi"
-pnpm --dir "$WORKTREE" build:cli:pi
+# log "building Kata CLI for Pi"
+# pnpm --dir "$WORKTREE" build:cli:pi
 
 log "bootstrap complete"
