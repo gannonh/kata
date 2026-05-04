@@ -36,6 +36,7 @@ import type {
   KataTaskUpdateStatusInput,
 } from "../domain/types.js";
 import { KataDomainError } from "../domain/errors.js";
+import { parseSliceDependencyIds } from "../domain/dependencies.js";
 import { createGithubClient } from "./github-projects-v2/client.js";
 import { readTrackerConfig } from "./read-tracker-config.js";
 import { GithubProjectsV2Adapter } from "./github-projects-v2/adapter.js";
@@ -129,11 +130,6 @@ function normalizeToken(value: string | undefined | null): string {
 
 function normalizeScopeId(scopeId: string): string {
   return scopeId.trim().toUpperCase();
-}
-
-function normalizeDependencyIds(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.map((item) => String(item).trim()).filter((item) => item.length > 0);
 }
 
 function documentScopeFrom(scopeType: KataScopeType, scopeId: string): RuntimeDocumentScope | undefined {
@@ -415,8 +411,8 @@ function createRuntimeBackedAdapter(input: {
         goal: String(slice.title ?? ""),
         status: toCanonicalSliceStatus(slice),
         order: index,
-        blockedBy: normalizeDependencyIds(slice.blockedBy),
-        blocking: normalizeDependencyIds(slice.blocking),
+        blockedBy: parseSliceDependencyIds(slice.blockedBy),
+        blocking: parseSliceDependencyIds(slice.blocking),
       }));
     },
     createSlice: async (_payload: KataSliceCreateInput): Promise<KataSlice> => {
