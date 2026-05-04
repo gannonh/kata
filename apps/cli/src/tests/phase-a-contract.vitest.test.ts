@@ -567,7 +567,7 @@ describe("Phase A domain contract", () => {
     });
   });
 
-  it("extracts roadmap slice dependencies and merges backend dependency metadata", async () => {
+  it("extracts roadmap slice dependencies including singular dependency labels and merges backend metadata", async () => {
     const api = createKataDomainApi({
       ...createFakeAdapter(),
       getActiveMilestone: async () => ({
@@ -639,13 +639,13 @@ describe("Phase A domain contract", () => {
         title: input.artifactType,
         content: input.artifactType === "roadmap"
           ? [
-              "| Requirement | Backend Slice | Depends on | Status |",
+              "| Requirement | Backend Slice | Dependency | Status |",
               "|---|---|---|---|",
               "| REQ-01 | S001 | | Done |",
               "| REQ-02 | S002 | S001 | Pending |",
               "Backend Slice: S003; Depends on: S001, S002; Covers REQ-03",
               "Slice ID: S004 — Blocked by [S003], [S001] — Covers REQ-04",
-              "Backend ID: S005; Dependencies: S002, S004; Covers REQ-05",
+              "Backend ID: S005; Dependency: S002, S004; Covers REQ-05",
             ].join("\n")
           : "REQ-01\nREQ-02\nREQ-03\nREQ-04\nREQ-05",
         format: "markdown",
