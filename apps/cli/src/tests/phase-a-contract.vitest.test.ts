@@ -230,6 +230,74 @@ function createAdapter(): KataBackendAdapter {
   };
 }
 
+type SnapshotSliceStatus = "backlog" | "todo" | "in_progress" | "agent_review" | "human_review" | "merging" | "done";
+type SnapshotTaskStatus = "backlog" | "todo" | "in_progress" | "done";
+type SnapshotVerificationState = "pending" | "verified" | "failed";
+
+interface SnapshotSliceFixture {
+  id: string;
+  status: SnapshotSliceStatus;
+  blockedBy?: string[];
+  taskStatus?: SnapshotTaskStatus;
+  verificationState?: SnapshotVerificationState;
+}
+
+function createDependencySnapshotApi(sliceFixtures: SnapshotSliceFixture[]) {
+  const requirementBySliceId = new Map(
+    sliceFixtures.map((slice, index) => [slice.id, `REQ-${String(index + 1).padStart(2, "0")}`]),
+  );
+
+  return createKataDomainApi({
+    ...createFakeAdapter(),
+    getActiveMilestone: async () => ({
+      id: "MDEP",
+      title: "Dependency-aware execution",
+      goal: "Validate dependency-aware next actions",
+      status: "active",
+      active: true,
+    }),
+    listSlices: async () => sliceFixtures.map((slice, index) => ({
+      id: slice.id,
+      milestoneId: "MDEP",
+      title: `Slice ${slice.id}`,
+      goal: `Cover ${requirementBySliceId.get(slice.id)}`,
+      status: slice.status,
+      order: index + 1,
+      blockedBy: slice.blockedBy ?? [],
+      blocking: [],
+    })),
+    listTasks: async (input: KataTaskListInput) => {
+      const slice = sliceFixtures.find((fixture) => fixture.id === input.sliceId);
+      if (!slice) return [];
+      const taskStatus = slice.taskStatus ?? (slice.status === "done" ? "done" : "backlog");
+      return [
+        {
+          id: `T-${slice.id}`,
+          sliceId: slice.id,
+          title: `Task for ${slice.id}`,
+          description: `Covers ${requirementBySliceId.get(slice.id)}`,
+          status: taskStatus,
+          verificationState: slice.verificationState ?? (taskStatus === "done" ? "verified" : "pending"),
+        },
+      ];
+    },
+    listArtifacts: async () => [],
+    readArtifact: async (input: KataArtifactReadInput) => ({
+      id: `${input.scopeType}:${input.scopeId}:${input.artifactType}`,
+      scopeType: input.scopeType,
+      scopeId: input.scopeId,
+      artifactType: input.artifactType,
+      title: input.artifactType,
+      content: input.artifactType === "roadmap"
+        ? sliceFixtures.map((slice) => `Backend Slice: ${slice.id} covers ${requirementBySliceId.get(slice.id)}`).join("\n")
+        : [...requirementBySliceId.values()].join("\n"),
+      format: "markdown",
+      updatedAt: "2026-04-29T00:00:00.000Z",
+      provenance: { backend: "github", backendId: "comment:dependency" },
+    }),
+  });
+}
+
 describe("Phase A domain contract", () => {
   it("defines the expected operation names in order", () => {
     expect(KATA_OPERATION_NAMES).toEqual([
@@ -708,6 +776,93 @@ describe("Phase A domain contract", () => {
       blockedBy: ["S001", "S005"],
       blocking: [],
     });
+  });
+
+  it("selects the first unblocked execution slice", async () => {
+    const api = createDependencySnapshotApi([
+      { id: "S001", status: "backlog" },
+      { id: "S002", status: "backlog", blockedBy: ["S001"] },
+    ]);
+
+    const snapshot = await dispatchKataOperation(api, "project.getSnapshot") as KataProjectSnapshot;
+
+    expect(snapshot.nextAction).toMatchObject({
+      workflow: "kata-execute-phase",
+      reason: "Slice S001 still has execution work remaining.",
+      target: { milestoneId: "MDEP", sliceId: "S001" },
+    });
+  });
+
+  it("skips a blocked execution slice while its known blocker is not done", async () => {
+    const api = createDependencySnapshotApi([
+      { id: "S002", status: "backlog", blockedBy: ["S001"] },
+      { id: "S001", status: "backlog" },
+    ]);
+
+    const snapshot = await dispatchKataOperation(api, "project.getSnapshot") as KataProjectSnapshot;
+
+    expect(snapshot.nextAction).toMatchObject({
+      workflow: "kata-execute-phase",
+      reason: "Slice S001 still has execution work remaining.",
+      target: { milestoneId: "MDEP", sliceId: "S001" },
+    });
+    expect(snapshot.otherActions).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        workflow: "kata-execute-phase",
+        reason: "Slice S002 is blocked by S001.",
+        target: { milestoneId: "MDEP", sliceId: "S002" },
+      }),
+    ]));
+  });
+
+  it("does not hard-block unknown blockers in snapshot selection", async () => {
+    const api = createDependencySnapshotApi([
+      { id: "S001", status: "backlog", blockedBy: ["S999"] },
+    ]);
+
+    const snapshot = await dispatchKataOperation(api, "project.getSnapshot") as KataProjectSnapshot;
+
+    expect(snapshot.nextAction).toMatchObject({
+      workflow: "kata-execute-phase",
+      reason: "Slice S001 still has execution work remaining.",
+      target: { milestoneId: "MDEP", sliceId: "S001" },
+    });
+  });
+
+  it("selects a blocked slice after known blockers are done", async () => {
+    const api = createDependencySnapshotApi([
+      { id: "S001", status: "done" },
+      { id: "S002", status: "backlog", blockedBy: ["S001"] },
+    ]);
+
+    const snapshot = await dispatchKataOperation(api, "project.getSnapshot") as KataProjectSnapshot;
+
+    expect(snapshot.nextAction).toMatchObject({
+      workflow: "kata-execute-phase",
+      reason: "Slice S002 still has execution work remaining.",
+      target: { milestoneId: "MDEP", sliceId: "S002" },
+    });
+  });
+
+  it("prioritizes verification before dependency-aware execution", async () => {
+    const api = createDependencySnapshotApi([
+      { id: "S001", status: "done", verificationState: "pending" },
+      { id: "S002", status: "backlog" },
+    ]);
+
+    const snapshot = await dispatchKataOperation(api, "project.getSnapshot") as KataProjectSnapshot;
+
+    expect(snapshot.nextAction).toMatchObject({
+      workflow: "kata-verify-work",
+      reason: "Slice S001 is done but has tasks awaiting verification.",
+      target: { milestoneId: "MDEP", sliceId: "S001" },
+    });
+    expect(snapshot.otherActions).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        workflow: "kata-execute-phase",
+        target: { milestoneId: "MDEP", sliceId: "S002" },
+      }),
+    ]));
   });
 
   it("prioritizes executing existing planned slices before planning later roadmap slices", async () => {

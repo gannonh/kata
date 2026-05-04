@@ -286,7 +286,9 @@ function determineNextAction(
     };
   }
 
-  const executableSlice = slices.find((slice) => slice.status !== "done" || slice.tasks.some((task) => task.status !== "done"));
+  const executableSlice = slices.find((slice) =>
+    hasExecutionWorkRemaining(slice) && findOpenKnownBlockerIds(slice, slices).length === 0
+  );
   if (executableSlice) {
     return {
       workflow: "kata-execute-phase",
@@ -338,10 +340,13 @@ function determineOtherActions(
   const actions: KataProjectSnapshotNextAction[] = [];
 
   for (const slice of slices) {
-    if (slice.status === "done" && slice.tasks.every((task) => task.status === "done")) continue;
+    if (!hasExecutionWorkRemaining(slice)) continue;
+    const openBlockerIds = findOpenKnownBlockerIds(slice, slices);
     actions.push({
       workflow: "kata-execute-phase",
-      reason: `Slice ${slice.id} has execution work remaining and can be explicitly selected.`,
+      reason: openBlockerIds.length > 0
+        ? `Slice ${slice.id} is blocked by ${openBlockerIds.join(", ")}.`
+        : `Slice ${slice.id} has execution work remaining and can be explicitly selected.`,
       target: { milestoneId, sliceId: slice.id },
     });
   }
@@ -383,6 +388,18 @@ function determineOtherActions(
   }
 
   return dedupeActions(actions).filter((action) => !sameAction(action, nextAction));
+}
+
+function hasExecutionWorkRemaining(slice: KataProjectSnapshotSlice): boolean {
+  return slice.status !== "done" || slice.tasks.some((task) => task.status !== "done");
+}
+
+function findOpenKnownBlockerIds(slice: KataProjectSnapshotSlice, slices: KataProjectSnapshotSlice[]): string[] {
+  const sliceById = new Map(slices.map((snapshotSlice) => [sliceDependencyMapKey(snapshotSlice.id), snapshotSlice]));
+  return parseSliceDependencyIds(slice.blockedBy).filter((blockedById) => {
+    const blocker = sliceById.get(sliceDependencyMapKey(blockedById));
+    return blocker ? blocker.status !== "done" : false;
+  });
 }
 
 function extractRequirementIds(content: string): string[] {
