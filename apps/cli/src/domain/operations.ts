@@ -129,6 +129,13 @@ function requireOptionalNumber(payload: Record<string, unknown>, field: string):
     : invalid(`Field "${field}" must be a number when provided.`);
 }
 
+function requireOptionalStringArray(payload: Record<string, unknown>, field: string): KataPayloadValidationResult {
+  const value = payload[field];
+  return value === undefined || (Array.isArray(value) && value.every((item) => typeof item === "string"))
+    ? valid()
+    : invalid(`Field "${field}" must be an array of strings when provided.`);
+}
+
 function requireEnum<T extends string>(
   payload: Record<string, unknown>,
   field: string,
@@ -204,6 +211,7 @@ export function validateKataOperationPayload(
         (input) => requireNonEmptyString(input, "title"),
         (input) => requireNonEmptyString(input, "goal"),
         (input) => requireOptionalNumber(input, "order"),
+        (input) => requireOptionalStringArray(input, "blockedBy"),
       ]);
     case "slice.updateStatus":
       return requireFields(payload, [

@@ -121,6 +121,8 @@ function createFakeAdapter(): KataBackendAdapter {
       goal: input.goal,
       status: "backlog",
       order: input.order ?? 0,
+      blockedBy: input.blockedBy ?? [],
+      blocking: [],
     }),
     updateSliceStatus: async (input: KataSliceUpdateStatusInput) => ({
       id: input.sliceId,
@@ -129,6 +131,8 @@ function createFakeAdapter(): KataBackendAdapter {
       goal: "Slice goal",
       status: input.status,
       order: 0,
+      blockedBy: [],
+      blocking: [],
     }),
     listTasks: async (_input: KataTaskListInput) => [],
     createTask: async (input: KataTaskCreateInput) => ({
@@ -285,12 +289,15 @@ describe("Phase A domain contract", () => {
         title: "Contract",
         goal: "Define operations",
         order: 2,
+        blockedBy: ["S001"],
       }),
     ).resolves.toMatchObject({
       id: "slice-1",
       milestoneId: "milestone-1",
       status: "backlog",
       order: 2,
+      blockedBy: ["S001"],
+      blocking: [],
     });
 
     await expect(
@@ -348,6 +355,8 @@ describe("Phase A domain contract", () => {
           goal: "Cover E2E-01",
           status: "done",
           order: 0,
+          blockedBy: [],
+          blocking: [],
         },
       ],
       listTasks: async () => [
@@ -430,6 +439,8 @@ describe("Phase A domain contract", () => {
           goal: "Cover SYM-03 and SYM-08",
           status: "backlog",
           order: 1,
+          blockedBy: [],
+          blocking: [],
         },
       ],
       listTasks: async () => [],
@@ -509,6 +520,8 @@ describe("Phase A domain contract", () => {
           goal: "Cover REQ-01",
           status: "done",
           order: 1,
+          blockedBy: [],
+          blocking: [],
         },
       ],
       listTasks: async () => [],
@@ -572,6 +585,8 @@ describe("Phase A domain contract", () => {
           goal: "Cover E2E-01",
           status: "done",
           order: 0,
+          blockedBy: [],
+          blocking: [],
         },
         {
           id: "S003",
@@ -580,6 +595,8 @@ describe("Phase A domain contract", () => {
           goal: "Cover E2E-06",
           status: "backlog",
           order: 2,
+          blockedBy: [],
+          blocking: [],
         },
       ],
       listTasks: async (input: KataTaskListInput) =>
@@ -673,6 +690,8 @@ describe("Phase A domain contract", () => {
           goal: "Cover E2E-06",
           status: "done",
           order: 2,
+          blockedBy: [],
+          blocking: [],
         },
         {
           id: "S004",
@@ -681,6 +700,8 @@ describe("Phase A domain contract", () => {
           goal: "Cover E2E-08",
           status: "backlog",
           order: 3,
+          blockedBy: [],
+          blocking: [],
         },
       ],
       listTasks: async (input: KataTaskListInput) =>
@@ -784,6 +805,8 @@ describe("Phase A domain contract", () => {
           goal: "Cover E2E-01",
           status: "done",
           order: 0,
+          blockedBy: [],
+          blocking: [],
         },
         {
           id: "S003",
@@ -792,6 +815,8 @@ describe("Phase A domain contract", () => {
           goal: "Cover E2E-06",
           status: "backlog",
           order: 2,
+          blockedBy: [],
+          blocking: [],
         },
       ],
       listTasks: async (input: KataTaskListInput) =>
@@ -898,6 +923,11 @@ describe("Phase A operation transport", () => {
       operation: "slice.updateStatus",
       payload: { sliceId: "slice-1", status: "blocked" },
       method: "updateSliceStatus",
+    },
+    {
+      operation: "slice.create",
+      payload: { milestoneId: "M001", title: "Slice", goal: "Goal", blockedBy: "S001" },
+      method: "createSlice",
     },
     {
       operation: "artifact.write",

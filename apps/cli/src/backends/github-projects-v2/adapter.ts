@@ -278,6 +278,7 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
       },
     });
 
+    const blockedBy = normalizeDependencyIds(input.blockedBy);
     await this.syncProjectFields(entity, {
       type: "Slice",
       parentId: input.milestoneId,
@@ -295,6 +296,8 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
       goal: input.goal,
       status: "backlog",
       order: input.order ?? 0,
+      blockedBy,
+      blocking: [],
     };
   }
 
@@ -960,6 +963,8 @@ function sliceFromEntity(entity: TrackedEntity, order: number): KataSlice {
     goal: bodyContent(entity.body) || entity.title,
     status: sliceStatusFromEntity(entity),
     order,
+    blockedBy: [],
+    blocking: [],
   };
 }
 
@@ -1044,6 +1049,11 @@ function isKataEntityType(value: unknown): value is KataEntityType {
 function normalizeArtifactScopeId(scopeType: KataScopeType, scopeId: string): string {
   if (scopeType === "project") return "PROJECT";
   return scopeId.trim().toUpperCase();
+}
+
+function normalizeDependencyIds(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => String(item).trim()).filter((item) => item.length > 0);
 }
 
 function statusOptionForSlice(status: KataSlice["status"]): ProjectStatusName {

@@ -57,6 +57,8 @@ interface RuntimeKataIssueRecord {
   state?: string;
   labels?: string[];
   milestoneName?: string | null;
+  blockedBy?: string[];
+  blocking?: string[];
 }
 
 interface RuntimeDocumentScope {
@@ -127,6 +129,11 @@ function normalizeToken(value: string | undefined | null): string {
 
 function normalizeScopeId(scopeId: string): string {
   return scopeId.trim().toUpperCase();
+}
+
+function normalizeDependencyIds(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => String(item).trim()).filter((item) => item.length > 0);
 }
 
 function documentScopeFrom(scopeType: KataScopeType, scopeId: string): RuntimeDocumentScope | undefined {
@@ -408,6 +415,8 @@ function createRuntimeBackedAdapter(input: {
         goal: String(slice.title ?? ""),
         status: toCanonicalSliceStatus(slice),
         order: index,
+        blockedBy: normalizeDependencyIds(slice.blockedBy),
+        blocking: normalizeDependencyIds(slice.blocking),
       }));
     },
     createSlice: async (_payload: KataSliceCreateInput): Promise<KataSlice> => {
