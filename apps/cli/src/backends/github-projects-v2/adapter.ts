@@ -71,6 +71,8 @@ interface TrackedEntity {
   parentId?: string;
   status?: KataSliceStatus | KataTaskStatus;
   verificationState?: KataTaskVerificationState;
+  blockedBy?: string[];
+  blocking?: string[];
   issueId: number;
   issueNumber: number;
   contentId: string;
@@ -79,6 +81,57 @@ interface TrackedEntity {
   state: string;
   url?: string;
   githubMilestoneNumber?: number;
+}
+
+interface ProjectItemDependencyFields {
+  itemId: string;
+  kataId?: string;
+  contentId?: string;
+  issueNumber?: number;
+  blockedBy: string[];
+  blocking: string[];
+  status?: string;
+}
+
+interface ProjectItemTextFieldValue {
+  text?: string | null;
+}
+
+interface ProjectItemSingleSelectFieldValue {
+  name?: string | null;
+}
+
+interface ProjectItemDependencyFieldNode {
+  id?: string | null;
+  content?: {
+    id?: string | null;
+    number?: number | null;
+  } | null;
+  kataId?: ProjectItemTextFieldValue | null;
+  blockedBy?: ProjectItemTextFieldValue | null;
+  blocking?: ProjectItemTextFieldValue | null;
+  status?: ProjectItemSingleSelectFieldValue | null;
+}
+
+interface ProjectItemDependencyFieldsConnection {
+  pageInfo: {
+    hasNextPage: boolean;
+    endCursor?: string | null;
+  };
+  nodes: Array<ProjectItemDependencyFieldNode | null>;
+}
+
+interface ProjectItemDependencyFieldsProject {
+  items: ProjectItemDependencyFieldsConnection;
+}
+
+interface ProjectItemDependencyFieldsQueryData {
+  organization?: {
+    projectV2?: ProjectItemDependencyFieldsProject | null;
+  } | null;
+  user?: {
+    projectV2?: ProjectItemDependencyFieldsProject | null;
+  } | null;
 }
 
 interface EntityMarker {
@@ -93,6 +146,8 @@ const ENTITY_MARKER_PREFIX = "<!-- kata:entity ";
 const ENTITY_MARKER_SUFFIX = " -->";
 const ISSUES_PER_PAGE = 100;
 const MAX_ISSUE_PAGES = 100;
+const PROJECT_ITEMS_PER_PAGE = 100;
+const MAX_PROJECT_ITEM_PAGES = 100;
 const COMMENTS_PER_PAGE = 100;
 const MAX_COMMENT_PAGES = 100;
 
@@ -111,6 +166,92 @@ const UPDATE_PROJECT_FIELD_MUTATION = `
     updateProjectV2ItemFieldValue(input: { projectId: $projectId, itemId: $itemId, fieldId: $fieldId, value: $value }) {
       projectV2Item {
         id
+      }
+    }
+  }
+`;
+
+const PROJECT_ITEM_DEPENDENCY_FIELDS_QUERY = `
+  query LoadKataProjectItemDependencyFields($owner: String!, $repo: String!, $projectNumber: Int!, $first: Int!, $after: String) {
+    repository(owner: $owner, name: $repo) {
+      id
+    }
+    organization(login: $owner) {
+      projectV2(number: $projectNumber) {
+        items(first: $first, after: $after) {
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+          nodes {
+            id
+            content {
+              ... on Issue {
+                id
+                number
+              }
+            }
+            kataId: fieldValueByName(name: ${JSON.stringify(KATA_PROJECT_FIELDS.id)}) {
+              ... on ProjectV2ItemFieldTextValue {
+                text
+              }
+            }
+            blocking: fieldValueByName(name: ${JSON.stringify(KATA_PROJECT_FIELDS.blocking)}) {
+              ... on ProjectV2ItemFieldTextValue {
+                text
+              }
+            }
+            blockedBy: fieldValueByName(name: ${JSON.stringify(KATA_PROJECT_FIELDS.blockedBy)}) {
+              ... on ProjectV2ItemFieldTextValue {
+                text
+              }
+            }
+            status: fieldValueByName(name: ${JSON.stringify(KATA_PROJECT_FIELDS.status)}) {
+              ... on ProjectV2ItemFieldSingleSelectValue {
+                name
+              }
+            }
+          }
+        }
+      }
+    }
+    user(login: $owner) {
+      projectV2(number: $projectNumber) {
+        items(first: $first, after: $after) {
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+          nodes {
+            id
+            content {
+              ... on Issue {
+                id
+                number
+              }
+            }
+            kataId: fieldValueByName(name: ${JSON.stringify(KATA_PROJECT_FIELDS.id)}) {
+              ... on ProjectV2ItemFieldTextValue {
+                text
+              }
+            }
+            blocking: fieldValueByName(name: ${JSON.stringify(KATA_PROJECT_FIELDS.blocking)}) {
+              ... on ProjectV2ItemFieldTextValue {
+                text
+              }
+            }
+            blockedBy: fieldValueByName(name: ${JSON.stringify(KATA_PROJECT_FIELDS.blockedBy)}) {
+              ... on ProjectV2ItemFieldTextValue {
+                text
+              }
+            }
+            status: fieldValueByName(name: ${JSON.stringify(KATA_PROJECT_FIELDS.status)}) {
+              ... on ProjectV2ItemFieldSingleSelectValue {
+                name
+              }
+            }
+          }
+        }
       }
     }
   }
@@ -293,6 +434,11 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
       verificationState: "",
       blocking: "",
       blockedBy: formatSliceDependencyIdsForTextField(blockedBy),
+    });
+    this.entities.set(kataId, {
+      ...entity,
+      blockedBy,
+      blocking: [],
     });
 
     return {
@@ -552,7 +698,11 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
     if (this.discovered) return;
 
     const entities = await this.listTrackedEntitiesFromGithub();
-    for (const entity of entities) {
+    const projectItemFields = entities.some((entity) => entity.type === "Slice")
+      ? await this.loadProjectItemDependencyFields()
+      : [];
+    const entitiesWithProjectFields = mergeProjectItemDependencyFields(entities, projectItemFields);
+    for (const entity of entitiesWithProjectFields) {
       if (this.entities.has(entity.kataId)) continue;
       this.entities.set(entity.kataId, entity);
     }
@@ -581,6 +731,35 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
     }
 
     throw new KataDomainError("UNKNOWN", `Unable to discover Kata issues after ${MAX_ISSUE_PAGES} full pages.`);
+  }
+
+  private async loadProjectItemDependencyFields(): Promise<ProjectItemDependencyFields[]> {
+    const fields: ProjectItemDependencyFields[] = [];
+    let after: string | null = null;
+
+    for (let page = 1; page <= MAX_PROJECT_ITEM_PAGES; page += 1) {
+      const data: ProjectItemDependencyFieldsQueryData = await this.client.graphql<ProjectItemDependencyFieldsQueryData>({
+        query: PROJECT_ITEM_DEPENDENCY_FIELDS_QUERY,
+        variables: {
+          owner: this.owner,
+          repo: this.repo,
+          projectNumber: this.projectNumber,
+          first: PROJECT_ITEMS_PER_PAGE,
+          after,
+        },
+      });
+      const project: ProjectItemDependencyFieldsProject | null | undefined =
+        data.organization?.projectV2 ?? data.user?.projectV2;
+      const connection: ProjectItemDependencyFieldsConnection | undefined = project?.items;
+      if (!connection) return fields;
+
+      fields.push(...connection.nodes.map(projectItemDependencyFieldsFromNode).filter(isProjectItemDependencyFields));
+
+      if (!connection.pageInfo.hasNextPage) return fields;
+      after = connection.pageInfo.endCursor ?? null;
+    }
+
+    throw new KataDomainError("UNKNOWN", `Unable to list Project v2 items after ${MAX_PROJECT_ITEM_PAGES} full pages.`);
   }
 
   private nextKataId(type: "Milestone" | "Slice" | "Task" | "Issue"): string {
@@ -961,6 +1140,94 @@ function milestoneFromEntity(entity: TrackedEntity): KataMilestone {
   };
 }
 
+function mergeProjectItemDependencyFields(
+  entities: TrackedEntity[],
+  projectItemFields: ProjectItemDependencyFields[],
+): TrackedEntity[] {
+  const fieldsByContentId = new Map<string, ProjectItemDependencyFields>();
+  const fieldsByKataId = new Map<string, ProjectItemDependencyFields>();
+
+  for (const fields of projectItemFields) {
+    if (fields.contentId && !fieldsByContentId.has(fields.contentId)) {
+      fieldsByContentId.set(fields.contentId, fields);
+    }
+    const canonicalKataId = fields.kataId ? normalizeProjectItemSliceId(fields.kataId) : null;
+    if (canonicalKataId && !fieldsByKataId.has(canonicalKataId)) {
+      fieldsByKataId.set(canonicalKataId, fields);
+    }
+  }
+
+  return entities.map((entity) => {
+    if (entity.type !== "Slice") return entity;
+    const fields = fieldsByContentId.get(entity.contentId) ?? fieldsByKataId.get(entity.kataId);
+    if (!fields) return entity;
+    return {
+      ...entity,
+      status: entity.status ?? sliceStatusFromProjectStatusName(fields.status),
+      blockedBy: fields.blockedBy,
+      blocking: fields.blocking,
+    };
+  });
+}
+
+function projectItemDependencyFieldsFromNode(
+  node: ProjectItemDependencyFieldNode | null,
+): ProjectItemDependencyFields | null {
+  if (!node?.id) return null;
+  const kataId = textFieldValue(node.kataId);
+  const contentId = typeof node.content?.id === "string" && node.content.id ? node.content.id : undefined;
+  const issueNumber = typeof node.content?.number === "number" && Number.isFinite(node.content.number)
+    ? node.content.number
+    : undefined;
+  const status = singleSelectFieldName(node.status);
+  return {
+    itemId: node.id,
+    ...(kataId ? { kataId } : {}),
+    ...(contentId ? { contentId } : {}),
+    ...(issueNumber !== undefined ? { issueNumber } : {}),
+    blockedBy: parseSliceDependencyIds(textFieldValue(node.blockedBy)),
+    blocking: parseSliceDependencyIds(textFieldValue(node.blocking)),
+    ...(status ? { status } : {}),
+  };
+}
+
+function isProjectItemDependencyFields(value: ProjectItemDependencyFields | null): value is ProjectItemDependencyFields {
+  return value !== null;
+}
+
+function textFieldValue(value: ProjectItemTextFieldValue | null | undefined): string {
+  return typeof value?.text === "string" ? value.text : "";
+}
+
+function singleSelectFieldName(value: ProjectItemSingleSelectFieldValue | null | undefined): string | undefined {
+  return typeof value?.name === "string" && value.name ? value.name : undefined;
+}
+
+function normalizeProjectItemSliceId(value: string): string | null {
+  return parseSliceDependencyIds(value)[0] ?? null;
+}
+
+function sliceStatusFromProjectStatusName(value: string | undefined): KataSliceStatus | undefined {
+  switch (value) {
+    case "Backlog":
+      return "backlog";
+    case "Todo":
+      return "todo";
+    case "In Progress":
+      return "in_progress";
+    case "Agent Review":
+      return "agent_review";
+    case "Human Review":
+      return "human_review";
+    case "Merging":
+      return "merging";
+    case "Done":
+      return "done";
+    default:
+      return undefined;
+  }
+}
+
 function sliceFromEntity(entity: TrackedEntity, order: number): KataSlice {
   return {
     id: entity.kataId,
@@ -969,8 +1236,8 @@ function sliceFromEntity(entity: TrackedEntity, order: number): KataSlice {
     goal: bodyContent(entity.body) || entity.title,
     status: sliceStatusFromEntity(entity),
     order,
-    blockedBy: [],
-    blocking: [],
+    blockedBy: parseSliceDependencyIds(entity.blockedBy ?? []),
+    blocking: parseSliceDependencyIds(entity.blocking ?? []),
   };
 }
 

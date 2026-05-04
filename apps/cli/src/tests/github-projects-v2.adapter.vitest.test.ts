@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { resolveBackend } from "../backends/resolve-backend.js";
 import { GithubProjectsV2Adapter } from "../backends/github-projects-v2/adapter.js";
+import { createKataDomainApi } from "../domain/service.js";
 import {
   formatArtifactComment,
   parseArtifactComment,
@@ -454,6 +455,9 @@ describe("GithubProjectsV2Adapter", () => {
       blockedBy: ["S001", "S002"],
       blocking: [],
     });
+    await expect(adapter.listSlices({ milestoneId: milestone.id })).resolves.toMatchObject([
+      { id: "S001", blockedBy: ["S001", "S002"], blocking: [] },
+    ]);
     expect(client.graphql).toHaveBeenCalledWith(
       expect.objectContaining({
         variables: expect.objectContaining({
@@ -470,6 +474,107 @@ describe("GithubProjectsV2Adapter", () => {
           fieldId: "kata-blocking-field-id",
           value: { text: "" },
         }),
+      }),
+    );
+  });
+
+  it("reflects manually populated Project v2 dependency fields in project snapshots", async () => {
+    const client = createFakeGithubClient({
+      issues: [
+        {
+          id: 1,
+          node_id: "issue-node-1",
+          number: 1,
+          title: "[M001] Existing Milestone",
+          body: '<!-- kata:entity {"kataId":"M001","type":"Milestone"} -->\nExisting milestone',
+          state: "open",
+          html_url: "https://github.test/kata-sh/uat/issues/1",
+          milestone: { number: 1 },
+        },
+        {
+          id: 2,
+          node_id: "issue-node-2",
+          number: 2,
+          title: "[S001] Foundation",
+          body: '<!-- kata:entity {"kataId":"S001","type":"Slice","parentId":"M001"} -->\nFoundation slice',
+          state: "open",
+          html_url: "https://github.test/kata-sh/uat/issues/2",
+          milestone: { number: 1 },
+        },
+        {
+          id: 3,
+          node_id: "issue-node-3",
+          number: 3,
+          title: "[S002] Dependent",
+          body: '<!-- kata:entity {"kataId":"S002","type":"Slice","parentId":"M001"} -->\nDependent slice',
+          state: "open",
+          html_url: "https://github.test/kata-sh/uat/issues/3",
+          milestone: { number: 1 },
+        },
+        {
+          id: 4,
+          node_id: "issue-node-4",
+          number: 4,
+          title: "[S003] Empty Fields",
+          body: '<!-- kata:entity {"kataId":"S003","type":"Slice","parentId":"M001"} -->\nNo dependency fields',
+          state: "open",
+          html_url: "https://github.test/kata-sh/uat/issues/4",
+          milestone: { number: 1 },
+        },
+      ],
+      projectItems: [
+        {
+          id: "project-item-2",
+          content: { id: "issue-node-2", number: 2 },
+          kataId: { text: "S001" },
+          blockedBy: { text: "" },
+          blocking: { text: "s2" },
+          status: { name: "Backlog" },
+        },
+        {
+          id: "project-item-3",
+          kataId: { text: "S002" },
+          blockedBy: { text: "s1\n[S001]" },
+          blocking: { text: "" },
+          status: { name: "In Progress" },
+        },
+        {
+          id: "project-item-4",
+          content: { id: "issue-node-4", number: 4 },
+          kataId: { text: "S003" },
+        },
+      ],
+    });
+    const adapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+    const api = createKataDomainApi(adapter);
+
+    const snapshot = await api.project.getSnapshot();
+
+    expect(snapshot.slices).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "S001", blockedBy: [], blocking: ["S002"], status: "backlog" }),
+        expect.objectContaining({ id: "S002", blockedBy: ["S001"], blocking: [], status: "in_progress" }),
+        expect.objectContaining({ id: "S003", blockedBy: [], blocking: [] }),
+      ]),
+    );
+    expect(snapshot.roadmap.sliceDependencies).toMatchObject({
+      S001: { blockedBy: [], blocking: ["S002"] },
+      S002: { blockedBy: ["S001"], blocking: [] },
+    });
+    expect(client.graphql).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: expect.stringContaining("LoadKataProjectItemDependencyFields"),
+      }),
+    );
+    expect(client.graphql).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: expect.stringContaining('fieldValueByName(name: "Status")'),
       }),
     );
   });
@@ -908,7 +1013,9 @@ github:
   });
 });
 
-function createFakeGithubClient(input: { issues?: any[]; issueListSnapshots?: any[][]; projectFields?: any[] } = {}) {
+function createFakeGithubClient(
+  input: { issues?: any[]; issueListSnapshots?: any[][]; projectFields?: any[]; projectItems?: any[] } = {},
+) {
   const issues = [...(input.issues ?? [])];
   const commentsByIssue = new Map<number, any[]>();
   let nextIssueNumber = issues.reduce((max, issue) => Math.max(max, Number(issue.number) || 0), 0) + 1;
@@ -927,6 +1034,22 @@ function createFakeGithubClient(input: { issues?: any[]; issueListSnapshots?: an
                 nodes: input.projectFields ?? [
                   ...validProjectFields(),
                 ],
+              },
+            },
+          },
+        };
+      }
+
+      if (request.query.includes("LoadKataProjectItemDependencyFields")) {
+        return {
+          organization: {
+            projectV2: {
+              items: {
+                pageInfo: {
+                  hasNextPage: false,
+                  endCursor: null,
+                },
+                nodes: input.projectItems ?? [],
               },
             },
           },
