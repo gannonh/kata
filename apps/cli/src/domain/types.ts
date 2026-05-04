@@ -58,6 +58,11 @@ export interface KataProjectSnapshotNextAction {
   };
 }
 
+export interface KataProjectSnapshotSliceDependencies {
+  blockedBy: string[];
+  blocking: string[];
+}
+
 export interface KataProjectSnapshot {
   context: KataProjectContext;
   activeMilestone: KataMilestone | null;
@@ -73,6 +78,7 @@ export interface KataProjectSnapshot {
     existingSliceIds: string[];
     missingSliceIds: string[];
     requirementToSliceIds: Record<string, string[]>;
+    sliceDependencies: Record<string, KataProjectSnapshotSliceDependencies>;
   };
   slices: KataProjectSnapshotSlice[];
   readiness: {

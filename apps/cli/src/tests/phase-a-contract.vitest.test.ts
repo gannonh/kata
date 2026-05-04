@@ -567,6 +567,115 @@ describe("Phase A domain contract", () => {
     });
   });
 
+  it("extracts roadmap slice dependencies and merges backend dependency metadata", async () => {
+    const api = createKataDomainApi({
+      ...createFakeAdapter(),
+      getActiveMilestone: async () => ({
+        id: "M004",
+        title: "Dependency Roadmap",
+        goal: "Validate dependency extraction",
+        status: "active",
+        active: true,
+      }),
+      listSlices: async () => [
+        {
+          id: "S001",
+          milestoneId: "M004",
+          title: "Foundation",
+          goal: "Cover REQ-01",
+          status: "done",
+          order: 1,
+          blockedBy: [],
+          blocking: ["S003"],
+        },
+        {
+          id: "S002",
+          milestoneId: "M004",
+          title: "Table dependent work",
+          goal: "Cover REQ-02",
+          status: "backlog",
+          order: 2,
+          blockedBy: [],
+          blocking: [],
+        },
+        {
+          id: "S003",
+          milestoneId: "M004",
+          title: "Inline dependent work",
+          goal: "Cover REQ-03",
+          status: "backlog",
+          order: 3,
+          blockedBy: ["S001", "S001"],
+          blocking: [],
+        },
+        {
+          id: "S004",
+          milestoneId: "M004",
+          title: "Blocked by line metadata",
+          goal: "Cover REQ-04",
+          status: "backlog",
+          order: 4,
+          blockedBy: ["S001"],
+          blocking: [],
+        },
+      ],
+      listTasks: async () => [],
+      listArtifacts: async () => [],
+      readArtifact: async (input: KataArtifactReadInput) => ({
+        id: `${input.scopeType}:${input.scopeId}:${input.artifactType}`,
+        scopeType: input.scopeType,
+        scopeId: input.scopeId,
+        artifactType: input.artifactType,
+        title: input.artifactType,
+        content: input.artifactType === "roadmap"
+          ? [
+              "| Requirement | Backend Slice | Depends on | Status |",
+              "|---|---|---|---|",
+              "| REQ-01 | S001 | | Done |",
+              "| REQ-02 | S002 | S001 | Pending |",
+              "Backend Slice: S003; Depends on: S001, S002; Covers REQ-03",
+              "Slice ID: S004 — Blocked by [S003], [S001] — Covers REQ-04",
+            ].join("\n")
+          : "REQ-01\nREQ-02\nREQ-03\nREQ-04",
+        format: "markdown",
+        updatedAt: "2026-04-29T00:00:00.000Z",
+        provenance: { backend: "github", backendId: "comment:4" },
+      }),
+    });
+
+    const snapshot = await dispatchKataOperation(api, "project.getSnapshot") as KataProjectSnapshot;
+
+    expect(snapshot.roadmap).toMatchObject({
+      plannedSliceIds: ["S001", "S002", "S003", "S004"],
+      existingSliceIds: ["S001", "S002", "S003", "S004"],
+      missingSliceIds: [],
+      requirementToSliceIds: {
+        "REQ-01": ["S001"],
+        "REQ-02": ["S002"],
+        "REQ-03": ["S003"],
+        "REQ-04": ["S004"],
+      },
+      sliceDependencies: {
+        S001: { blockedBy: [], blocking: ["S002", "S003", "S004"] },
+        S002: { blockedBy: ["S001"], blocking: ["S003"] },
+        S003: { blockedBy: ["S001", "S002"], blocking: ["S004"] },
+        S004: { blockedBy: ["S001", "S003"], blocking: [] },
+      },
+    });
+    expect(snapshot.slices.find((slice) => slice.id === "S001")).toMatchObject({
+      blockedBy: [],
+      blocking: ["S002", "S003", "S004"],
+    });
+    expect(snapshot.slices.find((slice) => slice.id === "S003")).toMatchObject({
+      blockedBy: ["S001", "S002"],
+      blocking: ["S004"],
+    });
+    expect(snapshot.slices.find((slice) => slice.id === "S004")).toMatchObject({
+      blockedBy: ["S001", "S003"],
+      blocking: [],
+    });
+  });
+
   it("prioritizes executing existing planned slices before planning later roadmap slices", async () => {
     const api = createKataDomainApi({
       ...createFakeAdapter(),
