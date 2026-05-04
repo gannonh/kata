@@ -123,6 +123,24 @@ fn project_item_node_with_fields(
     })
 }
 
+fn project_item_node_without_dependency_fields(
+    item_id: &str,
+    issue_number: u64,
+    option_id: &str,
+    status_name: &str,
+    kata_id: Option<&str>,
+) -> serde_json::Value {
+    json!({
+        "id": item_id,
+        "content": { "number": issue_number },
+        "status": {
+            "name": status_name,
+            "optionId": option_id
+        },
+        "kataId": kata_id.map(|text| json!({ "text": text }))
+    })
+}
+
 async fn run_tracker_contract(
     adapter: &GithubAdapter,
     expected_state: &str,
@@ -1650,7 +1668,7 @@ async fn test_projects_v2_candidate_preserves_unknown_blocker_without_issue_fetc
 }
 
 #[tokio::test]
-async fn test_projects_v2_candidate_empty_blocked_by_yields_empty_blocker_list() {
+async fn test_projects_v2_candidate_empty_and_absent_blocked_by_yields_empty_blocker_list() {
     let mut server = Server::new_async().await;
     let adapter = test_projects_adapter(&server, None, 42);
 
@@ -1680,6 +1698,13 @@ async fn test_projects_v2_candidate_empty_blocked_by_yields_empty_blocker_list()
                     Some("   "),
                 ),
                 project_item_node("item_432", 432, "opt_in_progress", "In Progress"),
+                project_item_node_without_dependency_fields(
+                    "item_433",
+                    433,
+                    "opt_todo",
+                    "Todo",
+                    Some("S006"),
+                ),
             ])
             .to_string(),
         )
@@ -1705,6 +1730,15 @@ async fn test_projects_v2_candidate_empty_blocked_by_yields_empty_blocker_list()
         .create_async()
         .await;
 
+    let issue_433 = server
+        .mock("GET", "/repos/kata-sh/kata-mono/issues/433")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(issue_json(433, &["symphony:todo"], "alice", &["alice"], None).to_string())
+        .expect(1)
+        .create_async()
+        .await;
+
     let issues = adapter
         .fetch_candidate_issues()
         .await
@@ -1714,8 +1748,9 @@ async fn test_projects_v2_candidate_empty_blocked_by_yields_empty_blocker_list()
     items_mock.assert_async().await;
     issue_431.assert_async().await;
     issue_432.assert_async().await;
+    issue_433.assert_async().await;
 
-    assert_eq!(issues.len(), 2);
+    assert_eq!(issues.len(), 3);
     assert!(issues.iter().all(|issue| issue.blocked_by.is_empty()));
 }
 
