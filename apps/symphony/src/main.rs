@@ -2175,6 +2175,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn helper_issue_id_resolves_current_environment_values() {
         let _issue_id_guard = EnvGuard::set("SYMPHONY_ISSUE_ID", "opaque-backend-id");
         let _identifier_guard = EnvGuard::set("SYMPHONY_ISSUE_IDENTIFIER", "DISPLAY-123");
