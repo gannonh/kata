@@ -47,7 +47,7 @@ Dispatch gates:
 - issue has no non-terminal blockers in `blocked_by`
 - issue is not already claimed or already running
 
-Before dispatch, Symphony refreshes each candidate by issue ID and re-validates eligibility. Candidate ordering is deterministic: priority, creation time, then identifier. Dispatch continues until `agent.max_concurrent_agents` capacity is filled.
+Before dispatch, Symphony refreshes each candidate by issue ID and re-validates eligibility. Candidate ordering is deterministic: priority (`1` highest, then `2`/`3`/`4`, then unset), then creation time, then identifier. Dispatch continues until `agent.max_concurrent_agents` capacity is filled.
 
 ## Agent harness vs backend-state separation
 
