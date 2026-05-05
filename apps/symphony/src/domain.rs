@@ -518,7 +518,7 @@ pub struct WorkflowDefinition {
 /// Per-state prompt configuration.
 ///
 /// When present, the orchestrator selects a prompt template based on the
-/// issue's Linear state at dispatch time instead of using the monolithic
+/// issue's tracker state at dispatch time instead of using the monolithic
 /// `prompt_template` body.
 #[derive(Debug, Clone, Default)]
 pub struct PromptsConfig {
@@ -1026,7 +1026,7 @@ impl Default for PiAgentConfig {
 }
 
 impl PiAgentConfig {
-    /// Resolve the effective model for a Linear issue state.
+    /// Resolve the effective model for a tracker issue state.
     ///
     /// Looks up a lowercase/trimmed state key in `model_by_state` first,
     /// then falls back to the default `model`.
@@ -1111,10 +1111,10 @@ pub struct RunAttempt {
     /// Effective model selected for this run attempt (backend-dependent).
     #[serde(default)]
     pub model: Option<String>,
-    /// Linear issue state at dispatch time (e.g. "In Progress", "Agent Review").
+    /// Tracker issue state at dispatch time (e.g. "In Progress", "Agent Review").
     #[serde(default)]
-    pub linear_state: Option<String>,
-    /// Linear issue URL for notifications.
+    pub tracker_state: Option<String>,
+    /// Tracker issue URL for notifications.
     #[serde(default)]
     pub issue_url: Option<String>,
 }

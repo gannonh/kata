@@ -251,7 +251,7 @@ workspace:
 # ─── Hooks ────────────────────────────────────────────────────────────────────
 # Shell commands run at workspace lifecycle events. All hooks receive these
 # environment variables:
-#   SYMPHONY_ISSUE_ID          — Linear issue UUID
+#   SYMPHONY_ISSUE_ID          — tracker issue ID
 #   SYMPHONY_ISSUE_IDENTIFIER  — e.g. KAT-814
 #   SYMPHONY_ISSUE_TITLE       — issue title text
 #   SYMPHONY_WORKSPACE_PATH    — absolute path to the workspace directory
@@ -469,7 +469,7 @@ server:
 
 # ─── Prompts (per-state prompt injection) ─────────────────────────────────────
 # Optional. When configured, the orchestrator selects a prompt template based on
-# the issue's Linear state at dispatch time instead of using the markdown body
+# the issue's tracker state at dispatch time instead of using the markdown body
 # below the --- delimiter. Each file is a Liquid template with access to
 # {{ issue.* }}, {{ attempt }}, and {{ workspace.base_branch }}.
 #
@@ -491,10 +491,10 @@ server:
 # Template variables available in per-state prompts:
 #   {{ issue.identifier }}        — e.g. "KAT-928"
 #   {{ issue.title }}             — issue title
-#   {{ issue.state }}             — current Linear state name
+#   {{ issue.state }}             — current tracker state name
 #   {{ issue.labels }}            — comma-separated label names
 #   {{ issue.description }}       — issue body (may be empty)
-#   {{ issue.url }}               — Linear issue URL
+#   {{ issue.url }}               — tracker issue URL
 #   {{ issue.children_count }}    — number of child sub-issues (0 for flat tickets)
 #   {{ issue.parent_identifier }} — parent issue identifier (nil for non-sub-issues)
 #   {{ attempt }}                 — retry attempt number (nil on first dispatch)

@@ -31,7 +31,7 @@ The Symphony HTTP server starts automatically when you run `symphony WORKFLOW.md
 
 HTML dashboard. Auto-refreshes every 2 seconds.
 
-Shows: running sessions with turn count, token usage, and last activity; retry queue; shared context table (author, scope, preview, age, TTL); supervisor status and counters; completed issues; polling stats; rate limits; and a link to the Linear project.
+Shows: running sessions with turn count, token usage, and last activity; retry queue; shared context table (author, scope, preview, age, TTL); supervisor status and counters; completed issues; polling stats; rate limits; and a link to the tracker project.
 
 ---
 
@@ -56,7 +56,7 @@ Full Symphony runtime state snapshot as JSON.
       "worker_host": null,
       "workspace_path": "/tmp/symphony_workspaces/ENG-42",
       "started_at": "2026-03-22T15:40:00Z",
-      "linear_state": "In Progress"
+      "tracker_state": "In Progress"
     }
   },
   "running_session_info": {
@@ -118,7 +118,7 @@ Full Symphony runtime state snapshot as JSON.
   Map of issue UUID to `RunAttempt` records for currently running sessions.
 
   <Expandable title="RunAttempt fields">
-    <ResponseField name="issue_id" type="string">Linear issue UUID.</ResponseField>
+    <ResponseField name="issue_id" type="string">Tracker issue ID.</ResponseField>
     <ResponseField name="issue_identifier" type="string">Human-readable identifier, e.g. `ENG-42`.</ResponseField>
     <ResponseField name="issue_title" type="string">Issue title.</ResponseField>
     <ResponseField name="status" type="string">Current status: `running`.</ResponseField>
@@ -127,7 +127,7 @@ Full Symphony runtime state snapshot as JSON.
     <ResponseField name="worker_host" type="string | null">SSH host running this session, or `null` for local.</ResponseField>
     <ResponseField name="workspace_path" type="string">Absolute path to the workspace directory.</ResponseField>
     <ResponseField name="started_at" type="string">ISO 8601 timestamp when the session started.</ResponseField>
-    <ResponseField name="linear_state" type="string">Current Linear state name.</ResponseField>
+    <ResponseField name="tracker_state" type="string">Current tracker state name.</ResponseField>
   </Expandable>
 </ResponseField>
 
@@ -239,7 +239,7 @@ Returns the list of pending escalation requests for polling clients.
 
   <Expandable title="Escalation fields">
     <ResponseField name="request_id" type="string">Unique request identifier. Required for the respond endpoint.</ResponseField>
-    <ResponseField name="issue_id" type="string">Linear issue UUID.</ResponseField>
+    <ResponseField name="issue_id" type="string">Tracker issue ID.</ResponseField>
     <ResponseField name="issue_identifier" type="string">Human-readable issue identifier.</ResponseField>
     <ResponseField name="method" type="string">Escalation method type, e.g. `ask_user_questions`.</ResponseField>
     <ResponseField name="preview" type="string">Short preview of the escalation prompt.</ResponseField>

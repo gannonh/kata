@@ -78,7 +78,7 @@ fn fixture_snapshot() -> OrchestratorSnapshot {
                     error: None,
                     worker_host: Some("worker-a".to_string()),
                     model: None,
-                    linear_state: None,
+                    tracker_state: None,
                     issue_url: None,
                 },
             );
@@ -190,7 +190,7 @@ fn github_snapshot() -> OrchestratorSnapshot {
             error: None,
             worker_host: Some("worker-a".to_string()),
             model: None,
-            linear_state: Some("In Progress".to_string()),
+            tracker_state: Some("In Progress".to_string()),
             issue_url: Some("https://github.com/test-owner/test-repo/issues/42".to_string()),
         },
     )]);

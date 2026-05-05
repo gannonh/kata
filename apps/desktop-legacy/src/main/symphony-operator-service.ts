@@ -705,7 +705,7 @@ export class SymphonyOperatorService extends EventEmitter {
       issueId,
       identifier,
       issueTitle: String(run.issue_title ?? identifier).trim() || identifier,
-      state: String(run.linear_state ?? run.status ?? 'unknown').trim(),
+      state: String(run.tracker_state ?? run.status ?? 'unknown').trim(),
       toolName: String(info?.current_tool_name ?? 'idle').trim() || 'idle',
       model: String(run.model ?? 'default').trim() || 'default',
       ...(typeof runningSession?.session_id === 'string' && runningSession.session_id.trim()

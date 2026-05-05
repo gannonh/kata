@@ -777,10 +777,10 @@ fn running_rows(snapshot: &OrchestratorSnapshot, now: DateTime<Utc>) -> Vec<Row<
         let state = if escalation.is_some() {
             format!(
                 "⚠ {}",
-                run.linear_state.as_deref().unwrap_or(run.status.as_str())
+                run.tracker_state.as_deref().unwrap_or(run.status.as_str())
             )
         } else {
-            run.linear_state
+            run.tracker_state
                 .as_deref()
                 .unwrap_or(run.status.as_str())
                 .to_string()
@@ -1412,7 +1412,7 @@ mod tests {
                 error: None,
                 worker_host: None,
                 model: None,
-                linear_state: Some("Agent Review".to_string()),
+                tracker_state: Some("Agent Review".to_string()),
                 issue_url: None,
             },
         );
@@ -1476,7 +1476,7 @@ mod tests {
                 error: None,
                 worker_host: None,
                 model: Some("anthropic/claude-sonnet-4-6".to_string()),
-                linear_state: Some("In Progress".to_string()),
+                tracker_state: Some("In Progress".to_string()),
                 issue_url: None,
             },
         );
@@ -1539,7 +1539,7 @@ mod tests {
                 error: None,
                 worker_host: None,
                 model: None,
-                linear_state: Some("In Progress".to_string()),
+                tracker_state: Some("In Progress".to_string()),
                 issue_url: Some("https://github.com/owner/repo/issues/42".to_string()),
             },
         );

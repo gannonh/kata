@@ -46,7 +46,7 @@ export function renderSymphonyStatus(state: SymphonyOrchestratorState): string {
     lines.push("Active workers:");
     for (const run of running.slice(0, 10)) {
       lines.push(
-        `- ${run.issue_identifier} · ${run.status}${run.linear_state ? ` · ${run.linear_state}` : ""}${run.worker_host ? ` · ${run.worker_host}` : ""}`,
+        `- ${run.issue_identifier} · ${run.status}${run.tracker_state ? ` · ${run.tracker_state}` : ""}${run.worker_host ? ` · ${run.worker_host}` : ""}`,
       );
     }
   }

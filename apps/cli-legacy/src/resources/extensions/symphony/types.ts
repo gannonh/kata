@@ -124,7 +124,7 @@ export interface SymphonyRunAttempt {
   worker_host?: string | null;
   workspace_path?: string;
   started_at?: string;
-  linear_state?: string | null;
+  tracker_state?: string | null;
   model?: string | null;
   issue_url?: string | null;
 }

@@ -17,7 +17,7 @@ export interface WorkerRow {
   issueId: string;
   identifier: string;
   issueTitle: string;
-  linearState: string;
+  trackerState: string;
   currentTool: string;
   lastActivityAge: string;
   model: string;
@@ -180,7 +180,7 @@ function workerRowFromRun(
     issueId: run.issue_id,
     identifier: run.issue_identifier,
     issueTitle: run.issue_title?.trim() || run.issue_identifier,
-    linearState: run.linear_state?.trim() || run.status,
+    trackerState: run.tracker_state?.trim() || run.status,
     currentTool: info?.current_tool_name?.trim() || "idle",
     lastActivityAge: formatDurationMs(ageMs),
     model: run.model?.trim() || "default",

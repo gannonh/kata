@@ -439,7 +439,7 @@ workflow file (e.g. `0.0.0.0` to bind all interfaces).
       "worker_host": null,
       "workspace_path": "/tmp/symphony_workspaces/ENG-42",
       "started_at": "2026-03-22T15:40:00Z",
-      "linear_state": "In Progress"
+      "tracker_state": "In Progress"
     }
   },
   "running_session_info": {
@@ -507,10 +507,10 @@ workflow file (e.g. `0.0.0.0` to bind all interfaces).
 ```
 
 `running` entries in `/api/v1/state` are serialized `RunAttempt` records. The
-`linear_state` field name is retained for compatibility and contains the current
-tracker state for both GitHub and Linear runs. Dashboard observability fields
-(`turn_count`, `max_turns`, `last_activity_ms`, `session_tokens`) are provided
-alongside each run in `running_session_info`.
+`tracker_state` field contains the current tracker state for GitHub and Linear
+runs. Dashboard observability fields (`turn_count`, `max_turns`,
+`last_activity_ms`, `session_tokens`) are provided alongside each run in
+`running_session_info`.
 
 ### Sample JSON — `POST /api/v1/refresh`
 

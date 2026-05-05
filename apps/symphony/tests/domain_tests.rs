@@ -237,7 +237,7 @@ fn test_run_attempt_construction_and_serialization() {
         error: None,
         worker_host: None,
         model: None,
-        linear_state: None,
+        tracker_state: None,
         issue_url: None,
     };
     let json = serde_json::to_string(&ra).unwrap();
@@ -259,7 +259,7 @@ fn test_run_attempt_deserializes_when_issue_url_missing() {
         "error":null,
         "worker_host":null,
         "model":null,
-        "linear_state":null
+        "tracker_state":null
     }"#;
     let deser: RunAttempt = serde_json::from_str(json).unwrap();
     assert_eq!(deser.issue_id, "id-legacy");
@@ -335,7 +335,7 @@ fn test_orchestrator_snapshot_serializes() {
                     error: None,
                     worker_host: None,
                     model: None,
-                    linear_state: None,
+                    tracker_state: None,
                     issue_url: None,
                 },
             );
@@ -352,7 +352,7 @@ fn test_orchestrator_snapshot_serializes() {
                     error: None,
                     worker_host: None,
                     model: None,
-                    linear_state: None,
+                    tracker_state: None,
                     issue_url: None,
                 },
             );

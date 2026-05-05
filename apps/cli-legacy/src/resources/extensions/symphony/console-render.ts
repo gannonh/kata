@@ -73,10 +73,10 @@ export function renderConsolePanel(
           : "✓";
 
       const identifier = worker.identifier.padEnd(12, " ");
-      const linearState = worker.linearState.padEnd(14, " ");
+      const trackerState = worker.trackerState.padEnd(14, " ");
 
       lines.push(
-        `  ${marker} ${identifier} ${linearState} tool:${worker.currentTool} · ${worker.lastActivityAge} · ${worker.model}`,
+        `  ${marker} ${identifier} ${trackerState} tool:${worker.currentTool} · ${worker.lastActivityAge} · ${worker.model}`,
       );
       if (worker.issueTitle && worker.issueTitle !== worker.identifier) {
         lines.push(`    ${worker.issueTitle}`);

@@ -703,7 +703,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
         <thead>
           <tr>
             <th>Identifier</th>
-            <th>Linear State</th>
+            <th>Tracker State</th>
             <th>Status</th>
             <th>Activity</th>
             <th>Error</th>
@@ -974,7 +974,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
           : '<td class="muted">-</td>';
         return '<tr>' +
           '<td class="mono">' + issueCell + '</td>' +
-          '<td>' + escapeHtml(run.linear_state || '-') + '</td>' +
+          '<td>' + escapeHtml(run.tracker_state || '-') + '</td>' +
           '<td>' + escapeHtml(run.status || '-') + '</td>' +
           '<td class="mono">' + escapeHtml(activityLabel) + '</td>' +
           errorCell +

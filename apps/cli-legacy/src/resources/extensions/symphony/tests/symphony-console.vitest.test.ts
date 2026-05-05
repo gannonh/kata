@@ -35,7 +35,7 @@ describe("console-state", () => {
           issue_identifier: "KAT-1304",
           issue_title: "Operator Console",
           status: "running",
-          linear_state: "In Progress",
+          tracker_state: "In Progress",
           started_at: new Date(0).toISOString(),
           model: "claude-sonnet-4-6",
         },
@@ -100,7 +100,7 @@ describe("console-state", () => {
       issueId: "issue-1",
       identifier: "KAT-1304",
       issueTitle: "Operator Console",
-      linearState: "In Progress",
+      trackerState: "In Progress",
       currentTool: "bash",
       model: "claude-sonnet-4-6",
     });

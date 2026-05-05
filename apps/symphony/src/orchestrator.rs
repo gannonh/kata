@@ -2349,29 +2349,42 @@ impl Orchestrator {
         port: &mut dyn OrchestratorPort,
     ) {
         for d in dispatched {
+            let mut issue = d.issue.clone();
+            let mut effective_state = issue.state.clone();
+
             // Only move "Todo" issues to "In Progress" on dispatch.
             // Other active states (Agent Review, Merging, Rework, In Progress)
             // are preserved so the agent sees the correct state and follows
             // the matching workflow in WORKFLOW.md Step 0.
-            if normalize_issue_state(&d.issue.state) == "todo" {
-                if let Err(err) = port.update_issue_state(&d.issue.id, "In Progress") {
-                    tracing::warn!(
-                        event = "state_transition_failed",
-                        tracker_kind = %self.config.tracker.kind.as_deref().unwrap_or("linear"),
-                        issue_id = %d.issue.id,
-                        issue_identifier = %d.issue.identifier,
-                        target_state = "In Progress",
-                        error = %err,
-                        "failed to move issue to In Progress; continuing with dispatch"
-                    );
+            if normalize_issue_state(&issue.state) == "todo" {
+                match port.update_issue_state(&issue.id, "In Progress") {
+                    Ok(()) => {
+                        effective_state = "In Progress".to_string();
+                    }
+                    Err(err) => {
+                        tracing::warn!(
+                            event = "state_transition_failed",
+                            tracker_kind = %self.config.tracker.kind.as_deref().unwrap_or("unknown"),
+                            issue_id = %issue.id,
+                            issue_identifier = %issue.identifier,
+                            target_state = "In Progress",
+                            error = %err,
+                            "failed to move issue to In Progress; continuing with dispatch"
+                        );
+                    }
                 }
             }
 
-            // Update status from "scheduled" to "running"
-            if let Some(attempt) = self.state.running.get_mut(&d.issue.id) {
+            issue.state = effective_state.clone();
+            self.running_issue_states
+                .insert(issue.id.clone(), effective_state.clone());
+
+            // Update status from "scheduled" to "running" and record the
+            // tracker state the worker is actually dispatched with.
+            if let Some(attempt) = self.state.running.get_mut(&issue.id) {
                 attempt.status = "running".to_string();
+                attempt.tracker_state = Some(effective_state.clone());
             }
-            let mut issue = d.issue.clone();
             let attempt = d.attempt;
             let worker_host = d.worker_host.clone();
             let tx = self.worker_result_tx.clone();
@@ -2384,15 +2397,6 @@ impl Orchestrator {
                 steer_rx = Some(rx);
             }
 
-            // Use the post-dispatch state (after Todo→In Progress transition) so
-            // the multi-turn loop's between-turn check compares against the actual
-            // dispatched state, not the stale pre-transition state.
-            let effective_state = self
-                .running_issue_states
-                .get(&issue.id)
-                .cloned()
-                .unwrap_or_else(|| issue.state.clone());
-            issue.state = effective_state.clone();
             let prompt_template = Self::ensure_shared_context_placeholder(
                 self.resolve_prompt_for_state(&effective_state),
             );
@@ -2505,7 +2509,7 @@ impl Orchestrator {
                 self.state
                     .running
                     .get(&dispatch.request.issue_id)
-                    .and_then(|attempt| attempt.linear_state.clone())
+                    .and_then(|attempt| attempt.tracker_state.clone())
             });
         let parent_identifier = self
             .running_parent_identifiers
@@ -3520,7 +3524,7 @@ impl Orchestrator {
                 error: None,
                 worker_host: prior_worker_host.clone(),
                 model: pi_model_override.clone(),
-                linear_state: Some(issue.state.clone()),
+                tracker_state: Some(issue.state.clone()),
                 issue_url: issue.url.clone(),
             },
         );
@@ -4679,9 +4683,9 @@ impl Orchestrator {
             self.running_parent_identifiers
                 .insert(issue.id.clone(), issue.parent_identifier.clone());
 
-            // Keep dashboard linear_state current with actual Linear state.
+            // Keep dashboard tracker_state current with actual tracker state.
             if let Some(attempt) = self.state.running.get_mut(&issue.id) {
-                attempt.linear_state = Some(issue.state.clone());
+                attempt.tracker_state = Some(issue.state.clone());
             }
         }
 
@@ -5056,7 +5060,7 @@ impl Orchestrator {
             } else {
                 None
             },
-            linear_state: Some(issue.state.clone()),
+            tracker_state: Some(issue.state.clone()),
             issue_url: issue.url.clone(),
         };
 
@@ -5354,7 +5358,7 @@ impl Orchestrator {
                     event = "completion_comment_written",
                     issue_id = %issue.id,
                     issue_identifier = %issue.identifier,
-                    tracker_kind = %self.config.tracker.kind.as_deref().unwrap_or("linear"),
+                    tracker_kind = %self.config.tracker.kind.as_deref().unwrap_or("unknown"),
                     "wrote structured completion comment"
                 );
             }
@@ -5363,7 +5367,7 @@ impl Orchestrator {
                     event = "completion_comment_failed",
                     issue_id = %issue.id,
                     issue_identifier = %issue.identifier,
-                    tracker_kind = %self.config.tracker.kind.as_deref().unwrap_or("linear"),
+                    tracker_kind = %self.config.tracker.kind.as_deref().unwrap_or("unknown"),
                     error = %err,
                     "failed to write structured completion comment"
                 );

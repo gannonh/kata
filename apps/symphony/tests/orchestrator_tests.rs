@@ -402,7 +402,7 @@ fn test_startup_terminal_cleanup_clears_runtime_bookkeeping_without_completed_in
             error: None,
             worker_host: None,
             model: None,
-            linear_state: Some("In Progress".to_string()),
+            tracker_state: Some("In Progress".to_string()),
             issue_url: None,
         },
     );
@@ -792,7 +792,7 @@ async fn test_reconcile_issue_disappears_between_polls_releases_running_entry() 
             error: None,
             worker_host: None,
             model: None,
-            linear_state: Some("In Progress".to_string()),
+            tracker_state: Some("In Progress".to_string()),
             issue_url: None,
         },
     );
@@ -1018,7 +1018,7 @@ fn test_stall_detection_schedules_forced_retry() {
             error: None,
             worker_host: None,
             model: None,
-            linear_state: None,
+            tracker_state: None,
             issue_url: None,
         },
     );
@@ -1085,7 +1085,7 @@ async fn test_notification_fires_on_worker_stall() {
             error: None,
             worker_host: None,
             model: None,
-            linear_state: None,
+            tracker_state: None,
             issue_url: None,
         },
     );
@@ -1128,7 +1128,7 @@ async fn test_notification_fires_on_terminal_failure() {
             error: None,
             worker_host: None,
             model: None,
-            linear_state: None,
+            tracker_state: None,
             issue_url: None,
         },
     );
@@ -1174,7 +1174,7 @@ async fn test_notification_skips_unconfigured_events() {
             error: None,
             worker_host: None,
             model: None,
-            linear_state: None,
+            tracker_state: None,
             issue_url: None,
         },
     );
@@ -1221,7 +1221,7 @@ async fn test_notification_failure_does_not_block_orchestrator() {
             error: None,
             worker_host: None,
             model: None,
-            linear_state: None,
+            tracker_state: None,
             issue_url: None,
         },
     );
@@ -1368,7 +1368,7 @@ async fn test_notification_does_not_fire_without_prior_state_snapshot() {
             error: None,
             worker_host: None,
             model: None,
-            linear_state: Some("Human Review".to_string()),
+            tracker_state: Some("Human Review".to_string()),
             issue_url: None,
         },
     );
@@ -1408,7 +1408,7 @@ fn test_streamed_event_updates_activity_before_worker_completion() {
             error: None,
             worker_host: None,
             model: None,
-            linear_state: None,
+            tracker_state: None,
             issue_url: None,
         },
     );
@@ -1473,7 +1473,7 @@ fn test_streamed_events_keep_refreshing_stall_detection_window() {
             error: None,
             worker_host: None,
             model: None,
-            linear_state: None,
+            tracker_state: None,
             issue_url: None,
         },
     );
@@ -1539,7 +1539,7 @@ fn test_streamed_notification_records_event_method_and_message() {
             error: None,
             worker_host: None,
             model: None,
-            linear_state: None,
+            tracker_state: None,
             issue_url: None,
         },
     );
@@ -1587,7 +1587,7 @@ fn test_streamed_tool_call_completed_uses_completed_summary() {
             error: None,
             worker_host: None,
             model: None,
-            linear_state: None,
+            tracker_state: None,
             issue_url: None,
         },
     );
@@ -1630,7 +1630,7 @@ fn test_streamed_turn_completed_events_update_token_totals_in_real_time() {
             error: None,
             worker_host: None,
             model: None,
-            linear_state: None,
+            tracker_state: None,
             issue_url: None,
         },
     );
@@ -1765,7 +1765,7 @@ fn test_event_count_increments_on_ingest() {
             error: None,
             worker_host: None,
             model: None,
-            linear_state: None,
+            tracker_state: None,
             issue_url: None,
         },
     );
@@ -1833,7 +1833,7 @@ fn test_worker_session_info_last_error_set_on_failed_turn_and_exposed_in_snapsho
             error: None,
             worker_host: None,
             model: None,
-            linear_state: None,
+            tracker_state: None,
             issue_url: None,
         },
     );
@@ -1887,7 +1887,7 @@ fn test_worker_session_info_last_error_clears_after_zero_token_turn_completed() 
             error: None,
             worker_host: None,
             model: None,
-            linear_state: None,
+            tracker_state: None,
             issue_url: None,
         },
     );
@@ -1949,7 +1949,7 @@ fn test_worker_session_info_last_error_formats_rate_limit_retry_window() {
             error: None,
             worker_host: None,
             model: None,
-            linear_state: None,
+            tracker_state: None,
             issue_url: None,
         },
     );
@@ -1996,7 +1996,7 @@ fn test_worker_session_info_last_error_does_not_treat_milliseconds_as_minutes() 
             error: None,
             worker_host: None,
             model: None,
-            linear_state: None,
+            tracker_state: None,
             issue_url: None,
         },
     );
@@ -2051,7 +2051,7 @@ fn test_worker_session_info_last_error_rate_limit_fallback_is_truncated_to_displ
             error: None,
             worker_host: None,
             model: None,
-            linear_state: None,
+            tracker_state: None,
             issue_url: None,
         },
     );
@@ -2107,7 +2107,7 @@ fn test_late_streamed_event_after_completion_is_ignored() {
             error: None,
             worker_host: None,
             model: None,
-            linear_state: None,
+            tracker_state: None,
             issue_url: None,
         },
     );
@@ -2213,7 +2213,7 @@ fn test_snapshot_exposes_running_and_retry_diagnostics() {
             error: Some("worker failed".to_string()),
             worker_host: Some("worker-a".to_string()),
             model: None,
-            linear_state: None,
+            tracker_state: None,
             issue_url: None,
         },
     );
@@ -2291,7 +2291,7 @@ fn test_worker_completion_schedules_continuation_retry_with_session_context() {
             error: None,
             worker_host: Some("worker-b".to_string()),
             model: None,
-            linear_state: None,
+            tracker_state: None,
             issue_url: None,
         },
     );
@@ -2384,7 +2384,7 @@ fn test_worker_completion_without_continuation_does_not_queue_retry() {
             error: None,
             worker_host: None,
             model: None,
-            linear_state: None,
+            tracker_state: None,
             issue_url: None,
         },
     );
@@ -2438,7 +2438,7 @@ fn test_worker_failure_preserves_attempt_and_backoff_cap() {
             error: None,
             worker_host: Some("worker-c".to_string()),
             model: None,
-            linear_state: None,
+            tracker_state: None,
             issue_url: None,
         },
     );
@@ -2825,7 +2825,7 @@ async fn test_reconcile_non_active_state_stops_run_without_cleanup() {
         error: None,
         worker_host: None,
         model: None,
-        linear_state: None,
+        tracker_state: None,
         issue_url: None,
     };
     orchestrator
@@ -2900,7 +2900,7 @@ async fn test_reconcile_terminal_state_cleans_pending_escalations() {
             error: None,
             worker_host: None,
             model: None,
-            linear_state: Some("In Progress".to_string()),
+            tracker_state: Some("In Progress".to_string()),
             issue_url: None,
         },
     );
@@ -3015,7 +3015,7 @@ fn test_terminal_state_cleanup_removes_workspace_when_enabled() {
         error: None,
         worker_host: None,
         model: None,
-        linear_state: None,
+        tracker_state: None,
         issue_url: None,
     };
     orchestrator
@@ -3066,7 +3066,7 @@ fn test_terminal_state_cleanup_preserves_workspace_when_disabled() {
         error: None,
         worker_host: None,
         model: None,
-        linear_state: None,
+        tracker_state: None,
         issue_url: None,
     };
     orchestrator
@@ -3126,7 +3126,7 @@ fn test_terminal_state_cleanup_runs_before_remove_hook() {
         error: None,
         worker_host: None,
         model: None,
-        linear_state: None,
+        tracker_state: None,
         issue_url: None,
     };
     orchestrator
@@ -3188,7 +3188,7 @@ fn test_terminal_state_cleanup_defers_until_worker_completion() {
             error: None,
             worker_host: None,
             model: None,
-            linear_state: None,
+            tracker_state: None,
             issue_url: None,
         },
     );
@@ -3344,7 +3344,7 @@ fn test_terminal_state_cleanup_removes_worktree_checkout_when_enabled() {
         error: None,
         worker_host: None,
         model: None,
-        linear_state: None,
+        tracker_state: None,
         issue_url: None,
     };
     orchestrator
@@ -3404,7 +3404,7 @@ fn test_terminal_state_cleanup_failure_is_non_fatal() {
         error: None,
         worker_host: None,
         model: None,
-        linear_state: None,
+        tracker_state: None,
         issue_url: None,
     };
     orchestrator

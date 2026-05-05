@@ -62,7 +62,7 @@ fn fixture_snapshot() -> OrchestratorSnapshot {
                 error: None,
                 worker_host: None,
                 model: None,
-                linear_state: Some("In Progress".to_string()),
+                tracker_state: Some("In Progress".to_string()),
                 issue_url: None,
             },
         )]),
@@ -311,7 +311,7 @@ async fn filtered_runtime_event_delivery() {
             error: None,
             worker_host: None,
             model: None,
-            linear_state: Some("In Progress".to_string()),
+            tracker_state: Some("In Progress".to_string()),
             issue_url: None,
         },
     );
@@ -363,7 +363,7 @@ async fn orchestrator_event_stream_emits_runtime_and_tool_events() {
             error: None,
             worker_host: None,
             model: None,
-            linear_state: Some("In Progress".to_string()),
+            tracker_state: Some("In Progress".to_string()),
             issue_url: None,
         },
     );
@@ -420,7 +420,7 @@ async fn orchestrator_session_started_event_includes_session_id() {
             error: None,
             worker_host: None,
             model: None,
-            linear_state: Some("In Progress".to_string()),
+            tracker_state: Some("In Progress".to_string()),
             issue_url: None,
         },
     );
@@ -470,7 +470,7 @@ async fn tool_error_notification_maps_to_tool_error_envelope() {
             error: None,
             worker_host: None,
             model: None,
-            linear_state: Some("In Progress".to_string()),
+            tracker_state: Some("In Progress".to_string()),
             issue_url: None,
         },
     );
@@ -521,7 +521,7 @@ async fn tool_error_envelope_includes_last_tool_command_preview() {
             error: None,
             worker_host: None,
             model: None,
-            linear_state: Some("In Progress".to_string()),
+            tracker_state: Some("In Progress".to_string()),
             issue_url: None,
         },
     );

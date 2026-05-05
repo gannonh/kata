@@ -78,7 +78,7 @@ pub enum CliCommand {
 #[derive(Parser, Debug, Clone)]
 #[command(
     name = "symphony",
-    about = "Symphony orchestrator — polls Linear, dispatches Codex agent sessions"
+    about = "Symphony orchestrator — polls a tracker and dispatches agent sessions"
 )]
 pub struct Cli {
     #[command(subcommand)]

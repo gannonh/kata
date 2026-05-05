@@ -86,7 +86,7 @@ pub fn render_prompt_with_shared_context(
 /// shared + state-specific content.
 ///
 /// - `prompts_config`: the parsed `PromptsConfig` from YAML
-/// - `issue_state`: the issue's current Linear state (e.g. "In Progress")
+/// - `issue_state`: the issue's current tracker state (e.g. "In Progress")
 /// - `workflow_dir`: directory containing the WORKFLOW.md file (prompt paths
 ///   are resolved relative to this)
 ///
