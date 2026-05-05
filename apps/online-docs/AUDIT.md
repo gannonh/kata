@@ -12,7 +12,6 @@ Audit of `apps/online-docs` content to identify stale documentation areas and pr
 Primary docs sections and likely code ownership:
 
 - `cli/*` → `apps/cli`
-- `desktop/*` → `apps/desktop`
 - `symphony/*` and Symphony reference pages → `apps/symphony`
 - `context/*` → `apps/context`
 - `orchestrator/*` and Orchestrator reference pages → `apps/orchestrator-legacy` (archived)

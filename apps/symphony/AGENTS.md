@@ -98,17 +98,21 @@ is at `docs/WORKFLOW-REFERENCE.md`. Copy it to your project root as `WORKFLOW.md
 
 #### `tracker` section
 
-| Field                     | Type     | Default                                                    | Description                                                                                                                                                                                                               |
-| ------------------------- | -------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tracker.kind`            | string   | _(required)_                                               | Must be `"linear"`.                                                                                                                                                                                                       |
-| `tracker.api_key`         | string   | _(required)_                                               | Linear personal API key. Supports `$VAR` env-var indirection (e.g. `$LINEAR_API_KEY`). Never logged.                                                                                                                      |
-| `tracker.project_slug`    | string   | _(required)_                                               | Linear project URL slug (the identifier shown in project URLs). Supports `$VAR` indirection.                                                                                                                              |
-| `tracker.workspace_slug`  | string   | `"kata-sh"`                                                | Linear workspace slug used when building dashboard project links (`https://linear.app/<workspace>/project/<slug>`). Supports `$VAR` indirection.                                                                          |
-| `tracker.endpoint`        | string   | `https://api.linear.app/graphql`                           | Linear GraphQL endpoint. Override for self-hosted Linear.                                                                                                                                                                 |
-| `tracker.assignee`        | string   | _(none)_                                                   | Filter candidate issues to this Linear username. Supports `$VAR` indirection.                                                                                                                                             |
-| `tracker.active_states`   | string[] | `["Todo", "In Progress"]`                                  | Issue states that are eligible for dispatch.                                                                                                                                                                              |
-| `tracker.terminal_states` | string[] | `["Closed", "Cancelled", "Canceled", "Duplicate", "Done"]` | Issue states that mark an agent run as complete.                                                                                                                                                                          |
-| `tracker.exclude_labels`  | string[] | `[]`                                                       | Labels that disqualify an issue from dispatch. Any issue carrying at least one of these labels is skipped (case-insensitive). Use `["kata:task"]` to prevent Kata sub-tasks from being dispatched as independent workers. |
+| Field                         | Type     | Default                                                    | Description                                                                                                                                                                                                               |
+| ----------------------------- | -------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tracker.kind`                | string   | _(required)_                                               | Tracker backend: `"github"` or `"linear"`.                                                                                                                                                                               |
+| `tracker.api_key`             | string   | backend-specific                                           | Linear personal API key or GitHub PAT. Supports `$VAR` env-var indirection. GitHub also falls back to `GH_TOKEN`, `GITHUB_TOKEN`, then `gh auth token`. Never logged.                                                     |
+| `tracker.project_slug`        | string   | Linear: _(required)_                                       | Linear project URL slug (the identifier shown in project URLs). Supports `$VAR` indirection.                                                                                                                              |
+| `tracker.workspace_slug`      | string   | Linear: `"kata-sh"`                                       | Linear workspace slug used when building dashboard project links (`https://linear.app/<workspace>/project/<slug>`). Supports `$VAR` indirection.                                                                          |
+| `tracker.repo_owner`          | string   | GitHub: _(required)_                                       | GitHub repository owner. Supports `$VAR` indirection.                                                                                                                                                                     |
+| `tracker.repo_name`           | string   | GitHub: _(required)_                                       | GitHub repository name. Supports `$VAR` indirection.                                                                                                                                                                      |
+| `tracker.github_project_owner_type` | string | GitHub: _(required)_                                  | GitHub Projects v2 owner namespace: `"user"` or `"org"`.                                                                                                                                                                |
+| `tracker.github_project_number` | u64    | GitHub: _(required)_                                       | GitHub Projects v2 project number. State is read from the project's Status field.                                                                                                                                         |
+| `tracker.endpoint`            | string   | backend-specific                                           | Linear default: `https://api.linear.app/graphql`. GitHub default: `https://api.github.com`.                                                                                                                               |
+| `tracker.assignee`            | string   | _(none)_                                                   | Filter candidate issues to this assignee. Linear accepts username/display name/email/user id lookup. GitHub matches login against assignees. Supports `$VAR` indirection.                                                 |
+| `tracker.active_states`       | string[] | `["Todo", "In Progress"]`                                  | Issue states that are eligible for dispatch.                                                                                                                                                                              |
+| `tracker.terminal_states`     | string[] | `["Closed", "Cancelled", "Canceled", "Duplicate", "Done"]` | Issue states that mark an agent run as complete.                                                                                                                                                                          |
+| `tracker.exclude_labels`      | string[] | `[]`                                                       | Labels that disqualify an issue from dispatch. Any issue carrying at least one of these labels is skipped (case-insensitive). Use `["kata:task"]` to prevent Kata sub-tasks from being dispatched as independent workers. |
 
 #### `polling` section
 
@@ -194,17 +198,17 @@ Optional. Configure outbound webhook notifications for events requiring human at
 | `notifications.slack.webhook_url` | string   | _(none)_ | Slack incoming webhook URL. Supports `$VAR` env-var indirection.                                                                                                                                                                                                 |
 | `notifications.slack.events`      | string[] | `[]`     | Event filters. State transitions: `todo`, `in_progress`, `agent_review`, `human_review`, `merging`, `rework`, `done`, `closed`, `cancelled`. Runtime events: `stalled`, `failed`. Use `all` for everything. Case-insensitive. Empty list means no notifications. |
 
-When omitted, notifications are disabled. Messages include a clickable link to the Linear issue.
+When omitted, notifications are disabled. Messages include a clickable link to the tracker issue.
 
 #### `prompts` section (per-state prompt injection)
 
-Optional. When configured, the orchestrator selects a prompt template based on the issue's Linear state instead of using the monolithic markdown body after `---`.
+Optional. When configured, the orchestrator selects a prompt template based on the issue's tracker state instead of using the monolithic markdown body after `---`.
 
 | Field              | Type               | Default  | Description                                                                                                            |
 | ------------------ | ------------------ | -------- | ---------------------------------------------------------------------------------------------------------------------- |
 | `prompts.system`   | string             | _(none)_ | Path to system-level preamble (agent identity, tool guidance). Injected every turn. Relative to WORKFLOW.md directory. |
 | `prompts.repo`     | string             | _(none)_ | Path to repository-specific context (build commands, layout). Injected every turn. Relative to WORKFLOW.md directory.  |
-| `prompts.by_state` | map<string,string> | `{}`     | Map of Linear state name → prompt file path. State matching is case-insensitive.                                       |
+| `prompts.by_state` | map<string,string> | `{}`     | Map of tracker state name → prompt file path. State matching is case-insensitive.                                      |
 | `prompts.default`  | string             | _(none)_ | Fallback prompt file for states not listed in `by_state`.                                                              |
 
 When `prompts` is absent, the markdown body after `---` is used as the prompt for all states (backward compatible).
@@ -232,6 +236,39 @@ The `in-progress.md` prompt uses `{% if issue.children_count > 0 %}` to detect K
 
 ### Minimal Working Example
 
+GitHub Projects v2:
+
+```markdown
+---
+tracker:
+  kind: github
+  api_key: $GH_TOKEN
+  repo_owner: example
+  repo_name: project
+  github_project_owner_type: org
+  github_project_number: 7
+
+workspace:
+  root: ~/symphony_workspaces
+  repo: https://github.com/example/project.git
+  git_strategy: auto
+  isolation: local
+  branch_prefix: symphony
+  base_branch: main
+  cleanup_on_done: true
+
+agent:
+  name: pi
+  command: [pi, --mode, rpc]
+---
+
+# My Workflow
+
+Issues assigned to this project will be dispatched to Pi.
+```
+
+Linear:
+
 ```markdown
 ---
 tracker:
@@ -245,20 +282,20 @@ workspace:
   git_strategy: auto
   isolation: local
   branch_prefix: symphony
-  clone_branch: elixir-feature-parity
   base_branch: main
   cleanup_on_done: true
 
-codex:
-  command: codex app-server
+agent:
+  name: pi
+  command: [pi, --mode, rpc]
 ---
 
 # My Workflow
 
-Issues assigned to this project will be dispatched to Codex.
+Issues assigned to this project will be dispatched to Pi.
 ```
 
-### Full Example with All Sections
+### Full Linear Example with All Sections
 
 ```markdown
 ---
@@ -350,8 +387,9 @@ and treats the field as absent. Example:
 
 ```yaml
 tracker:
-  api_key: $MY_LINEAR_TOKEN   # resolved from process environment
-  project_slug: $PROJECT_SLUG
+  api_key: $MY_TRACKER_TOKEN   # resolved from process environment
+  project_slug: $PROJECT_SLUG  # Linear
+  repo_owner: $REPO_OWNER      # GitHub
 ```
 
 Valid `$VAR` references are bare identifiers (no `/`, spaces, or `:`). A value
@@ -382,7 +420,7 @@ workflow file (e.g. `0.0.0.0` to bind all interfaces).
 | `GET`  | `/api/v1/escalations`                     | Returns pending escalation requests (`pending_escalations`) for polling clients.                                                                                                                                                                                                    |
 | `POST` | `/api/v1/escalations/:request_id/respond` | Resolves a pending escalation. Body: `{ "response": <json>, "responder_id"?: "..." }`. Returns `200`, `404` (missing/expired), or `409` (already resolved).                                                                                                                         |
 | `GET`  | `/api/v1/:issue_identifier`               | Per-issue projection. `:issue_identifier` must match the pattern `TEAM-NNN` (uppercase prefix, hyphen, digits). Returns 404 when the issue is not running or in the retry queue.                                                                                                    |
-| `POST` | `/api/v1/refresh`                         | Request an immediate Linear poll. Requests are coalesced — multiple concurrent POSTs result in one actual refresh. Returns 202.                                                                                                                                                     |
+| `POST` | `/api/v1/refresh`                         | Request an immediate tracker poll. Requests are coalesced — multiple concurrent POSTs result in one actual refresh. Returns 202.                                                                                                                                                    |
 
 ### Sample JSON — `GET /api/v1/state`
 
@@ -468,10 +506,11 @@ workflow file (e.g. `0.0.0.0` to bind all interfaces).
 }
 ```
 
-`running` entries in `/api/v1/state` are serialized `RunAttempt` records (which
-include fields like `issue_title` and `linear_state`). Dashboard observability
-fields (`turn_count`, `max_turns`, `last_activity_ms`, `session_tokens`) are
-provided alongside each run in `running_session_info`.
+`running` entries in `/api/v1/state` are serialized `RunAttempt` records. The
+`linear_state` field name is retained for compatibility and contains the current
+tracker state for both GitHub and Linear runs. Dashboard observability fields
+(`turn_count`, `max_turns`, `last_activity_ms`, `session_tokens`) are provided
+alongside each run in `running_session_info`.
 
 ### Sample JSON — `POST /api/v1/refresh`
 
@@ -664,11 +703,11 @@ Core Rust modules:
 | CLI/runtime entrypoint    | `src/main.rs`                                   | CLI parsing, startup validation, tracing setup, runtime wiring                                                                                                                                               |
 | Orchestrator loop         | `src/orchestrator.rs`                           | Poll/dispatch loop, retries, worker lifecycle, state snapshots                                                                                                                                               |
 | Supervisor runtime        | `src/supervisor.rs`                             | Background supervisor lifecycle, stuck/conflict/pattern detection, steering + escalation decisions                                                                                                           |
-| HTTP dashboard/API        | `src/http_server.rs`                            | `/`, `/api/v1/state`, `/api/v1/events` websocket stream, `/api/v1/escalations`, `/api/v1/escalations/:request_id/respond`, `/api/v1/:issue_identifier`, refresh endpoint, dashboard Linear project link card |
+| HTTP dashboard/API        | `src/http_server.rs`                            | `/`, `/api/v1/state`, `/api/v1/events` websocket stream, `/api/v1/escalations`, `/api/v1/escalations/:request_id/respond`, `/api/v1/:issue_identifier`, refresh endpoint, tracker project link card        |
 | Terminal dashboard        | `src/tui.rs`                                    | Ratatui renderer with throughput sparkline, color-coded status dots, keyboard handling, and live snapshot display                                                                                            |
 | Workflow/config parser    | `src/workflow.rs`, `src/config.rs`              | Front-matter parsing, env/tilde resolution, typed config defaults                                                                                                                                            |
 | Domain model              | `src/domain.rs`                                 | Shared runtime/config structs (`RunAttempt`, snapshots, worker/session info)                                                                                                                                 |
-| Tracker adapter/client    | `src/linear/adapter.rs`, `src/linear/client.rs` | Linear GraphQL fetch/update operations and issue normalization                                                                                                                                               |
+| Tracker adapters/clients  | `src/linear/*`, `src/github/*`                  | Linear and GitHub fetch/update operations, Projects v2 state handling, and issue normalization                                                                                                                |
 | Docker runtime helpers    | `src/docker.rs`                                 | Docker availability checks, image resolution/build cache, container lifecycle, auth resolution                                                                                                               |
 | Workspace + git bootstrap | `src/workspace.rs`                              | clone/worktree bootstrapping, branch naming, hooks                                                                                                                                                           |
 | Codex app-server bridge   | `src/codex/app_server.rs`                       | Session subprocess lifecycle, turn streaming, tool execution                                                                                                                                                 |

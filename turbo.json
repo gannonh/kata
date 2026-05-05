@@ -1,29 +1,77 @@
 {
   "$schema": "https://turborepo.dev/schema.json",
-  "globalDependencies": ["tsconfig.json"],
-  "globalEnv": ["NODE_ENV", "CI", "LINEAR_API_KEY"],
+  "globalDependencies": [
+    "tsconfig.json"
+  ],
+  "globalEnv": [
+    "NODE_ENV",
+    "CI",
+    "LINEAR_API_KEY"
+  ],
   "tasks": {
     "lint": {
       "outputs": [],
-      "inputs": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.mjs", "src/**/*.rs", "eslint.config.*", "Cargo.toml"]
+      "inputs": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "src/**/*.mjs",
+        "src/**/*.rs",
+        "eslint.config.*",
+        "Cargo.toml"
+      ]
     },
     "typecheck": {
-      "dependsOn": ["^typecheck"],
+      "dependsOn": [
+        "^typecheck"
+      ],
       "outputs": [],
-      "inputs": ["src/**/*.ts", "src/**/*.tsx", "tsconfig.json"]
+      "inputs": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "tsconfig.json"
+      ]
     },
     "test": {
       "outputs": [],
-      "inputs": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.js", "src/**/*.cjs", "src/**/*.mjs", "src/**/*.rs", "tests/**/*.ts", "tests/**/*.js", "tests/**/*.cjs", "tests/**/*.rs", "test/**/*.ts", "test/**/*.js", "Cargo.toml"]
+      "inputs": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "src/**/*.js",
+        "src/**/*.cjs",
+        "src/**/*.mjs",
+        "src/**/*.rs",
+        "tests/**/*.ts",
+        "tests/**/*.js",
+        "tests/**/*.cjs",
+        "tests/**/*.rs",
+        "test/**/*.ts",
+        "test/**/*.js",
+        "Cargo.toml"
+      ]
     },
     "build": {
-      "dependsOn": ["^build"],
-      "outputs": ["dist/**", "target/release/**"],
-      "inputs": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.rs", "tsconfig.json", "Cargo.toml"]
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "dist/**",
+        "target/release/**"
+      ],
+      "inputs": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "src/**/*.rs",
+        "tsconfig.json",
+        "Cargo.toml"
+      ]
     },
     "@kata/online-docs#build": {
-      "dependsOn": ["^build"],
-      "outputs": [".next/**"],
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        ".next/**"
+      ],
       "inputs": [
         "app/**/*.tsx",
         "app/**/*.ts",
@@ -40,10 +88,6 @@
       ]
     },
     "dev": {
-      "cache": false,
-      "persistent": true
-    },
-    "desktop:dev": {
       "cache": false,
       "persistent": true
     }

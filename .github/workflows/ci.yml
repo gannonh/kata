@@ -55,13 +55,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Ensure ripgrep command
+      - name: Install ripgrep
         run: |
           if ! command -v rg >/dev/null 2>&1; then
-            mkdir -p "$RUNNER_TEMP/bin"
-            printf '%s\n' '#!/usr/bin/env bash' 'exec grep -R -E "$@"' > "$RUNNER_TEMP/bin/rg"
-            chmod +x "$RUNNER_TEMP/bin/rg"
-            echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+            sudo apt-get update
+            sudo apt-get install -y ripgrep
           fi
 
       - name: Install dependencies
@@ -218,13 +216,11 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Ensure ripgrep command
+      - name: Install ripgrep
         run: |
           if ! command -v rg >/dev/null 2>&1; then
-            mkdir -p "$RUNNER_TEMP/bin"
-            printf '%s\n' '#!/usr/bin/env bash' 'exec grep -R -E "$@"' > "$RUNNER_TEMP/bin/rg"
-            chmod +x "$RUNNER_TEMP/bin/rg"
-            echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+            sudo apt-get update
+            sudo apt-get install -y ripgrep
           fi
 
       - name: Install dependencies
@@ -232,10 +228,6 @@ jobs:
 
       - name: Build Kata distributions
         run: bash scripts/ci/build-kata-distributions.sh
-
-  # Legacy desktop e2e-mocked job removed — apps/desktop is the only active desktop target.
-  # Desktop unit tests run via Turborepo in the validate job (npx vitest run --coverage).
-  # Desktop e2e tests will be added in a future milestone.
 
   gate:
     needs: [validate, symphony-coverage, github-backend-validation, golden-path-smoke, kata-distributions]

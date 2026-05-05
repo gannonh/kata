@@ -52,7 +52,7 @@ export APPLE_APP_SPECIFIC_PASSWORD="xxxx-xxxx-xxxx-xxxx"
 
 ```bash
 source .secrets/signing.env
-pnpm --dir apps/desktop run desktop:dist:mac
+pnpm --dir apps/desktop-legacy run desktop:dist:mac
 ```
 
 The build will:
@@ -65,7 +65,7 @@ The build will:
 For testing signatures without waiting for Apple:
 
 ```bash
-cd apps/desktop
+cd apps/desktop-legacy
 CSC_NAME="Your Name (TEAM_ID)" \
 CSC_IDENTITY_AUTO_DISCOVERY=false \
 pnpm exec electron-builder --config electron-builder.yml --mac dmg --arm64 --publish never
@@ -75,13 +75,13 @@ pnpm exec electron-builder --config electron-builder.yml --mac dmg --arm64 --pub
 
 ```bash
 # Check code signature
-codesign --verify --deep --strict --verbose=2 "apps/desktop/release/mac-arm64/Kata Desktop.app"
+codesign --verify --deep --strict --verbose=2 "apps/desktop-legacy/release/mac-arm64/Kata Desktop.app"
 
 # Check notarization status
-spctl --assess --verbose=4 --type execute "apps/desktop/release/mac-arm64/Kata Desktop.app"
+spctl --assess --verbose=4 --type execute "apps/desktop-legacy/release/mac-arm64/Kata Desktop.app"
 
 # Check notarization ticket
-stapler validate "apps/desktop/release/Kata-Desktop-arm64.dmg"
+stapler validate "apps/desktop-legacy/release/Kata-Desktop-arm64.dmg"
 ```
 
 ## Manual Notarization
@@ -90,7 +90,7 @@ If automated notarization fails, you can notarize manually:
 
 ```bash
 # Zip the app
-cd apps/desktop/release/mac-arm64
+cd apps/desktop-legacy/release/mac-arm64
 ditto -c -k --keepParent "Kata Desktop.app" "Kata-Desktop-notarize.zip"
 
 # Submit for notarization
