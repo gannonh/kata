@@ -11,6 +11,11 @@ import { readTrackerConfig } from "../backends/read-tracker-config.js";
 import { resolveGithubTokenForRuntime } from "../backends/resolve-backend.js";
 import { createGithubClient } from "../backends/github-projects-v2/client.js";
 import { loadProjectFieldIndex } from "../backends/github-projects-v2/project-fields.js";
+import {
+  createLinearHealthClient,
+  type LinearHealthClient,
+  type LinearKataMetadataSupport,
+} from "../backends/linear/client.js";
 import { KataDomainError } from "../domain/errors.js";
 import {
   PI_SETUP_MARKER_FILENAME,
@@ -69,6 +74,7 @@ export interface RunDoctorInput {
   packageVersion?: string;
   cliBinaryPath?: string;
   githubClients?: ReturnType<typeof createGithubClient>;
+  linearHealthClientFactory?: (apiKey: string) => LinearHealthClient;
 }
 
 function aggregateStatus(checks: DoctorCheck[]): DoctorCheckStatus {
@@ -168,6 +174,48 @@ async function checkGithubRepositoryRemote(input: {
       action: `Run setup from a checkout of ${expected}, or run \`git init --initial-branch=main && git remote add origin ${expectedUrl}\`.`,
     };
   }
+}
+
+function resolveLinearApiKey(env: NodeJS.ProcessEnv): string | null {
+  const value = env.LINEAR_API_KEY;
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function listMissingLinearMetadataCapabilities(capabilities: LinearKataMetadataSupport): string[] {
+  const missing: string[] = [];
+  if (!capabilities.kataId) missing.push("Kata ID support");
+  if (!capabilities.parentLinks) missing.push("parent link support");
+  if (!capabilities.artifactScope) missing.push("artifact scope support");
+  if (!capabilities.verificationState) missing.push("verification state support");
+  if (!capabilities.dependencyBlocking) missing.push("dependency blocking support");
+  if (!capabilities.blockedByRelations) missing.push("blocked-by relation support");
+  return missing;
+}
+
+function classifyLinearError(error: unknown): "auth" | "network" | "other" {
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  if (
+    message.includes("401") ||
+    message.includes("403") ||
+    message.includes("unauthorized") ||
+    message.includes("forbidden") ||
+    message.includes("invalid api key") ||
+    message.includes("authentication")
+  ) {
+    return "auth";
+  }
+  if (
+    message.includes("network") ||
+    message.includes("fetch failed") ||
+    message.includes("econnrefused") ||
+    message.includes("enotfound") ||
+    message.includes("etimedout")
+  ) {
+    return "network";
+  }
+  return "other";
 }
 
 export async function runDoctor(input: RunDoctorInput = {}): Promise<DoctorReport> {
@@ -357,8 +405,9 @@ export async function runDoctor(input: RunDoctorInput = {}): Promise<DoctorRepor
         status: "ok",
         message: config.kind === "github"
           ? `Parsed backend config: github projects_v2 (${config.repoOwner}/${config.repoName} #${config.githubProjectNumber})`
-          : "Parsed backend config: linear",
+          : `Parsed backend config: linear (${config.teamKey ?? config.teamId ?? "missing team"}, ${config.projectSlug ?? config.projectId ?? "missing project"})`,
       });
+
       if (config.kind === "github") {
         checks.push(await checkGithubRepositoryRemote({
           cwd,
@@ -401,6 +450,113 @@ export async function runDoctor(input: RunDoctorInput = {}): Promise<DoctorRepor
               action: isInvalidProjectConfig
                 ? "Add the required Kata Project fields, then rerun `kata doctor`."
                 : "Verify GitHub auth, repository, and project number, then rerun `kata doctor`.",
+            });
+          }
+        }
+      } else {
+        const linearApiKey = resolveLinearApiKey(env);
+        if (!linearApiKey) {
+          checks.push({
+            name: "linear-auth",
+            status: "invalid",
+            message: "Linear mode requires LINEAR_API_KEY.",
+            action: "Set LINEAR_API_KEY, then rerun `kata doctor`.",
+          });
+        } else {
+          const linearClient = input.linearHealthClientFactory
+            ? input.linearHealthClientFactory(linearApiKey)
+            : createLinearHealthClient({ apiKey: linearApiKey });
+
+          try {
+            const viewer = await linearClient.getViewer();
+            checks.push({
+              name: "linear-auth",
+              status: "ok",
+              message: `Linear auth is configured for ${viewer.email}.`,
+            });
+
+            checks.push({
+              name: "linear-workspace",
+              status: viewer.organization ? "ok" : "invalid",
+              message: viewer.organization
+                ? `Workspace access confirmed: ${viewer.organization.name}.`
+                : "Unable to resolve Linear workspace for authenticated user.",
+              ...(viewer.organization
+                ? {}
+                : { action: "Confirm this API key can access the expected Linear workspace." }),
+            });
+
+            const teamLookup = config.teamId ?? config.teamKey;
+            let teamResolved = false;
+            if (!teamLookup) {
+              checks.push({
+                name: "linear-team-access",
+                status: "invalid",
+                message: "Linear mode requires linear.teamId or linear.teamKey.",
+                action: "Set linear.teamId or linear.teamKey in .kata/preferences.md.",
+              });
+            } else {
+              const team = await linearClient.getTeam(teamLookup);
+              teamResolved = Boolean(team);
+              checks.push({
+                name: "linear-team-access",
+                status: team ? "ok" : "invalid",
+                message: team
+                  ? `Team access confirmed: ${team.name} (${team.key}).`
+                  : `Configured team could not be resolved: ${teamLookup}.`,
+                ...(team
+                  ? {}
+                  : { action: "Update linear.teamId/linear.teamKey to a team the API key can access." }),
+              });
+            }
+
+            const projectLookup = config.projectSlug ?? config.projectId;
+            let projectResolved = false;
+            if (!projectLookup) {
+              checks.push({
+                name: "linear-project-access",
+                status: "invalid",
+                message: "Linear mode requires linear.projectSlug or linear.projectId.",
+                action: "Set linear.projectSlug in .kata/preferences.md.",
+              });
+            } else {
+              const project = await linearClient.getProject(projectLookup);
+              projectResolved = Boolean(project);
+              checks.push({
+                name: "linear-project-access",
+                status: project ? "ok" : "invalid",
+                message: project
+                  ? `Project access confirmed: ${project.name} (${project.slugId}).`
+                  : `Configured project could not be resolved: ${projectLookup}.`,
+                ...(project
+                  ? {}
+                  : { action: "Update linear.projectSlug/linear.projectId to a project the API key can access." }),
+              });
+            }
+
+            if (teamResolved && projectResolved) {
+              const capabilities = await linearClient.getKataMetadataSupport();
+              const missingCapabilities = listMissingLinearMetadataCapabilities(capabilities);
+              checks.push({
+                name: "linear-metadata-support",
+                status: missingCapabilities.length === 0 ? "ok" : "invalid",
+                message: missingCapabilities.length === 0
+                  ? "Linear metadata support confirmed for Kata ID, parent links, artifact scope, verification state, and dependency relations."
+                  : `Missing required metadata support: ${missingCapabilities.join(", ")}.`,
+                ...(missingCapabilities.length === 0
+                  ? {}
+                  : { action: "Verify Linear relation and metadata capabilities for this workspace/team/project." }),
+              });
+            }
+          } catch (error) {
+            const kind = classifyLinearError(error);
+            checks.push({
+              name: "linear-auth",
+              status: "invalid",
+              message: error instanceof Error ? error.message : "Unable to validate Linear authentication.",
+              action: kind === "network"
+                ? "Check network connectivity to Linear and rerun `kata doctor`."
+                : "Verify LINEAR_API_KEY and backend access, then rerun `kata doctor`.",
             });
           }
         }
