@@ -27,6 +27,22 @@ All configuration lives in a single `WORKFLOW.md` file: Symphony reads the YAML 
   </Step>
 </Steps>
 
+## Dispatch behavior
+
+On each poll tick, Symphony computes a candidate set from tracker issues, then dispatches up to available concurrency slots.
+
+Current dispatch rules:
+
+- Issue must be assigned to a worker and in `tracker.active_states`
+- Issue is skipped if in `tracker.terminal_states`
+- Issue is skipped if it has a parent issue (`parent_identifier` is set)
+- Issue is skipped when any label matches `tracker.exclude_labels`
+- Issue is skipped when `blocked_by` contains a blocker in a non-terminal state
+- Issue is skipped when already claimed or already running
+- Candidate state is refreshed by issue ID before dispatch and re-validated
+
+Dispatch order is deterministic: priority (`1` highest, then `2`/`3`/`4`, then unset), then creation time, then identifier. Symphony dispatches candidates in that order until `agent.max_concurrent_agents` slots are filled.
+
 ## Ticket lifecycle
 
 ```
@@ -45,7 +61,7 @@ Todo → In Progress → Agent Review → Merging → Done
 | **Done** | Agent | Terminal — PR merged, workspace cleaned up |
 
 <Warning>
-  The state names in `active_states`, `terminal_states`, and other state-keyed fields must match the workflow state names configured in your Linear team. State matching is case-insensitive, but the names must exist in your Linear workflow. To see your team's states, go to **Linear → Settings → Teams → [your team] → Workflow**.
+  The state names in `active_states`, `terminal_states`, and other state-keyed fields must match the workflow states in your tracker configuration. State matching is case-insensitive.
 </Warning>
 
 ## Key features

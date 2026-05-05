@@ -17,7 +17,8 @@ Symphony hot-reloads config updates from this file.
 Use `agent.*` to define how Symphony launches the worker runtime, and use the sym-state helper for tracker/document/state operations from worker prompts/skills:
 
 ```bash
-.agents/skills/sym-state/scripts/sym-call <operation> --input /tmp/input.json
+INPUT="/tmp/sym-${SYMPHONY_ISSUE_ID:-current}-<operation>-$$.json"
+.agents/skills/sym-state/scripts/sym-call <operation> --input "$INPUT"
 ```
 
 Operations:
@@ -30,7 +31,25 @@ Operations:
 - `issue.update-state`
 - `issue.create-followup`
 
+Use opaque tracker issue IDs with helper payloads (`SYMPHONY_ISSUE_ID`), or `"@current"` where supported.
+
 Legacy `kata_*` worker tool names are not the current contract.
+
+## Current dispatch behavior
+
+On each poll cycle, Symphony fetches candidates from the tracker and dispatches only issues that satisfy all runtime gates.
+
+Dispatch gates:
+
+- issue is assigned to worker (`assigned_to_worker: true`)
+- issue state is in `tracker.active_states`
+- issue state is not in `tracker.terminal_states`
+- issue has no parent issue (`parent_identifier` must be empty)
+- issue labels do not match `tracker.exclude_labels`
+- issue has no non-terminal blockers in `blocked_by`
+- issue is not already claimed or already running
+
+Before dispatch, Symphony refreshes each candidate by issue ID and re-validates it. Candidate ordering is deterministic: priority, creation time, then identifier. Dispatch continues until `agent.max_concurrent_agents` capacity is reached.
 
 ## Minimal config
 
@@ -278,7 +297,7 @@ All hooks receive these environment variables:
 
 | Variable | Example |
 | --- | --- |
-| `SYMPHONY_ISSUE_ID` | Linear issue UUID |
+| `SYMPHONY_ISSUE_ID` | Tracker issue ID (opaque; pass through unchanged) |
 | `SYMPHONY_ISSUE_IDENTIFIER` | `KAT-911` |
 | `SYMPHONY_ISSUE_TITLE` | Issue title text |
 | `SYMPHONY_WORKSPACE_PATH` | `/home/user/symphony-workspaces/KAT-911` |
@@ -336,7 +355,7 @@ supervisor:
 
 ## `prompts` section
 
-Per-state prompt injection. When configured, Symphony selects a prompt file based on the issue's current Linear state instead of using the monolithic markdown body.
+Per-state prompt injection. When configured, Symphony selects a prompt file based on the issue's current workflow state instead of using the monolithic markdown body.
 
 ```yaml
 prompts:
@@ -366,7 +385,7 @@ Prompt files are concatenated in order: `system` + `repo` + `shared` (legacy) + 
 </ParamField>
 
 <ParamField path="prompts.by_state" type="object">
-  Map of Linear state name to prompt file path. State matching is case-insensitive. Paths are relative to the WORKFLOW.md directory.
+  Map of workflow state name to prompt file path. State matching is case-insensitive. Paths are relative to the WORKFLOW.md directory.
 </ParamField>
 
 <ParamField path="prompts.default" type="string">
