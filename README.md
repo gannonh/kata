@@ -24,11 +24,11 @@ The repo also contains shared packages that support the product apps.
 
 ## Products
 
-| Product                                  | Path            | Use it for                                                                                                  | Quick start                   |
-| ---------------------------------------- | --------------- | ----------------------------------------------------------------------------------------------------------- | ----------------------------- |
-| [Kata CLI](apps/cli/README.md)           | `apps/cli`      | Portable Kata Skills runtime and backend contract bridge for project planning/execution workflows           | `npm install -g @kata-sh/cli` |
+| Product                                  | Path            | Use it for                                                                                                   | Quick start                   |
+| ---------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------- |
+| [Kata CLI](apps/cli/README.md)           | `apps/cli`      | Portable Kata Skills runtime and backend contract bridge for project planning/execution workflows            | `npm install -g @kata-sh/cli` |
 | [Kata Symphony](apps/symphony/README.md) | `apps/symphony` | Headless orchestrator: polls GitHub or Linear, dispatches parallel agent sessions, manages full PR lifecycle | `cargo build --release`       |
-| Kata Context                             | `apps/context`  | Structural, semantic, and memory-based codebase understanding for AI coding agents                          | `npx @kata/context`           |
+| Kata Context                             | `apps/context`  | Structural, semantic, and memory-based codebase understanding for AI coding agents                           | `npx @kata/context`           |
 
 ## Kata CLI
 
@@ -100,18 +100,17 @@ Kata Context provides structural, semantic, and memory-based codebase understand
 npx @kata/context
 ```
 
-| Path                       | Purpose                                                    |
-| -------------------------- | ---------------------------------------------------------- |
-| `apps/cli`                 | Kata CLI                                                   |
-| `apps/symphony`            | Kata Symphony (Rust)                                       |
-| `apps/context`             | Kata Context                                               |
-| `apps/cli/skills-src`      | Source of truth for Kata Agent Skills                      |
-| `apps/orchestrator-legacy` | Archived legacy Orchestrator reference                     |
-| `apps/online-docs`         | Documentation site                                         |
-| `packages/core`            | Shared types                                               |
-| `packages/shared`          | Shared agent, auth, config, git, session, and source logic |
-| `packages/ui`              | Shared UI components                                       |
-| `packages/mermaid`         | Mermaid diagram renderer                                   |
+| Path                  | Purpose                                                    |
+| --------------------- | ---------------------------------------------------------- |
+| `apps/cli`            | Kata CLI                                                   |
+| `apps/symphony`       | Kata Symphony (Rust)                                       |
+| `apps/context`        | Kata Context                                               |
+| `apps/cli/skills-src` | Source of truth for Kata Agent Skills                      |
+| `apps/online-docs`    | Documentation site                                         |
+| `packages/core`       | Shared types                                               |
+| `packages/shared`     | Shared agent, auth, config, git, session, and source logic |
+| `packages/ui`         | Shared UI components                                       |
+| `packages/mermaid`    | Mermaid diagram renderer                                   |
 
 ## Local Development
 
