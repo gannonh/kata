@@ -5,7 +5,7 @@ description: "Current Symphony WORKFLOW.md configuration shape and runtime seman
 
 `WORKFLOW.md` has one runtime-significant part:
 
-1. YAML front-matter: orchestrator configuration
+1. YAML front-matter: Symphony workflow configuration
 2. Markdown body: ignored by Symphony at runtime
 
 Use `prompts` in front-matter (and referenced prompt files) for runtime prompt content.
@@ -323,7 +323,7 @@ notifications:
 </ParamField>
 
 <ParamField path="notifications.slack.events" type="string[]" default="[]">
-  Events to notify on. Use `"all"` to subscribe to everything. Available values: `todo`, `in_progress`, `agent_review`, `human_review`, `merging`, `rework`, `done`, `closed`, `cancelled`, `stalled`, `failed`. Notification failures are logged as warnings and never block the orchestrator.
+  Events to notify on. Use `"all"` to subscribe to everything. Available values: `todo`, `in_progress`, `agent_review`, `human_review`, `merging`, `rework`, `done`, `closed`, `cancelled`, `stalled`, `failed`. Notification failures are logged as warnings and never block Symphony.
 </ParamField>
 
 ---

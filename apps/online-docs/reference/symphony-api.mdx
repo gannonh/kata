@@ -14,7 +14,7 @@ The Symphony HTTP server starts automatically when you run `symphony WORKFLOW.md
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/` | HTML dashboard — auto-refreshes every 2 seconds |
-| `GET` | `/api/v1/state` | Full orchestrator state snapshot |
+| `GET` | `/api/v1/state` | Full Symphony runtime state snapshot |
 | `GET` | `/api/v1/events` | WebSocket live event stream |
 | `GET` | `/api/v1/escalations` | Pending escalation list |
 | `POST` | `/api/v1/escalations/:request_id/respond` | Resolve a pending escalation |
@@ -37,7 +37,7 @@ Shows: running sessions with turn count, token usage, and last activity; retry q
 
 ## `GET /api/v1/state`
 
-Full orchestrator state snapshot as JSON.
+Full Symphony runtime state snapshot as JSON.
 
 ### Response
 

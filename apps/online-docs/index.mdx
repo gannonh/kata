@@ -3,11 +3,11 @@ title: "Kata — Multi-Agent Orchestration"
 description: "AI coding agents that plan, execute, and ship. Four active products for terminal, desktop, headless orchestration, and codebase context."
 ---
 
-Kata is a suite of AI coding tools built for developers who want structured, autonomous execution — not just chat. Whether you're working solo in a terminal or running a fleet of agents across a Linear backlog, Kata has a product for the job.
+Kata is a suite of AI coding tools built for developers who want structured, autonomous execution. Whether you're working solo in a terminal or running a fleet of agents across a tracker backlog, Kata has a product for the job.
 
 <CardGroup cols={2}>
   <Card title="Kata CLI" icon="terminal" href="/cli/overview">
-    Terminal coding agent with guided and autonomous execution modes. Breaks work into milestones, slices, and tasks.
+    Runtime and contract bridge for Kata workflows. Handles setup, backend validation, and operation dispatch.
   </Card>
   <Card title="Kata Symphony" icon="music" href="/symphony/overview">
     Headless orchestrator that polls Linear or GitHub and runs parallel agent sessions to close tickets end-to-end.
@@ -23,11 +23,11 @@ Kata is a suite of AI coding tools built for developers who want structured, aut
 ## Choose your product
 
 <CardGroup cols={2}>
-  <Card title="I want a terminal agent" icon="rocket" href="/quickstart">
-    Start with Kata CLI — the fastest way to get autonomous coding in your terminal.
+  <Card title="I want to configure Kata from the terminal" icon="rocket" href="/quickstart">
+    Start with Kata CLI to install skills, validate backend config, and run workflow operations.
   </Card>
   <Card title="I want to run agents at scale" icon="server" href="/symphony/overview">
-    Use Kata Symphony to dispatch parallel agents across your Linear backlog.
+    Use Kata Symphony to dispatch parallel agents across your tracker backlog.
   </Card>
   <Card title="I want a desktop workspace" icon="window" href="/desktop/overview">
     Download Kata Desktop for a visual, multi-session agent interface.
@@ -40,31 +40,34 @@ Kata is a suite of AI coding tools built for developers who want structured, aut
 ## Quick start
 
 <Steps>
-  <Step title="Install Kata CLI">
-    Run Kata CLI directly with npx — no global install required:
+  <Step title="Run setup">
+    Bootstrap Kata CLI with `npx`:
     ```bash
-    npx @kata-sh/cli
+    npx @kata-sh/cli setup --yes --repo owner/repo --project-number 12
     ```
   </Step>
-  <Step title="Authenticate">
-    On first launch, Kata prompts you to log in. Run `/login` and choose your AI provider (Anthropic, OpenAI, Google, and more).
+  <Step title="Validate your environment">
+    Run doctor to verify harness install, backend config, auth, and required project fields:
+    ```bash
+    npx @kata-sh/cli doctor
+    ```
   </Step>
-  <Step title="Start a project">
-    Tell Kata what you want to build. Use `/kata` to let it suggest the next step, or `/kata auto` to start autonomous execution.
+  <Step title="Review command surface">
+    Use `kata call <operation> --input <request.json>` and `kata json <request.json>` to execute runtime operations from scripts and skills.
   </Step>
-  <Step title="Review and ship">
-    Kata breaks your work into milestones and slices, executes each in a fresh context window, and optionally manages the full PR lifecycle with GitHub.
+  <Step title="Dispatch work with Symphony">
+    Point Kata Symphony at your tracker to run parallel agent sessions and manage issue state transitions.
   </Step>
 </Steps>
 
 ## What makes Kata different
 
 <AccordionGroup>
-  <Accordion title="Structured execution, not just chat">
-    Kata decomposes work into milestones, slices, and tasks — each sized to fit a single context window. Fresh context per task means the agent stays focused and doesn't accumulate noise.
+  <Accordion title="Backend-neutral workflow contract">
+    Kata skills and workers use one runtime contract for issue, document, and state operations across supported tracker backends.
   </Accordion>
-  <Accordion title="Linear-backed project state">
-    All planning artifacts — milestones, slices, tasks, research, summaries — live in Linear. Your team can see exactly what the agent is working on alongside their own issues.
+  <Accordion title="Tracker-integrated execution">
+    Kata Symphony polls tracker issues, dispatches agents in parallel, and moves work through configured workflow states.
   </Accordion>
   <Accordion title="Full PR lifecycle management">
     Kata creates branches, opens PRs, runs code review, addresses feedback, and merges — all autonomously or with approval gates you control.
@@ -73,7 +76,7 @@ Kata is a suite of AI coding tools built for developers who want structured, aut
     Kata Context indexes repositories with structural and semantic signals so agents can query symbols, dependencies, and related files.
   </Accordion>
   <Accordion title="Scale from one agent to many">
-    Start with Kata CLI in your terminal. When your backlog grows, connect Kata Symphony to run dozens of parallel agent sessions against your Linear project.
+    Start with Kata CLI in your terminal. When your backlog grows, connect Kata Symphony to run dozens of parallel agent sessions against your tracker project.
   </Accordion>
 </AccordionGroup>
 
@@ -81,7 +84,7 @@ Kata is a suite of AI coding tools built for developers who want structured, aut
 
 | Product | Install | Best for |
 |---|---|---|
-| [Kata CLI](/cli/overview) | `npx @kata-sh/cli` | Terminal-first coding with guided or autonomous execution |
+| [Kata CLI](/cli/overview) | `npx @kata-sh/cli` | Terminal runtime setup, backend validation, and operation dispatch |
 | [Kata Symphony](/symphony/overview) | Binary download or `cargo build` | Headless ticket-to-merge at scale |
 | [Kata Desktop](/desktop/overview) | GitHub Releases | Visual multi-session agent management |
 | [Kata Context](/context/overview) | `npx @kata/context` | Codebase indexing for AI agents |

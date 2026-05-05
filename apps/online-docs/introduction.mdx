@@ -3,14 +3,14 @@ title: "Introduction"
 description: "Kata is a suite of four active AI coding products for terminal, desktop, headless orchestration, and codebase context workflows."
 ---
 
-Kata is a suite of AI coding tools built for developers who want structured, autonomous execution. Each product targets a different workflow, from a solo developer in a terminal to a team running parallel agents against a Linear backlog.
+Kata is a suite of AI coding tools built for developers who want structured, autonomous execution. Each product targets a different workflow, from a solo developer in a terminal to a team running parallel agents against a tracker backlog.
 
 <CardGroup cols={2}>
   <Card title="Kata CLI" icon="terminal" href="/cli/overview">
-    Terminal coding agent with step, autonomous, and steering execution modes. Decomposes work into milestones, slices, and tasks.
+    Runtime and contract bridge for Kata workflows. Handles setup, backend validation, and operation dispatch.
   </Card>
   <Card title="Kata Symphony" icon="music" href="/symphony/overview">
-    Headless orchestrator that polls Linear, dispatches parallel agent sessions, and manages the full ticket-to-merge lifecycle.
+    Headless orchestrator that polls Linear or GitHub, dispatches parallel agent sessions, and manages the full ticket-to-merge lifecycle.
   </Card>
   <Card title="Kata Desktop" icon="desktop" href="/desktop/overview">
     Electron app for multi-session agent work with workspace switching, planning/kanban right pane, and Symphony operations.
@@ -24,8 +24,8 @@ Kata is a suite of AI coding tools built for developers who want structured, aut
 
 | If you want to… | Use |
 |---|---|
-| Code autonomously in a terminal with full control over each step | [Kata CLI](/cli/overview) |
-| Run agents against a Linear backlog with no human in the loop | [Kata Symphony](/symphony/overview) |
+| Configure Kata runtimes and run workflow operations from the terminal | [Kata CLI](/cli/overview) |
+| Run agents against a tracker backlog with no human in the loop | [Kata Symphony](/symphony/overview) |
 | Manage multiple agent sessions visually with approval controls | [Kata Desktop](/desktop/overview) |
 | Give AI agents deep understanding of your codebase structure | [Kata Context](/context/overview) |
 
@@ -33,13 +33,11 @@ Kata is a suite of AI coding tools built for developers who want structured, aut
 
 ### Kata CLI
 
-Kata CLI is a terminal coding agent. It breaks work into milestones, slices, and tasks, then executes with structured planning, verification, and fresh context windows per task. It supports step-by-step operation, fully autonomous execution, and a two-terminal steering workflow where you observe and redirect without interrupting the agent.
-
-Project state is Linear-backed: milestones, slices, tasks, plans, and summaries are stored as Linear issues and documents so your team can see exactly what the agent is working on.
+Kata CLI is the runtime and contract bridge used by Kata skills and harness integrations. It provides setup, environment diagnostics, and an operation interface (`kata call`, `kata json`) that workers use to execute backend-neutral workflow operations.
 
 ### Kata Symphony
 
-Kata Symphony is a headless orchestrator written in Rust. It polls a Linear project for candidate issues, dispatches parallel agent sessions to work on them, and manages the full ticket lifecycle — from Todo through implementation, PR creation, automated code review, human review, and merge.
+Kata Symphony is a headless orchestrator written in Rust. It polls Linear or GitHub for candidate issues, dispatches parallel agent sessions to work on them, and manages the full ticket lifecycle — from Todo through implementation, PR creation, automated code review, human review, and merge.
 
 Symphony runs on a server or in CI. Kata CLI provides a built-in operator surface for monitoring and steering it in real time via `/symphony status`, `/symphony watch`, and the live console dashboard.
 
@@ -57,7 +55,7 @@ Kata Context indexes source files using tree-sitter, builds a dependency graph s
 
 ## Next steps
 
-If you're new to Kata, start with the CLI quickstart. It's the fastest path to autonomous coding in your terminal.
+If you're new to Kata, start with the CLI quickstart. It is the fastest path to configuring the runtime and validating your project setup.
 
 <CardGroup cols={2}>
   <Card title="Quickstart" icon="rocket" href="/quickstart">
