@@ -24,11 +24,11 @@ The repo also contains shared packages that support the product apps.
 
 ## Products
 
-| Product                                  | Path            | Use it for                                                                                         | Quick start                   |
-| ---------------------------------------- | --------------- | -------------------------------------------------------------------------------------------------- | ----------------------------- |
-| [Kata CLI](apps/cli/README.md)           | `apps/cli`      | Portable Kata Skills runtime and backend contract bridge for project planning/execution workflows  | `npm install -g @kata-sh/cli` |
-| [Kata Symphony](apps/symphony/README.md) | `apps/symphony` | Headless orchestrator: polls Linear, dispatches parallel agent sessions, manages full PR lifecycle | `cargo build --release`       |
-| Kata Context                             | `apps/context`  | Structural, semantic, and memory-based codebase understanding for AI coding agents                 | `npx @kata/context`           |
+| Product                                  | Path            | Use it for                                                                                                  | Quick start                   |
+| ---------------------------------------- | --------------- | ----------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| [Kata CLI](apps/cli/README.md)           | `apps/cli`      | Portable Kata Skills runtime and backend contract bridge for project planning/execution workflows           | `npm install -g @kata-sh/cli` |
+| [Kata Symphony](apps/symphony/README.md) | `apps/symphony` | Headless orchestrator: polls GitHub or Linear, dispatches parallel agent sessions, manages full PR lifecycle | `cargo build --release`       |
+| Kata Context                             | `apps/context`  | Structural, semantic, and memory-based codebase understanding for AI coding agents                          | `npx @kata/context`           |
 
 ## Kata CLI
 
@@ -58,7 +58,7 @@ Read more in [apps/cli/README.md](apps/cli/README.md).
 
 ## Kata Symphony
 
-Kata Symphony is a headless orchestrator that polls a Linear project for candidate issues and dispatches parallel agent sessions to work on them autonomously. It manages the full ticket lifecycle - from Todo through implementation, PR creation, automated code review, human review, and merge - with multi-turn sessions, real-time event streaming, and a live HTTP dashboard.
+Kata Symphony is a headless orchestrator that polls a GitHub Projects v2 board or Linear project for candidate issues and dispatches parallel agent sessions to work on them autonomously. It manages the full ticket lifecycle - from Todo through implementation, PR creation, automated code review, human review, and merge - with multi-turn sessions, real-time event streaming, and a live HTTP dashboard.
 
 Quick start:
 
@@ -66,15 +66,16 @@ Quick start:
 cd apps/symphony
 cargo build --release
 
-# Create a WORKFLOW.md with your Linear project config and agent prompt
+# Create a WORKFLOW.md with your GitHub or Linear tracker config and agent prompt
 # (see apps/symphony/docs/WORKFLOW-REFERENCE.md for all settings)
 
-LINEAR_API_KEY=lin_api_... ./target/release/symphony WORKFLOW.md --port 8080
+GH_TOKEN=github_pat_... ./target/release/symphony WORKFLOW.md --port 8080
+# or: LINEAR_API_KEY=lin_api_... ./target/release/symphony WORKFLOW.md --port 8080
 ```
 
 Key features:
 
-- **Linear integration** - polls for issues, manages state transitions, respects priorities and dependency graphs
+- **GitHub and Linear integration** - polls for issues, manages state transitions, respects priorities and dependency graphs
 - **Parallel agents** - configurable concurrency with per-state slot limits
 - **Multi-turn sessions** - agents continue on the same Codex thread across turns, preserving conversation history
 - **Full PR lifecycle** - agents create PRs, address review feedback, resolve comment threads, and merge
@@ -86,7 +87,7 @@ Key features:
 Use Kata Symphony when you want:
 
 - autonomous ticket-to-merge execution without human intervention
-- parallel agent sessions working through a Linear backlog
+- parallel agent sessions working through a tracker backlog
 - a headless orchestrator you can run on a server or CI
 
 Read more in [apps/symphony/README.md](apps/symphony/README.md).
