@@ -47,7 +47,7 @@ Dispatch gates:
 - issue has no parent issue (`parent_identifier` must be empty)
 - issue labels do not match `tracker.exclude_labels`
 - issue has no non-terminal blockers in `blocked_by`
-- issue is not already claimed or running
+- issue is not already claimed or already running
 
 Before dispatch, Symphony refreshes each candidate by issue ID and re-validates it. Candidate ordering is deterministic: priority, creation time, then identifier. Dispatch continues until `agent.max_concurrent_agents` capacity is reached.
 
