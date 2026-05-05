@@ -26,7 +26,7 @@ description: "Get running with Kata CLI in under 5 minutes"
     Run doctor to verify harness install, backend config, auth, and required project fields:
 
     ```bash
-    kata doctor
+    npx @kata-sh/cli doctor
     ```
   </Step>
 
@@ -34,15 +34,17 @@ description: "Get running with Kata CLI in under 5 minutes"
     Execute one operation with `kata call`:
 
     ```bash
-    kata call health.check
+    npx @kata-sh/cli call health.check
     ```
 
     For JSON envelopes, use:
 
     ```bash
     jq -n '{operation:"health.check"}' > /tmp/kata-health.json
-    kata json /tmp/kata-health.json
+    npx @kata-sh/cli json /tmp/kata-health.json
     ```
+
+    If you installed globally, you can run the same commands with `kata`.
   </Step>
 
   <Step title="Inspect command reference">
@@ -56,14 +58,14 @@ description: "Get running with Kata CLI in under 5 minutes"
 Use these commands after setup:
 
 ```bash
-kata doctor
-kata call health.check
-kata call issue.get --input /tmp/request.json
-kata json /tmp/envelope.json
+npx @kata-sh/cli doctor
+npx @kata-sh/cli call health.check
+npx @kata-sh/cli call issue.get --input /tmp/request.json
+npx @kata-sh/cli json /tmp/envelope.json
 ```
 
 <Tip>
-  Keep a checked-in sample request file in your repo for repeatable `kata call` workflows used by scripts and skills.
+  Keep a checked-in sample request file in your repo for repeatable `npx @kata-sh/cli call` or `kata call` workflows used by scripts and skills.
 </Tip>
 
 <Note>
