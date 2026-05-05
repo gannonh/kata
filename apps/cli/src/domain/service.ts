@@ -163,12 +163,14 @@ async function getProjectSnapshot(adapter: KataBackendAdapter): Promise<KataProj
   );
   const coveredIds = uniqueIds(rawSnapshotSlices.flatMap((slice) => slice.requirementIds).filter((id) => requiredIds.includes(id)));
   const missingIds = requiredIds.filter((id) => !coveredIds.includes(id));
-  const plannedSliceIds = extractRoadmapBackendSliceIds(roadmapContent);
+  const roadmapSliceEntries = extractRoadmapSliceEntries(roadmapContent);
+  const roadmapSliceResolution = resolveRoadmapSliceReferences(roadmapSliceEntries, rawSnapshotSlices);
+  const plannedSliceIds = extractRoadmapPlannedSliceIds(roadmapSliceEntries, roadmapSliceResolution);
   const existingSliceIds = rawSnapshotSlices.map((slice) => slice.id);
   const missingSliceIds = plannedSliceIds.filter((id) => !existingSliceIds.includes(id));
-  const requirementToSliceIds = extractRequirementToSliceIds(roadmapContent);
+  const requirementToSliceIds = extractRequirementToSliceIds(roadmapSliceEntries, roadmapSliceResolution);
   const sliceDependencies = mergeSliceDependencyMaps(
-    extractRoadmapSliceDependencies(roadmapContent),
+    extractRoadmapSliceDependencies(roadmapSliceEntries, roadmapSliceResolution),
     extractBackendSliceDependencies(rawSnapshotSlices),
   );
   const snapshotSlices = mergeSnapshotSliceDependencies(rawSnapshotSlices, sliceDependencies);
@@ -462,6 +464,32 @@ function extractRoadmapBackendSliceIdsFromLine(line: string): string[] {
   return uniqueIds(ids);
 }
 
+function extractPlannedSliceIds(content: string): string[] {
+  const ids: string[] = [];
+  for (const match of content.matchAll(/\bplanned\s+slice\s+(\d+)\b/gi)) {
+    const numericId = Number(match[1]);
+    if (!Number.isSafeInteger(numericId) || numericId < 0) continue;
+    ids.push(`Planned Slice ${numericId}`);
+  }
+  return uniqueIds(ids);
+}
+
+function extractPlannedSliceTitle(cell: string, plannedSliceId: string): string | null {
+  const pattern = new RegExp(`\\b${escapeRegExp(plannedSliceId)}\\b\\s*(?::|[-–—])?\\s*(.*)$`, "i");
+  const match = pattern.exec(cell.trim());
+  const title = match?.[1]?.trim() ?? "";
+  if (!title || /^\[.*\]$/.test(title) || /^none$/i.test(title)) return null;
+  return title;
+}
+
+function parseRoadmapSliceReferenceIds(value: unknown): string[] {
+  if (typeof value === "string") {
+    return uniqueIds([...parseSliceDependencyIds(value), ...extractPlannedSliceIds(value)]);
+  }
+  if (Array.isArray(value)) return uniqueIds(value.flatMap((item) => parseRoadmapSliceReferenceIds(item)));
+  return [];
+}
+
 function splitRoadmapMetadataSegments(line: string): string[] {
   return line.split(/\s*(?:;|\||\s[-–—]\s)\s*/);
 }
@@ -482,7 +510,36 @@ function backendSliceColumnIndexes(cells: string[]): number[] {
     .filter((index) => index >= 0);
 }
 
+function plannedSliceColumnIndexes(cells: string[]): number[] {
+  return cells
+    .map((cell, index) => (
+      /\b(?:phase\/planned\s+slice|roadmap\s+slice)\b/i.test(cell) ||
+      (/\bplanned\s+slice\b/i.test(cell) && !/\bplanned\s+slices\b/i.test(cell))
+        ? index
+        : -1
+    ))
+    .filter((index) => index >= 0);
+}
+
+function requirementColumnIndexes(cells: string[]): number[] {
+  return cells
+    .map((cell, index) => (/\brequirements?\b/i.test(cell) ? index : -1))
+    .filter((index) => index >= 0);
+}
+
 type SliceDependencyMap = Record<string, KataProjectSnapshotSliceDependencies>;
+
+type RoadmapSliceEntry = {
+  line: string;
+  plannedSliceIds: string[];
+  backendSliceIds: string[];
+  blockedByIds: string[];
+  blockingIds: string[];
+  requirementIds: string[];
+  titleByPlannedSliceId: Record<string, string>;
+};
+
+type RoadmapSliceResolution = Map<string, string[]>;
 
 const ROADMAP_METADATA_LABEL_TERMINATOR_PATTERN = /\b(?:depends\s+on|blocked\s+by|dependency|dependencies|blocking|blocks)\b/i;
 const BLOCKED_BY_ROADMAP_LABEL_PATTERN = /\b(?:kata\s+blocked\s+by|blocked\s+by|depends\s+on|dependency|dependencies)\b/i;
@@ -500,55 +557,103 @@ function blockingDependencyColumnIndexes(cells: string[]): number[] {
     .filter((index) => index >= 0);
 }
 
-function extractRoadmapSliceDependencies(content: string): SliceDependencyMap {
-  const dependencies: SliceDependencyMap = {};
+function extractRoadmapSliceEntries(content: string): RoadmapSliceEntry[] {
+  const entries: RoadmapSliceEntry[] = [];
+  let plannedSliceColumns: number[] = [];
   let backendSliceColumns: number[] = [];
   let blockedByColumns: number[] = [];
   let blockingColumns: number[] = [];
+  let requirementColumns: number[] = [];
 
   for (const line of content.split(/\r?\n/)) {
     const cells = parseMarkdownTableRow(line);
     if (cells) {
       if (isMarkdownTableDivider(cells)) continue;
 
+      const headerPlannedColumns = plannedSliceColumnIndexes(cells);
       const headerBackendColumns = backendSliceColumnIndexes(cells);
-      if (headerBackendColumns.length > 0 && extractSliceIds(line).length === 0) {
+      const headerRequirementColumns = requirementColumnIndexes(cells);
+      if (
+        (headerPlannedColumns.length > 0 || headerBackendColumns.length > 0 || headerRequirementColumns.length > 0) &&
+        extractSliceIds(line).length === 0 &&
+        extractPlannedSliceIds(line).length === 0 &&
+        extractRequirementIds(line).length === 0
+      ) {
+        plannedSliceColumns = headerPlannedColumns;
         backendSliceColumns = headerBackendColumns;
         blockedByColumns = blockedByDependencyColumnIndexes(cells);
         blockingColumns = blockingDependencyColumnIndexes(cells);
+        requirementColumns = headerRequirementColumns;
         continue;
       }
 
-      const sliceIds = uniqueIds([
+      const plannedSliceIds = uniqueIds(plannedSliceColumns.flatMap((index) => extractPlannedSliceIds(cells[index] ?? "")));
+      const backendSliceIds = uniqueIds([
         ...backendSliceColumns.flatMap((index) => extractSliceIds(cells[index] ?? "")),
         ...extractRoadmapBackendSliceIdsFromLine(line),
       ]);
-      if (sliceIds.length > 0) {
-        const blockedByIds = uniqueIds([
-          ...blockedByColumns.flatMap((index) => parseSliceDependencyIds(cells[index] ?? "")),
-          ...extractInlineDependencyIds(line, "blockedBy"),
-        ]);
-        const blockingIds = uniqueIds([
-          ...blockingColumns.flatMap((index) => parseSliceDependencyIds(cells[index] ?? "")),
-          ...extractInlineDependencyIds(line, "blocking"),
-        ]);
-        for (const sliceId of sliceIds) {
-          addBlockedByDependencies(dependencies, sliceId, blockedByIds);
-          addBlockingDependencies(dependencies, sliceId, blockingIds);
-        }
+      const sourceIds = uniqueIds([...plannedSliceIds, ...backendSliceIds]);
+      if (sourceIds.length > 0) {
+        entries.push({
+          line,
+          plannedSliceIds,
+          backendSliceIds,
+          blockedByIds: uniqueIds([
+            ...blockedByColumns.flatMap((index) => parseRoadmapSliceReferenceIds(cells[index] ?? "")),
+            ...extractInlineDependencyIds(line, "blockedBy"),
+          ]),
+          blockingIds: uniqueIds([
+            ...blockingColumns.flatMap((index) => parseRoadmapSliceReferenceIds(cells[index] ?? "")),
+            ...extractInlineDependencyIds(line, "blocking"),
+          ]),
+          requirementIds: uniqueIds(
+            requirementColumns.length > 0
+              ? requirementColumns.flatMap((index) => extractRequirementIds(cells[index] ?? ""))
+              : extractRequirementIds(line),
+          ),
+          titleByPlannedSliceId: extractPlannedSliceTitles(cells, plannedSliceColumns, plannedSliceIds),
+        });
       }
       continue;
     }
 
+    plannedSliceColumns = [];
     backendSliceColumns = [];
     blockedByColumns = [];
     blockingColumns = [];
+    requirementColumns = [];
 
-    const sliceIds = extractRoadmapBackendSliceIdsFromLine(line);
+    const plannedSliceIds = extractPlannedSliceIds(line);
+    const backendSliceIds = extractRoadmapBackendSliceIdsFromLine(line);
+    const sourceIds = uniqueIds([...plannedSliceIds, ...backendSliceIds]);
+    if (sourceIds.length === 0) continue;
+
+    entries.push({
+      line,
+      plannedSliceIds,
+      backendSliceIds,
+      blockedByIds: extractInlineDependencyIds(line, "blockedBy"),
+      blockingIds: extractInlineDependencyIds(line, "blocking"),
+      requirementIds: extractRequirementIds(line),
+      titleByPlannedSliceId: extractPlannedSliceTitles([line], [0], plannedSliceIds),
+    });
+  }
+
+  return entries;
+}
+
+function extractRoadmapSliceDependencies(
+  entries: RoadmapSliceEntry[],
+  resolution: RoadmapSliceResolution,
+): SliceDependencyMap {
+  const dependencies: SliceDependencyMap = {};
+
+  for (const entry of entries) {
+    const sliceIds = resolvedRoadmapEntrySliceIds(entry, resolution);
     if (sliceIds.length === 0) continue;
 
-    const blockedByIds = extractInlineDependencyIds(line, "blockedBy");
-    const blockingIds = extractInlineDependencyIds(line, "blocking");
+    const blockedByIds = resolveRoadmapSliceIds(entry.blockedByIds, resolution);
+    const blockingIds = resolveRoadmapSliceIds(entry.blockingIds, resolution);
     for (const sliceId of sliceIds) {
       addBlockedByDependencies(dependencies, sliceId, blockedByIds);
       addBlockingDependencies(dependencies, sliceId, blockingIds);
@@ -556,6 +661,85 @@ function extractRoadmapSliceDependencies(content: string): SliceDependencyMap {
   }
 
   return finalizeDependencyMap(dependencies);
+}
+
+function extractPlannedSliceTitles(
+  cells: string[],
+  plannedSliceColumns: number[],
+  plannedSliceIds: string[],
+): Record<string, string> {
+  const titles: Record<string, string> = {};
+  for (const column of plannedSliceColumns) {
+    const cell = cells[column] ?? "";
+    for (const plannedSliceId of plannedSliceIds) {
+      const title = extractPlannedSliceTitle(cell, plannedSliceId);
+      if (title) titles[plannedSliceId] = title;
+    }
+  }
+  return titles;
+}
+
+function resolveRoadmapSliceReferences(
+  entries: RoadmapSliceEntry[],
+  slices: KataProjectSnapshotSlice[],
+): RoadmapSliceResolution {
+  const resolution: RoadmapSliceResolution = new Map();
+
+  for (const entry of entries) {
+    for (const plannedSliceId of entry.plannedSliceIds) {
+      if (entry.backendSliceIds.length > 0) {
+        resolution.set(plannedSliceId, entry.backendSliceIds);
+        continue;
+      }
+
+      const matchedSliceId = findMatchingBackendSliceId(plannedSliceId, entry, slices);
+      if (matchedSliceId) resolution.set(plannedSliceId, [matchedSliceId]);
+    }
+  }
+
+  return resolution;
+}
+
+function findMatchingBackendSliceId(
+  plannedSliceId: string,
+  entry: RoadmapSliceEntry,
+  slices: KataProjectSnapshotSlice[],
+): string | null {
+  const title = entry.titleByPlannedSliceId[plannedSliceId];
+  if (title) {
+    const normalizedTitle = normalizeRoadmapMatchText(title);
+    const titleMatches = slices.filter((slice) => normalizeRoadmapMatchText(slice.title) === normalizedTitle);
+    if (titleMatches.length === 1) return titleMatches[0]?.id ?? null;
+  }
+
+  if (entry.requirementIds.length > 0) {
+    const requirementMatches = slices.filter((slice) => {
+      const sliceRequirementIds = new Set(slice.requirementIds);
+      return entry.requirementIds.every((requirementId) => sliceRequirementIds.has(requirementId));
+    });
+    if (requirementMatches.length === 1) return requirementMatches[0]?.id ?? null;
+  }
+
+  return null;
+}
+
+function normalizeRoadmapMatchText(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function resolvedRoadmapEntrySliceIds(entry: RoadmapSliceEntry, resolution: RoadmapSliceResolution): string[] {
+  return uniqueIds([
+    ...entry.backendSliceIds,
+    ...entry.plannedSliceIds.flatMap((plannedSliceId) => resolution.get(plannedSliceId) ?? [plannedSliceId]),
+  ]);
+}
+
+function resolveRoadmapSliceIds(ids: string[], resolution: RoadmapSliceResolution): string[] {
+  return uniqueIds(ids.flatMap((id) => resolution.get(id) ?? [id]));
+}
+
+function extractRoadmapPlannedSliceIds(entries: RoadmapSliceEntry[], resolution: RoadmapSliceResolution): string[] {
+  return uniqueIds(entries.flatMap((entry) => resolvedRoadmapEntrySliceIds(entry, resolution)));
 }
 
 function extractBackendSliceDependencies(slices: KataProjectSnapshotSlice[]): SliceDependencyMap {
@@ -602,7 +786,7 @@ function extractInlineDependencyIds(line: string, relation: "blockedBy" | "block
   for (const segment of splitRoadmapMetadataSegments(line)) {
     const match = pattern.exec(segment);
     if (!match?.[1]) continue;
-    ids.push(...parseSliceDependencyIds(match[1]));
+    ids.push(...parseRoadmapSliceReferenceIds(match[1]));
   }
 
   return uniqueIds(ids);
@@ -610,7 +794,7 @@ function extractInlineDependencyIds(line: string, relation: "blockedBy" | "block
 
 function addBlockedByDependencies(map: SliceDependencyMap, sliceId: string, blockedByIds: string[]): void {
   const canonicalSliceId = sliceDependencyMapKey(sliceId);
-  for (const blockedById of parseSliceDependencyIds(blockedByIds)) {
+  for (const blockedById of parseRoadmapSliceReferenceIds(blockedByIds)) {
     if (blockedById === canonicalSliceId) continue;
     ensureDependencyEntry(map, canonicalSliceId).blockedBy = uniqueIds([
       ...ensureDependencyEntry(map, canonicalSliceId).blockedBy,
@@ -625,7 +809,7 @@ function addBlockedByDependencies(map: SliceDependencyMap, sliceId: string, bloc
 
 function addBlockingDependencies(map: SliceDependencyMap, sliceId: string, blockingIds: string[]): void {
   const canonicalSliceId = sliceDependencyMapKey(sliceId);
-  for (const blockingId of parseSliceDependencyIds(blockingIds)) {
+  for (const blockingId of parseRoadmapSliceReferenceIds(blockingIds)) {
     if (blockingId === canonicalSliceId) continue;
     ensureDependencyEntry(map, canonicalSliceId).blocking = uniqueIds([
       ...ensureDependencyEntry(map, canonicalSliceId).blocking,
@@ -649,8 +833,8 @@ function finalizeDependencyMap(map: SliceDependencyMap): SliceDependencyMap {
   for (const sliceId of uniqueIds(Object.keys(map))) {
     const dependencies = map[sliceId];
     if (!dependencies) continue;
-    const blockedBy = uniqueIds(parseSliceDependencyIds(dependencies.blockedBy));
-    const blocking = uniqueIds(parseSliceDependencyIds(dependencies.blocking));
+    const blockedBy = uniqueIds(parseRoadmapSliceReferenceIds(dependencies.blockedBy));
+    const blocking = uniqueIds(parseRoadmapSliceReferenceIds(dependencies.blocking));
     if (blockedBy.length === 0 && blocking.length === 0) continue;
     finalized[sliceDependencyMapKey(sliceId)] = { blockedBy, blocking };
   }
@@ -661,50 +845,23 @@ function sliceDependencyMapKey(sliceId: string): string {
   return parseSliceDependencyIds(sliceId)[0] ?? sliceId;
 }
 
-function extractRoadmapBackendSliceIdsByLine(content: string): Array<{ line: string; sliceIds: string[] }> {
-  const entries: Array<{ line: string; sliceIds: string[] }> = [];
-  let backendSliceColumns: number[] = [];
-
-  for (const line of content.split(/\r?\n/)) {
-    const cells = parseMarkdownTableRow(line);
-    if (cells) {
-      if (isMarkdownTableDivider(cells)) continue;
-
-      const headerColumns = backendSliceColumnIndexes(cells);
-      if (headerColumns.length > 0 && extractSliceIds(line).length === 0) {
-        backendSliceColumns = headerColumns;
-        continue;
-      }
-
-      const tableSliceIds = backendSliceColumns.flatMap((index) => extractSliceIds(cells[index] ?? ""));
-      const inlineSliceIds = extractRoadmapBackendSliceIdsFromLine(line);
-      const sliceIds = uniqueIds([...tableSliceIds, ...inlineSliceIds]);
-      if (sliceIds.length > 0) entries.push({ line, sliceIds });
-      continue;
-    }
-
-    backendSliceColumns = [];
-    const sliceIds = extractRoadmapBackendSliceIdsFromLine(line);
-    if (sliceIds.length > 0) entries.push({ line, sliceIds });
-  }
-
-  return entries;
-}
-
-function extractRoadmapBackendSliceIds(content: string): string[] {
-  return uniqueIds(extractRoadmapBackendSliceIdsByLine(content).flatMap((entry) => entry.sliceIds));
-}
-
-function extractRequirementToSliceIds(content: string): Record<string, string[]> {
+function extractRequirementToSliceIds(
+  entries: RoadmapSliceEntry[],
+  resolution: RoadmapSliceResolution,
+): Record<string, string[]> {
   const mapping: Record<string, string[]> = {};
-  for (const { line, sliceIds } of extractRoadmapBackendSliceIdsByLine(content)) {
-    const requirementIds = extractRequirementIds(line);
-    if (sliceIds.length === 0 || requirementIds.length === 0) continue;
-    for (const requirementId of requirementIds) {
+  for (const entry of entries) {
+    const sliceIds = resolvedRoadmapEntrySliceIds(entry, resolution);
+    if (sliceIds.length === 0 || entry.requirementIds.length === 0) continue;
+    for (const requirementId of entry.requirementIds) {
       mapping[requirementId] = uniqueIds([...(mapping[requirementId] ?? []), ...sliceIds]);
     }
   }
   return mapping;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function uniqueIds(ids: string[]): string[] {

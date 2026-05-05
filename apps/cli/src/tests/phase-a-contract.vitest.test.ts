@@ -778,6 +778,95 @@ describe("Phase A domain contract", () => {
     });
   });
 
+  it("extracts planned roadmap slice metadata and resolves dependencies to existing backend slices", async () => {
+    const api = createKataDomainApi({
+      ...createFakeAdapter(),
+      getActiveMilestone: async () => ({
+        id: "M001",
+        title: "MVP lead generation",
+        goal: "Plan the first lead generation milestone",
+        status: "active",
+        active: true,
+      }),
+      listSlices: async () => [
+        {
+          id: "S001",
+          milestoneId: "M001",
+          title: "Select first MVP target",
+          goal: "Cover M1-STRAT-01 and M1-STRAT-02",
+          status: "done",
+          order: 1,
+          blockedBy: [],
+          blocking: [],
+        },
+      ],
+      listTasks: async () => [
+        {
+          id: "T001",
+          sliceId: "S001",
+          title: "Select target segment",
+          description: "Covers M1-STRAT-01 and M1-STRAT-02",
+          status: "done",
+          verificationState: "verified",
+        },
+      ],
+      listArtifacts: async () => [],
+      readArtifact: async (input: KataArtifactReadInput) => ({
+        id: `${input.scopeType}:${input.scopeId}:${input.artifactType}`,
+        scopeType: input.scopeType,
+        scopeId: input.scopeId,
+        artifactType: input.artifactType,
+        title: input.artifactType,
+        content: input.artifactType === "roadmap"
+          ? [
+              "| Planned Slice | Backend Slice ID | Blocked By | Requirements |",
+              "|---|---|---|---|",
+              "| Planned Slice 1: Select first MVP target | None | None | M1-STRAT-01, M1-STRAT-02 |",
+              "| Planned Slice 2: Define viable lead criteria | None | Planned Slice 1 | M1-LEAD-01, M1-LEAD-02, M1-RISK-01 |",
+              "",
+              "| Requirement | Phase/Planned Slice | Backend Slice ID | Blocked By | Status |",
+              "|---|---|---|---|---|",
+              "| M1-LEAD-01 | Phase 1 / Planned Slice 2 | None | Planned Slice 1 | Pending |",
+              "| M1-LEAD-02 | Phase 1 / Planned Slice 2 | None | Planned Slice 1 | Pending |",
+              "| M1-RISK-01 | Phase 1 / Planned Slice 2 | None | Planned Slice 1 | Pending |",
+            ].join("\n")
+          : [
+              "M1-STRAT-01",
+              "M1-STRAT-02",
+              "M1-LEAD-01",
+              "M1-LEAD-02",
+              "M1-RISK-01",
+            ].join("\n"),
+        format: "markdown",
+        updatedAt: "2026-04-29T00:00:00.000Z",
+        provenance: { backend: "github", backendId: "comment:5" },
+      }),
+    });
+
+    const snapshot = await dispatchKataOperation(api, "project.getSnapshot") as KataProjectSnapshot;
+
+    expect(snapshot.roadmap).toMatchObject({
+      plannedSliceIds: ["Planned Slice 2", "S001"],
+      existingSliceIds: ["S001"],
+      missingSliceIds: ["Planned Slice 2"],
+      requirementToSliceIds: {
+        "LEAD-01": ["Planned Slice 2"],
+        "LEAD-02": ["Planned Slice 2"],
+        "RISK-01": ["Planned Slice 2"],
+        "STRAT-01": ["S001"],
+        "STRAT-02": ["S001"],
+      },
+      sliceDependencies: {
+        "Planned Slice 2": { blockedBy: ["S001"], blocking: [] },
+        S001: { blockedBy: [], blocking: ["Planned Slice 2"] },
+      },
+    });
+    expect(snapshot.nextAction).toMatchObject({
+      workflow: "kata-plan-phase",
+      target: { milestoneId: "M001", sliceId: "Planned Slice 2" },
+    });
+  });
+
   it("selects the first unblocked execution slice", async () => {
     const api = createDependencySnapshotApi([
       { id: "S001", status: "backlog" },
