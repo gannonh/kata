@@ -40,3 +40,57 @@ Define a reusable PR fixture that supports validation of review comments, push u
 - Do not force-push protected branches.
 - Do not merge fixture PRs during validation runs unless explicit merge approval exists.
 - Keep all merge checks enforced; use readiness inspection rather than bypass.
+
+## Disposable PR setup path
+
+Use this flow to create a short-lived fixture PR that exercises comment, update, and check workflows.
+
+1. Sync and branch from `main`:
+
+   ```bash
+   git fetch origin
+   git checkout main
+   git pull --ff-only origin main
+   git checkout -b fixture/pr-validation-$(date +%Y%m%d-%H%M%S)
+   ```
+
+2. Add a small auditable change and commit:
+
+   ```bash
+   mkdir -p docs/agents/fixtures
+   printf "fixture run: %s\n" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > docs/agents/fixtures/pr-validation-run.md
+   git add docs/agents/fixtures/pr-validation-run.md
+   git commit -m "chore: create disposable PR validation fixture"
+   ```
+
+3. Push the fixture branch and open the PR to `main`:
+
+   ```bash
+   git push -u origin "$(git branch --show-current)"
+   gh pr create \
+     --base main \
+     --title "chore: disposable PR validation fixture" \
+     --body "Refs #492"
+   ```
+
+4. Add representative PR feedback signals:
+
+   ```bash
+   gh pr comment --body "Fixture comment: validates conversation comment ingestion."
+   ```
+
+5. Update the branch once to validate push/update behavior:
+
+   ```bash
+   printf "update: %s\n" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> docs/agents/fixtures/pr-validation-run.md
+   git add docs/agents/fixtures/pr-validation-run.md
+   git commit -m "chore: fixture PR update commit"
+   git push
+   ```
+
+Required setup outcomes:
+
+- PR is open against `main`.
+- Fixture branch exists on `origin`.
+- PR contains at least one comment and at least one update push.
+- Standard checks run under normal repository gate rules.
