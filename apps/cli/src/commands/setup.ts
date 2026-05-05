@@ -68,10 +68,12 @@ export interface SetupInstallTargetResult {
 export interface SetupPreferencesResult {
   path: string;
   status: "existing" | "created";
-  backend?: "github";
+  backend?: "github" | "linear";
   repoOwner?: string;
   repoName?: string;
   githubProjectNumber?: number;
+  linearTeamKey?: string;
+  linearProjectSlug?: string;
 }
 
 export interface SetupSuccessResult {
@@ -111,6 +113,8 @@ export interface SetupOnboardingInput {
   repoOwner?: string;
   repoName?: string;
   githubProjectNumber?: number;
+  linearTeamKey?: string;
+  linearProjectSlug?: string;
 }
 
 export interface RunSetupInput {
@@ -376,6 +380,13 @@ function renderGithubPreferences(input: {
   return `---\nworkflow:\n  mode: github\ngithub:\n  repoOwner: ${input.repoOwner}\n  repoName: ${input.repoName}\n  stateMode: projects_v2\n  githubProjectNumber: ${input.githubProjectNumber}\n---\n`;
 }
 
+function renderLinearPreferences(input: {
+  teamKey: string;
+  projectSlug: string;
+}): string {
+  return `---\nworkflow:\n  mode: linear\nlinear:\n  teamKey: ${input.teamKey}\n  projectSlug: ${input.projectSlug}\n---\n`;
+}
+
 async function askRequired(question: (prompt: string) => Promise<string>, label: string, defaultValue?: string): Promise<string> {
   const suffix = defaultValue ? ` [${defaultValue}]` : "";
   while (true) {
@@ -408,6 +419,10 @@ function hasCompleteGithubOnboarding(input: SetupOnboardingInput | undefined): i
   );
 }
 
+function hasCompleteLinearOnboarding(input: SetupOnboardingInput | undefined): input is Required<Pick<SetupOnboardingInput, "linearTeamKey" | "linearProjectSlug">> & SetupOnboardingInput {
+  return Boolean(cleanString(input?.linearTeamKey) && cleanString(input?.linearProjectSlug));
+}
+
 async function ensurePreferences(input: {
   cwd: string;
   env: NodeJS.ProcessEnv;
@@ -419,45 +434,98 @@ async function ensurePreferences(input: {
     return { path: preferencesPath, status: "existing" };
   }
 
-  if (!(await hasGithubAuth(input.env))) {
-    throw Object.assign(new Error("GitHub auth is required before creating .kata/preferences.md. Run `gh auth login` or set GITHUB_TOKEN/GH_TOKEN."), {
-      code: "GITHUB_AUTH_MISSING",
-    });
-  }
+  const requestedBackend = input.onboarding?.backend ?? "github";
 
+  let backend: "github" | "linear" = requestedBackend;
   let repoOwner = cleanString(input.onboarding?.repoOwner) ?? undefined;
   let repoName = cleanString(input.onboarding?.repoName) ?? undefined;
   let githubProjectNumber = input.onboarding?.githubProjectNumber;
+  let linearTeamKey = cleanString(input.onboarding?.linearTeamKey) ?? undefined;
+  let linearProjectSlug = cleanString(input.onboarding?.linearProjectSlug) ?? undefined;
 
-  if (!hasCompleteGithubOnboarding(input.onboarding)) {
-    if (!input.interactive) {
-      throw Object.assign(new Error("Interactive setup is required to create .kata/preferences.md. Rerun in a TTY or pass repo owner, repo name, and GitHub Project number."), {
-        code: "NON_INTERACTIVE_SETUP_REQUIRED",
-      });
-    }
-
-    const inferredRepository = await inferGithubRepository(input.cwd);
+  if (input.interactive) {
     const rl = createInterface({ input: process.stdin, output: process.stdout });
     try {
-      const backend = (await rl.question("Kata backend [github]: ")).trim().toLowerCase() || "github";
-      if (backend !== "github") {
-        throw Object.assign(new Error("Only GitHub setup is available in this CLI build. Linear setup is coming later."), {
-          code: "INVALID_INPUT",
-        });
+      if (!input.onboarding?.backend) {
+        const promptedBackend = (await rl.question("Kata backend [github]: ")).trim().toLowerCase() || "github";
+        if (promptedBackend !== "github" && promptedBackend !== "linear") {
+          throw Object.assign(new Error(`Invalid backend: ${promptedBackend}. Use github or linear.`), {
+            code: "INVALID_INPUT",
+          });
+        }
+        backend = promptedBackend;
       }
 
-      repoOwner = await askRequired(rl.question.bind(rl), "GitHub repo owner", repoOwner ?? inferredRepository?.owner);
-      repoName = await askRequired(rl.question.bind(rl), "GitHub repo name", repoName ?? inferredRepository?.name);
-      githubProjectNumber = await askPositiveInteger(rl.question.bind(rl), "GitHub Project number", githubProjectNumber);
+      if (backend === "github" && !hasCompleteGithubOnboarding({ repoOwner, repoName, githubProjectNumber })) {
+        const inferredRepository = await inferGithubRepository(input.cwd);
+        repoOwner = await askRequired(rl.question.bind(rl), "GitHub repo owner", repoOwner ?? inferredRepository?.owner);
+        repoName = await askRequired(rl.question.bind(rl), "GitHub repo name", repoName ?? inferredRepository?.name);
+        githubProjectNumber = await askPositiveInteger(rl.question.bind(rl), "GitHub Project number", githubProjectNumber);
+      }
+
+      if (backend === "linear" && !hasCompleteLinearOnboarding({ linearTeamKey, linearProjectSlug })) {
+        linearTeamKey = await askRequired(rl.question.bind(rl), "Linear team key", linearTeamKey);
+        linearProjectSlug = await askRequired(
+          rl.question.bind(rl),
+          "Linear project slug",
+          linearProjectSlug,
+        );
+      }
     } finally {
       rl.close();
     }
   }
 
-  const normalizedRepoOwner = cleanString(repoOwner);
-  const normalizedRepoName = cleanString(repoName);
-  if (!normalizedRepoOwner || !normalizedRepoName || !githubProjectNumber || !Number.isInteger(githubProjectNumber) || githubProjectNumber <= 0) {
-    throw Object.assign(new Error("GitHub setup requires repo owner, repo name, and a positive GitHub Project number."), {
+  if (backend === "github") {
+    if (!(await hasGithubAuth(input.env))) {
+      throw Object.assign(new Error("GitHub auth is required before creating .kata/preferences.md. Run `gh auth login` or set GITHUB_TOKEN/GH_TOKEN."), {
+        code: "GITHUB_AUTH_MISSING",
+      });
+    }
+
+    const normalizedRepoOwner = cleanString(repoOwner);
+    const normalizedRepoName = cleanString(repoName);
+    if (!normalizedRepoOwner || !normalizedRepoName || !githubProjectNumber || !Number.isInteger(githubProjectNumber) || githubProjectNumber <= 0) {
+      if (!input.interactive) {
+        throw Object.assign(new Error("Interactive setup is required to create GitHub preferences. Rerun in a TTY or pass repo owner, repo name, and GitHub Project number."), {
+          code: "NON_INTERACTIVE_SETUP_REQUIRED",
+        });
+      }
+      throw Object.assign(new Error("GitHub setup requires repo owner, repo name, and a positive GitHub Project number."), {
+        code: "INVALID_INPUT",
+      });
+    }
+
+    await mkdir(dirname(preferencesPath), { recursive: true });
+    await writeFile(
+      preferencesPath,
+      renderGithubPreferences({
+        repoOwner: normalizedRepoOwner,
+        repoName: normalizedRepoName,
+        githubProjectNumber,
+      }),
+      "utf8",
+    );
+
+    return {
+      path: preferencesPath,
+      status: "created",
+      backend: "github",
+      repoOwner: normalizedRepoOwner,
+      repoName: normalizedRepoName,
+      githubProjectNumber,
+    };
+  }
+
+  const normalizedTeamKey = cleanString(linearTeamKey);
+  const normalizedProjectSlug = cleanString(linearProjectSlug);
+  if (!normalizedTeamKey || !normalizedProjectSlug) {
+    if (!input.interactive) {
+      throw Object.assign(new Error("Interactive setup is required to create Linear preferences. Rerun in a TTY or pass linear team key and project slug."), {
+        code: "NON_INTERACTIVE_SETUP_REQUIRED",
+      });
+    }
+    throw Object.assign(new Error("Linear setup requires linear team key and project slug."), {
       code: "INVALID_INPUT",
     });
   }
@@ -465,10 +533,9 @@ async function ensurePreferences(input: {
   await mkdir(dirname(preferencesPath), { recursive: true });
   await writeFile(
     preferencesPath,
-    renderGithubPreferences({
-      repoOwner: normalizedRepoOwner,
-      repoName: normalizedRepoName,
-      githubProjectNumber,
+    renderLinearPreferences({
+      teamKey: normalizedTeamKey,
+      projectSlug: normalizedProjectSlug,
     }),
     "utf8",
   );
@@ -476,10 +543,9 @@ async function ensurePreferences(input: {
   return {
     path: preferencesPath,
     status: "created",
-    backend: "github",
-    repoOwner: normalizedRepoOwner,
-    repoName: normalizedRepoName,
-    githubProjectNumber,
+    backend: "linear",
+    linearTeamKey: normalizedTeamKey,
+    linearProjectSlug: normalizedProjectSlug,
   };
 }
 
