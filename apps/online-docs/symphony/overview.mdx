@@ -54,7 +54,7 @@ Todo → In Progress → Agent Review → Merging → Done
 | Status | Who sets it | What happens |
 | --- | --- | --- |
 | **Todo** | Human | Issue is queued — Symphony picks it up on the next poll |
-| **In Progress** | Orchestrator | Agent is working — writing code, running tests |
+| **In Progress** | Symphony | Agent is working — writing code, running tests |
 | **Agent Review** | Agent or Human | Agent addresses PR review comments |
 | **Merging** | Human | Agent merges the approved PR |
 | **Rework** | Human | Agent scraps current approach, starts fresh on a new branch |
@@ -144,9 +144,9 @@ symphony WORKFLOW.md
 
 Open `http://localhost:8080` for the web dashboard, or watch the built-in terminal dashboard.
 
-**4. Create issues in Linear**
+**4. Create tracker issues**
 
-Create issues in your Linear project and set them to `Todo`. Symphony picks them up on the next poll cycle.
+Create issues in your configured tracker and set them to `Todo`. Symphony picks them up on the next poll cycle.
 
 ## When to use Symphony
 
