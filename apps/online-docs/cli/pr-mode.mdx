@@ -1,117 +1,37 @@
 ---
-title: "PR mode"
-description: "Manage GitHub pull requests as part of the Kata slice lifecycle — with automatic PR creation, parallel code review, and controlled merge gates."
+title: "PR workflow settings"
+description: "Preference fields used by Kata skills for pull request workflows."
 ---
 
-PR mode integrates GitHub pull requests into the Kata slice lifecycle. When enabled, auto-mode stops at slice boundaries so you can review changes before they merge. Each slice gets its own branch and PR, giving you a clean audit trail and a natural review checkpoint between units of work.
+Kata skills can use a `pr` block in preferences to control PR automation behavior.
 
-## Setup
+## Example
 
-<Steps>
-  <Step title="Install and authenticate the GitHub CLI">
-    PR mode requires the `gh` CLI installed and authenticated:
-
-    ```bash
-    gh auth login
-    ```
-  </Step>
-  <Step title="Enable PR mode in preferences">
-    Add the `pr` block to `.kata/preferences.md` (project-local) or `~/.kata-cli/preferences.md` (global):
-
-    ```yaml
-    pr:
-      enabled: true
-      auto_create: true       # create PR automatically after slice completes
-      base_branch: main       # target branch for PRs
-      review_on_create: false # run parallel code review after PR creation
-      linear_link: false      # add Linear issue refs to PR body (requires linear mode)
-    ```
-
-    Manage preferences with `/kata prefs`.
-  </Step>
-</Steps>
-
-## Branch naming
-
-Slice branches use the canonical namespaced format:
-
-```
-kata/<scope>/<M>/<S>
+```yaml
+---
+pr:
+  enabled: true
+  auto_create: true
+  base_branch: main
+  review_on_create: false
+  linear_link: false
+---
 ```
 
-For example: `kata/apps-cli/M003/S05`
+## Fields
 
-<Note>
-  Legacy `kata/<M>/<S>` branches (without a scope segment) are still accepted during transition to the new format.
-</Note>
+- `pr.enabled`: enable PR workflow behavior
+- `pr.auto_create`: allow automatic PR creation
+- `pr.base_branch`: default PR base branch
+- `pr.review_on_create`: run review after PR creation
+- `pr.linear_link`: include Linear references in PR body
 
-## How it works with auto-mode
+## Requirements
 
-Without PR mode, auto-mode squash-merges each slice branch to `main` and continues. With PR mode enabled, the behavior changes at each slice boundary.
+Install GitHub CLI and authenticate before using PR automation commands. Kata invokes `gh` for PR creation and review actions.
 
-<Tabs>
-  <Tab title="auto_create: true">
-    After slice completion, auto-mode creates a PR via `gh`, notifies you with the URL, and stops.
+```bash
+gh auth login
+```
 
-    Merge the PR — manually or with `/kata pr merge` — then run `/kata auto` to resume the next slice.
-  </Tab>
-  <Tab title="auto_create: false">
-    After slice completion, auto-mode stops and tells you to run `/kata pr create`.
-
-    You manage the full lifecycle, then run `/kata auto` to resume.
-  </Tab>
-</Tabs>
-
-<Warning>
-  Auto-mode never merges automatically when PR mode is enabled. It always pauses at slice boundaries regardless of the `auto_create` setting.
-</Warning>
-
-## PR commands
-
-| Command | Description |
-|---------|-------------|
-| `/kata pr status` | Show PR lifecycle state (no LLM call) |
-| `/kata pr create` | Create a PR for the current slice branch |
-| `/kata pr review` | Run parallel multi-agent code review |
-| `/kata pr address` | Address review comments |
-| `/kata pr merge` | Merge PR and sync local state |
-
-## Typical flow
-
-<Steps>
-  <Step title="Run auto-mode">
-    ```
-    /kata auto
-    ```
-
-    Work proceeds through the slice lifecycle: research, plan, execute, complete. When the slice finishes, Kata creates a PR and stops.
-  </Step>
-  <Step title="Review the PR">
-    ```
-    /kata pr review
-    ```
-
-    Runs a parallel multi-agent code review. Results appear inline in the chat.
-  </Step>
-  <Step title="Address feedback">
-    ```
-    /kata pr address
-    ```
-
-    Kata reads the review comments and works through them systematically.
-  </Step>
-  <Step title="Merge">
-    ```
-    /kata pr merge
-    ```
-
-    Merges the PR and syncs local branch state.
-  </Step>
-  <Step title="Resume">
-    ```
-    /kata auto
-    ```
-
-    Picks up the next slice and continues.
-  </Step>
-</Steps>
+If GitHub CLI is not authenticated, PR workflows fail authentication checks.
