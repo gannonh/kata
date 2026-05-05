@@ -3,21 +3,16 @@ set -euo pipefail
 
 echo "[ci] Building golden-path distribution artifacts"
 pnpm --dir apps/cli run build
-pnpm --dir apps/desktop run bundle:cli
 
 echo "[ci] Validating artifact presence"
 test -f apps/cli/dist/loader.js
 test -f apps/cli/skills/kata-setup/SKILL.md
-test -e apps/desktop/vendor/pi
-test -e apps/desktop/vendor/kata-cli
-test -e apps/desktop/vendor/kata-skills
 rg -n "name: kata-(setup|new-project|new-milestone|plan-phase|execute-phase|verify-work|complete-milestone|progress|health)" apps/cli/skills >/dev/null
 test ! -e apps/cli/skills/kata-discuss-phase
 test ! -e apps/cli/skills/kata-quick
 test -f apps/cli/skills/kata-new-milestone/SKILL.md
 test -f apps/cli/skills/kata-complete-milestone/SKILL.md
 rg -n "references/alignment.md" apps/cli/skills/kata-plan-phase/SKILL.md >/dev/null
-rg -n "name: 'symphony'" apps/desktop/src/main/command-registry.ts >/dev/null
 
 echo "[ci] Running golden-path behavior checks"
 pnpm --dir apps/cli exec vitest run src/tests/phase-a-skill-surface.vitest.test.ts

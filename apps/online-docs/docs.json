@@ -52,16 +52,6 @@
             ]
           },
           {
-            "group": "Kata Desktop",
-            "pages": [
-              "desktop/overview",
-              "desktop/sessions-workspaces",
-              "desktop/planning-kanban",
-              "desktop/symphony",
-              "desktop/sources-mcp"
-            ]
-          },
-          {
             "group": "Kata Context",
             "pages": [
               "context/overview"

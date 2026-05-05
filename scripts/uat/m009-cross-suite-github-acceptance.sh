@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 
-EVIDENCE_DIR="${1:-apps/desktop/docs/uat/M009/evidence}"
+EVIDENCE_DIR="${1:-apps/desktop-legacy/docs/uat/M009/evidence}"
 PLAYWRIGHT_OUTPUT_DIR="$EVIDENCE_DIR/playwright-results"
 mkdir -p "$EVIDENCE_DIR" "$PLAYWRIGHT_OUTPUT_DIR"
 
@@ -70,7 +70,7 @@ run_step \
   "05" \
   "Desktop GitHub board parity e2e screenshot proof" \
   "$EVIDENCE_DIR/05-desktop-github-e2e.log" \
-  bash -c "pnpm --dir apps/desktop run build:main && pnpm --dir apps/desktop run build:preload && pnpm --dir apps/desktop run build:renderer && KATA_M009_EVIDENCE=1 pnpm --dir apps/desktop exec playwright test e2e/tests/m009-github-cross-suite-proof.e2e.ts --output \"$PLAYWRIGHT_OUTPUT_DIR\""
+  bash -c "pnpm --dir apps/desktop-legacy run build:main && pnpm --dir apps/desktop-legacy run build:preload && pnpm --dir apps/desktop-legacy run build:renderer && KATA_M009_EVIDENCE=1 pnpm --dir apps/desktop-legacy exec playwright test e2e/tests/m009-github-cross-suite-proof.e2e.ts --output \"$PLAYWRIGHT_OUTPUT_DIR\""
 
 {
   echo ""

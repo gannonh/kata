@@ -25,7 +25,6 @@ run_segment() {
 echo "Running deterministic GitHub backend validation lane"
 echo "Negative-path signal checks included in this lane:"
 echo "- CLI: setup/source policy + golden-path runtime contract checks"
-echo "- Desktop: structured GitHub HTTP/GraphQL error mapping"
 echo "- Symphony: unknown Project v2 status actionable error"
 
 run_segment \
@@ -33,12 +32,6 @@ run_segment \
   pnpm --dir apps/cli exec vitest run \
   src/tests/setup-source.vitest.test.ts \
   src/tests/golden-path.pi-github.vitest.test.ts
-
-run_segment \
-  "Desktop GitHub workflow backend contracts (Vitest)" \
-  pnpm --dir apps/desktop exec vitest run \
-  src/main/__tests__/github-workflow-client.test.ts \
-  src/main/__tests__/workflow-board-service.test.ts
 
 run_segment \
   "Symphony GitHub backend execution contracts (cargo test)" \

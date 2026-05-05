@@ -53,9 +53,6 @@ ACTIVE_ROOT_SCRIPTS=(
   "test"
   "validate"
   "validate:affected"
-  "desktop:dev"
-  "desktop:build"
-  "desktop:dist:mac"
   "docs:dev"
   "print:system-prompt"
   "verify:pnpm"
@@ -74,7 +71,7 @@ require_file ".githooks/pre-push"
 if ! tr '\n' ' ' < .githooks/pre-push | grep -Eq 'pnpm[[:space:]]+exec[[:space:]]+turbo[[:space:]]+run[[:space:]]+lint[[:space:]]+typecheck[[:space:]]+test'; then
   fail "pre-push must invoke turbo via pnpm exec"
 fi
-for required_filter in '@kata/desktop' '@kata-sh/cli' '@kata/context'; do
+for required_filter in '@kata-sh/cli' '@kata/context'; do
   if ! grep -Fq -- "--filter=${required_filter}" .githooks/pre-push; then
     fail "pre-push missing required active-package filter: ${required_filter}"
   fi
@@ -84,18 +81,6 @@ if contains_bun_wrapper ".githooks/pre-push"; then
 fi
 
 phase "app-scripts"
-DESKTOP_FILES=(
-  "apps/desktop/package.json"
-  "apps/desktop/scripts/bundle-cli.sh"
-  "apps/desktop/scripts/package-mac.sh"
-)
-for file in "${DESKTOP_FILES[@]}"; do
-  require_file "$file"
-  if contains_bun_wrapper "$file"; then
-    fail "$file still references bun run/bunx"
-  fi
-done
-
 UTILITY_FILES=(
   "apps/cli/package.json"
   "apps/context/package.json"

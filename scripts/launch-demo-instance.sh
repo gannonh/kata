@@ -12,11 +12,11 @@ Launching a dedicated Kata Desktop demo instance.
 - renderer URL:   $DEV_SERVER_URL
 
 Expected prep:
-  1. pnpm --dir apps/desktop run dev:renderer
-  2. pnpm --dir apps/desktop run build:main
-  3. pnpm --dir apps/desktop run build:preload
+  1. pnpm --dir apps/desktop-legacy run dev:renderer
+  2. pnpm --dir apps/desktop-legacy run build:main
+  3. pnpm --dir apps/desktop-legacy run build:preload
 EOF
 
-VITE_DEV_SERVER_URL="$DEV_SERVER_URL" pnpm exec electron "$PROJECT_ROOT/apps/desktop" \
+VITE_DEV_SERVER_URL="$DEV_SERVER_URL" pnpm exec electron "$PROJECT_ROOT/apps/desktop-legacy" \
   --user-data-dir="$DEMO_PROFILE" \
   --enable-logging

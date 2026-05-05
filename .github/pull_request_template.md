@@ -6,7 +6,6 @@
 
 <!-- Check every area touched by this PR. -->
 
-- [ ] `apps/desktop` - Kata Desktop
 - [ ] `apps/cli` - Kata CLI
 - [ ] `apps/context` - Context Indexer
 - [ ] `apps/symphony` - Kata Symphony
@@ -36,8 +35,6 @@
 - [ ] `pnpm run lint`
 - [ ] `pnpm run typecheck`
 - [ ] `pnpm run test`
-- [ ] `pnpm run desktop:build`
-- [ ] `pnpm run test:e2e`
 - [ ] `cargo test` in `apps/symphony`
 - [ ] Manual verification:
 

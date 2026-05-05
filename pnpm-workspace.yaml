@@ -3,6 +3,7 @@ packages:
   - apps/*
   - '!apps/cli-legacy'
   - '!apps/orchestrator-legacy'
+  - '!apps/desktop-legacy'
   - '!apps/online-docs'
 onlyBuiltDependencies:
   - '@sentry/cli'

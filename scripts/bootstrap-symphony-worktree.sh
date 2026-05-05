@@ -74,7 +74,7 @@ log "source: $SOURCE_TREE"
 log "worktree: $WORKTREE"
 
 copy_if_present "$SOURCE_TREE/.env" "$WORKTREE/.env"
-copy_if_present "$SOURCE_TREE/apps/desktop/.env.development" "$WORKTREE/apps/desktop/.env.development"
+copy_if_present "$SOURCE_TREE/apps/desktop-legacy/.env.development" "$WORKTREE/apps/desktop-legacy/.env.development"
 
 log "installing workspace dependencies"
 pnpm --dir "$WORKTREE" install

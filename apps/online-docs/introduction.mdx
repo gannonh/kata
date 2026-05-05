@@ -1,6 +1,6 @@
 ---
 title: "Introduction"
-description: "Kata is a suite of four active AI coding products for terminal, desktop, headless orchestration, and codebase context workflows."
+description: "Kata is a suite of active AI coding products for terminal, headless orchestration, and codebase context workflows."
 ---
 
 Kata is a suite of AI coding tools built for developers who want structured, autonomous execution. Each product targets a different workflow, from a solo developer in a terminal to a team running parallel agents against a tracker backlog.
@@ -11,9 +11,6 @@ Kata is a suite of AI coding tools built for developers who want structured, aut
   </Card>
   <Card title="Kata Symphony" icon="music" href="/symphony/overview">
     Headless orchestrator that polls Linear or GitHub, dispatches parallel agent sessions, and manages the full ticket-to-merge lifecycle.
-  </Card>
-  <Card title="Kata Desktop" icon="desktop" href="/desktop/overview">
-    Electron app for multi-session agent work with workspace switching, planning/kanban right pane, and Symphony operations.
   </Card>
   <Card title="Kata Context" icon="database" href="/context/overview">
     Structural, semantic, and memory-based codebase understanding for AI coding agents. Indexes source files with tree-sitter and SQLite.
@@ -26,7 +23,6 @@ Kata is a suite of AI coding tools built for developers who want structured, aut
 |---|---|
 | Configure Kata runtimes and run workflow operations from the terminal | [Kata CLI](/cli/overview) |
 | Run agents against a tracker backlog with no human in the loop | [Kata Symphony](/symphony/overview) |
-| Manage multiple agent sessions visually with approval controls | [Kata Desktop](/desktop/overview) |
 | Give AI agents deep understanding of your codebase structure | [Kata Context](/context/overview) |
 
 ## Product overviews
@@ -37,13 +33,9 @@ Kata CLI is the runtime and contract bridge used by Kata skills and harness inte
 
 ### Kata Symphony
 
-Kata Symphony is a headless orchestrator written in Rust. It polls Linear or GitHub for candidate issues, dispatches parallel agent sessions to work on them, and manages the full ticket lifecycle — from `Todo` through implementation, PR creation, automated code review, human review, and merge.
+Kata Symphony is a headless orchestrator written in Rust. It polls Linear or GitHub for candidate issues, dispatches parallel agent sessions to work on them, and manages the full ticket lifecycle from `Todo` through implementation, PR creation, automated code review, human review, and merge.
 
 Symphony runs on a server or in CI. Kata CLI provides setup, diagnostics, and runtime operations (`kata setup`, `kata doctor`, `kata call`, `kata json`) used to configure and integrate Symphony workflows.
-
-### Kata Desktop
-
-Kata Desktop is an Electron app for working with AI agents across multiple sessions and workspaces. It includes streamed chat, workspace-scoped session history, permission modes (Explore / Ask to Edit / Auto), a planning artifact view, a workflow kanban board, and Symphony runtime/dashboard controls.
 
 ### Kata Context
 

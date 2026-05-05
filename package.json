@@ -13,8 +13,6 @@
     "test:watch": "pnpm exec turbo watch test",
     "test:coverage": "bun run scripts/coverage-summary.ts",
     "test:coverage:summary": "bun run scripts/coverage-summary.ts",
-    "test:e2e": "pnpm --dir apps/desktop run test:e2e",
-    "test:e2e:headed": "pnpm --dir apps/desktop run test:e2e:headed",
     "build": "turbo run build",
     "build:cli:pi": "pnpm --dir apps/cli run build && node apps/cli/dist/loader.js setup --pi",
     "build:cli:local": "pnpm --dir apps/cli run build && node apps/cli/dist/loader.js setup --local",
@@ -24,9 +22,6 @@
     "verify:pnpm": "bash scripts/verify-pnpm-migration.sh",
     "githooks:install": "bash scripts/install-githooks.sh",
     "link": "bun link",
-    "desktop:dev": "pnpm --dir apps/desktop run desktop:dev",
-    "desktop:build": "pnpm --dir apps/desktop run desktop:build",
-    "desktop:dist:mac": "pnpm --dir apps/desktop run desktop:dist:mac",
     "sync-secrets": "bash scripts/sync-secrets.sh",
     "print:system-prompt": "pnpm exec tsx packages/shared/src/prompts/print-system-prompt.ts",
     "docs:dev": "pnpm --dir apps/online-docs run docs:dev"

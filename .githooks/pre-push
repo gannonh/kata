@@ -34,7 +34,6 @@ echo "[pre-push] phase: rebuild-native-addons"
 
 echo "[pre-push] phase: turbo-active-packages"
 if ! pnpm exec turbo run lint typecheck test \
-  --filter=@kata/desktop \
   --filter=@kata-sh/cli \
   --filter=@kata/context \
   --filter=@kata/core \
