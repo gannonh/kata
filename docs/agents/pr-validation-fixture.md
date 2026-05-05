@@ -94,3 +94,50 @@ Required setup outcomes:
 - Fixture branch exists on `origin`.
 - PR contains at least one comment and at least one update push.
 - Standard checks run under normal repository gate rules.
+
+## Validation handoff for Planned Slice 15
+
+Use the fixture PR from this document as the validation target for review and land workflow slices.
+
+### Handoff workflow
+
+1. Confirm fixture branch and PR are published:
+
+   ```bash
+   git ls-remote --exit-code --heads origin "$(git branch --show-current)"
+   gh pr view --json url,state,headRefName,baseRefName
+   ```
+
+2. Inspect PR feedback payload:
+
+   ```bash
+   INPUT="/tmp/sym-${SYMPHONY_ISSUE_ID:-current}-pr-inspect-feedback-$$.json"
+   jq -n '{}' > "$INPUT"
+   .agents/skills/sym-state/scripts/sym-call pr.inspect-feedback --input "$INPUT"
+   ```
+
+3. Inspect PR check payload:
+
+   ```bash
+   INPUT="/tmp/sym-${SYMPHONY_ISSUE_ID:-current}-pr-inspect-checks-$$.json"
+   jq -n '{includeLogs:false}' > "$INPUT"
+   .agents/skills/sym-state/scripts/sym-call pr.inspect-checks --input "$INPUT"
+   ```
+
+4. Inspect land-readiness summary without merging:
+
+   ```bash
+   INPUT="/tmp/sym-${SYMPHONY_ISSUE_ID:-current}-pr-land-status-$$.json"
+   jq -n '{includeLogs:false}' > "$INPUT"
+   .agents/skills/sym-state/scripts/sym-call pr.land-status --input "$INPUT"
+   ```
+
+5. Record observed PR feedback, check status, and land-readiness fields in the active issue workpad.
+
+### Downstream acceptance criteria
+
+- `gh pr view` reports `state` as `OPEN`, `baseRefName` as `main`, and `headRefName` equal to the fixture branch.
+- `pr.inspect-feedback` returns non-empty representative feedback signals.
+- `pr.inspect-checks` returns check suites and required checks in non-failing status for readiness validation.
+- `pr.land-status` can be read successfully and used for decisioning without performing a merge.
+- No safety gate bypass commands are used during validation.
