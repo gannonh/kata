@@ -219,10 +219,14 @@ describe("Phase A skill surface", () => {
     expect(planWorkflow).toContain("Inspect `snapshot.roadmap.sliceDependencies`");
     expect(planWorkflow).toContain('"blockedBy": ["S001", "S002"]');
     expect(planWorkflow).toContain("unknown, ambiguous, or names work that has no backend slice ID yet");
+    expect(planWorkflow).toContain("## Stage 6: Reconcile Roadmap After Planning");
+    expect(planWorkflow).toContain("`S009 / Planned Slice 1`");
     expect(executeWorkflow).toContain("Use `snapshot.nextAction` as the source of truth for executable slice selection");
     expect(executeWorkflow).toContain("Do not execute slices whose `blockedBy` dependencies include known non-done blockers");
     expect(executeWorkflow).toContain("Do not move a Backlog blocked slice forward");
     expect(roadmapTemplate).toContain("| Planned Slice | Backend Slice ID | Blocked By | Requirements |");
+    expect(roadmapTemplate).toContain("## Slice Map");
+    expect(roadmapTemplate).toContain("| Roadmap Slice | Backend Slice ID | Title | Status |");
     expect(roadmapTemplate).toContain("Backend Slice: S003; Depends on: S001, S002");
     expect(roadmapTemplate).toContain("use `None` or an empty cell when there are no dependencies");
   });

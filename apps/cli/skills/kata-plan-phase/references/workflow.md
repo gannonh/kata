@@ -169,6 +169,23 @@ Run:
 node <path-to-skill-directory>/scripts/kata-call.mjs artifact.write --input /tmp/kata-plan-artifact.json
 ```
 
+## Stage 6: Reconcile Roadmap After Planning
+
+After every successful planning pass that creates or maps backend work, update the milestone roadmap artifact once at the end of the pass. Do not update the roadmap during preview-only confirmation.
+
+Read the current roadmap artifact, rewrite the full artifact, and persist it with `artifact.write`.
+
+Reconcile these sections:
+
+- `## Slice Map`: add or update the selected roadmap slice row with the canonical backend slice ID, title, and status.
+- `## Slices / Phases`: update the selected planned-slice table row's `Backend Slice ID` field.
+- `## Dependency Graph`: update the selected slice's `Backend Slice ID`; use backend IDs in dependency fields only when the referenced backend slices exist.
+- `## Implementation Waves`: show both IDs for planned slices that now have backend IDs, such as `S009 / Planned Slice 1`, including `Ready When` fields.
+- `## Traceability`: update the selected requirements' `Backend Slice ID` fields.
+- `## Progress`: preserve phase-level status unless execution state changed.
+
+Keep roadmap-local labels stable. Do not rename `Planned Slice 1` to `S009`; render it as `S009 / Planned Slice 1` in human-facing sequencing tables and keep machine-readable backend IDs in `Backend Slice ID` columns.
+
 ## Completion
 
 Reload the project snapshot after creating or updating backend planning state:

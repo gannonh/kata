@@ -72,9 +72,13 @@ describe("skill bundle generation", () => {
     expect(workflow).not.toContain("apps/cli/dist/loader.js");
     expect(workflow).toContain("Inspect `snapshot.roadmap.sliceDependencies`");
     expect(workflow).toContain('"blockedBy": ["S001", "S002"]');
+    expect(workflow).toContain("## Stage 6: Reconcile Roadmap After Planning");
+    expect(workflow).toContain("`S009 / Planned Slice 1`");
     expect(executeWorkflow).toContain("Use `snapshot.nextAction` as the source of truth for executable slice selection");
     expect(executeWorkflow).toContain("Do not execute slices whose `blockedBy` dependencies include known non-done blockers");
     expect(roadmapTemplate).toContain("| Planned Slice | Backend Slice ID | Blocked By | Requirements |");
+    expect(roadmapTemplate).toContain("## Slice Map");
+    expect(roadmapTemplate).toContain("| Roadmap Slice | Backend Slice ID | Title | Status |");
     expect(roadmapTemplate).toContain("Backend Slice: S003; Depends on: S001, S002");
     expect(runtime).toContain("project.getContext");
     expect(runtime).toContain("slice.create");

@@ -155,6 +155,7 @@ The roadmap must include explicit dependency and parallelization visibility:
 
 - Derive planned slices from the milestone requirements and phase goals.
 - Assign each planned slice a stable roadmap label such as `Planned Slice 1`.
+- Add a `## Slice Map` section that maps each roadmap label to `Backend Slice ID: None` until backend slices are created.
 - Record direct blockers for every planned slice in machine-readable `Blocked By` fields.
 - Add a `## Dependency Graph` section showing each planned slice, what it depends on, what it blocks, and the requirements it covers.
 - Add a `## Implementation Waves` section. Waves run in sequence by default; slices inside the same wave can be planned or executed in parallel when their blockers are satisfied.
