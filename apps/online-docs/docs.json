@@ -62,14 +62,6 @@
             ]
           },
           {
-            "group": "Kata Orchestrator",
-            "pages": [
-              "orchestrator/overview",
-              "orchestrator/workflow",
-              "orchestrator/commands"
-            ]
-          },
-          {
             "group": "Kata Context",
             "pages": [
               "context/overview"
@@ -92,13 +84,6 @@
             "pages": [
               "reference/symphony-workflow",
               "reference/symphony-api"
-            ]
-          },
-          {
-            "group": "Orchestrator Reference",
-            "pages": [
-              "reference/orchestrator-commands",
-              "reference/orchestrator-config"
             ]
           }
         ]
