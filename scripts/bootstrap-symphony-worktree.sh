@@ -82,7 +82,4 @@ pnpm --dir "$WORKTREE" install
 log "building Symphony release binary"
 cargo build --manifest-path "$WORKTREE/apps/symphony/Cargo.toml" --release
 
-log "building Kata CLI for Pi"
-pnpm --dir "$WORKTREE" build:cli:pi
-
 log "bootstrap complete"
