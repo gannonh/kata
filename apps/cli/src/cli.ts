@@ -140,8 +140,6 @@ async function main(argv = process.argv.slice(2)) {
     const [repoOwnerFromRepo, repoNameFromRepo] = repo?.includes("/") ? repo.split("/", 2) : [];
     const rawProjectNumber = valueAfter("--project-number") ?? valueAfter("--github-project-number");
     const githubProjectNumber = rawProjectNumber ? Number(rawProjectNumber) : undefined;
-    const linearTeamKey = valueAfter("--linear-team-key");
-    const linearProjectSlug = valueAfter("--linear-project-slug");
     if (githubProjectNumber !== undefined && !Number.isInteger(githubProjectNumber)) {
       const message = `--project-number must be an integer, got: ${rawProjectNumber}`;
       if (flagSet.has("--json")) {
@@ -181,8 +179,6 @@ async function main(argv = process.argv.slice(2)) {
         repoOwner: valueAfter("--repo-owner") ?? repoOwnerFromRepo,
         repoName: valueAfter("--repo-name") ?? repoNameFromRepo,
         githubProjectNumber,
-        linearTeamKey,
-        linearProjectSlug,
       },
       env: process.env,
       packageVersion,

@@ -8,10 +8,6 @@ interface ReadTrackerConfigInput {
 
 interface LinearTrackerConfig {
   kind: "linear";
-  teamId: string | null;
-  teamKey: string | null;
-  projectId: string | null;
-  projectSlug: string | null;
 }
 
 interface GithubTrackerConfig {
@@ -52,12 +48,6 @@ function requireNonEmptyString(value: unknown, fieldName: string): string {
   throw new KataDomainError("INVALID_CONFIG", `${fieldName} is required`);
 }
 
-function optionalString(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
 function requirePositiveInteger(value: unknown, fieldName: string): number {
   if (typeof value === "number" && Number.isInteger(value) && value > 0) {
     return value;
@@ -81,15 +71,7 @@ export async function readTrackerConfig({ preferencesContent }: ReadTrackerConfi
   const mode = requireNonEmptyString(workflow.mode, "workflow.mode");
 
   if (mode === "linear") {
-    const linear = asRecord(parsed.linear);
-    const projectSlug = optionalString(linear.projectSlug);
-    return {
-      kind: "linear",
-      teamId: optionalString(linear.teamId),
-      teamKey: optionalString(linear.teamKey),
-      projectId: optionalString(linear.projectId),
-      projectSlug,
-    };
+    return { kind: "linear" };
   }
 
   if (mode !== "github") {
