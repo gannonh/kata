@@ -151,6 +151,16 @@ node <path-to-skill-directory>/scripts/kata-call.mjs artifact.write --input /tmp
 
 Use `templates/roadmap.md` to derive a phase/slice roadmap from the requirements.
 
+The roadmap must include explicit dependency and parallelization visibility:
+
+- Derive planned slices from the milestone requirements and phase goals.
+- Assign each planned slice a stable roadmap label such as `Planned Slice 1`.
+- Record direct blockers for every planned slice in machine-readable `Blocked By` fields.
+- Add a `## Dependency Graph` section showing each planned slice, what it depends on, what it blocks, and the requirements it covers.
+- Add a `## Implementation Waves` section. Waves run in sequence by default; slices inside the same wave can be planned or executed in parallel when their blockers are satisfied.
+- Note when a slice can be selected out of wave order because it has no dependency collision.
+- Keep backend slice IDs as `None` until `slice.create` returns canonical IDs.
+
 Create `/tmp/kata-milestone-roadmap.json`:
 
 ```json
@@ -177,6 +187,7 @@ Summarize:
 - Milestone ID and title.
 - Requirement count.
 - Roadmap phases/slices.
+- Dependency graph and implementation waves.
 - Open risks.
 
 End with:

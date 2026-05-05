@@ -82,12 +82,17 @@ Report:
 - Verification state.
 - Missing artifacts.
 - A `Recommended Next Action` section showing exactly one command-shaped action from `snapshot.nextAction`.
+- An `Implementation Waves` section from `snapshot.roadmap.implementationWaves` when present. Show wave order and which slices in each wave can be planned or executed in parallel. Mention that waves normally run in sequence, while slices without dependency collisions can be explicitly selected out of wave order.
 - An `Other Possible Actions` section showing command-shaped explicit overrides from `snapshot.otherActions` when present. Prefer slice targets when a missing requirement maps to a roadmap slice; show requirement targets only when the snapshot has no roadmap slice mapping for that requirement.
 
 Example:
 
 Recommended Next Action
 - /kata-execute-phase S003
+
+Implementation Waves
+- Wave 1: S001
+- Wave 2: S002, S003 (parallel)
 
 Other Possible Actions
 - /kata-plan-phase S004

@@ -29,6 +29,21 @@ Use this as the content shape for milestone-scoped `roadmap` artifacts.
 |---|---|---|---|
 | Planned Slice 1: [Slice title] | None | None | REQ-01 |
 
+## Dependency Graph
+
+| Slice | Backend Slice ID | Depends On | Blocks | Requirements |
+|---|---|---|---|---|
+| Planned Slice 1: [Slice title] | None | None | Planned Slice 2 | REQ-01 |
+
+## Implementation Waves
+
+Waves show sequencing and parallelization opportunities. Execute waves in order by default; slices within the same wave can be planned or executed in parallel when their dependencies are satisfied. Slices can be selected out of wave order when there is no dependency collision.
+
+| Wave | Parallel Slices | Ready When | Notes |
+|---|---|---|---|
+| Wave 1 | Planned Slice 1 | No blockers | Can start first |
+| Wave 2 | Planned Slice 2, Planned Slice 3 | Wave 1 blockers satisfied | Planned Slice 2 and Planned Slice 3 can run in parallel |
+
 ## Traceability
 
 | Requirement | Phase/Planned Slice | Backend Slice ID | Blocked By | Status |
@@ -50,4 +65,7 @@ Use this as the content shape for milestone-scoped `roadmap` artifacts.
 - Record dependency metadata in a machine-readable form. Preferred table columns are `Backend Slice ID` and `Blocked By`; use `None` or an empty cell when there are no dependencies.
 - Inline dependency form is also valid: `Backend Slice: S003; Depends on: S001, S002`.
 - Use canonical backend slice IDs such as `S001` in dependency fields only after those slices exist. Before backend IDs exist, keep named roadmap dependencies descriptive and resolve them during `kata-plan-phase`.
+- Derive the dependency graph from the planned slice table and traceability table. `Depends On` is the direct blocker set. `Blocks` is the inverse set.
+- Derive implementation waves from the dependency graph using topological layering: Wave 1 contains slices with no blockers; each later wave contains slices whose blockers are in prior waves. Put independent slices in the same wave.
+- Waves are planning guidance. Waves normally run in sequence, while slices in the same wave can run in parallel. A later slice can be selected out of wave order when its blockers are satisfied and there is no dependency collision.
 - Success criteria must be observable from the user or system boundary.

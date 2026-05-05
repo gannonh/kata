@@ -92,6 +92,7 @@ async function getProjectSnapshot(adapter: KataBackendAdapter): Promise<KataProj
         missingSliceIds: [],
         requirementToSliceIds: {},
         sliceDependencies: {},
+        implementationWaves: [],
       },
       slices: [],
       readiness: {
@@ -174,6 +175,7 @@ async function getProjectSnapshot(adapter: KataBackendAdapter): Promise<KataProj
     extractBackendSliceDependencies(rawSnapshotSlices),
   );
   const snapshotSlices = mergeSnapshotSliceDependencies(rawSnapshotSlices, sliceDependencies);
+  const implementationWaves = deriveImplementationWaves(plannedSliceIds, sliceDependencies);
 
   const readiness = {
     hasActiveMilestone: true,
@@ -210,6 +212,7 @@ async function getProjectSnapshot(adapter: KataBackendAdapter): Promise<KataProj
       missingSliceIds,
       requirementToSliceIds,
       sliceDependencies,
+      implementationWaves,
     },
     slices: snapshotSlices,
     readiness,
@@ -845,6 +848,42 @@ function sliceDependencyMapKey(sliceId: string): string {
   return parseSliceDependencyIds(sliceId)[0] ?? sliceId;
 }
 
+function deriveImplementationWaves(
+  plannedSliceIds: string[],
+  dependencies: SliceDependencyMap,
+): { index: number; sliceIds: string[] }[] {
+  const nodeIds = uniqueIds([
+    ...plannedSliceIds,
+    ...Object.keys(dependencies),
+    ...Object.values(dependencies).flatMap((dependency) => [...dependency.blockedBy, ...dependency.blocking]),
+  ]);
+  const nodeSet = new Set(nodeIds);
+  const remaining = new Set(nodeIds);
+  const completed = new Set<string>();
+  const waves: { index: number; sliceIds: string[] }[] = [];
+
+  while (remaining.size > 0) {
+    const sliceIds = [...remaining].filter((sliceId) => {
+      const blockedBy = dependencies[sliceDependencyMapKey(sliceId)]?.blockedBy ?? [];
+      return blockedBy.every((blockedById) => !nodeSet.has(blockedById) || completed.has(blockedById));
+    });
+
+    if (sliceIds.length === 0) {
+      waves.push({ index: waves.length + 1, sliceIds: [...remaining].sort(compareIds) });
+      break;
+    }
+
+    const sortedSliceIds = sliceIds.sort(compareIds);
+    waves.push({ index: waves.length + 1, sliceIds: sortedSliceIds });
+    for (const sliceId of sortedSliceIds) {
+      remaining.delete(sliceId);
+      completed.add(sliceId);
+    }
+  }
+
+  return waves;
+}
+
 function extractRequirementToSliceIds(
   entries: RoadmapSliceEntry[],
   resolution: RoadmapSliceResolution,
@@ -864,8 +903,12 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function compareIds(left: string, right: string): number {
+  return left.localeCompare(right, undefined, { numeric: true });
+}
+
 function uniqueIds(ids: string[]): string[] {
-  return [...new Set(ids)].sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
+  return [...new Set(ids)].sort(compareIds);
 }
 
 function dedupeActions(actions: KataProjectSnapshotNextAction[]): KataProjectSnapshotNextAction[] {

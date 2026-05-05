@@ -25,7 +25,7 @@ Read the project snapshot:
 node <path-to-skill-directory>/scripts/kata-call.mjs project.getSnapshot
 ```
 
-Use `snapshot.nextAction` to select the next roadmap slice to plan by default. If the user explicitly targets a requirement ID such as `E2E-08`, resolve that requirement through `snapshot.roadmap.requirementToSliceIds` first:
+Use `snapshot.nextAction` to select the next roadmap slice to plan by default. Use `snapshot.roadmap.implementationWaves` to explain sequencing and parallelization opportunities when selecting or confirming roadmap work. If the user explicitly targets a requirement ID such as `E2E-08`, resolve that requirement through `snapshot.roadmap.requirementToSliceIds` first:
 
 - If the requirement maps to one or more roadmap slices, plan the mapped slice that is missing or not yet complete.
 - If the requirement is already covered by an existing slice, do not create duplicate scope; report the existing slice and its state.
@@ -94,6 +94,7 @@ Present the phase or roadmap slice you plan to convert into executable work:
 - Success criteria.
 - Existing slice coverage, if any.
 - Dependency metadata from `snapshot.roadmap.sliceDependencies`, roadmap text, and existing backend slices.
+- Wave position and same-wave parallelization opportunities from `snapshot.roadmap.implementationWaves`.
 - Known constraints.
 - Assumptions.
 

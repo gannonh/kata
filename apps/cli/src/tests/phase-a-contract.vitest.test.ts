@@ -778,6 +778,61 @@ describe("Phase A domain contract", () => {
     });
   });
 
+  it("groups roadmap planned slices into implementation waves", async () => {
+    const api = createKataDomainApi({
+      ...createFakeAdapter(),
+      getActiveMilestone: async () => ({
+        id: "M001",
+        title: "MVP lead generation",
+        goal: "Plan the first lead generation milestone",
+        status: "active",
+        active: true,
+      }),
+      listSlices: async () => [],
+      listTasks: async () => [],
+      listArtifacts: async () => [],
+      readArtifact: async (input: KataArtifactReadInput) => ({
+        id: `${input.scopeType}:${input.scopeId}:${input.artifactType}`,
+        scopeType: input.scopeType,
+        scopeId: input.scopeId,
+        artifactType: input.artifactType,
+        title: input.artifactType,
+        content: input.artifactType === "roadmap"
+          ? [
+              "| Planned Slice | Backend Slice ID | Blocked By | Requirements |",
+              "|---|---|---|---|",
+              "| Planned Slice 1: Select first MVP target | None | None | M1-STRAT-01 |",
+              "| Planned Slice 2: Define viable lead criteria | None | Planned Slice 1 | M1-LEAD-01 |",
+              "| Planned Slice 3: Define pay-for-performance offer | None | Planned Slice 2 | M1-OFFER-01 |",
+              "| Planned Slice 4: Draft positioning and offer copy | None | Planned Slice 3 | M1-POS-01 |",
+              "| Planned Slice 5: Design first MVP lead pipeline | None | Planned Slice 2, Planned Slice 3 | M1-PIPE-01 |",
+              "| Planned Slice 6: Prepare phase planning handoff | None | Planned Slice 5 | M1-READY-01 |",
+            ].join("\n")
+          : [
+              "M1-STRAT-01",
+              "M1-LEAD-01",
+              "M1-OFFER-01",
+              "M1-POS-01",
+              "M1-PIPE-01",
+              "M1-READY-01",
+            ].join("\n"),
+        format: "markdown",
+        updatedAt: "2026-04-29T00:00:00.000Z",
+        provenance: { backend: "github", backendId: "comment:waves" },
+      }),
+    });
+
+    const snapshot = await dispatchKataOperation(api, "project.getSnapshot") as KataProjectSnapshot;
+
+    expect(snapshot.roadmap.implementationWaves).toEqual([
+      { index: 1, sliceIds: ["Planned Slice 1"] },
+      { index: 2, sliceIds: ["Planned Slice 2"] },
+      { index: 3, sliceIds: ["Planned Slice 3"] },
+      { index: 4, sliceIds: ["Planned Slice 4", "Planned Slice 5"] },
+      { index: 5, sliceIds: ["Planned Slice 6"] },
+    ]);
+  });
+
   it("extracts planned roadmap slice metadata and resolves dependencies to existing backend slices", async () => {
     const api = createKataDomainApi({
       ...createFakeAdapter(),
@@ -860,6 +915,10 @@ describe("Phase A domain contract", () => {
         "Planned Slice 2": { blockedBy: ["S001"], blocking: [] },
         S001: { blockedBy: [], blocking: ["Planned Slice 2"] },
       },
+      implementationWaves: [
+        { index: 1, sliceIds: ["S001"] },
+        { index: 2, sliceIds: ["Planned Slice 2"] },
+      ],
     });
     expect(snapshot.nextAction).toMatchObject({
       workflow: "kata-plan-phase",
