@@ -43,6 +43,13 @@ jq -n '{issueRef:"#471"}' > /tmp/kata-issue-get.json
 kata call issue.get --input /tmp/kata-issue-get.json
 ```
 
+## `kata json` example
+
+```bash
+jq -n '{operation:"health.check"}' > /tmp/kata-health.json
+kata json /tmp/kata-health.json
+```
+
 ## Operations
 
 The runtime currently exposes these operation names:

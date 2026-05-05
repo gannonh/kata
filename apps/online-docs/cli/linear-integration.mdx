@@ -5,6 +5,8 @@ description: "How Linear mode is represented in Kata runtime preferences."
 
 Kata runtime accepts `workflow.mode: linear` in `.kata/preferences.md`.
 
+Linear authentication is environment-based. Export `LINEAR_API_KEY` before running workflows that connect to Linear.
+
 ## Preferences
 
 ```yaml
@@ -19,6 +21,21 @@ workflow:
 - Config parsing accepts `linear` and `github` modes.
 - `kata doctor` reports parsed backend mode from `.kata/preferences.md`.
 - `kata setup` onboarding provisions GitHub mode fields.
+- The CLI does not require `linear.teamKey` or `linear.projectSlug` in `.kata/preferences.md`.
+
+## Authentication
+
+Set the Linear API key in your shell environment:
+
+```bash
+export LINEAR_API_KEY=lin_api_...
+```
+
+Check that your session has the key before running Linear-backed workflows:
+
+```bash
+echo "$LINEAR_API_KEY"
+```
 
 ## Validate
 

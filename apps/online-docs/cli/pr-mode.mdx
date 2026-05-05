@@ -28,6 +28,10 @@ pr:
 
 ## Requirements
 
+Install GitHub CLI and authenticate before using PR automation commands. Kata invokes `gh` for PR creation and review actions.
+
 ```bash
 gh auth login
 ```
+
+If GitHub CLI is not authenticated, PR workflows fail authentication checks.
