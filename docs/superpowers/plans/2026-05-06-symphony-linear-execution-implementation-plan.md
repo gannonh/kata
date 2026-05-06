@@ -1,7 +1,5 @@
 # Symphony Linear Execution Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
 **Goal:** Update Symphony so Linear-backed execution uses the shared tracker boundary, dependency-aware dispatch, and backend-neutral worker helper operations with parity to GitHub Projects v2 for normal worker state flow.
 
 **Architecture:** Keep `WORKFLOW.md` as Symphony's configuration source and keep dispatch selection inside backend-specific `TrackerAdapter` implementations. Extend the existing Linear client and adapter to normalize project milestone, parent/sub-issue, blocker, assignee, comment, and document data into the existing `Issue` and helper response shapes.
@@ -15,9 +13,9 @@
 - Spec: `docs/superpowers/specs/2026-05-06-symphony-linear-execution-design.md`
 - Prerequisite spec: `docs/superpowers/specs/2026-05-06-cli-linear-core-design.md`
 - Prerequisite plan: `docs/superpowers/plans/2026-05-06-cli-linear-core-implementation-plan.md`
-- Linear GraphQL docs: https://linear.app/developers/graphql
-- Linear project milestones docs: https://linear.app/docs/project-milestones
-- Linear project documents docs: https://linear.app/docs/project-documents
+- Linear GraphQL docs: <https://linear.app/developers/graphql>
+- Linear project milestones docs: <https://linear.app/docs/project-milestones>
+- Linear project documents docs: <https://linear.app/docs/project-documents>
 
 ## Prerequisite Assumption
 
@@ -45,6 +43,7 @@ Before starting this plan, the CLI Linear Core plan has been executed and valida
 ## Task 1: Parse Linear Execution Metadata From WORKFLOW.md
 
 **Files:**
+
 - Modify: `apps/symphony/src/domain.rs`
 - Modify: `apps/symphony/src/config.rs`
 - Modify: `apps/symphony/docs/WORKFLOW-REFERENCE.md`
@@ -327,6 +326,7 @@ git commit -m "feat(symphony): parse linear execution metadata"
 ## Task 2: Normalize Linear Candidate Issues With Milestone And Relationship Data
 
 **Files:**
+
 - Modify: `apps/symphony/src/linear/client.rs`
 - Modify: `apps/symphony/src/linear/adapter.rs`
 - Test: `apps/symphony/tests/linear_client_tests.rs`
@@ -634,6 +634,7 @@ git commit -m "feat(symphony): normalize linear execution candidates"
 ## Task 3: Prove Linear Dependencies Gate Dispatch
 
 **Files:**
+
 - Modify: `apps/symphony/tests/orchestrator_tests.rs`
 
 - [ ] **Step 1: Write Linear-named dependency dispatch tests**
@@ -741,6 +742,7 @@ git commit -m "test(symphony): cover linear dependency dispatch gates"
 ## Task 4: Add Linear Helper Client Primitives
 
 **Files:**
+
 - Modify: `apps/symphony/src/linear/client.rs`
 - Modify: `apps/symphony/src/linear/adapter.rs`
 - Test: `apps/symphony/tests/linear_client_tests.rs`
@@ -1665,6 +1667,7 @@ git commit -m "feat(symphony): add linear helper primitives"
 ## Task 5: Route Linear sym-state Operations Through Testable Helper Code
 
 **Files:**
+
 - Create: `apps/symphony/src/helper.rs`
 - Modify: `apps/symphony/src/lib.rs`
 - Modify: `apps/symphony/src/main.rs`
@@ -2045,6 +2048,7 @@ git commit -m "feat(symphony): route linear sym-state helpers"
 ## Task 6: Update Worker Skill And Prompt Contracts
 
 **Files:**
+
 - Modify: `apps/symphony/skills/sym-state/SKILL.md`
 - Modify: `apps/symphony/prompts/system.md`
 - Modify: `apps/symphony/prompts/in-progress.md`
@@ -2201,6 +2205,7 @@ git commit -m "docs(symphony): clarify backend-neutral worker helpers"
 ## Task 7: Validate GitHub Projects v2 Regression And Full Symphony Tests
 
 **Files:**
+
 - Modify only if failures reveal a regression in files touched by earlier tasks.
 
 - [ ] **Step 1: Run targeted Linear tests**

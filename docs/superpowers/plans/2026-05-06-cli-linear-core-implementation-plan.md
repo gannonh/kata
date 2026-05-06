@@ -1,7 +1,5 @@
 # CLI Linear Core Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
 **Goal:** Implement Linear as a full `@kata-sh/cli` backend for project, milestone, slice, task, standalone issue, artifact, health, dependency, and snapshot operations.
 
 **Architecture:** Add a raw Linear GraphQL client and a `LinearKataAdapter` that implements the existing `KataBackendAdapter` contract. Store Kata entity metadata in Linear descriptions and artifact markers, use Linear Project Milestones for milestones, Linear Documents for milestone artifacts, issue comments for issue-scoped artifacts, sub-issues for tasks, and native issue relations for slice dependencies.
@@ -13,9 +11,9 @@
 ## Source Material
 
 - Spec: `docs/superpowers/specs/2026-05-06-cli-linear-core-design.md`
-- Linear GraphQL docs: https://linear.app/developers/graphql?noRedirect=1
-- Linear project milestones docs: https://linear.app/docs/project-milestones
-- Linear project documents docs: https://linear.app/docs/project-documents
+- Linear GraphQL docs: <https://linear.app/developers/graphql?noRedirect=1>
+- Linear project milestones docs: <https://linear.app/docs/project-milestones>
+- Linear project documents docs: <https://linear.app/docs/project-documents>
 
 ## File Structure
 
@@ -70,6 +68,7 @@ linear:
 ## Task 1: Parse Linear Configuration
 
 **Files:**
+
 - Create: `apps/cli/src/backends/linear/config.ts`
 - Modify: `apps/cli/src/backends/read-tracker-config.ts`
 - Test: `apps/cli/src/tests/linear.config.vitest.test.ts`
@@ -466,6 +465,7 @@ git commit -m "feat(cli): parse linear backend config"
 ## Task 2: Add Linear GraphQL Client
 
 **Files:**
+
 - Create: `apps/cli/src/backends/linear/client.ts`
 - Test: `apps/cli/src/tests/linear.client.vitest.test.ts`
 
@@ -701,6 +701,7 @@ git commit -m "feat(cli): add linear graphql client"
 ## Task 3: Add Linear Artifact Helpers
 
 **Files:**
+
 - Create: `apps/cli/src/backends/linear/artifacts.ts`
 - Test: `apps/cli/src/tests/linear.artifacts.vitest.test.ts`
 
@@ -1242,6 +1243,7 @@ git commit -m "feat(cli): add linear artifact helpers"
 ## Task 4: Implement Linear Adapter Reads and Discovery
 
 **Files:**
+
 - Modify: `apps/cli/src/backends/linear/adapter.ts`
 - Test: `apps/cli/src/tests/linear.adapter.vitest.test.ts`
 
@@ -2291,6 +2293,7 @@ git commit -m "feat(cli): read linear kata records"
 ## Task 5: Implement Linear Mutations and Dependencies
 
 **Files:**
+
 - Modify: `apps/cli/src/backends/linear/adapter.ts`
 - Modify: `apps/cli/src/tests/linear.adapter.vitest.test.ts`
 
@@ -3013,6 +3016,7 @@ git commit -m "feat(cli): mutate linear kata records"
 ## Task 6: Implement Linear Artifact Reads and Writes
 
 **Files:**
+
 - Modify: `apps/cli/src/backends/linear/adapter.ts`
 - Modify: `apps/cli/src/tests/linear.adapter.vitest.test.ts`
 
@@ -3284,6 +3288,7 @@ git commit -m "feat(cli): store linear kata artifacts"
 ## Task 7: Wire Linear Backend Resolution, Setup, and Doctor
 
 **Files:**
+
 - Modify: `apps/cli/src/backends/resolve-backend.ts`
 - Modify: `apps/cli/src/commands/setup.ts`
 - Modify: `apps/cli/src/cli.ts`
@@ -3682,6 +3687,7 @@ git commit -m "feat(cli): wire linear setup and doctor"
 ## Task 8: Validate Snapshots, Dependencies, and GitHub Regression
 
 **Files:**
+
 - Modify: `apps/cli/src/tests/linear.adapter.vitest.test.ts`
 - Modify: `apps/cli/src/tests/github-projects-v2.adapter.vitest.test.ts`
 - Modify: `apps/cli/src/tests/golden-path.pi-github.vitest.test.ts`
