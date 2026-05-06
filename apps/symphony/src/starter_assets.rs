@@ -55,6 +55,17 @@ pub const STARTER_ASSETS: &[StarterAsset] = &[
     },
 ];
 
+/// Initialize the `.symphony/` project home under `root`.
+///
+/// For each entry in [`STARTER_ASSETS`]:
+/// - if the destination exists and `force` is `false`, the path is recorded in
+///   [`InitSummary::skipped`];
+/// - otherwise the bundled contents are written, replacing any existing file,
+///   including user customizations when `force` is `true`.
+///
+/// No backup files are created, and [`InitSummary::written`] does not
+/// distinguish newly-created files from overwritten files. On partial failure,
+/// files written before the error remain on disk.
 pub fn init_project_home(root: &Path, force: bool) -> std::io::Result<InitSummary> {
     let mut summary = InitSummary::default();
 
@@ -91,10 +102,10 @@ mod tests {
         assert!(paths.contains(&".symphony/prompts/system.md"));
         assert!(paths.contains(&".symphony/prompts/repo.md"));
         assert!(paths.contains(&".symphony/docs/WORKFLOW-REFERENCE.md"));
-        assert!(!paths.iter().any(|path| path.contains("repo-mono")));
-        assert!(!paths.iter().any(|path| path.contains("repo-cli")));
-        assert!(!paths.iter().any(|path| path.contains("repo-desktop")));
-        assert!(!paths.iter().any(|path| path.contains("repo-sym")));
+        assert!(!paths.contains(&".symphony/prompts/repo-mono.md"));
+        assert!(!paths.contains(&".symphony/prompts/repo-cli.md"));
+        assert!(!paths.contains(&".symphony/prompts/repo-desktop.md"));
+        assert!(!paths.contains(&".symphony/prompts/repo-sym.md"));
     }
 
     #[test]
@@ -112,5 +123,27 @@ mod tests {
         assert!(temp.path().join(".symphony/WORKFLOW.md").is_file());
         assert!(temp.path().join(".symphony/.env.example").is_file());
         assert!(temp.path().join(".symphony/prompts/system.md").is_file());
+    }
+
+    #[test]
+    fn init_project_home_overwrites_with_force() {
+        let temp = tempfile::tempdir().expect("temp dir");
+        let workflow_asset = STARTER_ASSETS
+            .iter()
+            .find(|asset| asset.path == ".symphony/WORKFLOW.md")
+            .expect("workflow asset");
+        let workflow_path = temp.path().join(workflow_asset.path);
+
+        std::fs::create_dir_all(workflow_path.parent().expect("parent dir"))
+            .expect("create parent dir");
+        std::fs::write(&workflow_path, "user customization").expect("write custom workflow");
+
+        let summary = init_project_home(temp.path(), true).expect("force init should write");
+        assert_eq!(summary.written.len(), STARTER_ASSETS.len());
+        assert!(summary.skipped.is_empty());
+        assert!(summary.written.contains(&workflow_path));
+
+        let contents = std::fs::read_to_string(&workflow_path).expect("read workflow");
+        assert_eq!(contents, workflow_asset.contents);
     }
 }

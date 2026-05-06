@@ -796,6 +796,27 @@ pub async fn docker_bootstrap_repository(
     Ok(())
 }
 
+fn docker_hook_cwd(hook_cwd: &Path) -> PathBuf {
+    if hook_cwd.as_os_str().is_empty() || hook_cwd == Path::new(".") {
+        return PathBuf::from("/workspace");
+    }
+
+    let relative = if hook_cwd.is_absolute() {
+        std::env::current_dir()
+            .ok()
+            .and_then(|cwd| hook_cwd.strip_prefix(cwd).ok().map(Path::to_path_buf))
+            .unwrap_or_else(|| PathBuf::from("."))
+    } else {
+        hook_cwd.to_path_buf()
+    };
+
+    if relative.as_os_str().is_empty() || relative == Path::new(".") {
+        PathBuf::from("/workspace")
+    } else {
+        Path::new("/workspace").join(relative)
+    }
+}
+
 /// Run a hook command inside a Docker container.
 pub async fn run_hook_in_container(
     hook_name: &str,
@@ -803,9 +824,12 @@ pub async fn run_hook_in_container(
     hook_cmd: &str,
     issue: &Issue,
     timeout_ms: u64,
+    hook_cwd: &Path,
 ) -> Result<()> {
+    let container_cwd = docker_hook_cwd(hook_cwd);
     let command = format!(
-        "cd /workspace && SYMPHONY_ISSUE_ID={} SYMPHONY_ISSUE_IDENTIFIER={} SYMPHONY_ISSUE_TITLE={} SYMPHONY_WORKSPACE_PATH=/workspace sh -lc {}",
+        "cd {} && SYMPHONY_ISSUE_ID={} SYMPHONY_ISSUE_IDENTIFIER={} SYMPHONY_ISSUE_TITLE={} SYMPHONY_WORKSPACE_PATH=/workspace sh -lc {}",
+        crate::ssh::shell_escape(&container_cwd.to_string_lossy()),
         crate::ssh::shell_escape(&issue.id),
         crate::ssh::shell_escape(&issue.identifier),
         crate::ssh::shell_escape(&issue.title),
@@ -1216,7 +1240,17 @@ fn truncate_output(output: &str, max_bytes: usize) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::scan_workspace_root;
+    use super::{docker_hook_cwd, scan_workspace_root};
+    use std::path::{Path, PathBuf};
+
+    #[test]
+    fn docker_hook_cwd_maps_workflow_relative_paths_into_container_workspace() {
+        assert_eq!(docker_hook_cwd(Path::new(".")), PathBuf::from("/workspace"));
+        assert_eq!(
+            docker_hook_cwd(Path::new(".symphony")),
+            PathBuf::from("/workspace/.symphony")
+        );
+    }
 
     #[test]
     fn scan_workspace_root_maps_matching_directories() {

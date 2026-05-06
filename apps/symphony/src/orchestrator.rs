@@ -404,6 +404,14 @@ fn completion_comments_enabled(tracker: &TrackerConfig) -> bool {
         .is_some_and(|kind| kind.eq_ignore_ascii_case("github"))
 }
 
+fn workflow_dir_from_path(workflow_path: &Path) -> PathBuf {
+    workflow_path
+        .parent()
+        .filter(|path| !path.as_os_str().is_empty())
+        .unwrap_or(Path::new("."))
+        .to_path_buf()
+}
+
 // ── Standalone Worker Task ──────────────────────────────────────────────
 
 /// All configuration needed by a spawned worker task.
@@ -931,6 +939,8 @@ async fn run_worker_task(
                 // TODO: inject skills into Docker container via `docker cp`
                 // For now, skills injection is only supported for local isolation.
 
+                let hook_cwd = workflow_dir_from_path(&config.workflow_path);
+
                 if let Some(hook) = &config.hooks.after_create {
                     workspace::run_hook_in_container(
                         "after_create",
@@ -938,6 +948,7 @@ async fn run_worker_task(
                         hook,
                         issue,
                         config.hooks.timeout_ms,
+                        &hook_cwd,
                     )
                     .await
                     .map_err(|err| format!("after_create hook failed: {err}"))?;
@@ -950,6 +961,7 @@ async fn run_worker_task(
                         hook,
                         issue,
                         config.hooks.timeout_ms,
+                        &hook_cwd,
                     )
                     .await
                     .map_err(|err| format!("before_run hook failed: {err}"))?;
@@ -1103,6 +1115,7 @@ async fn run_worker_task(
                         hook,
                         issue,
                         config.hooks.timeout_ms,
+                        &hook_cwd,
                     )
                     .await
                     {
@@ -1161,14 +1174,14 @@ async fn run_worker_task(
     }
 
     // 1. Ensure workspace (create dir + after_create hook)
-    let hook_cwd = config.workflow_path.parent().unwrap_or(Path::new("."));
+    let hook_cwd = workflow_dir_from_path(&config.workflow_path);
     let workspace_info =
         match workspace::ensure_workspace_for_issue_with_refresh_policy_and_hook_cwd(
             issue,
             &config.workspace,
             &config.hooks,
             config.workspace_refresh_policy,
-            hook_cwd,
+            &hook_cwd,
         ) {
             Ok(prepared) => prepared.workspace,
             Err(err) => {
@@ -1197,7 +1210,7 @@ async fn run_worker_task(
         workspace_path,
         &config.hooks,
         issue,
-        hook_cwd,
+        &hook_cwd,
     ) {
         tracing::error!(
             event = "worker_before_run_failed",
@@ -1412,7 +1425,7 @@ async fn run_worker_task(
         workspace_path,
         &config.hooks,
         issue,
-        hook_cwd,
+        &hook_cwd,
     );
 
     // 8. Build result
@@ -2050,6 +2063,8 @@ pub struct Orchestrator {
     supervisor_agent: Option<SupervisorAgent>,
     /// The prompt template from the WORKFLOW.md body, used to render per-issue prompts.
     prompt_template: String,
+    /// Resolved workflow path used by worker helpers and workflow-relative paths.
+    workflow_path: PathBuf,
 }
 
 impl Orchestrator {
@@ -2084,6 +2099,10 @@ impl Orchestrator {
         let max_concurrent_agents = config.agent.max_concurrent_agents;
         let shared_context_ttl_ms = config.shared_context.ttl_ms;
         let shared_context_max_entries = config.shared_context.max_entries;
+        let workflow_path = workflow_store
+            .as_ref()
+            .map(|store| store.workflow_path().to_path_buf())
+            .unwrap_or_else(|| PathBuf::from("WORKFLOW.md"));
         let (worker_result_tx, worker_result_rx) = tokio::sync::mpsc::unbounded_channel();
         let (worker_event_tx, worker_event_rx) = tokio::sync::mpsc::unbounded_channel();
         let (worker_escalation_tx, worker_escalation_rx) = tokio::sync::mpsc::unbounded_channel();
@@ -2136,6 +2155,7 @@ impl Orchestrator {
             ),
             supervisor_agent: None,
             prompt_template,
+            workflow_path,
         }
     }
 
@@ -2144,6 +2164,7 @@ impl Orchestrator {
             let (workflow_def, config) = workflow_store.effective_config();
             self.config = config;
             self.prompt_template = workflow_def.prompt_template;
+            self.workflow_path = workflow_store.workflow_path().to_path_buf();
         }
 
         if let Some(port) = self.server_port_override {
@@ -2424,16 +2445,7 @@ impl Orchestrator {
                 run_attempt.model = pi_model_override.clone();
             }
 
-            let workflow_dir = self
-                .workflow_store
-                .as_ref()
-                .map(|ws| ws.workflow_dir().to_path_buf())
-                .unwrap_or_else(|| PathBuf::from("."));
-            let workflow_path = self
-                .workflow_store
-                .as_ref()
-                .map(|ws| ws.workflow_path().to_path_buf())
-                .unwrap_or_else(|| workflow_dir.join("WORKFLOW.md"));
+            let workflow_path = self.workflow_path.clone();
 
             let task_config = WorkerTaskConfig {
                 workspace: self.config.workspace.clone(),
@@ -3510,11 +3522,7 @@ impl Orchestrator {
         E: Fn(String, serde_json::Value) -> EFut + Clone + Send,
         EFut: Future<Output = Result<serde_json::Value>> + Send,
     {
-        let hook_cwd = self
-            .workflow_store
-            .as_ref()
-            .map(|ws| ws.workflow_dir().to_path_buf())
-            .unwrap_or_else(|| PathBuf::from("."));
+        let hook_cwd = workflow_dir_from_path(&self.workflow_path);
         let workspace_info = workspace::ensure_workspace_for_issue_with_hook_cwd(
             issue,
             &self.config.workspace,
@@ -3619,10 +3627,7 @@ impl Orchestrator {
                 let symphony_bin = std::env::current_exe()
                     .ok()
                     .map(|path| path.to_string_lossy().to_string());
-                let symphony_workflow_path = self
-                    .workflow_store
-                    .as_ref()
-                    .map(|store| store.workflow_path().to_string_lossy().to_string());
+                let symphony_workflow_path = Some(self.workflow_path.to_string_lossy().to_string());
                 let mut session = match app_server::start_session_with_helper_env(
                     &self.config.codex,
                     issue,
@@ -3697,10 +3702,9 @@ impl Orchestrator {
                         symphony_bin: std::env::current_exe()
                             .ok()
                             .map(|path| path.to_string_lossy().to_string()),
-                        symphony_workflow_path: self
-                            .workflow_store
-                            .as_ref()
-                            .map(|store| store.workflow_path().to_string_lossy().to_string()),
+                        symphony_workflow_path: Some(
+                            self.workflow_path.to_string_lossy().to_string(),
+                        ),
                     },
                 )
                 .await
@@ -4523,11 +4527,7 @@ impl Orchestrator {
     /// prompts if configured, otherwise falling back to the monolith prompt_template.
     fn resolve_prompt_for_state(&self, issue_state: &str) -> String {
         if let Some(prompts) = &self.config.prompts {
-            let workflow_dir = self
-                .workflow_store
-                .as_ref()
-                .map(|ws| ws.workflow_dir().to_path_buf())
-                .unwrap_or_else(|| std::path::PathBuf::from("."));
+            let workflow_dir = workflow_dir_from_path(&self.workflow_path);
 
             match prompt_builder::resolve_per_state_prompt(prompts, issue_state, &workflow_dir) {
                 Ok(Some(template)) => {
@@ -6269,6 +6269,18 @@ fn build_tool_args_preview(args_json: &str) -> String {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn workflow_dir_from_path_handles_root_level_workflow() {
+        assert_eq!(
+            workflow_dir_from_path(Path::new("WORKFLOW.md")),
+            PathBuf::from(".")
+        );
+        assert_eq!(
+            workflow_dir_from_path(Path::new(".symphony/WORKFLOW.md")),
+            PathBuf::from(".symphony")
+        );
+    }
 
     #[test]
     fn find_preferred_text_stops_searching_past_depth_limit() {

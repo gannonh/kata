@@ -58,7 +58,7 @@ use tracing_subscriber::EnvFilter;
 pub enum CliCommand {
     /// Initialize a project-local .symphony directory
     Init {
-        /// Overwrite existing starter files
+        /// Overwrite existing starter files without backups
         #[arg(long)]
         force: bool,
     },
@@ -1950,7 +1950,23 @@ fn run_entrypoint(args: impl IntoIterator<Item = OsString>) -> i32 {
     init_tracing(cli.logs_root.as_deref().map(Path::new), cli.tui);
 
     if let Some(CliCommand::Init { force }) = &cli.command {
-        match symphony::starter_assets::init_project_home(Path::new("."), *force) {
+        let init_root = std::env::current_dir()
+            .ok()
+            .and_then(|cwd| resolve_git_common_root(&cwd).map(|git_root| (cwd, git_root)))
+            .map(|(cwd, git_root)| {
+                let canonical_cwd = cwd.canonicalize().unwrap_or(cwd);
+                let canonical_git_root = git_root.canonicalize().unwrap_or(git_root);
+                if canonical_cwd != canonical_git_root {
+                    println!(
+                        "using git root {} for .symphony project home",
+                        canonical_git_root.display()
+                    );
+                }
+                canonical_git_root
+            })
+            .unwrap_or_else(|| PathBuf::from("."));
+
+        match symphony::starter_assets::init_project_home(&init_root, *force) {
             Ok(summary) => {
                 for path in &summary.written {
                     println!("created {}", path.display());
