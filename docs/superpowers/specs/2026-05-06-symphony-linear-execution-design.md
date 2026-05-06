@@ -106,7 +106,7 @@ For Kata-shaped work, Symphony dispatches the parent slice issue and skips task 
 6. `document.read`
 7. `document.write`
 
-Linear helper support is updated to parity for issue details, child issues, comments, and marker documents where those are part of the Symphony workflow.
+Linear helper support is updated to parity for issue details, child issues, comments, and Symphony helper/workpad documents.
 
 PR helpers remain GitHub-only:
 
