@@ -6,7 +6,7 @@ pnpm monorepo (`pnpm@10.6.2`) with Turborepo orchestration. Rust app (Symphony) 
 
 This mono-repo is comprised of the following primary applications:
 
-- Kata Symphony: `apps/symphony` - @kata/symphony - Rust binary (Cargo scripts via package.json)
+- Kata Symphony: `apps/symphony` - @kata/symphony - Rust binary (Cargo scripts via package.json). Project-local Symphony config lives in `.symphony/`.
 - Kata CLI: `apps/cli` - @kata-sh/cli - portable Kata Skills runtime and backend contract bridge
 - Context Indexer: `apps/context` - @kata/context - context indexing tool (Vitest, native Node addon)
 - Desktop Legacy: `apps/desktop-legacy` - archived Electron app, excluded from the active workspace
@@ -97,6 +97,8 @@ Release workflows trigger on push to main with path filters:
 
 ## Gotchas
 
+- `.symphony/WORKFLOW.md` is the mono repo's active Symphony workflow. `symphony` without a workflow path resolves `.symphony/WORKFLOW.md` first, then `WORKFLOW.md`.
+- Symphony prompt and hook paths are relative to the active `WORKFLOW.md` directory. Hooks receive `SYMPHONY_WORKSPACE_PATH` for workspace access.
 - `CLAUDE.md` files in this repo are symlinks to `AGENTS.md`. Always edit `AGENTS.md`.
 - `apps/online-docs` uses Fumadocs/Next.js. Run `pnpm run docs:dev` from the repo root to start it on port 3001.
 - `apps/context` uses Vitest (not Bun test) because better-sqlite3 is a native Node addon that Bun doesn't support.

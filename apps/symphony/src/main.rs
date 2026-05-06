@@ -56,11 +56,16 @@ use tracing_subscriber::EnvFilter;
 
 #[derive(Debug, Clone, Subcommand, PartialEq, Eq)]
 pub enum CliCommand {
+    /// Initialize a project-local .symphony directory
+    Init {
+        /// Overwrite existing starter files without backups
+        #[arg(long)]
+        force: bool,
+    },
     /// Run preflight diagnostics without starting the orchestrator
     Doctor {
         /// Path to WORKFLOW.md
-        #[arg(default_value = "WORKFLOW.md")]
-        workflow_path: String,
+        workflow_path: Option<String>,
     },
     /// Run a backend-neutral Symphony helper operation for worker sessions
     Helper {
@@ -85,8 +90,7 @@ pub struct Cli {
     pub command: Option<CliCommand>,
 
     /// Path to WORKFLOW.md
-    #[arg(default_value = "WORKFLOW.md")]
-    pub workflow_path: String,
+    pub workflow_path: Option<String>,
 
     /// HTTP server port (overrides WORKFLOW.md server.port; defaults to 8080 if neither is set)
     #[arg(long)]
@@ -636,11 +640,28 @@ where
     Ok(cli)
 }
 
+pub fn resolve_default_workflow_path() -> PathBuf {
+    let project_home_workflow = PathBuf::from(".symphony").join("WORKFLOW.md");
+    if project_home_workflow.is_file() {
+        project_home_workflow
+    } else {
+        PathBuf::from("WORKFLOW.md")
+    }
+}
+
 pub fn resolve_workflow_path(cli: &Cli) -> PathBuf {
     match &cli.command {
-        Some(CliCommand::Doctor { workflow_path }) => PathBuf::from(workflow_path),
+        Some(CliCommand::Doctor { workflow_path }) => workflow_path
+            .as_deref()
+            .map(PathBuf::from)
+            .unwrap_or_else(resolve_default_workflow_path),
         Some(CliCommand::Helper { workflow, .. }) => PathBuf::from(workflow),
-        None => PathBuf::from(&cli.workflow_path),
+        Some(CliCommand::Init { .. }) => resolve_default_workflow_path(),
+        None => cli
+            .workflow_path
+            .as_deref()
+            .map(PathBuf::from)
+            .unwrap_or_else(resolve_default_workflow_path),
     }
 }
 
@@ -1928,8 +1949,46 @@ fn run_entrypoint(args: impl IntoIterator<Item = OsString>) -> i32 {
 
     init_tracing(cli.logs_root.as_deref().map(Path::new), cli.tui);
 
-    if let Some(CliCommand::Doctor { workflow_path }) = &cli.command {
-        match run_doctor(Path::new(workflow_path)) {
+    if let Some(CliCommand::Init { force }) = &cli.command {
+        let init_root = std::env::current_dir()
+            .ok()
+            .and_then(|cwd| resolve_git_common_root(&cwd).map(|git_root| (cwd, git_root)))
+            .map(|(cwd, git_root)| {
+                let canonical_cwd = cwd.canonicalize().unwrap_or(cwd);
+                let canonical_git_root = git_root.canonicalize().unwrap_or(git_root);
+                if canonical_cwd != canonical_git_root {
+                    println!(
+                        "using git root {} for .symphony project home",
+                        canonical_git_root.display()
+                    );
+                }
+                canonical_git_root
+            })
+            .unwrap_or_else(|| PathBuf::from("."));
+
+        match symphony::starter_assets::init_project_home(&init_root, *force) {
+            Ok(summary) => {
+                for path in &summary.written {
+                    println!("created {}", path.display());
+                }
+                for path in &summary.skipped {
+                    println!("skipped existing {}", path.display());
+                }
+                if !summary.skipped.is_empty() && !force {
+                    println!("run `symphony init --force` to overwrite existing starter files");
+                }
+                return 0;
+            }
+            Err(err) => {
+                eprintln!("init failed: {err}");
+                return 1;
+            }
+        }
+    }
+
+    if let Some(CliCommand::Doctor { .. }) = &cli.command {
+        let workflow_path = resolve_workflow_path(&cli);
+        match run_doctor(&workflow_path) {
             Ok(code) => return code,
             Err(err) => {
                 eprintln!("{err}");
@@ -1954,7 +2013,7 @@ fn run_entrypoint(args: impl IntoIterator<Item = OsString>) -> i32 {
         Err(err) => {
             tracing::error!(
                 phase = "startup",
-                workflow_path = %cli.workflow_path,
+                workflow_path = %resolve_workflow_path(&cli).display(),
                 error = %err,
                 "startup failed"
             );

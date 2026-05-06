@@ -1,7 +1,7 @@
 #[path = "../src/main.rs"]
 mod main_bin;
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::{fs, io};
 
@@ -27,6 +27,24 @@ impl EnvVarGuard {
         let previous = std::env::var(key).ok();
         std::env::set_var(key, value);
         Self { key, previous }
+    }
+}
+
+struct CurrentDirGuard {
+    previous: PathBuf,
+}
+
+impl CurrentDirGuard {
+    fn set(path: &Path) -> Self {
+        let previous = std::env::current_dir().expect("current dir should resolve");
+        std::env::set_current_dir(path).expect("current dir should change");
+        Self { previous }
+    }
+}
+
+impl Drop for CurrentDirGuard {
+    fn drop(&mut self) {
+        std::env::set_current_dir(&self.previous).expect("current dir should restore");
     }
 }
 
@@ -84,18 +102,46 @@ impl BootstrapDeps for FakeDeps {
 }
 
 #[test]
-fn test_default_workflow_path_is_workflow_md() {
+fn test_default_workflow_path_is_optional() {
     let parsed = main_bin::parse_cli_from(["symphony"]);
     assert!(parsed.is_ok(), "CLI parse should succeed: {parsed:?}");
 
-    let workflow_path = parsed
-        .ok()
-        .map(|cli| cli.workflow_path)
-        .unwrap_or_else(|| "<missing>".to_string());
+    let cli = parsed.expect("CLI parse should succeed");
+    assert_eq!(cli.workflow_path, None);
+}
+
+#[test]
+#[serial]
+fn test_default_workflow_resolution_prefers_project_home() {
+    let temp_dir = tempfile::tempdir().expect("temp dir should be created");
+    fs::create_dir_all(temp_dir.path().join(".symphony")).expect("project home should be created");
+    fs::write(temp_dir.path().join(".symphony/WORKFLOW.md"), "---\n---\n")
+        .expect("workflow should be written");
+    fs::write(temp_dir.path().join("WORKFLOW.md"), "---\n---\n")
+        .expect("legacy workflow should be written");
+    let _cwd = CurrentDirGuard::set(temp_dir.path());
+
+    let parsed = main_bin::parse_cli_from(["symphony"]).expect("CLI parse should succeed");
 
     assert_eq!(
-        workflow_path, "WORKFLOW.md",
-        "missing positional workflow path should default to WORKFLOW.md"
+        main_bin::resolve_workflow_path(&parsed),
+        Path::new(".symphony").join("WORKFLOW.md")
+    );
+}
+
+#[test]
+#[serial]
+fn test_default_workflow_resolution_falls_back_to_legacy_workflow() {
+    let temp_dir = tempfile::tempdir().expect("temp dir should be created");
+    fs::write(temp_dir.path().join("WORKFLOW.md"), "---\n---\n")
+        .expect("legacy workflow should be written");
+    let _cwd = CurrentDirGuard::set(temp_dir.path());
+
+    let parsed = main_bin::parse_cli_from(["symphony"]).expect("CLI parse should succeed");
+
+    assert_eq!(
+        main_bin::resolve_workflow_path(&parsed),
+        Path::new("WORKFLOW.md")
     );
 }
 
@@ -104,15 +150,21 @@ fn test_positional_workflow_override_is_respected() {
     let parsed = main_bin::parse_cli_from(["symphony", "tmp/custom/WORKFLOW.md"]);
     assert!(parsed.is_ok(), "CLI parse should succeed: {parsed:?}");
 
-    let workflow_path = parsed
-        .ok()
-        .map(|cli| cli.workflow_path)
-        .unwrap_or_else(|| "<missing>".to_string());
+    let workflow_path = parsed.ok().and_then(|cli| cli.workflow_path);
 
     assert_eq!(
-        workflow_path, "tmp/custom/WORKFLOW.md",
+        workflow_path.as_deref(),
+        Some("tmp/custom/WORKFLOW.md"),
         "explicit positional workflow path should override default"
     );
+}
+
+#[test]
+fn test_init_subcommand_parses() {
+    let parsed = main_bin::parse_cli_from(["symphony", "init", "--force"])
+        .expect("CLI parse should succeed");
+
+    assert_eq!(parsed.command, Some(CliCommand::Init { force: true }));
 }
 
 #[test]
@@ -123,7 +175,20 @@ fn test_doctor_subcommand_parses() {
     assert_eq!(
         parsed.command,
         Some(CliCommand::Doctor {
-            workflow_path: "WORKFLOW.md".to_string()
+            workflow_path: Some("WORKFLOW.md".to_string())
+        })
+    );
+}
+
+#[test]
+fn test_doctor_subcommand_accepts_default_workflow_resolution() {
+    let parsed =
+        main_bin::parse_cli_from(["symphony", "doctor"]).expect("CLI parse should succeed");
+
+    assert_eq!(
+        parsed.command,
+        Some(CliCommand::Doctor {
+            workflow_path: None
         })
     );
 }
@@ -164,7 +229,7 @@ fn test_run_subcommand_backward_compat() {
         parsed.command.is_none(),
         "default invocation should not select a subcommand"
     );
-    assert_eq!(parsed.workflow_path, "WORKFLOW.md");
+    assert_eq!(parsed.workflow_path.as_deref(), Some("WORKFLOW.md"));
 }
 
 #[test]

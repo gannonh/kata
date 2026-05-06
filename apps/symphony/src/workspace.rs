@@ -64,6 +64,7 @@ pub fn ensure_workspace(
         None,
         config,
         hooks,
+        None,
         ExistingWorkspaceRefreshPolicy::Strict,
     )
     .map(|prepared| prepared.workspace)
@@ -80,6 +81,24 @@ pub fn ensure_workspace_for_issue(
         Some(issue),
         config,
         hooks,
+        None,
+        ExistingWorkspaceRefreshPolicy::Strict,
+    )
+    .map(|prepared| prepared.workspace)
+}
+
+pub fn ensure_workspace_for_issue_with_hook_cwd(
+    issue: &Issue,
+    config: &WorkspaceConfig,
+    hooks: &HooksConfig,
+    hook_cwd: &Path,
+) -> Result<Workspace> {
+    ensure_workspace_internal(
+        &issue.identifier,
+        Some(issue),
+        config,
+        hooks,
+        Some(hook_cwd),
         ExistingWorkspaceRefreshPolicy::Strict,
     )
     .map(|prepared| prepared.workspace)
@@ -158,6 +177,24 @@ pub fn ensure_workspace_for_issue_with_refresh_policy(
         Some(issue),
         config,
         hooks,
+        None,
+        refresh_policy,
+    )
+}
+
+pub fn ensure_workspace_for_issue_with_refresh_policy_and_hook_cwd(
+    issue: &Issue,
+    config: &WorkspaceConfig,
+    hooks: &HooksConfig,
+    refresh_policy: ExistingWorkspaceRefreshPolicy,
+    hook_cwd: &Path,
+) -> Result<WorkspacePreparation> {
+    ensure_workspace_internal(
+        &issue.identifier,
+        Some(issue),
+        config,
+        hooks,
+        Some(hook_cwd),
         refresh_policy,
     )
 }
@@ -167,6 +204,7 @@ fn ensure_workspace_internal(
     issue: Option<&Issue>,
     config: &WorkspaceConfig,
     hooks: &HooksConfig,
+    hook_cwd: Option<&Path>,
     refresh_policy: ExistingWorkspaceRefreshPolicy,
 ) -> Result<WorkspacePreparation> {
     let safe_id = path_safety::sanitize_identifier(identifier);
@@ -208,6 +246,7 @@ fn ensure_workspace_internal(
                 "after_create",
                 command,
                 &final_path,
+                hook_cwd.unwrap_or(&final_path),
                 hooks.timeout_ms,
                 &hook_issue,
             ) {
@@ -591,7 +630,7 @@ fn ensure_symphony_skill_ignore(workspace: &Path) -> Result<()> {
     if !output.status.success() {
         tracing::debug!(
             workspace = %workspace.display(),
-            "workspace is not a git checkout; skipping Symphony skill exclude"
+            "workspace is not a git checkout; skipping legacy Symphony skill exclude"
         );
         return Ok(());
     }
@@ -696,131 +735,6 @@ fn git_dirty_status(workspace: &Path) -> Result<Option<String>> {
     Ok((!summary.is_empty()).then_some(summary))
 }
 
-/// Inject skills from a `skills/` directory (sibling to the WORKFLOW.md file)
-/// into `.agents/skills/` inside the workspace.
-///
-/// This is a convention-based, zero-config mechanism: if `<workflow_dir>/skills/`
-/// exists, its contents are copied into `<workspace>/.agents/skills/`. Each
-/// subdirectory in `skills/` becomes a skill directory in the workspace.
-///
-/// The copy is idempotent — existing files in `.agents/skills/` are preserved.
-/// Only new skill directories (or updated files within them) are written.
-/// This avoids clobbering skills that already exist in the target repo's
-/// `.agents/skills/` directory.
-pub fn inject_skills(workflow_dir: &Path, workspace: &Path) -> Result<()> {
-    let source_skills = workflow_dir.join("skills");
-    if !source_skills.is_dir() {
-        tracing::debug!(
-            workflow_dir = %workflow_dir.display(),
-            source = %source_skills.display(),
-            "no skills/ directory found; skipping injection"
-        );
-        return Ok(());
-    }
-
-    ensure_symphony_skill_ignore(workspace)?;
-
-    let target_skills = workspace.join(".agents").join("skills");
-
-    let entries = std::fs::read_dir(&source_skills).map_err(|err| {
-        SymphonyError::WorkspaceError(format!(
-            "failed to read skills directory {}: {err}",
-            source_skills.display()
-        ))
-    })?;
-
-    let mut injected_count: u32 = 0;
-    let mut injected_names: Vec<String> = Vec::new();
-
-    for entry in entries {
-        let entry = entry.map_err(|err| {
-            SymphonyError::WorkspaceError(format!("failed to read skills entry: {err}"))
-        })?;
-
-        let entry_path = entry.path();
-        if !entry_path.is_dir() {
-            continue;
-        }
-
-        let skill_name = entry.file_name();
-        let target_skill_dir = target_skills.join(&skill_name);
-
-        replace_dir_recursive(&entry_path, &target_skill_dir)?;
-        injected_count += 1;
-        injected_names.push(skill_name.to_string_lossy().to_string());
-    }
-
-    injected_names.sort();
-    tracing::info!(
-        source = %source_skills.display(),
-        target = %target_skills.display(),
-        count = injected_count,
-        skills = %injected_names.join(", "),
-        workspace = %workspace.display(),
-        "injected skills into workspace"
-    );
-
-    Ok(())
-}
-
-/// Replace a target directory with the source directory tree.
-///
-/// Symphony-injected skills are runtime scaffolding, not worker-owned source.
-/// Replacing the whole `sym-*` skill directory on each dispatch prevents stale
-/// scripts from surviving when files are removed or renamed upstream.
-fn replace_dir_recursive(source: &Path, target: &Path) -> Result<()> {
-    if target.exists() {
-        std::fs::remove_dir_all(target).map_err(|err| {
-            SymphonyError::WorkspaceError(format!(
-                "failed to remove existing injected skill directory {}: {err}",
-                target.display()
-            ))
-        })?;
-    }
-
-    copy_dir_recursive(source, target)
-}
-
-/// Recursively copy a directory tree. Creates target dirs as needed.
-fn copy_dir_recursive(source: &Path, target: &Path) -> Result<()> {
-    std::fs::create_dir_all(target).map_err(|err| {
-        SymphonyError::WorkspaceError(format!(
-            "failed to create directory {}: {err}",
-            target.display()
-        ))
-    })?;
-
-    let entries = std::fs::read_dir(source).map_err(|err| {
-        SymphonyError::WorkspaceError(format!(
-            "failed to read directory {}: {err}",
-            source.display()
-        ))
-    })?;
-
-    for entry in entries {
-        let entry = entry.map_err(|err| {
-            SymphonyError::WorkspaceError(format!("failed to read directory entry: {err}"))
-        })?;
-
-        let src_path = entry.path();
-        let dst_path = target.join(entry.file_name());
-
-        if src_path.is_dir() {
-            copy_dir_recursive(&src_path, &dst_path)?;
-        } else {
-            std::fs::copy(&src_path, &dst_path).map_err(|err| {
-                SymphonyError::WorkspaceError(format!(
-                    "failed to copy {} -> {}: {err}",
-                    src_path.display(),
-                    dst_path.display()
-                ))
-            })?;
-        }
-    }
-
-    Ok(())
-}
-
 /// Bootstrap repository inside a Docker container.
 pub async fn docker_bootstrap_repository(
     container_id: &str,
@@ -882,6 +796,27 @@ pub async fn docker_bootstrap_repository(
     Ok(())
 }
 
+fn docker_hook_cwd(hook_cwd: &Path) -> PathBuf {
+    if hook_cwd.as_os_str().is_empty() || hook_cwd == Path::new(".") {
+        return PathBuf::from("/workspace");
+    }
+
+    let relative = if hook_cwd.is_absolute() {
+        std::env::current_dir()
+            .ok()
+            .and_then(|cwd| hook_cwd.strip_prefix(cwd).ok().map(Path::to_path_buf))
+            .unwrap_or_else(|| PathBuf::from("."))
+    } else {
+        hook_cwd.to_path_buf()
+    };
+
+    if relative.as_os_str().is_empty() || relative == Path::new(".") {
+        PathBuf::from("/workspace")
+    } else {
+        Path::new("/workspace").join(relative)
+    }
+}
+
 /// Run a hook command inside a Docker container.
 pub async fn run_hook_in_container(
     hook_name: &str,
@@ -889,9 +824,12 @@ pub async fn run_hook_in_container(
     hook_cmd: &str,
     issue: &Issue,
     timeout_ms: u64,
+    hook_cwd: &Path,
 ) -> Result<()> {
+    let container_cwd = docker_hook_cwd(hook_cwd);
     let command = format!(
-        "cd /workspace && SYMPHONY_ISSUE_ID={} SYMPHONY_ISSUE_IDENTIFIER={} SYMPHONY_ISSUE_TITLE={} SYMPHONY_WORKSPACE_PATH=/workspace sh -lc {}",
+        "cd {} && SYMPHONY_ISSUE_ID={} SYMPHONY_ISSUE_IDENTIFIER={} SYMPHONY_ISSUE_TITLE={} SYMPHONY_WORKSPACE_PATH=/workspace sh -lc {}",
+        crate::ssh::shell_escape(&container_cwd.to_string_lossy()),
         crate::ssh::shell_escape(&issue.id),
         crate::ssh::shell_escape(&issue.identifier),
         crate::ssh::shell_escape(&issue.title),
@@ -989,17 +927,19 @@ fn git_output_error<T>(output: std::process::Output, context: &str) -> Result<T>
     )))
 }
 
-/// Run a hook command via `sh -lc` in the workspace directory with a timeout.
+/// Run a hook command via `sh -lc` with workspace metadata in the environment.
 fn run_hook(
     name: &str,
     command: &str,
     workspace: &Path,
+    hook_cwd: &Path,
     timeout_ms: u64,
     issue: &HookIssueContext,
 ) -> Result<()> {
     tracing::info!(
         hook = name,
         workspace = %workspace.display(),
+        cwd = %hook_cwd.display(),
         "Running workspace hook"
     );
 
@@ -1009,7 +949,7 @@ fn run_hook(
     let workspace_path = workspace.to_string_lossy().to_string();
     let mut cmd = Command::new("sh");
     cmd.args(["-lc", command])
-        .current_dir(workspace)
+        .current_dir(hook_cwd)
         .env("SYMPHONY_ISSUE_ID", &issue.issue_id)
         .env("SYMPHONY_ISSUE_IDENTIFIER", &issue.issue_identifier)
         .env("SYMPHONY_ISSUE_TITLE", &issue.issue_title)
@@ -1104,7 +1044,7 @@ unsafe fn libc_kill(pid: i32, sig: i32) -> i32 {
 
 /// Run the `before_run` hook — failure is fatal.
 pub fn run_before_run_hook(workspace: &Path, hooks: &HooksConfig) -> Result<()> {
-    run_before_run_hook_internal(workspace, hooks, None)
+    run_before_run_hook_internal(workspace, hooks, None, workspace)
 }
 
 /// Issue-aware variant that injects full issue metadata into hook env vars.
@@ -1113,13 +1053,23 @@ pub fn run_before_run_hook_for_issue(
     hooks: &HooksConfig,
     issue: &Issue,
 ) -> Result<()> {
-    run_before_run_hook_internal(workspace, hooks, Some(issue))
+    run_before_run_hook_internal(workspace, hooks, Some(issue), workspace)
+}
+
+pub fn run_before_run_hook_for_issue_with_cwd(
+    workspace: &Path,
+    hooks: &HooksConfig,
+    issue: &Issue,
+    hook_cwd: &Path,
+) -> Result<()> {
+    run_before_run_hook_internal(workspace, hooks, Some(issue), hook_cwd)
 }
 
 fn run_before_run_hook_internal(
     workspace: &Path,
     hooks: &HooksConfig,
     issue: Option<&Issue>,
+    hook_cwd: &Path,
 ) -> Result<()> {
     if let Some(ref command) = hooks.before_run {
         let fallback_identifier = workspace
@@ -1131,6 +1081,7 @@ fn run_before_run_hook_internal(
             "before_run",
             command,
             workspace,
+            hook_cwd,
             hooks.timeout_ms,
             &hook_issue,
         )
@@ -1141,7 +1092,7 @@ fn run_before_run_hook_internal(
 
 /// Run the `after_run` hook — failure is logged and ignored.
 pub fn run_after_run_hook(workspace: &Path, hooks: &HooksConfig) -> Result<()> {
-    run_after_run_hook_internal(workspace, hooks, None)
+    run_after_run_hook_internal(workspace, hooks, None, workspace)
 }
 
 /// Issue-aware variant that injects full issue metadata into hook env vars.
@@ -1150,13 +1101,23 @@ pub fn run_after_run_hook_for_issue(
     hooks: &HooksConfig,
     issue: &Issue,
 ) -> Result<()> {
-    run_after_run_hook_internal(workspace, hooks, Some(issue))
+    run_after_run_hook_internal(workspace, hooks, Some(issue), workspace)
+}
+
+pub fn run_after_run_hook_for_issue_with_cwd(
+    workspace: &Path,
+    hooks: &HooksConfig,
+    issue: &Issue,
+    hook_cwd: &Path,
+) -> Result<()> {
+    run_after_run_hook_internal(workspace, hooks, Some(issue), hook_cwd)
 }
 
 fn run_after_run_hook_internal(
     workspace: &Path,
     hooks: &HooksConfig,
     issue: Option<&Issue>,
+    hook_cwd: &Path,
 ) -> Result<()> {
     if let Some(ref command) = hooks.after_run {
         let fallback_identifier = workspace
@@ -1168,6 +1129,7 @@ fn run_after_run_hook_internal(
             "after_run",
             command,
             workspace,
+            hook_cwd,
             hooks.timeout_ms,
             &hook_issue,
         ) {
@@ -1188,7 +1150,7 @@ pub fn remove_workspace(
     config: &WorkspaceConfig,
     hooks: &HooksConfig,
 ) -> Result<()> {
-    remove_workspace_internal(workspace, config, hooks, None)
+    remove_workspace_internal(workspace, config, hooks, None, workspace)
 }
 
 /// Issue-aware variant that injects full issue metadata into hook env vars.
@@ -1198,7 +1160,17 @@ pub fn remove_workspace_for_issue(
     hooks: &HooksConfig,
     issue: &Issue,
 ) -> Result<()> {
-    remove_workspace_internal(workspace, config, hooks, Some(issue))
+    remove_workspace_internal(workspace, config, hooks, Some(issue), workspace)
+}
+
+pub fn remove_workspace_for_issue_with_hook_cwd(
+    workspace: &Path,
+    config: &WorkspaceConfig,
+    hooks: &HooksConfig,
+    issue: &Issue,
+    hook_cwd: &Path,
+) -> Result<()> {
+    remove_workspace_internal(workspace, config, hooks, Some(issue), hook_cwd)
 }
 
 fn remove_workspace_internal(
@@ -1206,6 +1178,7 @@ fn remove_workspace_internal(
     config: &WorkspaceConfig,
     hooks: &HooksConfig,
     issue: Option<&Issue>,
+    hook_cwd: &Path,
 ) -> Result<()> {
     let canonical_root = path_safety::canonicalize(Path::new(&config.root))?;
 
@@ -1226,6 +1199,7 @@ fn remove_workspace_internal(
                     "before_remove",
                     command,
                     &canonical_workspace,
+                    hook_cwd,
                     hooks.timeout_ms,
                     &hook_issue,
                 ) {
@@ -1266,7 +1240,17 @@ fn truncate_output(output: &str, max_bytes: usize) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{inject_skills, scan_workspace_root};
+    use super::{docker_hook_cwd, scan_workspace_root};
+    use std::path::{Path, PathBuf};
+
+    #[test]
+    fn docker_hook_cwd_maps_workflow_relative_paths_into_container_workspace() {
+        assert_eq!(docker_hook_cwd(Path::new(".")), PathBuf::from("/workspace"));
+        assert_eq!(
+            docker_hook_cwd(Path::new(".symphony")),
+            PathBuf::from("/workspace/.symphony")
+        );
+    }
 
     #[test]
     fn scan_workspace_root_maps_matching_directories() {
@@ -1315,227 +1299,5 @@ mod tests {
         let discovered = scan_workspace_root(root, "symphony");
         let expected = std::fs::canonicalize(&root_match).expect("canonical path should resolve");
         assert_eq!(discovered.get("KAT-321"), Some(&expected));
-    }
-
-    // ── inject_skills tests ────────────────────────────────────────────
-
-    #[test]
-    fn inject_skills_copies_skill_dirs_into_agents_skills() {
-        let temp = tempfile::tempdir().expect("tempdir");
-        let workflow_dir = temp.path().join("workflow");
-        let workspace = temp.path().join("workspace");
-        std::fs::create_dir_all(&workflow_dir).unwrap();
-        std::fs::create_dir_all(&workspace).unwrap();
-
-        // Create source skills
-        let skill_dir = workflow_dir.join("skills").join("sym-land");
-        std::fs::create_dir_all(&skill_dir).unwrap();
-        std::fs::write(
-            skill_dir.join("SKILL.md"),
-            "---\nname: sym-land\n---\n# Land",
-        )
-        .unwrap();
-
-        inject_skills(&workflow_dir, &workspace).unwrap();
-
-        let target = workspace
-            .join(".agents")
-            .join("skills")
-            .join("sym-land")
-            .join("SKILL.md");
-        assert!(target.exists(), "skill should be copied to .agents/skills/");
-        let content = std::fs::read_to_string(&target).unwrap();
-        assert!(content.contains("sym-land"));
-    }
-
-    #[test]
-    fn inject_skills_copies_nested_scripts() {
-        let temp = tempfile::tempdir().expect("tempdir");
-        let workflow_dir = temp.path().join("workflow");
-        let workspace = temp.path().join("workspace");
-        std::fs::create_dir_all(&workflow_dir).unwrap();
-        std::fs::create_dir_all(&workspace).unwrap();
-
-        let skill_dir = workflow_dir.join("skills").join("sym-fix-ci");
-        let scripts_dir = skill_dir.join("scripts");
-        std::fs::create_dir_all(&scripts_dir).unwrap();
-        std::fs::write(skill_dir.join("SKILL.md"), "---\nname: sym-fix-ci\n---").unwrap();
-        std::fs::write(scripts_dir.join("inspect.py"), "#!/usr/bin/env python3").unwrap();
-
-        inject_skills(&workflow_dir, &workspace).unwrap();
-
-        let target_script = workspace
-            .join(".agents")
-            .join("skills")
-            .join("sym-fix-ci")
-            .join("scripts")
-            .join("inspect.py");
-        assert!(target_script.exists(), "nested scripts should be copied");
-    }
-
-    #[test]
-    fn inject_skills_noop_when_no_skills_dir() {
-        let temp = tempfile::tempdir().expect("tempdir");
-        let workflow_dir = temp.path().join("workflow");
-        let workspace = temp.path().join("workspace");
-        std::fs::create_dir_all(&workflow_dir).unwrap();
-        std::fs::create_dir_all(&workspace).unwrap();
-
-        // No skills/ directory — should be a no-op
-        inject_skills(&workflow_dir, &workspace).unwrap();
-
-        assert!(
-            !workspace.join(".agents").exists(),
-            ".agents should not be created"
-        );
-    }
-
-    #[test]
-    fn inject_skills_preserves_existing_repo_skills() {
-        let temp = tempfile::tempdir().expect("tempdir");
-        let workflow_dir = temp.path().join("workflow");
-        let workspace = temp.path().join("workspace");
-        std::fs::create_dir_all(&workflow_dir).unwrap();
-        std::fs::create_dir_all(&workspace).unwrap();
-
-        // Pre-existing skill in the workspace (from the cloned repo)
-        let existing_skill = workspace.join(".agents").join("skills").join("repo-custom");
-        std::fs::create_dir_all(&existing_skill).unwrap();
-        std::fs::write(
-            existing_skill.join("SKILL.md"),
-            "---\nname: repo-custom\n---",
-        )
-        .unwrap();
-
-        // Symphony skill to inject
-        let sym_skill = workflow_dir.join("skills").join("sym-commit");
-        std::fs::create_dir_all(&sym_skill).unwrap();
-        std::fs::write(sym_skill.join("SKILL.md"), "---\nname: sym-commit\n---").unwrap();
-
-        inject_skills(&workflow_dir, &workspace).unwrap();
-
-        // Both should exist
-        assert!(
-            workspace
-                .join(".agents")
-                .join("skills")
-                .join("repo-custom")
-                .join("SKILL.md")
-                .exists(),
-            "existing repo skill should be preserved"
-        );
-        assert!(
-            workspace
-                .join(".agents")
-                .join("skills")
-                .join("sym-commit")
-                .join("SKILL.md")
-                .exists(),
-            "symphony skill should be injected"
-        );
-    }
-
-    #[test]
-    fn inject_skills_updates_existing_symphony_skill() {
-        let temp = tempfile::tempdir().expect("tempdir");
-        let workflow_dir = temp.path().join("workflow");
-        let workspace = temp.path().join("workspace");
-        std::fs::create_dir_all(&workflow_dir).unwrap();
-        std::fs::create_dir_all(&workspace).unwrap();
-
-        // Pre-existing older version of a symphony skill
-        let existing = workspace.join(".agents").join("skills").join("sym-land");
-        std::fs::create_dir_all(&existing).unwrap();
-        std::fs::write(existing.join("SKILL.md"), "old content").unwrap();
-
-        // Updated version
-        let source = workflow_dir.join("skills").join("sym-land");
-        std::fs::create_dir_all(&source).unwrap();
-        std::fs::write(source.join("SKILL.md"), "new content").unwrap();
-
-        inject_skills(&workflow_dir, &workspace).unwrap();
-
-        let content = std::fs::read_to_string(
-            workspace
-                .join(".agents")
-                .join("skills")
-                .join("sym-land")
-                .join("SKILL.md"),
-        )
-        .unwrap();
-        assert_eq!(
-            content, "new content",
-            "skill files should be overwritten on re-injection"
-        );
-    }
-
-    #[test]
-    fn inject_skills_removes_stale_files_from_existing_symphony_skill() {
-        let temp = tempfile::tempdir().expect("tempdir");
-        let workflow_dir = temp.path().join("workflow");
-        let workspace = temp.path().join("workspace");
-        std::fs::create_dir_all(&workflow_dir).unwrap();
-        std::fs::create_dir_all(&workspace).unwrap();
-
-        let existing = workspace.join(".agents").join("skills").join("sym-land");
-        std::fs::create_dir_all(existing.join("scripts")).unwrap();
-        std::fs::write(existing.join("SKILL.md"), "old content").unwrap();
-        std::fs::write(existing.join("scripts").join("stale.py"), "stale").unwrap();
-
-        let source = workflow_dir.join("skills").join("sym-land");
-        std::fs::create_dir_all(&source).unwrap();
-        std::fs::write(source.join("SKILL.md"), "new content").unwrap();
-
-        inject_skills(&workflow_dir, &workspace).unwrap();
-
-        assert!(
-            !workspace
-                .join(".agents")
-                .join("skills")
-                .join("sym-land")
-                .join("scripts")
-                .join("stale.py")
-                .exists(),
-            "re-injection should replace sym-* skill directories, not merge stale files"
-        );
-    }
-
-    #[test]
-    fn inject_skills_skips_non_directory_entries() {
-        let temp = tempfile::tempdir().expect("tempdir");
-        let workflow_dir = temp.path().join("workflow");
-        let workspace = temp.path().join("workspace");
-        std::fs::create_dir_all(&workflow_dir).unwrap();
-        std::fs::create_dir_all(&workspace).unwrap();
-
-        let skills_dir = workflow_dir.join("skills");
-        std::fs::create_dir_all(&skills_dir).unwrap();
-        // A stray file in skills/ (not a skill directory)
-        std::fs::write(skills_dir.join("README.md"), "# skills readme").unwrap();
-
-        // A proper skill
-        let skill = skills_dir.join("sym-pull");
-        std::fs::create_dir_all(&skill).unwrap();
-        std::fs::write(skill.join("SKILL.md"), "---\nname: sym-pull\n---").unwrap();
-
-        inject_skills(&workflow_dir, &workspace).unwrap();
-
-        assert!(
-            workspace
-                .join(".agents")
-                .join("skills")
-                .join("sym-pull")
-                .join("SKILL.md")
-                .exists(),
-            "proper skill should be injected"
-        );
-        assert!(
-            !workspace
-                .join(".agents")
-                .join("skills")
-                .join("README.md")
-                .exists(),
-            "non-directory entries should be skipped"
-        );
     }
 }

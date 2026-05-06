@@ -3,22 +3,36 @@ title: "WORKFLOW.md configuration"
 description: "Current Symphony WORKFLOW.md configuration shape and runtime semantics."
 ---
 
+Symphony projects use a committed `.symphony/` project home:
+
+```text
+.symphony/
+├── WORKFLOW.md
+├── .env.example
+├── prompts/
+└── docs/
+```
+
+Run `symphony init` from a repository root to create starter assets. When no workflow path is passed, Symphony resolves `.symphony/WORKFLOW.md`, then falls back to `WORKFLOW.md`.
+
 `WORKFLOW.md` has one runtime-significant part:
 
 1. YAML front-matter: Symphony workflow configuration
-2. Markdown body: ignored by Symphony at runtime
+2. Markdown body: fallback prompt when `prompts` is absent
 
-Use `prompts` in front-matter (and referenced prompt files) for runtime prompt content.
+Use `prompts` in front-matter for runtime prompt files. Prompt paths are relative to the active `WORKFLOW.md` directory.
 
 Symphony hot-reloads config updates from this file.
 
 ## Current worker/helper flow
 
-Use `agent.*` to define how Symphony launches the worker runtime, and use the sym-state helper for tracker/document/state operations from worker prompts/skills:
+Use `agent.*` to define how Symphony launches the worker runtime. Worker prompts call Symphony's backend-neutral helper for tracker, document, and state operations:
 
 ```bash
 INPUT="/tmp/sym-${SYMPHONY_ISSUE_ID:-current}-<operation>-$$.json"
-.agents/skills/sym-state/scripts/sym-call <operation> --input "$INPUT"
+"$SYMPHONY_BIN" helper <operation> \
+  --workflow "$SYMPHONY_WORKFLOW_PATH" \
+  --input "$INPUT"
 ```
 
 Operations:
@@ -33,7 +47,7 @@ Operations:
 
 Use opaque tracker issue IDs with helper payloads (`SYMPHONY_ISSUE_ID`), or `"@current"` where supported.
 
-Legacy `kata_*` worker tool names are not the current contract.
+Worker sessions receive `SYMPHONY_BIN`, `SYMPHONY_WORKFLOW_PATH`, `SYMPHONY_ISSUE_ID`, `SYMPHONY_ISSUE_IDENTIFIER`, `SYMPHONY_ISSUE_TITLE`, and `SYMPHONY_WORKSPACE_PATH`.
 
 ## Current dispatch behavior
 
@@ -293,7 +307,7 @@ hooks:
   Timeout for each hook invocation, in milliseconds. If `after_create` or `before_run` times out, the worker attempt is aborted and the issue retries.
 </ParamField>
 
-All hooks receive these environment variables:
+Hook commands execute with cwd set to the active `WORKFLOW.md` directory, so relative paths in hooks resolve from the same base as prompt paths. All hooks receive these environment variables:
 
 | Variable | Example |
 | --- | --- |
@@ -355,7 +369,7 @@ supervisor:
 
 ## `prompts` section
 
-Per-state prompt injection. When configured, Symphony selects a prompt file based on the issue's current workflow state instead of using the monolithic markdown body.
+Per-state prompt injection. `symphony init` creates editable starter prompts in `.symphony/prompts/`. When configured, Symphony selects a prompt file based on the issue's current workflow state instead of using the markdown body.
 
 ```yaml
 prompts:

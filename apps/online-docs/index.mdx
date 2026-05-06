@@ -10,7 +10,7 @@ Kata is a suite of AI coding tools built for developers who want structured, aut
     Runtime and contract bridge for Kata workflows. Handles setup, backend validation, and operation dispatch.
   </Card>
   <Card title="Kata Symphony" icon="music" href="/symphony/overview">
-    Headless orchestrator that polls Linear or GitHub and runs parallel agent sessions to close tickets end-to-end.
+    Headless orchestrator with project-local `.symphony/` workflow assets for running parallel agents across Linear or GitHub tickets.
   </Card>
   <Card title="Kata Context" icon="database" href="/context/overview">
     Structural, semantic, and memory-based codebase understanding for AI coding agents.
@@ -50,7 +50,7 @@ Kata is a suite of AI coding tools built for developers who want structured, aut
     Use `npx @kata-sh/cli call <operation> --input <request.json>` and `npx @kata-sh/cli json <request.json>` to execute runtime operations from scripts and skills. If you installed globally, run the same commands with `kata`.
   </Step>
   <Step title="Dispatch work with Symphony">
-    Point Kata Symphony at your tracker to run parallel agent sessions and manage issue state transitions.
+    Download or build the Symphony binary, run `symphony init` in your repo, edit `.symphony/WORKFLOW.md`, then run `symphony` to manage tracker-driven agent sessions.
   </Step>
 </Steps>
 
@@ -79,5 +79,5 @@ Kata is a suite of AI coding tools built for developers who want structured, aut
 | Product | Install | Best for |
 |---|---|---|
 | [Kata CLI](/cli/overview) | `npx @kata-sh/cli` | Terminal runtime setup, backend validation, and operation dispatch |
-| [Kata Symphony](/symphony/overview) | Binary download or `cargo build` | Headless ticket-to-merge at scale |
+| [Kata Symphony](/symphony/overview) | Binary download or `cargo build` | Headless ticket-to-merge with `.symphony/` project assets |
 | [Kata Context](/context/overview) | `npx @kata/context` | Codebase indexing for AI agents |

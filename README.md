@@ -66,11 +66,13 @@ Quick start:
 cd apps/symphony
 cargo build --release
 
-# Create a WORKFLOW.md with your GitHub or Linear tracker config and agent prompt
-# (see apps/symphony/docs/WORKFLOW-REFERENCE.md for all settings)
+cd /path/to/your/repo
+/path/to/kata/apps/symphony/target/release/symphony init
+$EDITOR .symphony/WORKFLOW.md
+$EDITOR .symphony/prompts/repo.md
 
-GH_TOKEN=github_pat_... ./target/release/symphony WORKFLOW.md --port 8080
-# or: LINEAR_API_KEY=lin_api_... ./target/release/symphony WORKFLOW.md --port 8080
+GH_TOKEN=github_pat_... /path/to/kata/apps/symphony/target/release/symphony --port 8080
+# or: LINEAR_API_KEY=lin_api_... /path/to/kata/apps/symphony/target/release/symphony --port 8080
 ```
 
 Key features:
@@ -80,6 +82,7 @@ Key features:
 - **Multi-turn sessions** - agents continue on the same Codex thread across turns, preserving conversation history
 - **Full PR lifecycle** - agents create PRs, address review feedback, resolve comment threads, and merge
 - **Real-time streaming** - events flow from workers to the orchestrator as they happen
+- **Project-local config** - `symphony init` writes `.symphony/WORKFLOW.md`, starter prompts, and reference docs
 - **Dynamic config reload** - WORKFLOW.md changes take effect without restart
 - **SSH worker pools** - distribute sessions across remote machines
 - **HTTP dashboard + JSON API** - live observability at `localhost:8080`

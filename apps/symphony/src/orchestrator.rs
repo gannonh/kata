@@ -404,6 +404,14 @@ fn completion_comments_enabled(tracker: &TrackerConfig) -> bool {
         .is_some_and(|kind| kind.eq_ignore_ascii_case("github"))
 }
 
+fn workflow_dir_from_path(workflow_path: &Path) -> PathBuf {
+    workflow_path
+        .parent()
+        .filter(|path| !path.as_os_str().is_empty())
+        .unwrap_or(Path::new("."))
+        .to_path_buf()
+}
+
 // ── Standalone Worker Task ──────────────────────────────────────────────
 
 /// All configuration needed by a spawned worker task.
@@ -423,9 +431,6 @@ struct WorkerTaskConfig {
     event_tx: tokio::sync::mpsc::UnboundedSender<(String, AgentEvent)>,
     escalation_tx: tokio::sync::mpsc::UnboundedSender<rpc_bridge::EscalationDispatch>,
     escalation_timeout_ms: u64,
-    /// Directory containing the WORKFLOW.md file. Used to locate sibling
-    /// `skills/` directory for workspace injection.
-    workflow_dir: PathBuf,
     /// Canonical WORKFLOW.md path passed to worker helper scripts.
     workflow_path: PathBuf,
 }
@@ -934,6 +939,8 @@ async fn run_worker_task(
                 // TODO: inject skills into Docker container via `docker cp`
                 // For now, skills injection is only supported for local isolation.
 
+                let hook_cwd = workflow_dir_from_path(&config.workflow_path);
+
                 if let Some(hook) = &config.hooks.after_create {
                     workspace::run_hook_in_container(
                         "after_create",
@@ -941,6 +948,7 @@ async fn run_worker_task(
                         hook,
                         issue,
                         config.hooks.timeout_ms,
+                        &hook_cwd,
                     )
                     .await
                     .map_err(|err| format!("after_create hook failed: {err}"))?;
@@ -953,6 +961,7 @@ async fn run_worker_task(
                         hook,
                         issue,
                         config.hooks.timeout_ms,
+                        &hook_cwd,
                     )
                     .await
                     .map_err(|err| format!("before_run hook failed: {err}"))?;
@@ -1106,6 +1115,7 @@ async fn run_worker_task(
                         hook,
                         issue,
                         config.hooks.timeout_ms,
+                        &hook_cwd,
                     )
                     .await
                     {
@@ -1164,49 +1174,44 @@ async fn run_worker_task(
     }
 
     // 1. Ensure workspace (create dir + after_create hook)
-    let workspace_info = match workspace::ensure_workspace_for_issue_with_refresh_policy(
-        issue,
-        &config.workspace,
-        &config.hooks,
-        config.workspace_refresh_policy,
-    ) {
-        Ok(prepared) => prepared.workspace,
-        Err(err) => {
-            tracing::error!(
-                event = "worker_workspace_failed",
-                issue_id = %issue_id,
-                issue_identifier = %issue.identifier,
-                error = %err,
-                "workspace preparation failed"
-            );
-            return WorkerResult {
-                issue_id,
-                completion: WorkerCompletion::Failed {
-                    error: format!("workspace preparation failed: {err}"),
-                },
-                events: vec![],
-                metrics: None,
-            };
-        }
-    };
+    let hook_cwd = workflow_dir_from_path(&config.workflow_path);
+    let workspace_info =
+        match workspace::ensure_workspace_for_issue_with_refresh_policy_and_hook_cwd(
+            issue,
+            &config.workspace,
+            &config.hooks,
+            config.workspace_refresh_policy,
+            &hook_cwd,
+        ) {
+            Ok(prepared) => prepared.workspace,
+            Err(err) => {
+                tracing::error!(
+                    event = "worker_workspace_failed",
+                    issue_id = %issue_id,
+                    issue_identifier = %issue.identifier,
+                    error = %err,
+                    "workspace preparation failed"
+                );
+                return WorkerResult {
+                    issue_id,
+                    completion: WorkerCompletion::Failed {
+                        error: format!("workspace preparation failed: {err}"),
+                    },
+                    events: vec![],
+                    metrics: None,
+                };
+            }
+        };
 
     let workspace_path = Path::new(&workspace_info.path);
 
-    // 1b. Refresh Symphony runtime skills on every run. They are ephemeral
-    // worker scaffolding, ignored in the target repo, and must track the
-    // workflow directory rather than becoming worker-owned source files.
-    if let Err(err) = workspace::inject_skills(&config.workflow_dir, workspace_path) {
-        tracing::warn!(
-            event = "worker_skill_injection_failed",
-            issue_id = %issue_id,
-            error = %err,
-            "skill injection failed (non-fatal)"
-        );
-    }
-
     // 2. Before-run hook
-    if let Err(err) = workspace::run_before_run_hook_for_issue(workspace_path, &config.hooks, issue)
-    {
+    if let Err(err) = workspace::run_before_run_hook_for_issue_with_cwd(
+        workspace_path,
+        &config.hooks,
+        issue,
+        &hook_cwd,
+    ) {
         tracing::error!(
             event = "worker_before_run_failed",
             issue_id = %issue_id,
@@ -1416,7 +1421,12 @@ async fn run_worker_task(
     };
 
     // 7. After-run hook
-    let _ = workspace::run_after_run_hook_for_issue(workspace_path, &config.hooks, issue);
+    let _ = workspace::run_after_run_hook_for_issue_with_cwd(
+        workspace_path,
+        &config.hooks,
+        issue,
+        &hook_cwd,
+    );
 
     // 8. Build result
     match loop_result {
@@ -2053,6 +2063,8 @@ pub struct Orchestrator {
     supervisor_agent: Option<SupervisorAgent>,
     /// The prompt template from the WORKFLOW.md body, used to render per-issue prompts.
     prompt_template: String,
+    /// Resolved workflow path used by worker helpers and workflow-relative paths.
+    workflow_path: PathBuf,
 }
 
 impl Orchestrator {
@@ -2087,6 +2099,10 @@ impl Orchestrator {
         let max_concurrent_agents = config.agent.max_concurrent_agents;
         let shared_context_ttl_ms = config.shared_context.ttl_ms;
         let shared_context_max_entries = config.shared_context.max_entries;
+        let workflow_path = workflow_store
+            .as_ref()
+            .map(|store| store.workflow_path().to_path_buf())
+            .unwrap_or_else(|| PathBuf::from("WORKFLOW.md"));
         let (worker_result_tx, worker_result_rx) = tokio::sync::mpsc::unbounded_channel();
         let (worker_event_tx, worker_event_rx) = tokio::sync::mpsc::unbounded_channel();
         let (worker_escalation_tx, worker_escalation_rx) = tokio::sync::mpsc::unbounded_channel();
@@ -2139,6 +2155,7 @@ impl Orchestrator {
             ),
             supervisor_agent: None,
             prompt_template,
+            workflow_path,
         }
     }
 
@@ -2147,6 +2164,7 @@ impl Orchestrator {
             let (workflow_def, config) = workflow_store.effective_config();
             self.config = config;
             self.prompt_template = workflow_def.prompt_template;
+            self.workflow_path = workflow_store.workflow_path().to_path_buf();
         }
 
         if let Some(port) = self.server_port_override {
@@ -2427,16 +2445,7 @@ impl Orchestrator {
                 run_attempt.model = pi_model_override.clone();
             }
 
-            let workflow_dir = self
-                .workflow_store
-                .as_ref()
-                .map(|ws| ws.workflow_dir().to_path_buf())
-                .unwrap_or_else(|| PathBuf::from("."));
-            let workflow_path = self
-                .workflow_store
-                .as_ref()
-                .map(|ws| ws.workflow_path().to_path_buf())
-                .unwrap_or_else(|| workflow_dir.join("WORKFLOW.md"));
+            let workflow_path = self.workflow_path.clone();
 
             let task_config = WorkerTaskConfig {
                 workspace: self.config.workspace.clone(),
@@ -2453,7 +2462,6 @@ impl Orchestrator {
                 event_tx: self.worker_event_tx.clone(),
                 escalation_tx: self.worker_escalation_tx.clone(),
                 escalation_timeout_ms: self.config.agent.escalation_timeout_ms,
-                workflow_dir,
                 workflow_path,
             };
 
@@ -3514,10 +3522,12 @@ impl Orchestrator {
         E: Fn(String, serde_json::Value) -> EFut + Clone + Send,
         EFut: Future<Output = Result<serde_json::Value>> + Send,
     {
-        let workspace_info = workspace::ensure_workspace_for_issue(
+        let hook_cwd = workflow_dir_from_path(&self.workflow_path);
+        let workspace_info = workspace::ensure_workspace_for_issue_with_hook_cwd(
             issue,
             &self.config.workspace,
             &self.config.hooks,
+            &hook_cwd,
         )?;
 
         // Preserve the worker_host that dispatch_issue() already stored on the
@@ -3573,26 +3583,12 @@ impl Orchestrator {
 
         let workspace_path = Path::new(&workspace_info.path);
 
-        // Refresh Symphony runtime skills on every run. They are ephemeral
-        // worker scaffolding, ignored in the target repo, and must track the
-        // workflow directory rather than becoming worker-owned source files.
-        let workflow_dir = self
-            .workflow_store
-            .as_ref()
-            .map(|ws| ws.workflow_dir().to_path_buf())
-            .unwrap_or_else(|| PathBuf::from("."));
-        if let Err(err) = workspace::inject_skills(&workflow_dir, workspace_path) {
-            tracing::warn!(
-                event = "worker_skill_injection_failed",
-                issue_id = %issue.id,
-                error = %err,
-                "skill injection failed (non-fatal)"
-            );
-        }
-
-        if let Err(err) =
-            workspace::run_before_run_hook_for_issue(workspace_path, &self.config.hooks, issue)
-        {
+        if let Err(err) = workspace::run_before_run_hook_for_issue_with_cwd(
+            workspace_path,
+            &self.config.hooks,
+            issue,
+            &hook_cwd,
+        ) {
             self.handle_worker_completion(
                 &issue.id,
                 WorkerCompletion::Failed {
@@ -3631,10 +3627,7 @@ impl Orchestrator {
                 let symphony_bin = std::env::current_exe()
                     .ok()
                     .map(|path| path.to_string_lossy().to_string());
-                let symphony_workflow_path = self
-                    .workflow_store
-                    .as_ref()
-                    .map(|store| store.workflow_path().to_string_lossy().to_string());
+                let symphony_workflow_path = Some(self.workflow_path.to_string_lossy().to_string());
                 let mut session = match app_server::start_session_with_helper_env(
                     &self.config.codex,
                     issue,
@@ -3709,10 +3702,9 @@ impl Orchestrator {
                         symphony_bin: std::env::current_exe()
                             .ok()
                             .map(|path| path.to_string_lossy().to_string()),
-                        symphony_workflow_path: self
-                            .workflow_store
-                            .as_ref()
-                            .map(|store| store.workflow_path().to_string_lossy().to_string()),
+                        symphony_workflow_path: Some(
+                            self.workflow_path.to_string_lossy().to_string(),
+                        ),
                     },
                 )
                 .await
@@ -3774,7 +3766,12 @@ impl Orchestrator {
             self.ingest_agent_event(&issue.id, event);
         }
 
-        let _ = workspace::run_after_run_hook_for_issue(workspace_path, &self.config.hooks, issue);
+        let _ = workspace::run_after_run_hook_for_issue_with_cwd(
+            workspace_path,
+            &self.config.hooks,
+            issue,
+            &hook_cwd,
+        );
 
         match loop_result {
             Ok(success) => {
@@ -4530,11 +4527,7 @@ impl Orchestrator {
     /// prompts if configured, otherwise falling back to the monolith prompt_template.
     fn resolve_prompt_for_state(&self, issue_state: &str) -> String {
         if let Some(prompts) = &self.config.prompts {
-            let workflow_dir = self
-                .workflow_store
-                .as_ref()
-                .map(|ws| ws.workflow_dir().to_path_buf())
-                .unwrap_or_else(|| std::path::PathBuf::from("."));
+            let workflow_dir = workflow_dir_from_path(&self.workflow_path);
 
             match prompt_builder::resolve_per_state_prompt(prompts, issue_state, &workflow_dir) {
                 Ok(Some(template)) => {
@@ -4870,11 +4863,17 @@ impl Orchestrator {
         issue: &Issue,
         refresh_policy: workspace::ExistingWorkspaceRefreshPolicy,
     ) -> Option<WorkspaceDispatchPreparation> {
-        match workspace::ensure_workspace_for_issue_with_refresh_policy(
+        let hook_cwd = self
+            .workflow_store
+            .as_ref()
+            .map(|ws| ws.workflow_dir().to_path_buf())
+            .unwrap_or_else(|| PathBuf::from("."));
+        match workspace::ensure_workspace_for_issue_with_refresh_policy_and_hook_cwd(
             issue,
             &self.config.workspace,
             &self.config.hooks,
             refresh_policy,
+            &hook_cwd,
         ) {
             Ok(info) => Some(WorkspaceDispatchPreparation {
                 path: info.workspace.path,
@@ -5530,11 +5529,17 @@ impl Orchestrator {
             return;
         }
 
-        match workspace::remove_workspace_for_issue(
+        let hook_cwd = self
+            .workflow_store
+            .as_ref()
+            .map(|ws| ws.workflow_dir().to_path_buf())
+            .unwrap_or_else(|| PathBuf::from("."));
+        match workspace::remove_workspace_for_issue_with_hook_cwd(
             workspace,
             &self.config.workspace,
             &self.config.hooks,
             issue,
+            &hook_cwd,
         ) {
             Ok(()) => {
                 tracing::info!(
@@ -6264,6 +6269,18 @@ fn build_tool_args_preview(args_json: &str) -> String {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn workflow_dir_from_path_handles_root_level_workflow() {
+        assert_eq!(
+            workflow_dir_from_path(Path::new("WORKFLOW.md")),
+            PathBuf::from(".")
+        );
+        assert_eq!(
+            workflow_dir_from_path(Path::new(".symphony/WORKFLOW.md")),
+            PathBuf::from(".symphony")
+        );
+    }
 
     #[test]
     fn find_preferred_text_stops_searching_past_depth_limit() {

@@ -11,7 +11,7 @@ Symphony uses `agent.*` to configure the worker runtime harness.
 | Codex | `codex` | `codex app-server` |
 
 <Note>
-  This runtime selection is separate from tracker/document/state operations. In worker prompts and skills, use `.agents/skills/sym-state/scripts/sym-call` for backend-neutral issue/document/state actions.
+  This runtime selection is separate from tracker, document, and state operations. In worker prompts, call `"$SYMPHONY_BIN" helper <operation> --workflow "$SYMPHONY_WORKFLOW_PATH" --input "$INPUT"` for backend-neutral actions.
 </Note>
 
 ## Pi runner (default in Kata workflows)
