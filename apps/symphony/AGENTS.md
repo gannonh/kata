@@ -8,6 +8,10 @@ back-off, reconciles issue state on each poll cycle, and optionally exposes a
 live HTTP dashboard and JSON API for observability. SSH remote worker pools are
 supported for distributing agent sessions across multiple machines.
 
+Repos configure Symphony through a project-local `.symphony/` directory created
+by `symphony init`. Keep `.symphony/WORKFLOW.md`, prompts, `.env.example`, and
+reference docs with the project so the same workflow travels with the repo.
+
 ## How It Works
 
 1. Symphony polls the configured tracker for issues in active states, such as `Todo` and `In Progress`.
@@ -52,7 +56,7 @@ symphony [WORKFLOW.md] [--port PORT] [--logs-root PATH] [--no-tui]
 
 ### Project Initialization
 
-Run `symphony init` from a repository root to create the project-local `.symphony/` workflow, environment example, prompt, and reference-doc files. Existing files are skipped unless `--force` is passed.
+Run `symphony init` from a repository root to create the project-local `.symphony/` workflow, environment example, prompts, and reference-doc files. Existing files are skipped unless `--force` is passed.
 
 ### Exit Codes
 
@@ -68,8 +72,8 @@ Symphony emits structured JSON logs via `tracing`. Control verbosity with
 `SYMPHONY_LOG`:
 
 ```sh
-SYMPHONY_LOG=debug symphony WORKFLOW.md
-SYMPHONY_LOG=symphony=trace,info symphony WORKFLOW.md   # trace symphony, info everything else
+SYMPHONY_LOG=debug symphony
+SYMPHONY_LOG=symphony=trace,info symphony   # trace symphony, info everything else
 ```
 
 Default level is `info`. `RUST_LOG` is still accepted as a legacy fallback
@@ -406,7 +410,7 @@ Enable the HTTP server by passing `--port PORT` on the CLI or setting
 `server.port` in the workflow file:
 
 ```sh
-symphony WORKFLOW.md --port 8080
+symphony --port 8080
 ```
 
 By default the server binds to `127.0.0.1`. Override with `server.host` in the
@@ -587,7 +591,7 @@ ProxyJump, StrictHostKeyChecking, and other OpenSSH options:
 
 ```sh
 export SYMPHONY_SSH_CONFIG=~/.ssh/symphony_config
-symphony WORKFLOW.md
+symphony
 ```
 
 ### Remote Command Execution

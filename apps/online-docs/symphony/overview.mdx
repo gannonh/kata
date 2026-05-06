@@ -5,7 +5,7 @@ description: "Headless orchestrator that polls Linear or GitHub for issues and d
 
 Kata Symphony is a headless orchestrator. You point it at a Linear or GitHub project, and it picks up tickets, clones your repo into isolated workspaces, runs an agent on each issue, creates pull requests, addresses review feedback, and merges — all without human intervention.
 
-All configuration lives in a single `WORKFLOW.md` file: Symphony reads the YAML front-matter as config, and ignores content outside the front-matter at runtime.
+Project configuration lives in a committed `.symphony/` directory. `symphony init` creates `.symphony/WORKFLOW.md`, starter prompts, `.env.example`, and workflow reference docs. Symphony reads YAML front-matter from the workflow file as config and uses referenced prompt files for runtime guidance.
 
 ## How it works
 
@@ -71,6 +71,7 @@ Todo → In Progress → Agent Review → Merging → Done
 - **Multi-turn sessions** — agents work across many turns with full context; each PR review cycle is a continuation
 - **Full PR lifecycle** — open PR, address review comments, merge — all automated
 - **Real-time streaming** — live terminal dashboard (Ratatui) and web dashboard with event stream
+- **Project home** — initialize `.symphony/WORKFLOW.md`, prompts, `.env.example`, and reference docs with `symphony init`
 - **Dynamic config reload** — edit `WORKFLOW.md` while Symphony is running; changes apply without restart
 - **SSH worker pools** — distribute sessions across multiple remote machines
 - **HTTP dashboard and API** — web UI at `http://localhost:8080`, REST and WebSocket API for observability
@@ -110,36 +111,19 @@ export LINEAR_API_KEY=lin_api_...
 export ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-**2. Create a `WORKFLOW.md`**
+**2. Initialize project assets**
 
-```yaml
----
-tracker:
-  kind: linear
-  api_key: $LINEAR_API_KEY
-  project_slug: your-project-slug
-
-workspace:
-  root: ~/symphony-workspaces
-  repo: https://github.com/you/your-repo.git
-  branch_prefix: symphony
-  base_branch: main
-  cleanup_on_done: true
-
-agent:
-  name: pi
-  command: pi --mode rpc
-  model: anthropic/claude-sonnet-4-6
-  no_session: true
-  max_concurrent_agents: 3
-  max_turns: 20
----
+```bash
+cd /path/to/your/repo
+symphony init
 ```
+
+Edit `.symphony/WORKFLOW.md` for your tracker, workspace, and agent settings. Edit `.symphony/prompts/repo.md` with repository-specific commands and conventions.
 
 **3. Run Symphony**
 
 ```bash
-symphony WORKFLOW.md
+symphony
 ```
 
 Open `http://localhost:8080` for the web dashboard, or watch the built-in terminal dashboard.

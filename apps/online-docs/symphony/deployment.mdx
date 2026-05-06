@@ -36,14 +36,17 @@ Select a git strategy with `workspace.git_strategy`. The recommended strategy fo
 ### Running Symphony locally
 
 ```bash
+# Create project-local starter assets
+symphony init
+
 # Validate your setup first
-symphony doctor WORKFLOW.md
+symphony doctor
 
 # Start Symphony
-symphony WORKFLOW.md
+symphony
 
 # With options
-symphony WORKFLOW.md --port 8080 --logs-root ./logs
+symphony --port 8080 --logs-root ./logs
 ```
 
 ---
@@ -201,7 +204,7 @@ Set `SYMPHONY_SSH_CONFIG` to a custom SSH config file path. Symphony passes `-F 
 
 ```bash
 export SYMPHONY_SSH_CONFIG=~/.ssh/symphony_config
-symphony WORKFLOW.md
+symphony
 ```
 
 ---
@@ -211,7 +214,7 @@ symphony WORKFLOW.md
 Before launching the orchestrator, validate your setup with:
 
 ```bash
-symphony doctor WORKFLOW.md
+symphony doctor
 ```
 
 Doctor prints traffic-light output:
@@ -241,12 +244,15 @@ Exit codes: `0` when no errors, `1` when any `🚨` error is found. Doctor is di
 ## CLI reference
 
 ```bash
+symphony init [--force]
 symphony [WORKFLOW.md] [--port PORT] [--logs-root PATH] [--no-tui]
 ```
 
 | Flag | Default | Description |
 | --- | --- | --- |
-| `WORKFLOW.md` (positional) | `WORKFLOW.md` | Path to the workflow configuration file |
+| `init` | | Create `.symphony/WORKFLOW.md`, `.env.example`, starter prompts, and reference docs |
+| `--force` | `false` | Overwrite existing starter files when used with `init` |
+| `WORKFLOW.md` (positional) | `.symphony/WORKFLOW.md`, then `WORKFLOW.md` | Path to the workflow configuration file |
 | `--port <PORT>` | `8080` | HTTP dashboard and API port |
 | `--logs-root <PATH>` | *(none)* | Directory for rotating log files |
 | `--no-tui` | `false` | Disable the terminal dashboard; stream JSON logs to stdout instead |
@@ -257,9 +263,9 @@ symphony [WORKFLOW.md] [--port PORT] [--logs-root PATH] [--no-tui]
 Control log verbosity with `RUST_LOG`:
 
 ```bash
-RUST_LOG=info symphony WORKFLOW.md                    # default
-RUST_LOG=debug symphony WORKFLOW.md                   # verbose
-RUST_LOG=symphony=trace,info symphony WORKFLOW.md     # trace Symphony, info everything else
+RUST_LOG=info symphony                    # default
+RUST_LOG=debug symphony                   # verbose
+RUST_LOG=symphony=trace,info symphony     # trace Symphony, info everything else
 ```
 
 When `--logs-root` is set, logs write to rotating files under `<logs-root>/log/symphony.log` and stdout shows only the startup banner. Without `--logs-root`, stdout logs are suppressed while the TUI is active. Pass `--no-tui` to stream structured JSON logs to stdout instead.
