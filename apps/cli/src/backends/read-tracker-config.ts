@@ -1,13 +1,16 @@
 import { load } from "js-yaml";
 
 import { KataDomainError } from "../domain/errors.js";
+import {
+  cleanLinearString,
+  optionalLinearString,
+  readLinearLabels,
+  readLinearStateMapping,
+  type LinearTrackerConfig,
+} from "./linear/config.js";
 
 interface ReadTrackerConfigInput {
   preferencesContent: string;
-}
-
-interface LinearTrackerConfig {
-  kind: "linear";
 }
 
 interface GithubTrackerConfig {
@@ -56,6 +59,20 @@ function requirePositiveInteger(value: unknown, fieldName: string): number {
   throw new KataDomainError("INVALID_CONFIG", `${fieldName} must be a positive integer`);
 }
 
+function readLinearConfig(parsed: Record<string, unknown>): LinearTrackerConfig {
+  const linear = asRecord(parsed.linear);
+  return {
+    kind: "linear",
+    workspace: cleanLinearString(linear.workspace, "linear.workspace"),
+    team: cleanLinearString(linear.team, "linear.team"),
+    project: cleanLinearString(linear.project, "linear.project"),
+    authEnv: optionalLinearString(linear.authEnv),
+    activeMilestoneId: optionalLinearString(linear.activeMilestoneId),
+    states: readLinearStateMapping(asRecord(linear.states)),
+    labels: readLinearLabels(asRecord(linear.labels)),
+  };
+}
+
 export async function readTrackerConfig({ preferencesContent }: ReadTrackerConfigInput): Promise<TrackerConfig> {
   let parsedYaml: unknown;
 
@@ -71,11 +88,11 @@ export async function readTrackerConfig({ preferencesContent }: ReadTrackerConfi
   const mode = requireNonEmptyString(workflow.mode, "workflow.mode");
 
   if (mode === "linear") {
-    return { kind: "linear" };
+    return readLinearConfig(parsed);
   }
 
   if (mode !== "github") {
-    throw new KataDomainError("INVALID_CONFIG", `workflow.mode must be linear or github`);
+    throw new KataDomainError("INVALID_CONFIG", "workflow.mode must be linear or github");
   }
 
   const github = asRecord(parsed.github);
