@@ -110,4 +110,10 @@ linear:
   it("resolves Linear auth from default env vars", () => {
     expect(resolveLinearAuthToken({ env: { LINEAR_API_KEY: "", LINEAR_TOKEN: "lin_token" } })).toBe("lin_token");
   });
+
+  it("fails when configured auth env var is missing", () => {
+    expect(() => resolveLinearAuthToken({ authEnv: "KATA_LINEAR_TOKEN", env: { LINEAR_API_KEY: "lin_api" } })).toThrow(
+      "Linear auth env var KATA_LINEAR_TOKEN is configured but not set.",
+    );
+  });
 });

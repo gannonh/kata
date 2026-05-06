@@ -38,6 +38,7 @@ import {
 type LinearEntityType = "Project" | "Milestone" | "Slice" | "Task" | "Issue";
 type LinearSliceStatus = KataSlice["status"];
 type LinearTaskStatus = KataTask["status"];
+type LinearMilestoneStatus = "active" | "done";
 type LinearTaskVerificationState = KataTask["verificationState"];
 
 interface LinearKataAdapterInput {
@@ -50,7 +51,7 @@ interface LinearEntityMarker {
   kataId: string;
   type: LinearEntityType;
   parentId?: string;
-  status?: LinearSliceStatus | LinearTaskStatus;
+  status?: LinearSliceStatus | LinearTaskStatus | LinearMilestoneStatus;
   verificationState?: LinearTaskVerificationState;
 }
 
@@ -108,7 +109,7 @@ interface TrackedLinearEntity {
   kataId: string;
   type: LinearEntityType;
   parentId?: string;
-  status?: LinearSliceStatus | LinearTaskStatus;
+  status?: LinearSliceStatus | LinearTaskStatus | LinearMilestoneStatus;
   verificationState?: LinearTaskVerificationState;
   blockedBy?: string[];
   blocking?: string[];
@@ -306,20 +307,24 @@ export class LinearKataAdapter implements KataBackendAdapter {
     return [...this.entities.values()]
       .filter((entity) => entity.type === "Milestone")
       .sort((left, right) => left.kataId.localeCompare(right.kataId))
-      .map((entity) => ({
-        id: entity.kataId,
-        title: entity.title,
-        goal: bodyContent(entity.body) || entity.title,
-        status: "active",
-        active: true,
-      }));
+      .map((entity) => {
+        const done = entity.status === "done";
+        return {
+          id: entity.kataId,
+          title: entity.title,
+          goal: bodyContent(entity.body) || entity.title,
+          status: done ? "done" : "active",
+          active: !done,
+        };
+      });
   }
 
   async getActiveMilestone(): Promise<KataMilestone | null> {
     const milestones = await this.listMilestones();
-    if (milestones.length === 0) return null;
+    const activeMilestones = milestones.filter((milestone) => milestone.active);
+    if (activeMilestones.length === 0) return null;
     if (this.config.activeMilestoneId) {
-      const active = milestones.find((milestone) =>
+      const active = activeMilestones.find((milestone) =>
         milestone.id === this.config.activeMilestoneId ||
         this.entities.get(milestone.id)?.linearId === this.config.activeMilestoneId,
       );
@@ -328,7 +333,7 @@ export class LinearKataAdapter implements KataBackendAdapter {
       }
       return active;
     }
-    if (milestones.length === 1) return milestones[0] ?? null;
+    if (activeMilestones.length === 1) return activeMilestones[0] ?? null;
     throw new KataDomainError("INVALID_CONFIG", "Multiple active Linear milestones were found. Set linear.activeMilestoneId in .kata/preferences.md.");
   }
 
@@ -350,6 +355,7 @@ export class LinearKataAdapter implements KataBackendAdapter {
     this.entities.set(kataId, {
       kataId,
       type: "Milestone",
+      status: "active",
       linearId: milestone.id,
       title: stripKataPrefix(milestone.name),
       body: milestone.description ?? input.goal,
@@ -361,12 +367,22 @@ export class LinearKataAdapter implements KataBackendAdapter {
 
   async completeMilestone(input: KataMilestoneCompleteInput): Promise<KataMilestone> {
     const entity = await this.requireEntity(input.milestoneId, "Milestone");
-    const updatedDescription = appendBodySection(entity.body, "Completion summary", input.summary);
+    const completedContent = appendBodySection(bodyContent(entity.body), "Completion summary", input.summary);
+    const updatedDescription = formatLinearEntityBody({
+      kataId: entity.kataId,
+      type: "Milestone",
+      status: "done",
+      content: completedContent,
+    });
     const data = await this.client.graphql<{ projectMilestoneUpdate: { projectMilestone: LinearMilestoneNode } }>({
       query: LINEAR_PROJECT_MILESTONE_UPDATE_MUTATION,
       variables: { id: entity.linearId, input: { description: updatedDescription } },
     });
-    const updated = { ...entity, body: data.projectMilestoneUpdate.projectMilestone.description ?? updatedDescription };
+    const updated = {
+      ...entity,
+      status: "done" as const,
+      body: data.projectMilestoneUpdate.projectMilestone.description ?? updatedDescription,
+    };
     this.entities.set(entity.kataId, updated);
     return { id: entity.kataId, title: entity.title, goal: bodyContent(updated.body), status: "done", active: false };
   }
@@ -772,6 +788,7 @@ export class LinearKataAdapter implements KataBackendAdapter {
       return {
         kataId: marker.kataId,
         type: "Milestone" as const,
+        status: marker.status === "done" ? "done" : "active",
         linearId: milestone.id,
         title: stripKataPrefix(milestone.name),
         body: milestone.description ?? "",
@@ -933,7 +950,7 @@ export function formatLinearEntityBody(input: {
   kataId: string;
   type: LinearEntityType;
   parentId?: string;
-  status?: LinearSliceStatus | LinearTaskStatus;
+  status?: LinearSliceStatus | LinearTaskStatus | LinearMilestoneStatus;
   verificationState?: LinearTaskVerificationState;
   content: string;
 }): string {
@@ -1024,15 +1041,26 @@ function entityFromIssueNode(issue: LinearIssueNode, marker: LinearEntityMarker,
 }
 
 function relationDependencies(issue: LinearIssueNode, direction: "blockedBy" | "blocking"): string[] {
-  const relations = [...(issue.relations?.nodes ?? []), ...(issue.inverseRelations?.nodes ?? [])]
-    .filter((relation): relation is LinearIssueRelationNode => relation !== null);
-  const identifiers = relations.flatMap((relation) => {
-    const related = relation.relatedIssue?.identifier ?? relation.issue?.identifier ?? "";
-    const type = relation.type.toLowerCase();
-    if (direction === "blockedBy" && type.includes("blocked")) return related;
-    if (direction === "blocking" && type.includes("block")) return related;
-    return [];
-  });
+  const directRelations = (issue.relations?.nodes ?? []).filter((relation): relation is LinearIssueRelationNode => relation !== null);
+  const inverseRelations = (issue.inverseRelations?.nodes ?? []).filter((relation): relation is LinearIssueRelationNode => relation !== null);
+
+  const identifiers = [
+    ...directRelations.flatMap((relation) => {
+      const related = relation.relatedIssue?.identifier ?? relation.issue?.identifier ?? "";
+      const type = relation.type.toLowerCase();
+      if (direction === "blockedBy" && type.includes("blocked")) return related;
+      if (direction === "blocking" && type.includes("block")) return related;
+      return [];
+    }),
+    ...inverseRelations.flatMap((relation) => {
+      const related = relation.issue?.identifier ?? relation.relatedIssue?.identifier ?? "";
+      const type = relation.type.toLowerCase();
+      if (direction === "blockedBy" && type.includes("blocked")) return related;
+      if (direction === "blocking" && type.includes("block")) return related;
+      return [];
+    }),
+  ];
+
   return parseSliceDependencyIds(identifiers);
 }
 

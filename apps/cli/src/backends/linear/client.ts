@@ -51,7 +51,7 @@ export function createLinearClient(input: LinearClientInput): LinearClient {
       const response = await request("https://api.linear.app/graphql", {
         method: "POST",
         headers: {
-          Authorization: input.token,
+          Authorization: normalizeLinearAuthorizationHeader(input.token),
           "Content-Type": "application/json",
           "User-Agent": "@kata-sh/cli",
         },
@@ -93,6 +93,14 @@ export function createLinearClient(input: LinearClientInput): LinearClient {
   return client;
 }
 
+export function normalizeLinearAuthorizationHeader(token: string): string {
+  const trimmed = token.trim();
+  if (trimmed.toLowerCase().startsWith("bearer ")) return trimmed;
+  if (trimmed.startsWith("lin_api_")) return trimmed;
+  if (trimmed.startsWith("lin_oauth_")) return `Bearer ${trimmed}`;
+  return trimmed;
+}
+
 async function parseLinearResponse<T>(response: Response): Promise<T> {
   const text = await response.text();
 
@@ -110,13 +118,13 @@ async function parseLinearResponse<T>(response: Response): Promise<T> {
     throw new KataDomainError("NETWORK", "Linear response was not valid JSON.");
   }
 
-  if (payload.data != null) return payload.data;
   if (payload.errors?.length) {
     throw new KataDomainError(
       "UNKNOWN",
       payload.errors.map((error) => error.message ?? "Unknown GraphQL error").join("; "),
     );
   }
+  if (payload.data != null) return payload.data;
 
   throw new KataDomainError("UNKNOWN", "Linear GraphQL response did not include data.");
 }

@@ -410,13 +410,21 @@ export async function runDoctor(input: RunDoctorInput = {}): Promise<DoctorRepor
         }
       }
       if (config.kind === "linear") {
-        const token = resolveLinearAuthToken({ authEnv: config.authEnv, env });
+        let token: string | null = null;
+        let authError: Error | null = null;
+
+        try {
+          token = resolveLinearAuthToken({ authEnv: config.authEnv, env });
+        } catch (error) {
+          authError = error instanceof Error ? error : new Error("Linear auth configuration is invalid.");
+        }
+
         checks.push({
           name: "linear-auth",
           status: token || input.linearClient ? "ok" : "invalid",
           message: token || input.linearClient
             ? "Linear auth is configured."
-            : "Linear mode requires LINEAR_API_KEY/LINEAR_TOKEN or the env var configured by linear.authEnv.",
+            : authError?.message ?? "Linear mode requires LINEAR_API_KEY/LINEAR_TOKEN or the env var configured by linear.authEnv.",
           ...(token || input.linearClient
             ? {}
             : { action: "Set LINEAR_API_KEY, LINEAR_TOKEN, or the env var named by linear.authEnv." }),

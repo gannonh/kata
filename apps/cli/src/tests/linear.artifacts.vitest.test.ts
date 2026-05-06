@@ -19,6 +19,16 @@ describe("Linear artifacts", () => {
     expect(parseLinearArtifactMarker('<!-- kata:artifact {"scopeType":"slice","scopeId":"","artifactType":"plan"} -->')).toBeNull();
   });
 
+  it("parses artifact markers with CRLF newlines", () => {
+    const body = '<!-- kata:artifact {"scopeType":"slice","scopeId":"S001","artifactType":"plan"} -->\r\n# Plan';
+    expect(parseLinearArtifactMarker(body)).toEqual({
+      scopeType: "slice",
+      scopeId: "S001",
+      artifactType: "plan",
+      content: "# Plan",
+    });
+  });
+
   it("updates an existing Linear issue artifact comment", async () => {
     const client = {
       graphql: vi.fn(async (request: any) => {

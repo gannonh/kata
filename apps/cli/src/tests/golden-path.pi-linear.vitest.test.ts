@@ -69,7 +69,11 @@ describe("golden path: pi + linear", () => {
         onboarding: { backend: "linear", linearWorkspace: "kata", linearTeam: "KATA", linearProject: "kata-cli" },
       });
       expect(setupResult.ok).toBe(true);
-      expect(readFileSync(join(workspaceDir, ".kata", "preferences.md"), "utf8")).toContain("mode: linear");
+      const preferences = readFileSync(join(workspaceDir, ".kata", "preferences.md"), "utf8");
+      expect(preferences).toContain("mode: linear");
+      expect(preferences).toContain('workspace: "kata"');
+      expect(preferences).toContain('team: "KATA"');
+      expect(preferences).toContain('project: "kata-cli"');
 
       const linearClient = createGoldenFakeLinearClient();
       const doctor = await runDoctor({

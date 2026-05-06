@@ -1,25 +1,6 @@
 import type { KataArtifactType, KataScopeType } from "../../domain/types.js";
+import { ARTIFACT_TYPES, MARKER_PREFIX, MARKER_SUFFIX, SCOPE_TYPES } from "../shared/artifact-marker.js";
 import type { LinearClient } from "./client.js";
-
-const MARKER_PREFIX = "<!-- kata:artifact ";
-const MARKER_SUFFIX = " -->";
-
-const SCOPE_TYPES = ["project", "milestone", "slice", "task", "issue"] satisfies KataScopeType[];
-const ARTIFACT_TYPES = [
-  "project-brief",
-  "requirements",
-  "roadmap",
-  "phase-context",
-  "context",
-  "decisions",
-  "research",
-  "plan",
-  "slice",
-  "summary",
-  "verification",
-  "uat",
-  "retrospective",
-] satisfies KataArtifactType[];
 
 export interface ParsedLinearArtifactMarker {
   scopeType: KataScopeType;
@@ -105,7 +86,8 @@ export function formatLinearArtifactMarker(input: ParsedLinearArtifactMarker): s
 
 export function parseLinearArtifactMarker(body: string): ParsedLinearArtifactMarker | null {
   const newlineIndex = body.indexOf("\n");
-  const markerLine = newlineIndex === -1 ? body : body.slice(0, newlineIndex);
+  const rawMarkerLine = newlineIndex === -1 ? body : body.slice(0, newlineIndex);
+  const markerLine = rawMarkerLine.endsWith("\r") ? rawMarkerLine.slice(0, -1) : rawMarkerLine;
 
   if (!markerLine.startsWith(MARKER_PREFIX) || !markerLine.endsWith(MARKER_SUFFIX)) {
     return null;
@@ -211,18 +193,37 @@ async function findExistingLinearIssueArtifactComment(input: {
   scopeId: string;
   artifactType: KataArtifactType;
 }): Promise<LinearCommentNode | null> {
-  const comments = await input.client.paginate<LinearCommentNode, { issue?: { comments?: any } | null }>({
-    query: ISSUE_COMMENTS_QUERY,
-    variables: { issueId: input.issueId },
-    selectConnection: (data) => data.issue?.comments,
-  });
+  let after: string | null = null;
 
-  return comments.find((comment) => {
-    const parsed = typeof comment.body === "string" ? parseLinearArtifactMarker(comment.body) : null;
-    return parsed?.scopeType === input.scopeType &&
-      parsed.scopeId === input.scopeId &&
-      parsed.artifactType === input.artifactType;
-  }) ?? null;
+  for (let page = 1; page <= 100; page += 1) {
+    const data: {
+      issue?: {
+        comments?: {
+          nodes?: Array<LinearCommentNode | null> | null;
+          pageInfo: { hasNextPage: boolean; endCursor?: string | null };
+        } | null;
+      } | null;
+    } = await input.client.graphql({
+      query: ISSUE_COMMENTS_QUERY,
+      variables: { issueId: input.issueId, after },
+    });
+    const connection: {
+      nodes?: Array<LinearCommentNode | null> | null;
+      pageInfo: { hasNextPage: boolean; endCursor?: string | null };
+    } | null | undefined = data.issue?.comments;
+    if (!connection) return null;
+    for (const comment of connection.nodes ?? []) {
+      if (!comment) continue;
+      const parsed = typeof comment.body === "string" ? parseLinearArtifactMarker(comment.body) : null;
+      if (parsed?.scopeType === input.scopeType && parsed.scopeId === input.scopeId && parsed.artifactType === input.artifactType) {
+        return comment;
+      }
+    }
+    if (!connection.pageInfo.hasNextPage) return null;
+    after = connection.pageInfo.endCursor ?? null;
+  }
+
+  return null;
 }
 
 async function findExistingLinearMilestoneDocument(input: {
@@ -231,18 +232,37 @@ async function findExistingLinearMilestoneDocument(input: {
   scopeId: string;
   artifactType: KataArtifactType;
 }): Promise<LinearDocumentNode | null> {
-  const documents = await input.client.paginate<LinearDocumentNode, { project?: { documents?: any } | null }>({
-    query: PROJECT_DOCUMENTS_QUERY,
-    variables: { projectId: input.projectId },
-    selectConnection: (data) => data.project?.documents,
-  });
+  let after: string | null = null;
 
-  return documents.find((document) => {
-    const parsed = typeof document.content === "string" ? parseLinearArtifactMarker(document.content) : null;
-    return parsed?.scopeType === "milestone" &&
-      parsed.scopeId === input.scopeId &&
-      parsed.artifactType === input.artifactType;
-  }) ?? null;
+  for (let page = 1; page <= 100; page += 1) {
+    const data: {
+      project?: {
+        documents?: {
+          nodes?: Array<LinearDocumentNode | null> | null;
+          pageInfo: { hasNextPage: boolean; endCursor?: string | null };
+        } | null;
+      } | null;
+    } = await input.client.graphql({
+      query: PROJECT_DOCUMENTS_QUERY,
+      variables: { projectId: input.projectId, after },
+    });
+    const connection: {
+      nodes?: Array<LinearDocumentNode | null> | null;
+      pageInfo: { hasNextPage: boolean; endCursor?: string | null };
+    } | null | undefined = data.project?.documents;
+    if (!connection) return null;
+    for (const document of connection.nodes ?? []) {
+      if (!document) continue;
+      const parsed = typeof document.content === "string" ? parseLinearArtifactMarker(document.content) : null;
+      if (parsed?.scopeType === "milestone" && parsed.scopeId === input.scopeId && parsed.artifactType === input.artifactType) {
+        return document;
+      }
+    }
+    if (!connection.pageInfo.hasNextPage) return null;
+    after = connection.pageInfo.endCursor ?? null;
+  }
+
+  return null;
 }
 
 function isValidArtifactMetadata(metadata: unknown): metadata is Omit<ParsedLinearArtifactMarker, "content"> {

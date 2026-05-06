@@ -384,6 +384,10 @@ function renderGithubPreferences(input: {
   return `---\nworkflow:\n  mode: github\ngithub:\n  repoOwner: ${input.repoOwner}\n  repoName: ${input.repoName}\n  stateMode: projects_v2\n  githubProjectNumber: ${input.githubProjectNumber}\n---\n`;
 }
 
+function quoteYamlScalar(value: string): string {
+  return `"${value.replaceAll("\\", "\\\\").replaceAll("\"", "\\\"")}"`;
+}
+
 function renderLinearPreferences(input: {
   workspace: string;
   team: string;
@@ -391,7 +395,7 @@ function renderLinearPreferences(input: {
   authEnv?: string;
 }): string {
   const authEnv = input.authEnv ?? "LINEAR_API_KEY";
-  return `---\nworkflow:\n  mode: linear\nlinear:\n  workspace: ${input.workspace}\n  team: ${input.team}\n  project: ${input.project}\n  authEnv: ${authEnv}\n  states:\n    backlog: Backlog\n    todo: Todo\n    in_progress: In Progress\n    agent_review: Agent Review\n    human_review: Human Review\n    merging: Merging\n    done: Done\n---\n`;
+  return `---\nworkflow:\n  mode: linear\nlinear:\n  workspace: ${quoteYamlScalar(input.workspace)}\n  team: ${quoteYamlScalar(input.team)}\n  project: ${quoteYamlScalar(input.project)}\n  authEnv: ${quoteYamlScalar(authEnv)}\n  states:\n    backlog: Backlog\n    todo: Todo\n    in_progress: In Progress\n    agent_review: Agent Review\n    human_review: Human Review\n    merging: Merging\n    done: Done\n---\n`;
 }
 
 async function askRequired(question: (prompt: string) => Promise<string>, label: string, defaultValue?: string): Promise<string> {

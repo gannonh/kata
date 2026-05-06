@@ -58,9 +58,6 @@ github:
       expect(existsSync(join(agentDir, PI_SETUP_MARKER_FILENAME))).toBe(true);
       expect(existsSync(join(agentDir, PI_SETTINGS_FILENAME))).toBe(true);
 
-      const runtimeBackendFactory = vi.fn(async () => {
-        throw new Error("GitHub mode must not use the runtime backend fallback");
-      });
       const githubClient = createGoldenFakeGithubClient();
 
       const doctor = await runDoctor({
@@ -81,7 +78,6 @@ github:
       const adapter = await resolveBackend({
         workspacePath: workspaceDir,
         githubClients: githubClient as any,
-        runtimeBackendFactory,
       });
 
       const createdMilestoneOutput = await runJsonCommand(
@@ -118,7 +114,6 @@ github:
         status: "active",
         active: true,
       });
-      expect(runtimeBackendFactory).not.toHaveBeenCalled();
 
       const contextOutput = await runJsonCommand(
         { operation: "project.getContext", payload: {} },

@@ -3,10 +3,7 @@ import type { KataIssueStatus, KataSlice, KataTask } from "../../domain/types.js
 
 export type LinearStateKey = KataSlice["status"] | KataTask["status"] | KataIssueStatus;
 
-export type LinearStateMapping = Record<
-  "backlog" | "todo" | "in_progress" | "agent_review" | "human_review" | "merging" | "done",
-  string
->;
+export type LinearStateMapping = Record<LinearStateKey, string>;
 
 export const DEFAULT_LINEAR_STATE_NAMES: LinearStateMapping = {
   backlog: "Backlog",
@@ -62,12 +59,16 @@ export function resolveLinearAuthToken(input: {
   env?: NodeJS.ProcessEnv | Record<string, string | undefined>;
 }): string | null {
   const env = input.env ?? process.env;
-  const candidates = [
-    input.authEnv ? env[input.authEnv] : undefined,
-    env.LINEAR_API_KEY,
-    env.LINEAR_TOKEN,
-  ];
 
+  if (input.authEnv) {
+    const configured = env[input.authEnv]?.trim();
+    if (!configured) {
+      throw new KataDomainError("INVALID_CONFIG", `Linear auth env var ${input.authEnv} is configured but not set.`);
+    }
+    return configured;
+  }
+
+  const candidates = [env.LINEAR_API_KEY, env.LINEAR_TOKEN];
   for (const value of candidates) {
     const token = value?.trim();
     if (token) return token;

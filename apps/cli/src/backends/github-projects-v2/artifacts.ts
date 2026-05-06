@@ -1,27 +1,9 @@
 import type { KataArtifactType, KataScopeType } from "../../domain/types.js";
+import { ARTIFACT_TYPES, MARKER_PREFIX, MARKER_SUFFIX, SCOPE_TYPES } from "../shared/artifact-marker.js";
 import type { createGithubClient } from "./client.js";
 
-const MARKER_PREFIX = "<!-- kata:artifact ";
-const MARKER_SUFFIX = " -->";
 const COMMENTS_PER_PAGE = 100;
 const MAX_COMMENT_PAGES = 100;
-
-const SCOPE_TYPES = ["project", "milestone", "slice", "task", "issue"] satisfies KataScopeType[];
-const ARTIFACT_TYPES = [
-  "project-brief",
-  "requirements",
-  "roadmap",
-  "phase-context",
-  "context",
-  "decisions",
-  "research",
-  "plan",
-  "slice",
-  "summary",
-  "verification",
-  "uat",
-  "retrospective",
-] satisfies KataArtifactType[];
 
 export interface ParsedArtifactComment {
   scopeType: KataScopeType;

@@ -151,6 +151,15 @@ async function main(argv = process.argv.slice(2)) {
       return;
     }
     const rawBackend = valueAfter("--backend");
+    const hasLinearOnboardingFlags =
+      valueAfter("--linear-workspace") !== undefined ||
+      valueAfter("--workspace") !== undefined ||
+      valueAfter("--linear-team") !== undefined ||
+      valueAfter("--team") !== undefined ||
+      valueAfter("--linear-project") !== undefined ||
+      valueAfter("--project") !== undefined ||
+      valueAfter("--linear-auth-env") !== undefined ||
+      valueAfter("--auth-env") !== undefined;
     const writeSetupValidationError = (message: string) => {
       if (flagSet.has("--json")) {
         process.stdout.write(`${JSON.stringify({ ok: false, error: { code: "INVALID_REQUEST", message } }, null, 2)}\n`);
@@ -175,7 +184,7 @@ async function main(argv = process.argv.slice(2)) {
       claude: flagSet.has("--claude"),
       interactive: !flagSet.has("--yes") && Boolean(process.stdin.isTTY),
       onboarding: {
-        backend: rawBackend ?? "github",
+        backend: rawBackend ?? (hasLinearOnboardingFlags ? "linear" : "github"),
         repoOwner: valueAfter("--repo-owner") ?? repoOwnerFromRepo,
         repoName: valueAfter("--repo-name") ?? repoNameFromRepo,
         githubProjectNumber,

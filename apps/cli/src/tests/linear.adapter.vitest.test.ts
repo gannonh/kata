@@ -203,6 +203,20 @@ describe("LinearKataAdapter", () => {
     });
   });
 
+  it("persists milestone completion state in adapter entities", async () => {
+    const adapter = createAdapter();
+
+    await expect(adapter.completeMilestone({ milestoneId: "M001", summary: "Completed" })).resolves.toMatchObject({
+      id: "M001",
+      status: "done",
+      active: false,
+    });
+    await expect(adapter.listMilestones()).resolves.toEqual([
+      expect.objectContaining({ id: "M001", status: "done", active: false }),
+    ]);
+    await expect(adapter.getActiveMilestone()).resolves.toBeNull();
+  });
+
   it("creates and updates Linear records with native dependencies", async () => {
     const client = createFakeLinearClient({ empty: true });
     const adapter = createAdapter(client);

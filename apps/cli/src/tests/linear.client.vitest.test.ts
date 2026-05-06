@@ -28,6 +28,16 @@ describe("Linear GraphQL client", () => {
     });
   });
 
+  it("throws when GraphQL returns errors with partial data", async () => {
+    const fetch = vi.fn(async () => new Response(JSON.stringify({ data: { viewer: { id: "user-1" } }, errors: [{ message: "Partial failure" }] })));
+    const client = createLinearClient({ token: "lin_test", fetch: fetch as any });
+
+    await expect(client.graphql({ query: "query Viewer { viewer { id } }" })).rejects.toMatchObject({
+      code: "UNKNOWN",
+      message: "Partial failure",
+    });
+  });
+
   it("throws a network error for non-2xx responses", async () => {
     const fetch = vi.fn(async () => new Response("Unauthorized", { status: 401 }));
     const client = createLinearClient({ token: "lin_test", fetch: fetch as any });
@@ -36,6 +46,16 @@ describe("Linear GraphQL client", () => {
       code: "UNAUTHORIZED",
       message: "Linear request failed (401): Unauthorized",
     });
+  });
+
+  it("adds Bearer prefix for OAuth tokens", async () => {
+    const fetch = vi.fn(async () => new Response(JSON.stringify({ data: { viewer: { id: "user-1" } } })));
+    const client = createLinearClient({ token: "lin_oauth_test", fetch: fetch as any });
+
+    await client.graphql({ query: "query Viewer { viewer { id } }" });
+    expect(fetch).toHaveBeenCalledWith("https://api.linear.app/graphql", expect.objectContaining({
+      headers: expect.objectContaining({ Authorization: "Bearer lin_oauth_test" }),
+    }));
   });
 
   it("paginates connection nodes", async () => {
