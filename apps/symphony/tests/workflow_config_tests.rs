@@ -229,6 +229,7 @@ fn test_worker_prompts_do_not_reference_legacy_kata_tools() {
         "linear_add_comment",
         "linear_graphql",
         "You are working on a Linear ticket",
+        ".agents/skills/sym-",
     ];
 
     for file in files {
@@ -243,7 +244,8 @@ fn test_worker_prompts_do_not_reference_legacy_kata_tools() {
         }
 
         assert!(
-            content.contains(".agents/skills/sym-state/scripts/sym-call"),
+            content.contains("$SYMPHONY_BIN")
+                || content.contains("direct Symphony helper contract"),
             "{file} must route tracker operations through the Symphony helper"
         );
     }

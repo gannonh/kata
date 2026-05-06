@@ -1,13 +1,14 @@
 use std::path::Path;
 
 #[test]
-fn sym_skills_do_not_instruct_backend_specific_tracker_ops_for_workers() {
-    let skills_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("skills");
+fn starter_prompts_do_not_instruct_backend_specific_tracker_ops_for_workers() {
+    let prompts_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("prompts");
     let checked = [
-        "sym-address-comments",
-        "sym-land",
-        "sym-fix-ci",
-        "sym-linear",
+        "system.md",
+        "in-progress.md",
+        "agent-review.md",
+        "merging.md",
+        "rework.md",
     ];
 
     let forbidden = [
@@ -15,32 +16,25 @@ fn sym_skills_do_not_instruct_backend_specific_tracker_ops_for_workers() {
         "linear_update_issue",
         "linear_add_comment",
         "issuefilter.identifier",
-        "github_",
         "gh issue",
+        ".agents/skills/sym-",
     ];
 
-    for skill in checked {
-        let path = skills_dir.join(skill).join("SKILL.md");
-        let content = std::fs::read_to_string(&path).expect("skill file should exist");
-
-        if skill == "sym-linear" {
-            assert!(
-                content.contains("disable-model-invocation: true"),
-                "sym-linear must be opt-in only"
-            );
-            assert!(
-                content.contains("Do not use this skill for normal worker tracker operations"),
-                "sym-linear must explicitly prohibit normal worker tracker usage"
-            );
-            continue;
-        }
-
+    for prompt in checked {
+        let path = prompts_dir.join(prompt);
+        let content = std::fs::read_to_string(&path).expect("prompt file should exist");
         let content_lower = content.to_lowercase();
+
+        assert!(
+            content.contains("$SYMPHONY_BIN")
+                || content.contains("direct Symphony helper contract"),
+            "{prompt} must route tracker operations through the direct Symphony helper"
+        );
 
         for token in forbidden {
             assert!(
                 !content_lower.contains(token),
-                "{skill} must not include backend-specific token {token}"
+                "{prompt} must not include backend-specific or injected-skill token {token}"
             );
         }
     }

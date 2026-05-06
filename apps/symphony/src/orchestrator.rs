@@ -423,9 +423,6 @@ struct WorkerTaskConfig {
     event_tx: tokio::sync::mpsc::UnboundedSender<(String, AgentEvent)>,
     escalation_tx: tokio::sync::mpsc::UnboundedSender<rpc_bridge::EscalationDispatch>,
     escalation_timeout_ms: u64,
-    /// Directory containing the WORKFLOW.md file. Used to locate sibling
-    /// `skills/` directory for workspace injection.
-    workflow_dir: PathBuf,
     /// Canonical WORKFLOW.md path passed to worker helper scripts.
     workflow_path: PathBuf,
 }
@@ -1164,49 +1161,44 @@ async fn run_worker_task(
     }
 
     // 1. Ensure workspace (create dir + after_create hook)
-    let workspace_info = match workspace::ensure_workspace_for_issue_with_refresh_policy(
-        issue,
-        &config.workspace,
-        &config.hooks,
-        config.workspace_refresh_policy,
-    ) {
-        Ok(prepared) => prepared.workspace,
-        Err(err) => {
-            tracing::error!(
-                event = "worker_workspace_failed",
-                issue_id = %issue_id,
-                issue_identifier = %issue.identifier,
-                error = %err,
-                "workspace preparation failed"
-            );
-            return WorkerResult {
-                issue_id,
-                completion: WorkerCompletion::Failed {
-                    error: format!("workspace preparation failed: {err}"),
-                },
-                events: vec![],
-                metrics: None,
-            };
-        }
-    };
+    let hook_cwd = config.workflow_path.parent().unwrap_or(Path::new("."));
+    let workspace_info =
+        match workspace::ensure_workspace_for_issue_with_refresh_policy_and_hook_cwd(
+            issue,
+            &config.workspace,
+            &config.hooks,
+            config.workspace_refresh_policy,
+            hook_cwd,
+        ) {
+            Ok(prepared) => prepared.workspace,
+            Err(err) => {
+                tracing::error!(
+                    event = "worker_workspace_failed",
+                    issue_id = %issue_id,
+                    issue_identifier = %issue.identifier,
+                    error = %err,
+                    "workspace preparation failed"
+                );
+                return WorkerResult {
+                    issue_id,
+                    completion: WorkerCompletion::Failed {
+                        error: format!("workspace preparation failed: {err}"),
+                    },
+                    events: vec![],
+                    metrics: None,
+                };
+            }
+        };
 
     let workspace_path = Path::new(&workspace_info.path);
 
-    // 1b. Refresh Symphony runtime skills on every run. They are ephemeral
-    // worker scaffolding, ignored in the target repo, and must track the
-    // workflow directory rather than becoming worker-owned source files.
-    if let Err(err) = workspace::inject_skills(&config.workflow_dir, workspace_path) {
-        tracing::warn!(
-            event = "worker_skill_injection_failed",
-            issue_id = %issue_id,
-            error = %err,
-            "skill injection failed (non-fatal)"
-        );
-    }
-
     // 2. Before-run hook
-    if let Err(err) = workspace::run_before_run_hook_for_issue(workspace_path, &config.hooks, issue)
-    {
+    if let Err(err) = workspace::run_before_run_hook_for_issue_with_cwd(
+        workspace_path,
+        &config.hooks,
+        issue,
+        hook_cwd,
+    ) {
         tracing::error!(
             event = "worker_before_run_failed",
             issue_id = %issue_id,
@@ -1416,7 +1408,12 @@ async fn run_worker_task(
     };
 
     // 7. After-run hook
-    let _ = workspace::run_after_run_hook_for_issue(workspace_path, &config.hooks, issue);
+    let _ = workspace::run_after_run_hook_for_issue_with_cwd(
+        workspace_path,
+        &config.hooks,
+        issue,
+        hook_cwd,
+    );
 
     // 8. Build result
     match loop_result {
@@ -2453,7 +2450,6 @@ impl Orchestrator {
                 event_tx: self.worker_event_tx.clone(),
                 escalation_tx: self.worker_escalation_tx.clone(),
                 escalation_timeout_ms: self.config.agent.escalation_timeout_ms,
-                workflow_dir,
                 workflow_path,
             };
 
@@ -3514,10 +3510,16 @@ impl Orchestrator {
         E: Fn(String, serde_json::Value) -> EFut + Clone + Send,
         EFut: Future<Output = Result<serde_json::Value>> + Send,
     {
-        let workspace_info = workspace::ensure_workspace_for_issue(
+        let hook_cwd = self
+            .workflow_store
+            .as_ref()
+            .map(|ws| ws.workflow_dir().to_path_buf())
+            .unwrap_or_else(|| PathBuf::from("."));
+        let workspace_info = workspace::ensure_workspace_for_issue_with_hook_cwd(
             issue,
             &self.config.workspace,
             &self.config.hooks,
+            &hook_cwd,
         )?;
 
         // Preserve the worker_host that dispatch_issue() already stored on the
@@ -3573,26 +3575,12 @@ impl Orchestrator {
 
         let workspace_path = Path::new(&workspace_info.path);
 
-        // Refresh Symphony runtime skills on every run. They are ephemeral
-        // worker scaffolding, ignored in the target repo, and must track the
-        // workflow directory rather than becoming worker-owned source files.
-        let workflow_dir = self
-            .workflow_store
-            .as_ref()
-            .map(|ws| ws.workflow_dir().to_path_buf())
-            .unwrap_or_else(|| PathBuf::from("."));
-        if let Err(err) = workspace::inject_skills(&workflow_dir, workspace_path) {
-            tracing::warn!(
-                event = "worker_skill_injection_failed",
-                issue_id = %issue.id,
-                error = %err,
-                "skill injection failed (non-fatal)"
-            );
-        }
-
-        if let Err(err) =
-            workspace::run_before_run_hook_for_issue(workspace_path, &self.config.hooks, issue)
-        {
+        if let Err(err) = workspace::run_before_run_hook_for_issue_with_cwd(
+            workspace_path,
+            &self.config.hooks,
+            issue,
+            &hook_cwd,
+        ) {
             self.handle_worker_completion(
                 &issue.id,
                 WorkerCompletion::Failed {
@@ -3774,7 +3762,12 @@ impl Orchestrator {
             self.ingest_agent_event(&issue.id, event);
         }
 
-        let _ = workspace::run_after_run_hook_for_issue(workspace_path, &self.config.hooks, issue);
+        let _ = workspace::run_after_run_hook_for_issue_with_cwd(
+            workspace_path,
+            &self.config.hooks,
+            issue,
+            &hook_cwd,
+        );
 
         match loop_result {
             Ok(success) => {
@@ -4870,11 +4863,17 @@ impl Orchestrator {
         issue: &Issue,
         refresh_policy: workspace::ExistingWorkspaceRefreshPolicy,
     ) -> Option<WorkspaceDispatchPreparation> {
-        match workspace::ensure_workspace_for_issue_with_refresh_policy(
+        let hook_cwd = self
+            .workflow_store
+            .as_ref()
+            .map(|ws| ws.workflow_dir().to_path_buf())
+            .unwrap_or_else(|| PathBuf::from("."));
+        match workspace::ensure_workspace_for_issue_with_refresh_policy_and_hook_cwd(
             issue,
             &self.config.workspace,
             &self.config.hooks,
             refresh_policy,
+            &hook_cwd,
         ) {
             Ok(info) => Some(WorkspaceDispatchPreparation {
                 path: info.workspace.path,
@@ -5530,11 +5529,17 @@ impl Orchestrator {
             return;
         }
 
-        match workspace::remove_workspace_for_issue(
+        let hook_cwd = self
+            .workflow_store
+            .as_ref()
+            .map(|ws| ws.workflow_dir().to_path_buf())
+            .unwrap_or_else(|| PathBuf::from("."));
+        match workspace::remove_workspace_for_issue_with_hook_cwd(
             workspace,
             &self.config.workspace,
             &self.config.hooks,
             issue,
+            &hook_cwd,
         ) {
             Ok(()) => {
                 tracing::info!(

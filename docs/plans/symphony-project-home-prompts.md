@@ -11,6 +11,7 @@ Make Symphony work cleanly as a distributed binary from any repository by using 
 ```text
 .symphony/
   WORKFLOW.md
+  .env.example
   prompts/
     system.md
     supervisor.md
@@ -50,6 +51,7 @@ The generic binary distribution should include these starter assets only:
 
 ```text
 apps/symphony/WORKFLOW.md
+apps/symphony/.env.example
 apps/symphony/docs/WORKFLOW-REFERENCE.md
 apps/symphony/prompts/agent-review.md
 apps/symphony/prompts/in-progress.md
@@ -107,7 +109,7 @@ Skill guidance mapping:
 - `sym-fix-ci` -> `prompts/agent-review.md`
 - `sym-land` -> `prompts/merging.md`
 - `sym-commit`, `sym-pull`, `sym-push` -> `prompts/system.md` or state prompts as concise Git workflow guidance
-- `sym-linear` -> remove from generic prompts to maintain baackend abstractions
+- `sym-linear` -> remove from generic prompts to maintain backend abstractions
 
 Project-specific user skills should remain in the repo’s normal `.agents/skills/` directory.
 
@@ -118,6 +120,7 @@ Copy the current Symphony working config into the mono repo project home:
 ```text
 /Volumes/EVO/kata/kata-mono/.symphony/
   WORKFLOW.md
+  .env.example
   prompts/system.md
   prompts/supervisor.md
   prompts/rework.md
@@ -144,17 +147,18 @@ symphony init
 
 Behavior:
 
-- Create `.symphony/` starter files in the current directory.
+- Create `.symphony/` starter files in the current directory, including `.symphony/.env.example`.
 - Do not overwrite existing files by default.
 - Provide an explicit overwrite path, such as `--force`, or write `.new` files for conflicts.
 - Use embedded starter assets so the command works from the distributed binary without source repo access.
 
-Default workflow resolution:
+Default workflow and path resolution:
 
 1. Use explicit workflow path when provided.
 2. If no path is provided, use `.symphony/WORKFLOW.md` when present.
 3. Keep legacy `WORKFLOW.md` fallback for compatibility if desired.
 4. If no workflow exists, print a clear message: run `symphony init` or pass a workflow path.
+5. Resolve relative paths in workflow-defined prompts and hook commands from the active `WORKFLOW.md` directory. Hooks still receive `SYMPHONY_WORKSPACE_PATH` for workspace access.
 
 ## Prompt drift management
 

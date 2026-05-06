@@ -1,49 +1,54 @@
 ---
 tracker:
+  # Choose `github` or `linear`.
   kind: github
-  repo_owner: gannonh
-  repo_name: kata
+
+  # GitHub tracker settings. Replace these for your repository/project.
+  repo_owner: your-github-owner
+  repo_name: your-repo-name
   github_project_owner_type: user
-  github_project_number: 17
+  github_project_number: 1
+
+  # Linear tracker settings, used when `kind: linear`.
+  # workspace_slug: your-linear-workspace
+  # project_slug: your-linear-project
+
   active_states:
     - Todo
     - In Progress
     - Agent Review
     - Merging
     - Rework
-  exclude_labels:
-    - kata:task
   terminal_states:
     - Done
+  exclude_labels:
+    - kata:task
 polling:
   interval_ms: 30000
 workspace:
-  root: /Volumes/EVO/symphony-workspaces
-  repo: /Volumes/EVO/kata/kata-mono
+  # These relative paths assume you run Symphony from the repository root.
+  root: .symphony/workspaces
+  repo: .
   git_strategy: worktree
   isolation: local
-  cleanup_on_done: true
-  branch_prefix: kata-mono
+  cleanup_on_done: false
+  branch_prefix: symphony
   clone_branch: main
   base_branch: main
 hooks:
   timeout_ms: 1200000
-  # Run after workspace directory is created (after git bootstrap).
-  after_create: scripts/bootstrap-symphony-worktree.sh /Volumes/EVO/kata/kata-mono
 agent:
   name: pi
   command: pi --mode rpc
   no_session: false
-  max_concurrent_agents: 8
+  max_concurrent_agents: 4
   max_turns: 20
-  model: openai-codex/gpt-5.5
-  model_by_state:
-    Agent Review: openai-codex/gpt-5.3-codex
-    Merging: openai-codex/gpt-5.3-codex
+  # Set the default model for your agent harness.
+  # model: provider/model-name
   stall_timeout_ms: 900000
 prompts:
-  system: prompts/system.md # injected every turn
-  repo: prompts/repo-mono.md # injected every turn
+  system: prompts/system.md
+  repo: prompts/repo.md
   by_state:
     Todo: prompts/in-progress.md
     In Progress: prompts/in-progress.md
@@ -57,17 +62,9 @@ supervisor:
 server:
   port: 8080
   host: 127.0.0.1
-notifications:
-  slack:
-    webhook_url: $SLACK_WEBHOOK_URL
-    events:
-      - todo
-      - in_progress
-      - agent_review
-      - human_review
-      - merging
-      - rework
-      - done
-      - stalled
-      - failed
+# notifications:
+#   slack:
+#     webhook_url: $SLACK_WEBHOOK_URL
+#     events:
+#       - all
 ---

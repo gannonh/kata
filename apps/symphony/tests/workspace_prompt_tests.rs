@@ -965,7 +965,7 @@ fn test_existing_worktree_allows_dirty_stale_workspace_with_notice_when_policy_a
 }
 
 #[test]
-fn test_existing_worktree_ignores_injected_symphony_skills_for_staleness() {
+fn test_existing_worktree_ignores_legacy_symphony_skills_for_staleness() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path().join("workspaces");
     let source_repo = tmp.path().join("source-repo");
@@ -1005,7 +1005,7 @@ fn test_existing_worktree_ignores_injected_symphony_skills_for_staleness() {
     let second = symphony::workspace::ensure_workspace_for_issue(&issue, &config, &hooks).unwrap();
     assert!(
         Path::new(&second.path).join("LATER.txt").exists(),
-        "injected sym-* skills should be ignored so clean worktrees can refresh"
+        "legacy sym-* skill artifacts should be ignored so clean worktrees can refresh"
     );
 }
 
@@ -1050,6 +1050,48 @@ fn test_workspace_hooks_receive_issue_metadata_env() {
     symphony::workspace::remove_workspace_for_issue(&ws_path, &config, &hooks, &issue).unwrap();
     let before_remove_env = fs::read_to_string(before_remove_log).unwrap();
     assert_eq!(before_remove_env, expected);
+}
+
+#[test]
+fn test_workspace_hooks_can_run_relative_to_workflow_dir() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path().join("workspaces");
+    let workflow_dir = tmp.path().join(".symphony");
+    fs::create_dir_all(&root).unwrap();
+    fs::create_dir_all(workflow_dir.join("hooks")).unwrap();
+    fs::write(
+        workflow_dir.join("hooks/record.sh"),
+        "#!/usr/bin/env bash\nset -euo pipefail\nprintf '%s' \"$SYMPHONY_WORKSPACE_PATH\" > hook-output.txt\nprintf '%s' \"$(pwd)\" > hook-cwd.txt\n",
+    )
+    .unwrap();
+
+    let hooks = HooksConfig {
+        after_create: Some("bash hooks/record.sh".to_string()),
+        before_run: None,
+        after_run: None,
+        before_remove: None,
+        timeout_ms: 5_000,
+    };
+    let config = workspace_config(&root);
+    let issue = make_test_issue("KAT-803");
+
+    let ws = symphony::workspace::ensure_workspace_for_issue_with_hook_cwd(
+        &issue,
+        &config,
+        &hooks,
+        &workflow_dir,
+    )
+    .unwrap();
+
+    assert_eq!(
+        fs::read_to_string(workflow_dir.join("hook-output.txt")).unwrap(),
+        ws.path
+    );
+    let hook_cwd = PathBuf::from(fs::read_to_string(workflow_dir.join("hook-cwd.txt")).unwrap());
+    assert_eq!(
+        fs::canonicalize(hook_cwd).unwrap(),
+        fs::canonicalize(&workflow_dir).unwrap()
+    );
 }
 
 #[test]

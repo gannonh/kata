@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Improvements
+
+- **Project-local Symphony home** — `symphony init` now writes starter workflow, prompts, and reference docs under `.symphony/`, and no-arg runs resolve `.symphony/WORKFLOW.md` when present.
+- **Prompt-driven worker contract** — starter prompts call the Symphony helper directly through `SYMPHONY_BIN` and `SYMPHONY_WORKFLOW_PATH`, removing the runtime dependency on injected `sym-*` skills.
+
 ## 2.2.2
 
 ### Improvements

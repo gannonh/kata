@@ -37,6 +37,7 @@ cargo build --release
 ## Running
 
 ```sh
+symphony init
 symphony [WORKFLOW.md] [--port PORT] [--logs-root PATH] [--no-tui]
 ```
 
@@ -44,10 +45,14 @@ symphony [WORKFLOW.md] [--port PORT] [--logs-root PATH] [--no-tui]
 
 | Flag                       | Type | Default       | Description                                                                                                                                     |
 | -------------------------- | ---- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `WORKFLOW.md` (positional) | path | `WORKFLOW.md` | Path to the WORKFLOW.md configuration file                                                                                                      |
+| `WORKFLOW.md` (positional) | path | `.symphony/WORKFLOW.md`, then `WORKFLOW.md` | Path to the WORKFLOW.md configuration file                                                                                                      |
 | `--port PORT`              | u16  | `8080`        | Bind the HTTP dashboard and API on this port. Overrides `server.port` in the workflow file.                                                     |
 | `--logs-root PATH`         | path | _(none)_      | Directory root for agent log files.                                                                                                             |
 | `--no-tui`                 | flag | `false`       | Disable the Ratatui terminal dashboard. Without this flag, TUI is enabled by default and stdout logs are suppressed unless logs write to files. |
+
+### Project Initialization
+
+Run `symphony init` from a repository root to create the project-local `.symphony/` workflow, environment example, prompt, and reference-doc files. Existing files are skipped unless `--force` is passed.
 
 ### Exit Codes
 
@@ -91,8 +96,7 @@ resolves, Symphony sends the configured prompt files instead of the Markdown
 body. When `prompts` is absent or no prompt resolves, Symphony sends the
 Markdown body for all states.
 
-A fully documented reference template with all settings and inline comments
-is at `docs/WORKFLOW-REFERENCE.md`. Copy it to your project root as `WORKFLOW.md` and customize the settings.
+Run `symphony init` from a repository root to create `.symphony/WORKFLOW.md`, editable prompts, and `.symphony/docs/WORKFLOW-REFERENCE.md`.
 
 ### Config Field Reference
 
@@ -170,9 +174,7 @@ is at `docs/WORKFLOW-REFERENCE.md`. Copy it to your project root as `WORKFLOW.md
 | `hooks.before_remove` | string | _(none)_ | Shell command run before the workspace is removed.                   |
 | `hooks.timeout_ms`    | u64    | `60000`  | Timeout for each hook invocation (ms).                               |
 
-All hooks receive these environment variables:
-`SYMPHONY_ISSUE_ID`, `SYMPHONY_ISSUE_IDENTIFIER`, `SYMPHONY_ISSUE_TITLE`,
-`SYMPHONY_WORKSPACE_PATH`.
+Hook commands execute with cwd set to the active `WORKFLOW.md` directory, so relative paths in hooks resolve from the same base as prompt paths. All hooks receive these environment variables: `SYMPHONY_ISSUE_ID`, `SYMPHONY_ISSUE_IDENTIFIER`, `SYMPHONY_ISSUE_TITLE`, `SYMPHONY_WORKSPACE_PATH`.
 
 #### `worker` section (SSH)
 
@@ -609,88 +611,45 @@ When `workspace.isolation: docker` is selected:
 
 ---
 
-## Skills Injection
+## Project Home and Prompts
 
-Symphony automatically injects agent skills into each workspace so that worker
-agents have access to workflow-specific capabilities (committing, landing PRs,
-addressing review comments, etc.) regardless of whether the target repository
-ships its own skills.
-
-### Convention
-
-If a `skills/` directory exists as a sibling of the WORKFLOW.md file, Symphony
-copies its contents into `.agents/skills/` inside each newly created workspace
-during bootstrap — after the git clone/worktree but before the `after_create`
-hook runs.
+`symphony init` creates a project-local `.symphony/` directory containing the
+workflow file, editable prompt files, and workflow reference docs:
 
 ```
-my-project/
+.symphony/
 ├── WORKFLOW.md
+├── .env.example
 ├── prompts/
 │   ├── system.md
-│   └── in-progress.md
-└── skills/              ← Symphony auto-injects these
-    ├── sym-land/
-    │   └── SKILL.md
-    ├── sym-commit/
-    │   └── SKILL.md
-    └── sym-fix-ci/
-        └── SKILL.md
+│   ├── supervisor.md
+│   ├── repo.md
+│   ├── in-progress.md
+│   ├── agent-review.md
+│   ├── merging.md
+│   └── rework.md
+└── docs/
+    └── WORKFLOW-REFERENCE.md
 ```
 
-After injection, the workspace looks like:
+When no workflow path is passed, Symphony resolves `.symphony/WORKFLOW.md` when
+present, then falls back to `WORKFLOW.md` for compatibility.
 
-```
-<workspace>/
-├── .agents/
-│   └── skills/
-│       ├── sym-land/        ← injected by Symphony
-│       ├── sym-commit/      ← injected by Symphony
-│       ├── repo-custom/     ← already in the target repo (preserved)
-│       └── ...
-├── src/
-└── ...
+Prompt files are the editable orchestration layer. They call the backend-neutral
+helper directly through the worker environment:
+
+```bash
+"$SYMPHONY_BIN" helper <operation> \
+  --workflow "$SYMPHONY_WORKFLOW_PATH" \
+  --input "$INPUT"
 ```
 
-### Behaviour
+Worker sessions receive `SYMPHONY_BIN`, `SYMPHONY_WORKFLOW_PATH`,
+`SYMPHONY_ISSUE_ID`, `SYMPHONY_ISSUE_IDENTIFIER`, `SYMPHONY_ISSUE_TITLE`, and
+`SYMPHONY_WORKSPACE_PATH`.
 
-- **Zero config** — no WORKFLOW.md setting is needed. If `skills/` exists next
-  to the workflow file, injection happens automatically.
-- **Idempotent** — existing files in `.agents/skills/` from the target repo are
-  preserved. Symphony only writes into its own namespaced skill directories.
-- **`sym-` prefix** — all Symphony-shipped skills use the `sym-` name prefix
-  (e.g. `sym-land`, `sym-commit`, `sym-fix-ci`). This prevents collisions with
-  skills that already exist in the target repository's `.agents/skills/`.
-- **File overwrite** — if a `sym-*` skill directory already exists in the
-  workspace (e.g. from a prior bootstrap), files within it are overwritten with
-  the latest version from the workflow directory.
-- **Docker isolation** — skills injection is currently supported for local
-  workspace isolation only. Docker container injection is planned.
-
-### Bundled Skills
-
-Symphony ships these skills in `apps/symphony/skills/`:
-
-| Skill                  | Purpose                                                  |
-| ---------------------- | -------------------------------------------------------- |
-| `sym-address-comments` | Address PR review comments (human and bot)               |
-| `sym-commit`           | Produce clean, well-formed git commits                   |
-| `sym-fix-ci`           | Diagnose and fix failing GitHub Actions CI checks        |
-| `sym-land`             | Land a PR: resolve conflicts, wait for CI, squash-merge  |
-| `sym-linear`           | Raw Linear GraphQL operations (comment editing, uploads) |
-| `sym-pull`             | Pull latest base branch and resolve merge conflicts      |
-| `sym-push`             | Push branch to origin and create/update the PR           |
-
-### Referencing Skills in Prompts
-
-Prompt files should reference skills using the `.agents/skills/sym-*` path:
-
-```markdown
-Read `.agents/skills/sym-land/SKILL.md` and follow its steps.
-```
-
-This path resolves inside the worker's workspace cwd, where the skills have
-been injected.
+Repository-owned skills remain in the repo's normal `.agents/skills/` directory
+and are handled by the agent harness.
 
 ---
 
