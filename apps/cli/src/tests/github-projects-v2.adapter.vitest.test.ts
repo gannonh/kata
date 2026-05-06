@@ -429,6 +429,63 @@ describe("GithubProjectsV2Adapter", () => {
     );
   });
 
+  it("writes user-facing issue bodies without kata entity metadata", async () => {
+    const client = createFakeGithubClient();
+    const adapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+
+    await adapter.upsertProject({
+      title: "Launch Kata",
+      description: "Project brief",
+    });
+    const milestone = await adapter.createMilestone({
+      title: "Phase A",
+      goal: "Milestone goal",
+    });
+    const slice = await adapter.createSlice({
+      milestoneId: milestone.id,
+      title: "Slice",
+      goal: "Slice goal",
+    });
+    const task = await adapter.createTask({
+      sliceId: slice.id,
+      title: "Task",
+      description: "Task details",
+    });
+    await adapter.createIssue({
+      title: "Standalone",
+      design: "Design body",
+      plan: "Plan body",
+    });
+    await adapter.updateTaskStatus({
+      taskId: task.id,
+      status: "done",
+      verificationState: "verified",
+    });
+
+    const issueBodies = client.rest.mock.calls
+      .map(([request]) => request)
+      .filter((request) => request.method === "POST" && request.path === "/repos/kata-sh/uat/issues")
+      .map((request) => request.body.body);
+    expect(issueBodies).toEqual([
+      "Project brief",
+      "Milestone goal",
+      "Slice goal",
+      "Task details",
+      "# Design\n\nDesign body\n\n# Plan\n\nPlan body",
+    ]);
+
+    const taskStatusPatch = client.rest.mock.calls
+      .map(([request]) => request)
+      .find((request) => request.method === "PATCH" && request.path === "/repos/kata-sh/uat/issues/4");
+    expect(taskStatusPatch?.body).toEqual({ state: "closed" });
+  });
+
   it("creates native GitHub dependencies when creating blocked slices", async () => {
     const client = createFakeGithubClient();
     const adapter = new GithubProjectsV2Adapter({
@@ -987,7 +1044,7 @@ describe("GithubProjectsV2Adapter", () => {
         path: "/repos/kata-sh/uat/issues",
         body: expect.objectContaining({
           title: "[I001] Plan isolated fix",
-          body: expect.stringContaining('"type":"Issue"'),
+          body: "# Design\n\n## Problem\n\nThe workflow needs one standalone issue.\n\n# Plan\n\n## Tasks\n\n- [ ] Create one backend issue.",
         }),
       }),
     );
@@ -1059,7 +1116,7 @@ describe("GithubProjectsV2Adapter", () => {
     await expect(adapter.getIssue({ issueRef: "I001" })).resolves.toMatchObject({
       id: "I001",
       status: "done",
-      body: "Stale issue body",
+      body: '<!-- kata:entity {"kataId":"I001","type":"Issue","status":"backlog"} -->\nStale issue body',
     });
   });
 
