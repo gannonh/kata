@@ -933,6 +933,88 @@ describe("GithubProjectsV2Adapter", () => {
     });
   });
 
+  it("preserves explicit pending verification for closed task issues", async () => {
+    const client = createFakeGithubClient({
+      issues: [
+        githubIssue({
+          id: 1,
+          node_id: "issue-node-1",
+          number: 1,
+          title: "[M001] Existing Milestone",
+          body: "Existing milestone",
+          state: "open",
+          milestoneNumber: 1,
+        }),
+        githubIssue({
+          id: 2,
+          node_id: "issue-node-2",
+          number: 2,
+          title: "[S001] Closed Slice",
+          body: "Closed slice body",
+          state: "closed",
+          milestoneNumber: 1,
+        }),
+        githubIssue({
+          id: 3,
+          node_id: "issue-node-3",
+          number: 3,
+          title: "[T001] Closed Task",
+          body: "Closed task body",
+          state: "closed",
+          milestoneNumber: 1,
+        }),
+      ],
+      projectItems: [
+        projectItem({
+          itemId: "project-item-1",
+          issueNodeId: "issue-node-1",
+          issueNumber: 1,
+          kataId: "M001",
+          kataType: "Milestone",
+          artifactScope: "M001",
+          status: "Todo",
+        }),
+        projectItem({
+          itemId: "project-item-2",
+          issueNodeId: "issue-node-2",
+          issueNumber: 2,
+          kataId: "S001",
+          kataType: "Slice",
+          parentId: "M001",
+          artifactScope: "S001",
+          status: "Done",
+        }),
+        projectItem({
+          itemId: "project-item-3",
+          issueNodeId: "issue-node-3",
+          issueNumber: 3,
+          kataId: "T001",
+          kataType: "Task",
+          parentId: "S001",
+          artifactScope: "T001",
+          status: "Done",
+          verificationState: "pending",
+        }),
+      ],
+      subIssuesByParent: new Map([[2, [3]]]),
+    });
+    const adapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+
+    await expect(adapter.listTasks({ sliceId: "S001" })).resolves.toEqual([
+      expect.objectContaining({
+        id: "T001",
+        status: "done",
+        verificationState: "pending",
+      }),
+    ]);
+  });
+
   it("discovers closed native-labeled slice and task issues when Kata fields are empty", async () => {
     const client = createFakeGithubClient({
       issues: [
@@ -1044,6 +1126,56 @@ describe("GithubProjectsV2Adapter", () => {
       workflow: "kata-complete-milestone",
       target: { milestoneId: "M001" },
     });
+  });
+
+  it("derives slice parent from native milestone number when milestone title is not Kata-prefixed", async () => {
+    const client = createFakeGithubClient({
+      projectItems: [
+        {
+          id: "project-item-1",
+          content: {
+            id: "issue-node-1",
+            databaseId: 1,
+            number: 1,
+            title: "[M001] Imported Milestone",
+            body: "Imported milestone",
+            state: "OPEN",
+            milestone: { number: 7, title: "Imported delivery phase" },
+          },
+          kataId: { text: "M001" },
+          kataType: { text: "Milestone" },
+          artifactScope: { text: "M001" },
+          status: { name: "Todo" },
+        },
+        {
+          id: "project-item-2",
+          content: {
+            id: "issue-node-2",
+            databaseId: 2,
+            number: 2,
+            title: "[S001] Imported Slice",
+            body: "Imported slice",
+            state: "OPEN",
+            milestone: { number: 7, title: "Imported delivery phase" },
+          },
+          kataId: { text: "S001" },
+          kataType: { text: "Slice" },
+          artifactScope: { text: "S001" },
+          status: { name: "Todo" },
+        },
+      ],
+    });
+    const adapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+
+    await expect(adapter.listSlices({ milestoneId: "M001" })).resolves.toEqual([
+      expect.objectContaining({ id: "S001", milestoneId: "M001" }),
+    ]);
   });
 
   it("maps open GitHub slice status from Project v2 Status", async () => {
@@ -1645,6 +1777,13 @@ describe("GithubProjectsV2Adapter", () => {
       code: "INVALID_CONFIG",
       message: expect.stringContaining('field "Status" is missing option "In Progress"'),
     });
+
+    expect(client.rest).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "POST",
+        path: "/repos/kata-sh/uat/issues",
+      }),
+    );
   });
 
 describe("resolveBackend GitHub token selection", () => {

@@ -173,7 +173,32 @@ describe("loadProjectFieldIndex", () => {
       projectNumber: 1,
     })).rejects.toMatchObject({
       code: "INVALID_CONFIG",
-      message: expect.stringContaining('field "Status" is missing option "Done"'),
+      message: expect.stringMatching(/field "Status" is missing option "Done"[\s\S]*Add each missing Status option/),
+    });
+  });
+
+  it("reports a missing Status field as a missing required field", async () => {
+    const client = {
+      graphql: vi.fn(async () => ({
+        organization: {
+          projectV2: {
+            id: "project-id",
+            fields: {
+              nodes: validProjectFields().filter((field) => field.name !== "Status"),
+            },
+          },
+        },
+      })),
+    } as unknown as Parameters<typeof loadProjectFieldIndex>[0]["client"];
+
+    await expect(loadProjectFieldIndex({
+      client,
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 1,
+    })).rejects.toMatchObject({
+      code: "INVALID_CONFIG",
+      message: expect.stringMatching(/missing required Kata fields:[\s\S]*- Status[\s\S]*Single-select for Status/),
     });
   });
 

@@ -171,16 +171,23 @@ function validateProjectFieldIndex(fields: ProjectFieldIndex["fields"]): void {
     return field && field.dataType !== "TEXT";
   });
   const statusField = fields[KATA_PROJECT_FIELDS.status];
-  const missingStatusOptions = KATA_STATUS_OPTIONS.filter((option) => !statusField?.options?.[option]);
+  const missingStatusField = !statusField;
+  const missingRequiredFields = [
+    ...missingFields,
+    ...(missingStatusField ? [KATA_PROJECT_FIELDS.status] : []),
+  ];
+  const missingStatusOptions = statusField
+    ? KATA_STATUS_OPTIONS.filter((option) => !statusField.options?.[option])
+    : [];
 
-  if (missingFields.length || incorrectlyTypedFields.length || missingStatusOptions.length) {
+  if (missingRequiredFields.length || incorrectlyTypedFields.length || missingStatusOptions.length) {
     throw new KataDomainError(
       "INVALID_CONFIG",
       [
-        ...(missingFields.length
+        ...(missingRequiredFields.length
           ? [
               "GitHub Projects v2 project is missing required Kata fields:",
-              formatBulletList(missingFields),
+              formatBulletList(missingRequiredFields),
               "",
             ]
           : []),
@@ -200,15 +207,20 @@ function validateProjectFieldIndex(fields: ProjectFieldIndex["fields"]): void {
                 ),
               ),
               "",
+              "Add each missing Status option in the GitHub Project table view:",
+              `  1. Open the "${KATA_PROJECT_FIELDS.status}" single-select field menu.`,
+              "  2. Click New option.",
+              "  3. Enter the exact option name and save.",
+              "",
             ]
           : []),
-        ...(missingFields.length
+        ...(missingRequiredFields.length
           ? [
               "Add each missing field in the GitHub Project table view:",
               "  1. Click the rightmost + field header.",
               "  2. Choose New field.",
               "  3. Enter the exact field name.",
-              "  4. Choose Text and save.",
+              "  4. Choose Text for Kata fields or Single-select for Status and save.",
               "",
             ]
           : []),
