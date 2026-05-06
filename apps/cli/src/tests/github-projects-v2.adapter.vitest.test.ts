@@ -933,6 +933,119 @@ describe("GithubProjectsV2Adapter", () => {
     });
   });
 
+  it("discovers closed native-labeled slice and task issues when Kata fields are empty", async () => {
+    const client = createFakeGithubClient({
+      issues: [
+        githubIssue({
+          id: 1,
+          node_id: "issue-node-1",
+          number: 1,
+          title: "[M001] Existing Milestone",
+          body: "Existing milestone",
+          state: "open",
+          milestoneNumber: 1,
+        }),
+        githubIssue({
+          id: 13,
+          node_id: "issue-node-13",
+          number: 13,
+          title: "[S003] Define pay-for-performance offer",
+          body: "Define the offer.",
+          state: "closed",
+          milestoneNumber: 1,
+        }),
+        githubIssue({
+          id: 14,
+          node_id: "issue-node-14",
+          number: 14,
+          title: "[T007] Define trial deliverable",
+          body: "Define what the trial delivers.",
+          state: "closed",
+          milestoneNumber: 1,
+        }),
+      ],
+      projectItems: [
+        projectItem({
+          itemId: "project-item-1",
+          issueNodeId: "issue-node-1",
+          issueNumber: 1,
+          kataId: "M001",
+          kataType: "Milestone",
+          artifactScope: "M001",
+          status: "Todo",
+        }),
+        {
+          id: "project-item-13",
+          content: {
+            id: "issue-node-13",
+            databaseId: 13,
+            number: 13,
+            title: "[S003] Define pay-for-performance offer",
+            body: "Define the offer.",
+            state: "CLOSED",
+            url: "https://github.test/kata-sh/uat/issues/13",
+            milestone: { number: 1, title: "[M001] Existing Milestone" },
+            labels: { nodes: [{ name: "kata:slice" }] },
+          },
+          status: { name: "Done" },
+        },
+        {
+          id: "project-item-14",
+          content: {
+            id: "issue-node-14",
+            databaseId: 14,
+            number: 14,
+            title: "[T007] Define trial deliverable",
+            body: "Define what the trial delivers.",
+            state: "CLOSED",
+            url: "https://github.test/kata-sh/uat/issues/14",
+            milestone: { number: 1, title: "[M001] Existing Milestone" },
+            labels: { nodes: [{ name: "kata:task" }] },
+          },
+          status: { name: "Done" },
+        },
+      ],
+      subIssuesByParent: new Map([[13, [14]]]),
+    });
+    const adapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+    const api = createKataDomainApi(adapter);
+
+    const snapshot = await api.project.getSnapshot();
+
+    expect(snapshot.slices).toEqual([
+      expect.objectContaining({
+        id: "S003",
+        milestoneId: "M001",
+        status: "done",
+        tasks: [
+          expect.objectContaining({
+            id: "T007",
+            sliceId: "S003",
+            status: "done",
+            verificationState: "verified",
+          }),
+        ],
+      }),
+    ]);
+    expect(snapshot.readiness).toMatchObject({
+      allRoadmapSlicesExist: true,
+      allSlicesDone: true,
+      allTasksDone: true,
+      allTasksVerified: true,
+      milestoneCompletable: true,
+    });
+    expect(snapshot.nextAction).toMatchObject({
+      workflow: "kata-complete-milestone",
+      target: { milestoneId: "M001" },
+    });
+  });
+
   it("maps open GitHub slice status from Project v2 Status", async () => {
     const client = createFakeGithubClient({
       issues: [
@@ -1195,7 +1308,7 @@ describe("GithubProjectsV2Adapter", () => {
     await expect(adapter.getIssue({ issueRef: "I001" })).resolves.toMatchObject({
       id: "I001",
       status: "done",
-      body: '<!-- kata:entity {"kataId":"I001","type":"Issue","status":"backlog"} -->\nStale issue body',
+      body: "Stale issue body",
     });
   });
 

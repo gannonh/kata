@@ -96,6 +96,8 @@ interface ProjectItemFields {
   state?: string;
   url?: string;
   githubMilestoneNumber?: number;
+  githubMilestoneTitle?: string;
+  labelNames?: string[];
   status?: string;
 }
 
@@ -119,6 +121,10 @@ interface ProjectItemFieldNode {
     url?: string | null;
     milestone?: {
       number?: number | null;
+      title?: string | null;
+    } | null;
+    labels?: {
+      nodes?: Array<{ name?: string | null } | null> | null;
     } | null;
   } | null;
   kataId?: ProjectItemTextFieldValue | null;
@@ -257,6 +263,12 @@ const PROJECT_ITEM_FIELDS_QUERY = `
                 url
                 milestone {
                   number
+                  title
+                }
+                labels(first: 20) {
+                  nodes {
+                    name
+                  }
                 }
               }
             }
@@ -314,6 +326,12 @@ const PROJECT_ITEM_FIELDS_QUERY = `
                 url
                 milestone {
                   number
+                  title
+                }
+                labels(first: 20) {
+                  nodes {
+                    name
+                  }
                 }
               }
             }
@@ -1248,9 +1266,11 @@ function entityFromIssue(
 }
 
 function entityFromProjectItem(fields: ProjectItemFields): TrackedEntity | null {
+  const kataId = fields.kataId ?? kataIdFromIssueTitle(fields.title);
+  const kataType = fields.kataType ?? kataEntityTypeFromNativeSignals(fields, kataId);
   if (
-    !fields.kataId ||
-    !fields.kataType ||
+    !kataId ||
+    !kataType ||
     fields.issueId === undefined ||
     fields.issueNumber === undefined ||
     !fields.contentId ||
@@ -1260,12 +1280,12 @@ function entityFromProjectItem(fields: ProjectItemFields): TrackedEntity | null 
   }
 
   return {
-    kataId: fields.kataId,
-    type: fields.kataType,
-    parentId: fields.parentId,
-    status: statusFromProjectFields(fields),
+    kataId,
+    type: kataType,
+    parentId: fields.parentId ?? parentIdFromNativeMilestone(fields, kataType),
+    status: statusFromProjectFields(fields, kataType),
     verificationState: fields.verificationState,
-    artifactScope: fields.artifactScope,
+    artifactScope: fields.artifactScope ?? kataId,
     issueId: fields.issueId,
     issueNumber: fields.issueNumber,
     contentId: fields.contentId,
@@ -1325,6 +1345,12 @@ function projectItemFieldsFromNode(
     Number.isFinite(node.content.milestone.number)
     ? node.content.milestone.number
     : undefined;
+  const githubMilestoneTitle = typeof node.content?.milestone?.title === "string" && node.content.milestone.title
+    ? node.content.milestone.title
+    : undefined;
+  const labelNames = node.content?.labels?.nodes
+    ?.map((label) => label?.name)
+    .filter((name): name is string => typeof name === "string" && name.length > 0);
   const status = singleSelectFieldName(node.status);
   return {
     itemId: node.id,
@@ -1341,6 +1367,8 @@ function projectItemFieldsFromNode(
     ...(state ? { state } : {}),
     ...(url ? { url } : {}),
     ...(githubMilestoneNumber !== undefined ? { githubMilestoneNumber } : {}),
+    ...(githubMilestoneTitle ? { githubMilestoneTitle } : {}),
+    ...(labelNames?.length ? { labelNames } : {}),
     ...(status ? { status } : {}),
   };
 }
@@ -1382,6 +1410,10 @@ function kataIdFromTitle(title: string): string | undefined {
   return normalizeKataId(title.match(/^\[([A-Z]+\d*)]\s+/)?.[1] ?? "");
 }
 
+function kataIdFromIssueTitle(title: string | undefined): string | undefined {
+  return title ? kataIdFromTitle(title) : undefined;
+}
+
 function kataEntityTypeFromKataId(kataId: string): KataEntityType | null {
   if (kataId === "PROJECT") return "Project";
   if (/^M\d+$/.test(kataId)) return "Milestone";
@@ -1394,6 +1426,27 @@ function kataEntityTypeFromKataId(kataId: string): KataEntityType | null {
 function kataEntityTypeFromField(value: string): KataEntityType | undefined {
   const trimmed = value.trim();
   return isKataEntityType(trimmed) ? trimmed : undefined;
+}
+
+function kataEntityTypeFromNativeSignals(
+  fields: Pick<ProjectItemFields, "labelNames">,
+  kataId: string | undefined,
+): KataEntityType | undefined {
+  const labelNames = new Set((fields.labelNames ?? []).map((name) => name.toLowerCase()));
+  if (labelNames.has("kata:project")) return "Project";
+  if (labelNames.has("kata:milestone")) return "Milestone";
+  if (labelNames.has("kata:slice")) return "Slice";
+  if (labelNames.has("kata:task")) return "Task";
+  if (labelNames.has("kata:issue")) return "Issue";
+  return kataId ? kataEntityTypeFromKataId(kataId) ?? undefined : undefined;
+}
+
+function parentIdFromNativeMilestone(
+  fields: Pick<ProjectItemFields, "githubMilestoneTitle">,
+  kataType: KataEntityType,
+): string | undefined {
+  if (kataType !== "Slice") return undefined;
+  return kataIdFromIssueTitle(fields.githubMilestoneTitle);
 }
 
 function taskVerificationStateFromField(value: string): KataTaskVerificationState | undefined {
@@ -1414,9 +1467,12 @@ function dependencyIdsFromNodes(
   );
 }
 
-function statusFromProjectFields(fields: ProjectItemFields): KataSliceStatus | KataTaskStatus | undefined {
+function statusFromProjectFields(
+  fields: ProjectItemFields,
+  kataType: KataEntityType | undefined = fields.kataType,
+): KataSliceStatus | KataTaskStatus | undefined {
   if (fields.state === "closed") return "done";
-  if (fields.kataType === "Slice") return sliceStatusFromProjectStatusName(fields.status);
+  if (kataType === "Slice") return sliceStatusFromProjectStatusName(fields.status);
   return statusFromProjectStatusName(fields.status);
 }
 
@@ -1598,6 +1654,8 @@ function issueStatusFromEntity(entity: TrackedEntity): KataIssue["status"] {
 }
 
 function taskVerificationStateFromEntity(entity: TrackedEntity): KataTaskVerificationState {
+  if (entity.verificationState === "failed") return "failed";
+  if (entity.state === "closed") return "verified";
   return isKataTaskVerificationState(entity.verificationState) ? entity.verificationState : "pending";
 }
 
@@ -1626,7 +1684,7 @@ function stripKataPrefix(title: string): string {
 }
 
 function bodyContent(body: string): string {
-  return body;
+  return body.replace(/^<!-- kata:entity [^\n]* -->\n?/, "");
 }
 
 function appendBodySection(body: string, heading: string, content: string): string {
