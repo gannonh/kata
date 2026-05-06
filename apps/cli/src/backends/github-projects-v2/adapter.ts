@@ -728,16 +728,31 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
   }
 
   async checkHealth(): Promise<KataHealthReport> {
+    const checks: KataHealthReport["checks"] = [
+      {
+        name: "adapter",
+        status: "ok",
+        message: "GitHub Projects v2 adapter is configured.",
+      },
+    ];
+
+    await this.getFieldIndex();
+    const projectItems = await this.loadProjectItemFields();
+    const incompleteItems = projectItems.filter(hasIncompleteKataProjectItemFields);
+
+    if (incompleteItems.length > 0) {
+      const count = incompleteItems.length;
+      checks.push({
+        name: "project-item-fields",
+        status: "warn",
+        message: `${count} Project v2 item${count === 1 ? " is" : "s are"} missing required Kata field values.`,
+      });
+    }
+
     return {
-      ok: true,
+      ok: checks.every((check) => check.status === "ok"),
       backend: "github",
-      checks: [
-        {
-          name: "adapter",
-          status: "ok",
-          message: "GitHub Projects v2 adapter is configured.",
-        },
-      ],
+      checks,
     };
   }
 
@@ -1332,6 +1347,18 @@ function projectItemFieldsFromNode(
 
 function isProjectItemFields(value: ProjectItemFields | null): value is ProjectItemFields {
   return value !== null;
+}
+
+function hasIncompleteKataProjectItemFields(fields: ProjectItemFields): boolean {
+  const hasAnyKataField = Boolean(
+    fields.kataId ||
+      fields.kataType ||
+      fields.parentId ||
+      fields.artifactScope ||
+      fields.verificationState,
+  );
+  if (!hasAnyKataField) return false;
+  return !fields.kataId || !fields.kataType;
 }
 
 function isTrackedEntity(value: TrackedEntity | null): value is TrackedEntity {

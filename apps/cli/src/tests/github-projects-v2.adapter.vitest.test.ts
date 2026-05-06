@@ -267,6 +267,85 @@ describe("GithubProjectsV2Adapter", () => {
     );
   });
 
+  it("does not require superfluous dependency text fields", async () => {
+    const client = createFakeGithubClient({ projectFields: validProjectFields() });
+    const adapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+
+    await expect(adapter.upsertProject({
+      title: "Launch Kata",
+      description: "Project brief",
+    })).resolves.toMatchObject({
+      backend: "github",
+      title: "Launch Kata",
+    });
+  });
+
+  it("requires Status to contain every Kata workflow option", async () => {
+    const client = createFakeGithubClient({
+      projectFields: validProjectFields({
+        statusOptions: validStatusOptions().filter((option) => option.name !== "Done"),
+      }),
+    });
+    const adapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+
+    await expect(adapter.upsertProject({
+      title: "Launch Kata",
+      description: "Project brief",
+    })).rejects.toMatchObject({
+      code: "INVALID_CONFIG",
+      message: expect.stringContaining('Status" is missing option "Done"'),
+    });
+  });
+
+  it("warns when Project v2 items are missing required Kata field values", async () => {
+    const client = createFakeGithubClient({
+      projectItems: [
+        projectItem({
+          itemId: "project-item-1",
+          issueNodeId: "issue-node-1",
+          issueId: 1,
+          issueNumber: 1,
+          title: "[S001] Prepare launch",
+          body: "Slice work",
+          state: "open",
+          kataId: "S001",
+          kataType: "",
+        }),
+      ],
+    });
+    const adapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+
+    await expect(adapter.checkHealth()).resolves.toMatchObject({
+      ok: false,
+      backend: "github",
+      checks: expect.arrayContaining([
+        expect.objectContaining({
+          name: "project-item-fields",
+          status: "warn",
+          message: expect.stringContaining("1 Project v2 item is missing required Kata field values"),
+        }),
+      ]),
+    });
+  });
+
   it("creates project, milestone, slice, task, and artifact records through GitHub and Project v2", async () => {
     const client = createFakeGithubClient();
     const adapter = new GithubProjectsV2Adapter({
@@ -1431,7 +1510,7 @@ describe("GithubProjectsV2Adapter", () => {
     });
   });
 
-  it("fails status updates when the Project v2 status option is missing", async () => {
+  it("fails early when a Project v2 status option is missing", async () => {
     const client = createFakeGithubClient({
       projectFields: validProjectFields({
         statusOptions: validStatusOptions().filter((option) => option.name !== "In Progress"),
@@ -1445,13 +1524,11 @@ describe("GithubProjectsV2Adapter", () => {
       client: client as any,
     });
 
-    const issue = await adapter.createIssue({
+    await expect(adapter.createIssue({
       title: "Plan isolated fix",
       design: "## Problem\n\nThe workflow needs one standalone issue.",
       plan: "## Tasks\n\n- [ ] Create one backend issue.",
-    });
-
-    await expect(adapter.updateIssueStatus({ issueId: issue.id, status: "in_progress" })).rejects.toMatchObject({
+    })).rejects.toMatchObject({
       code: "INVALID_CONFIG",
       message: expect.stringContaining('field "Status" is missing option "In Progress"'),
     });

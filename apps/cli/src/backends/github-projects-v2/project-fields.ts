@@ -170,8 +170,10 @@ function validateProjectFieldIndex(fields: ProjectFieldIndex["fields"]): void {
     const field = fields[fieldName];
     return field && field.dataType !== "TEXT";
   });
+  const statusField = fields[KATA_PROJECT_FIELDS.status];
+  const missingStatusOptions = KATA_STATUS_OPTIONS.filter((option) => !statusField?.options?.[option]);
 
-  if (missingFields.length || incorrectlyTypedFields.length) {
+  if (missingFields.length || incorrectlyTypedFields.length || missingStatusOptions.length) {
     throw new KataDomainError(
       "INVALID_CONFIG",
       [
@@ -186,6 +188,17 @@ function validateProjectFieldIndex(fields: ProjectFieldIndex["fields"]): void {
           ? [
               "GitHub Projects v2 project has required Kata fields with the wrong type:",
               formatBulletList(incorrectlyTypedFields.map((fieldName) => `${fieldName} must be Text`)),
+              "",
+            ]
+          : []),
+        ...(missingStatusOptions.length
+          ? [
+              "GitHub Projects v2 project is missing required Kata workflow status options:",
+              formatBulletList(
+                missingStatusOptions.map((option) =>
+                  `GitHub Project v2 field "${KATA_PROJECT_FIELDS.status}" is missing option "${option}".`
+                ),
+              ),
               "",
             ]
           : []),

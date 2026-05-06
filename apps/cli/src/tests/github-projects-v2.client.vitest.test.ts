@@ -150,7 +150,7 @@ describe("loadProjectFieldIndex", () => {
     });
   });
 
-  it("allows missing Status options", async () => {
+  it("rejects missing Status options", async () => {
     const client = {
       graphql: vi.fn(async () => ({
         organization: {
@@ -171,7 +171,10 @@ describe("loadProjectFieldIndex", () => {
       owner: "kata-sh",
       repo: "uat",
       projectNumber: 1,
-    })).resolves.toMatchObject({ projectId: "project-id" });
+    })).rejects.toMatchObject({
+      code: "INVALID_CONFIG",
+      message: expect.stringContaining('field "Status" is missing option "Done"'),
+    });
   });
 
   it("rejects required Kata fields with non-text Project v2 types", async () => {
