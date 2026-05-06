@@ -203,25 +203,33 @@ describe("skill bundle generation", () => {
       "utf8",
     );
 
+    const helperEnv: NodeJS.ProcessEnv = { ...process.env };
+    delete helperEnv.KATA_CLI_ROOT;
+    delete helperEnv.KATA_CLI_BIN;
+
     const doctor = spawnSync(process.execPath, ["scripts/kata-call.mjs", "doctor"], {
       cwd: fixtureDir,
       encoding: "utf8",
+      env: helperEnv,
     });
     expect(doctor.status, doctor.stderr || doctor.stdout).toBe(0);
 
     const health = spawnSync(process.execPath, ["scripts/kata-call.mjs", "health.check"], {
       cwd: fixtureDir,
       encoding: "utf8",
+      env: helperEnv,
     });
     expect(health.status, health.stderr || health.stdout).toBe(0);
     const json = spawnSync(process.execPath, ["scripts/kata-call.mjs", "json", "request.json"], {
       cwd: fixtureDir,
       encoding: "utf8",
+      env: helperEnv,
     });
     expect(json.status, json.stderr || json.stdout).toBe(0);
     const help = spawnSync(process.execPath, ["scripts/kata-call.mjs"], {
       cwd: fixtureDir,
       encoding: "utf8",
+      env: helperEnv,
     });
     expect(help.status, help.stderr || help.stdout).toBe(0);
 
@@ -232,5 +240,32 @@ describe("skill bundle generation", () => {
 
     expect(calls.map((call) => call.args)).toEqual([["doctor"], ["call", "health.check"], ["json", "request.json"], ["help"]]);
     expect(calls.every((call) => call.escaped === String.raw`path\to"file`)).toBe(true);
+  });
+
+  it("fails fast when KATA_CLI_ROOT is set but invalid", () => {
+    const fixtureDir = path.join(tmpdir(), `kata-skill-helper-invalid-root-${Date.now()}`);
+    const scriptsDir = path.join(fixtureDir, "scripts");
+    mkdirSync(scriptsDir, { recursive: true });
+    writeFileSync(
+      path.join(scriptsDir, "kata-call.mjs"),
+      readFileSync(path.join(cliRoot, "skills-src", "scripts", "kata-call.mjs"), "utf8"),
+      "utf8",
+    );
+
+    const helperEnv: NodeJS.ProcessEnv = {
+      ...process.env,
+      KATA_CLI_ROOT: "./missing-cli",
+    };
+    delete helperEnv.KATA_CLI_BIN;
+
+    const result = spawnSync(process.execPath, ["scripts/kata-call.mjs", "doctor"], {
+      cwd: fixtureDir,
+      encoding: "utf8",
+      env: helperEnv,
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("KATA_CLI_ROOT is set but");
+    expect(result.stderr).toContain("missing-cli/dist/loader.js");
   });
 });

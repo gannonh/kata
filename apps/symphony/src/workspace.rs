@@ -59,7 +59,14 @@ pub fn ensure_workspace(
     config: &WorkspaceConfig,
     hooks: &HooksConfig,
 ) -> Result<Workspace> {
-    ensure_workspace_internal(identifier, None, config, hooks)
+    ensure_workspace_internal(
+        identifier,
+        None,
+        config,
+        hooks,
+        ExistingWorkspaceRefreshPolicy::Strict,
+    )
+    .map(|prepared| prepared.workspace)
 }
 
 /// Issue-aware variant that injects full issue metadata into hook env vars.
@@ -68,7 +75,91 @@ pub fn ensure_workspace_for_issue(
     config: &WorkspaceConfig,
     hooks: &HooksConfig,
 ) -> Result<Workspace> {
-    ensure_workspace_internal(&issue.identifier, Some(issue), config, hooks)
+    ensure_workspace_internal(
+        &issue.identifier,
+        Some(issue),
+        config,
+        hooks,
+        ExistingWorkspaceRefreshPolicy::Strict,
+    )
+    .map(|prepared| prepared.workspace)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExistingWorkspaceRefreshPolicy {
+    Strict,
+    AllowStale,
+}
+
+#[derive(Debug, Clone)]
+pub struct WorkspacePreparation {
+    pub workspace: Workspace,
+    pub refresh_notice: Option<WorkspaceRefreshNotice>,
+}
+
+#[derive(Debug, Clone)]
+pub struct WorkspaceRefreshNotice {
+    pub clone_branch: String,
+    pub workspace_head: String,
+    pub clone_branch_head: String,
+    pub dirty_status: Option<String>,
+    pub reason: String,
+}
+
+impl WorkspaceRefreshNotice {
+    pub fn to_prompt_context(&self) -> String {
+        let mut lines = vec![
+            "## Workspace Status".to_string(),
+            String::new(),
+            format!(
+                "Symphony skipped automatic refresh from `{}` because {}.",
+                self.clone_branch, self.reason
+            ),
+            String::new(),
+            format!("- Workspace HEAD: `{}`", self.workspace_head),
+            format!(
+                "- `{}` HEAD: `{}`",
+                self.clone_branch, self.clone_branch_head
+            ),
+        ];
+
+        if let Some(status) = self.dirty_status.as_deref() {
+            lines.push("- Workspace status: dirty".to_string());
+            lines.push("- Local changes:".to_string());
+            for line in status
+                .lines()
+                .map(str::trim)
+                .filter(|line| !line.is_empty())
+            {
+                lines.push(format!("  - `{line}`"));
+            }
+        } else {
+            lines.push("- Workspace status: clean with local commits or divergence".to_string());
+        }
+
+        lines.push(String::new());
+        lines.push(
+            "Continue from the current workspace state. Preserve local work. Before opening or updating a PR, reconcile this branch with latest base branch changes."
+                .to_string(),
+        );
+
+        lines.join("\n")
+    }
+}
+
+pub fn ensure_workspace_for_issue_with_refresh_policy(
+    issue: &Issue,
+    config: &WorkspaceConfig,
+    hooks: &HooksConfig,
+    refresh_policy: ExistingWorkspaceRefreshPolicy,
+) -> Result<WorkspacePreparation> {
+    ensure_workspace_internal(
+        &issue.identifier,
+        Some(issue),
+        config,
+        hooks,
+        refresh_policy,
+    )
 }
 
 fn ensure_workspace_internal(
@@ -76,7 +167,8 @@ fn ensure_workspace_internal(
     issue: Option<&Issue>,
     config: &WorkspaceConfig,
     hooks: &HooksConfig,
-) -> Result<Workspace> {
+    refresh_policy: ExistingWorkspaceRefreshPolicy,
+) -> Result<WorkspacePreparation> {
     let safe_id = path_safety::sanitize_identifier(identifier);
     let hook_issue = HookIssueContext::from_issue_or_identifier(issue, identifier);
 
@@ -125,14 +217,21 @@ fn ensure_workspace_internal(
                 return Err(err);
             }
         }
-    } else {
-        refresh_existing_workspace_from_clone_branch(&final_path, config)?;
     }
 
-    Ok(Workspace {
-        path: final_path.to_string_lossy().to_string(),
-        workspace_key: safe_id,
-        created_now,
+    let refresh_notice = if created_now {
+        None
+    } else {
+        refresh_existing_workspace_from_clone_branch(&final_path, config, refresh_policy)?
+    };
+
+    Ok(WorkspacePreparation {
+        workspace: Workspace {
+            path: final_path.to_string_lossy().to_string(),
+            workspace_key: safe_id,
+            created_now,
+        },
+        refresh_notice,
     })
 }
 
@@ -396,13 +495,14 @@ fn git_branch_exists(repo: &str, branch_name: &str) -> Result<bool> {
 fn refresh_existing_workspace_from_clone_branch(
     workspace: &Path,
     config: &WorkspaceConfig,
-) -> Result<()> {
+    refresh_policy: ExistingWorkspaceRefreshPolicy,
+) -> Result<Option<WorkspaceRefreshNotice>> {
     if config.strategy != WorkspaceRepoStrategy::Worktree {
-        return Ok(());
+        return Ok(None);
     }
 
     let Some(clone_branch) = config.clone_branch.as_deref() else {
-        return Ok(());
+        return Ok(None);
     };
 
     ensure_symphony_skill_ignore(workspace)?;
@@ -414,10 +514,23 @@ fn refresh_existing_workspace_from_clone_branch(
         "HEAD",
         "workspace freshness check",
     )? {
-        return Ok(());
+        return Ok(None);
     }
 
-    if let Some(status) = git_dirty_status(workspace)? {
+    let dirty_status = git_dirty_status(workspace)?;
+    let workspace_head = git_rev_parse(workspace, "HEAD", "workspace HEAD lookup")?;
+
+    if let Some(status) = dirty_status.as_deref() {
+        if refresh_policy == ExistingWorkspaceRefreshPolicy::AllowStale {
+            return Ok(Some(WorkspaceRefreshNotice {
+                clone_branch: clone_branch.to_string(),
+                workspace_head,
+                clone_branch_head: clone_commit,
+                dirty_status: Some(status.to_string()),
+                reason: "the workspace has local changes and is behind the base branch".to_string(),
+            }));
+        }
+
         return Err(SymphonyError::WorkspaceError(format!(
             "workspace stale: local changes block refresh from clone_branch `{clone_branch}`; rebase manually before retrying: {}; changes: {status}",
             workspace.display()
@@ -430,6 +543,17 @@ fn refresh_existing_workspace_from_clone_branch(
         &clone_commit,
         "workspace fast-forward check",
     )? {
+        if refresh_policy == ExistingWorkspaceRefreshPolicy::AllowStale {
+            return Ok(Some(WorkspaceRefreshNotice {
+                clone_branch: clone_branch.to_string(),
+                workspace_head,
+                clone_branch_head: clone_commit,
+                dirty_status: None,
+                reason: "the workspace has local commits or has diverged from the base branch"
+                    .to_string(),
+            }));
+        }
+
         return Err(SymphonyError::WorkspaceError(format!(
             "workspace stale: local commits or divergence block refresh from clone_branch `{clone_branch}`; rebase manually before retrying: {}",
             workspace.display()
@@ -452,7 +576,7 @@ fn refresh_existing_workspace_from_clone_branch(
         "fast-forwarded existing workspace from clone_branch"
     );
 
-    Ok(())
+    Ok(None)
 }
 
 fn ensure_symphony_skill_ignore(workspace: &Path) -> Result<()> {

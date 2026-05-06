@@ -910,6 +910,61 @@ fn test_existing_worktree_reports_stale_when_dirty() {
 }
 
 #[test]
+fn test_existing_worktree_allows_dirty_stale_workspace_with_notice_when_policy_allows() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path().join("workspaces");
+    let source_repo = tmp.path().join("source-repo");
+    fs::create_dir_all(&root).unwrap();
+    init_git_repo(&source_repo);
+    create_branch_with_commit(&source_repo, "feature-base", "BASE.txt", "initial base\n");
+
+    let config = WorkspaceConfig {
+        root: root.to_string_lossy().to_string(),
+        repo: Some(source_repo.to_string_lossy().to_string()),
+        strategy: WorkspaceRepoStrategy::Worktree,
+        isolation: WorkspaceIsolation::Local,
+        docker: None,
+        branch_prefix: "symphony".to_string(),
+        clone_branch: Some("feature-base".to_string()),
+        base_branch: Some("main".to_string()),
+        cleanup_on_done: false,
+    };
+    let hooks = hooks_config_none();
+    let issue = make_test_issue("KAT-811");
+
+    let first = symphony::workspace::ensure_workspace_for_issue(&issue, &config, &hooks).unwrap();
+    fs::write(Path::new(&first.path).join("README.md"), "worker edit\n").unwrap();
+    commit_file(
+        &source_repo,
+        "LATER.txt",
+        "later base fix\n",
+        "later base fix",
+    );
+
+    let prepared = symphony::workspace::ensure_workspace_for_issue_with_refresh_policy(
+        &issue,
+        &config,
+        &hooks,
+        symphony::workspace::ExistingWorkspaceRefreshPolicy::AllowStale,
+    )
+    .expect("dirty stale workspace should be reusable when policy allows");
+
+    assert_eq!(prepared.workspace.path, first.path);
+    let notice = prepared
+        .refresh_notice
+        .expect("dirty stale workspace should include refresh notice");
+    assert_eq!(notice.clone_branch, "feature-base");
+    assert!(notice
+        .dirty_status
+        .as_deref()
+        .unwrap()
+        .contains("README.md"));
+    let prompt_context = notice.to_prompt_context();
+    assert!(prompt_context.contains("## Workspace Status"));
+    assert!(prompt_context.contains("Preserve local work"));
+}
+
+#[test]
 fn test_existing_worktree_ignores_injected_symphony_skills_for_staleness() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path().join("workspaces");

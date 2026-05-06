@@ -419,6 +419,7 @@ struct WorkerTaskConfig {
     tracker: TrackerConfig,
     prompt_template: String,
     shared_context: String,
+    workspace_refresh_policy: workspace::ExistingWorkspaceRefreshPolicy,
     event_tx: tokio::sync::mpsc::UnboundedSender<(String, AgentEvent)>,
     escalation_tx: tokio::sync::mpsc::UnboundedSender<rpc_bridge::EscalationDispatch>,
     escalation_timeout_ms: u64,
@@ -1163,27 +1164,31 @@ async fn run_worker_task(
     }
 
     // 1. Ensure workspace (create dir + after_create hook)
-    let workspace_info =
-        match workspace::ensure_workspace_for_issue(issue, &config.workspace, &config.hooks) {
-            Ok(info) => info,
-            Err(err) => {
-                tracing::error!(
-                    event = "worker_workspace_failed",
-                    issue_id = %issue_id,
-                    issue_identifier = %issue.identifier,
-                    error = %err,
-                    "workspace preparation failed"
-                );
-                return WorkerResult {
-                    issue_id,
-                    completion: WorkerCompletion::Failed {
-                        error: format!("workspace preparation failed: {err}"),
-                    },
-                    events: vec![],
-                    metrics: None,
-                };
-            }
-        };
+    let workspace_info = match workspace::ensure_workspace_for_issue_with_refresh_policy(
+        issue,
+        &config.workspace,
+        &config.hooks,
+        config.workspace_refresh_policy,
+    ) {
+        Ok(prepared) => prepared.workspace,
+        Err(err) => {
+            tracing::error!(
+                event = "worker_workspace_failed",
+                issue_id = %issue_id,
+                issue_identifier = %issue.identifier,
+                error = %err,
+                "workspace preparation failed"
+            );
+            return WorkerResult {
+                issue_id,
+                completion: WorkerCompletion::Failed {
+                    error: format!("workspace preparation failed: {err}"),
+                },
+                events: vec![],
+                metrics: None,
+            };
+        }
+    };
 
     let workspace_path = Path::new(&workspace_info.path);
 
@@ -1691,6 +1696,14 @@ pub struct DispatchedIssue {
     pub issue: Issue,
     pub attempt: Option<u32>,
     pub worker_host: Option<String>,
+    pub workspace_refresh_policy: workspace::ExistingWorkspaceRefreshPolicy,
+    pub workspace_status_context: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+struct WorkspaceDispatchPreparation {
+    path: String,
+    status_context: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -2400,7 +2413,10 @@ impl Orchestrator {
             let prompt_template = Self::ensure_shared_context_placeholder(
                 self.resolve_prompt_for_state(&effective_state),
             );
-            let shared_context = self.build_shared_context_block_for_issue(&issue);
+            let shared_context = Self::append_workspace_status_context(
+                self.build_shared_context_block_for_issue(&issue),
+                d.workspace_status_context.as_deref(),
+            );
             let pi_model_override = if self.config.agent_backend == AgentBackend::KataCli {
                 effective_pi_model_for_issue(&self.config, &issue)
             } else {
@@ -2433,6 +2449,7 @@ impl Orchestrator {
                 tracker: self.config.tracker.clone(),
                 prompt_template,
                 shared_context,
+                workspace_refresh_policy: d.workspace_refresh_policy,
                 event_tx: self.worker_event_tx.clone(),
                 escalation_tx: self.worker_escalation_tx.clone(),
                 escalation_timeout_ms: self.config.agent.escalation_timeout_ms,
@@ -2872,10 +2889,14 @@ impl Orchestrator {
                 continue;
             };
 
-            let Some(workspace_path) = self.prepare_workspace_for_active_dispatch(&refreshed_issue)
+            let workspace_refresh_policy =
+                Self::workspace_refresh_policy_for_dispatch(&refreshed_issue, None);
+            let Some(workspace_preparation) = self
+                .prepare_workspace_for_active_dispatch(&refreshed_issue, workspace_refresh_policy)
             else {
                 continue;
             };
+            let workspace_path = workspace_preparation.path.clone();
 
             let Some(refreshed_issue) =
                 self.enforce_agent_review_pr_gate(&refreshed_issue, &workspace_path, port)?
@@ -2920,6 +2941,8 @@ impl Orchestrator {
                 issue: refreshed_issue,
                 attempt: None,
                 worker_host,
+                workspace_refresh_policy,
+                workspace_status_context: workspace_preparation.status_context,
             });
         }
 
@@ -4356,6 +4379,23 @@ impl Orchestrator {
         format!("{age_days}d ago")
     }
 
+    fn append_workspace_status_context(
+        mut shared_context: String,
+        workspace_status_context: Option<&str>,
+    ) -> String {
+        let Some(workspace_status_context) = workspace_status_context else {
+            return shared_context;
+        };
+        if workspace_status_context.trim().is_empty() {
+            return shared_context;
+        }
+        if !shared_context.trim().is_empty() {
+            shared_context.push_str("\n\n");
+        }
+        shared_context.push_str(workspace_status_context);
+        shared_context
+    }
+
     fn build_shared_context_block_for_issue(&self, issue: &Issue) -> String {
         let scopes = Self::shared_context_scopes_for_issue(issue);
         let entries: Vec<_> = self
@@ -4814,13 +4854,35 @@ impl Orchestrator {
         true
     }
 
-    fn prepare_workspace_for_active_dispatch(&mut self, issue: &Issue) -> Option<String> {
-        match workspace::ensure_workspace_for_issue(
+    fn workspace_refresh_policy_for_dispatch(
+        issue: &Issue,
+        attempt: Option<u32>,
+    ) -> workspace::ExistingWorkspaceRefreshPolicy {
+        if attempt.is_some() || normalize_issue_state(&issue.state) != "todo" {
+            workspace::ExistingWorkspaceRefreshPolicy::AllowStale
+        } else {
+            workspace::ExistingWorkspaceRefreshPolicy::Strict
+        }
+    }
+
+    fn prepare_workspace_for_active_dispatch(
+        &mut self,
+        issue: &Issue,
+        refresh_policy: workspace::ExistingWorkspaceRefreshPolicy,
+    ) -> Option<WorkspaceDispatchPreparation> {
+        match workspace::ensure_workspace_for_issue_with_refresh_policy(
             issue,
             &self.config.workspace,
             &self.config.hooks,
+            refresh_policy,
         ) {
-            Ok(info) => Some(info.path),
+            Ok(info) => Some(WorkspaceDispatchPreparation {
+                path: info.workspace.path,
+                status_context: info
+                    .refresh_notice
+                    .as_ref()
+                    .map(workspace::WorkspaceRefreshNotice::to_prompt_context),
+            }),
             Err(err) => {
                 let error = err.to_string();
                 tracing::warn!(
@@ -5198,9 +5260,14 @@ impl Orchestrator {
                 continue;
             };
 
-            let Some(workspace_path) = self.prepare_workspace_for_active_dispatch(&issue) else {
+            let workspace_refresh_policy =
+                Self::workspace_refresh_policy_for_dispatch(&issue, Some(retry.attempt));
+            let Some(workspace_preparation) =
+                self.prepare_workspace_for_active_dispatch(&issue, workspace_refresh_policy)
+            else {
                 continue;
             };
+            let workspace_path = workspace_preparation.path.clone();
 
             let Some(issue) =
                 (match self.enforce_agent_review_pr_gate(&issue, &workspace_path, port) {
@@ -5266,6 +5333,8 @@ impl Orchestrator {
                     issue,
                     attempt: Some(retry.attempt),
                     worker_host,
+                    workspace_refresh_policy,
+                    workspace_status_context: workspace_preparation.status_context,
                 });
                 continue;
             }

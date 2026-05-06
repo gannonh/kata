@@ -98,6 +98,11 @@ let args;
 if (localLoader && existsSync(localLoader)) {
   command = process.execPath;
   args = [localLoader, ...cliArgs];
+} else if (process.env.KATA_CLI_ROOT) {
+  console.error(
+    `KATA_CLI_ROOT is set but ${localLoader} does not exist. Set KATA_CLI_ROOT to the CLI checkout root or unset it.`,
+  );
+  process.exit(1);
 } else if (process.env.KATA_CLI_BIN) {
   command = process.env.KATA_CLI_BIN;
   args = cliArgs;
