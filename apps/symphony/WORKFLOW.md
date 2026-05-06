@@ -36,7 +36,7 @@ agent:
   no_session: false
   max_concurrent_agents: 8
   max_turns: 20
-  model: openai-codex/gpt-5.3-codex
+  model: openai-codex/gpt-5.5
   model_by_state:
     Agent Review: openai-codex/gpt-5.3-codex
     Merging: openai-codex/gpt-5.3-codex
