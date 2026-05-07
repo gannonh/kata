@@ -52,6 +52,7 @@ interface LinearClassificationLabels {
 }
 
 interface LinearLabelNode {
+  id?: string | null;
   name?: string | null;
 }
 
@@ -127,6 +128,8 @@ interface LinearContext {
   project: LinearProjectNode;
   stateByKataStatus: Map<keyof LinearStateMapping, LinearWorkflowStateNode>;
   kataStatusByStateName: Map<string, keyof LinearStateMapping>;
+  labels: LinearClassificationLabels;
+  labelIdByName: Map<string, string>;
 }
 
 interface LinearContextQueryData {
@@ -135,6 +138,7 @@ interface LinearContextQueryData {
   teams?: { nodes?: Array<LinearTeamNode | null> | null } | null;
   projects?: { nodes?: Array<LinearProjectNode | null> | null } | null;
   workflowStates?: { nodes?: Array<LinearWorkflowStateNode | null> | null } | null;
+  issueLabels?: { nodes?: Array<LinearLabelNode | null> | null } | null;
 }
 
 interface LinearMilestonesQueryData {
@@ -147,6 +151,41 @@ interface LinearMilestonesQueryData {
 
 interface LinearIssuesQueryData {
   issues: LinearConnection<LinearIssueNode>;
+}
+
+interface LinearProjectUpdateMutationData {
+  projectUpdate?: {
+    success?: boolean | null;
+    project?: LinearProjectNode | null;
+  } | null;
+}
+
+interface LinearProjectMilestoneMutationData {
+  projectMilestoneCreate?: {
+    success?: boolean | null;
+    projectMilestone?: LinearMilestoneNode | null;
+  } | null;
+  projectMilestoneUpdate?: {
+    success?: boolean | null;
+    projectMilestone?: LinearMilestoneNode | null;
+  } | null;
+}
+
+interface LinearIssueMutationData {
+  issueCreate?: {
+    success?: boolean | null;
+    issue?: LinearIssueNode | null;
+  } | null;
+  issueUpdate?: {
+    success?: boolean | null;
+    issue?: LinearIssueNode | null;
+  } | null;
+}
+
+interface LinearIssueRelationCreateMutationData {
+  issueRelationCreate?: {
+    success?: boolean | null;
+  } | null;
 }
 
 export const LINEAR_CONTEXT_QUERY = `
@@ -179,6 +218,12 @@ export const LINEAR_CONTEXT_QUERY = `
         id
         name
         type
+      }
+    }
+    issueLabels(first: $first) {
+      nodes {
+        id
+        name
       }
     }
   }
@@ -329,6 +374,137 @@ export const LINEAR_ISSUES_QUERY = `
   }
 `;
 
+export const LINEAR_PROJECT_UPDATE_MUTATION = `
+  mutation LinearKataProjectUpdate($id: String!, $input: ProjectUpdateInput!) {
+    projectUpdate(id: $id, input: $input) {
+      success
+      project {
+        id
+        name
+        slugId
+        url
+        description
+      }
+    }
+  }
+`;
+
+export const LINEAR_PROJECT_MILESTONE_CREATE_MUTATION = `
+  mutation LinearKataProjectMilestoneCreate($input: ProjectMilestoneCreateInput!) {
+    projectMilestoneCreate(input: $input) {
+      success
+      projectMilestone {
+        id
+        name
+        description
+        targetDate
+      }
+    }
+  }
+`;
+
+export const LINEAR_PROJECT_MILESTONE_UPDATE_MUTATION = `
+  mutation LinearKataProjectMilestoneUpdate($id: String!, $input: ProjectMilestoneUpdateInput!) {
+    projectMilestoneUpdate(id: $id, input: $input) {
+      success
+      projectMilestone {
+        id
+        name
+        description
+        targetDate
+      }
+    }
+  }
+`;
+
+export const LINEAR_ISSUE_CREATE_MUTATION = `
+  mutation LinearKataIssueCreate($input: IssueCreateInput!) {
+    issueCreate(input: $input) {
+      success
+      issue {
+        id
+        identifier
+        number
+        title
+        description
+        url
+        state {
+          id
+          name
+          type
+        }
+        projectMilestone {
+          id
+          name
+          description
+          targetDate
+        }
+        parent {
+          id
+          identifier
+          number
+          title
+          description
+          url
+          state {
+            id
+            name
+            type
+          }
+        }
+      }
+    }
+  }
+`;
+
+export const LINEAR_ISSUE_UPDATE_MUTATION = `
+  mutation LinearKataIssueUpdate($id: String!, $input: IssueUpdateInput!) {
+    issueUpdate(id: $id, input: $input) {
+      success
+      issue {
+        id
+        identifier
+        number
+        title
+        description
+        url
+        state {
+          id
+          name
+          type
+        }
+        projectMilestone {
+          id
+          name
+          description
+          targetDate
+        }
+        parent {
+          id
+          identifier
+          number
+          title
+          description
+          url
+          state {
+            id
+            name
+            type
+          }
+        }
+      }
+    }
+  }
+`;
+
+export const LINEAR_ISSUE_RELATION_CREATE_MUTATION = `
+  mutation LinearKataIssueRelationCreate($input: IssueRelationCreateInput!) {
+    issueRelationCreate(input: $input) {
+      success
+    }
+  }
+`;
+
 export class LinearKataAdapter implements KataBackendAdapter {
   private readonly client: LinearClient;
   private readonly config: LinearTrackerConfig;
@@ -354,8 +530,33 @@ export class LinearKataAdapter implements KataBackendAdapter {
     };
   }
 
-  async upsertProject(_input: KataProjectUpsertInput): Promise<KataProjectContext> {
-    throw laterTaskError("Linear project upsert");
+  async upsertProject(input: KataProjectUpsertInput): Promise<KataProjectContext> {
+    const context = await this.getContext();
+    const data = await this.client.graphql<LinearProjectUpdateMutationData>({
+      query: LINEAR_PROJECT_UPDATE_MUTATION,
+      variables: {
+        id: context.project.id,
+        input: {
+          name: input.title,
+          description: input.description,
+        },
+      },
+    });
+    const project = requireMutationNode(data.projectUpdate, data.projectUpdate?.project, "Linear project update");
+
+    context.project = {
+      ...context.project,
+      ...project,
+      name: input.title,
+      description: project.description ?? input.description,
+    };
+
+    return {
+      backend: "linear",
+      workspacePath: this.workspacePath,
+      title: context.project.name,
+      description: context.project.description ?? input.description,
+    };
   }
 
   async listMilestones(): Promise<KataMilestone[]> {
@@ -387,12 +588,66 @@ export class LinearKataAdapter implements KataBackendAdapter {
     throw new KataDomainError("INVALID_CONFIG", "Multiple Linear milestones were found; set linear.activeMilestoneId.");
   }
 
-  async createMilestone(_input: KataMilestoneCreateInput): Promise<KataMilestone> {
-    throw laterTaskError("Linear milestone creation");
+  async createMilestone(input: KataMilestoneCreateInput): Promise<KataMilestone> {
+    await this.discoverEntities();
+    const context = await this.getContext();
+    const kataId = this.nextKataId("Milestone");
+    const data = await this.client.graphql<LinearProjectMilestoneMutationData>({
+      query: LINEAR_PROJECT_MILESTONE_CREATE_MUTATION,
+      variables: {
+        input: {
+          projectId: context.project.id,
+          name: `[${kataId}] ${input.title}`,
+          description: input.goal,
+        },
+      },
+    });
+    const milestone = requireMutationNode(
+      data.projectMilestoneCreate,
+      data.projectMilestoneCreate?.projectMilestone,
+      "Linear milestone creation",
+    );
+
+    const entity: TrackedLinearEntity = {
+      kataId,
+      type: "Milestone",
+      linearId: milestone.id,
+      title: input.title,
+      body: milestone.description ?? input.goal,
+    };
+    this.addDiscoveredEntity(entity);
+    return milestoneFromEntity(entity);
   }
 
-  async completeMilestone(_input: KataMilestoneCompleteInput): Promise<KataMilestone> {
-    throw laterTaskError("Linear milestone completion");
+  async completeMilestone(input: KataMilestoneCompleteInput): Promise<KataMilestone> {
+    const entity = await this.requireEntity(input.milestoneId, "Milestone");
+    const description = appendBodySection(entity.body, "Completion Summary", input.summary);
+    const data = await this.client.graphql<LinearProjectMilestoneMutationData>({
+      query: LINEAR_PROJECT_MILESTONE_UPDATE_MUTATION,
+      variables: {
+        id: entity.linearId,
+        input: {
+          description,
+        },
+      },
+    });
+    const milestone = requireMutationNode(
+      data.projectMilestoneUpdate,
+      data.projectMilestoneUpdate?.projectMilestone,
+      "Linear milestone completion",
+    );
+    const updatedEntity: TrackedLinearEntity = {
+      ...entity,
+      title: milestone.name ? stripKataPrefix(milestone.name) : entity.title,
+      body: milestone.description ?? description,
+    };
+    this.entities.set(updatedEntity.kataId, updatedEntity);
+
+    return {
+      ...milestoneFromEntity(updatedEntity),
+      status: "done",
+      active: false,
+    };
   }
 
   async listSlices(input: { milestoneId: string }): Promise<KataSlice[]> {
@@ -400,15 +655,40 @@ export class LinearKataAdapter implements KataBackendAdapter {
     return [...this.entities.values()]
       .filter((entity) => entity.type === "Slice" && entity.parentId === input.milestoneId)
       .sort((left, right) => left.kataId.localeCompare(right.kataId))
-      .map((entity, index) => sliceFromEntity(entity, this.config.states, index));
+      .map((entity, index) => sliceFromTrackedEntity(entity, this.config.states, index));
   }
 
-  async createSlice(_input: KataSliceCreateInput): Promise<KataSlice> {
-    throw laterTaskError("Linear slice creation");
+  async createSlice(input: KataSliceCreateInput): Promise<KataSlice> {
+    await this.discoverEntities();
+    const milestone = await this.requireEntity(input.milestoneId, "Milestone");
+    const kataId = this.nextKataId("Slice");
+    const blockedBy = parseSliceDependencyIds(input.blockedBy ?? []);
+    const entity = await this.createLinearIssue({
+      kataId,
+      type: "Slice",
+      parentKataId: milestone.kataId,
+      title: input.title,
+      description: input.goal,
+      status: "backlog",
+      projectMilestoneId: milestone.linearId,
+    });
+    this.addDiscoveredEntity(entity);
+    await this.createNativeIssueDependencies(entity, blockedBy);
+
+    return {
+      ...sliceFromTrackedEntity(this.entities.get(kataId) ?? entity, this.config.states, input.order ?? 0),
+      status: "backlog",
+      order: input.order ?? 0,
+    };
   }
 
-  async updateSliceStatus(_input: KataSliceUpdateStatusInput): Promise<KataSlice> {
-    throw laterTaskError("Linear slice status updates");
+  async updateSliceStatus(input: KataSliceUpdateStatusInput): Promise<KataSlice> {
+    const entity = await this.requireEntity(input.sliceId, "Slice");
+    const updatedEntity = await this.updateLinearIssueEntity(entity, input.status);
+    return {
+      ...sliceFromTrackedEntity(updatedEntity, this.config.states, 0),
+      status: input.status,
+    };
   }
 
   async listTasks(input: { sliceId: string }): Promise<KataTask[]> {
@@ -416,19 +696,60 @@ export class LinearKataAdapter implements KataBackendAdapter {
     return [...this.entities.values()]
       .filter((entity) => entity.type === "Task" && entity.parentId === input.sliceId)
       .sort((left, right) => left.kataId.localeCompare(right.kataId))
-      .map((entity) => taskFromEntity(entity, this.config.states));
+      .map((entity) => taskFromTrackedEntity(entity, this.config.states));
   }
 
-  async createTask(_input: KataTaskCreateInput): Promise<KataTask> {
-    throw laterTaskError("Linear task creation");
+  async createTask(input: KataTaskCreateInput): Promise<KataTask> {
+    await this.discoverEntities();
+    const slice = await this.requireEntity(input.sliceId, "Slice");
+    const kataId = this.nextKataId("Task");
+    const entity = await this.createLinearIssue({
+      kataId,
+      type: "Task",
+      parentKataId: slice.kataId,
+      title: input.title,
+      description: input.description,
+      status: "backlog",
+      projectMilestoneId: slice.projectMilestoneId,
+      parentLinearId: slice.linearId,
+    });
+    this.addDiscoveredEntity(entity);
+
+    return {
+      ...taskFromTrackedEntity(entity, this.config.states),
+      status: "backlog",
+      verificationState: "pending",
+    };
   }
 
-  async updateTaskStatus(_input: KataTaskUpdateStatusInput): Promise<KataTask> {
-    throw laterTaskError("Linear task status updates");
+  async updateTaskStatus(input: KataTaskUpdateStatusInput): Promise<KataTask> {
+    const entity = await this.requireEntity(input.taskId, "Task");
+    const updatedEntity = await this.updateLinearIssueEntity(entity, input.status);
+    const task = taskFromTrackedEntity(updatedEntity, this.config.states);
+    return {
+      ...task,
+      status: input.status,
+      verificationState: input.verificationState ?? task.verificationState,
+    };
   }
 
-  async createIssue(_input: KataIssueCreateInput): Promise<KataIssue> {
-    throw laterTaskError("Linear standalone issue creation");
+  async createIssue(input: KataIssueCreateInput): Promise<KataIssue> {
+    await this.discoverEntities();
+    const kataId = this.nextKataId("Issue");
+    const body = `# Design\n\n${input.design}\n\n# Plan\n\n${input.plan}`;
+    const entity = await this.createLinearIssue({
+      kataId,
+      type: "Issue",
+      title: input.title,
+      description: body,
+      status: "backlog",
+    });
+    this.addDiscoveredEntity(entity);
+
+    return {
+      ...issueFromEntity(entity, this.config.states),
+      status: "backlog",
+    };
   }
 
   async listOpenIssues(): Promise<KataIssueSummary[]> {
@@ -444,8 +765,13 @@ export class LinearKataAdapter implements KataBackendAdapter {
     return issueFromEntity(entity, this.config.states);
   }
 
-  async updateIssueStatus(_input: KataIssueUpdateStatusInput): Promise<KataIssue> {
-    throw laterTaskError("Linear standalone issue status updates");
+  async updateIssueStatus(input: KataIssueUpdateStatusInput): Promise<KataIssue> {
+    const entity = await this.requireEntity(input.issueId, "Issue");
+    const updatedEntity = await this.updateLinearIssueEntity(entity, input.status);
+    return {
+      ...issueFromEntity(updatedEntity, this.config.states),
+      status: input.status,
+    };
   }
 
   async listArtifacts(_input: { scopeType: KataScopeType; scopeId: string }): Promise<KataArtifact[]> {
@@ -555,11 +881,20 @@ export class LinearKataAdapter implements KataBackendAdapter {
       kataStatusByStateName.set(state.name, kataStatus);
     }
 
+    const labelIdByName = new Map(
+      (data.issueLabels?.nodes ?? [])
+        .filter((node): node is LinearLabelNode => node !== null)
+        .flatMap((label) => (isNonEmptyString(label.id) && isNonEmptyString(label.name) ? [[label.name, label.id] as const] : [])),
+    );
+    const classificationLabels = linearClassificationLabels(this.config.labels);
+
     return {
       team,
       project,
       stateByKataStatus,
       kataStatusByStateName,
+      labels: classificationLabels,
+      labelIdByName,
     };
   }
 
@@ -661,6 +996,148 @@ export class LinearKataAdapter implements KataBackendAdapter {
     throw new KataDomainError("NOT_FOUND", `Standalone issue was not found for reference "${issueRef}".`);
   }
 
+  private async requireEntity(kataId: string, type: LinearEntityType): Promise<TrackedLinearEntity> {
+    await this.discoverEntities();
+    const normalizedId = kataId.trim().toUpperCase();
+    const entity = this.entities.get(normalizedId);
+    if (!entity || entity.type !== type) {
+      throw new KataDomainError("NOT_FOUND", `${type} ${kataId} was not found.`);
+    }
+    return entity;
+  }
+
+  private nextKataId(type: LinearEntityType): string {
+    const prefixByType: Record<LinearEntityType, string> = {
+      Project: "P",
+      Milestone: "M",
+      Slice: "S",
+      Task: "T",
+      Issue: "I",
+    };
+    const prefix = prefixByType[type];
+    const max = [...this.entities.values()]
+      .filter((entity) => entity.type === type && entity.kataId.startsWith(prefix))
+      .reduce((currentMax, entity) => {
+        const value = Number(entity.kataId.slice(1));
+        return Number.isSafeInteger(value) ? Math.max(currentMax, value) : currentMax;
+      }, 0);
+
+    return `${prefix}${String(max + 1).padStart(3, "0")}`;
+  }
+
+  private async createLinearIssue(input: {
+    kataId: string;
+    type: Extract<LinearEntityType, "Slice" | "Task" | "Issue">;
+    parentKataId?: string;
+    title: string;
+    description: string;
+    status: keyof LinearStateMapping;
+    projectMilestoneId?: string;
+    parentLinearId?: string;
+  }): Promise<TrackedLinearEntity> {
+    const context = await this.getContext();
+    const stateId = requireStateId(context, input.status);
+    const data = await this.client.graphql<LinearIssueMutationData>({
+      query: LINEAR_ISSUE_CREATE_MUTATION,
+      variables: {
+        input: {
+          teamId: context.team.id,
+          projectId: context.project.id,
+          title: `[${input.kataId}] ${input.title}`,
+          description: input.description,
+          stateId,
+          labelIds: labelIdsForType(context, input.type),
+          projectMilestoneId: input.projectMilestoneId,
+          parentId: input.parentLinearId,
+        },
+      },
+    });
+    const issue = requireMutationNode(data.issueCreate, data.issueCreate?.issue, "Linear issue creation");
+
+    return {
+      kataId: input.kataId,
+      type: input.type,
+      parentId: input.parentKataId,
+      blockedBy: input.type === "Slice" ? [] : undefined,
+      blocking: input.type === "Slice" ? [] : undefined,
+      linearId: issue.id,
+      identifier: issue.identifier,
+      title: stripKataPrefix(issue.title),
+      body: issue.description ?? input.description,
+      url: issue.url ?? undefined,
+      stateName: issue.state?.name ?? undefined,
+      stateType: issue.state?.type ?? undefined,
+      projectMilestoneId: issue.projectMilestone?.id ?? input.projectMilestoneId,
+    };
+  }
+
+  private async updateLinearIssueEntity(
+    entity: TrackedLinearEntity,
+    status: keyof LinearStateMapping,
+  ): Promise<TrackedLinearEntity> {
+    const context = await this.getContext();
+    const data = await this.client.graphql<LinearIssueMutationData>({
+      query: LINEAR_ISSUE_UPDATE_MUTATION,
+      variables: {
+        id: entity.linearId,
+        input: {
+          stateId: requireStateId(context, status),
+        },
+      },
+    });
+    const issue = requireMutationNode(data.issueUpdate, data.issueUpdate?.issue, "Linear issue update");
+
+    const updatedEntity: TrackedLinearEntity = {
+      ...entity,
+      linearId: issue.id,
+      identifier: issue.identifier ?? entity.identifier,
+      title: stripKataPrefix(issue.title),
+      body: issue.description ?? entity.body,
+      url: issue.url ?? entity.url,
+      stateName: issue.state?.name ?? entity.stateName,
+      stateType: issue.state?.type ?? entity.stateType,
+      projectMilestoneId: issue.projectMilestone?.id ?? entity.projectMilestoneId,
+    };
+    if (updatedEntity.linearId !== entity.linearId) {
+      this.linearIdToKataId.delete(entity.linearId);
+    }
+    this.entities.set(updatedEntity.kataId, updatedEntity);
+    this.linearIdToKataId.set(updatedEntity.linearId, updatedEntity.kataId);
+    return updatedEntity;
+  }
+
+  private async createNativeIssueDependencies(
+    blockedEntity: TrackedLinearEntity,
+    blockedByIds: string[],
+  ): Promise<void> {
+    const blockedBy = parseSliceDependencyIds(blockedByIds);
+    for (const blockerId of blockedBy) {
+      const blocker = await this.requireEntity(blockerId, "Slice");
+      const data = await this.client.graphql<LinearIssueRelationCreateMutationData>({
+        query: LINEAR_ISSUE_RELATION_CREATE_MUTATION,
+        variables: {
+          input: {
+            issueId: blocker.linearId,
+            relatedIssueId: blockedEntity.linearId,
+            type: "blocks",
+          },
+        },
+      });
+      requireSuccessfulMutation(data.issueRelationCreate, "Linear issue relation creation");
+
+      const updatedBlocker: TrackedLinearEntity = {
+        ...blocker,
+        blocking: parseSliceDependencyIds([...(blocker.blocking ?? []), blockedEntity.kataId]),
+      };
+      blockedEntity = {
+        ...blockedEntity,
+        blockedBy: parseSliceDependencyIds([...(blockedEntity.blockedBy ?? []), blocker.kataId]),
+      };
+      this.entities.set(updatedBlocker.kataId, updatedBlocker);
+      this.entities.set(blockedEntity.kataId, blockedEntity);
+    }
+  }
+
   private addDiscoveredEntity(entity: TrackedLinearEntity): void {
     const duplicate = this.entities.get(entity.kataId);
     if (duplicate) {
@@ -676,6 +1153,62 @@ export class LinearKataAdapter implements KataBackendAdapter {
 
 function laterTaskError(operation: string): KataDomainError {
   return new KataDomainError("NOT_SUPPORTED", `${operation} will be implemented in a later Linear mutation/artifact task.`);
+}
+
+function requireStateId(context: LinearContext, status: keyof LinearStateMapping): string {
+  const state = context.stateByKataStatus.get(status);
+  if (!state) {
+    throw new KataDomainError("INVALID_CONFIG", `Linear workflow state for Kata status ${status} was not found.`);
+  }
+  return state.id;
+}
+
+function labelIdsForType(
+  context: LinearContext,
+  type: Extract<LinearEntityType, "Slice" | "Task" | "Issue">,
+): string[] {
+  const labelNameByType = {
+    Slice: context.labels.slice,
+    Task: context.labels.task,
+    Issue: context.labels.issue,
+  } satisfies Record<Extract<LinearEntityType, "Slice" | "Task" | "Issue">, string>;
+  const labelName = labelNameByType[type];
+  const labelId = context.labelIdByName.get(labelName);
+  if (!labelId) {
+    throw new KataDomainError("INVALID_CONFIG", `Linear label ${labelName} for ${type} was not found.`);
+  }
+  return [labelId];
+}
+
+function requireMutationNode<T extends { id?: string | null }>(
+  mutation: { success?: boolean | null } | null | undefined,
+  node: T | null | undefined,
+  operation: string,
+): T {
+  requireSuccessfulMutation(mutation, operation);
+  if (!node || !isNonEmptyString(node.id)) {
+    throw new KataDomainError("UNKNOWN", `${operation} did not return a valid id.`);
+  }
+  return node;
+}
+
+function requireSuccessfulMutation(
+  mutation: { success?: boolean | null } | null | undefined,
+  operation: string,
+): void {
+  if (mutation?.success !== true) {
+    throw new KataDomainError("UNKNOWN", `${operation} failed.`);
+  }
+}
+
+function appendBodySection(body: string, heading: string, content: string): string {
+  const base = body.trim();
+  const section = `# ${heading}\n\n${content.trim()}`;
+  return base ? `${base}\n\n${section}` : section;
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim() !== "";
 }
 
 function bodyContent(body: string): string {
@@ -906,6 +1439,10 @@ function sliceFromEntity(entity: TrackedLinearEntity, states: LinearStateMapping
   };
 }
 
+function sliceFromTrackedEntity(entity: TrackedLinearEntity, states: LinearStateMapping, order: number): KataSlice {
+  return sliceFromEntity(entity, states, order);
+}
+
 function taskFromEntity(entity: TrackedLinearEntity, states: LinearStateMapping): KataTask {
   return {
     id: entity.kataId,
@@ -915,6 +1452,10 @@ function taskFromEntity(entity: TrackedLinearEntity, states: LinearStateMapping)
     status: taskStatusFromEntity(entity, states),
     verificationState: taskVerificationStateFromEntity(entity, states),
   };
+}
+
+function taskFromTrackedEntity(entity: TrackedLinearEntity, states: LinearStateMapping): KataTask {
+  return taskFromEntity(entity, states);
 }
 
 function issueSummaryFromEntity(entity: TrackedLinearEntity, states: LinearStateMapping): KataIssueSummary {
