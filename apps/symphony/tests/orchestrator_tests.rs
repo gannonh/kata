@@ -5351,6 +5351,40 @@ fn test_parent_issue_child_task_is_not_dispatched_without_label_filter() {
 }
 
 #[test]
+fn test_linear_child_sub_issue_is_not_dispatched_independently() {
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
+    let mut task_issue = issue("linear-child", "KAT-2001", "Todo", Some(1), 0);
+    task_issue.parent_identifier = Some("KAT-2000".to_string());
+    task_issue.labels = vec!["kata:task".to_string()];
+
+    let mut port = FakePort {
+        candidate_issues: vec![task_issue],
+        ..FakePort::default()
+    };
+
+    let tick = orchestrator.tick(&mut port).expect("tick succeeds");
+
+    assert!(tick.dispatched_issue_ids.is_empty());
+}
+
+#[test]
+fn test_linear_parent_issue_with_children_dispatches_as_parent_work() {
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
+    let mut parent_issue = issue("linear-parent", "KAT-2000", "Todo", Some(1), 0);
+    parent_issue.children_count = 3;
+    parent_issue.labels = vec!["kata:slice".to_string()];
+
+    let mut port = FakePort {
+        candidate_issues: vec![parent_issue.clone()],
+        ..FakePort::default()
+    };
+
+    let tick = orchestrator.tick(&mut port).expect("tick succeeds");
+
+    assert_eq!(tick.dispatched_issue_ids, vec![parent_issue.id]);
+}
+
+#[test]
 fn test_exclude_labels_blank_entries_are_ignored() {
     let mut config = test_config(1);
     // Blank/whitespace-only entries in exclude_labels must not match anything

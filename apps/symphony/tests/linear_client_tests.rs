@@ -210,6 +210,39 @@ async fn test_normalization_blockers_filtered_by_type() {
     assert_eq!(issue.blocked_by[0].state.as_deref(), Some("Todo"));
 }
 
+#[test]
+fn test_linear_normalization_extracts_native_blocking_relations() {
+    let raw = serde_json::json!({
+        "id": "issue-blocked",
+        "identifier": "KAT-20",
+        "title": "Blocked issue",
+        "state": { "name": "Todo" },
+        "labels": { "nodes": [] },
+        "inverseRelations": {
+            "nodes": [{
+                "type": "blocks",
+                "issue": {
+                    "id": "issue-blocker",
+                    "identifier": "KAT-19",
+                    "state": { "name": "In Progress" }
+                }
+            }]
+        },
+        "children": { "nodes": [] },
+        "parent": null
+    });
+
+    let issue = symphony::linear::client::normalize_issue(&raw, None).expect("issue normalizes");
+
+    assert_eq!(issue.blocked_by.len(), 1);
+    assert_eq!(issue.blocked_by[0].id.as_deref(), Some("issue-blocker"));
+    assert_eq!(issue.blocked_by[0].identifier.as_deref(), Some("KAT-19"));
+    assert_eq!(
+        issue.blocked_by[0].state.as_deref(),
+        Some("In Progress")
+    );
+}
+
 #[tokio::test]
 async fn test_normalization_blocker_type_case_insensitive() {
     use symphony::linear::client::normalize_issue;
