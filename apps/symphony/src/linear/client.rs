@@ -187,6 +187,94 @@ query SymphonyLinearListUsers($first: Int!, $after: String) {
 }
 "#;
 
+const QUERY_HELPER_ISSUE: &str = r#"
+query SymphonyLinearHelperIssue($issueId: String!, $commentFirst: Int!, $childFirst: Int!, $relationFirst: Int!) {
+  issue(id: $issueId) {
+    id
+    identifier
+    title
+    description
+    priority
+    state { name }
+    branchName
+    url
+    assignee { id }
+    labels { nodes { name } }
+    inverseRelations(first: $relationFirst) { nodes { type issue { id identifier state { name } } } }
+    children(first: $childFirst) {
+      nodes {
+        id
+        identifier
+        title
+        description
+        priority
+        state { name }
+        branchName
+        url
+        assignee { id }
+        labels { nodes { name } }
+        inverseRelations(first: $relationFirst) { nodes { type issue { id identifier state { name } } } }
+        children { nodes { id identifier } }
+        parent { identifier }
+        createdAt
+        updatedAt
+      }
+    }
+    parent { identifier }
+    comments(first: $commentFirst) { nodes { id body url createdAt updatedAt } }
+    createdAt
+    updatedAt
+  }
+}
+"#;
+
+const QUERY_HELPER_COMMENTS: &str = r#"
+query SymphonyLinearHelperIssueComments($issueId: String!, $commentFirst: Int!) {
+  issue(id: $issueId) {
+    comments(first: $commentFirst) {
+      nodes { id body url createdAt updatedAt }
+    }
+  }
+}
+"#;
+
+const MUTATION_UPDATE_COMMENT: &str = r#"
+mutation SymphonyLinearUpdateComment($commentId: String!, $body: String!) {
+  commentUpdate(id: $commentId, input: { body: $body }) {
+    success
+    comment { id body url createdAt updatedAt }
+  }
+}
+"#;
+
+const MUTATION_CREATE_COMMENT_RECORD: &str = r#"
+mutation SymphonyLinearCreateCommentRecord($issueId: String!, $body: String!) {
+  commentCreate(input: { issueId: $issueId, body: $body }) {
+    success
+    comment { id body url createdAt updatedAt }
+  }
+}
+"#;
+
+const QUERY_FOLLOWUP_CONTEXT: &str = r#"
+query SymphonyLinearFollowupContext($issueId: String!) {
+  issue(id: $issueId) {
+    id
+    team { id }
+    project { id }
+  }
+}
+"#;
+
+const MUTATION_CREATE_FOLLOWUP: &str = r#"
+mutation SymphonyLinearCreateFollowup($teamId: String!, $projectId: String, $parentId: String, $title: String!, $description: String!) {
+  issueCreate(input: { teamId: $teamId, projectId: $projectId, parentId: $parentId, title: $title, description: $description }) {
+    success
+    issue { id identifier title url }
+  }
+}
+"#;
+
 // ── AssigneeFilter ─────────────────────────────────────────────────────
 
 /// Filter for routing issues to the current worker based on assignee.
@@ -201,6 +289,34 @@ struct LinearUser {
     display_name: Option<String>,
     name: Option<String>,
     email: Option<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+pub struct LinearCommentRecord {
+    pub id: String,
+    pub body: String,
+    #[serde(default)]
+    pub url: Option<String>,
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct LinearHelperIssueDetail {
+    pub issue: Issue,
+    pub children: Vec<Issue>,
+    pub comments: Vec<LinearCommentRecord>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+pub struct LinearCreatedIssue {
+    pub id: String,
+    pub identifier: String,
+    pub title: String,
+    #[serde(default)]
+    pub url: Option<String>,
 }
 
 // ── LinearClient ───────────────────────────────────────────────────────
@@ -329,6 +445,187 @@ impl LinearClient {
             "fetched issues by IDs"
         );
         Ok(all_issues)
+    }
+
+    pub async fn fetch_helper_issue(
+        &self,
+        issue_id: &str,
+        include_children: bool,
+        include_comments: bool,
+    ) -> Result<LinearHelperIssueDetail> {
+        let body = self
+            .graphql(
+                QUERY_HELPER_ISSUE,
+                serde_json::json!({
+                    "issueId": issue_id,
+                    "commentFirst": if include_comments { ISSUE_PAGE_SIZE } else { 0 },
+                    "childFirst": if include_children { ISSUE_PAGE_SIZE } else { 0 },
+                    "relationFirst": ISSUE_PAGE_SIZE,
+                }),
+            )
+            .await?;
+
+        let issue_value = body
+            .get("data")
+            .and_then(|data| data.get("issue"))
+            .ok_or_else(|| SymphonyError::Other(format!("issue not found: {issue_id}")))?;
+
+        let assignee_filter = self.routing_assignee_filter().await?;
+        let issue = normalize_issue(issue_value, assignee_filter.as_ref())
+            .ok_or_else(|| SymphonyError::LinearUnknownPayload)?;
+
+        let children = issue_value
+            .get("children")
+            .and_then(|children| children.get("nodes"))
+            .and_then(|nodes| nodes.as_array())
+            .map(|nodes| {
+                nodes
+                    .iter()
+                    .filter_map(|node| normalize_issue(node, assignee_filter.as_ref()))
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+
+        let comments = issue_value
+            .get("comments")
+            .and_then(|comments| comments.get("nodes"))
+            .and_then(|nodes| nodes.as_array())
+            .map(|nodes| parse_comment_nodes(nodes))
+            .unwrap_or_default();
+
+        Ok(LinearHelperIssueDetail {
+            issue,
+            children,
+            comments,
+        })
+    }
+
+    pub async fn list_comments(&self, issue_id: &str) -> Result<Vec<LinearCommentRecord>> {
+        let body = self
+            .graphql(
+                QUERY_HELPER_COMMENTS,
+                serde_json::json!({ "issueId": issue_id, "commentFirst": ISSUE_PAGE_SIZE }),
+            )
+            .await?;
+
+        let nodes = body
+            .get("data")
+            .and_then(|data| data.get("issue"))
+            .and_then(|issue| issue.get("comments"))
+            .and_then(|comments| comments.get("nodes"))
+            .and_then(|nodes| nodes.as_array())
+            .ok_or_else(|| SymphonyError::LinearUnknownPayload)?;
+
+        Ok(parse_comment_nodes(nodes))
+    }
+
+    pub async fn upsert_comment(
+        &self,
+        issue_id: &str,
+        marker: Option<&str>,
+        body: &str,
+    ) -> Result<LinearCommentRecord> {
+        let marker = marker.map(str::trim).filter(|value| !value.is_empty());
+        let final_body = match marker {
+            Some(marker) if !body.contains(marker) => format!("{marker}\n\n{body}"),
+            _ => body.to_string(),
+        };
+
+        let existing = match marker {
+            Some(marker) => self
+                .list_comments(issue_id)
+                .await?
+                .into_iter()
+                .find(|comment| comment.body.contains(marker)),
+            None => None,
+        };
+
+        match existing {
+            Some(comment) => self.update_comment(&comment.id, &final_body).await,
+            None => self.create_comment_record(issue_id, &final_body).await,
+        }
+    }
+
+    pub async fn create_followup_issue(
+        &self,
+        parent_issue_id: &str,
+        title: &str,
+        description: &str,
+    ) -> Result<LinearCreatedIssue> {
+        let context_body = self
+            .graphql(
+                QUERY_FOLLOWUP_CONTEXT,
+                serde_json::json!({ "issueId": parent_issue_id }),
+            )
+            .await?;
+
+        let issue = context_body
+            .get("data")
+            .and_then(|data| data.get("issue"))
+            .ok_or_else(|| {
+                SymphonyError::Other(format!(
+                    "SymphonyLinearFollowupContext omitted issue for parent issue '{}'",
+                    parent_issue_id
+                ))
+            })?;
+
+        let team_id = issue
+            .get("team")
+            .and_then(|team| team.get("id"))
+            .and_then(|id| id.as_str())
+            .ok_or_else(|| {
+                SymphonyError::Other(format!(
+                    "SymphonyLinearFollowupContext omitted team id for parent issue '{}'",
+                    parent_issue_id
+                ))
+            })?;
+        let project_id = issue
+            .get("project")
+            .and_then(|project| project.get("id"))
+            .and_then(|id| id.as_str());
+
+        let body = self
+            .graphql(
+                MUTATION_CREATE_FOLLOWUP,
+                serde_json::json!({
+                    "teamId": team_id,
+                    "projectId": project_id,
+                    "parentId": parent_issue_id,
+                    "title": title,
+                    "description": description,
+                }),
+            )
+            .await?;
+
+        let issue_create = body
+            .get("data")
+            .and_then(|data| data.get("issueCreate"))
+            .ok_or_else(|| {
+                SymphonyError::Other(format!(
+                    "SymphonyLinearCreateFollowup omitted result for parent issue '{}'",
+                    parent_issue_id
+                ))
+            })?;
+        let success = issue_create
+            .get("success")
+            .and_then(|success| success.as_bool())
+            .unwrap_or(false);
+        if !success {
+            return Err(SymphonyError::Other(format!(
+                "SymphonyLinearCreateFollowup failed for parent issue '{}'",
+                parent_issue_id
+            )));
+        }
+
+        issue_create
+            .get("issue")
+            .and_then(parse_created_issue)
+            .ok_or_else(|| {
+                SymphonyError::Other(format!(
+                    "SymphonyLinearCreateFollowup omitted issue for parent issue '{}'",
+                    parent_issue_id
+                ))
+            })
     }
 
     // ── Write operations ──────────────────────────────────────────────
@@ -506,6 +803,94 @@ impl LinearClient {
             attempt > 1,
             raw_response
         )))
+    }
+
+    async fn update_comment(&self, comment_id: &str, body: &str) -> Result<LinearCommentRecord> {
+        let response = self
+            .graphql(
+                MUTATION_UPDATE_COMMENT,
+                serde_json::json!({
+                    "commentId": comment_id,
+                    "body": body,
+                }),
+            )
+            .await?;
+
+        let comment_update = response
+            .get("data")
+            .and_then(|data| data.get("commentUpdate"))
+            .ok_or_else(|| {
+                SymphonyError::Other(format!(
+                    "SymphonyLinearUpdateComment omitted result for comment '{}'",
+                    comment_id
+                ))
+            })?;
+        let success = comment_update
+            .get("success")
+            .and_then(|success| success.as_bool())
+            .unwrap_or(false);
+        if !success {
+            return Err(SymphonyError::Other(format!(
+                "SymphonyLinearUpdateComment failed for comment '{}'",
+                comment_id
+            )));
+        }
+
+        comment_update
+            .get("comment")
+            .and_then(parse_comment_node)
+            .ok_or_else(|| {
+                SymphonyError::Other(format!(
+                    "SymphonyLinearUpdateComment omitted comment '{}'",
+                    comment_id
+                ))
+            })
+    }
+
+    async fn create_comment_record(
+        &self,
+        issue_id: &str,
+        body: &str,
+    ) -> Result<LinearCommentRecord> {
+        let response = self
+            .graphql(
+                MUTATION_CREATE_COMMENT_RECORD,
+                serde_json::json!({
+                    "issueId": issue_id,
+                    "body": body,
+                }),
+            )
+            .await?;
+
+        let comment_create = response
+            .get("data")
+            .and_then(|data| data.get("commentCreate"))
+            .ok_or_else(|| {
+                SymphonyError::Other(format!(
+                    "SymphonyLinearCreateCommentRecord omitted result for issue '{}'",
+                    issue_id
+                ))
+            })?;
+        let success = comment_create
+            .get("success")
+            .and_then(|success| success.as_bool())
+            .unwrap_or(false);
+        if !success {
+            return Err(SymphonyError::Other(format!(
+                "SymphonyLinearCreateCommentRecord failed for issue '{}'",
+                issue_id
+            )));
+        }
+
+        comment_create
+            .get("comment")
+            .and_then(parse_comment_node)
+            .ok_or_else(|| {
+                SymphonyError::Other(format!(
+                    "SymphonyLinearCreateCommentRecord omitted comment for issue '{}'",
+                    issue_id
+                ))
+            })
     }
 
     // ── GraphQL transport ──────────────────────────────────────────────
@@ -989,6 +1374,35 @@ fn parse_linear_user(node: &Value) -> Option<LinearUser> {
         display_name: parse_optional_trimmed_field(node.get("displayName")),
         name: parse_optional_trimmed_field(node.get("name")),
         email: parse_optional_trimmed_field(node.get("email")),
+    })
+}
+
+fn parse_comment_nodes(nodes: &[Value]) -> Vec<LinearCommentRecord> {
+    nodes.iter().filter_map(parse_comment_node).collect()
+}
+
+fn parse_comment_node(node: &Value) -> Option<LinearCommentRecord> {
+    Some(LinearCommentRecord {
+        id: node.get("id")?.as_str()?.to_string(),
+        body: node.get("body")?.as_str()?.to_string(),
+        url: node
+            .get("url")
+            .and_then(|value| value.as_str())
+            .map(String::from),
+        created_at: parse_datetime(node.get("createdAt")),
+        updated_at: parse_datetime(node.get("updatedAt")),
+    })
+}
+
+fn parse_created_issue(node: &Value) -> Option<LinearCreatedIssue> {
+    Some(LinearCreatedIssue {
+        id: node.get("id")?.as_str()?.to_string(),
+        identifier: node.get("identifier")?.as_str()?.to_string(),
+        title: node.get("title")?.as_str()?.to_string(),
+        url: node
+            .get("url")
+            .and_then(|value| value.as_str())
+            .map(String::from),
     })
 }
 
