@@ -29,6 +29,13 @@ import { KataDomainError } from "../../domain/errors.js";
 import { parseSliceDependencyIds } from "../../domain/dependencies.js";
 import type { createLinearClient, LinearConnection } from "./client.js";
 import type { LinearStateMapping, LinearTrackerConfig } from "./config.js";
+import {
+  LinearKataIssueComments,
+  LinearKataProjectDocuments,
+  parseLinearArtifactMarker,
+  upsertLinearIssueArtifactComment,
+  upsertLinearMilestoneDocument,
+} from "./artifacts.js";
 
 type LinearClient = ReturnType<typeof createLinearClient>;
 type LinearEntityType = "Project" | "Milestone" | "Slice" | "Task" | "Issue";
@@ -185,6 +192,32 @@ interface LinearIssueMutationData {
 interface LinearIssueRelationCreateMutationData {
   issueRelationCreate?: {
     success?: boolean | null;
+  } | null;
+}
+
+interface LinearArtifactCommentNode {
+  id: string;
+  body?: string | null;
+  updatedAt?: string | null;
+}
+
+interface LinearArtifactDocumentNode {
+  id: string;
+  title?: string | null;
+  content?: string | null;
+  updatedAt?: string | null;
+}
+
+interface LinearArtifactCommentsQueryData {
+  issue?: {
+    comments?: LinearConnection<LinearArtifactCommentNode> | null;
+  } | null;
+}
+
+interface LinearArtifactDocumentsQueryData {
+  documents?: LinearConnection<LinearArtifactDocumentNode> | null;
+  project?: {
+    documents?: LinearConnection<LinearArtifactDocumentNode> | null;
   } | null;
 }
 
@@ -774,8 +807,37 @@ export class LinearKataAdapter implements KataBackendAdapter {
     };
   }
 
-  async listArtifacts(_input: { scopeType: KataScopeType; scopeId: string }): Promise<KataArtifact[]> {
-    return [];
+  async listArtifacts(input: { scopeType: KataScopeType; scopeId: string }): Promise<KataArtifact[]> {
+    if (input.scopeType === "project") return [];
+
+    if (input.scopeType === "milestone") {
+      const context = await this.getContext();
+      const documents = await this.client.paginate<LinearArtifactDocumentNode, LinearArtifactDocumentsQueryData>({
+        query: LinearKataProjectDocuments,
+        variables: { projectId: context.project.id, first: 100 },
+        selectConnection: (data) =>
+          data.project?.documents ?? data.documents ?? emptyLinearConnection<LinearArtifactDocumentNode>(),
+      });
+
+      return documents.flatMap((document) => {
+        const artifact = artifactFromLinearDocument(document, input.scopeType, input.scopeId);
+        return artifact ? [artifact] : [];
+      });
+    }
+
+    const entity = await this.findArtifactEntity(input.scopeType, input.scopeId);
+    if (!entity) return [];
+
+    const comments = await this.client.paginate<LinearArtifactCommentNode, LinearArtifactCommentsQueryData>({
+      query: LinearKataIssueComments,
+      variables: { issueId: entity.linearId, first: 100 },
+      selectConnection: (data) => data.issue?.comments ?? emptyLinearConnection<LinearArtifactCommentNode>(),
+    });
+
+    return comments.flatMap((comment) => {
+      const artifact = artifactFromLinearComment(comment, input.scopeType, input.scopeId);
+      return artifact ? [artifact] : [];
+    });
   }
 
   async readArtifact(input: {
@@ -787,8 +849,64 @@ export class LinearKataAdapter implements KataBackendAdapter {
     return artifacts.find((artifact) => artifact.artifactType === input.artifactType) ?? null;
   }
 
-  async writeArtifact(_input: KataArtifactWriteInput): Promise<KataArtifact> {
-    throw laterTaskError("Linear artifact writes");
+  async writeArtifact(input: KataArtifactWriteInput): Promise<KataArtifact> {
+    if (input.scopeType === "milestone") {
+      const context = await this.getContext();
+      const result = await upsertLinearMilestoneDocument({
+        client: this.client,
+        projectId: context.project.id,
+        scopeId: input.scopeId,
+        artifactType: input.artifactType,
+        title: input.title,
+        content: input.content,
+      });
+      const parsed = parseLinearArtifactMarker(result.body);
+
+      return {
+        id: artifactId(input.scopeType, input.scopeId, input.artifactType),
+        scopeType: input.scopeType,
+        scopeId: input.scopeId,
+        artifactType: input.artifactType,
+        title: result.title ?? input.title,
+        content: parsed?.content ?? input.content,
+        format: input.format,
+        updatedAt: result.updatedAt ?? new Date().toISOString(),
+        provenance: {
+          backend: "linear",
+          backendId: result.backendId,
+        },
+      };
+    }
+
+    const entity = await this.findArtifactEntity(input.scopeType, input.scopeId);
+    if (!entity) {
+      throw new KataDomainError("NOT_FOUND", `${input.scopeType} ${input.scopeId} was not found.`);
+    }
+
+    const result = await upsertLinearIssueArtifactComment({
+      client: this.client,
+      issueId: entity.linearId,
+      scopeType: input.scopeType,
+      scopeId: input.scopeId,
+      artifactType: input.artifactType,
+      content: input.content,
+    });
+    const parsed = parseLinearArtifactMarker(result.body);
+
+    return {
+      id: artifactId(input.scopeType, input.scopeId, input.artifactType),
+      scopeType: input.scopeType,
+      scopeId: input.scopeId,
+      artifactType: input.artifactType,
+      title: input.title,
+      content: parsed?.content ?? input.content,
+      format: input.format,
+      updatedAt: result.updatedAt ?? new Date().toISOString(),
+      provenance: {
+        backend: "linear",
+        backendId: result.backendId,
+      },
+    };
   }
 
   async openPullRequest(input: {
@@ -996,6 +1114,15 @@ export class LinearKataAdapter implements KataBackendAdapter {
     throw new KataDomainError("NOT_FOUND", `Standalone issue was not found for reference "${issueRef}".`);
   }
 
+  private async findArtifactEntity(scopeType: KataScopeType, scopeId: string): Promise<TrackedLinearEntity | null> {
+    await this.discoverEntities();
+    if (scopeType === "project") return null;
+    const expectedType = entityTypeForArtifactScope(scopeType);
+    if (!expectedType) return null;
+    const entity = this.entities.get(scopeId.trim().toUpperCase());
+    return entity?.type === expectedType ? entity : null;
+  }
+
   private async requireEntity(kataId: string, type: LinearEntityType): Promise<TrackedLinearEntity> {
     await this.discoverEntities();
     const normalizedId = kataId.trim().toUpperCase();
@@ -1151,8 +1278,64 @@ export class LinearKataAdapter implements KataBackendAdapter {
   }
 }
 
-function laterTaskError(operation: string): KataDomainError {
-  return new KataDomainError("NOT_SUPPORTED", `${operation} will be implemented in a later Linear mutation/artifact task.`);
+function artifactFromLinearDocument(
+  document: LinearArtifactDocumentNode,
+  scopeType: KataScopeType,
+  scopeId: string,
+): KataArtifact | null {
+  const parsed = typeof document.content === "string" ? parseLinearArtifactMarker(document.content) : null;
+  if (parsed?.scopeType !== scopeType || parsed.scopeId !== scopeId) return null;
+
+  return {
+    id: artifactId(scopeType, scopeId, parsed.artifactType),
+    scopeType,
+    scopeId,
+    artifactType: parsed.artifactType,
+    title: document.title ?? parsed.artifactType,
+    content: parsed.content,
+    format: "markdown",
+    updatedAt: document.updatedAt ?? new Date().toISOString(),
+    provenance: {
+      backend: "linear",
+      backendId: `document:${document.id}`,
+    },
+  };
+}
+
+function artifactFromLinearComment(
+  comment: LinearArtifactCommentNode,
+  scopeType: KataScopeType,
+  scopeId: string,
+): KataArtifact | null {
+  const parsed = typeof comment.body === "string" ? parseLinearArtifactMarker(comment.body) : null;
+  if (parsed?.scopeType !== scopeType || parsed.scopeId !== scopeId) return null;
+
+  return {
+    id: artifactId(scopeType, scopeId, parsed.artifactType),
+    scopeType,
+    scopeId,
+    artifactType: parsed.artifactType,
+    title: parsed.artifactType,
+    content: parsed.content,
+    format: "markdown",
+    updatedAt: comment.updatedAt ?? new Date().toISOString(),
+    provenance: {
+      backend: "linear",
+      backendId: `comment:${comment.id}`,
+    },
+  };
+}
+
+function entityTypeForArtifactScope(scopeType: KataScopeType): LinearEntityType | null {
+  if (scopeType === "milestone") return "Milestone";
+  if (scopeType === "slice") return "Slice";
+  if (scopeType === "task") return "Task";
+  if (scopeType === "issue") return "Issue";
+  return null;
+}
+
+function artifactId(scopeType: KataScopeType, scopeId: string, artifactType: KataArtifactType): string {
+  return `${scopeType}:${scopeId}:${artifactType}`;
 }
 
 function requireStateId(context: LinearContext, status: keyof LinearStateMapping): string {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { LinearKataAdapter } from "../backends/linear/adapter.js";
+import { formatLinearArtifactMarker } from "../backends/linear/artifacts.js";
 import { createKataDomainApi } from "../domain/service.js";
 import type { KataDomainError } from "../domain/errors.js";
 
@@ -30,12 +31,26 @@ interface FakeLinearLabel {
   id: string;
   name: string;
 }
+interface FakeLinearDocument {
+  id: string;
+  title: string;
+  content: string;
+  updatedAt?: string | null;
+}
+interface FakeLinearComment {
+  id: string;
+  issueId: string;
+  body: string;
+  updatedAt?: string | null;
+}
 type FakeLinearClientOptions = {
   organizationUrlKey?: string;
   milestones?: Array<{ id: string; name: string; description?: string | null; targetDate?: string | null }>;
   issues?: FakeLinearIssue[];
   states?: Array<{ id: string; name: string; type: string }>;
   labels?: FakeLinearLabel[];
+  documents?: FakeLinearDocument[];
+  comments?: FakeLinearComment[];
 };
 
 function createAdapter(
@@ -84,6 +99,8 @@ function createFakeLinearClient(options: FakeLinearClientOptions = {}): LinearAd
     { id: "label-task", name: "kata/task" },
     { id: "label-issue", name: "kata/issue" },
   ];
+  const documents = options.documents ?? [];
+  const comments = options.comments ?? [];
   const project = createFakeProject();
   const milestone = createFakeMilestone();
   const slice = createFakeIssue({
@@ -111,7 +128,7 @@ function createFakeLinearClient(options: FakeLinearClientOptions = {}): LinearAd
   });
 
   return {
-    async graphql<T>(input: { query: string }): Promise<T> {
+    async graphql<T>(input: { query: string; variables?: any }): Promise<T> {
       if (input.query.includes("LinearKataContext")) {
         return {
           viewer: { id: "user-1" },
@@ -164,7 +181,7 @@ function createFakeLinearClient(options: FakeLinearClientOptions = {}): LinearAd
         return {
           issue: {
             comments: {
-              nodes: [],
+              nodes: comments.filter((comment) => comment.issueId === input.variables?.issueId),
               pageInfo: { hasNextPage: false, endCursor: null },
             },
           },
@@ -172,10 +189,71 @@ function createFakeLinearClient(options: FakeLinearClientOptions = {}): LinearAd
       }
 
       if (input.query.includes("LinearKataProjectDocuments")) {
+        const connection = {
+          nodes: documents,
+          pageInfo: { hasNextPage: false, endCursor: null },
+        };
         return {
-          documents: {
-            nodes: [],
-            pageInfo: { hasNextPage: false, endCursor: null },
+          documents: connection,
+          project: { documents: connection },
+        } as T;
+      }
+
+      if (input.query.includes("LinearKataCommentCreate")) {
+        const comment = {
+          id: `comment-${comments.length + 1}`,
+          issueId: input.variables.input.issueId,
+          body: input.variables.input.body,
+          updatedAt: "2026-05-06T12:00:00.000Z",
+        };
+        comments.push(comment);
+        return {
+          commentCreate: {
+            success: true,
+            comment,
+          },
+        } as T;
+      }
+
+      if (input.query.includes("LinearKataCommentUpdate")) {
+        const comment = comments.find((candidate) => candidate.id === input.variables.id);
+        if (!comment) throw new Error(`Missing comment ${input.variables.id}`);
+        comment.body = input.variables.input.body;
+        comment.updatedAt = "2026-05-06T12:00:00.000Z";
+        return {
+          commentUpdate: {
+            success: true,
+            comment,
+          },
+        } as T;
+      }
+
+      if (input.query.includes("LinearKataDocumentCreate")) {
+        const document = {
+          id: `document-${documents.length + 1}`,
+          title: input.variables.input.title,
+          content: input.variables.input.content,
+          updatedAt: "2026-05-06T12:00:00.000Z",
+        };
+        documents.push(document);
+        return {
+          documentCreate: {
+            success: true,
+            document,
+          },
+        } as T;
+      }
+
+      if (input.query.includes("LinearKataDocumentUpdate")) {
+        const document = documents.find((candidate) => candidate.id === input.variables.id);
+        if (!document) throw new Error(`Missing document ${input.variables.id}`);
+        document.title = input.variables.input.title;
+        document.content = input.variables.input.content;
+        document.updatedAt = "2026-05-06T12:00:00.000Z";
+        return {
+          documentUpdate: {
+            success: true,
+            document,
           },
         } as T;
       }
@@ -184,9 +262,10 @@ function createFakeLinearClient(options: FakeLinearClientOptions = {}): LinearAd
     },
     async paginate<Node, Data>(input: {
       query: string;
+      variables?: Record<string, unknown>;
       selectConnection: (data: Data) => { nodes?: Array<Node | null> | null };
     }): Promise<Node[]> {
-      const data = await this.graphql<Data>({ query: input.query });
+      const data = await this.graphql<Data>({ query: input.query, variables: input.variables });
       return (input.selectConnection(data).nodes ?? []).filter((node): node is Node => node !== null);
     },
   };
@@ -995,6 +1074,251 @@ describe("LinearKataAdapter reads and discovery", () => {
       id: "M001",
       status: "done",
       active: false,
+    });
+  });
+});
+
+describe("LinearKataAdapter artifacts", () => {
+  it("writes milestone artifacts as Linear documents", async () => {
+    const client = createFakeLinearClient();
+    const adapter = createAdapter(client);
+
+    const artifact = await adapter.writeArtifact({
+      scopeType: "milestone",
+      scopeId: "M001",
+      artifactType: "requirements",
+      title: "Requirements",
+      content: "# Requirements",
+      format: "markdown",
+    });
+
+    expect(artifact).toMatchObject({
+      scopeType: "milestone",
+      scopeId: "M001",
+      artifactType: "requirements",
+      title: "M001 Requirements",
+      content: "# Requirements",
+      format: "markdown",
+      provenance: {
+        backend: "linear",
+        backendId: "document:document-1",
+      },
+    });
+  });
+
+  it("writes slice, task, and standalone issue artifacts as Linear comments", async () => {
+    const project = createFakeProject();
+    const milestone = createFakeMilestone();
+    const slice = createFakeIssue({
+      id: "issue-s1",
+      identifier: "KATA-1",
+      number: 1,
+      title: "[S001] Foundation",
+      description: "Foundation",
+      state: { id: "state-progress", name: "In Progress", type: "started" },
+      labels: ["kata/slice"],
+      project,
+      projectMilestone: milestone,
+    });
+    const task = createFakeIssue({
+      id: "issue-t1",
+      identifier: "KATA-2",
+      number: 2,
+      title: "[T001] Verify",
+      description: "Verify",
+      state: { id: "state-todo", name: "Todo", type: "unstarted" },
+      labels: ["kata/task"],
+      project,
+      projectMilestone: milestone,
+      parent: slice,
+    });
+    const issue = createFakeIssue({
+      id: "issue-i1",
+      identifier: "KATA-3",
+      number: 3,
+      title: "[I001] Standalone",
+      description: "Standalone",
+      state: { id: "state-backlog", name: "Backlog", type: "backlog" },
+      labels: ["kata/issue"],
+      project,
+      projectMilestone: milestone,
+    });
+    const client = createFakeLinearClient({ issues: [slice, task, issue] });
+    const adapter = createAdapter(client);
+
+    await expect(
+      adapter.writeArtifact({
+        scopeType: "slice",
+        scopeId: "S001",
+        artifactType: "plan",
+        title: "Slice plan",
+        content: "# Plan",
+        format: "markdown",
+      }),
+    ).resolves.toMatchObject({
+      scopeType: "slice",
+      scopeId: "S001",
+      artifactType: "plan",
+      title: "Slice plan",
+      content: "# Plan",
+      format: "markdown",
+      provenance: {
+        backend: "linear",
+        backendId: "comment:comment-1",
+      },
+    });
+    await expect(
+      adapter.writeArtifact({
+        scopeType: "task",
+        scopeId: "T001",
+        artifactType: "verification",
+        title: "Verification",
+        content: "Verified",
+        format: "markdown",
+      }),
+    ).resolves.toMatchObject({
+      scopeType: "task",
+      scopeId: "T001",
+      artifactType: "verification",
+      content: "Verified",
+    });
+    await expect(
+      adapter.writeArtifact({
+        scopeType: "issue",
+        scopeId: "I001",
+        artifactType: "plan",
+        title: "Issue plan",
+        content: "# Issue plan",
+        format: "markdown",
+      }),
+    ).resolves.toMatchObject({
+      scopeType: "issue",
+      scopeId: "I001",
+      artifactType: "plan",
+      content: "# Issue plan",
+    });
+  });
+
+  it("lists milestone artifacts from marked Linear project documents", async () => {
+    const client = createFakeLinearClient({
+      documents: [
+        {
+          id: "document-1",
+          title: "M001 Requirements",
+          content: formatLinearArtifactMarker({
+            scopeType: "milestone",
+            scopeId: "M001",
+            artifactType: "requirements",
+            content: "# Requirements",
+          }),
+          updatedAt: "2026-05-06T12:00:00.000Z",
+        },
+        {
+          id: "document-2",
+          title: "M002 Plan",
+          content: formatLinearArtifactMarker({
+            scopeType: "milestone",
+            scopeId: "M002",
+            artifactType: "plan",
+            content: "# Other",
+          }),
+          updatedAt: "2026-05-06T13:00:00.000Z",
+        },
+      ],
+    });
+    const adapter = createAdapter(client);
+
+    await expect(adapter.listArtifacts({ scopeType: "milestone", scopeId: "M001" })).resolves.toEqual([
+      expect.objectContaining({
+        id: "milestone:M001:requirements",
+        scopeType: "milestone",
+        scopeId: "M001",
+        artifactType: "requirements",
+        title: "M001 Requirements",
+        content: "# Requirements",
+        format: "markdown",
+        updatedAt: "2026-05-06T12:00:00.000Z",
+        provenance: {
+          backend: "linear",
+          backendId: "document:document-1",
+        },
+      }),
+    ]);
+  });
+
+  it("lists issue-backed artifacts from marked Linear issue comments and reads by type", async () => {
+    const client = createFakeLinearClient({
+      comments: [
+        {
+          id: "comment-1",
+          issueId: "issue-s1",
+          body: formatLinearArtifactMarker({
+            scopeType: "slice",
+            scopeId: "S001",
+            artifactType: "plan",
+            content: "# Plan",
+          }),
+          updatedAt: "2026-05-06T12:00:00.000Z",
+        },
+        {
+          id: "comment-2",
+          issueId: "issue-s1",
+          body: formatLinearArtifactMarker({
+            scopeType: "task",
+            scopeId: "T001",
+            artifactType: "verification",
+            content: "Verified",
+          }),
+          updatedAt: "2026-05-06T13:00:00.000Z",
+        },
+      ],
+    });
+    const adapter = createAdapter(client);
+
+    await expect(adapter.listArtifacts({ scopeType: "slice", scopeId: "S001" })).resolves.toEqual([
+      expect.objectContaining({
+        id: "slice:S001:plan",
+        scopeType: "slice",
+        scopeId: "S001",
+        artifactType: "plan",
+        title: "plan",
+        content: "# Plan",
+        format: "markdown",
+        updatedAt: "2026-05-06T12:00:00.000Z",
+        provenance: {
+          backend: "linear",
+          backendId: "comment:comment-1",
+        },
+      }),
+    ]);
+    await expect(
+      adapter.readArtifact({ scopeType: "slice", scopeId: "S001", artifactType: "plan" }),
+    ).resolves.toMatchObject({
+      scopeType: "slice",
+      scopeId: "S001",
+      artifactType: "plan",
+      content: "# Plan",
+    });
+    await expect(
+      adapter.readArtifact({ scopeType: "slice", scopeId: "S001", artifactType: "summary" }),
+    ).resolves.toBeNull();
+  });
+
+  it("does not write artifacts when the scope type does not match the tracked entity", async () => {
+    const adapter = createAdapter();
+
+    await expect(adapter.listArtifacts({ scopeType: "task", scopeId: "S001" })).resolves.toEqual([]);
+    await expect(
+      adapter.writeArtifact({
+        scopeType: "task",
+        scopeId: "S001",
+        artifactType: "verification",
+        title: "Verification",
+        content: "Verified",
+        format: "markdown",
+      }),
+    ).rejects.toMatchObject({
+      code: "NOT_FOUND",
     });
   });
 });
