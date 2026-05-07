@@ -11,6 +11,9 @@ import { readTrackerConfig } from "../backends/read-tracker-config.js";
 import { resolveGithubTokenForRuntime } from "../backends/resolve-backend.js";
 import { createGithubClient } from "../backends/github-projects-v2/client.js";
 import { loadProjectFieldIndex } from "../backends/github-projects-v2/project-fields.js";
+import { LinearKataAdapter } from "../backends/linear/adapter.js";
+import { createLinearClient } from "../backends/linear/client.js";
+import { resolveLinearAuthToken } from "../backends/linear/config.js";
 import { KataDomainError } from "../domain/errors.js";
 import {
   PI_SETUP_MARKER_FILENAME,
@@ -69,6 +72,7 @@ export interface RunDoctorInput {
   packageVersion?: string;
   cliBinaryPath?: string;
   githubClients?: ReturnType<typeof createGithubClient>;
+  linearClient?: ReturnType<typeof createLinearClient>;
 }
 
 function aggregateStatus(checks: DoctorCheck[]): DoctorCheckStatus {
@@ -401,6 +405,52 @@ export async function runDoctor(input: RunDoctorInput = {}): Promise<DoctorRepor
               action: isInvalidProjectConfig
                 ? "Add the required Kata Project fields, then rerun `kata doctor`."
                 : "Verify GitHub auth, repository, and project number, then rerun `kata doctor`.",
+            });
+          }
+        }
+      } else {
+        const token = resolveLinearAuthToken({ authEnv: config.authEnv, env });
+        checks.push({
+          name: "linear-auth",
+          status: token || input.linearClient ? "ok" : "invalid",
+          message: token || input.linearClient
+            ? "Linear auth is configured."
+            : "Linear mode requires LINEAR_API_KEY/LINEAR_TOKEN or the env var configured by linear.authEnv.",
+          ...(token || input.linearClient
+            ? {}
+            : { action: "Set LINEAR_API_KEY, LINEAR_TOKEN, or the env var named by linear.authEnv." }),
+        });
+
+        if (token || input.linearClient) {
+          const client = input.linearClient ?? createLinearClient({ token: token ?? "" });
+          try {
+            const adapter = new LinearKataAdapter({
+              client,
+              config,
+              workspacePath: cwd,
+            });
+            await adapter.getProjectContext();
+            checks.push({
+              name: "linear-project",
+              status: "ok",
+              message: `Linear workspace ${config.workspace}, team ${config.team}, and project ${config.project} are accessible.`,
+            });
+            checks.push({
+              name: "linear-workflow-states",
+              status: "ok",
+              message: "Linear workflow states required by Kata are available.",
+            });
+            checks.push({
+              name: "linear-capabilities",
+              status: "ok",
+              message: "Linear documents, comments, sub-issues, and issue relations are available through GraphQL.",
+            });
+          } catch (error) {
+            checks.push({
+              name: "linear-project",
+              status: "invalid",
+              message: error instanceof Error ? error.message : "Unable to validate Linear project access.",
+              action: "Verify linear.workspace, linear.team, linear.project, auth, and configured state names.",
             });
           }
         }

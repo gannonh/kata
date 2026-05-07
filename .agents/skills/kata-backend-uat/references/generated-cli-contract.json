@@ -1,0 +1,35 @@
+{
+  "generatedAt": "2026-05-07T17:14:07.574Z",
+  "workspace": "/Volumes/EVO/kata/kata-mono",
+  "cliRoot": "/Volumes/EVO/kata/kata-mono/apps/cli",
+  "gitCommit": "c6a6c67f",
+  "cliVersion": "0.16.0-alpha.0",
+  "operations": [
+    "project.getContext",
+    "project.getSnapshot",
+    "project.upsert",
+    "milestone.list",
+    "milestone.getActive",
+    "milestone.create",
+    "milestone.complete",
+    "slice.list",
+    "slice.create",
+    "slice.updateStatus",
+    "task.list",
+    "task.create",
+    "task.updateStatus",
+    "issue.listOpen",
+    "issue.create",
+    "issue.get",
+    "issue.updateStatus",
+    "artifact.list",
+    "artifact.read",
+    "artifact.write",
+    "execution.getStatus",
+    "health.check"
+  ],
+  "backends": [
+    "github",
+    "linear"
+  ]
+}

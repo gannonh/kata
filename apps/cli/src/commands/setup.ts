@@ -68,10 +68,14 @@ export interface SetupInstallTargetResult {
 export interface SetupPreferencesResult {
   path: string;
   status: "existing" | "created";
-  backend?: "github";
+  backend?: "github" | "linear";
   repoOwner?: string;
   repoName?: string;
   githubProjectNumber?: number;
+  linearWorkspace?: string;
+  linearTeam?: string;
+  linearProject?: string;
+  linearAuthEnv?: string;
 }
 
 export interface SetupSuccessResult {
@@ -111,6 +115,10 @@ export interface SetupOnboardingInput {
   repoOwner?: string;
   repoName?: string;
   githubProjectNumber?: number;
+  linearWorkspace?: string;
+  linearTeam?: string;
+  linearProject?: string;
+  linearAuthEnv?: string;
 }
 
 export interface RunSetupInput {
@@ -376,6 +384,16 @@ function renderGithubPreferences(input: {
   return `---\nworkflow:\n  mode: github\ngithub:\n  repoOwner: ${input.repoOwner}\n  repoName: ${input.repoName}\n  stateMode: projects_v2\n  githubProjectNumber: ${input.githubProjectNumber}\n---\n`;
 }
 
+function renderLinearPreferences(input: {
+  workspace: string;
+  team: string;
+  project: string;
+  authEnv?: string;
+}): string {
+  const authEnv = input.authEnv ?? "LINEAR_API_KEY";
+  return `---\nworkflow:\n  mode: linear\nlinear:\n  workspace: ${input.workspace}\n  team: ${input.team}\n  project: ${input.project}\n  authEnv: ${authEnv}\n  states:\n    backlog: Backlog\n    todo: Todo\n    in_progress: In Progress\n    agent_review: Agent Review\n    human_review: Human Review\n    merging: Merging\n    done: Done\n---\n`;
+}
+
 async function askRequired(question: (prompt: string) => Promise<string>, label: string, defaultValue?: string): Promise<string> {
   const suffix = defaultValue ? ` [${defaultValue}]` : "";
   while (true) {
@@ -417,6 +435,47 @@ async function ensurePreferences(input: {
   const preferencesPath = join(input.cwd, ".kata", "preferences.md");
   if (existsSync(preferencesPath)) {
     return { path: preferencesPath, status: "existing" };
+  }
+
+  if (input.onboarding?.backend === "linear") {
+    let workspace = cleanString(input.onboarding.linearWorkspace) ?? undefined;
+    let team = cleanString(input.onboarding.linearTeam) ?? undefined;
+    let project = cleanString(input.onboarding.linearProject) ?? undefined;
+    const authEnv = cleanString(input.onboarding.linearAuthEnv) ?? "LINEAR_API_KEY";
+
+    if (!workspace || !team || !project) {
+      if (!input.interactive) {
+        throw Object.assign(new Error("Linear setup requires workspace, team, and project in non-interactive mode."), {
+          code: "NON_INTERACTIVE_SETUP_REQUIRED",
+        });
+      }
+
+      const rl = createInterface({ input: process.stdin, output: process.stdout });
+      try {
+        workspace = await askRequired(rl.question.bind(rl), "Linear workspace", workspace);
+        team = await askRequired(rl.question.bind(rl), "Linear team key or ID", team);
+        project = await askRequired(rl.question.bind(rl), "Linear project slug, name, or ID", project);
+      } finally {
+        rl.close();
+      }
+    }
+
+    await mkdir(dirname(preferencesPath), { recursive: true });
+    await writeFile(
+      preferencesPath,
+      renderLinearPreferences({ workspace, team, project, authEnv }),
+      "utf8",
+    );
+
+    return {
+      path: preferencesPath,
+      status: "created",
+      backend: "linear",
+      linearWorkspace: workspace,
+      linearTeam: team,
+      linearProject: project,
+      linearAuthEnv: authEnv,
+    };
   }
 
   if (!(await hasGithubAuth(input.env))) {

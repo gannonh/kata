@@ -1,0 +1,29 @@
+{
+  "skill_name": "kata-backend-uat",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "Run an end-to-end UAT proof for the GitHub backend in this Kata repo. Use the real configured GitHub project, cover every CLI skill runtime operation, and give me proof links for generated artifacts.",
+      "expected_output": "Uses kata-backend-uat, runs or proposes the GitHub test command, reports health, operation coverage, evidence paths, generated IDs, and artifact proof links.",
+      "files": []
+    },
+    {
+      "id": 1,
+      "prompt": "The Linear adapter changed and LINEAR_PROJECT_ID is already in .env. Prove Linear still works end to end across all Kata CLI skill operations and leave an evidence file.",
+      "expected_output": "Uses kata-backend-uat, runs or proposes the Linear test command, handles Linear active milestone pinning, verifies documents/comments, and reports evidence paths and links.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "We added a new CLI operation. Update the backend UAT skill so future proof runs know about the current operation list and any new backend kinds.",
+      "expected_output": "Uses update mode, refreshes generated CLI contract, identifies operation/backend changes, and states required runner updates.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "A previous backend UAT failed halfway through and I have the evidence.json path. Clean up whatever it created and tell me what got completed.",
+      "expected_output": "Uses cleanup mode with the evidence path, completes the prior milestone when possible, reports cleanup status, and avoids creating a new test run.",
+      "files": []
+    }
+  ]
+}

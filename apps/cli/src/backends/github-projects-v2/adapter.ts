@@ -673,7 +673,9 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
     const comments = await this.listArtifactComments(entity.issueNumber);
     return comments
       .map((comment) => {
-        const parsed = typeof comment.body === "string" ? parseArtifactComment(comment.body) : null;
+        const parsed = typeof comment.body === "string"
+          ? parseArtifactComment(comment.body, { scopeType: input.scopeType, scopeId: normalizedScopeId })
+          : null;
         if (!parsed || parsed.scopeType !== input.scopeType || parsed.scopeId !== normalizedScopeId) return null;
         return artifactFromParsedComment({
           comment,
@@ -719,7 +721,10 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
       scopeId: normalizeArtifactScopeId(input.scopeType, input.scopeId),
       artifactType: input.artifactType,
       title: input.title,
-      content: parseArtifactComment(result.body)?.content ?? input.content,
+      content: parseArtifactComment(result.body, {
+        scopeType: input.scopeType,
+        scopeId: normalizeArtifactScopeId(input.scopeType, input.scopeId),
+      })?.content ?? input.content,
       format: input.format,
       updatedAt: new Date().toISOString(),
       provenance: {
@@ -1383,6 +1388,8 @@ function isProjectItemFields(value: ProjectItemFields | null): value is ProjectI
 }
 
 function hasIncompleteKataProjectItemFields(fields: ProjectItemFields): boolean {
+  if (fields.state === "closed") return false;
+
   const hasAnyKataField = Boolean(
     fields.kataId ||
       fields.kataType ||

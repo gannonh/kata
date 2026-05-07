@@ -41,6 +41,8 @@ import { createGithubClient } from "./github-projects-v2/client.js";
 import { readTrackerConfig } from "./read-tracker-config.js";
 import { GithubProjectsV2Adapter } from "./github-projects-v2/adapter.js";
 import { LinearKataAdapter } from "./linear/adapter.js";
+import { createLinearClient } from "./linear/client.js";
+import { resolveLinearAuthToken } from "./linear/config.js";
 
 type TrackerConfig = Awaited<ReturnType<typeof readTrackerConfig>>;
 
@@ -334,7 +336,7 @@ function createFileRuntimeBackendFactory(config: TrackerConfig): RuntimeBackendF
   };
 }
 
-function createRuntimeBackedAdapter(input: {
+function _createRuntimeBackedAdapter(input: {
   workspacePath: string;
   config: TrackerConfig;
   runtimeBackendFactory?: RuntimeBackendFactory;
@@ -545,7 +547,7 @@ export async function resolveBackend(input: {
   workspacePath: string;
   env?: NodeJS.ProcessEnv;
   githubClients?: ReturnType<typeof createGithubClient>;
-  linearClients?: ConstructorParameters<typeof LinearKataAdapter>[0];
+  linearClient?: ReturnType<typeof createLinearClient>;
   runtimeBackendFactory?: RuntimeBackendFactory;
 }): Promise<KataBackendAdapter> {
   const preferencesPath = path.join(input.workspacePath, ".kata", "preferences.md");
@@ -571,11 +573,18 @@ export async function resolveBackend(input: {
     });
   }
 
-  if (input.linearClients) return new LinearKataAdapter(input.linearClients);
+  const token = resolveLinearAuthToken({ authEnv: config.authEnv, env: input.env ?? process.env });
+  const client = input.linearClient ?? (token ? createLinearClient({ token }) : null);
+  if (!client) {
+    throw new KataDomainError(
+      "UNAUTHORIZED",
+      "Linear mode requires LINEAR_API_KEY/LINEAR_TOKEN or the env var configured by linear.authEnv.",
+    );
+  }
 
-  return createRuntimeBackedAdapter({
-    workspacePath: input.workspacePath,
+  return new LinearKataAdapter({
+    client,
     config,
-    runtimeBackendFactory: input.runtimeBackendFactory,
+    workspacePath: input.workspacePath,
   });
 }

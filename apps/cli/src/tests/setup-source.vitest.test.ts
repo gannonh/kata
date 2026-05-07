@@ -83,6 +83,45 @@ describe("skills source resolution", () => {
     }
   });
 
+  it("bootstraps Linear preferences in non-interactive setup", async () => {
+    const tmp = mkdtempSync(join(tmpdir(), "kata-setup-linear-"));
+    try {
+      writeFileSync(join(tmp, "pnpm-workspace.yaml"), "packages:\n  - apps/*\n", "utf8");
+      mkdirSync(join(tmp, "apps", "cli", "skills", "kata-health"), { recursive: true });
+      writeFileSync(join(tmp, "apps", "cli", "skills", "kata-health", "SKILL.md"), "# Kata Health\n", "utf8");
+
+      const result = await runSetup({
+        cwd: tmp,
+        env: { LINEAR_API_KEY: "lin_test" },
+        packageVersion: "9.9.9-test",
+        interactive: false,
+        onboarding: {
+          backend: "linear",
+          linearWorkspace: "kata",
+          linearTeam: "KATA",
+          linearProject: "kata-cli",
+        },
+      });
+
+      expect(result).toMatchObject({ ok: true });
+      if (!result.ok) return;
+      expect(result.preferences).toMatchObject({
+        status: "created",
+        backend: "linear",
+        linearWorkspace: "kata",
+        linearTeam: "KATA",
+        linearProject: "kata-cli",
+      });
+      const preferences = readFileSync(join(tmp, ".kata", "preferences.md"), "utf8");
+      expect(preferences).toContain("mode: linear");
+      expect(preferences).toContain("workspace: kata");
+      expect(preferences).toContain("team: KATA");
+      expect(preferences).toContain("project: kata-cli");
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
   it("can install to multiple selected skill targets", async () => {
     const tmp = mkdtempSync(join(tmpdir(), "kata-setup-targets-"));
     try {

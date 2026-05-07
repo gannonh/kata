@@ -13,13 +13,26 @@ import {
 } from "../backends/github-projects-v2/artifacts.js";
 
 describe("GitHub artifact comments", () => {
-  it("formats and parses artifact comments", () => {
+  it("formats new artifact comments with type-only metadata and parses them with parent scope", () => {
     const comment = formatArtifactComment({
       scopeType: "slice",
       scopeId: "S001",
       artifactType: "plan",
       content: "# Plan",
     });
+
+    expect(comment).toBe('<!-- kata:artifact {"artifactType":"plan"} -->\n# Plan');
+    expect(parseArtifactComment(comment)).toBeNull();
+    expect(parseArtifactComment(comment, { scopeType: "slice", scopeId: "S001" })).toEqual({
+      scopeType: "slice",
+      scopeId: "S001",
+      artifactType: "plan",
+      content: "# Plan",
+    });
+  });
+
+  it("parses legacy full artifact comments without parent scope", () => {
+    const comment = '<!-- kata:artifact {"scopeType":"slice","scopeId":"S001","artifactType":"plan"} -->\n# Plan';
 
     expect(parseArtifactComment(comment)).toEqual({
       scopeType: "slice",
@@ -88,6 +101,7 @@ describe("GitHub artifact comments", () => {
     });
 
     expect(result.backendId).toBe("comment:10");
+    expect(result.body).toBe('<!-- kata:artifact {"artifactType":"plan"} -->\nnew');
     expect(client.rest).toHaveBeenCalledWith(
       expect.objectContaining({
         method: "PATCH",
@@ -160,12 +174,7 @@ describe("GitHub artifact comments", () => {
           return [
             {
               id: 9,
-              body: formatArtifactComment({
-                scopeType: "slice",
-                scopeId: "S002",
-                artifactType: "plan",
-                content: "other",
-              }),
+              body: '<!-- kata:artifact {"scopeType":"slice","scopeId":"S002","artifactType":"plan"} -->\nother',
             },
           ];
         }
@@ -343,6 +352,42 @@ describe("GithubProjectsV2Adapter", () => {
           message: expect.stringContaining("1 Project v2 item is missing required Kata field values"),
         }),
       ]),
+    });
+  });
+
+  it("does not warn when closed Project v2 items are missing required Kata field values", async () => {
+    const client = createFakeGithubClient({
+      projectItems: [
+        projectItem({
+          itemId: "project-item-1",
+          issueNodeId: "issue-node-1",
+          issueId: 1,
+          issueNumber: 1,
+          title: "[S001] Completed legacy slice",
+          body: "Closed slice work",
+          state: "closed",
+          kataId: "S001",
+          kataType: "",
+        }),
+      ],
+    });
+    const adapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+
+    await expect(adapter.checkHealth()).resolves.toMatchObject({
+      ok: true,
+      backend: "github",
+      checks: [
+        expect.objectContaining({
+          name: "adapter",
+          status: "ok",
+        }),
+      ],
     });
   });
 
@@ -1784,6 +1829,44 @@ describe("GithubProjectsV2Adapter", () => {
         path: "/repos/kata-sh/uat/issues",
       }),
     );
+  });
+
+  it("keeps GitHub Projects v2 milestone, slice, task, artifact, and dependency behavior intact", async () => {
+    const client = createFakeGithubClient();
+    const adapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+
+    const milestone = await adapter.createMilestone({ title: "Regression", goal: "Keep GitHub behavior" });
+    const first = await adapter.createSlice({ milestoneId: milestone.id, title: "First", goal: "Foundation" });
+    const second = await adapter.createSlice({
+      milestoneId: milestone.id,
+      title: "Second",
+      goal: "Dependent",
+      blockedBy: [first.id],
+    });
+    const task = await adapter.createTask({ sliceId: second.id, title: "Task", description: "Child issue" });
+    const artifact = await adapter.writeArtifact({
+      scopeType: "task",
+      scopeId: task.id,
+      artifactType: "verification",
+      title: "Verification",
+      content: "Verified",
+      format: "markdown",
+    });
+
+    expect(milestone).toMatchObject({ id: "M001", status: "active" });
+    expect(second).toMatchObject({ id: "S002", blockedBy: ["S001"] });
+    expect(task).toMatchObject({ id: "T001", sliceId: "S002" });
+    expect(artifact).toMatchObject({ scopeType: "task", scopeId: "T001", artifactType: "verification" });
+    await expect(adapter.listSlices({ milestoneId: "M001" })).resolves.toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "S001", blocking: ["S002"] }),
+      expect.objectContaining({ id: "S002", blockedBy: ["S001"] }),
+    ]));
   });
 
 describe("resolveBackend GitHub token selection", () => {
