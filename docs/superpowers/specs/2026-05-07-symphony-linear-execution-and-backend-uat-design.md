@@ -15,7 +15,7 @@ The CLI Linear Core work is complete on this branch. It established GitHub and L
 ## Goals
 
 1. Symphony executes Linear-backed work through the existing `TrackerAdapter` boundary.
-2. Linear candidate polling observes configured active states, terminal states, project, project milestone, parent/sub-issue shape, assignee routing, and native blocking relations.
+2. Linear candidate polling observes configured active states, terminal states, project scope, parent/sub-issue shape, assignee routing, and native blocking relations.
 3. Direct helper operations work against GitHub Projects v2 and Linear for normal worker tracker flow.
 4. GitHub-only PR helper operations continue to run for GitHub-backed workflows.
 5. Worker prompts describe the direct helper contract through `$SYMPHONY_BIN helper`.
@@ -81,12 +81,12 @@ Shared helper responses include enough provider data for UAT proof links. Commen
 
 ## Linear Execution Behavior
 
-Candidate polling uses Linear issue queries scoped to the configured project. When `tracker.project_milestone_id` is configured, polling filters by that milestone. When only a milestone name is configured, doctor and diagnostics can report it, and implementation may resolve it to an ID before polling.
+Candidate polling uses Linear issue queries scoped to the configured project and issue states. Symphony carries tracker issues through their lifecycle regardless of how those issues were created.
 
 Dispatch rules:
 
-1. Slice parent issues can dispatch when active and unblocked.
-2. Task sub-issues provide child context for the parent worker.
+1. Parent issues can dispatch when active and unblocked.
+2. Sub-issues provide child context for the parent worker.
 3. Standalone issues can dispatch when active and unblocked.
 4. Issues with excluded labels stay out of candidate results.
 5. Native Linear blocking relations populate `Issue.blocked_by`.
@@ -164,7 +164,7 @@ A backend helper test passes when:
 
 1. Invalid `WORKFLOW.md` config returns a helper error with the config field name.
 2. Missing auth returns a helper error naming the expected environment variable or config field.
-3. Missing Linear project, team, project milestone, state, comment, child issue, document, or relation data returns operation-specific errors.
+3. Missing Linear project, state, comment, child issue, document, or relation data returns operation-specific errors.
 4. Provider rate limits and transient 5xx failures are retried by the UAT runner with retry counts in evidence.
 5. Unsupported helper operations return structured helper errors.
 6. GitHub-only PR helpers return a GitHub-only error for Linear-backed workflows.
@@ -173,8 +173,8 @@ A backend helper test passes when:
 
 Required automated coverage:
 
-1. config tests for Linear team and project milestone metadata
-2. Linear client tests for candidate queries, milestone filtering, child issues, comments, documents, and follow-up issue creation
+1. config regression tests covering the existing Linear tracker fields
+2. Linear client tests for candidate queries, child issues, comments, documents, and follow-up issue creation
 3. Linear adapter tests for normalized candidate and state behavior
 4. orchestrator tests for Linear dependency gates
 5. helper contract tests for GitHub and Linear helper routing
@@ -216,10 +216,9 @@ This spec depends on:
 Implementation planning splits work into these units:
 
 1. mark stale Symphony spec and plan as superseded
-2. parse any missing Linear execution metadata from `WORKFLOW.md`
-3. normalize Linear candidate issue data for dispatch
-4. prove Linear dependency gates in orchestrator tests
-5. implement Linear helper parity behind a testable helper boundary
-6. update worker prompt contracts
-7. create `symphony-backend-uat`
-8. validate GitHub and Linear regressions
+2. normalize Linear candidate issue data for dispatch parity
+3. prove Linear child-issue and dependency gates in orchestrator tests
+4. implement Linear helper parity behind a testable helper boundary
+5. update worker prompt contracts
+6. create `symphony-backend-uat`
+7. validate GitHub and Linear regressions
