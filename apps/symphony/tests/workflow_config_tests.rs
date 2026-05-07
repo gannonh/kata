@@ -467,10 +467,7 @@ Prompt
     let config = from_workflow(&def.config).expect("config loads");
 
     assert_eq!(config.tracker.kind.as_deref(), Some("linear"));
-    assert_eq!(
-        config.tracker.project_slug.as_deref(),
-        Some("kata-project")
-    );
+    assert_eq!(config.tracker.project_slug.as_deref(), Some("kata-project"));
     assert_eq!(config.tracker.workspace_slug.as_deref(), Some("kata-sh"));
     assert_eq!(config.tracker.active_states, vec!["Todo", "In Progress"]);
     assert_eq!(config.tracker.terminal_states, vec!["Done"]);
