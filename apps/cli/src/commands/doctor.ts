@@ -446,11 +446,22 @@ export async function runDoctor(input: RunDoctorInput = {}): Promise<DoctorRepor
               message: "Linear documents, comments, sub-issues, and issue relations are available through GraphQL.",
             });
           } catch (error) {
+            const message = error instanceof Error ? error.message : "Unable to validate Linear project access.";
             checks.push({
               name: "linear-project",
               status: "invalid",
-              message: error instanceof Error ? error.message : "Unable to validate Linear project access.",
+              message,
               action: "Verify linear.workspace, linear.team, linear.project, auth, and configured state names.",
+            });
+            checks.push({
+              name: "linear-workflow-states",
+              status: "invalid",
+              message: "Could not validate Linear workflow states due to the Linear project validation error.",
+            });
+            checks.push({
+              name: "linear-capabilities",
+              status: "invalid",
+              message: "Could not validate Linear capabilities due to the Linear project validation error.",
             });
           }
         }

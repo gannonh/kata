@@ -16,13 +16,13 @@ set -euo pipefail
 
 step() {
   printf '\n>>> %s\n' "$1"
-  read -r -p "    [Enter when done] " _
+  read -r -p "    [Enter when done] " _ || true
 }
 
 capture() {
   local var="$1" question="$2" answer
   printf '\n>>> %s\n' "$question"
-  read -r -p "    > " answer
+  read -r -p "    > " answer || true
   printf -v "$var" '%s' "$answer"
 }
 
@@ -38,4 +38,5 @@ capture ERROR_MSG "Paste the error message (or 'none'):"
 
 printf '\n--- Captured ---\n'
 printf 'ERRORED=%s\n' "$ERRORED"
-printf 'ERROR_MSG=%s\n' "$ERROR_MSG"
+# Escape newlines for KEY=VALUE parsers.
+printf 'ERROR_MSG=%s\n' "${ERROR_MSG//$'\n'/\\n}"

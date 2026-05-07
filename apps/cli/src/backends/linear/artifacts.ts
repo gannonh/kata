@@ -264,6 +264,10 @@ export async function upsertLinearIssueArtifactComment(
   };
 }
 
+/**
+ * The caller must provide a title unique within the Linear project, typically
+ * prefixed with the milestone id, because markerless documents are matched by title.
+ */
 export async function upsertLinearMilestoneDocument(
   input: UpsertLinearMilestoneDocumentInput,
 ): Promise<LinearArtifactWriteResult> {
@@ -393,17 +397,17 @@ async function findExistingMilestoneDocument(
 
   return (
     documents.find((document) => {
-      const parsed = typeof document.content === "string" ? parseLinearArtifactMarker(document.content) : null;
+      const parsed = typeof document.content === "string" ? parseLinearArtifactMarker(document.content, input) : null;
       const title = typeof document.title === "string" ? document.title.trim() : "";
+      const inputTitle = input.title.trim();
       const legacyTitle = `${input.scopeId} ${input.title}`.trim();
+      const markerMatches = parsed?.scopeType === input.scopeType &&
+        parsed.scopeId === input.scopeId &&
+        parsed.artifactType === input.artifactType;
+      const titleMatches = title === inputTitle || title === legacyTitle;
+      const artifactTypeCompatible = !parsed?.artifactType || parsed.artifactType === input.artifactType;
 
-      return (
-        (parsed?.scopeType === input.scopeType &&
-          parsed.scopeId === input.scopeId &&
-          parsed.artifactType === input.artifactType) ||
-        title === input.title.trim() ||
-        title === legacyTitle
-      );
+      return markerMatches || (artifactTypeCompatible && titleMatches);
     }) ?? null
   );
 }

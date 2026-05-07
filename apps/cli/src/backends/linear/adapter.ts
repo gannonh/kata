@@ -688,7 +688,7 @@ export class LinearKataAdapter implements KataBackendAdapter {
     return [...this.entities.values()]
       .filter((entity) => entity.type === "Slice" && entity.parentId === input.milestoneId)
       .sort((left, right) => left.kataId.localeCompare(right.kataId))
-      .map((entity, index) => sliceFromTrackedEntity(entity, this.config.states, index));
+      .map((entity, index) => sliceFromEntity(entity, this.config.states, index));
   }
 
   async createSlice(input: KataSliceCreateInput): Promise<KataSlice> {
@@ -709,7 +709,7 @@ export class LinearKataAdapter implements KataBackendAdapter {
     await this.createNativeIssueDependencies(entity, blockedBy);
 
     return {
-      ...sliceFromTrackedEntity(this.entities.get(kataId) ?? entity, this.config.states, input.order ?? 0),
+      ...sliceFromEntity(this.entities.get(kataId) ?? entity, this.config.states, input.order ?? 0),
       status: "backlog",
       order: input.order ?? 0,
     };
@@ -719,7 +719,7 @@ export class LinearKataAdapter implements KataBackendAdapter {
     const entity = await this.requireEntity(input.sliceId, "Slice");
     const updatedEntity = await this.updateLinearIssueEntity(entity, input.status);
     return {
-      ...sliceFromTrackedEntity(updatedEntity, this.config.states, 0),
+      ...sliceFromEntity(updatedEntity, this.config.states, 0),
       status: input.status,
     };
   }
@@ -729,7 +729,7 @@ export class LinearKataAdapter implements KataBackendAdapter {
     return [...this.entities.values()]
       .filter((entity) => entity.type === "Task" && entity.parentId === input.sliceId)
       .sort((left, right) => left.kataId.localeCompare(right.kataId))
-      .map((entity) => taskFromTrackedEntity(entity, this.config.states));
+      .map((entity) => taskFromEntity(entity, this.config.states));
   }
 
   async createTask(input: KataTaskCreateInput): Promise<KataTask> {
@@ -749,7 +749,7 @@ export class LinearKataAdapter implements KataBackendAdapter {
     this.addDiscoveredEntity(entity);
 
     return {
-      ...taskFromTrackedEntity(entity, this.config.states),
+      ...taskFromEntity(entity, this.config.states),
       status: "backlog",
       verificationState: "pending",
     };
@@ -758,7 +758,7 @@ export class LinearKataAdapter implements KataBackendAdapter {
   async updateTaskStatus(input: KataTaskUpdateStatusInput): Promise<KataTask> {
     const entity = await this.requireEntity(input.taskId, "Task");
     const updatedEntity = await this.updateLinearIssueEntity(entity, input.status);
-    const task = taskFromTrackedEntity(updatedEntity, this.config.states);
+    const task = taskFromEntity(updatedEntity, this.config.states);
     return {
       ...task,
       status: input.status,
@@ -935,6 +935,22 @@ export class LinearKataAdapter implements KataBackendAdapter {
   }
 
   async checkHealth(): Promise<KataHealthReport> {
+    try {
+      await this.getContext();
+    } catch (error) {
+      return {
+        ok: false,
+        backend: "linear",
+        checks: [
+          {
+            name: "adapter",
+            status: "invalid",
+            message: error instanceof Error ? error.message : "Unable to validate Linear adapter configuration.",
+          },
+        ],
+      };
+    }
+
     return {
       ok: true,
       backend: "linear",
@@ -1242,6 +1258,9 @@ export class LinearKataAdapter implements KataBackendAdapter {
     blockedByIds: string[],
   ): Promise<void> {
     const blockedBy = parseSliceDependencyIds(blockedByIds);
+    const updates: TrackedLinearEntity[] = [];
+    let updatedBlockedEntity = blockedEntity;
+
     for (const blockerId of blockedBy) {
       const blocker = await this.requireEntity(blockerId, "Slice");
       const data = await this.client.graphql<LinearIssueRelationCreateMutationData>({
@@ -1258,14 +1277,20 @@ export class LinearKataAdapter implements KataBackendAdapter {
 
       const updatedBlocker: TrackedLinearEntity = {
         ...blocker,
-        blocking: parseSliceDependencyIds([...(blocker.blocking ?? []), blockedEntity.kataId]),
+        blocking: parseSliceDependencyIds([...(blocker.blocking ?? []), updatedBlockedEntity.kataId]),
       };
-      blockedEntity = {
-        ...blockedEntity,
-        blockedBy: parseSliceDependencyIds([...(blockedEntity.blockedBy ?? []), blocker.kataId]),
+      updatedBlockedEntity = {
+        ...updatedBlockedEntity,
+        blockedBy: parseSliceDependencyIds([...(updatedBlockedEntity.blockedBy ?? []), blocker.kataId]),
       };
-      this.entities.set(updatedBlocker.kataId, updatedBlocker);
-      this.entities.set(blockedEntity.kataId, blockedEntity);
+      updates.push(updatedBlocker);
+    }
+
+    for (const entity of updates) {
+      this.entities.set(entity.kataId, entity);
+    }
+    if (updates.length > 0) {
+      this.entities.set(updatedBlockedEntity.kataId, updatedBlockedEntity);
     }
   }
 
@@ -1459,10 +1484,6 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim() !== "";
 }
 
-function bodyContent(body: string): string {
-  return body;
-}
-
 function stripKataPrefix(title: string): string {
   return title.replace(/^\[[A-Z]\d{3}\]\s*/, "");
 }
@@ -1552,8 +1573,7 @@ function classifyLinearIssue(
     };
   }
 
-  if (kataId?.startsWith("T") || issue.parent) {
-    if (!kataId) return null;
+  if (kataId?.startsWith("T")) {
     return {
       kataId,
       type: "Task",
@@ -1571,10 +1591,18 @@ function classifyLinearIssue(
   }
 
   if (kataId?.startsWith("I")) {
-    if (!kataId) return null;
     return {
       kataId,
       type: "Issue",
+    };
+  }
+
+  if (issue.parent) {
+    if (!kataId) return null;
+    return {
+      kataId,
+      type: "Task",
+      parentId: parentKataId,
     };
   }
 
@@ -1668,7 +1696,7 @@ function milestoneFromEntity(entity: TrackedLinearEntity): KataMilestone {
   return {
     id: entity.kataId,
     title: entity.title,
-    goal: bodyContent(entity.body) || entity.title,
+    goal: entity.body || entity.title,
     status: "active",
     active: true,
   };
@@ -1679,7 +1707,7 @@ function sliceFromEntity(entity: TrackedLinearEntity, states: LinearStateMapping
     id: entity.kataId,
     milestoneId: entity.parentId ?? "M000",
     title: entity.title,
-    goal: bodyContent(entity.body) || entity.title,
+    goal: entity.body || entity.title,
     status: sliceStatusFromEntity(entity, states),
     order,
     blockedBy: parseSliceDependencyIds(entity.blockedBy ?? []),
@@ -1687,23 +1715,15 @@ function sliceFromEntity(entity: TrackedLinearEntity, states: LinearStateMapping
   };
 }
 
-function sliceFromTrackedEntity(entity: TrackedLinearEntity, states: LinearStateMapping, order: number): KataSlice {
-  return sliceFromEntity(entity, states, order);
-}
-
 function taskFromEntity(entity: TrackedLinearEntity, states: LinearStateMapping): KataTask {
   return {
     id: entity.kataId,
     sliceId: entity.parentId ?? "S000",
     title: entity.title,
-    description: bodyContent(entity.body),
+    description: entity.body,
     status: taskStatusFromEntity(entity, states),
     verificationState: taskVerificationStateFromEntity(entity, states),
   };
-}
-
-function taskFromTrackedEntity(entity: TrackedLinearEntity, states: LinearStateMapping): KataTask {
-  return taskFromEntity(entity, states);
 }
 
 function issueSummaryFromEntity(entity: TrackedLinearEntity, states: LinearStateMapping): KataIssueSummary {
@@ -1719,7 +1739,7 @@ function issueSummaryFromEntity(entity: TrackedLinearEntity, states: LinearState
 function issueFromEntity(entity: TrackedLinearEntity, states: LinearStateMapping): KataIssue {
   return {
     ...issueSummaryFromEntity(entity, states),
-    body: bodyContent(entity.body),
+    body: entity.body,
   };
 }
 

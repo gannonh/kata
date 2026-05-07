@@ -1,7 +1,6 @@
 {
-  "generatedAt": "2026-05-07T17:14:07.574Z",
-  "workspace": "/Volumes/EVO/kata/kata-mono",
-  "cliRoot": "/Volumes/EVO/kata/kata-mono/apps/cli",
+  "workspace": ".",
+  "cliRoot": "apps/cli",
   "gitCommit": "c6a6c67f",
   "cliVersion": "0.16.0-alpha.0",
   "operations": [

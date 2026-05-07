@@ -273,6 +273,51 @@ describe("Linear artifact upserts", () => {
     });
   });
 
+  it("does not title-match a document whose marker has another artifact type", async () => {
+    const client = {
+      paginate: vi.fn(async () => [
+        {
+          id: "document-1",
+          title: "M001 Plan",
+          content: formatLinearArtifactMarker({
+            scopeType: "milestone",
+            scopeId: "M001",
+            artifactType: "summary",
+            content: "old",
+          }),
+          updatedAt: "2026-05-06T11:00:00.000Z",
+        },
+      ]),
+      graphql: vi.fn(async (request: FakeGraphqlRequest) => ({
+        documentCreate: {
+          success: true,
+          document: {
+            id: "document-2",
+            title: request.variables.input.title,
+            content: request.variables.input.content,
+            updatedAt: "2026-05-06T12:00:00.000Z",
+          },
+        },
+      })),
+    };
+
+    const result = await upsertLinearMilestoneDocument({
+      client: client as unknown as LinearClient,
+      projectId: "project-1",
+      scopeId: "M001",
+      artifactType: "plan",
+      title: "M001 Plan",
+      content: "new",
+    });
+
+    expect(result.backendId).toBe("document:document-2");
+    expect(client.graphql).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: expect.stringContaining("documentCreate"),
+      }),
+    );
+  });
+
   it("creates a milestone document without marker content or duplicate title prefix", async () => {
     const client = {
       paginate: vi.fn(async () => []),

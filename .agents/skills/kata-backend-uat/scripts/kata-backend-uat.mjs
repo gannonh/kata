@@ -39,6 +39,13 @@ const SKILL_FOR_OPERATION = {
   "execution.getStatus": "kata-progress",
 };
 const RETRYABLE_PATTERN = /429|500|502|503|504|timeout|ETIMEDOUT|ECONNRESET|NETWORK/i;
+const NON_IDEMPOTENT_OPERATIONS = new Set([
+  "milestone.create",
+  "slice.create",
+  "task.create",
+  "issue.create",
+  "artifact.write",
+]);
 
 main().catch((error) => {
   console.error(error instanceof Error ? error.message : String(error));
@@ -96,7 +103,10 @@ function parseArgs(argv) {
       result._.push(arg);
       continue;
     }
-    const [rawKey, inlineValue] = arg.slice(2).split("=", 2);
+    const stripped = arg.slice(2);
+    const eqIndex = stripped.indexOf("=");
+    const rawKey = eqIndex === -1 ? stripped : stripped.slice(0, eqIndex);
+    const inlineValue = eqIndex === -1 ? undefined : stripped.slice(eqIndex + 1);
     const key = rawKey.replaceAll("-", "_");
     if (inlineValue !== undefined) {
       result[key] = inlineValue;
@@ -143,6 +153,7 @@ async function testBackend(args) {
     retries: [],
     markerChecks: [],
     documentChecks: [],
+    nonIdempotentRetryRisks: [],
     created: {},
     operationCoverage: null,
     cleanup: { completed: false },
@@ -380,9 +391,8 @@ function updateGeneratedContract(args) {
   const workspace = path.resolve(String(args.workspace ?? process.cwd()));
   const cliRoot = resolveCliRoot(args, workspace);
   const contract = {
-    generatedAt: new Date().toISOString(),
-    workspace,
-    cliRoot,
+    workspace: ".",
+    cliRoot: relativeContractPath(workspace, cliRoot),
     gitCommit: gitCommit(workspace),
     cliVersion: readCliVersion(cliRoot),
     operations: readOperationNames(cliRoot),
@@ -428,6 +438,10 @@ function createCaller({ root, runDir, env, evidence }) {
 
       const message = parsed?.error?.message ?? child.stderr ?? child.stdout;
       if (attempt < 5 && RETRYABLE_PATTERN.test(message)) {
+        if (NON_IDEMPOTENT_OPERATIONS.has(operation)) {
+          evidence.nonIdempotentRetryRisks.push({ operation, attempt, message: String(message).slice(0, 500) });
+          throw new Error(`${operation} failed after ${attempt} attempt(s): ${String(message).slice(0, 1000)}`);
+        }
         evidence.retries.push({ operation, attempt, message: String(message).slice(0, 500) });
         await sleep(1000 * attempt);
         continue;
@@ -618,6 +632,11 @@ function resolveCliRoot(args, workspace) {
   return workspace;
 }
 
+function relativeContractPath(workspace, target) {
+  const relative = path.relative(workspace, target);
+  return relative && !relative.startsWith("..") && !path.isAbsolute(relative) ? relative : ".";
+}
+
 function loadEnv(workspace, baseEnv) {
   const env = { ...baseEnv };
   const envPath = path.join(workspace, ".env");
@@ -626,8 +645,9 @@ function loadEnv(workspace, baseEnv) {
   for (const line of content.split(/\r?\n/)) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith("#") || !trimmed.includes("=")) continue;
-    const [key, ...rest] = trimmed.split("=");
-    if (!env[key]) env[key] = parseDotEnvValue(rest.join("="));
+    const [rawKey, ...rest] = trimmed.split("=");
+    const key = rawKey.trim();
+    if (key && !env[key]) env[key] = parseDotEnvValue(rest.join("="));
   }
   return env;
 }

@@ -144,4 +144,49 @@ describe("golden path: pi + linear", () => {
       rmSync(tmp, { recursive: true, force: true });
     }
   });
+
+  it("keeps Linear doctor check shape stable when project validation fails", async () => {
+    const tmp = mkdtempSync(join(tmpdir(), "kata-linear-doctor-"));
+    const workspaceDir = join(tmp, "repo");
+    const cliSkillsDir = join(workspaceDir, "apps", "cli", "skills");
+
+    try {
+      mkdirSync(join(cliSkillsDir, "kata-health"), { recursive: true });
+      mkdirSync(join(workspaceDir, ".kata"), { recursive: true });
+      writeFileSync(join(workspaceDir, "pnpm-workspace.yaml"), "packages:\n  - apps/*\n", "utf8");
+      writeFileSync(join(cliSkillsDir, "kata-health", "SKILL.md"), "# Kata Health\n", "utf8");
+      writeFileSync(
+        join(workspaceDir, ".kata", "preferences.md"),
+        `---
+workflow:
+  mode: linear
+linear:
+  workspace: kata
+  team: KATA
+  project: kata-cli
+---
+`,
+        "utf8",
+      );
+
+      const doctor = await runDoctor({
+        cwd: workspaceDir,
+        env: { LINEAR_API_KEY: "lin_test" },
+        packageVersion: "9.9.9-test",
+        linearClient: {
+          graphql: vi.fn(async () => {
+            throw new Error("Linear project unavailable");
+          }),
+          paginate: vi.fn(async () => []),
+        } as any,
+      });
+
+      expect(doctor.status).toBe("invalid");
+      expect(doctor.checks.find((check) => check.name === "linear-project")).toMatchObject({ status: "invalid" });
+      expect(doctor.checks.find((check) => check.name === "linear-workflow-states")).toMatchObject({ status: "invalid" });
+      expect(doctor.checks.find((check) => check.name === "linear-capabilities")).toMatchObject({ status: "invalid" });
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
 });

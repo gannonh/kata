@@ -499,10 +499,33 @@ async function ensurePreferences(input: {
     const rl = createInterface({ input: process.stdin, output: process.stdout });
     try {
       const backend = (await rl.question("Kata backend [github]: ")).trim().toLowerCase() || "github";
-      if (backend !== "github") {
-        throw Object.assign(new Error("Only GitHub setup is available in this CLI build. Linear setup is coming later."), {
+      if (backend !== "github" && backend !== "linear") {
+        throw Object.assign(new Error("Kata backend must be github or linear."), {
           code: "INVALID_INPUT",
         });
+      }
+      if (backend === "linear") {
+        const workspace = await askRequired(rl.question.bind(rl), "Linear workspace", cleanString(input.onboarding?.linearWorkspace) ?? undefined);
+        const team = await askRequired(rl.question.bind(rl), "Linear team key or ID", cleanString(input.onboarding?.linearTeam) ?? undefined);
+        const project = await askRequired(rl.question.bind(rl), "Linear project slug, name, or ID", cleanString(input.onboarding?.linearProject) ?? undefined);
+        const authEnv = cleanString(input.onboarding?.linearAuthEnv) ?? "LINEAR_API_KEY";
+
+        await mkdir(dirname(preferencesPath), { recursive: true });
+        await writeFile(
+          preferencesPath,
+          renderLinearPreferences({ workspace, team, project, authEnv }),
+          "utf8",
+        );
+
+        return {
+          path: preferencesPath,
+          status: "created",
+          backend: "linear",
+          linearWorkspace: workspace,
+          linearTeam: team,
+          linearProject: project,
+          linearAuthEnv: authEnv,
+        };
       }
 
       repoOwner = await askRequired(rl.question.bind(rl), "GitHub repo owner", repoOwner ?? inferredRepository?.owner);
