@@ -26,7 +26,7 @@ Before starting this plan, the CLI Linear Core plan has been executed and valida
 - Modify `apps/symphony/src/domain.rs`: add optional Linear tracker metadata to `TrackerConfig` for team and project milestone selection.
 - Modify `apps/symphony/src/config.rs`: parse `tracker.team_key`, `tracker.project_milestone_id`, and `tracker.project_milestone_name` from `WORKFLOW.md`.
 - Modify `apps/symphony/docs/WORKFLOW-REFERENCE.md`: document Linear team and project milestone fields.
-- Modify `apps/symphony/src/linear/client.rs`: add milestone-aware candidate queries, project context resolution, child issue reads, comment reads and updates, marker document reads and writes, and follow-up issue creation.
+- Modify `apps/symphony/src/linear/client.rs`: add milestone-aware candidate queries, project context resolution, child issue reads, comment reads and updates, Symphony helper/workpad document reads and writes, and follow-up issue creation.
 - Modify `apps/symphony/src/linear/adapter.rs`: expose Linear helper-facing methods through focused adapter methods while preserving the shared `TrackerAdapter` trait.
 - Create `apps/symphony/src/helper.rs`: move backend-neutral helper parsing and Linear helper execution into testable library code.
 - Modify `apps/symphony/src/main.rs`: delegate helper execution to `symphony::helper` and keep CLI printing behavior unchanged.
@@ -1302,7 +1302,7 @@ fn decode_comment_mutation(body: &Value, field: &str) -> Result<LinearComment> {
 }
 ```
 
-- [ ] **Step 6: Implement marker document methods**
+- [ ] **Step 6: Implement Symphony helper/workpad document methods**
 
 In `impl LinearClient`, add:
 
@@ -2182,7 +2182,7 @@ Use `sym-state` for tracker state and issue comments. Use Kata CLI operations fr
 In `apps/symphony/prompts/in-progress.md`, ensure the first helper section includes this sentence:
 
 ```markdown
-Use Kata CLI operations from the active Kata skill for durable Kata workflow effects. Use `sym-state` for current tracker issue reads, comments, state transitions, child issue reads, marker documents, and follow-up issues.
+Use Kata CLI operations from the active Kata skill for durable Kata workflow effects. Use `sym-state` for current tracker issue reads, comments, state transitions, child issue reads, Symphony helper/workpad documents, and follow-up issues.
 ```
 
 - [ ] **Step 5: Run contract tests and verify they pass**

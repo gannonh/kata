@@ -2,7 +2,7 @@
 
 **Goal:** Implement Linear as a full `@kata-sh/cli` backend for project, milestone, slice, task, standalone issue, artifact, health, dependency, and snapshot operations.
 
-**Architecture:** Add a raw Linear GraphQL client and a `LinearKataAdapter` that implements the existing `KataBackendAdapter` contract. Store Kata entity metadata in Linear descriptions and artifact markers, use Linear Project Milestones for milestones, Linear Documents for milestone artifacts, issue comments for issue-scoped artifacts, sub-issues for tasks, and native issue relations for slice dependencies.
+**Architecture:** Add a raw Linear GraphQL client and a `LinearKataAdapter` that implements the existing `KataBackendAdapter` contract. Derive Kata entity identity, hierarchy, workflow state, verification state, and dependencies from Linear-native records, configured labels, title ID prefixes, Project Milestones, sub-issues, workflow states, and native issue relations. Use Linear Documents for milestone artifacts and issue comments for issue-scoped artifacts. Use artifact markers only for artifact documents and artifact comments.
 
 **Tech Stack:** TypeScript, Node 20 fetch, Vitest, `js-yaml`, existing Kata domain service and CLI transport.
 
@@ -20,6 +20,7 @@
 - Create `apps/cli/src/backends/linear/client.ts`: Linear GraphQL fetch wrapper, auth token resolution, response error mapping, pagination helpers.
 - Create `apps/cli/src/backends/linear/config.ts`: Linear preferences shape, default state mapping, auth env resolution.
 - Create `apps/cli/src/backends/linear/artifacts.ts`: artifact marker format and upsert helpers for Linear documents and issue comments.
+- Create `apps/cli/src/backends/linear/entities.ts`: entity classification helpers for labels, title ID prefixes, project milestones, parent/sub-issue relationships, workflow states, and native relations.
 - Modify `apps/cli/src/backends/linear/adapter.ts`: full `KataBackendAdapter` implementation.
 - Modify `apps/cli/src/backends/read-tracker-config.ts`: parse Linear workspace, team, project, auth, state mapping, labels, and active milestone preferences.
 - Modify `apps/cli/src/backends/resolve-backend.ts`: construct the Linear client-backed adapter when `.kata/preferences.md` selects Linear.
@@ -1273,7 +1274,7 @@ function createFakeLinearClient() {
     {
       id: "milestone-1",
       name: "M001 Launch",
-      description: '<!-- kata:entity {"kataId":"M001","type":"Milestone"} -->\nLaunch',
+      description: "Launch",
       targetDate: null,
     },
   ];
@@ -1283,9 +1284,10 @@ function createFakeLinearClient() {
       identifier: "KATA-1",
       number: 1,
       title: "[S001] Foundation",
-      description: '<!-- kata:entity {"kataId":"S001","type":"Slice","parentId":"M001","status":"in_progress"} -->\nFoundation',
+      description: "Foundation",
       url: "https://linear.test/KATA-1",
       state: workflowStates[2],
+      labels: { nodes: [{ name: "kata/slice" }], pageInfo: { hasNextPage: false, endCursor: null } },
       project,
       projectMilestone: milestones[0],
       parent: null,
@@ -1298,9 +1300,10 @@ function createFakeLinearClient() {
       identifier: "KATA-2",
       number: 2,
       title: "[T001] Verify",
-      description: '<!-- kata:entity {"kataId":"T001","type":"Task","parentId":"S001","status":"done","verificationState":"verified"} -->\nVerify',
+      description: "Verify",
       url: "https://linear.test/KATA-2",
       state: workflowStates[6],
+      labels: { nodes: [{ name: "kata/task" }], pageInfo: { hasNextPage: false, endCursor: null } },
       project,
       projectMilestone: milestones[0],
       parent: { id: "issue-s1", identifier: "KATA-1" },
@@ -1518,12 +1521,14 @@ interface LinearKataAdapterInput {
   workspacePath: string;
 }
 
-interface LinearEntityMarker {
+interface LinearEntityClassification {
   kataId: string;
   type: LinearEntityType;
   parentId?: string;
-  status?: LinearSliceStatus | LinearTaskStatus;
-  verificationState?: LinearTaskVerificationState;
+}
+
+interface LinearLabelNode {
+  name: string;
 }
 
 interface LinearProjectNode {
@@ -1565,6 +1570,7 @@ interface LinearIssueNode {
   projectMilestone?: LinearMilestoneNode | null;
   parent?: { id: string; identifier?: string | null } | null;
   children?: { nodes?: Array<LinearIssueNode | null> | null } | null;
+  labels?: { nodes?: Array<LinearLabelNode | null> | null } | null;
   relations?: { nodes?: Array<LinearIssueRelationNode | null> | null } | null;
   inverseRelations?: { nodes?: Array<LinearIssueRelationNode | null> | null } | null;
 }
@@ -1580,8 +1586,6 @@ interface TrackedLinearEntity {
   kataId: string;
   type: LinearEntityType;
   parentId?: string;
-  status?: LinearSliceStatus | LinearTaskStatus;
-  verificationState?: LinearTaskVerificationState;
   blockedBy?: string[];
   blocking?: string[];
   linearId: string;
@@ -1593,9 +1597,6 @@ interface TrackedLinearEntity {
   stateType?: string;
   projectMilestoneId?: string;
 }
-
-const ENTITY_MARKER_PREFIX = "<!-- kata:entity ";
-const ENTITY_MARKER_SUFFIX = " -->";
 ```
 
 - [ ] **Step 4: Add Linear discovery queries**
@@ -2040,20 +2041,14 @@ export class LinearKataAdapter implements KataBackendAdapter {
       selectConnection: (data) => data.project?.milestones,
     });
 
-    return milestones.map((milestone) => {
-      const marker = parseEntityMarker(milestone.description ?? "") ?? {
-        kataId: normalizeMilestoneKataId(milestone.name),
-        type: "Milestone" as const,
-      };
-      return {
-        kataId: marker.kataId,
-        type: "Milestone",
-        linearId: milestone.id,
-        title: stripKataPrefix(milestone.name),
-        body: milestone.description ?? "",
-        projectMilestoneId: milestone.id,
-      };
-    });
+    return milestones.map((milestone) => ({
+      kataId: normalizeMilestoneKataId(milestone.name),
+      type: "Milestone",
+      linearId: milestone.id,
+      title: stripKataPrefix(milestone.name),
+      body: milestone.description ?? "",
+      projectMilestoneId: milestone.id,
+    }));
   }
 
   private async loadIssueEntities(teamId: string, projectId: string, milestones: TrackedLinearEntity[]): Promise<TrackedLinearEntity[]> {
@@ -2104,54 +2099,8 @@ export class LinearKataAdapter implements KataBackendAdapter {
 Append these helpers to `apps/cli/src/backends/linear/adapter.ts`:
 
 ```ts
-export function formatLinearEntityBody(input: {
-  kataId: string;
-  type: LinearEntityType;
-  parentId?: string;
-  status?: LinearSliceStatus | LinearTaskStatus;
-  verificationState?: LinearTaskVerificationState;
-  content: string;
-}): string {
-  const marker = JSON.stringify({
-    kataId: input.kataId,
-    type: input.type,
-    ...(input.parentId ? { parentId: input.parentId } : {}),
-    ...(input.status ? { status: input.status } : {}),
-    ...(input.verificationState ? { verificationState: input.verificationState } : {}),
-  });
-
-  return `${ENTITY_MARKER_PREFIX}${marker}${ENTITY_MARKER_SUFFIX}\n${input.content}`;
-}
-
-export function parseEntityMarker(body: string): LinearEntityMarker | null {
-  const newlineIndex = body.indexOf("\n");
-  const markerLine = newlineIndex === -1 ? body : body.slice(0, newlineIndex);
-  if (!markerLine.startsWith(ENTITY_MARKER_PREFIX) || !markerLine.endsWith(ENTITY_MARKER_SUFFIX)) return null;
-  try {
-    const marker = JSON.parse(markerLine.slice(ENTITY_MARKER_PREFIX.length, -ENTITY_MARKER_SUFFIX.length));
-    if (!isEntityMarker(marker)) return null;
-    return marker;
-  } catch {
-    return null;
-  }
-}
-
-function isEntityMarker(value: unknown): value is LinearEntityMarker {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value as Partial<LinearEntityMarker>;
-  return typeof candidate.kataId === "string" &&
-    candidate.kataId.length > 0 &&
-    (candidate.type === "Project" ||
-      candidate.type === "Milestone" ||
-      candidate.type === "Slice" ||
-      candidate.type === "Task" ||
-      candidate.type === "Issue");
-}
-
 function bodyContent(body: string): string {
-  const newlineIndex = body.indexOf("\n");
-  if (newlineIndex === -1) return body.startsWith(ENTITY_MARKER_PREFIX) ? "" : body;
-  return body.startsWith(ENTITY_MARKER_PREFIX) ? body.slice(newlineIndex + 1) : body;
+  return body;
 }
 
 function stripKataPrefix(title: string): string {
@@ -2175,30 +2124,55 @@ function issueEntitiesFromIssue(
   milestoneByLinearId: Map<string, string>,
 ): TrackedLinearEntity[] {
   const entities: TrackedLinearEntity[] = [];
-  const marker = parseEntityMarker(issue.description ?? "");
-  if (marker) {
-    entities.push(entityFromIssueNode(issue, marker, milestoneByLinearId));
+  const classification = classifyLinearIssue(issue, milestoneByLinearId);
+  if (classification) {
+    entities.push(entityFromIssueNode(issue, classification, milestoneByLinearId));
   }
   for (const child of issue.children?.nodes ?? []) {
     if (!child) continue;
-    const childMarker = parseEntityMarker(child.description ?? "");
-    if (!childMarker) continue;
-    entities.push(entityFromIssueNode(child, childMarker, milestoneByLinearId));
+    const childClassification = classifyLinearIssue(child, milestoneByLinearId);
+    if (!childClassification) continue;
+    entities.push(entityFromIssueNode(child, {
+      ...childClassification,
+      parentId: childClassification.parentId ?? classification?.kataId,
+    }, milestoneByLinearId));
   }
   return entities;
 }
 
+function classifyLinearIssue(
+  issue: LinearIssueNode,
+  milestoneByLinearId: Map<string, string>,
+): LinearEntityClassification | null {
+  const kataId = parseKataIdFromTitle(issue.title);
+  if (!kataId) return null;
+  const labels = new Set((issue.labels?.nodes ?? []).flatMap((label) => label?.name ? [label.name] : []));
+  if (kataId.startsWith("T") || issue.parent) {
+    return { kataId, type: "Task" };
+  }
+  if (kataId.startsWith("S") || labels.has("kata/slice")) {
+    return { kataId, type: "Slice", parentId: milestoneByLinearId.get(issue.projectMilestone?.id ?? "") };
+  }
+  if (kataId.startsWith("I") || labels.has("kata/issue")) {
+    return { kataId, type: "Issue" };
+  }
+  return null;
+}
+
+function parseKataIdFromTitle(title: string | undefined): string | undefined {
+  const match = title?.match(/\[([MSIT]\d{3})\]/i);
+  return match ? match[1]!.toUpperCase() : undefined;
+}
+
 function entityFromIssueNode(
   issue: LinearIssueNode,
-  marker: LinearEntityMarker,
+  classification: LinearEntityClassification,
   milestoneByLinearId: Map<string, string>,
 ): TrackedLinearEntity {
   return {
-    kataId: marker.kataId,
-    type: marker.type,
-    parentId: marker.parentId ?? milestoneByLinearId.get(issue.projectMilestone?.id ?? ""),
-    status: marker.status,
-    verificationState: marker.verificationState,
+    kataId: classification.kataId,
+    type: classification.type,
+    parentId: classification.parentId ?? milestoneByLinearId.get(issue.projectMilestone?.id ?? ""),
     blockedBy: relationDependencies(issue, "blockedBy"),
     blocking: relationDependencies(issue, "blocking"),
     linearId: issue.id,
@@ -2230,12 +2204,10 @@ function relationDependencies(issue: LinearIssueNode, direction: "blockedBy" | "
 }
 
 function sliceStatusFromEntity(entity: TrackedLinearEntity, states: LinearStateMapping): KataSlice["status"] {
-  if (entity.status && isSliceStatus(entity.status)) return entity.status;
   return statusFromStateName(entity.stateName, states) as KataSlice["status"] ?? "backlog";
 }
 
 function taskStatusFromEntity(entity: TrackedLinearEntity, states: LinearStateMapping): KataTask["status"] {
-  if (entity.status && isTaskStatus(entity.status)) return entity.status;
   const status = statusFromStateName(entity.stateName, states);
   if (status === "done" || status === "todo" || status === "backlog") return status;
   return "in_progress";
@@ -2256,9 +2228,8 @@ function statusFromStateName(stateName: string | undefined, states: LinearStateM
 }
 
 function taskVerificationStateFromEntity(entity: TrackedLinearEntity): KataTask["verificationState"] {
-  return entity.verificationState === "verified" || entity.verificationState === "failed"
-    ? entity.verificationState
-    : "pending";
+  if (entity.stateType === "completed" || entity.stateName === "Done") return "verified";
+  return "pending";
 }
 
 function isSliceStatus(value: string): value is KataSlice["status"] {
@@ -2577,11 +2548,7 @@ Replace the `NOT_SUPPORTED` mutation methods in `LinearKataAdapter` with:
         id: context.project.id,
         input: {
           name: input.title,
-          description: formatLinearEntityBody({
-            kataId: "PROJECT",
-            type: "Project",
-            content: input.description,
-          }),
+          description: input.description,
         },
       },
     });
@@ -2605,11 +2572,7 @@ Replace the `NOT_SUPPORTED` mutation methods in `LinearKataAdapter` with:
         input: {
           projectId: context.project.id,
           name: `[${kataId}] ${input.title}`,
-          description: formatLinearEntityBody({
-            kataId,
-            type: "Milestone",
-            content: input.goal,
-          }),
+          description: input.goal,
         },
       },
     });
@@ -2663,17 +2626,15 @@ Replace the `NOT_SUPPORTED` mutation methods in `LinearKataAdapter` with:
       parentId: input.milestoneId,
       title: input.title,
       content: input.goal,
-      status: "backlog",
       projectMilestoneId: milestone.linearId,
       stateId: requireStateId(context, "backlog"),
     });
-    const entity = entityFromCreatedIssue(issue, {
+    const entity = entityFromIssueNode(issue, {
       kataId,
       type: "Slice",
       parentId: input.milestoneId,
-      status: "backlog",
-      blockedBy,
-    });
+    }, new Map([[milestone.linearId, input.milestoneId]]));
+    entity.blockedBy = blockedBy;
     this.entities.set(kataId, entity);
     this.linearIdToKataId.set(entity.linearId, kataId);
     await this.createNativeIssueDependencies(entity, blockedBy);
@@ -2691,9 +2652,7 @@ Replace the `NOT_SUPPORTED` mutation methods in `LinearKataAdapter` with:
 
   async updateSliceStatus(input: KataSliceUpdateStatusInput): Promise<KataSlice> {
     const entity = await this.requireEntity(input.sliceId, "Slice");
-    const updated = await this.updateLinearIssueEntity(entity, input.status, {
-      status: input.status,
-    });
+    const updated = await this.updateLinearIssueEntity(entity, input.status);
     return { ...sliceFromTrackedEntity(updated), status: input.status };
   }
 
@@ -2708,19 +2667,15 @@ Replace the `NOT_SUPPORTED` mutation methods in `LinearKataAdapter` with:
       parentId: input.sliceId,
       title: input.title,
       content: input.description,
-      status: "backlog",
-      verificationState: "pending",
       projectMilestoneId: slice.projectMilestoneId,
       parentLinearId: slice.linearId,
       stateId: requireStateId(context, "backlog"),
     });
-    const entity = entityFromCreatedIssue(issue, {
+    const entity = entityFromIssueNode(issue, {
       kataId,
       type: "Task",
       parentId: input.sliceId,
-      status: "backlog",
-      verificationState: "pending",
-    });
+    }, new Map());
     this.entities.set(kataId, entity);
     this.linearIdToKataId.set(entity.linearId, kataId);
     return {
@@ -2736,10 +2691,7 @@ Replace the `NOT_SUPPORTED` mutation methods in `LinearKataAdapter` with:
   async updateTaskStatus(input: KataTaskUpdateStatusInput): Promise<KataTask> {
     const entity = await this.requireEntity(input.taskId, "Task");
     const verificationState = input.verificationState ?? taskVerificationStateFromEntity(entity);
-    const updated = await this.updateLinearIssueEntity(entity, input.status, {
-      status: input.status,
-      verificationState,
-    });
+    const updated = await this.updateLinearIssueEntity(entity, input.status);
     return {
       ...taskFromTrackedEntity(updated),
       status: input.status,
@@ -2757,14 +2709,12 @@ Replace the `NOT_SUPPORTED` mutation methods in `LinearKataAdapter` with:
       type: "Issue",
       title: input.title,
       content: body,
-      status: "backlog",
       stateId: requireStateId(context, "backlog"),
     });
-    const entity = entityFromCreatedIssue(issue, {
+    const entity = entityFromIssueNode(issue, {
       kataId,
       type: "Issue",
-      status: "backlog",
-    });
+    }, new Map());
     this.entities.set(kataId, entity);
     this.linearIdToKataId.set(entity.linearId, kataId);
     return {
@@ -2779,9 +2729,7 @@ Replace the `NOT_SUPPORTED` mutation methods in `LinearKataAdapter` with:
 
   async updateIssueStatus(input: KataIssueUpdateStatusInput): Promise<KataIssue> {
     const entity = await this.requireEntity(input.issueId, "Issue");
-    const updated = await this.updateLinearIssueEntity(entity, input.status, {
-      status: input.status,
-    });
+    const updated = await this.updateLinearIssueEntity(entity, input.status);
     return {
       id: updated.kataId,
       number: linearIssueNumber(updated.identifier),
@@ -2822,8 +2770,6 @@ Add these private methods inside `LinearKataAdapter`:
     parentId?: string;
     title: string;
     content: string;
-    status?: LinearSliceStatus | LinearTaskStatus;
-    verificationState?: LinearTaskVerificationState;
     projectMilestoneId?: string;
     parentLinearId?: string;
     stateId: string;
@@ -2836,15 +2782,9 @@ Add these private methods inside `LinearKataAdapter`:
           teamId: context.team.id,
           projectId: context.project.id,
           title: `[${input.kataId}] ${input.title}`,
-          description: formatLinearEntityBody({
-            kataId: input.kataId,
-            type: input.type,
-            parentId: input.parentId,
-            status: input.status,
-            verificationState: input.verificationState,
-            content: input.content,
-          }),
+          description: input.content,
           stateId: input.stateId,
+          labelIds: labelIdsForType(context, input.type),
           ...(input.projectMilestoneId ? { projectMilestoneId: input.projectMilestoneId } : {}),
           ...(input.parentLinearId ? { parentId: input.parentLinearId } : {}),
         },
@@ -2856,7 +2796,6 @@ Add these private methods inside `LinearKataAdapter`:
   private async updateLinearIssueEntity(
     entity: TrackedLinearEntity,
     status: LinearSliceStatus | LinearTaskStatus | KataIssue["status"],
-    metadata: Pick<LinearEntityMarker, "status" | "verificationState">,
   ): Promise<TrackedLinearEntity> {
     const context = await this.getContext();
     const data = await this.client.graphql<{ issueUpdate: { issue: LinearIssueNode } }>({
@@ -2865,19 +2804,16 @@ Add these private methods inside `LinearKataAdapter`:
         id: entity.linearId,
         input: {
           stateId: requireStateId(context, status),
-          description: updateLinearEntityBodyMarker(entity, metadata),
         },
       },
     });
-    const updated = entityFromCreatedIssue(data.issueUpdate.issue, {
+    const updated = entityFromIssueNode(data.issueUpdate.issue, {
       kataId: entity.kataId,
       type: entity.type,
       parentId: entity.parentId,
-      status: metadata.status,
-      verificationState: metadata.verificationState,
-      blockedBy: entity.blockedBy,
-      blocking: entity.blocking,
-    });
+    }, new Map());
+    updated.blockedBy = entity.blockedBy;
+    updated.blocking = entity.blocking;
     this.entities.set(entity.kataId, updated);
     return updated;
   }
@@ -2926,41 +2862,11 @@ function requireStateId(
   return state.id;
 }
 
-function entityFromCreatedIssue(
-  issue: LinearIssueNode,
-  marker: LinearEntityMarker & { blockedBy?: string[]; blocking?: string[] },
-): TrackedLinearEntity {
-  return {
-    kataId: marker.kataId,
-    type: marker.type,
-    parentId: marker.parentId,
-    status: marker.status,
-    verificationState: marker.verificationState,
-    blockedBy: marker.blockedBy ?? [],
-    blocking: marker.blocking ?? [],
-    linearId: issue.id,
-    identifier: issue.identifier,
-    title: stripKataPrefix(issue.title),
-    body: issue.description ?? "",
-    url: issue.url ?? undefined,
-    stateName: issue.state?.name ?? undefined,
-    stateType: issue.state?.type ?? undefined,
-    projectMilestoneId: issue.projectMilestone?.id ?? undefined,
-  };
-}
-
-function updateLinearEntityBodyMarker(
-  entity: TrackedLinearEntity,
-  metadata: Pick<LinearEntityMarker, "status" | "verificationState">,
-): string {
-  return formatLinearEntityBody({
-    kataId: entity.kataId,
-    type: entity.type,
-    parentId: entity.parentId,
-    status: metadata.status ?? entity.status,
-    verificationState: metadata.verificationState ?? entity.verificationState,
-    content: bodyContent(entity.body),
-  });
+function labelIdsForType(
+  _context: { labelByType?: Map<LinearEntityType, string> },
+  _type: LinearEntityType,
+): string[] {
+  return [];
 }
 
 function appendBodySection(body: string, heading: string, content: string): string {
@@ -2974,7 +2880,7 @@ function sliceFromTrackedEntity(entity: TrackedLinearEntity): KataSlice {
     milestoneId: entity.parentId ?? "",
     title: entity.title,
     goal: bodyContent(entity.body) || entity.title,
-    status: isSliceStatus(String(entity.status)) ? entity.status as KataSlice["status"] : "backlog",
+    status: entity.stateType === "completed" ? "done" : "backlog",
     order: 0,
     blockedBy: parseSliceDependencyIds(entity.blockedBy),
     blocking: parseSliceDependencyIds(entity.blocking),
@@ -2987,7 +2893,7 @@ function taskFromTrackedEntity(entity: TrackedLinearEntity): KataTask {
     sliceId: entity.parentId ?? "",
     title: entity.title,
     description: bodyContent(entity.body),
-    status: isTaskStatus(String(entity.status)) ? entity.status as KataTask["status"] : "backlog",
+    status: entity.stateType === "completed" ? "done" : "backlog",
     verificationState: taskVerificationStateFromEntity(entity),
   };
 }
@@ -3345,7 +3251,7 @@ function createGoldenFakeLinearClient() {
               nodes: [{
                 id: "milestone-1",
                 name: "M001 Linear Golden",
-                description: '<!-- kata:entity {"kataId":"M001","type":"Milestone"} -->\nLinear golden',
+                description: "Linear golden",
               }],
               pageInfo: { hasNextPage: false, endCursor: null },
             },
@@ -3649,7 +3555,7 @@ Inside the `if (config.kind === "github")` block’s sibling branch, add:
               message: "Linear workflow states required by Kata are available.",
             });
             checks.push({
-              name: "linear-metadata",
+              name: "linear-capabilities",
               status: "ok",
               message: "Linear documents, comments, sub-issues, and issue relations are available through GraphQL.",
             });
@@ -3810,4 +3716,4 @@ git commit -m "test(cli): validate linear and github backend parity"
 
 **Plan language scan:** Each task has concrete files, test content, implementation snippets, commands, expected outcomes, and commit commands.
 
-**Type consistency:** The plan consistently uses `LinearTrackerConfig`, `createLinearClient`, `LinearKataAdapter`, `formatLinearEntityBody`, `parseLinearArtifactMarker`, `upsertLinearIssueArtifactComment`, and `upsertLinearMilestoneDocument`.
+**Type consistency:** The plan consistently uses `LinearTrackerConfig`, `createLinearClient`, `LinearKataAdapter`, `LinearEntityClassification`, `parseLinearArtifactMarker`, `upsertLinearIssueArtifactComment`, and `upsertLinearMilestoneDocument`.

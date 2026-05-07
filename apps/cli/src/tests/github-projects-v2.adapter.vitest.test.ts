@@ -267,6 +267,85 @@ describe("GithubProjectsV2Adapter", () => {
     );
   });
 
+  it("does not require superfluous dependency text fields", async () => {
+    const client = createFakeGithubClient({ projectFields: validProjectFields() });
+    const adapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+
+    await expect(adapter.upsertProject({
+      title: "Launch Kata",
+      description: "Project brief",
+    })).resolves.toMatchObject({
+      backend: "github",
+      title: "Launch Kata",
+    });
+  });
+
+  it("requires Status to contain every Kata workflow option", async () => {
+    const client = createFakeGithubClient({
+      projectFields: validProjectFields({
+        statusOptions: validStatusOptions().filter((option) => option.name !== "Done"),
+      }),
+    });
+    const adapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+
+    await expect(adapter.upsertProject({
+      title: "Launch Kata",
+      description: "Project brief",
+    })).rejects.toMatchObject({
+      code: "INVALID_CONFIG",
+      message: expect.stringContaining('Status" is missing option "Done"'),
+    });
+  });
+
+  it("warns when Project v2 items are missing required Kata field values", async () => {
+    const client = createFakeGithubClient({
+      projectItems: [
+        projectItem({
+          itemId: "project-item-1",
+          issueNodeId: "issue-node-1",
+          issueId: 1,
+          issueNumber: 1,
+          title: "[S001] Prepare launch",
+          body: "Slice work",
+          state: "open",
+          kataId: "S001",
+          kataType: "",
+        }),
+      ],
+    });
+    const adapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+
+    await expect(adapter.checkHealth()).resolves.toMatchObject({
+      ok: false,
+      backend: "github",
+      checks: expect.arrayContaining([
+        expect.objectContaining({
+          name: "project-item-fields",
+          status: "warn",
+          message: expect.stringContaining("1 Project v2 item is missing required Kata field values"),
+        }),
+      ]),
+    });
+  });
+
   it("creates project, milestone, slice, task, and artifact records through GitHub and Project v2", async () => {
     const client = createFakeGithubClient();
     const adapter = new GithubProjectsV2Adapter({
@@ -429,6 +508,63 @@ describe("GithubProjectsV2Adapter", () => {
     );
   });
 
+  it("writes user-facing issue bodies without kata entity metadata", async () => {
+    const client = createFakeGithubClient();
+    const adapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+
+    await adapter.upsertProject({
+      title: "Launch Kata",
+      description: "Project brief",
+    });
+    const milestone = await adapter.createMilestone({
+      title: "Phase A",
+      goal: "Milestone goal",
+    });
+    const slice = await adapter.createSlice({
+      milestoneId: milestone.id,
+      title: "Slice",
+      goal: "Slice goal",
+    });
+    const task = await adapter.createTask({
+      sliceId: slice.id,
+      title: "Task",
+      description: "Task details",
+    });
+    await adapter.createIssue({
+      title: "Standalone",
+      design: "Design body",
+      plan: "Plan body",
+    });
+    await adapter.updateTaskStatus({
+      taskId: task.id,
+      status: "done",
+      verificationState: "verified",
+    });
+
+    const issueBodies = client.rest.mock.calls
+      .map(([request]) => request)
+      .filter((request) => request.method === "POST" && request.path === "/repos/kata-sh/uat/issues")
+      .map((request) => request.body.body);
+    expect(issueBodies).toEqual([
+      "Project brief",
+      "Milestone goal",
+      "Slice goal",
+      "Task details",
+      "# Design\n\nDesign body\n\n# Plan\n\nPlan body",
+    ]);
+
+    const taskStatusPatch = client.rest.mock.calls
+      .map(([request]) => request)
+      .find((request) => request.method === "PATCH" && request.path === "/repos/kata-sh/uat/issues/4");
+    expect(taskStatusPatch?.body).toEqual({ state: "closed" });
+  });
+
   it("creates native GitHub dependencies when creating blocked slices", async () => {
     const client = createFakeGithubClient();
     const adapter = new GithubProjectsV2Adapter({
@@ -520,22 +656,44 @@ describe("GithubProjectsV2Adapter", () => {
         },
       ],
       projectItems: [
-        {
-          id: "project-item-2",
-          content: { id: "issue-node-2", number: 2 },
-          kataId: { text: "S001" },
-          status: { name: "Backlog" },
-        },
-        {
-          id: "project-item-3",
-          kataId: { text: "S002" },
-          status: { name: "In Progress" },
-        },
-        {
-          id: "project-item-4",
-          content: { id: "issue-node-4", number: 4 },
-          kataId: { text: "S003" },
-        },
+        projectItem({
+          itemId: "project-item-1",
+          issueNodeId: "issue-node-1",
+          issueNumber: 1,
+          kataId: "M001",
+          kataType: "Milestone",
+          artifactScope: "M001",
+          status: "Todo",
+        }),
+        projectItem({
+          itemId: "project-item-2",
+          issueNodeId: "issue-node-2",
+          issueNumber: 2,
+          kataId: "S001",
+          kataType: "Slice",
+          parentId: "M001",
+          artifactScope: "S001",
+          status: "Backlog",
+        }),
+        projectItem({
+          itemId: "project-item-3",
+          issueNodeId: "issue-node-3",
+          issueNumber: 3,
+          kataId: "S002",
+          kataType: "Slice",
+          parentId: "M001",
+          artifactScope: "S002",
+          status: "In Progress",
+        }),
+        projectItem({
+          itemId: "project-item-4",
+          issueNodeId: "issue-node-4",
+          issueNumber: 4,
+          kataId: "S003",
+          kataType: "Slice",
+          parentId: "M001",
+          artifactScope: "S003",
+        }),
       ],
       nativeDependencies: [{ blocked: 3, blocker: 2 }],
     });
@@ -573,6 +731,513 @@ describe("GithubProjectsV2Adapter", () => {
     );
   });
 
+  it("derives task parents from native GitHub sub-issues", async () => {
+    const client = createFakeGithubClient({
+      issues: [
+        githubIssue({
+          id: 1,
+          node_id: "issue-node-1",
+          number: 1,
+          title: "[M001] Existing Milestone",
+          body: '<!-- kata:entity {"kataId":"M001","type":"Milestone"} -->\nExisting milestone',
+          state: "open",
+          milestoneNumber: 1,
+        }),
+        githubIssue({
+          id: 2,
+          node_id: "issue-node-2",
+          number: 2,
+          title: "[S001] Stale Parent",
+          body: '<!-- kata:entity {"kataId":"S001","type":"Slice","parentId":"M001"} -->\nStale parent slice',
+          state: "open",
+          milestoneNumber: 1,
+        }),
+        githubIssue({
+          id: 3,
+          node_id: "issue-node-3",
+          number: 3,
+          title: "[S002] Native Parent",
+          body: '<!-- kata:entity {"kataId":"S002","type":"Slice","parentId":"M001"} -->\nNative parent slice',
+          state: "open",
+          milestoneNumber: 1,
+        }),
+        githubIssue({
+          id: 4,
+          node_id: "issue-node-4",
+          number: 4,
+          title: "[T001] Native Child",
+          body: '<!-- kata:entity {"kataId":"T001","type":"Task","parentId":"S001","status":"todo"} -->\nNative child task',
+          state: "open",
+          milestoneNumber: 1,
+        }),
+      ],
+      projectItems: [
+        projectItem({
+          itemId: "project-item-1",
+          issueNodeId: "issue-node-1",
+          issueNumber: 1,
+          kataId: "M001",
+          kataType: "Milestone",
+          artifactScope: "M001",
+          status: "Todo",
+        }),
+        projectItem({
+          itemId: "project-item-2",
+          issueNodeId: "issue-node-2",
+          issueNumber: 2,
+          kataId: "S001",
+          kataType: "Slice",
+          parentId: "M001",
+          artifactScope: "S001",
+          status: "Todo",
+        }),
+        projectItem({
+          itemId: "project-item-3",
+          issueNodeId: "issue-node-3",
+          issueNumber: 3,
+          kataId: "S002",
+          kataType: "Slice",
+          parentId: "M001",
+          artifactScope: "S002",
+          status: "Todo",
+        }),
+        projectItem({
+          itemId: "project-item-4",
+          issueNodeId: "issue-node-4",
+          issueNumber: 4,
+          kataId: "T001",
+          kataType: "Task",
+          parentId: "S001",
+          artifactScope: "T001",
+          status: "Todo",
+          verificationState: "pending",
+        }),
+      ],
+      subIssuesByParent: new Map([[3, [4]]]),
+    });
+    const adapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+
+    await expect(adapter.listTasks({ sliceId: "S001" })).resolves.toEqual([]);
+    await expect(adapter.listTasks({ sliceId: "S002" })).resolves.toEqual([
+      expect.objectContaining({ id: "T001", sliceId: "S002" }),
+    ]);
+    expect(client.rest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "GET",
+        path: "/repos/kata-sh/uat/issues/3/sub_issues?per_page=100&page=1",
+      }),
+    );
+  });
+
+  it("treats closed GitHub slice and task issues as done even when body metadata is stale", async () => {
+    const client = createFakeGithubClient({
+      issues: [
+        githubIssue({
+          id: 1,
+          node_id: "issue-node-1",
+          number: 1,
+          title: "[M001] Existing Milestone",
+          body: "Existing milestone",
+          state: "open",
+          milestoneNumber: 1,
+        }),
+        githubIssue({
+          id: 2,
+          node_id: "issue-node-2",
+          number: 2,
+          title: "[S001] Closed Slice",
+          body: '<!-- kata:entity {"kataId":"S001","type":"Slice","parentId":"M001","status":"backlog"} -->\nClosed slice body',
+          state: "closed",
+          milestoneNumber: 1,
+        }),
+        githubIssue({
+          id: 3,
+          node_id: "issue-node-3",
+          number: 3,
+          title: "[T001] Closed Task",
+          body: '<!-- kata:entity {"kataId":"T001","type":"Task","parentId":"S001","status":"backlog","verificationState":"pending"} -->\nClosed task body',
+          state: "closed",
+          milestoneNumber: 1,
+        }),
+      ],
+      projectItems: [
+        projectItem({
+          itemId: "project-item-1",
+          issueNodeId: "issue-node-1",
+          issueNumber: 1,
+          kataId: "M001",
+          kataType: "Milestone",
+          artifactScope: "M001",
+          status: "Todo",
+        }),
+        projectItem({
+          itemId: "project-item-2",
+          issueNodeId: "issue-node-2",
+          issueNumber: 2,
+          kataId: "S001",
+          kataType: "Slice",
+          parentId: "M001",
+          artifactScope: "S001",
+          status: "Backlog",
+        }),
+        projectItem({
+          itemId: "project-item-3",
+          issueNodeId: "issue-node-3",
+          issueNumber: 3,
+          kataId: "T001",
+          kataType: "Task",
+          parentId: "S001",
+          artifactScope: "T001",
+          status: "Backlog",
+          verificationState: "verified",
+        }),
+      ],
+      subIssuesByParent: new Map([[2, [3]]]),
+    });
+    const adapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+    const api = createKataDomainApi(adapter);
+
+    const snapshot = await api.project.getSnapshot();
+
+    expect(snapshot.slices).toEqual([
+      expect.objectContaining({
+        id: "S001",
+        status: "done",
+        tasks: [
+          expect.objectContaining({
+            id: "T001",
+            sliceId: "S001",
+            status: "done",
+            verificationState: "verified",
+          }),
+        ],
+      }),
+    ]);
+    expect(snapshot.readiness.allSlicesDone).toBe(true);
+    expect(snapshot.readiness.allTasksDone).toBe(true);
+    expect(snapshot.nextAction).toMatchObject({
+      workflow: "kata-complete-milestone",
+      target: { milestoneId: "M001" },
+    });
+  });
+
+  it("preserves explicit pending verification for closed task issues", async () => {
+    const client = createFakeGithubClient({
+      issues: [
+        githubIssue({
+          id: 1,
+          node_id: "issue-node-1",
+          number: 1,
+          title: "[M001] Existing Milestone",
+          body: "Existing milestone",
+          state: "open",
+          milestoneNumber: 1,
+        }),
+        githubIssue({
+          id: 2,
+          node_id: "issue-node-2",
+          number: 2,
+          title: "[S001] Closed Slice",
+          body: "Closed slice body",
+          state: "closed",
+          milestoneNumber: 1,
+        }),
+        githubIssue({
+          id: 3,
+          node_id: "issue-node-3",
+          number: 3,
+          title: "[T001] Closed Task",
+          body: "Closed task body",
+          state: "closed",
+          milestoneNumber: 1,
+        }),
+      ],
+      projectItems: [
+        projectItem({
+          itemId: "project-item-1",
+          issueNodeId: "issue-node-1",
+          issueNumber: 1,
+          kataId: "M001",
+          kataType: "Milestone",
+          artifactScope: "M001",
+          status: "Todo",
+        }),
+        projectItem({
+          itemId: "project-item-2",
+          issueNodeId: "issue-node-2",
+          issueNumber: 2,
+          kataId: "S001",
+          kataType: "Slice",
+          parentId: "M001",
+          artifactScope: "S001",
+          status: "Done",
+        }),
+        projectItem({
+          itemId: "project-item-3",
+          issueNodeId: "issue-node-3",
+          issueNumber: 3,
+          kataId: "T001",
+          kataType: "Task",
+          parentId: "S001",
+          artifactScope: "T001",
+          status: "Done",
+          verificationState: "pending",
+        }),
+      ],
+      subIssuesByParent: new Map([[2, [3]]]),
+    });
+    const adapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+
+    await expect(adapter.listTasks({ sliceId: "S001" })).resolves.toEqual([
+      expect.objectContaining({
+        id: "T001",
+        status: "done",
+        verificationState: "pending",
+      }),
+    ]);
+  });
+
+  it("discovers closed native-labeled slice and task issues when Kata fields are empty", async () => {
+    const client = createFakeGithubClient({
+      issues: [
+        githubIssue({
+          id: 1,
+          node_id: "issue-node-1",
+          number: 1,
+          title: "[M001] Existing Milestone",
+          body: "Existing milestone",
+          state: "open",
+          milestoneNumber: 1,
+        }),
+        githubIssue({
+          id: 13,
+          node_id: "issue-node-13",
+          number: 13,
+          title: "[S003] Define pay-for-performance offer",
+          body: "Define the offer.",
+          state: "closed",
+          milestoneNumber: 1,
+        }),
+        githubIssue({
+          id: 14,
+          node_id: "issue-node-14",
+          number: 14,
+          title: "[T007] Define trial deliverable",
+          body: "Define what the trial delivers.",
+          state: "closed",
+          milestoneNumber: 1,
+        }),
+      ],
+      projectItems: [
+        projectItem({
+          itemId: "project-item-1",
+          issueNodeId: "issue-node-1",
+          issueNumber: 1,
+          kataId: "M001",
+          kataType: "Milestone",
+          artifactScope: "M001",
+          status: "Todo",
+        }),
+        {
+          id: "project-item-13",
+          content: {
+            id: "issue-node-13",
+            databaseId: 13,
+            number: 13,
+            title: "[S003] Define pay-for-performance offer",
+            body: "Define the offer.",
+            state: "CLOSED",
+            url: "https://github.test/kata-sh/uat/issues/13",
+            milestone: { number: 1, title: "[M001] Existing Milestone" },
+            labels: { nodes: [{ name: "kata:slice" }] },
+          },
+          status: { name: "Done" },
+        },
+        {
+          id: "project-item-14",
+          content: {
+            id: "issue-node-14",
+            databaseId: 14,
+            number: 14,
+            title: "[T007] Define trial deliverable",
+            body: "Define what the trial delivers.",
+            state: "CLOSED",
+            url: "https://github.test/kata-sh/uat/issues/14",
+            milestone: { number: 1, title: "[M001] Existing Milestone" },
+            labels: { nodes: [{ name: "kata:task" }] },
+          },
+          status: { name: "Done" },
+        },
+      ],
+      subIssuesByParent: new Map([[13, [14]]]),
+    });
+    const adapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+    const api = createKataDomainApi(adapter);
+
+    const snapshot = await api.project.getSnapshot();
+
+    expect(snapshot.slices).toEqual([
+      expect.objectContaining({
+        id: "S003",
+        milestoneId: "M001",
+        status: "done",
+        tasks: [
+          expect.objectContaining({
+            id: "T007",
+            sliceId: "S003",
+            status: "done",
+            verificationState: "verified",
+          }),
+        ],
+      }),
+    ]);
+    expect(snapshot.readiness).toMatchObject({
+      allRoadmapSlicesExist: true,
+      allSlicesDone: true,
+      allTasksDone: true,
+      allTasksVerified: true,
+      milestoneCompletable: true,
+    });
+    expect(snapshot.nextAction).toMatchObject({
+      workflow: "kata-complete-milestone",
+      target: { milestoneId: "M001" },
+    });
+  });
+
+  it("derives slice parent from native milestone number when milestone title is not Kata-prefixed", async () => {
+    const client = createFakeGithubClient({
+      projectItems: [
+        {
+          id: "project-item-1",
+          content: {
+            id: "issue-node-1",
+            databaseId: 1,
+            number: 1,
+            title: "[M001] Imported Milestone",
+            body: "Imported milestone",
+            state: "OPEN",
+            milestone: { number: 7, title: "Imported delivery phase" },
+          },
+          kataId: { text: "M001" },
+          kataType: { text: "Milestone" },
+          artifactScope: { text: "M001" },
+          status: { name: "Todo" },
+        },
+        {
+          id: "project-item-2",
+          content: {
+            id: "issue-node-2",
+            databaseId: 2,
+            number: 2,
+            title: "[S001] Imported Slice",
+            body: "Imported slice",
+            state: "OPEN",
+            milestone: { number: 7, title: "Imported delivery phase" },
+          },
+          kataId: { text: "S001" },
+          kataType: { text: "Slice" },
+          artifactScope: { text: "S001" },
+          status: { name: "Todo" },
+        },
+      ],
+    });
+    const adapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+
+    await expect(adapter.listSlices({ milestoneId: "M001" })).resolves.toEqual([
+      expect.objectContaining({ id: "S001", milestoneId: "M001" }),
+    ]);
+  });
+
+  it("maps open GitHub slice status from Project v2 Status", async () => {
+    const client = createFakeGithubClient({
+      issues: [
+        githubIssue({
+          id: 1,
+          node_id: "issue-node-1",
+          number: 1,
+          title: "[M001] Existing Milestone",
+          body: '<!-- kata:entity {"kataId":"M001","type":"Milestone"} -->\nExisting milestone',
+          state: "open",
+          milestoneNumber: 1,
+        }),
+        githubIssue({
+          id: 2,
+          node_id: "issue-node-2",
+          number: 2,
+          title: "[S001] Open Slice",
+          body: '<!-- kata:entity {"kataId":"S001","type":"Slice","parentId":"M001","status":"backlog"} -->\nOpen slice body',
+          state: "open",
+          milestoneNumber: 1,
+        }),
+      ],
+      projectItems: [
+        projectItem({
+          itemId: "project-item-1",
+          issueNodeId: "issue-node-1",
+          issueNumber: 1,
+          kataId: "M001",
+          kataType: "Milestone",
+          artifactScope: "M001",
+          status: "Todo",
+        }),
+        projectItem({
+          itemId: "project-item-2",
+          issueNodeId: "issue-node-2",
+          issueNumber: 2,
+          kataId: "S001",
+          kataType: "Slice",
+          parentId: "M001",
+          artifactScope: "S001",
+          status: "In Progress",
+        }),
+      ],
+    });
+    const adapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+
+    await expect(adapter.listSlices({ milestoneId: "M001" })).resolves.toEqual([
+      expect.objectContaining({
+        id: "S001",
+        status: "in_progress",
+      }),
+    ]);
+  });
+
   it("allocates unique task IDs when separate adapters create tasks from the same discovered snapshot", async () => {
     const initialIssues = [
       {
@@ -598,7 +1263,27 @@ describe("GithubProjectsV2Adapter", () => {
     ];
     const client = createFakeGithubClient({
       issues: initialIssues,
-      issueListSnapshots: [initialIssues, initialIssues],
+      projectItems: [
+        projectItem({
+          itemId: "project-item-1",
+          issueNodeId: "issue-node-1",
+          issueNumber: 1,
+          kataId: "M001",
+          kataType: "Milestone",
+          artifactScope: "M001",
+          status: "Todo",
+        }),
+        projectItem({
+          itemId: "project-item-2",
+          issueNodeId: "issue-node-2",
+          issueNumber: 2,
+          kataId: "S001",
+          kataType: "Slice",
+          parentId: "M001",
+          artifactScope: "S001",
+          status: "Backlog",
+        }),
+      ],
     });
     const firstAdapter = new GithubProjectsV2Adapter({
       owner: "kata-sh",
@@ -683,7 +1368,7 @@ describe("GithubProjectsV2Adapter", () => {
         path: "/repos/kata-sh/uat/issues",
         body: expect.objectContaining({
           title: "[I001] Plan isolated fix",
-          body: expect.stringContaining('"type":"Issue"'),
+          body: "# Design\n\n## Problem\n\nThe workflow needs one standalone issue.\n\n# Plan\n\n## Tasks\n\n- [ ] Create one backend issue.",
         }),
       }),
     );
@@ -714,7 +1399,7 @@ describe("GithubProjectsV2Adapter", () => {
         [
           expect.objectContaining({
             variables: expect.objectContaining({
-              itemId: "project-item-2",
+              itemId: "project-item-1",
               fieldId: "status-field-id",
               value: { singleSelectOptionId: "status-in-progress" },
             }),
@@ -722,6 +1407,74 @@ describe("GithubProjectsV2Adapter", () => {
         ],
       ]),
     );
+  });
+
+  it("treats closed standalone Project v2 issues as done and excludes them from open issues", async () => {
+    const client = createFakeGithubClient({
+      projectItems: [
+        projectItem({
+          itemId: "project-item-1",
+          issueNodeId: "issue-node-1",
+          issueId: 1,
+          issueNumber: 1,
+          title: "[I001] Closed stale issue",
+          body: '<!-- kata:entity {"kataId":"I001","type":"Issue","status":"backlog"} -->\nStale issue body',
+          state: "closed",
+          url: "https://github.test/kata-sh/uat/issues/1",
+          kataId: "I001",
+          kataType: "Issue",
+          artifactScope: "I001",
+          status: "Backlog",
+        }),
+      ],
+    });
+    const adapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+
+    await expect(adapter.listOpenIssues()).resolves.toEqual([]);
+    await expect(adapter.getIssue({ issueRef: "I001" })).resolves.toMatchObject({
+      id: "I001",
+      status: "done",
+      body: "Stale issue body",
+    });
+  });
+
+  it("preserves marker-free issue bodies discovered from Project v2 fields", async () => {
+    const client = createFakeGithubClient({
+      projectItems: [
+        projectItem({
+          itemId: "project-item-1",
+          issueNodeId: "issue-node-1",
+          issueId: 1,
+          issueNumber: 1,
+          title: "[I001] Marker-free issue",
+          body: "Line one\nLine two",
+          state: "open",
+          url: "https://github.test/kata-sh/uat/issues/1",
+          kataId: "I001",
+          kataType: "Issue",
+          artifactScope: "I001",
+          status: "Todo",
+        }),
+      ],
+    });
+    const adapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+
+    await expect(adapter.getIssue({ issueRef: "I001" })).resolves.toMatchObject({
+      id: "I001",
+      body: "Line one\nLine two",
+    });
   });
 
   it("rediscovers marker issues before writing artifacts from a fresh adapter", async () => {
@@ -736,6 +1489,18 @@ describe("GithubProjectsV2Adapter", () => {
           state: "open",
           html_url: "https://github.test/kata-sh/uat/issues/42",
         },
+      ],
+      projectItems: [
+        projectItem({
+          itemId: "project-item-99",
+          issueNodeId: "issue-node-99",
+          issueNumber: 42,
+          kataId: "S001",
+          kataType: "Slice",
+          parentId: "M001",
+          artifactScope: "S001",
+          status: "Backlog",
+        }),
       ],
     });
     const adapter = new GithubProjectsV2Adapter({
@@ -764,14 +1529,13 @@ describe("GithubProjectsV2Adapter", () => {
     );
     expect(client.rest).toHaveBeenCalledWith(
       expect.objectContaining({
-        method: "GET",
-        path: "/repos/kata-sh/uat/issues?state=all&per_page=100&page=1",
-      }),
-    );
-    expect(client.rest).toHaveBeenCalledWith(
-      expect.objectContaining({
         method: "POST",
         path: "/repos/kata-sh/uat/issues/42/comments",
+      }),
+    );
+    expect(client.graphql).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: expect.stringContaining("LoadKataProjectItemFields"),
       }),
     );
   });
@@ -788,6 +1552,18 @@ describe("GithubProjectsV2Adapter", () => {
           state: "open",
           html_url: "https://github.test/kata-sh/uat/issues/41",
         },
+      ],
+      projectItems: [
+        projectItem({
+          itemId: "project-item-98",
+          issueNodeId: "issue-node-98",
+          issueNumber: 41,
+          kataId: "S001",
+          kataType: "Slice",
+          parentId: "M001",
+          artifactScope: "S001",
+          status: "Backlog",
+        }),
       ],
     });
     const adapter = new GithubProjectsV2Adapter({
@@ -824,6 +1600,19 @@ describe("GithubProjectsV2Adapter", () => {
           state: "open",
           html_url: "https://github.test/kata-sh/uat/issues/40",
         },
+      ],
+      projectItems: [
+        projectItem({
+          itemId: "project-item-97",
+          issueNodeId: "issue-node-97",
+          issueNumber: 40,
+          kataId: "T001",
+          kataType: "Task",
+          parentId: "S001",
+          artifactScope: "T001",
+          status: "Backlog",
+          verificationState: "pending",
+        }),
       ],
     });
     const adapter = new GithubProjectsV2Adapter({
@@ -886,6 +1675,28 @@ describe("GithubProjectsV2Adapter", () => {
           html_url: "https://github.test/kata-sh/uat/issues/38",
         },
       ],
+      projectItems: [
+        projectItem({
+          itemId: "project-item-96",
+          issueNodeId: "issue-node-96",
+          issueNumber: 39,
+          kataId: "S001",
+          kataType: "Slice",
+          parentId: "M001",
+          artifactScope: "S001",
+          status: "Backlog",
+        }),
+        projectItem({
+          itemId: "project-item-95",
+          issueNodeId: "issue-node-95",
+          issueNumber: 38,
+          kataId: "S001",
+          kataType: "Slice",
+          parentId: "M001",
+          artifactScope: "S001",
+          status: "Backlog",
+        }),
+      ],
     });
     const adapter = new GithubProjectsV2Adapter({
       owner: "kata-sh",
@@ -944,7 +1755,7 @@ describe("GithubProjectsV2Adapter", () => {
     });
   });
 
-  it("fails status updates when the Project v2 status option is missing", async () => {
+  it("fails early when a Project v2 status option is missing", async () => {
     const client = createFakeGithubClient({
       projectFields: validProjectFields({
         statusOptions: validStatusOptions().filter((option) => option.name !== "In Progress"),
@@ -958,16 +1769,21 @@ describe("GithubProjectsV2Adapter", () => {
       client: client as any,
     });
 
-    const issue = await adapter.createIssue({
+    await expect(adapter.createIssue({
       title: "Plan isolated fix",
       design: "## Problem\n\nThe workflow needs one standalone issue.",
       plan: "## Tasks\n\n- [ ] Create one backend issue.",
-    });
-
-    await expect(adapter.updateIssueStatus({ issueId: issue.id, status: "in_progress" })).rejects.toMatchObject({
+    })).rejects.toMatchObject({
       code: "INVALID_CONFIG",
       message: expect.stringContaining('field "Status" is missing option "In Progress"'),
     });
+
+    expect(client.rest).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "POST",
+        path: "/repos/kata-sh/uat/issues",
+      }),
+    );
   });
 
 describe("resolveBackend GitHub token selection", () => {
@@ -1007,6 +1823,65 @@ github:
   });
 });
 
+function githubIssue(input: {
+  id: number;
+  node_id: string;
+  number: number;
+  title: string;
+  body: string;
+  state: "open" | "closed";
+  milestoneNumber?: number;
+}) {
+  return {
+    id: input.id,
+    node_id: input.node_id,
+    number: input.number,
+    title: input.title,
+    body: input.body,
+    state: input.state,
+    html_url: `https://github.test/kata-sh/uat/issues/${input.number}`,
+    milestone: input.milestoneNumber ? { number: input.milestoneNumber } : null,
+  };
+}
+
+function projectItem(input: {
+  itemId: string;
+  issueNodeId: string;
+  issueId?: number;
+  issueNumber: number;
+  title?: string;
+  body?: string;
+  state?: "open" | "closed";
+  url?: string;
+  milestoneNumber?: number;
+  kataId: string;
+  kataType: string;
+  parentId?: string;
+  artifactScope?: string;
+  status?: string;
+  verificationState?: string;
+}) {
+  return {
+    id: input.itemId,
+    content: {
+      id: input.issueNodeId,
+      ...(input.issueId !== undefined ? { databaseId: input.issueId } : {}),
+      number: input.issueNumber,
+      ...(input.title ? { title: input.title } : {}),
+      ...(input.body !== undefined ? { body: input.body } : {}),
+      ...(input.state ? { state: input.state.toUpperCase() } : {}),
+      ...(input.url ? { url: input.url } : {}),
+      ...(input.milestoneNumber !== undefined ? { milestone: { number: input.milestoneNumber } } : {}),
+    },
+    kataId: { text: input.kataId },
+    kataType: { text: input.kataType },
+    ...(input.parentId ? { parentId: { text: input.parentId } } : {}),
+    ...(input.artifactScope ? { artifactScope: { text: input.artifactScope } } : {}),
+    ...(input.status ? { status: { name: input.status } } : {}),
+    ...(input.verificationState ? { verificationState: { text: input.verificationState } } : {}),
+  };
+}
+
 function createFakeGithubClient(
   input: {
     issues?: any[];
@@ -1014,15 +1889,40 @@ function createFakeGithubClient(
     projectFields?: any[];
     projectItems?: any[];
     nativeDependencies?: Array<{ blocked: number; blocker: number }>;
+    subIssuesByParent?: Map<number, number[]>;
   } = {},
 ) {
   const issues = [...(input.issues ?? [])];
+  const projectItems = [...(input.projectItems ?? [])];
   const nativeDependencies = [...(input.nativeDependencies ?? [])];
+  const subIssuesByParent = input.subIssuesByParent ?? new Map<number, number[]>();
+  input.subIssuesByParent = subIssuesByParent;
   const commentsByIssue = new Map<number, any[]>();
   let nextIssueNumber = issues.reduce((max, issue) => Math.max(max, Number(issue.number) || 0), 0) + 1;
-  let nextProjectItemNumber = 1;
+  let nextProjectItemNumber = projectItems.reduce((max, item) => {
+    const match = typeof item.id === "string" ? item.id.match(/^project-item-(\d+)$/) : null;
+    return match ? Math.max(max, Number(match[1])) : max;
+  }, 0) + 1;
   let nextCommentId = 1;
   let issueListCallCount = 0;
+  const enrichProjectItemContent = (item: any) => {
+    const issue = issues.find((candidate) =>
+      candidate.node_id === item.content?.id || candidate.number === item.content?.number
+    );
+    if (!issue) return item;
+    return {
+      ...item,
+      content: {
+        ...item.content,
+        databaseId: item.content?.databaseId ?? issue.id,
+        title: item.content?.title ?? issue.title,
+        body: item.content?.body ?? issue.body,
+        state: item.content?.state ?? String(issue.state).toUpperCase(),
+        url: item.content?.url ?? issue.html_url,
+        milestone: item.content?.milestone ?? issue.milestone,
+      },
+    };
+  };
 
   return {
     graphql: vi.fn(async (request: any) => {
@@ -1086,7 +1986,7 @@ function createFakeGithubClient(
                   hasNextPage: false,
                   endCursor: null,
                 },
-                nodes: input.projectItems ?? [],
+                nodes: projectItems.map(enrichProjectItemContent),
               },
             },
           },
@@ -1094,9 +1994,44 @@ function createFakeGithubClient(
       }
 
       if (request.query.includes("addProjectV2ItemById")) {
+        const existingItem = projectItems.find((candidate) => candidate.content?.id === request.variables.contentId);
+        if (existingItem) {
+          return {
+            addProjectV2ItemById: {
+              item: { id: existingItem.id },
+            },
+          };
+        }
+        const item = {
+          id: `project-item-${nextProjectItemNumber++}`,
+          content: { id: request.variables.contentId },
+        };
+        projectItems.push(item);
         return {
           addProjectV2ItemById: {
-            item: { id: `project-item-${nextProjectItemNumber++}` },
+            item: { id: item.id },
+          },
+        };
+      }
+
+      if (request.query.includes("updateProjectV2ItemFieldValue")) {
+        const itemToUpdate = projectItems.find((candidate) => candidate.id === request.variables.itemId);
+        if (itemToUpdate) {
+          const text = request.variables.value?.text;
+          if (request.variables.fieldId === "kata-type-field-id") itemToUpdate.kataType = { text };
+          if (request.variables.fieldId === "kata-id-field-id") itemToUpdate.kataId = { text };
+          if (request.variables.fieldId === "kata-parent-id-field-id") itemToUpdate.parentId = { text };
+          if (request.variables.fieldId === "kata-artifact-scope-field-id") itemToUpdate.artifactScope = { text };
+          if (request.variables.fieldId === "kata-verification-state-field-id") itemToUpdate.verificationState = { text };
+          if (request.variables.fieldId === "status-field-id") {
+            const optionId = request.variables.value?.singleSelectOptionId;
+            const option = validStatusOptions().find((candidate) => candidate.id === optionId);
+            if (option) itemToUpdate.status = { name: option.name };
+          }
+        }
+        return {
+          updateProjectV2ItemFieldValue: {
+            projectV2Item: { id: request.variables.itemId },
           },
         };
       }
@@ -1152,10 +2087,30 @@ function createFakeGithubClient(
           .filter(Boolean);
       }
 
-      const subIssuesMatch = request.path.match(/^\/repos\/kata-sh\/uat\/issues\/(\d+)\/sub_issues$/);
+      const subIssuesMatch = request.path.match(/^\/repos\/kata-sh\/uat\/issues\/(\d+)\/sub_issues(?:\?.*)?$/);
+      if (request.method === "GET" && subIssuesMatch) {
+        const parentIssueNumber = Number(subIssuesMatch[1]);
+        const subIssueNumbers = subIssuesByParent.get(parentIssueNumber) ?? [];
+        const params = new URL(`https://example.test${request.path}`).searchParams;
+        const perPage = Number(params.get("per_page") ?? "100");
+        const page = Number(params.get("page") ?? "1");
+        const start = (page - 1) * perPage;
+        return subIssueNumbers
+          .slice(start, start + perPage)
+          .map((issueNumber) => issues.find((issue) => issue.number === issueNumber))
+          .filter(Boolean);
+      }
       if (request.method === "POST" && subIssuesMatch) {
+        const parentIssueNumber = Number(subIssuesMatch[1]);
+        const child = issues.find((issue) => issue.id === request.body.sub_issue_id);
+        if (child) {
+          const childNumbers = subIssuesByParent.get(parentIssueNumber) ?? [];
+          if (!childNumbers.includes(child.number)) {
+            subIssuesByParent.set(parentIssueNumber, [...childNumbers, child.number]);
+          }
+        }
         return {
-          parent_issue_number: Number(subIssuesMatch[1]),
+          parent_issue_number: parentIssueNumber,
           sub_issue_id: request.body.sub_issue_id,
         };
       }

@@ -42,7 +42,7 @@ Linear mapping:
 8. Dependencies: native Linear blocking relations between slice issues.
 9. Statuses: workflow state names from CLI configuration, with canonical Kata stages as defaults.
 
-Kata metadata uses machine-readable markers where Linear needs durable identity or traceability data. Linear IDs remain backend provenance and adapter internals. Human-facing Linear records stay readable in Linear.
+Kata entity identity and classification come from Linear-native records, configured labels, title ID prefixes, project milestones, parent/sub-issue relationships, workflow state, and native blocking relations. Linear descriptions remain human-readable record content. Linear IDs remain backend provenance and adapter internals. Machine-readable markers are limited to artifact documents and artifact comments.
 
 ## Configuration
 
@@ -59,7 +59,7 @@ Required Linear preferences:
 Optional Linear preferences:
 
 1. State mapping from Kata statuses to Linear workflow state names.
-2. Label names used for human discoverability. Markers remain the canonical entity classification contract.
+2. Label names used for entity classification and human discoverability. When labels are absent on existing records, the adapter can infer entity type from title ID prefixes, project milestone placement, and parent/sub-issue structure.
 3. Active milestone identifier. When this is unset and multiple Linear Project Milestones are eligible, `milestone.getActive` returns an `INVALID_CONFIG` error that asks the operator to pin the active milestone.
 
 The default state names are the canonical Kata stages:
@@ -93,15 +93,15 @@ Planning flow:
 1. `project.upsert` creates or updates the Linear Project.
 2. `milestone.create` creates a Linear Project Milestone.
 3. `artifact.write` with milestone scope writes requirements, roadmap, and related milestone artifacts as Linear Documents.
-4. `slice.create` creates a Linear issue in the project milestone and applies native blocking relations from `blockedBy`.
-5. `task.create` creates a Linear sub-issue under the slice issue.
-6. `issue.create` creates a standalone Linear issue.
+4. `slice.create` creates a Linear issue in the project milestone, applies configured slice labels, and applies native blocking relations from `blockedBy`.
+5. `task.create` creates a Linear sub-issue under the slice issue and applies configured task labels.
+6. `issue.create` creates a standalone Linear issue and applies configured issue labels.
 
 Snapshot flow:
 
 1. `project.getSnapshot` reads Linear project context and the active project milestone.
 2. It reads milestone documents for requirements, roadmap, and milestone artifacts.
-3. It reads slice issues, task sub-issues, issue comment artifacts, native blocking relations, and verification evidence.
+3. It reads slice issues, task sub-issues, workflow state, issue comment artifacts, native blocking relations, and verification evidence.
 4. It returns the existing `KataProjectSnapshot` shape, including `roadmap.sliceDependencies`, `roadmap.implementationWaves`, `readiness`, `nextAction`, and `otherActions`.
 5. `snapshot.nextAction` remains the source of truth for planning and execution skills.
 
@@ -149,7 +149,7 @@ Blocking cases:
 3. Configured workflow states missing from the Linear team.
 4. Required Linear operations unavailable: documents, comments, sub-issues, or blocking relations.
 5. Slice dependency references point to unknown backend slice IDs.
-6. Runtime operation targets an entity whose marker or type does not match the requested Kata scope.
+6. Runtime operation targets a Linear record whose native classification does not match the requested Kata scope.
 7. Milestone artifact writes fail because the milestone document context cannot be resolved.
 
 When `.kata/preferences.md` selects Linear, the CLI must use Linear for durable backend effects. Local runtime storage remains a test fixture path.
@@ -169,7 +169,7 @@ Required coverage:
 7. Milestone artifacts through Linear Documents.
 8. Slice, task, and standalone issue artifacts through marker comments.
 9. Snapshot reads with active milestone, roadmap documents, slices, tasks, artifacts, dependencies, implementation waves, verification evidence, and `nextAction`.
-10. Negative tests for missing states, bad dependency IDs, wrong entity markers, and unavailable capabilities.
+10. Negative tests for missing states, bad dependency IDs, wrong entity classification, and unavailable capabilities.
 11. GitHub Projects v2 regression tests for the same domain contract.
 
 Validation sequence:
