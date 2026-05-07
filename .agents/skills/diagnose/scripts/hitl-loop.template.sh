@@ -39,4 +39,5 @@ capture ERROR_MSG "Paste the error message (or 'none'):"
 printf '\n--- Captured ---\n'
 printf 'ERRORED=%s\n' "$ERRORED"
 # Escape newlines for KEY=VALUE parsers.
-printf 'ERROR_MSG=%s\n' "${ERROR_MSG//$'\n'/\\n}"
+_escaped_error_msg="${ERROR_MSG//$'\r'/\\r}"
+printf 'ERROR_MSG=%s\n' "${_escaped_error_msg//$'\n'/\\n}"

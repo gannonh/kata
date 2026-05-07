@@ -397,7 +397,8 @@ async function findExistingMilestoneDocument(
 
   return (
     documents.find((document) => {
-      const parsed = typeof document.content === "string" ? parseLinearArtifactMarker(document.content, input) : null;
+      const parsed = typeof document.content === "string" ? parseLinearArtifactMarker(document.content) : null;
+      const markerArtifactType = typeof document.content === "string" ? parseLinearArtifactType(document.content) : null;
       const title = typeof document.title === "string" ? document.title.trim() : "";
       const inputTitle = input.title.trim();
       const legacyTitle = `${input.scopeId} ${input.title}`.trim();
@@ -405,11 +406,28 @@ async function findExistingMilestoneDocument(
         parsed.scopeId === input.scopeId &&
         parsed.artifactType === input.artifactType;
       const titleMatches = title === inputTitle || title === legacyTitle;
-      const artifactTypeCompatible = !parsed?.artifactType || parsed.artifactType === input.artifactType;
+      const artifactTypeCompatible = !markerArtifactType || markerArtifactType === input.artifactType;
 
       return markerMatches || (artifactTypeCompatible && titleMatches);
     }) ?? null
   );
+}
+
+function parseLinearArtifactType(body: string): KataArtifactType | null {
+  const newlineIndex = body.indexOf("\n");
+  const markerLine = newlineIndex === -1 ? body : body.slice(0, newlineIndex);
+
+  if (!markerLine.startsWith(MARKER_PREFIX) || !markerLine.endsWith(MARKER_SUFFIX)) {
+    return null;
+  }
+
+  const marker = markerLine.slice(MARKER_PREFIX.length, -MARKER_SUFFIX.length);
+  try {
+    const metadata: unknown = JSON.parse(marker);
+    return isValidArtifactTypeMetadata(metadata) ? metadata.artifactType : null;
+  } catch {
+    return null;
+  }
 }
 
 function isValidArtifactMetadata(metadata: unknown): metadata is Omit<ParsedLinearArtifactMarker, "content"> {

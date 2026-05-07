@@ -647,7 +647,7 @@ function loadEnv(workspace, baseEnv) {
     if (!trimmed || trimmed.startsWith("#") || !trimmed.includes("=")) continue;
     const [rawKey, ...rest] = trimmed.split("=");
     const key = rawKey.trim();
-    if (key && !env[key]) env[key] = parseDotEnvValue(rest.join("="));
+    if (key && !(key in env)) env[key] = parseDotEnvValue(rest.join("="));
   }
   return env;
 }

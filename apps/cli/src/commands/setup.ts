@@ -478,12 +478,6 @@ async function ensurePreferences(input: {
     };
   }
 
-  if (!(await hasGithubAuth(input.env))) {
-    throw Object.assign(new Error("GitHub auth is required before creating .kata/preferences.md. Run `gh auth login` or set GITHUB_TOKEN/GH_TOKEN."), {
-      code: "GITHUB_AUTH_MISSING",
-    });
-  }
-
   let repoOwner = cleanString(input.onboarding?.repoOwner) ?? undefined;
   let repoName = cleanString(input.onboarding?.repoName) ?? undefined;
   let githubProjectNumber = input.onboarding?.githubProjectNumber;
@@ -534,6 +528,12 @@ async function ensurePreferences(input: {
     } finally {
       rl.close();
     }
+  }
+
+  if (!(await hasGithubAuth(input.env))) {
+    throw Object.assign(new Error("GitHub auth is required before creating .kata/preferences.md. Run `gh auth login` or set GITHUB_TOKEN/GH_TOKEN."), {
+      code: "GITHUB_AUTH_MISSING",
+    });
   }
 
   const normalizedRepoOwner = cleanString(repoOwner);
