@@ -13,13 +13,26 @@ import {
 } from "../backends/github-projects-v2/artifacts.js";
 
 describe("GitHub artifact comments", () => {
-  it("formats and parses artifact comments", () => {
+  it("formats new artifact comments with type-only metadata and parses them with parent scope", () => {
     const comment = formatArtifactComment({
       scopeType: "slice",
       scopeId: "S001",
       artifactType: "plan",
       content: "# Plan",
     });
+
+    expect(comment).toBe('<!-- kata:artifact {"artifactType":"plan"} -->\n# Plan');
+    expect(parseArtifactComment(comment)).toBeNull();
+    expect(parseArtifactComment(comment, { scopeType: "slice", scopeId: "S001" })).toEqual({
+      scopeType: "slice",
+      scopeId: "S001",
+      artifactType: "plan",
+      content: "# Plan",
+    });
+  });
+
+  it("parses legacy full artifact comments without parent scope", () => {
+    const comment = '<!-- kata:artifact {"scopeType":"slice","scopeId":"S001","artifactType":"plan"} -->\n# Plan';
 
     expect(parseArtifactComment(comment)).toEqual({
       scopeType: "slice",
@@ -88,6 +101,7 @@ describe("GitHub artifact comments", () => {
     });
 
     expect(result.backendId).toBe("comment:10");
+    expect(result.body).toBe('<!-- kata:artifact {"artifactType":"plan"} -->\nnew');
     expect(client.rest).toHaveBeenCalledWith(
       expect.objectContaining({
         method: "PATCH",
@@ -160,12 +174,7 @@ describe("GitHub artifact comments", () => {
           return [
             {
               id: 9,
-              body: formatArtifactComment({
-                scopeType: "slice",
-                scopeId: "S002",
-                artifactType: "plan",
-                content: "other",
-              }),
+              body: '<!-- kata:artifact {"scopeType":"slice","scopeId":"S002","artifactType":"plan"} -->\nother',
             },
           ];
         }

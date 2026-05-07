@@ -859,7 +859,10 @@ export class LinearKataAdapter implements KataBackendAdapter {
         title: input.title,
         content: input.content,
       });
-      const parsed = parseLinearArtifactMarker(result.body);
+      const parsed = parseLinearArtifactMarker(result.body, {
+        scopeType: input.scopeType,
+        scopeId: input.scopeId,
+      });
 
       return {
         id: artifactId(input.scopeType, input.scopeId, input.artifactType),
@@ -890,7 +893,10 @@ export class LinearKataAdapter implements KataBackendAdapter {
       artifactType: input.artifactType,
       content: input.content,
     });
-    const parsed = parseLinearArtifactMarker(result.body);
+    const parsed = parseLinearArtifactMarker(result.body, {
+      scopeType: input.scopeType,
+      scopeId: input.scopeId,
+    });
 
     return {
       id: artifactId(input.scopeType, input.scopeId, input.artifactType),
@@ -1364,7 +1370,9 @@ function artifactFromLinearComment(
   scopeType: KataScopeType,
   scopeId: string,
 ): KataArtifact | null {
-  const parsed = typeof comment.body === "string" ? parseLinearArtifactMarker(comment.body) : null;
+  const parsed = typeof comment.body === "string"
+    ? parseLinearArtifactMarker(comment.body, { scopeType, scopeId })
+    : null;
   if (parsed?.scopeType !== scopeType || parsed.scopeId !== scopeId) return null;
 
   return {

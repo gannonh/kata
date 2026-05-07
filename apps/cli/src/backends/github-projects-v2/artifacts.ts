@@ -30,7 +30,8 @@ export interface ParsedArtifactComment {
   content: string;
 }
 
-export interface FormatArtifactCommentInput extends ParsedArtifactComment {}
+export type FormatArtifactCommentInput = ParsedArtifactComment;
+export type ArtifactCommentScope = Pick<ParsedArtifactComment, "scopeType" | "scopeId">;
 
 export interface UpsertArtifactCommentInput extends ParsedArtifactComment {
   client: ReturnType<typeof createGithubClient>;
@@ -51,15 +52,13 @@ interface GithubIssueComment {
 
 export function formatArtifactComment(input: FormatArtifactCommentInput): string {
   const marker = JSON.stringify({
-    scopeType: input.scopeType,
-    scopeId: input.scopeId,
     artifactType: input.artifactType,
   });
 
   return `${MARKER_PREFIX}${marker}${MARKER_SUFFIX}\n${input.content}`;
 }
 
-export function parseArtifactComment(body: string): ParsedArtifactComment | null {
+export function parseArtifactComment(body: string, scope?: ArtifactCommentScope): ParsedArtifactComment | null {
   const newlineIndex = body.indexOf("\n");
   const markerLine = newlineIndex === -1 ? body : body.slice(0, newlineIndex);
 
@@ -76,14 +75,22 @@ export function parseArtifactComment(body: string): ParsedArtifactComment | null
     return null;
   }
 
-  if (!isValidArtifactMetadata(metadata)) {
-    return null;
+  if (isValidArtifactMetadata(metadata)) {
+    return {
+      ...metadata,
+      content: newlineIndex === -1 ? "" : body.slice(newlineIndex + 1),
+    };
   }
 
-  return {
-    ...metadata,
-    content: newlineIndex === -1 ? "" : body.slice(newlineIndex + 1),
-  };
+  if (scope && isValidArtifactTypeMetadata(metadata)) {
+    return {
+      ...scope,
+      artifactType: metadata.artifactType,
+      content: newlineIndex === -1 ? "" : body.slice(newlineIndex + 1),
+    };
+  }
+
+  return null;
 }
 
 export async function upsertArtifactComment(input: UpsertArtifactCommentInput): Promise<UpsertArtifactCommentResult> {
@@ -127,7 +134,7 @@ async function findExistingArtifactComment(
     });
 
     const existingComment = comments.find((comment) => {
-      const parsed = typeof comment.body === "string" ? parseArtifactComment(comment.body) : null;
+      const parsed = typeof comment.body === "string" ? parseArtifactComment(comment.body, input) : null;
 
       return (
         parsed?.scopeType === input.scopeType &&
@@ -161,6 +168,15 @@ function isValidArtifactMetadata(metadata: unknown): metadata is Omit<ParsedArti
     candidate.scopeId.length > 0 &&
     isKnownArtifactType(candidate.artifactType)
   );
+}
+
+function isValidArtifactTypeMetadata(metadata: unknown): metadata is Pick<ParsedArtifactComment, "artifactType"> {
+  if (!metadata || typeof metadata !== "object") {
+    return false;
+  }
+
+  const candidate = metadata as Partial<Record<keyof ParsedArtifactComment, unknown>>;
+  return isKnownArtifactType(candidate.artifactType);
 }
 
 function isKnownScopeType(value: unknown): value is KataScopeType {

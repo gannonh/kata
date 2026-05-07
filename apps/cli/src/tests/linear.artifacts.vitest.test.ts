@@ -21,13 +21,26 @@ type FakeGraphqlRequest = {
 };
 
 describe("Linear artifact markers", () => {
-  it("formats and parses artifact markers", () => {
+  it("formats new comment markers with type-only metadata and parses them with parent scope", () => {
     const body = formatLinearArtifactMarker({
       scopeType: "slice",
       scopeId: "S001",
       artifactType: "plan",
       content: "# Plan",
     });
+
+    expect(body).toBe('<!-- kata:artifact {"artifactType":"plan"} -->\n# Plan');
+    expect(parseLinearArtifactMarker(body)).toBeNull();
+    expect(parseLinearArtifactMarker(body, { scopeType: "slice", scopeId: "S001" })).toEqual({
+      scopeType: "slice",
+      scopeId: "S001",
+      artifactType: "plan",
+      content: "# Plan",
+    });
+  });
+
+  it("parses legacy full artifact markers without parent scope", () => {
+    const body = '<!-- kata:artifact {"scopeType":"slice","scopeId":"S001","artifactType":"plan"} -->\n# Plan';
 
     expect(parseLinearArtifactMarker(body)).toEqual({
       scopeType: "slice",
@@ -95,7 +108,7 @@ describe("Linear artifact upserts", () => {
 
     expect(result).toMatchObject({
       backendId: "comment:comment-1",
-      body: expect.stringContaining("new"),
+      body: '<!-- kata:artifact {"artifactType":"plan"} -->\nnew',
     });
     expect(client.paginate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -120,12 +133,7 @@ describe("Linear artifact upserts", () => {
       paginate: vi.fn(async () => [
         {
           id: "comment-1",
-          body: formatLinearArtifactMarker({
-            scopeType: "slice",
-            scopeId: "S002",
-            artifactType: "plan",
-            content: "other",
-          }),
+          body: '<!-- kata:artifact {"scopeType":"slice","scopeId":"S002","artifactType":"plan"} -->\nother',
         },
       ]),
       graphql: vi.fn(async (request: FakeGraphqlRequest) => ({
@@ -393,12 +401,7 @@ describe("Linear artifact upserts", () => {
           paginate: vi.fn(async () => [
             {
               id: "document-1",
-              content: formatLinearArtifactMarker({
-                scopeType: "milestone",
-                scopeId: "M001",
-                artifactType: "plan",
-                content: "old",
-              }),
+              content: '<!-- kata:artifact {"scopeType":"milestone","scopeId":"M001","artifactType":"plan"} -->\nold',
             },
           ]),
           graphql: vi.fn(async () => ({

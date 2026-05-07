@@ -127,6 +127,7 @@ export interface LinearArtifactWriteResult {
 }
 
 export type FormatLinearArtifactMarkerInput = ParsedLinearArtifactMarker;
+export type LinearArtifactMarkerScope = Pick<ParsedLinearArtifactMarker, "scopeType" | "scopeId">;
 
 interface UpsertLinearIssueArtifactCommentInput extends ParsedLinearArtifactMarker {
   client: ReturnType<typeof createLinearClient>;
@@ -164,15 +165,16 @@ interface LinearMutationPayload<Node> {
 
 export function formatLinearArtifactMarker(input: FormatLinearArtifactMarkerInput): string {
   const marker = JSON.stringify({
-    scopeType: input.scopeType,
-    scopeId: input.scopeId,
     artifactType: input.artifactType,
   });
 
   return `${MARKER_PREFIX}${marker}${MARKER_SUFFIX}\n${input.content}`;
 }
 
-export function parseLinearArtifactMarker(body: string): ParsedLinearArtifactMarker | null {
+export function parseLinearArtifactMarker(
+  body: string,
+  scope?: LinearArtifactMarkerScope,
+): ParsedLinearArtifactMarker | null {
   const newlineIndex = body.indexOf("\n");
   const markerLine = newlineIndex === -1 ? body : body.slice(0, newlineIndex);
 
@@ -189,14 +191,22 @@ export function parseLinearArtifactMarker(body: string): ParsedLinearArtifactMar
     return null;
   }
 
-  if (!isValidArtifactMetadata(metadata)) {
-    return null;
+  if (isValidArtifactMetadata(metadata)) {
+    return {
+      ...metadata,
+      content: newlineIndex === -1 ? "" : body.slice(newlineIndex + 1),
+    };
   }
 
-  return {
-    ...metadata,
-    content: newlineIndex === -1 ? "" : body.slice(newlineIndex + 1),
-  };
+  if (scope && isValidArtifactTypeMetadata(metadata)) {
+    return {
+      ...scope,
+      artifactType: metadata.artifactType,
+      content: newlineIndex === -1 ? "" : body.slice(newlineIndex + 1),
+    };
+  }
+
+  return null;
 }
 
 export async function upsertLinearIssueArtifactComment(
@@ -355,7 +365,7 @@ async function findExistingIssueArtifactComment(
 
   return (
     comments.find((comment) => {
-      const parsed = typeof comment.body === "string" ? parseLinearArtifactMarker(comment.body) : null;
+      const parsed = typeof comment.body === "string" ? parseLinearArtifactMarker(comment.body, input) : null;
 
       return (
         parsed?.scopeType === input.scopeType &&
@@ -411,6 +421,17 @@ function isValidArtifactMetadata(metadata: unknown): metadata is Omit<ParsedLine
     candidate.scopeId.trim().length > 0 &&
     isKnownArtifactType(candidate.artifactType)
   );
+}
+
+function isValidArtifactTypeMetadata(
+  metadata: unknown,
+): metadata is Pick<ParsedLinearArtifactMarker, "artifactType"> {
+  if (!metadata || typeof metadata !== "object") {
+    return false;
+  }
+
+  const candidate = metadata as Partial<Record<keyof ParsedLinearArtifactMarker, unknown>>;
+  return isKnownArtifactType(candidate.artifactType);
 }
 
 function isKnownScopeType(value: unknown): value is KataScopeType {

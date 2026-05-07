@@ -1309,12 +1309,7 @@ describe("LinearKataAdapter artifacts", () => {
         {
           id: "comment-2",
           issueId: "issue-s1",
-          body: formatLinearArtifactMarker({
-            scopeType: "task",
-            scopeId: "T001",
-            artifactType: "verification",
-            content: "Verified",
-          }),
+          body: '<!-- kata:artifact {"scopeType":"task","scopeId":"T001","artifactType":"verification"} -->\nVerified',
           updatedAt: "2026-05-06T13:00:00.000Z",
         },
       ],
