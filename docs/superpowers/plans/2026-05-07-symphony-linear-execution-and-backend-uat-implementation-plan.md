@@ -26,6 +26,9 @@
 - Do not run a full live worker dispatch cycle in the UAT skill.
 - Do keep child Linear issues from dispatching independently through the existing `parent_identifier` gate.
 - Do support Linear through the same Symphony lifecycle concepts GitHub supports: candidate reads, issue reads, child context, comments, state transitions, follow-up issues, and marker comment documents.
+- Do not modify prompts; backends should remain fully abstracted.
+- Do treat any required prompt change for Linear support as an abstraction leak. Fix the helper or adapter contract instead.
+- Do keep GitHub PR helper operations GitHub-scoped. They are code-host operations, not tracker backend operations, and may still apply when the tracker backend is Linear.
 
 ## File Structure
 
@@ -37,8 +40,7 @@
 - Modify `apps/symphony/tests/linear_client_tests.rs`: mock Linear GraphQL coverage for helper-facing methods.
 - Create `apps/symphony/tests/linear_helper_tests.rs`: backend-neutral helper contract tests for Linear.
 - Modify `apps/symphony/tests/orchestrator_tests.rs`: add Linear-shaped child and blocker dispatch regressions where existing generic tests do not lock the Linear shape.
-- Modify `apps/symphony/tests/backend_neutral_worker_contract_tests.rs` and `apps/symphony/tests/workflow_config_tests.rs`: guard prompt/config boundaries.
-- Modify `apps/symphony/prompts/system.md` and per-state prompts only where wording must clarify shared helper operations and GitHub-only PR helpers.
+- Modify `apps/symphony/tests/backend_neutral_worker_contract_tests.rs` and `apps/symphony/tests/workflow_config_tests.rs`: guard prompt/config boundaries and GitHub PR helper scope.
 - Create `.agents/skills/symphony-backend-uat`: sibling skill for real backend helper UAT.
 
 ## Task 1: Lock The Existing Symphony Scope
@@ -1308,23 +1310,42 @@ git add apps/symphony/tests/orchestrator_tests.rs apps/symphony/tests/linear_cli
 git commit -m "test(symphony): lock linear issue dispatch shape"
 ```
 
-## Task 6: Update Prompt Contract Tests And Wording
+## Task 6: Lock Prompt Backend Boundaries
 
 **Files:**
 
-- Modify: `apps/symphony/prompts/system.md`
-- Modify: `apps/symphony/prompts/in-progress.md`
-- Modify: `apps/symphony/prompts/rework.md`
-- Modify: `apps/symphony/prompts/agent-review.md`
-- Modify: `apps/symphony/prompts/merging.md`
 - Modify: `apps/symphony/tests/backend_neutral_worker_contract_tests.rs`
 - Modify: `apps/symphony/tests/workflow_config_tests.rs`
+- Read-only: `apps/symphony/prompts/system.md`
+- Read-only: `apps/symphony/prompts/in-progress.md`
+- Read-only: `apps/symphony/prompts/rework.md`
+- Read-only: `apps/symphony/prompts/agent-review.md`
+- Read-only: `apps/symphony/prompts/merging.md`
 
 - [ ] **Step 1: Add prompt contract assertions**
 
 Extend `apps/symphony/tests/backend_neutral_worker_contract_tests.rs` with:
 
 ```rust
+#[test]
+fn worker_prompts_keep_tracker_helpers_backend_neutral() {
+    for prompt in ["system.md", "in-progress.md", "rework.md", "agent-review.md", "merging.md"] {
+        let content = std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("prompts")
+                .join(prompt),
+        )
+        .expect("prompt exists");
+
+        assert!(content.contains("$SYMPHONY_BIN") || !content.contains("helper"));
+        assert!(!content.contains("Linear milestone"));
+        assert!(!content.contains("Linear project"));
+        assert!(!content.contains("Linear-only"));
+        assert!(!content.contains("GitHub Projects v2"));
+        assert!(!content.contains("tracker.kind == \"linear\""));
+    }
+}
+
 #[test]
 fn worker_prompts_keep_pr_helpers_github_scoped() {
     let system = std::fs::read_to_string(
@@ -1339,6 +1360,7 @@ fn worker_prompts_keep_pr_helpers_github_scoped() {
     assert!(system.contains("document.write"));
     assert!(system.contains("GitHub PR"));
     assert!(system.contains("pr.land-status"));
+    assert!(!system.contains("Linear PR"));
 }
 
 #[test]
@@ -1359,7 +1381,7 @@ fn worker_prompts_do_not_reference_removed_symphony_skills() {
 }
 ```
 
-- [ ] **Step 2: Run prompt tests and verify failure only where wording is stale**
+- [ ] **Step 2: Run prompt boundary tests**
 
 Run:
 
@@ -1368,52 +1390,23 @@ cargo test --manifest-path apps/symphony/Cargo.toml --test backend_neutral_worke
 cargo test --manifest-path apps/symphony/Cargo.toml --test workflow_config_tests prompt
 ```
 
-Expected: FAIL only if prompts need wording updates.
+Expected: PASS. If this fails because Linear support needs different worker prompt text, stop and fix the helper or adapter abstraction.
 
-- [ ] **Step 3: Update prompt wording**
-
-In `apps/symphony/prompts/system.md`, keep the existing helper command format and make the operation list explicit:
-
-```markdown
-Shared helper operations for GitHub and Linear-backed workflows:
-- `issue.get`
-- `issue.list-children`
-- `document.read`
-- `document.write`
-- `comment.upsert`
-- `issue.update-state`
-- `issue.create-followup`
-
-GitHub PR helper operations:
-- `pr.inspect-feedback`
-- `pr.inspect-checks`
-- `pr.land-status`
-```
-
-In `apps/symphony/prompts/in-progress.md`, keep instructions that parent work reads children through:
-
-```bash
-"$SYMPHONY_BIN" helper issue.list-children --workflow "$SYMPHONY_WORKFLOW_PATH" --input "$INPUT"
-```
-
-Do not introduce Kata milestone, Linear milestone, or backend-specific command text in prompts.
-
-- [ ] **Step 4: Run prompt tests**
+- [ ] **Step 3: Verify no prompt files changed**
 
 Run:
 
 ```bash
-cargo test --manifest-path apps/symphony/Cargo.toml --test backend_neutral_worker_contract_tests
-cargo test --manifest-path apps/symphony/Cargo.toml --test workflow_config_tests prompt
+git diff -- apps/symphony/prompts
 ```
 
-Expected: PASS.
+Expected: no diff.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
-git add apps/symphony/prompts apps/symphony/tests/backend_neutral_worker_contract_tests.rs apps/symphony/tests/workflow_config_tests.rs
-git commit -m "docs(symphony): clarify helper prompt contract"
+git add apps/symphony/tests/backend_neutral_worker_contract_tests.rs apps/symphony/tests/workflow_config_tests.rs
+git commit -m "test(symphony): lock prompt backend boundaries"
 ```
 
 ## Task 7: Create Symphony Backend UAT Skill

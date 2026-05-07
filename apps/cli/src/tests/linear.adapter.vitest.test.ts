@@ -324,6 +324,9 @@ function createFakeIssue(input: {
 function createMutationFakeLinearClient(options: {
   milestones?: Array<{ id: string; name: string; description?: string | null; targetDate?: string | null }>;
   labels?: FakeLinearLabel[];
+  documents?: FakeLinearDocument[];
+  comments?: FakeLinearComment[];
+  issueRelationCreateResults?: unknown[];
   mutationResult?: Partial<{
     projectUpdate: unknown;
     projectMilestoneCreate: unknown;
@@ -343,6 +346,9 @@ function createMutationFakeLinearClient(options: {
     { id: "state-done", name: "Done", type: "completed" },
   ];
   const project = createFakeProject();
+  const documents = options.documents ?? [];
+  const comments = options.comments ?? [];
+  const issueRelationCreateResults = [...(options.issueRelationCreateResults ?? [])];
   const labels = options.labels ?? [
     { id: "label-slice", name: "kata/slice" },
     { id: "label-task", name: "kata/task" },
@@ -386,7 +392,11 @@ function createMutationFakeLinearClient(options: {
       }
 
       if (request.query.includes("LinearKataProjectUpdate")) {
-        return { projectUpdate: options.mutationResult?.projectUpdate ?? { success: true, project } } as T;
+        const result = options.mutationResult?.projectUpdate ?? { success: true, project };
+        if ((result as { success?: boolean }).success !== false) {
+          project.name = request.variables.input.name ?? project.name;
+        }
+        return { projectUpdate: result } as T;
       }
 
       if (request.query.includes("LinearKataProjectMilestoneCreate")) {
@@ -448,13 +458,51 @@ function createMutationFakeLinearClient(options: {
       }
 
       if (request.query.includes("LinearKataIssueUpdate")) {
-        return { issueUpdate: options.mutationResult?.issueUpdate } as T;
+        if (options.mutationResult?.issueUpdate) {
+          return { issueUpdate: options.mutationResult.issueUpdate } as T;
+        }
+        const record = created.find((candidate) => candidate.kind === "issue" && candidate.node.id === request.variables.id);
+        if (!record) throw new Error(`Missing issue ${request.variables.id}`);
+        record.node = {
+          ...record.node,
+          title: request.variables.input.title ?? record.node.title,
+          description: request.variables.input.description ?? record.node.description,
+          state: states.find((state) => state.id === request.variables.input.stateId) ?? record.node.state,
+        };
+        return { issueUpdate: { success: true, issue: record.node } } as T;
       }
 
       if (request.query.includes("LinearKataIssueRelationCreate")) {
-        created.push({ kind: "relation", input: request.variables.input });
+        const result = issueRelationCreateResults.shift() ??
+          options.mutationResult?.issueRelationCreate ??
+          { success: true };
+        if ((result as { success?: boolean }).success !== false) {
+          created.push({ kind: "relation", input: request.variables.input });
+        }
         return {
-          issueRelationCreate: options.mutationResult?.issueRelationCreate ?? { success: true },
+          issueRelationCreate: result,
+        } as T;
+      }
+
+      if (request.query.includes("LinearKataIssueComments")) {
+        return {
+          issue: {
+            comments: {
+              nodes: comments.filter((comment) => comment.issueId === request.variables?.issueId),
+              pageInfo: { hasNextPage: false, endCursor: null },
+            },
+          },
+        } as T;
+      }
+
+      if (request.query.includes("LinearKataProjectDocuments")) {
+        const connection = {
+          nodes: documents,
+          pageInfo: { hasNextPage: false, endCursor: null },
+        };
+        return {
+          documents: connection,
+          project: { documents: connection },
         } as T;
       }
 
@@ -479,6 +527,30 @@ describe("LinearKataAdapter reads and discovery", () => {
       workspacePath: "/workspace",
       title: "Kata CLI",
       description: "Linear project kata-cli in workspace kata",
+    });
+  });
+
+  it("reports Linear health errors from context validation", async () => {
+    const client = {
+      async graphql() {
+        throw new Error("Linear unavailable");
+      },
+      async paginate() {
+        return [];
+      },
+    };
+    const adapter = createAdapter(client as unknown as LinearAdapterInput["client"]);
+
+    await expect(adapter.checkHealth()).resolves.toMatchObject({
+      ok: false,
+      backend: "linear",
+      checks: [
+        {
+          name: "adapter",
+          status: "invalid",
+          message: "Linear unavailable",
+        },
+      ],
     });
   });
 
@@ -636,6 +708,42 @@ describe("LinearKataAdapter reads and discovery", () => {
     await expect(adapter.listOpenIssues()).resolves.toEqual([expect.objectContaining({ id: "S003" })]);
   });
 
+  it("uses Kata id prefixes before parent heuristics for unlabeled issues", async () => {
+    const project = createFakeProject();
+    const milestone = createFakeMilestone();
+    const parent = createFakeIssue({
+      id: "issue-s1",
+      identifier: "KATA-1",
+      number: 1,
+      title: "[S001] Foundation",
+      description: "Foundation",
+      state: { id: "state-progress", name: "In Progress", type: "started" },
+      labels: ["kata/slice"],
+      project,
+      projectMilestone: milestone,
+    });
+    const unlabeledSliceWithParent = createFakeIssue({
+      id: "issue-s2",
+      identifier: "KATA-2",
+      number: 2,
+      title: "[S002] Follow-on slice",
+      description: "Follow-on",
+      state: { id: "state-progress", name: "In Progress", type: "started" },
+      labels: [],
+      project,
+      projectMilestone: milestone,
+      parent,
+    });
+
+    const adapter = createAdapter(createFakeLinearClient({ issues: [parent, unlabeledSliceWithParent] }));
+
+    await expect(adapter.listSlices({ milestoneId: "M001" })).resolves.toEqual([
+      expect.objectContaining({ id: "S001" }),
+      expect.objectContaining({ id: "S002", milestoneId: "M001" }),
+    ]);
+    await expect(adapter.listTasks({ sliceId: "S001" })).resolves.toEqual([]);
+  });
+
   it("rejects duplicate discovered Kata ids", async () => {
     const milestones = [
       { id: "milestone-1", name: "M001 Launch", description: "Launch", targetDate: null },
@@ -709,145 +817,7 @@ describe("LinearKataAdapter reads and discovery", () => {
   });
 
   it("creates project, milestone, slice, task, standalone issue, and dependency records", async () => {
-    const states = [
-      { id: "state-backlog", name: "Backlog", type: "backlog" },
-      { id: "state-todo", name: "Todo", type: "unstarted" },
-      { id: "state-progress", name: "In Progress", type: "started" },
-      { id: "state-agent-review", name: "Agent Review", type: "started" },
-      { id: "state-human-review", name: "Human Review", type: "started" },
-      { id: "state-merging", name: "Merging", type: "started" },
-      { id: "state-done", name: "Done", type: "completed" },
-    ];
-    const project = createFakeProject();
-    const created: any[] = [];
-    const client: LinearAdapterInput["client"] = {
-      async graphql<T>(request: { query: string; variables?: any }): Promise<T> {
-        if (request.query.includes("LinearKataContext")) {
-          return {
-            viewer: { id: "user-1" },
-            organization: { id: "org-1", urlKey: "kata" },
-            teams: { nodes: [{ id: "team-1", key: "KATA", name: "Kata" }] },
-            projects: { nodes: [project] },
-            workflowStates: { nodes: states },
-            issueLabels: {
-              nodes: [
-                { id: "label-slice", name: "kata/slice" },
-                { id: "label-task", name: "kata/task" },
-                { id: "label-issue", name: "kata/issue" },
-              ],
-            },
-          } as T;
-        }
-
-        if (request.query.includes("LinearKataMilestones")) {
-          return {
-            project: {
-              id: "project-1",
-              name: "Kata CLI",
-              projectMilestones: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } },
-            },
-          } as T;
-        }
-
-        if (request.query.includes("LinearKataIssues")) {
-          return {
-            issues: {
-              nodes: created.filter((record) => record.kind === "issue").map((record) => record.node),
-              pageInfo: { hasNextPage: false, endCursor: null },
-            },
-          } as T;
-        }
-
-        if (request.query.includes("LinearKataProjectUpdate")) {
-          project.name = request.variables.input.name;
-          return { projectUpdate: { success: true, project } } as T;
-        }
-
-        if (request.query.includes("LinearKataProjectMilestoneCreate")) {
-          return {
-            projectMilestoneCreate: {
-              success: true,
-              projectMilestone: {
-                id: "milestone-1",
-                name: request.variables.input.name,
-                description: request.variables.input.description,
-              },
-            },
-          } as T;
-        }
-
-        if (request.query.includes("LinearKataProjectMilestoneUpdate")) {
-          return {
-            projectMilestoneUpdate: {
-              success: true,
-              projectMilestone: {
-                id: request.variables.id,
-                name: "M001 Phase A",
-                description: request.variables.input.description,
-              },
-            },
-          } as T;
-        }
-
-        if (request.query.includes("LinearKataIssueCreate")) {
-          const input = request.variables.input;
-          const parent = created.find((record) => record.kind === "issue" && record.node.id === input.parentId)?.node ?? null;
-          const node = {
-            id: `issue-${created.length + 1}`,
-            identifier: `KATA-${created.length + 1}`,
-            number: created.length + 1,
-            title: input.title,
-            description: input.description,
-            url: `https://linear.test/KATA-${created.length + 1}`,
-            state: states.find((state) => state.id === input.stateId),
-            project,
-            projectMilestone: input.projectMilestoneId
-              ? { id: input.projectMilestoneId, name: "M001 Phase A", description: "Build Linear" }
-              : null,
-            parent,
-            children: { nodes: [] },
-            labels: { nodes: [] },
-            relations: { nodes: [] },
-            inverseRelations: { nodes: [] },
-          };
-          created.push({ kind: "issue", node });
-          return { issueCreate: { success: true, issue: node } } as T;
-        }
-
-        if (request.query.includes("LinearKataIssueUpdate")) {
-          const record = created.find((candidate) => candidate.kind === "issue" && candidate.node.id === request.variables.id);
-          record.node = {
-            ...record.node,
-            ...request.variables.input,
-            state: states.find((state) => state.id === request.variables.input.stateId) ?? record.node.state,
-          };
-          return { issueUpdate: { success: true, issue: record.node } } as T;
-        }
-
-        if (request.query.includes("LinearKataIssueRelationCreate")) {
-          created.push({ kind: "relation", input: request.variables.input });
-          return { issueRelationCreate: { success: true } } as T;
-        }
-
-        if (request.query.includes("LinearKataIssueComments")) {
-          return { issue: { comments: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } } } } as T;
-        }
-
-        if (request.query.includes("LinearKataProjectDocuments")) {
-          return { documents: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } } } as T;
-        }
-
-        throw new Error(`Unexpected Linear query: ${request.query}`);
-      },
-      async paginate<Node, Data>(input: {
-        query: string;
-        variables?: Record<string, unknown>;
-        selectConnection: (data: Data) => { nodes?: Array<Node | null> | null };
-      }): Promise<Node[]> {
-        const data = await this.graphql<Data>({ query: input.query, variables: input.variables });
-        return (input.selectConnection(data).nodes ?? []).filter((node): node is Node => node !== null);
-      },
-    };
+    const { client, created } = createMutationFakeLinearClient();
     const adapter = createAdapter(client);
 
     await expect(adapter.upsertProject({ title: "Kata CLI", description: "Updated" })).resolves.toMatchObject({
@@ -984,6 +954,33 @@ describe("LinearKataAdapter reads and discovery", () => {
     await expect(adapter.listSlices({ milestoneId: milestone.id })).resolves.toEqual([
       expect.objectContaining({ id: "S001", blockedBy: [], blocking: [] }),
       expect.objectContaining({ id: "S002", blockedBy: [], blocking: [] }),
+    ]);
+  });
+
+  it("keeps dependency cache unchanged when a later relation creation fails", async () => {
+    const { client } = createMutationFakeLinearClient({
+      issueRelationCreateResults: [{ success: true }, { success: false }],
+    });
+    const adapter = createAdapter(client);
+
+    const milestone = await adapter.createMilestone({ title: "Phase A", goal: "Build Linear" });
+    const first = await adapter.createSlice({ milestoneId: milestone.id, title: "First", goal: "First" });
+    const second = await adapter.createSlice({ milestoneId: milestone.id, title: "Second", goal: "Second" });
+    await expect(
+      adapter.createSlice({
+        milestoneId: milestone.id,
+        title: "Dependent",
+        goal: "Dependent",
+        blockedBy: [first.id, second.id],
+      }),
+    ).rejects.toMatchObject({
+      code: "UNKNOWN",
+    } satisfies Partial<KataDomainError>);
+
+    await expect(adapter.listSlices({ milestoneId: milestone.id })).resolves.toEqual([
+      expect.objectContaining({ id: "S001", blockedBy: [], blocking: [] }),
+      expect.objectContaining({ id: "S002", blockedBy: [], blocking: [] }),
+      expect.objectContaining({ id: "S003", blockedBy: [], blocking: [] }),
     ]);
   });
 
