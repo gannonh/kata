@@ -311,6 +311,52 @@ async fn linear_document_write_and_read_use_marker_comments() {
     read_mock.assert_async().await;
     assert_eq!(read_result["title"], "Plan");
     assert_eq!(read_result["content"], content);
+
+    let list_mock = server
+        .mock("POST", "/graphql")
+        .match_body(Matcher::Regex(
+            "SymphonyLinearHelperIssueComments".to_string(),
+        ))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            json!({
+                "data": {
+                    "issue": {
+                        "comments": {
+                            "nodes": [{
+                                "id": "comment-plan",
+                                "body": body,
+                                "url": "https://linear.app/kata-sh/comment/comment-plan",
+                                "createdAt": "2026-05-07T10:00:00Z",
+                                "updatedAt": "2026-05-07T10:10:00Z"
+                            }]
+                        }
+                    }
+                }
+            })
+            .to_string(),
+        )
+        .expect(1)
+        .create_async()
+        .await;
+
+    let list_result = run_operation(
+        &config,
+        "document.read",
+        json!({ "issueId": "issue-parent" }),
+    )
+    .await
+    .expect("documents should list");
+
+    list_mock.assert_async().await;
+    assert_eq!(list_result["documents"][0]["title"], "Plan");
+    assert_eq!(list_result["documents"][0]["content"], content);
+    assert_eq!(list_result["documents"][0]["comment"]["id"], "comment-plan");
+    assert_eq!(
+        list_result["documents"][0]["comment"]["url"],
+        "https://linear.app/kata-sh/comment/comment-plan"
+    );
 }
 
 #[tokio::test]

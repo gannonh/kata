@@ -839,7 +839,11 @@ async fn run_linear_helper(
                 .into_iter()
                 .filter_map(|comment| {
                     let (title, content) = parse_symphony_document_comment(&comment.body)?;
-                    Some(serde_json::json!({ "title": title, "content": content }))
+                    Some(serde_json::json!({
+                        "title": title,
+                        "content": content,
+                        "comment": comment,
+                    }))
                 })
                 .collect();
 
