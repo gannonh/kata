@@ -1322,3 +1322,19 @@ describe("LinearKataAdapter artifacts", () => {
     });
   });
 });
+
+describe("LinearKataAdapter snapshots and dependencies", () => {
+  it("exposes dependency-gated next actions from Linear native relations and roadmap documents", async () => {
+    const client = createFakeLinearClient();
+    const adapter = createAdapter(client);
+    const api = createKataDomainApi(adapter);
+
+    const snapshot = await api.project.getSnapshot();
+
+    expect(snapshot.nextAction.workflow).toBe("kata-execute-phase");
+    expect(snapshot.slices.find((slice) => slice.id === "S001")).toMatchObject({
+      blockedBy: [],
+      tasks: [expect.objectContaining({ id: "T001" })],
+    });
+  });
+});
