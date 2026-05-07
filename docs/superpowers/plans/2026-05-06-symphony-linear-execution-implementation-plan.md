@@ -1,5 +1,7 @@
 # Symphony Linear Execution Implementation Plan
 
+> **Superseded:** Use `docs/superpowers/specs/2026-05-07-symphony-linear-execution-and-backend-uat-design.md` for current planning. This plan references removed Symphony skill distribution paths and is retained as historical context.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Update Symphony so Linear-backed execution uses the shared tracker boundary, dependency-aware dispatch, and backend-neutral worker helper operations with parity to GitHub Projects v2 for normal worker state flow.

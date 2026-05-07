@@ -1,8 +1,10 @@
 # Symphony Linear Execution Design
 
 **Date:** 2026-05-06
-**Status:** Approved for written spec review
+**Status:** Superseded by `docs/superpowers/specs/2026-05-07-symphony-linear-execution-and-backend-uat-design.md`
 **Scope:** Update Symphony so Linear-backed execution uses the same backend abstraction and dependency-aware dispatch behavior as GitHub Projects v2.
+
+This file is retained as historical context. Use the superseding spec for current implementation work.
 
 ## Problem
 
