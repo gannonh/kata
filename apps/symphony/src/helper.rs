@@ -771,28 +771,42 @@ async fn run_linear_helper(
     operation: &str,
     input: Value,
 ) -> Result<Value, String> {
-    let adapter = LinearAdapter::new(LinearClient::new(tracker.clone()));
+    let client = LinearClient::new(tracker.clone());
+    let adapter = LinearAdapter::new(client.clone());
     match operation {
         "issue.get" => {
             let issue_id = issue_id(&input, "issueId")?;
-            let issues = adapter
-                .fetch_issue_states_by_ids(std::slice::from_ref(&issue_id))
+            let detail = adapter
+                .fetch_helper_issue(
+                    &issue_id,
+                    helper_bool(&input, "includeChildren", true),
+                    helper_bool(&input, "includeComments", true),
+                )
                 .await
                 .map_err(|err| err.to_string())?;
-            let issue = issues
-                .into_iter()
-                .next()
-                .ok_or_else(|| format!("issue not found: {issue_id}"))?;
-            Ok(serde_json::json!({ "issue": issue, "children": [], "comments": [] }))
+            Ok(serde_json::json!({
+                "issue": detail.issue,
+                "children": detail.children,
+                "comments": detail.comments,
+            }))
+        }
+        "issue.list-children" => {
+            let issue_id = issue_id(&input, "issueId")?;
+            let detail = adapter
+                .fetch_helper_issue(&issue_id, true, false)
+                .await
+                .map_err(|err| err.to_string())?;
+            Ok(serde_json::json!({ "children": detail.children }))
         }
         "comment.upsert" => {
             let issue_id = issue_id(&input, "issueId")?;
             let body = required_str(&input, "body")?;
-            adapter
-                .create_comment(&issue_id, &body)
+            let marker = optional_str(&input, "marker");
+            let comment = adapter
+                .upsert_comment(&issue_id, marker.as_deref(), &body)
                 .await
                 .map_err(|err| err.to_string())?;
-            Ok(serde_json::json!({ "issueId": issue_id, "upserted": false, "created": true }))
+            Ok(serde_json::json!({ "comment": comment }))
         }
         "issue.update-state" => {
             let issue_id = issue_id(&input, "issueId")?;
@@ -803,13 +817,64 @@ async fn run_linear_helper(
                 .map_err(|err| err.to_string())?;
             Ok(serde_json::json!({ "issueId": issue_id, "state": state }))
         }
-        "issue.list-children" => Ok(serde_json::json!({ "children": [] })),
+        "issue.create-followup" => {
+            let title = required_str(&input, "title")?;
+            let description = required_str(&input, "description")?;
+            let parent_issue_id = optional_issue_id(&input, "parentIssueId")?.ok_or_else(|| {
+                "helper input field `parentIssueId` must be provided for Linear follow-up creation"
+                    .to_string()
+            })?;
+            let issue = adapter
+                .create_followup_issue(&parent_issue_id, &title, &description)
+                .await
+                .map_err(|err| err.to_string())?;
+            Ok(serde_json::json!({ "issue": issue }))
+        }
+        "document.read" => {
+            let issue_id = issue_id(&input, "issueId")?;
+            let documents: Vec<Value> = client
+                .list_comments(&issue_id)
+                .await
+                .map_err(|err| err.to_string())?
+                .into_iter()
+                .filter_map(|comment| {
+                    let (title, content) = parse_symphony_document_comment(&comment.body)?;
+                    Some(serde_json::json!({ "title": title, "content": content }))
+                })
+                .collect();
+
+            if let Some(title) = optional_str(&input, "title") {
+                let content = documents
+                    .iter()
+                    .find(|document| {
+                        document
+                            .get("title")
+                            .and_then(|value| value.as_str())
+                            .is_some_and(|candidate| candidate == title)
+                    })
+                    .and_then(|document| document.get("content"))
+                    .cloned();
+                Ok(serde_json::json!({ "title": title, "content": content }))
+            } else {
+                Ok(serde_json::json!({ "documents": documents }))
+            }
+        }
+        "document.write" => {
+            let issue_id = issue_id(&input, "issueId")?;
+            let title = required_str(&input, "title")?;
+            let content = required_str(&input, "content")?;
+            let marker = symphony_document_marker(&title);
+            let body = format!("{marker}\n\n{content}");
+            let comment = adapter
+                .upsert_comment(&issue_id, Some(&marker), &body)
+                .await
+                .map_err(|err| err.to_string())?;
+            Ok(serde_json::json!({ "title": title, "comment": comment }))
+        }
         "pr.inspect-checks" | "pr.inspect-feedback" | "pr.land-status" => Err(format!(
             "operation `{operation}` is only available when tracker.kind is github"
         )),
-        other => Err(format!(
-            "operation `{other}` is not supported for Linear-backed Symphony helpers yet"
-        )),
+        other => Err(format!("unsupported Symphony helper operation: {other}")),
     }
 }
 
