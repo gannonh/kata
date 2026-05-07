@@ -59,6 +59,7 @@ fn worker_prompts_keep_tracker_helpers_backend_neutral() {
         assert!(content.contains("$SYMPHONY_BIN") || !content.contains("helper"));
         assert!(!content.contains("Linear milestone"));
         assert!(!content.contains("Linear project"));
+        assert!(!content.contains("Linear only"));
         assert!(!content.contains("Linear-only"));
         assert!(!content.contains("GitHub Projects v2"));
         assert!(!content.contains("tracker.kind == \"linear\""));
