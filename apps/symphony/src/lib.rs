@@ -1,6 +1,7 @@
 pub mod config;
 pub mod domain;
 pub mod error;
+pub mod helper;
 pub mod workflow;
 pub mod workflow_store;
 
