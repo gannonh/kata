@@ -258,13 +258,8 @@ export async function upsertLinearMilestoneDocument(
   input: UpsertLinearMilestoneDocumentInput,
 ): Promise<LinearArtifactWriteResult> {
   const scopeType = input.scopeType ?? "milestone";
-  const title = scopeType === "project" ? input.title : `${input.scopeId} ${input.title}`;
-  const body = formatLinearArtifactMarker({
-    scopeType,
-    scopeId: input.scopeId,
-    artifactType: input.artifactType,
-    content: input.content,
-  });
+  const title = input.title;
+  const body = input.content;
   const existingDocument = await findExistingMilestoneDocument({ ...input, scopeType });
 
   if (existingDocument) {
@@ -389,11 +384,15 @@ async function findExistingMilestoneDocument(
   return (
     documents.find((document) => {
       const parsed = typeof document.content === "string" ? parseLinearArtifactMarker(document.content) : null;
+      const title = typeof document.title === "string" ? document.title.trim() : "";
+      const legacyTitle = `${input.scopeId} ${input.title}`.trim();
 
       return (
-        parsed?.scopeType === input.scopeType &&
-        parsed.scopeId === input.scopeId &&
-        parsed.artifactType === input.artifactType
+        (parsed?.scopeType === input.scopeType &&
+          parsed.scopeId === input.scopeId &&
+          parsed.artifactType === input.artifactType) ||
+        title === input.title.trim() ||
+        title === legacyTitle
       );
     }) ?? null
   );

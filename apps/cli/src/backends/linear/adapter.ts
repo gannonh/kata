@@ -1303,15 +1303,18 @@ function artifactFromLinearDocument(
   scopeId: string,
 ): KataArtifact | null {
   const parsed = typeof document.content === "string" ? parseLinearArtifactMarker(document.content) : null;
-  if (parsed?.scopeType !== scopeType || parsed.scopeId !== scopeId) return null;
+  const artifactType = parsed?.scopeType === scopeType && parsed.scopeId === scopeId
+    ? parsed.artifactType
+    : artifactTypeFromLinearDocumentTitle(scopeType, scopeId, document.title);
+  if (!artifactType) return null;
 
   return {
-    id: artifactId(scopeType, scopeId, parsed.artifactType),
+    id: artifactId(scopeType, scopeId, artifactType),
     scopeType,
     scopeId,
-    artifactType: parsed.artifactType,
-    title: document.title ?? parsed.artifactType,
-    content: parsed.content,
+    artifactType,
+    title: document.title ?? artifactType,
+    content: parsed?.content ?? document.content ?? "",
     format: "markdown",
     updatedAt: document.updatedAt ?? new Date().toISOString(),
     provenance: {
@@ -1319,6 +1322,41 @@ function artifactFromLinearDocument(
       backendId: `document:${document.id}`,
     },
   };
+}
+
+function artifactTypeFromLinearDocumentTitle(
+  scopeType: KataScopeType,
+  scopeId: string,
+  title: string | null | undefined,
+): KataArtifactType | null {
+  const normalizedTitle = title?.trim();
+  if (!normalizedTitle) return null;
+
+  if (scopeType === "project" && normalizedTitle.toUpperCase() === "PROJECT") {
+    return "project-brief";
+  }
+
+  const unscopedTitle = normalizedTitle.startsWith(`${scopeId} `)
+    ? normalizedTitle.slice(scopeId.length + 1).trim()
+    : normalizedTitle;
+  const normalized = unscopedTitle.toLowerCase();
+  const titleMap = new Map<string, KataArtifactType>([
+    ["project brief", "project-brief"],
+    ["requirements", "requirements"],
+    ["roadmap", "roadmap"],
+    ["phase context", "phase-context"],
+    ["context", "context"],
+    ["decisions", "decisions"],
+    ["research", "research"],
+    ["plan", "plan"],
+    ["slice", "slice"],
+    ["summary", "summary"],
+    ["verification", "verification"],
+    ["uat", "uat"],
+    ["retrospective", "retrospective"],
+  ]);
+
+  return titleMap.get(normalized) ?? null;
 }
 
 function artifactFromLinearComment(

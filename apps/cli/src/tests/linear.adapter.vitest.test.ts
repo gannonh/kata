@@ -1113,7 +1113,7 @@ describe("LinearKataAdapter artifacts", () => {
       scopeType: "milestone",
       scopeId: "M001",
       artifactType: "requirements",
-      title: "Requirements",
+      title: "M001 Requirements",
       content: "# Requirements",
       format: "markdown",
     });
@@ -1225,18 +1225,13 @@ describe("LinearKataAdapter artifacts", () => {
     });
   });
 
-  it("lists milestone artifacts from marked Linear project documents", async () => {
+  it("lists milestone artifacts from plain Linear project documents by title", async () => {
     const client = createFakeLinearClient({
       documents: [
         {
           id: "document-1",
           title: "M001 Requirements",
-          content: formatLinearArtifactMarker({
-            scopeType: "milestone",
-            scopeId: "M001",
-            artifactType: "requirements",
-            content: "# Requirements",
-          }),
+          content: "# Requirements",
           updatedAt: "2026-05-06T12:00:00.000Z",
         },
         {
@@ -1268,6 +1263,31 @@ describe("LinearKataAdapter artifacts", () => {
           backend: "linear",
           backendId: "document:document-1",
         },
+      }),
+    ]);
+  });
+
+  it("lists project artifacts from plain Linear project documents by title", async () => {
+    const client = createFakeLinearClient({
+      documents: [
+        {
+          id: "document-1",
+          title: "PROJECT",
+          content: "# Project brief",
+          updatedAt: "2026-05-06T12:00:00.000Z",
+        },
+      ],
+    });
+    const adapter = createAdapter(client);
+
+    await expect(adapter.listArtifacts({ scopeType: "project", scopeId: "PROJECT" })).resolves.toEqual([
+      expect.objectContaining({
+        id: "project:PROJECT:project-brief",
+        scopeType: "project",
+        scopeId: "PROJECT",
+        artifactType: "project-brief",
+        title: "PROJECT",
+        content: "# Project brief",
       }),
     ]);
   });

@@ -163,7 +163,7 @@ describe("Linear artifact upserts", () => {
     );
   });
 
-  it("updates an existing milestone document by artifact marker", async () => {
+  it("updates an existing milestone document by artifact marker without keeping marker content", async () => {
     const client = {
       paginate: vi.fn(async () => [
         {
@@ -196,13 +196,13 @@ describe("Linear artifact upserts", () => {
       projectId: "project-1",
       scopeId: "M001",
       artifactType: "plan",
-      title: "Plan",
+      title: "M001 Plan",
       content: "new",
     });
 
     expect(result).toEqual({
       backendId: "document:document-1",
-      body: expect.stringContaining("new"),
+      body: "new",
       title: "M001 Plan",
       updatedAt: "2026-05-06T12:00:00.000Z",
     });
@@ -218,14 +218,54 @@ describe("Linear artifact upserts", () => {
           id: "document-1",
           input: {
             title: "M001 Plan",
-            content: expect.stringContaining("new"),
+            content: "new",
           },
         },
       }),
     );
   });
 
-  it("creates a milestone document when none exists", async () => {
+  it("updates an existing milestone document by title without marker content", async () => {
+    const client = {
+      paginate: vi.fn(async () => [
+        {
+          id: "document-1",
+          title: "M001 Plan",
+          content: "old",
+          updatedAt: "2026-05-06T11:00:00.000Z",
+        },
+      ]),
+      graphql: vi.fn(async (request: FakeGraphqlRequest) => ({
+        documentUpdate: {
+          success: true,
+          document: {
+            id: "document-1",
+            title: request.variables.input.title,
+            content: request.variables.input.content,
+            updatedAt: "2026-05-06T12:00:00.000Z",
+          },
+        },
+      })),
+    };
+
+    const result = await upsertLinearMilestoneDocument({
+      client: client as unknown as LinearClient,
+      projectId: "project-1",
+      scopeId: "M001",
+      artifactType: "plan",
+      title: "M001 Plan",
+      content: "new",
+    });
+
+    expect(result).toEqual({
+      backendId: "document:document-1",
+      body: "new",
+      title: "M001 Plan",
+      updatedAt: "2026-05-06T12:00:00.000Z",
+    });
+  });
+
+  it("creates a milestone document without marker content or duplicate title prefix", async () => {
     const client = {
       paginate: vi.fn(async () => []),
       graphql: vi.fn(async (request: FakeGraphqlRequest) => ({
@@ -246,13 +286,13 @@ describe("Linear artifact upserts", () => {
       projectId: "project-1",
       scopeId: "M001",
       artifactType: "plan",
-      title: "Plan",
+      title: "M001 Plan",
       content: "new",
     });
 
     expect(result).toEqual({
       backendId: "document:document-2",
-      body: expect.stringContaining("new"),
+      body: "new",
       title: "M001 Plan",
       updatedAt: "2026-05-06T12:00:00.000Z",
     });
@@ -263,9 +303,7 @@ describe("Linear artifact upserts", () => {
           input: {
             projectId: "project-1",
             title: "M001 Plan",
-            content: expect.stringContaining(
-              '<!-- kata:artifact {"scopeType":"milestone","scopeId":"M001","artifactType":"plan"} -->\nnew',
-            ),
+            content: "new",
           },
         },
       }),
