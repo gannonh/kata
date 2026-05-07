@@ -229,10 +229,14 @@ query SymphonyLinearHelperIssue($issueId: String!, $commentFirst: Int!, $childFi
 "#;
 
 const QUERY_HELPER_COMMENTS: &str = r#"
-query SymphonyLinearHelperIssueComments($issueId: String!, $commentFirst: Int!) {
+query SymphonyLinearHelperIssueComments($issueId: String!, $commentFirst: Int!, $after: String) {
   issue(id: $issueId) {
-    comments(first: $commentFirst) {
+    comments(first: $commentFirst, after: $after) {
       nodes { id body url createdAt updatedAt }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
     }
   }
 }
@@ -468,30 +472,55 @@ impl LinearClient {
         let issue_value = body
             .get("data")
             .and_then(|data| data.get("issue"))
-            .ok_or_else(|| SymphonyError::Other(format!("issue not found: {issue_id}")))?;
+            .ok_or_else(|| {
+                SymphonyError::Other(format!(
+                    "SymphonyLinearHelperIssue omitted issue for issue '{}'",
+                    issue_id
+                ))
+            })?;
 
         let assignee_filter = self.routing_assignee_filter().await?;
-        let issue = normalize_issue(issue_value, assignee_filter.as_ref())
-            .ok_or_else(|| SymphonyError::LinearUnknownPayload)?;
+        let issue = normalize_issue(issue_value, assignee_filter.as_ref()).ok_or_else(|| {
+            SymphonyError::Other(format!(
+                "SymphonyLinearHelperIssue returned invalid issue payload for issue '{}'",
+                issue_id
+            ))
+        })?;
 
-        let children = issue_value
-            .get("children")
-            .and_then(|children| children.get("nodes"))
-            .and_then(|nodes| nodes.as_array())
-            .map(|nodes| {
-                nodes
-                    .iter()
-                    .filter_map(|node| normalize_issue(node, assignee_filter.as_ref()))
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
+        let children = if include_children {
+            let nodes = issue_value
+                .get("children")
+                .and_then(|children| children.get("nodes"))
+                .and_then(|nodes| nodes.as_array())
+                .ok_or_else(|| {
+                    SymphonyError::Other(format!(
+                        "SymphonyLinearHelperIssue omitted children for issue '{}'",
+                        issue_id
+                    ))
+                })?;
+            nodes
+                .iter()
+                .filter_map(|node| normalize_issue(node, assignee_filter.as_ref()))
+                .collect::<Vec<_>>()
+        } else {
+            Vec::new()
+        };
 
-        let comments = issue_value
-            .get("comments")
-            .and_then(|comments| comments.get("nodes"))
-            .and_then(|nodes| nodes.as_array())
-            .map(|nodes| parse_comment_nodes(nodes))
-            .unwrap_or_default();
+        let comments = if include_comments {
+            let nodes = issue_value
+                .get("comments")
+                .and_then(|comments| comments.get("nodes"))
+                .and_then(|nodes| nodes.as_array())
+                .ok_or_else(|| {
+                    SymphonyError::Other(format!(
+                        "SymphonyLinearHelperIssue omitted comments for issue '{}'",
+                        issue_id
+                    ))
+                })?;
+            parse_comment_nodes(nodes)
+        } else {
+            Vec::new()
+        };
 
         Ok(LinearHelperIssueDetail {
             issue,
@@ -501,22 +530,63 @@ impl LinearClient {
     }
 
     pub async fn list_comments(&self, issue_id: &str) -> Result<Vec<LinearCommentRecord>> {
-        let body = self
-            .graphql(
-                QUERY_HELPER_COMMENTS,
-                serde_json::json!({ "issueId": issue_id, "commentFirst": ISSUE_PAGE_SIZE }),
-            )
-            .await?;
+        let mut comments = Vec::new();
+        let mut after_cursor: Option<String> = None;
 
-        let nodes = body
-            .get("data")
-            .and_then(|data| data.get("issue"))
-            .and_then(|issue| issue.get("comments"))
-            .and_then(|comments| comments.get("nodes"))
-            .and_then(|nodes| nodes.as_array())
-            .ok_or_else(|| SymphonyError::LinearUnknownPayload)?;
+        loop {
+            let mut variables = serde_json::json!({
+                "issueId": issue_id,
+                "commentFirst": ISSUE_PAGE_SIZE,
+            });
+            if let Some(ref cursor) = after_cursor {
+                variables["after"] = Value::String(cursor.clone());
+            }
 
-        Ok(parse_comment_nodes(nodes))
+            let body = self.graphql(QUERY_HELPER_COMMENTS, variables).await?;
+            let comments_value = body
+                .get("data")
+                .and_then(|data| data.get("issue"))
+                .and_then(|issue| issue.get("comments"))
+                .ok_or_else(|| {
+                    SymphonyError::Other(format!(
+                        "SymphonyLinearHelperIssueComments omitted comments for issue '{}'",
+                        issue_id
+                    ))
+                })?;
+
+            let nodes = comments_value
+                .get("nodes")
+                .and_then(|nodes| nodes.as_array())
+                .ok_or_else(|| {
+                    SymphonyError::Other(format!(
+                        "SymphonyLinearHelperIssueComments omitted comment nodes for issue '{}'",
+                        issue_id
+                    ))
+                })?;
+            comments.extend(parse_comment_nodes(nodes));
+
+            let page_info = comments_value
+                .get("pageInfo")
+                .map(parse_page_info_value)
+                .transpose()?
+                .unwrap_or(PageInfo {
+                    has_next_page: false,
+                    end_cursor: None,
+                });
+
+            match next_page_cursor(&page_info) {
+                PageCursorResult::Continue(cursor) => after_cursor = Some(cursor),
+                PageCursorResult::Done => break,
+                PageCursorResult::Error => {
+                    return Err(SymphonyError::Other(format!(
+                        "SymphonyLinearHelperIssueComments omitted end cursor for issue '{}'",
+                        issue_id
+                    )));
+                }
+            }
+        }
+
+        Ok(comments)
     }
 
     pub async fn upsert_comment(
@@ -1439,6 +1509,23 @@ fn decode_linear_response(
 struct PageInfo {
     has_next_page: bool,
     end_cursor: Option<String>,
+}
+
+fn parse_page_info_value(value: &Value) -> Result<PageInfo> {
+    let has_next_page = value
+        .get("hasNextPage")
+        .and_then(|value| value.as_bool())
+        .unwrap_or(false);
+    let end_cursor = value
+        .get("endCursor")
+        .and_then(|value| value.as_str())
+        .filter(|value| !value.is_empty())
+        .map(String::from);
+
+    Ok(PageInfo {
+        has_next_page,
+        end_cursor,
+    })
 }
 
 /// Result of checking the next page cursor.

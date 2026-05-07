@@ -1225,6 +1225,180 @@ async fn test_linear_helper_upserts_existing_marker_comment() {
 }
 
 #[tokio::test]
+async fn test_linear_helper_upserts_marker_comment_from_later_page() {
+    let mut server = mockito::Server::new_async().await;
+    let client = test_client(&server, None);
+
+    let first_page_mock = server
+        .mock("POST", "/graphql")
+        .match_body(mockito::Matcher::AllOf(vec![
+            mockito::Matcher::Regex("SymphonyLinearHelperIssueComments".to_string()),
+            mockito::Matcher::Regex("\"issueId\":\"issue-parent\"".to_string()),
+        ]))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            serde_json::json!({
+                "data": {
+                    "issue": {
+                        "comments": {
+                            "nodes": [{
+                                "id": "comment-recent",
+                                "body": "Recent unrelated comment",
+                                "url": null,
+                                "createdAt": "2026-05-07T10:30:00Z",
+                                "updatedAt": "2026-05-07T10:30:00Z"
+                            }],
+                            "pageInfo": {
+                                "hasNextPage": true,
+                                "endCursor": "cursor-1"
+                            }
+                        }
+                    }
+                }
+            })
+            .to_string(),
+        )
+        .expect(1)
+        .create_async()
+        .await;
+
+    let second_page_mock = server
+        .mock("POST", "/graphql")
+        .match_body(mockito::Matcher::AllOf(vec![
+            mockito::Matcher::Regex("SymphonyLinearHelperIssueComments".to_string()),
+            mockito::Matcher::Regex("\"after\":\"cursor-1\"".to_string()),
+        ]))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            serde_json::json!({
+                "data": {
+                    "issue": {
+                        "comments": {
+                            "nodes": [{
+                                "id": "comment-workpad",
+                                "body": "## Agent Workpad\n\nOld",
+                                "url": "https://linear.app/kata/comment/comment-workpad",
+                                "createdAt": "2026-05-07T10:00:00Z",
+                                "updatedAt": "2026-05-07T10:00:00Z"
+                            }],
+                            "pageInfo": {
+                                "hasNextPage": false,
+                                "endCursor": null
+                            }
+                        }
+                    }
+                }
+            })
+            .to_string(),
+        )
+        .expect(1)
+        .create_async()
+        .await;
+
+    let update_mock = server
+        .mock("POST", "/graphql")
+        .match_body(mockito::Matcher::AllOf(vec![
+            mockito::Matcher::Regex("SymphonyLinearUpdateComment".to_string()),
+            mockito::Matcher::Regex("\"commentId\":\"comment-workpad\"".to_string()),
+        ]))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            serde_json::json!({
+                "data": {
+                    "commentUpdate": {
+                        "success": true,
+                        "comment": {
+                            "id": "comment-workpad",
+                            "body": "## Agent Workpad\n\nNew",
+                            "url": "https://linear.app/kata/comment/comment-workpad",
+                            "createdAt": "2026-05-07T10:00:00Z",
+                            "updatedAt": "2026-05-07T10:10:00Z"
+                        }
+                    }
+                }
+            })
+            .to_string(),
+        )
+        .expect(1)
+        .create_async()
+        .await;
+
+    let comment = client
+        .upsert_comment(
+            "issue-parent",
+            Some("## Agent Workpad"),
+            "## Agent Workpad\n\nNew",
+        )
+        .await
+        .expect("comment updates from later page");
+
+    first_page_mock.assert_async().await;
+    second_page_mock.assert_async().await;
+    update_mock.assert_async().await;
+    assert_eq!(comment.id, "comment-workpad");
+    assert_eq!(comment.body, "## Agent Workpad\n\nNew");
+}
+
+#[tokio::test]
+async fn test_linear_helper_issue_missing_payload_error_includes_operation_and_issue_id() {
+    let mut server = mockito::Server::new_async().await;
+    let client = test_client(&server, None);
+
+    let mock = server
+        .mock("POST", "/graphql")
+        .match_body(mockito::Matcher::Regex(
+            "SymphonyLinearHelperIssue".to_string(),
+        ))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(serde_json::json!({ "data": {} }).to_string())
+        .expect(1)
+        .create_async()
+        .await;
+
+    let err = client
+        .fetch_helper_issue("issue-missing", true, true)
+        .await
+        .expect_err("missing helper issue payload should fail");
+
+    mock.assert_async().await;
+    let message = err.to_string();
+    assert!(message.contains("SymphonyLinearHelperIssue"));
+    assert!(message.contains("issue-missing"));
+}
+
+#[tokio::test]
+async fn test_linear_helper_comments_missing_payload_error_includes_operation_and_issue_id() {
+    let mut server = mockito::Server::new_async().await;
+    let client = test_client(&server, None);
+
+    let mock = server
+        .mock("POST", "/graphql")
+        .match_body(mockito::Matcher::Regex(
+            "SymphonyLinearHelperIssueComments".to_string(),
+        ))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(serde_json::json!({ "data": { "issue": {} } }).to_string())
+        .expect(1)
+        .create_async()
+        .await;
+
+    let err = client
+        .list_comments("issue-missing-comments")
+        .await
+        .expect_err("missing helper comments payload should fail");
+
+    mock.assert_async().await;
+    let message = err.to_string();
+    assert!(message.contains("SymphonyLinearHelperIssueComments"));
+    assert!(message.contains("issue-missing-comments"));
+}
+
+#[tokio::test]
 async fn test_linear_helper_create_followup_derives_project_and_team_from_parent() {
     let mut server = mockito::Server::new_async().await;
     let client = test_client(&server, None);
