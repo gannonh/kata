@@ -1,5 +1,7 @@
 # CLI Linear Core Implementation Plan
 
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
 **Goal:** Implement Linear as a full `@kata-sh/cli` backend for project, milestone, slice, task, standalone issue, artifact, health, dependency, and snapshot operations.
 
 **Architecture:** Add a raw Linear GraphQL client and a `LinearKataAdapter` that implements the existing `KataBackendAdapter` contract. Derive Kata entity identity, hierarchy, workflow state, verification state, and dependencies from Linear-native records, configured labels, title ID prefixes, Project Milestones, sub-issues, workflow states, and native issue relations. Use Linear Documents for milestone artifacts and issue comments for issue-scoped artifacts. Use artifact markers only for artifact documents and artifact comments.
