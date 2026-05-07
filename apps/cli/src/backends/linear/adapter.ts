@@ -152,7 +152,7 @@ interface LinearMilestonesQueryData {
   project?: {
     id: string;
     name: string;
-    milestones?: LinearConnection<LinearMilestoneNode> | null;
+    projectMilestones?: LinearConnection<LinearMilestoneNode> | null;
   } | null;
 }
 
@@ -222,7 +222,7 @@ interface LinearArtifactDocumentsQueryData {
 }
 
 export const LINEAR_CONTEXT_QUERY = `
-  query LinearKataContext($teamKey: String!, $projectFilter: String!, $first: Int!) {
+  query LinearKataContext($teamKey: String!, $first: Int!) {
     viewer {
       id
     }
@@ -230,14 +230,14 @@ export const LINEAR_CONTEXT_QUERY = `
       id
       urlKey
     }
-    teams(first: $first, filter: { or: [{ key: { eq: $teamKey } }, { id: { eq: $teamKey } }, { name: { eq: $teamKey } }] }) {
+    teams(first: $first) {
       nodes {
         id
         key
         name
       }
     }
-    projects(first: $first, filter: { or: [{ id: { eq: $projectFilter } }, { slugId: { eq: $projectFilter } }, { name: { eq: $projectFilter } }] }) {
+    projects(first: $first) {
       nodes {
         id
         name
@@ -267,7 +267,7 @@ export const LINEAR_MILESTONES_QUERY = `
     project(id: $projectId) {
       id
       name
-      milestones(first: $first, after: $after) {
+      projectMilestones(first: $first, after: $after) {
         nodes {
           id
           name
@@ -284,7 +284,7 @@ export const LINEAR_MILESTONES_QUERY = `
 `;
 
 export const LINEAR_ISSUES_QUERY = `
-  query LinearKataIssues($teamId: String!, $projectId: String!, $first: Int!, $after: String) {
+  query LinearKataIssues($teamId: ID!, $projectId: ID!, $first: Int!, $after: String) {
     issues(first: $first, after: $after, filter: { team: { id: { eq: $teamId } }, project: { id: { eq: $projectId } } }) {
       nodes {
         id
@@ -808,9 +808,7 @@ export class LinearKataAdapter implements KataBackendAdapter {
   }
 
   async listArtifacts(input: { scopeType: KataScopeType; scopeId: string }): Promise<KataArtifact[]> {
-    if (input.scopeType === "project") return [];
-
-    if (input.scopeType === "milestone") {
+    if (input.scopeType === "project" || input.scopeType === "milestone") {
       const context = await this.getContext();
       const documents = await this.client.paginate<LinearArtifactDocumentNode, LinearArtifactDocumentsQueryData>({
         query: LinearKataProjectDocuments,
@@ -850,11 +848,12 @@ export class LinearKataAdapter implements KataBackendAdapter {
   }
 
   async writeArtifact(input: KataArtifactWriteInput): Promise<KataArtifact> {
-    if (input.scopeType === "milestone") {
+    if (input.scopeType === "project" || input.scopeType === "milestone") {
       const context = await this.getContext();
       const result = await upsertLinearMilestoneDocument({
         client: this.client,
         projectId: context.project.id,
+        scopeType: input.scopeType,
         scopeId: input.scopeId,
         artifactType: input.artifactType,
         title: input.title,
@@ -953,7 +952,6 @@ export class LinearKataAdapter implements KataBackendAdapter {
       query: LINEAR_CONTEXT_QUERY,
       variables: {
         teamKey: this.config.team,
-        projectFilter: this.config.project,
         first: 100,
       },
     });
@@ -1038,7 +1036,7 @@ export class LinearKataAdapter implements KataBackendAdapter {
     const milestones = await this.client.paginate<LinearMilestoneNode, LinearMilestonesQueryData>({
       query: LINEAR_MILESTONES_QUERY,
       variables: { projectId, first: 100 },
-      selectConnection: (data) => data.project?.milestones ?? emptyLinearConnection<LinearMilestoneNode>(),
+      selectConnection: (data) => data.project?.projectMilestones ?? emptyLinearConnection<LinearMilestoneNode>(),
     });
 
     return milestones.map((milestone) => ({
@@ -1268,6 +1266,11 @@ export class LinearKataAdapter implements KataBackendAdapter {
   private addDiscoveredEntity(entity: TrackedLinearEntity): void {
     const duplicate = this.entities.get(entity.kataId);
     if (duplicate) {
+      if (duplicate.linearId === entity.linearId) {
+        this.entities.set(entity.kataId, mergeDiscoveredEntity(duplicate, entity));
+        this.linearIdToKataId.set(entity.linearId, entity.kataId);
+        return;
+      }
       throw new KataDomainError(
         "INVALID_CONFIG",
         `Linear discovery found duplicate Kata id ${entity.kataId}: ${duplicate.identifier ?? duplicate.linearId} and ${entity.identifier ?? entity.linearId}.`,
@@ -1276,6 +1279,22 @@ export class LinearKataAdapter implements KataBackendAdapter {
     this.entities.set(entity.kataId, entity);
     this.linearIdToKataId.set(entity.linearId, entity.kataId);
   }
+}
+
+function mergeDiscoveredEntity(left: TrackedLinearEntity, right: TrackedLinearEntity): TrackedLinearEntity {
+  return {
+    ...left,
+    parentId: left.parentId ?? right.parentId,
+    blockedBy: parseSliceDependencyIds([...(left.blockedBy ?? []), ...(right.blockedBy ?? [])]),
+    blocking: parseSliceDependencyIds([...(left.blocking ?? []), ...(right.blocking ?? [])]),
+    identifier: left.identifier ?? right.identifier,
+    url: left.url ?? right.url,
+    stateName: left.stateName ?? right.stateName,
+    stateType: left.stateType ?? right.stateType,
+    projectMilestoneId: left.projectMilestoneId ?? right.projectMilestoneId,
+    body: left.body || right.body,
+    title: left.title || right.title,
+  };
 }
 
 function artifactFromLinearDocument(

@@ -160,7 +160,7 @@ function createFakeLinearClient(options: FakeLinearClientOptions = {}): LinearAd
           project: {
             id: "project-1",
             name: "Kata CLI",
-            milestones: {
+            projectMilestones: {
               nodes: options.milestones ?? [milestone],
               pageInfo: { hasNextPage: false, endCursor: null },
             },
@@ -368,7 +368,7 @@ function createMutationFakeLinearClient(options: {
           project: {
             id: "project-1",
             name: "Kata CLI",
-            milestones: {
+            projectMilestones: {
               nodes: options.milestones ?? [],
               pageInfo: { hasNextPage: false, endCursor: null },
             },
@@ -744,7 +744,7 @@ describe("LinearKataAdapter reads and discovery", () => {
             project: {
               id: "project-1",
               name: "Kata CLI",
-              milestones: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } },
+              projectMilestones: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } },
             },
           } as T;
         }
@@ -1079,6 +1079,32 @@ describe("LinearKataAdapter reads and discovery", () => {
 });
 
 describe("LinearKataAdapter artifacts", () => {
+  it("writes and lists project artifacts as Linear documents", async () => {
+    const client = createFakeLinearClient();
+    const adapter = createAdapter(client);
+
+    const artifact = await adapter.writeArtifact({
+      scopeType: "project",
+      scopeId: "PROJECT",
+      artifactType: "project-brief",
+      title: "PROJECT",
+      content: "# Project",
+      format: "markdown",
+    });
+
+    expect(artifact).toMatchObject({
+      scopeType: "project",
+      scopeId: "PROJECT",
+      artifactType: "project-brief",
+      title: "PROJECT",
+      content: "# Project",
+      provenance: {
+        backend: "linear",
+        backendId: "document:document-1",
+      },
+    });
+  });
+
   it("writes milestone artifacts as Linear documents", async () => {
     const client = createFakeLinearClient();
     const adapter = createAdapter(client);

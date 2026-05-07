@@ -51,7 +51,7 @@ function createGoldenFakeLinearClient() {
           project: {
             id: project.id,
             name: project.name,
-            milestones: {
+            projectMilestones: {
               nodes: [{
                 id: "milestone-1",
                 name: "M001 Linear Golden",

@@ -42,7 +42,7 @@ export const LinearKataIssueComments = `
 `;
 
 export const LinearKataProjectDocuments = `
-  query LinearKataProjectDocuments($projectId: String!, $first: Int!, $after: String) {
+  query LinearKataProjectDocuments($projectId: ID!, $first: Int!, $after: String) {
     documents(first: $first, after: $after, filter: { project: { id: { eq: $projectId } } }) {
       nodes {
         id
@@ -136,6 +136,7 @@ interface UpsertLinearIssueArtifactCommentInput extends ParsedLinearArtifactMark
 interface UpsertLinearMilestoneDocumentInput {
   client: ReturnType<typeof createLinearClient>;
   projectId: string;
+  scopeType?: Extract<KataScopeType, "project" | "milestone">;
   scopeId: string;
   artifactType: KataArtifactType;
   title: string;
@@ -256,14 +257,15 @@ export async function upsertLinearIssueArtifactComment(
 export async function upsertLinearMilestoneDocument(
   input: UpsertLinearMilestoneDocumentInput,
 ): Promise<LinearArtifactWriteResult> {
-  const title = `${input.scopeId} ${input.title}`;
+  const scopeType = input.scopeType ?? "milestone";
+  const title = scopeType === "project" ? input.title : `${input.scopeId} ${input.title}`;
   const body = formatLinearArtifactMarker({
-    scopeType: "milestone",
+    scopeType,
     scopeId: input.scopeId,
     artifactType: input.artifactType,
     content: input.content,
   });
-  const existingDocument = await findExistingMilestoneDocument(input);
+  const existingDocument = await findExistingMilestoneDocument({ ...input, scopeType });
 
   if (existingDocument) {
     const data = await input.client.graphql<{
@@ -370,7 +372,7 @@ async function findExistingIssueArtifactComment(
 }
 
 async function findExistingMilestoneDocument(
-  input: UpsertLinearMilestoneDocumentInput,
+  input: UpsertLinearMilestoneDocumentInput & { scopeType: Extract<KataScopeType, "project" | "milestone"> },
 ): Promise<LinearProjectDocument | null> {
   const documents = await input.client.paginate<
     LinearProjectDocument,
@@ -389,7 +391,7 @@ async function findExistingMilestoneDocument(
       const parsed = typeof document.content === "string" ? parseLinearArtifactMarker(document.content) : null;
 
       return (
-        parsed?.scopeType === "milestone" &&
+        parsed?.scopeType === input.scopeType &&
         parsed.scopeId === input.scopeId &&
         parsed.artifactType === input.artifactType
       );
