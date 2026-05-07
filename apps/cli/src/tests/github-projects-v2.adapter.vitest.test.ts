@@ -355,6 +355,42 @@ describe("GithubProjectsV2Adapter", () => {
     });
   });
 
+  it("does not warn when closed Project v2 items are missing required Kata field values", async () => {
+    const client = createFakeGithubClient({
+      projectItems: [
+        projectItem({
+          itemId: "project-item-1",
+          issueNodeId: "issue-node-1",
+          issueId: 1,
+          issueNumber: 1,
+          title: "[S001] Completed legacy slice",
+          body: "Closed slice work",
+          state: "closed",
+          kataId: "S001",
+          kataType: "",
+        }),
+      ],
+    });
+    const adapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+
+    await expect(adapter.checkHealth()).resolves.toMatchObject({
+      ok: true,
+      backend: "github",
+      checks: [
+        expect.objectContaining({
+          name: "adapter",
+          status: "ok",
+        }),
+      ],
+    });
+  });
+
   it("creates project, milestone, slice, task, and artifact records through GitHub and Project v2", async () => {
     const client = createFakeGithubClient();
     const adapter = new GithubProjectsV2Adapter({

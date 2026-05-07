@@ -1388,6 +1388,8 @@ function isProjectItemFields(value: ProjectItemFields | null): value is ProjectI
 }
 
 function hasIncompleteKataProjectItemFields(fields: ProjectItemFields): boolean {
+  if (fields.state === "closed") return false;
+
   const hasAnyKataField = Boolean(
     fields.kataId ||
       fields.kataType ||
