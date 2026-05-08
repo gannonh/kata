@@ -47,7 +47,7 @@ async fn linear_issue_list_children_returns_normalized_children() {
         .match_body(Matcher::AllOf(vec![
             Matcher::Regex("SymphonyLinearHelperIssue".to_string()),
             Matcher::Regex("\"issueId\":\"issue-parent\"".to_string()),
-            Matcher::Regex("\"commentFirst\":0".to_string()),
+            Matcher::Regex("\"commentFirst\":1".to_string()),
         ]))
         .with_status(200)
         .with_header("content-type", "application/json")
