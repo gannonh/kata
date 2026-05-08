@@ -2,10 +2,28 @@
 
 ## Unreleased
 
+## 2.3.0
+
+### Features
+
+- **Project-local Symphony home** — `symphony init` writes starter workflow, prompts, `.env.example`, and reference docs under `.symphony/`, and no-arg runs resolve `.symphony/WORKFLOW.md` when present.
+- **Prompt-driven worker contract** — worker sessions receive `SYMPHONY_BIN` and `SYMPHONY_WORKFLOW_PATH` so prompts can call `symphony helper` directly.
+- **Backend-neutral helper CLI** — added helper operations for issue reads, child listing, comment upsert, state updates, follow-up issue creation, and document read/write.
+- **Linear helper parity** — Linear workflows now support helper-backed issue reads, comments, follow-up issues, and state updates.
+- **TUI and dashboard visibility** — added retry queue counts, throughput sparkline, project URL, model column, tracker state display, pinned errors, and stronger status coloring.
+
 ### Improvements
 
-- **Project-local Symphony home** — `symphony init` now writes starter workflow, prompts, and reference docs under `.symphony/`, and no-arg runs resolve `.symphony/WORKFLOW.md` when present.
-- **Prompt-driven worker contract** — starter prompts call the Symphony helper directly through `SYMPHONY_BIN` and `SYMPHONY_WORKFLOW_PATH`, removing the runtime dependency on injected `sym-*` skills.
+- **Symphony logging controls** — added `SYMPHONY_LOG` and `SYMPHONY_LOG_ROOT`, with `RUST_LOG` retained as a fallback.
+- **Agent config documentation** — consolidated runtime config around `agent.name`, `agent.command`, model, and timeout fields.
+- **Workspace refresh hardening** — clean worktree workspaces can fast-forward from `clone_branch`, while stale dirty or diverged workspaces are reported clearly.
+
+### Bug Fixes
+
+- **GitHub Projects v2 state refresh** — issue refresh and candidate fetch now derive tracker state from project item status consistently.
+- **Session continuation safety** — active-state changes now end the current worker session so Symphony can redispatch with the correct prompt.
+- **Retry token safety** — stale retries are suppressed and retry context is exposed in snapshots.
+- **Helper input isolation** — starter prompts require unique helper input files to avoid shared temp-file collisions.
 
 ## 2.2.2
 

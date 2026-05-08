@@ -22,6 +22,8 @@ pnpm --dir apps/cli run test
 Commands:
 
 - `kata setup --pi`
+- `kata setup --backend github --repo owner/name --project-number 12
+- `kata setup --backend linear --linear-workspace <workspace> --linear-team <team> --linear-project <project>`
 - `kata doctor`
 - `kata call <operation> --input <request.json>`
 
@@ -29,8 +31,11 @@ Runtime shape:
 
 - `apps/cli/skills-src` is the source of truth for generated Kata Agent Skills.
 - `apps/cli/skills` is the generated skill bundle packaged with `@kata-sh/cli`.
-- `kata setup --pi` installs the packaged skills into Pi.
-- Backend adapters, currently including GitHub Projects v2, live under `src/backends`.
+- `kata setup` installs packaged skills into Pi, project-local/global agent skills, Claude skills, or Cursor skills depending on the selected target flags.
+- Backend adapters include GitHub Projects v2 and Linear under `src/backends`.
+- Linear auth resolves from `LINEAR_API_KEY`, `LINEAR_TOKEN`, or configured `linear.authEnv`.
+- Standalone issue workflows use `kata-plan-issue` and `kata-execute-issue` with `issue.listOpen`, `issue.create`, `issue.get`, and `issue.updateStatus` operations.
+- Roadmap planning includes slice maps, dependency graphs, and implementation waves.
 
 Release channel:
 
