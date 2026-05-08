@@ -20,8 +20,8 @@ function createIsolatedDataDir(): string {
   return dataDir
 }
 
-function createMockKataRpcBinary(dataDir: string): string {
-  const executablePath = path.join(dataDir, 'kata-rpc-mock')
+function createMockPiRpcBinary(dataDir: string): string {
+  const executablePath = path.join(dataDir, 'pi-rpc-mock')
 
   writeFileSync(
     executablePath,
@@ -403,9 +403,9 @@ export const test = base.extend<DesktopFixtures>({
     use,
   ) => {
     const dataDir = path.dirname(workspaceDir)
-    const mockKataBinary = createMockKataRpcBinary(dataDir)
-    const configuredKataBinary =
-      firstRunStartupMode === 'binary_missing' ? path.join(dataDir, 'missing-kata-binary') : mockKataBinary
+    const mockPiBinary = createMockPiRpcBinary(dataDir)
+    const configuredPiBinary =
+      firstRunStartupMode === 'binary_missing' ? path.join(dataDir, 'missing-pi-binary') : mockPiBinary
 
     const binaryMissingPathDir = path.join(dataDir, 'empty-path')
     if (firstRunStartupMode === 'binary_missing') {
@@ -456,7 +456,7 @@ export const test = base.extend<DesktopFixtures>({
         KATA_DESKTOP_AUTH_FILE_PATH: authFilePath,
         KATA_DESKTOP_RELIABILITY_CHAT_FAULT: chatRuntimeFaultMode,
         KATA_DESKTOP_M006_SCENARIO: m006IntegratedScenario,
-        KATA_BIN_PATH: configuredKataBinary,
+        KATA_PI_BIN_PATH: configuredPiBinary,
         // Force packaged-file mode for deterministic e2e: if a parent shell exported
         // VITE_DEV_SERVER_URL we would silently bind to an arbitrary dev server.
         VITE_DEV_SERVER_URL: '',
