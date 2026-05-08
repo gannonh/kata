@@ -60,8 +60,7 @@
       "comment.upsert",
       "issue.update-state",
       "pr.land-status",
-      "pr.inspect-checks",
-      "pr.land-status"
+      "pr.inspect-checks"
     ]
   }
 }

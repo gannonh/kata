@@ -2,8 +2,9 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const SCRIPT_DIR = path.dirname(decodeURIComponent(new URL(import.meta.url).pathname));
+const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const RUNNERS = {
   "kata-cli": path.join(SCRIPT_DIR, "kata-cli.mjs"),
   "symphony-runtime": path.join(SCRIPT_DIR, "symphony-runtime.mjs"),
@@ -107,7 +108,10 @@ function stripRuntimeArgs(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--runtime" || arg === "--target") {
-      index += 1;
+      const next = argv[index + 1];
+      if (next !== undefined && !next.startsWith("--")) {
+        index += 1;
+      }
       continue;
     }
     if (arg.startsWith("--runtime=") || arg.startsWith("--target=")) continue;

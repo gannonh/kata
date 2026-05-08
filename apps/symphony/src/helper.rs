@@ -1,4 +1,6 @@
-use std::process::Command;
+use std::io::Read;
+use std::process::{Command, Output, Stdio};
+use std::time::{Duration, Instant};
 
 use serde_json::Value;
 
@@ -10,7 +12,7 @@ use crate::github::auth::{
 };
 use crate::github::client::{GithubClient, GithubIssueComment};
 use crate::linear::adapter::{LinearAdapter, TrackerAdapter};
-use crate::linear::client::LinearClient;
+use crate::linear::client::{LinearClient, LinearCommentRecord};
 
 pub const SHARED_HELPER_OPERATIONS: &[&str] = &[
     "issue.get",
@@ -24,6 +26,8 @@ pub const SHARED_HELPER_OPERATIONS: &[&str] = &[
 
 pub const GITHUB_ONLY_HELPER_OPERATIONS: &[&str] =
     &["pr.inspect-feedback", "pr.inspect-checks", "pr.land-status"];
+
+const GH_SUBPROCESS_TIMEOUT: Duration = Duration::from_secs(30);
 
 pub fn success_envelope(data: Value) -> Value {
     serde_json::json!({ "ok": true, "data": data })
@@ -252,15 +256,59 @@ fn command_output_text(output: &std::process::Output) -> String {
 fn github_helper_token_env(mut command: Command, token: &str) -> Command {
     command.env("GH_TOKEN", token);
     command.env("GITHUB_TOKEN", token);
+    command.env("GH_PROMPT_DISABLED", "1");
     command
 }
 
-fn run_gh_json(args: &[String], token: &str) -> Result<Value, String> {
+fn run_gh_output(args: &[String], token: &str) -> Result<Output, String> {
     let mut command = Command::new("gh");
-    command.args(args);
-    let output = github_helper_token_env(command, token)
-        .output()
+    command
+        .args(args)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    let mut child = github_helper_token_env(command, token)
+        .spawn()
         .map_err(|err| format!("failed to run gh {}: {err}", args.join(" ")))?;
+
+    let started = Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                let mut stdout = Vec::new();
+                if let Some(mut pipe) = child.stdout.take() {
+                    let _ = pipe.read_to_end(&mut stdout);
+                }
+                let mut stderr = Vec::new();
+                if let Some(mut pipe) = child.stderr.take() {
+                    let _ = pipe.read_to_end(&mut stderr);
+                }
+                return Ok(Output {
+                    status,
+                    stdout,
+                    stderr,
+                });
+            }
+            Ok(None) => {
+                if started.elapsed() >= GH_SUBPROCESS_TIMEOUT {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return Err(format!(
+                        "gh {} timed out after {}s",
+                        args.join(" "),
+                        GH_SUBPROCESS_TIMEOUT.as_secs()
+                    ));
+                }
+                std::thread::sleep(Duration::from_millis(50));
+            }
+            Err(err) => {
+                return Err(format!("gh {} failed while waiting: {err}", args.join(" ")));
+            }
+        }
+    }
+}
+
+fn run_gh_json(args: &[String], token: &str) -> Result<Value, String> {
+    let output = run_gh_output(args, token)?;
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
     if !output.status.success() && stdout.is_empty() {
         return Err(format!(
@@ -270,6 +318,13 @@ fn run_gh_json(args: &[String], token: &str) -> Result<Value, String> {
         ));
     }
     serde_json::from_str(&stdout).map_err(|err| {
+        if !output.status.success() {
+            return format!(
+                "gh {} failed: {}",
+                args.join(" "),
+                command_output_text(&output)
+            );
+        }
         format!(
             "failed to parse gh {} JSON output: {err}; output={}",
             args.join(" "),
@@ -279,11 +334,7 @@ fn run_gh_json(args: &[String], token: &str) -> Result<Value, String> {
 }
 
 fn run_gh_text(args: &[String], token: &str) -> Result<String, String> {
-    let mut command = Command::new("gh");
-    command.args(args);
-    let output = github_helper_token_env(command, token)
-        .output()
-        .map_err(|err| format!("failed to run gh {}: {err}", args.join(" ")))?;
+    let output = run_gh_output(args, token)?;
     if !output.status.success() {
         return Err(format!(
             "gh {} failed: {}",
@@ -311,6 +362,26 @@ fn gh_check_is_failing(check: &Value) -> bool {
         field(check, "conclusion").as_str(),
         "failure" | "cancelled" | "timed_out" | "action_required"
     ) || field(check, "bucket") == "fail"
+}
+
+fn github_comment_record(comment: &GithubIssueComment) -> Value {
+    serde_json::json!({
+        "id": comment.id.to_string(),
+        "body": comment.body.clone(),
+        "url": comment.html_url.clone(),
+        "created_at": comment.created_at.clone(),
+        "updated_at": comment.updated_at.clone(),
+    })
+}
+
+fn linear_comment_record(comment: &LinearCommentRecord) -> Value {
+    serde_json::json!({
+        "id": comment.id.clone(),
+        "body": comment.body.clone(),
+        "url": comment.url.clone(),
+        "created_at": comment.created_at.clone(),
+        "updated_at": comment.updated_at.clone(),
+    })
 }
 
 fn extract_github_actions_run_id(url: &str) -> Option<String> {
@@ -351,12 +422,13 @@ fn helper_usize(input: &Value, field: &str, default: usize) -> usize {
 fn github_pr_checks_payload(tracker: &TrackerConfig, input: Value) -> Result<Value, String> {
     let inputs = github_adapter_inputs(tracker).map_err(|err| err.to_string())?;
     let pr = optional_str(&input, "pr").or_else(|| optional_str(&input, "pullRequest"));
+    let pr_arg = pr.as_deref().map(parse_github_pr_number).transpose()?;
     let include_logs = helper_bool(&input, "includeLogs", false);
     let max_lines = helper_usize(&input, "maxLines", 160);
 
     let mut args = vec!["pr".to_string(), "checks".to_string()];
-    if let Some(pr) = pr.as_deref() {
-        args.push(pr.to_string());
+    if let Some(pr_arg) = pr_arg {
+        args.push(pr_arg.to_string());
     }
     args.extend([
         "--json".to_string(),
@@ -510,7 +582,7 @@ async fn github_pr_feedback_payload(
 fn github_pr_view_payload(input: &Value, token: &str) -> Result<Value, String> {
     let mut args = vec!["pr".to_string(), "view".to_string()];
     if let Some(pr) = optional_str(input, "pr").or_else(|| optional_str(input, "pullRequest")) {
-        args.push(pr);
+        args.push(parse_github_pr_number(&pr)?.to_string());
     }
     args.extend([
         "--json".to_string(),
@@ -580,6 +652,9 @@ async fn github_issue_payload(
             .list_comments(number)
             .await
             .map_err(|err| err.to_string())?
+            .iter()
+            .map(github_comment_record)
+            .collect()
     } else {
         Vec::new()
     };
@@ -680,7 +755,7 @@ async fn run_github_helper(
             let marker = optional_str(&input, "marker");
             let comment =
                 github_upsert_comment(&adapter, &issue_id, marker.as_deref(), &body).await?;
-            Ok(serde_json::json!({ "comment": comment }))
+            Ok(serde_json::json!({ "comment": github_comment_record(&comment) }))
         }
         "issue.update-state" => {
             let issue_id = normalize_github_issue_id(&issue_id(&input, "issueId")?);
@@ -758,7 +833,7 @@ async fn run_github_helper(
             let marker = symphony_document_marker(&title);
             let body = format!("{marker}\n\n{content}");
             let comment = github_upsert_comment(&adapter, &issue_id, Some(&marker), &body).await?;
-            Ok(serde_json::json!({ "title": title, "comment": comment }))
+            Ok(serde_json::json!({ "title": title, "comment": github_comment_record(&comment) }))
         }
         "pr.inspect-checks" => github_pr_checks_payload(tracker, input),
         "pr.inspect-feedback" => github_pr_feedback_payload(&adapter, tracker, input).await,
@@ -807,7 +882,7 @@ async fn run_linear_helper(
                 .upsert_comment(&issue_id, marker.as_deref(), &body)
                 .await
                 .map_err(|err| err.to_string())?;
-            Ok(serde_json::json!({ "comment": comment }))
+            Ok(serde_json::json!({ "comment": linear_comment_record(&comment) }))
         }
         "issue.update-state" => {
             let issue_id = issue_id(&input, "issueId")?;
@@ -843,7 +918,7 @@ async fn run_linear_helper(
                     Some(serde_json::json!({
                         "title": title,
                         "content": content,
-                        "comment": comment,
+                        "comment": linear_comment_record(&comment),
                     }))
                 })
                 .collect();
@@ -874,7 +949,7 @@ async fn run_linear_helper(
                 .upsert_comment(&issue_id, Some(&marker), &body)
                 .await
                 .map_err(|err| err.to_string())?;
-            Ok(serde_json::json!({ "title": title, "comment": comment }))
+            Ok(serde_json::json!({ "title": title, "comment": linear_comment_record(&comment) }))
         }
         "pr.inspect-checks" | "pr.inspect-feedback" | "pr.land-status" => Err(format!(
             "operation `{operation}` is only available when tracker.kind is github"
@@ -1158,7 +1233,11 @@ mod tests {
         )
         .await
         .expect("comment upsert");
-        assert_eq!(updated["comment"]["id"], 91);
+        assert_eq!(updated["comment"]["id"], "91");
+        assert_eq!(
+            updated["comment"]["url"],
+            "https://github.com/kata-sh/kata-mono/issues/7#issuecomment-91"
+        );
 
         let document_body = "<!-- symphony:document:Plan -->\n\nStep 1";
         let list_for_read = server

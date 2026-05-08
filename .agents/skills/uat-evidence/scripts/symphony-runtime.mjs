@@ -7,8 +7,9 @@ import {
   writeFileSync,
 } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const SKILL_ROOT = path.resolve(path.dirname(decodeURIComponent(new URL(import.meta.url).pathname)), "..");
+const SKILL_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PROMPT_FILES = [
   "apps/symphony/prompts/system.md",
   "apps/symphony/prompts/in-progress.md",
