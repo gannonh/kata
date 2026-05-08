@@ -98,7 +98,9 @@ async function testBackend(args) {
   mkdirSync(path.join(runDir, "payloads"), { recursive: true });
   mkdirSync(path.join(runDir, "workspaces"), { recursive: true });
 
-  const config = backend === "github" ? githubConfig(args, workspace, env) : linearConfig(args, workspace, env);
+  const config = backend === "github"
+    ? githubConfig(args, workspace, env)
+    : await linearConfig(args, workspace, env);
   const workflowPath = path.join(runDir, "WORKFLOW.md");
   const binaryPath = args.binary
     ? path.resolve(String(args.binary))
@@ -824,13 +826,38 @@ function githubConfig(args, workspace, env, evidence = {}) {
   };
 }
 
-function linearConfig(args, workspace, env) {
+async function linearConfig(args, workspace, env) {
   const workflow = readWorkflowConfig(path.join(workspace, ".symphony", "WORKFLOW.md"));
+  const explicitSlug = args.linear_project_slug ?? env.LINEAR_PROJECT_SLUG ?? workflow.project_slug;
   return {
-    projectSlug: String(args.linear_project_slug ?? env.LINEAR_PROJECT_SLUG ?? workflow.project_slug ?? ""),
+    projectSlug: String(explicitSlug ?? await resolveLinearProjectSlugFromEnv(env) ?? ""),
     workspaceSlug: String(args.linear_workspace_slug ?? env.LINEAR_WORKSPACE_SLUG ?? workflow.workspace_slug ?? "kata-sh"),
     tokenEnv: "LINEAR_API_KEY",
   };
+}
+
+async function resolveLinearProjectSlugFromEnv(env) {
+  const projectId = env.LINEAR_PROJECT_ID;
+  if (projectId) {
+    try {
+      const data = await linearGraphql(env, `
+        query SymphonyBackendUatProjectById($id: String!) {
+          project(id: $id) { slugId }
+        }
+      `, { id: projectId });
+      if (data.project?.slugId) return data.project.slugId;
+    } catch {
+      // Fall through to single-project discovery below.
+    }
+  }
+
+  const data = await linearGraphql(env, `
+    query SymphonyBackendUatProjectDiscovery {
+      projects(first: 2) { nodes { slugId } }
+    }
+  `, {});
+  const projects = data.projects?.nodes ?? [];
+  return projects.length === 1 ? projects[0].slugId : null;
 }
 
 function readWorkflowConfig(filePath) {

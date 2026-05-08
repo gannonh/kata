@@ -462,8 +462,8 @@ impl LinearClient {
                 QUERY_HELPER_ISSUE,
                 serde_json::json!({
                     "issueId": issue_id,
-                    "commentFirst": if include_comments { ISSUE_PAGE_SIZE } else { 0 },
-                    "childFirst": if include_children { ISSUE_PAGE_SIZE } else { 0 },
+                    "commentFirst": if include_comments { ISSUE_PAGE_SIZE } else { 1 },
+                    "childFirst": if include_children { ISSUE_PAGE_SIZE } else { 1 },
                     "relationFirst": ISSUE_PAGE_SIZE,
                 }),
             )
