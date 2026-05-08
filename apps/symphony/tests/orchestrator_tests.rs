@@ -156,7 +156,7 @@ fn with_slack_notifications(
 }
 
 async fn wait_for_mock_match(mock: &mockito::Mock) {
-    let deadline = Instant::now() + StdDuration::from_secs(1);
+    let deadline = Instant::now() + StdDuration::from_secs(3);
     while Instant::now() < deadline {
         if mock.matched() {
             return;

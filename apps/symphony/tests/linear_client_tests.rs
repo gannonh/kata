@@ -237,10 +237,7 @@ fn test_linear_normalization_extracts_native_blocking_relations() {
     assert_eq!(issue.blocked_by.len(), 1);
     assert_eq!(issue.blocked_by[0].id.as_deref(), Some("issue-blocker"));
     assert_eq!(issue.blocked_by[0].identifier.as_deref(), Some("KAT-19"));
-    assert_eq!(
-        issue.blocked_by[0].state.as_deref(),
-        Some("In Progress")
-    );
+    assert_eq!(issue.blocked_by[0].state.as_deref(), Some("In Progress"));
 }
 
 #[tokio::test]
