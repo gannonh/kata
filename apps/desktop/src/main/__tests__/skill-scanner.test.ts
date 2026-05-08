@@ -39,9 +39,13 @@ describe('skill-scanner', () => {
   let testRoot: string
   let fakeHome: string
   let fakeWorkspace: string
+  let originalKataSkillRoot: string | undefined
 
   beforeEach(async () => {
     clearSkillCache()
+    originalKataSkillRoot = process.env.KATA_SKILL_ROOT
+    delete process.env.KATA_SKILL_ROOT
+
     testRoot = mkdtempSync(path.join(tmpdir(), 'kata-desktop-skill-scanner-'))
     fakeHome = path.join(testRoot, 'home')
     fakeWorkspace = path.join(testRoot, 'workspace')
@@ -59,6 +63,13 @@ describe('skill-scanner', () => {
     vi.useRealTimers()
     vi.restoreAllMocks()
     clearSkillCache()
+
+    if (originalKataSkillRoot === undefined) {
+      delete process.env.KATA_SKILL_ROOT
+    } else {
+      process.env.KATA_SKILL_ROOT = originalKataSkillRoot
+    }
+
     rmSync(testRoot, { recursive: true, force: true })
   })
 
@@ -119,6 +130,66 @@ describe('skill-scanner', () => {
   test('scanSkillDirectory gracefully handles missing directories', async () => {
     const skills = await scanSkillDirectory(path.join(fakeWorkspace, 'does-not-exist'))
     expect(skills).toEqual([])
+  })
+
+  test('scanAllSkillDirectories discovers skills from KATA_SKILL_ROOT', async () => {
+    const bundledSkillsDir = path.join(testRoot, 'bundled-skills')
+    process.env.KATA_SKILL_ROOT = bundledSkillsDir
+
+    await writeSkill(bundledSkillsDir, 'bundled-skill')
+
+    const commands = await scanAllSkillDirectories(fakeWorkspace)
+
+    expect(commands).toEqual([
+      {
+        name: '/skill:bundled-skill',
+        description: 'bundled-skill description',
+        category: 'skill',
+      },
+    ])
+  })
+
+  test('scanAllSkillDirectories lets configured directories override KATA_SKILL_ROOT duplicates', async () => {
+    const bundledSkillsDir = path.join(testRoot, 'bundled-skills')
+    const userSkillsDir = path.join(fakeHome, '.agents', 'skills')
+    const workspaceSkillsDir = path.join(fakeWorkspace, '.agents', 'skills')
+    process.env.KATA_SKILL_ROOT = bundledSkillsDir
+
+    await writeSkill(
+      bundledSkillsDir,
+      'user-overrides-bundled',
+      ['---', 'name: user-overrides-bundled', 'description: bundled copy', '---'].join('\n'),
+    )
+    await writeSkill(
+      bundledSkillsDir,
+      'workspace-overrides-bundled',
+      ['---', 'name: workspace-overrides-bundled', 'description: bundled copy', '---'].join('\n'),
+    )
+    await writeSkill(
+      userSkillsDir,
+      'user-overrides-bundled',
+      ['---', 'name: user-overrides-bundled', 'description: user copy', '---'].join('\n'),
+    )
+    await writeSkill(
+      workspaceSkillsDir,
+      'workspace-overrides-bundled',
+      ['---', 'name: workspace-overrides-bundled', 'description: workspace copy', '---'].join('\n'),
+    )
+
+    const commands = await scanAllSkillDirectories(fakeWorkspace)
+
+    expect(commands).toEqual([
+      {
+        name: '/skill:user-overrides-bundled',
+        description: 'user copy',
+        category: 'skill',
+      },
+      {
+        name: '/skill:workspace-overrides-bundled',
+        description: 'workspace copy',
+        category: 'skill',
+      },
+    ])
   })
 
   test('[R003] scanAllSkillDirectories discovers and dedupes /skill:* entries across configured locations', async () => {
