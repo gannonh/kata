@@ -1,7 +1,7 @@
 {
   "projectType": "documentation",
   "projectName": "Kata",
-  "projectDescription": "Kata is a monorepo for Kata CLI, Kata Symphony, and Kata Context. Desktop and Orchestrator content is archived.",
+  "projectDescription": "Kata is a monorepo for Kata CLI, Kata Symphony, and Kata Context.",
   "theme": "palm",
   "primaryColor": "#d0a172",
   "lightColor": "#6c5c44",
@@ -12,15 +12,11 @@
       "Kata Symphony",
       "Kata Context"
     ],
-    "archivedProducts": [
-      "Kata Desktop",
-      "Kata Orchestrator"
-    ],
     "source": "docs.json"
   },
   "keyFeatures": [
     "Kata CLI stable runtime and backend contract bridge for GitHub Projects v2 and Linear",
-    "Kata Symphony headless orchestrator with project-local .symphony workflow assets",
+    "Kata Symphony runtime with project-local .symphony workflow assets",
     "Kata Context structural, semantic, and memory-based codebase indexing"
   ],
   "lastReviewed": "2026-05-08"

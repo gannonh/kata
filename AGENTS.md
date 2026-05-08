@@ -9,8 +9,6 @@ This mono-repo is comprised of the following primary applications:
 - Kata Symphony: `apps/symphony` - @kata/symphony - Rust binary (Cargo scripts via package.json). Project-local Symphony config lives in `.symphony/`.
 - Kata CLI: `apps/cli` - @kata-sh/cli - portable Kata Skills runtime and backend contract bridge
 - Context Indexer: `apps/context` - @kata/context - context indexing tool (Vitest, native Node addon)
-- Desktop Legacy: `apps/desktop-legacy` - archived Electron app, excluded from the active workspace
-- Orchestrator Legacy: `apps/orchestrator-legacy` - archived reference only, excluded from the active workspace
 
 ## Commands
 
@@ -33,8 +31,6 @@ apps/
 ├── cli/              # @kata-sh/cli - Kata Skills runtime and backend contract bridge
 ├── cli/skills-src/   # Source of truth for Kata Agent Skills
 ├── context/          # @kata/context - context indexing tool (Vitest, native Node addon)
-├── desktop-legacy/   # Archived Electron app
-├── orchestrator-legacy/ # Archived legacy Orchestrator reference
 ├── symphony/         # @kata/symphony - Rust binary (Cargo scripts via package.json)
 └── online-docs/      # @kata/online-docs - Mintlify documentation site
 
@@ -45,7 +41,7 @@ packages/
 └── mermaid/          # Mermaid diagram renderer
 ```
 
-Workspace exclusions in `pnpm-workspace.yaml`: `apps/cli-legacy`, `apps/orchestrator-legacy`, `apps/desktop-legacy`, and `apps/online-docs`.
+Workspace exclusions in `pnpm-workspace.yaml`: archived app directories and `apps/online-docs`.
 
 ## Turborepo
 

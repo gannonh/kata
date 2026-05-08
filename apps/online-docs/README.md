@@ -26,5 +26,3 @@ pnpm --dir apps/online-docs run broken-links
 - `symphony/*` documents the Rust Symphony runtime.
 - `context/*` documents `@kata/context`.
 - `reference/*` contains command, configuration, and API references.
-
-Archived Orchestrator and Desktop content should stay out of active navigation unless clearly marked as legacy.

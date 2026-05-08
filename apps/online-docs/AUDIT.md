@@ -9,12 +9,6 @@ Date: 2026-05-08
 - `context/*` documents `apps/context`.
 - Site config and navigation live in `apps/online-docs/docs.json`.
 
-## Archived content
-
-- Orchestrator is archived under `apps/orchestrator-legacy`.
-- Desktop is archived under `apps/desktop-legacy`.
-- Archived docs must be clearly marked as legacy and excluded from active navigation.
-
 ## Current docs checks
 
 - CLI docs describe stable `@kata-sh/cli` 0.16.0, GitHub Projects v2, Linear setup, and Linear doctor checks.

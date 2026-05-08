@@ -8,8 +8,7 @@ This directory contains the Mintlify documentation site for Kata.
 - Product docs should match the active apps:
   - Kata CLI: `apps/cli`
   - Kata Symphony: `apps/symphony`
-  - Kata Context: `apps/context`
-- Orchestrator and Desktop are archived. Do not present them as active products.
+  - Kata Context: `apps/context`.
 
 ## Local commands
 
