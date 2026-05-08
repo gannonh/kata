@@ -155,6 +155,7 @@ fn helper_bool(input: &Value, field: &str, default: bool) -> bool {
         .unwrap_or(default)
 }
 
+#[derive(Debug)]
 pub struct GithubAdapterInputs {
     pub token: String,
     pub repo_owner: String,
@@ -898,6 +899,54 @@ pub async fn run_operation(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::ApiKey;
+    use mockito::{Matcher, Server};
+    use serde_json::json;
+
+    fn github_config(endpoint: String) -> TrackerConfig {
+        TrackerConfig {
+            kind: Some("github".to_string()),
+            endpoint,
+            api_key: Some(ApiKey::new("test-token")),
+            repo_owner: Some("kata-sh".to_string()),
+            repo_name: Some("kata-mono".to_string()),
+            label_prefix: Some("symphony".to_string()),
+            active_states: vec!["Todo".to_string(), "In Progress".to_string()],
+            terminal_states: vec!["Done".to_string()],
+            ..TrackerConfig::default()
+        }
+    }
+
+    fn github_issue(number: u64, labels: &[&str]) -> Value {
+        json!({
+            "number": number,
+            "title": format!("Issue {number}"),
+            "body": format!("Body {number}"),
+            "state": "open",
+            "user": { "login": "alice" },
+            "assignee": { "login": "alice" },
+            "assignees": [{ "login": "alice" }],
+            "labels": labels.iter().map(|name| json!({
+                "name": name,
+                "color": "ffffff",
+                "description": null
+            })).collect::<Vec<_>>(),
+            "created_at": "2026-03-29T10:00:00Z",
+            "updated_at": "2026-03-29T10:30:00Z",
+            "html_url": format!("https://github.com/kata-sh/kata-mono/issues/{number}"),
+            "sub_issues_summary": { "total": 0, "completed": 0, "percent_completed": 0 }
+        })
+    }
+
+    fn github_comment(id: u64, body: &str) -> Value {
+        json!({
+            "id": id,
+            "body": body,
+            "html_url": format!("https://github.com/kata-sh/kata-mono/issues/7#issuecomment-{id}"),
+            "created_at": "2026-03-29T10:00:00Z",
+            "updated_at": "2026-03-29T10:30:00Z"
+        })
+    }
 
     #[test]
     fn document_comment_parser_reads_title_and_content() {
@@ -921,5 +970,372 @@ mod tests {
         .expect("identifier resolves");
 
         assert_eq!(result, "linear-uuid");
+    }
+
+    #[test]
+    fn helper_input_and_scalar_parsers_cover_validation_paths() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let valid_path = dir.path().join("input.json");
+        std::fs::write(
+            &valid_path,
+            r#"{" issueId ":" kept ","flag":true,"count":3}"#,
+        )
+        .expect("write valid input");
+        let invalid_path = dir.path().join("invalid.json");
+        std::fs::write(&invalid_path, "[1,2,3]").expect("write invalid input");
+
+        assert_eq!(
+            read_helper_input(None).expect("empty input defaults"),
+            json!({})
+        );
+        assert!(read_helper_input(valid_path.to_str()).is_ok());
+        assert!(read_helper_input(invalid_path.to_str()).is_err());
+
+        let input = json!({
+            "issueId": "  #12  ",
+            "empty": "   ",
+            "flag": false,
+            "count": 7
+        });
+        assert_eq!(required_str(&input, "issueId").expect("issue id"), "#12");
+        assert_eq!(optional_str(&input, "empty"), None);
+        assert!(!helper_bool(&input, "flag", true));
+        assert!(helper_bool(&input, "missing", true));
+        assert_eq!(helper_usize(&input, "count", 3), 7);
+        assert_eq!(helper_usize(&json!({"count": "many"}), "count", 3), 3);
+        assert_eq!(normalize_github_issue_id("#12"), "12");
+        assert_eq!(normalize_github_issue_id("KAT-12"), "KAT-12");
+        assert_eq!(parse_github_issue_number("#12").expect("issue number"), 12);
+        assert!(parse_github_issue_number("abc").is_err());
+        assert_eq!(
+            parse_github_pr_number("https://github.com/kata-sh/kata-mono/pull/531")
+                .expect("pr url"),
+            531
+        );
+        assert_eq!(parse_github_pr_number("#531").expect("pr number"), 531);
+        assert!(parse_github_pr_number("nope").is_err());
+        assert_eq!(
+            resolve_issue_id_value(
+                "@current".to_string(),
+                "issueId",
+                Some("7".to_string()),
+                None
+            )
+            .expect("current id"),
+            "7"
+        );
+        assert!(resolve_issue_id_value("@current".to_string(), "issueId", None, None).is_err());
+        assert_eq!(
+            symphony_document_marker(" Plan "),
+            "<!-- symphony:document:Plan -->"
+        );
+        assert!(parse_symphony_document_comment("plain text").is_none());
+        assert!(parse_symphony_document_comment("<!-- symphony:document: -->body").is_none());
+        assert_eq!(tail_lines("a\nb\nc", 2), "b\nc");
+        assert_eq!(
+            extract_github_actions_run_id("https://github.com/o/r/actions/runs/123/jobs/456")
+                .as_deref(),
+            Some("123")
+        );
+        assert!(extract_github_actions_run_id("https://example.com").is_none());
+        assert!(gh_check_is_failing(&json!({"state":"failure"})));
+        assert!(gh_check_is_failing(&json!({"conclusion":"cancelled"})));
+        assert!(gh_check_is_failing(&json!({"bucket":"fail"})));
+        assert!(!gh_check_is_failing(&json!({"state":"success"})));
+        assert_eq!(
+            gh_check_url(&json!({"detailsUrl":"https://example.com"})),
+            Some("https://example.com")
+        );
+        assert_eq!(
+            gh_check_url(&json!({"link":"https://example.com/link"})),
+            Some("https://example.com/link")
+        );
+    }
+
+    #[test]
+    fn github_adapter_inputs_validate_required_config() {
+        let mut config = github_config("".to_string());
+        let inputs = github_adapter_inputs(&config).expect("github inputs");
+        assert_eq!(inputs.token, "test-token");
+        assert_eq!(inputs.repo_owner, "kata-sh");
+        assert_eq!(inputs.repo_name, "kata-mono");
+        assert_eq!(inputs.label_prefix, "symphony");
+        assert_eq!(inputs.endpoint, "https://api.github.com");
+
+        config.repo_owner = Some(" ".to_string());
+        let err = github_adapter_inputs(&config).expect_err("missing owner");
+        assert!(err
+            .to_string()
+            .contains("tracker.repo_owner is required when tracker.kind is github"));
+    }
+
+    #[tokio::test]
+    async fn github_issue_get_reads_issue_children_and_comments() {
+        let mut server = Server::new_async().await;
+        let config = github_config(server.url());
+
+        let issue_mock = server
+            .mock("GET", "/repos/kata-sh/kata-mono/issues/7")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(github_issue(7, &["symphony:todo"]).to_string())
+            .expect(1)
+            .create_async()
+            .await;
+        let children_mock = server
+            .mock("GET", "/repos/kata-sh/kata-mono/issues/7/sub_issues")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(json!([github_issue(8, &["symphony:todo"])]).to_string())
+            .expect(1)
+            .create_async()
+            .await;
+        let child_issue_mock = server
+            .mock("GET", "/repos/kata-sh/kata-mono/issues/8")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(github_issue(8, &["symphony:todo"]).to_string())
+            .expect(1)
+            .create_async()
+            .await;
+        let comments_mock = server
+            .mock("GET", "/repos/kata-sh/kata-mono/issues/7/comments")
+            .match_query(Matcher::UrlEncoded("per_page".into(), "100".into()))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(json!([github_comment(91, "hello")]).to_string())
+            .expect(1)
+            .create_async()
+            .await;
+
+        let result = run_operation(&config, "issue.get", json!({ "issueId": "#7" }))
+            .await
+            .expect("github issue.get");
+
+        issue_mock.assert_async().await;
+        children_mock.assert_async().await;
+        child_issue_mock.assert_async().await;
+        comments_mock.assert_async().await;
+        assert_eq!(result["issue"]["id"], "7");
+        assert_eq!(result["children"][0]["id"], "8");
+        assert_eq!(result["comments"][0]["body"], "hello");
+    }
+
+    #[tokio::test]
+    async fn github_comment_and_document_helpers_route_through_comments() {
+        let mut server = Server::new_async().await;
+        let config = github_config(server.url());
+
+        let list_for_update = server
+            .mock("GET", "/repos/kata-sh/kata-mono/issues/7/comments")
+            .match_query(Matcher::UrlEncoded("per_page".into(), "100".into()))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(json!([github_comment(91, "<!-- marker -->\n\nold")]).to_string())
+            .expect(1)
+            .create_async()
+            .await;
+        let update_comment = server
+            .mock("PATCH", "/repos/kata-sh/kata-mono/issues/comments/91")
+            .match_body(Matcher::PartialJson(json!({
+                "body": "<!-- marker -->\n\nnew"
+            })))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(github_comment(91, "<!-- marker -->\n\nnew").to_string())
+            .expect(1)
+            .create_async()
+            .await;
+
+        let updated = run_operation(
+            &config,
+            "comment.upsert",
+            json!({
+                "issueId": "7",
+                "marker": "<!-- marker -->",
+                "body": "new"
+            }),
+        )
+        .await
+        .expect("comment upsert");
+        assert_eq!(updated["comment"]["id"], 91);
+
+        let document_body = "<!-- symphony:document:Plan -->\n\nStep 1";
+        let list_for_read = server
+            .mock("GET", "/repos/kata-sh/kata-mono/issues/7/comments")
+            .match_query(Matcher::UrlEncoded("per_page".into(), "100".into()))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(json!([github_comment(92, document_body)]).to_string())
+            .expect(1)
+            .create_async()
+            .await;
+
+        let read = run_operation(
+            &config,
+            "document.read",
+            json!({ "issueId": "7", "title": "Plan" }),
+        )
+        .await
+        .expect("document read");
+        assert_eq!(read["content"], "Step 1");
+
+        let list_for_write = server
+            .mock("GET", "/repos/kata-sh/kata-mono/issues/7/comments")
+            .match_query(Matcher::UrlEncoded("per_page".into(), "100".into()))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body("[]")
+            .expect(1)
+            .create_async()
+            .await;
+        let create_document = server
+            .mock("POST", "/repos/kata-sh/kata-mono/issues/7/comments")
+            .match_body(Matcher::PartialJson(json!({
+                "body": "<!-- symphony:document:Plan -->\n\nNext"
+            })))
+            .with_status(201)
+            .with_header("content-type", "application/json")
+            .with_body(github_comment(93, "<!-- symphony:document:Plan -->\n\nNext").to_string())
+            .expect(1)
+            .create_async()
+            .await;
+
+        let written = run_operation(
+            &config,
+            "document.write",
+            json!({ "issueId": "7", "title": "Plan", "content": "Next" }),
+        )
+        .await
+        .expect("document write");
+        assert_eq!(written["title"], "Plan");
+
+        list_for_update.assert_async().await;
+        update_comment.assert_async().await;
+        list_for_read.assert_async().await;
+        list_for_write.assert_async().await;
+        create_document.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn github_followup_and_state_helpers_mutate_expected_endpoints() {
+        let mut server = Server::new_async().await;
+        let config = github_config(server.url());
+
+        let create_issue = server
+            .mock("POST", "/repos/kata-sh/kata-mono/issues")
+            .match_body(Matcher::PartialJson(json!({
+                "title": "Follow-up",
+                "body": "Details"
+            })))
+            .with_status(201)
+            .with_header("content-type", "application/json")
+            .with_body(github_issue(42, &["symphony:todo"]).to_string())
+            .expect(1)
+            .create_async()
+            .await;
+        let list_parent_comments = server
+            .mock("GET", "/repos/kata-sh/kata-mono/issues/7/comments")
+            .match_query(Matcher::UrlEncoded("per_page".into(), "100".into()))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body("[]")
+            .expect(1)
+            .create_async()
+            .await;
+        let create_parent_comment = server
+            .mock("POST", "/repos/kata-sh/kata-mono/issues/7/comments")
+            .match_body(Matcher::Regex("symphony:followup:42".to_string()))
+            .with_status(201)
+            .with_header("content-type", "application/json")
+            .with_body(github_comment(94, "follow-up").to_string())
+            .expect(1)
+            .create_async()
+            .await;
+
+        let followup = run_operation(
+            &config,
+            "issue.create-followup",
+            json!({
+                "parentIssueId": "#7",
+                "title": "Follow-up",
+                "description": "Details"
+            }),
+        )
+        .await
+        .expect("create followup");
+        assert_eq!(followup["issue"]["number"], 42);
+
+        let get_issue = server
+            .mock("GET", "/repos/kata-sh/kata-mono/issues/7")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(github_issue(7, &["symphony:todo", "bug"]).to_string())
+            .expect(1)
+            .create_async()
+            .await;
+        let remove_label = server
+            .mock(
+                "DELETE",
+                "/repos/kata-sh/kata-mono/issues/7/labels/symphony:todo",
+            )
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body("{}")
+            .expect(1)
+            .create_async()
+            .await;
+        let add_label = server
+            .mock("POST", "/repos/kata-sh/kata-mono/issues/7/labels")
+            .match_body(Matcher::PartialJson(json!({
+                "labels": ["symphony:in-progress"]
+            })))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body("[]")
+            .expect(1)
+            .create_async()
+            .await;
+
+        let state = run_operation(
+            &config,
+            "issue.update-state",
+            json!({ "issueId": "#7", "state": "In Progress" }),
+        )
+        .await
+        .expect("update state");
+        assert_eq!(state["issueId"], "7");
+        assert_eq!(state["state"], "In Progress");
+
+        create_issue.assert_async().await;
+        list_parent_comments.assert_async().await;
+        create_parent_comment.assert_async().await;
+        get_issue.assert_async().await;
+        remove_label.assert_async().await;
+        add_label.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn helper_routing_reports_backend_specific_errors() {
+        let github = github_config("http://127.0.0.1:1".to_string());
+        let err = run_operation(&github, "unknown.operation", json!({}))
+            .await
+            .expect_err("unsupported github helper");
+        assert!(err.contains("unsupported Symphony helper operation"));
+
+        let linear = TrackerConfig {
+            kind: Some("linear".to_string()),
+            endpoint: "http://127.0.0.1:1/graphql".to_string(),
+            api_key: Some(ApiKey::new("linear-token")),
+            ..TrackerConfig::default()
+        };
+        let err = run_operation(&linear, "pr.inspect-feedback", json!({}))
+            .await
+            .expect_err("github-only helper on linear");
+        assert!(err.contains("only available when tracker.kind is github"));
+        let err = run_operation(&linear, "issue.create-followup", json!({}))
+            .await
+            .expect_err("missing linear parent");
+        assert!(err.contains("title"));
     }
 }
