@@ -1,37 +1,10 @@
 ---
-title: "PR workflow settings"
-description: "Preference fields used by Kata skills for pull request workflows."
+title: "PR lifecycle"
+description: "How pull request automation relates to Kata CLI."
 ---
 
-Kata skills can use a `pr` block in preferences to control PR automation behavior.
+`@kata-sh/cli` 0.16.0 preferences configure backend runtime settings for Kata workflow operations.
 
-## Example
+PR lifecycle automation is handled by orchestrator workflows such as Kata Symphony and by the host agent runtime. Use Kata CLI for setup, backend diagnostics, and typed workflow operations such as `issue.get`, `task.updateStatus`, `artifact.write`, and `health.check`.
 
-```yaml
----
-pr:
-  enabled: true
-  auto_create: true
-  base_branch: main
-  review_on_create: false
-  linear_link: false
----
-```
-
-## Fields
-
-- `pr.enabled`: enable PR workflow behavior
-- `pr.auto_create`: allow automatic PR creation
-- `pr.base_branch`: default PR base branch
-- `pr.review_on_create`: run review after PR creation
-- `pr.linear_link`: include Linear references in PR body
-
-## Requirements
-
-Install GitHub CLI and authenticate before using PR automation commands. Kata invokes `gh` for PR creation and review actions.
-
-```bash
-gh auth login
-```
-
-If GitHub CLI is not authenticated, PR workflows fail authentication checks.
+For Symphony ticket-to-merge behavior, see [Kata Symphony](/symphony/overview).

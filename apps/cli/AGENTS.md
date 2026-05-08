@@ -26,6 +26,7 @@ Commands:
 - `kata setup --backend linear --linear-workspace <workspace> --linear-team <team> --linear-project <project>`
 - `kata doctor`
 - `kata call <operation> --input <request.json>`
+- `kata json <request.json>`
 
 Runtime shape:
 

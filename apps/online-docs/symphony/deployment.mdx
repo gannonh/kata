@@ -82,7 +82,7 @@ workspace:
     Symphony clones your repo inside the container into `/workspace` and runs lifecycle hooks via `docker exec`.
   </Step>
   <Step title="Run the agent">
-    The agent session runs inside the container via `docker exec`. Token usage and turn counts stream back to the orchestrator.
+    The agent session runs inside the container via `docker exec`. Token usage and turn counts stream back to Symphony.
   </Step>
   <Step title="Stop and remove">
     When the issue is done, Symphony removes the container with `docker rm -f`.
@@ -211,7 +211,7 @@ symphony
 
 ## Doctor preflight checks
 
-Before launching the orchestrator, validate your setup with:
+Before launching Symphony, validate your setup with:
 
 ```bash
 symphony doctor
@@ -260,15 +260,17 @@ symphony [WORKFLOW.md] [--port PORT] [--logs-root PATH] [--no-tui]
 
 ### Log verbosity
 
-Control log verbosity with `RUST_LOG`:
+Control log verbosity with `SYMPHONY_LOG`:
 
 ```bash
-RUST_LOG=info symphony                    # default
-RUST_LOG=debug symphony                   # verbose
-RUST_LOG=symphony=trace,info symphony     # trace Symphony, info everything else
+SYMPHONY_LOG=info symphony                    # default
+SYMPHONY_LOG=debug symphony                   # verbose
+SYMPHONY_LOG=symphony=trace,info symphony     # trace Symphony, info everything else
 ```
 
-When `--logs-root` is set, logs write to rotating files under `<logs-root>/log/symphony.log` and stdout shows only the startup banner. Without `--logs-root`, stdout logs are suppressed while the TUI is active. Pass `--no-tui` to stream structured JSON logs to stdout instead.
+`RUST_LOG` remains a fallback when `SYMPHONY_LOG` is unset.
+
+When `--logs-root` is set, logs write to rotating files under `<logs-root>/log/symphony.log` and stdout shows only the startup banner. `SYMPHONY_LOG_ROOT` provides a default logs root when the flag is omitted. Without `--logs-root`, stdout logs are suppressed while the TUI is active. Pass `--no-tui` to stream structured JSON logs to stdout instead.
 
 ---
 
@@ -286,4 +288,4 @@ notifications:
       - failed           # agent failed after max retries
 ```
 
-Set `SLACK_WEBHOOK_URL` in your environment or `.env` file. Use `"all"` in the `events` list to subscribe to every event. Messages include a clickable link to the Linear issue.
+Set `SLACK_WEBHOOK_URL` in your environment or `.env` file. Use `"all"` in the `events` list to subscribe to every event. Messages include a clickable link to the tracker issue.

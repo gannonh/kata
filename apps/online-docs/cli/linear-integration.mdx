@@ -1,45 +1,71 @@
 ---
 title: "Linear integration"
-description: "How Linear mode is represented in Kata runtime preferences."
+description: "Configure Kata CLI for Linear-backed runtime operations."
 ---
 
-Kata runtime accepts `workflow.mode: linear` in `.kata/preferences.md`.
+Kata CLI 0.16.0 supports Linear as a runtime backend for project, milestone, slice, task, issue, status, artifact, and health operations.
 
-Linear authentication is environment-based. Export `LINEAR_API_KEY` before running workflows that connect to Linear.
+## Setup
+
+Run setup with the Linear backend:
+
+```bash
+kata setup --yes \
+  --backend linear \
+  --linear-workspace <workspace> \
+  --linear-team <team> \
+  --linear-project <project>
+```
+
+Use `--linear-auth-env <VAR>` when your token is stored in a custom environment variable.
 
 ## Preferences
+
+Setup writes `.kata/preferences.md` with the required Linear fields:
 
 ```yaml
 ---
 workflow:
   mode: linear
+linear:
+  workspace: <workspace>
+  team: <team>
+  project: <project>
+  authEnv: LINEAR_API_KEY
+  states:
+    backlog: Backlog
+    todo: Todo
+    in_progress: In Progress
+    agent_review: Agent Review
+    human_review: Human Review
+    merging: Merging
+    done: Done
 ---
 ```
 
-## Runtime behavior
+Required fields are `linear.workspace`, `linear.team`, and `linear.project`.
 
-- Config parsing accepts `linear` and `github` modes.
-- `kata doctor` reports parsed backend mode from `.kata/preferences.md`.
-- `kata setup` onboarding provisions GitHub mode fields.
-- The CLI does not require `linear.teamKey` or `linear.projectSlug` in `.kata/preferences.md`.
+Optional fields include `linear.authEnv`, `linear.activeMilestoneId`, `linear.states`, and `linear.labels`.
 
 ## Authentication
 
-Set the Linear API key in your shell environment:
+Kata resolves Linear auth from:
+
+1. the environment variable named by `linear.authEnv`
+2. `LINEAR_API_KEY`
+3. `LINEAR_TOKEN`
 
 ```bash
 export LINEAR_API_KEY=lin_api_...
 ```
 
-Check that your session has the key before running Linear-backed workflows:
+## Doctor checks
 
-```bash
-echo "$LINEAR_API_KEY"
-```
-
-## Validate
+Run doctor after setup:
 
 ```bash
 kata doctor
 kata doctor --json
 ```
+
+For Linear mode, doctor checks auth, project access, workflow states, and GraphQL capabilities.

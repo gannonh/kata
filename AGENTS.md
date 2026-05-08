@@ -36,7 +36,7 @@ apps/
 ├── desktop-legacy/   # Archived Electron app
 ├── orchestrator-legacy/ # Archived legacy Orchestrator reference
 ├── symphony/         # @kata/symphony - Rust binary (Cargo scripts via package.json)
-└── online-docs/      # @kata/online-docs - documentation site (Fumadocs/Next.js)
+└── online-docs/      # @kata/online-docs - Mintlify documentation site
 
 packages/
 ├── core/             # Shared TypeScript types
@@ -100,7 +100,7 @@ Release workflows trigger on push to main with path filters:
 - `.symphony/WORKFLOW.md` is the mono repo's active Symphony workflow. `symphony` without a workflow path resolves `.symphony/WORKFLOW.md` first, then `WORKFLOW.md`.
 - Symphony prompt and hook paths are relative to the active `WORKFLOW.md` directory. Hooks receive `SYMPHONY_WORKSPACE_PATH` for workspace access.
 - `CLAUDE.md` files in this repo are symlinks to `AGENTS.md`. Always edit `AGENTS.md`.
-- `apps/online-docs` uses Fumadocs/Next.js. Run `pnpm run docs:dev` from the repo root to start it on port 3001.
+- `apps/online-docs` uses Mintlify. Run `pnpm --dir apps/online-docs run docs:dev` to start it on port 3001.
 - `apps/context` uses Vitest (not Bun test) because better-sqlite3 is a native Node addon that Bun doesn't support.
 - Asset paths: use `getBundledAssetsDir(subfolder)` for bundled assets, never `import.meta.dir`.
 

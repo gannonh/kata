@@ -37,9 +37,7 @@
             "pages": [
               "cli/overview",
               "cli/commands",
-              "cli/pr-mode",
-              "cli/linear-integration",
-              "cli/mcp-support"
+              "cli/linear-integration"
             ]
           },
           {

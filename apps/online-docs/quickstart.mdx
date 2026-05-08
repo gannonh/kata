@@ -11,19 +11,19 @@ description: "Get running with Kata CLI in under 5 minutes"
     <CodeGroup>
 
     ```bash npx
-    npx @kata-sh/cli setup --yes --repo owner/repo --project-number 12
+    npx @kata-sh/cli setup --yes --backend github --repo owner/repo --project-number 12
     ```
 
     ```bash Global install
     npm install -g @kata-sh/cli
-    kata setup --yes --repo owner/repo --project-number 12
+    kata setup --yes --backend github --repo owner/repo --project-number 12
     ```
 
     </CodeGroup>
   </Step>
 
   <Step title="Validate your environment">
-    Run doctor to verify harness install, backend config, auth, and required project fields:
+    Run doctor to verify harness install, backend config, auth, and backend-specific project requirements:
 
     ```bash
     npx @kata-sh/cli doctor
@@ -52,6 +52,14 @@ description: "Get running with Kata CLI in under 5 minutes"
   </Step>
 
 </Steps>
+
+## Linear setup
+
+Use Linear instead of GitHub Projects v2 with:
+
+```bash
+kata setup --yes --backend linear --linear-workspace <workspace> --linear-team <team> --linear-project <project>
+```
 
 ## Common operations
 

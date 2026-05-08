@@ -25,10 +25,21 @@ github:
 ---
 workflow:
   mode: linear
+linear:
+  workspace: <workspace>
+  team: <team>
+  project: <project>
+  authEnv: LINEAR_API_KEY
+  states:
+    backlog: Backlog
+    todo: Todo
+    in_progress: In Progress
+    agent_review: Agent Review
+    human_review: Human Review
+    merging: Merging
+    done: Done
 ---
 ```
-
-`workflow.mode: linear` has no additional required `linear.*` fields in the current CLI runtime.
 
 ## Required fields
 
@@ -59,14 +70,51 @@ workflow:
 - Required when `workflow.mode: github`
 - Must be a positive integer
 
+### `linear.workspace`
+
+- Type: `string`
+- Required when `workflow.mode: linear`
+
+### `linear.team`
+
+- Type: `string`
+- Required when `workflow.mode: linear`
+
+### `linear.project`
+
+- Type: `string`
+- Required when `workflow.mode: linear`
+
+## Optional Linear fields
+
+### `linear.authEnv`
+
+- Type: `string`
+- Environment variable to read before `LINEAR_API_KEY` and `LINEAR_TOKEN`
+- Default written by setup: `LINEAR_API_KEY`
+
+### `linear.activeMilestoneId`
+
+- Type: `string`
+- Optional active milestone identifier override
+
+### `linear.states`
+
+- Type: `object`
+- Optional mapping from Kata lifecycle state keys to Linear workflow state names
+
+### `linear.labels`
+
+- Type: `object`
+- Optional label mapping used by Linear backend operations
+
 ## Setup behavior
 
-`kata setup` provisions GitHub mode onboarding and writes `.kata/preferences.md` when it does not exist.
-
-Non-interactive onboarding:
+`kata setup` provisions GitHub mode by default and Linear mode when `--backend linear` is selected. It writes `.kata/preferences.md` when the file does not exist.
 
 ```bash
-kata setup --yes --repo owner/name --project-number 12
+kata setup --yes --backend github --repo owner/name --project-number 12
+kata setup --yes --backend linear --linear-workspace <workspace> --linear-team <team> --linear-project <project>
 ```
 
 ## Validation behavior
@@ -75,5 +123,5 @@ Use `kata doctor` to validate:
 
 - skills installation
 - backend config parsing
-- GitHub auth when mode is `github`
-- required GitHub Project v2 fields when mode is `github`
+- GitHub auth and GitHub Projects v2 fields when mode is `github`
+- Linear auth, project access, workflow states, and GraphQL capabilities when mode is `linear`
