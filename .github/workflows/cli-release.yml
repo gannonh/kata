@@ -42,7 +42,7 @@ jobs:
             echo "prerelease=false" >> $GITHUB_OUTPUT
           fi
 
-          if git ls-remote --tags origin | grep -q "refs/tags/cli-v$CURRENT_VERSION"; then
+          if git ls-remote --exit-code --tags --refs origin "refs/tags/cli-v$CURRENT_VERSION" >/dev/null 2>&1; then
             echo "Tag cli-v$CURRENT_VERSION already exists, skipping release"
             echo "should_release=false" >> $GITHUB_OUTPUT
           else
