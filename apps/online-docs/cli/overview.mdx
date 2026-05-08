@@ -38,9 +38,11 @@ Preferences live at `.kata/preferences.md`.
 `workflow.mode` supports:
 
 - `github` - GitHub Projects v2 backend
-- `linear` - accepted by config parsing and runtime integrations
+- `linear` - Linear backend
 
-Current setup onboarding provisions GitHub mode and writes:
+Setup provisions GitHub mode by default and Linear mode when `--backend linear` is selected.
+
+GitHub setup writes:
 
 ```yaml
 ---
@@ -54,7 +56,7 @@ github:
 ---
 ```
 
-See [CLI preferences](/reference/cli-preferences) for field reference.
+Linear setup writes `linear.workspace`, `linear.team`, `linear.project`, `linear.authEnv`, and the default state mapping. See [Linear integration](/cli/linear-integration) and [CLI preferences](/reference/cli-preferences) for field reference.
 
 ## Skill-helper workflow
 

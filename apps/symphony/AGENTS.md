@@ -51,7 +51,7 @@ symphony [WORKFLOW.md] [--port PORT] [--logs-root PATH] [--no-tui]
 | -------------------------- | ---- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | `WORKFLOW.md` (positional) | path | `.symphony/WORKFLOW.md`, then `WORKFLOW.md` | Path to the WORKFLOW.md configuration file                                                                                                      |
 | `--port PORT`              | u16  | `8080`        | Bind the HTTP dashboard and API on this port. Overrides `server.port` in the workflow file.                                                     |
-| `--logs-root PATH`         | path | _(none)_      | Directory root for agent log files.                                                                                                             |
+| `--logs-root PATH`         | path | _(none)_      | Directory root for Symphony structured log files.                                                                                               |
 | `--no-tui`                 | flag | `false`       | Disable the Ratatui terminal dashboard. Without this flag, TUI is enabled by default and stdout logs are suppressed unless logs write to files. |
 
 ### Project Initialization

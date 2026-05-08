@@ -9,8 +9,6 @@ This mono-repo is comprised of the following primary applications:
 - Kata Symphony: `apps/symphony` - @kata/symphony - Rust binary (Cargo scripts via package.json). Project-local Symphony config lives in `.symphony/`.
 - Kata CLI: `apps/cli` - @kata-sh/cli - portable Kata Skills runtime and backend contract bridge
 - Context Indexer: `apps/context` - @kata/context - context indexing tool (Vitest, native Node addon)
-- Desktop Legacy: `apps/desktop-legacy` - archived Electron app, excluded from the active workspace
-- Orchestrator Legacy: `apps/orchestrator-legacy` - archived reference only, excluded from the active workspace
 
 ## Commands
 
@@ -33,10 +31,8 @@ apps/
 ├── cli/              # @kata-sh/cli - Kata Skills runtime and backend contract bridge
 ├── cli/skills-src/   # Source of truth for Kata Agent Skills
 ├── context/          # @kata/context - context indexing tool (Vitest, native Node addon)
-├── desktop-legacy/   # Archived Electron app
-├── orchestrator-legacy/ # Archived legacy Orchestrator reference
 ├── symphony/         # @kata/symphony - Rust binary (Cargo scripts via package.json)
-└── online-docs/      # @kata/online-docs - documentation site (Fumadocs/Next.js)
+└── online-docs/      # @kata/online-docs - Mintlify documentation site
 
 packages/
 ├── core/             # Shared TypeScript types
@@ -45,7 +41,7 @@ packages/
 └── mermaid/          # Mermaid diagram renderer
 ```
 
-Workspace exclusions in `pnpm-workspace.yaml`: `apps/cli-legacy`, `apps/orchestrator-legacy`, `apps/desktop-legacy`, and `apps/online-docs`.
+Workspace exclusions in `pnpm-workspace.yaml`: archived app directories and `apps/online-docs`.
 
 ## Turborepo
 
@@ -100,7 +96,7 @@ Release workflows trigger on push to main with path filters:
 - `.symphony/WORKFLOW.md` is the mono repo's active Symphony workflow. `symphony` without a workflow path resolves `.symphony/WORKFLOW.md` first, then `WORKFLOW.md`.
 - Symphony prompt and hook paths are relative to the active `WORKFLOW.md` directory. Hooks receive `SYMPHONY_WORKSPACE_PATH` for workspace access.
 - `CLAUDE.md` files in this repo are symlinks to `AGENTS.md`. Always edit `AGENTS.md`.
-- `apps/online-docs` uses Fumadocs/Next.js. Run `pnpm run docs:dev` from the repo root to start it on port 3001.
+- `apps/online-docs` uses Mintlify. Run `pnpm --dir apps/online-docs run docs:dev` to start it on port 3001.
 - `apps/context` uses Vitest (not Bun test) because better-sqlite3 is a native Node addon that Bun doesn't support.
 - Asset paths: use `getBundledAssetsDir(subfolder)` for bundled assets, never `import.meta.dir`.
 

@@ -51,7 +51,7 @@ pnpm --dir apps/cli run test
 Use Kata CLI when you want:
 
 - portable Kata Skills installable into multiple harnesses
-- durable backend operations through GitHub Projects v2 or other adapters
+- durable backend operations through GitHub Projects v2 or Linear
 - a typed runtime contract for planning, execution, verification, progress, and milestone completion
 
 Read more in [apps/cli/README.md](apps/cli/README.md).
@@ -79,7 +79,7 @@ Key features:
 
 - **GitHub and Linear integration** - polls for issues, manages state transitions, respects priorities and dependency graphs
 - **Parallel agents** - configurable concurrency with per-state slot limits
-- **Multi-turn sessions** - agents continue on the same Codex thread across turns, preserving conversation history
+- **Multi-turn sessions** - agents continue on the same worker session across turns, preserving conversation history
 - **Full PR lifecycle** - agents create PRs, address review feedback, resolve comment threads, and merge
 - **Real-time streaming** - events flow from workers to the orchestrator as they happen
 - **Project-local config** - `symphony init` writes `.symphony/WORKFLOW.md`, starter prompts, and reference docs

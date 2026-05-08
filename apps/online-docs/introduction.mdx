@@ -10,7 +10,7 @@ Kata is a suite of AI coding tools built for developers who want structured, aut
     Runtime and contract bridge for Kata workflows. Handles setup, backend validation, and operation dispatch.
   </Card>
   <Card title="Kata Symphony" icon="music" href="/symphony/overview">
-    Headless orchestrator that polls Linear or GitHub, dispatches parallel agent sessions, and manages the full ticket-to-merge lifecycle.
+    Headless orchestrator that polls Linear or GitHub Projects v2-backed issues, dispatches parallel agent sessions, and manages the full ticket-to-merge lifecycle.
   </Card>
   <Card title="Kata Context" icon="database" href="/context/overview">
     Structural, semantic, and memory-based codebase understanding for AI coding agents. Indexes source files with tree-sitter and SQLite.
@@ -33,7 +33,7 @@ Kata CLI is the runtime and contract bridge used by Kata skills and harness inte
 
 ### Kata Symphony
 
-Kata Symphony is a headless orchestrator written in Rust. It polls Linear or GitHub for candidate issues, dispatches parallel agent sessions to work on them, and manages the full ticket lifecycle from `Todo` through implementation, PR creation, automated code review, human review, and merge.
+Kata Symphony is a headless orchestrator written in Rust. It polls Linear projects or GitHub Projects v2 boards for candidate issues, dispatches parallel agent sessions to work on them, and manages the full ticket lifecycle from `Todo` through implementation, PR creation, automated code review, human review, and merge.
 
 Symphony runs on a server or in CI. Kata CLI provides setup, diagnostics, and runtime operations (`kata setup`, `kata doctor`, `kata call`, `kata json`) used to configure and integrate Symphony workflows.
 

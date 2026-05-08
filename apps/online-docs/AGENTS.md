@@ -1,33 +1,28 @@
-> **First-time setup**: Customize this file for your project. Prompt the user to customize this file for their project.
-> For Mintlify product knowledge (components, configuration, writing standards),
-> reference the skill: `.agents/skills/mintlify/SKILL.md`
+# Kata online docs
 
-# Documentation project instructions
+This directory contains the Mintlify documentation site for Kata.
 
-## About this project
+## Source of truth
 
-- This is a documentation site built on [Mintlify](https://mintlify.com)
-- Pages are MDX files with YAML frontmatter
-- Configuration lives in `docs.json`
-- Run `mint dev` to preview locally
-- Run `mint broken-links` to check links
+- Site navigation lives in `docs.json`.
+- Product docs should match the active apps:
+  - Kata CLI: `apps/cli`
+  - Kata Symphony: `apps/symphony`
+  - Kata Context: `apps/context`.
 
-## Terminology
+## Local commands
 
-{/*Add product-specific terms and preferred usage */}
-{/* Example: Use "workspace" not "project", "member" not "user"*/}
+```bash
+pnpm --dir apps/online-docs run docs:dev
+pnpm --dir apps/online-docs run broken-links
+```
 
-## Style preferences
+## Writing guidelines
 
-{/*Add any project-specific style rules below*/}
-
-- Use active voice and second person ("you")
-- Keep sentences concise — one idea per sentence
-- Use sentence case for headings
-- Bold for UI elements: Click **Settings**
-- Code formatting for file names, commands, paths, and code references
-
-## Content boundaries
-
-{/*Define what should and shouldn't be documented */}
-{/* Example: Don't document internal admin features*/}
+- Use active voice and concise sentences.
+- Use `Kata CLI`, `Kata Symphony`, and `Kata Context` consistently.
+- Use `GitHub Projects v2` when describing GitHub-backed state.
+- Use `Linear` for Linear-backed project state.
+- Format file names, commands, paths, and code references with backticks.
+- Prefer updating existing pages over adding new pages.
+- Add new pages to `docs.json` when they should appear in navigation.

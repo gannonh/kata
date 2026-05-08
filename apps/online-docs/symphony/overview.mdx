@@ -1,9 +1,9 @@
 ---
 title: "Kata Symphony"
-description: "Headless orchestrator that polls Linear or GitHub for issues and dispatches parallel agent sessions to implement, review, and merge them autonomously."
+description: "Headless orchestrator that polls Linear or GitHub Projects v2-backed issues and dispatches parallel agent sessions to implement, review, and merge them autonomously."
 ---
 
-Kata Symphony is a headless orchestrator. You point it at a Linear or GitHub project, and it picks up tickets, clones your repo into isolated workspaces, runs an agent on each issue, creates pull requests, addresses review feedback, and merges — all without human intervention.
+Kata Symphony is a headless orchestrator. You point it at a Linear project or GitHub Projects v2 board, and it picks up tickets, clones your repo into isolated workspaces, runs an agent on each issue, creates pull requests, addresses review feedback, and merges.
 
 Project configuration lives in a committed `.symphony/` directory. `symphony init` creates `.symphony/WORKFLOW.md`, starter prompts, `.env.example`, and workflow reference docs. Symphony reads YAML front-matter from the workflow file as config and uses referenced prompt files for runtime guidance.
 
@@ -11,7 +11,7 @@ Project configuration lives in a committed `.symphony/` directory. `symphony ini
 
 <Steps>
   <Step title="Poll for issues">
-    Symphony polls your Linear project (or GitHub Issues) on a configurable interval (default: 30 seconds) for issues in active states such as `Todo` or `In Progress`.
+    Symphony polls your Linear project or GitHub Projects v2 board on a configurable interval (default: 30 seconds) for issues in active states such as `Todo` or `In Progress`.
   </Step>
   <Step title="Create an isolated workspace">
     For each new issue, Symphony creates an isolated workspace — a clone or worktree of your repo — in the configured `workspace.root` directory.
@@ -66,7 +66,7 @@ Todo → In Progress → Agent Review → Merging → Done
 
 ## Key features
 
-- **Linear and GitHub integration** — poll Linear projects or GitHub Issues; move issues through states as work progresses
+- **Linear and GitHub integration** — poll Linear projects or GitHub Projects v2-backed issues; move issues through states as work progresses
 - **Parallel agents** — run multiple agent sessions concurrently, up to a configurable limit
 - **Multi-turn sessions** — agents work across many turns with full context; each PR review cycle is a continuation
 - **Full PR lifecycle** — open PR, address review comments, merge — all automated

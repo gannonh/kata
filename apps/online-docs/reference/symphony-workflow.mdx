@@ -3,12 +3,12 @@ title: "WORKFLOW.md reference"
 description: "Current Symphony WORKFLOW.md configuration and worker contract."
 ---
 
-Symphony `WORKFLOW.md` has one runtime-significant part:
+Symphony `WORKFLOW.md` has two runtime-significant parts:
 
 - **YAML front-matter** for Symphony workflow config
-- **Markdown body** is ignored at runtime
+- **Markdown body** as the fallback prompt when no configured prompt resolves
 
-Runtime prompts come from `prompts` front-matter entries (or external prompt files they reference), not the document body.
+Runtime prompts usually come from `prompts` front-matter entries and external prompt files. Symphony uses the Markdown body when `prompts` is absent or no prompt resolves.
 
 ## Worker tracker contract (current)
 
@@ -16,7 +16,9 @@ In worker prompts/skills, use the backend-neutral helper script for tracker/docu
 
 ```bash
 INPUT="/tmp/sym-${SYMPHONY_ISSUE_ID:-current}-<operation>-$$.json"
-.agents/skills/sym-state/scripts/sym-call <operation> --input "$INPUT"
+"$SYMPHONY_BIN" helper <operation> \
+  --workflow "$SYMPHONY_WORKFLOW_PATH" \
+  --input "$INPUT"
 ```
 
 Supported operations:
@@ -28,6 +30,9 @@ Supported operations:
 - `comment.upsert`
 - `issue.update-state`
 - `issue.create-followup`
+- `pr.inspect-feedback` (GitHub only)
+- `pr.inspect-checks` (GitHub only)
+- `pr.land-status` (GitHub only)
 
 Use opaque tracker issue IDs with helper payloads (`SYMPHONY_ISSUE_ID`), or `"@current"` where supported.
 
@@ -52,7 +57,7 @@ Before dispatch, Symphony refreshes each candidate by issue ID and re-validates 
 ## Agent harness vs backend-state separation
 
 - `agent.*` config controls the **runtime harness** (`name`, `command`, `model`, timeouts, sandbox/approval behavior).
-- Tracker/document/state actions are handled through the **sym-state helper contract** above.
+- Tracker/document/state actions are handled through the **Symphony helper contract** above.
 
 ## Minimal current example
 
@@ -93,7 +98,7 @@ agent:
 - `kind`: `linear` or `github`
 - `api_key`: token (`$VAR` supported)
 - Linear: `project_slug`, optional `workspace_slug`
-- GitHub: `repo_owner`, `repo_name`, optional `github_project_number`
+- GitHub: `repo_owner`, `repo_name`, `github_project_owner_type`, `github_project_number`
 - `active_states`, `terminal_states`, optional `exclude_labels`
 
 > GitHub label-mode guidance is legacy and not documented as the active workflow path.
@@ -161,7 +166,7 @@ This page is the canonical workflow configuration reference.
 </ParamField>
 
 <ParamField path="tracker.assignee" type="string">
-  Filter candidate issues to this Linear username. Supports `$VAR` indirection.
+  Filter candidate issues to this assignee. Linear accepts username, display name, email, or user ID lookup. GitHub matches assignee login. Supports `$VAR` indirection.
 </ParamField>
 
 <ParamField path="tracker.active_states" type="string[]" default='["Todo", "In Progress"]'>

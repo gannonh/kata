@@ -44,6 +44,9 @@ Operations:
 - `comment.upsert`
 - `issue.update-state`
 - `issue.create-followup`
+- `pr.inspect-feedback` (GitHub only)
+- `pr.inspect-checks` (GitHub only)
+- `pr.land-status` (GitHub only)
 
 Use opaque tracker issue IDs with helper payloads (`SYMPHONY_ISSUE_ID`), or `"@current"` where supported.
 
@@ -129,7 +132,7 @@ This is a standalone issue.
 Configures the issue tracker connection.
 
 <ParamField path="tracker.kind" type="string" required>
-  Tracker backend. Use `"linear"` for Linear or `"github"` for GitHub Issues.
+  Tracker backend. Use `"linear"` for Linear or `"github"` for GitHub Projects v2-backed issues.
 </ParamField>
 
 <ParamField path="tracker.api_key" type="string" required>
@@ -149,7 +152,7 @@ Configures the issue tracker connection.
 </ParamField>
 
 <ParamField path="tracker.assignee" type="string">
-  Filter candidate issues to this Linear username. Leave unset to pick up all issues in active states. Supports `$VAR` indirection.
+  Filter candidate issues to this assignee. Linear accepts username, display name, email, or user ID lookup. GitHub matches assignee login. Leave unset to pick up all issues in active states. Supports `$VAR` indirection.
 </ParamField>
 
 <ParamField path="tracker.active_states" type="string[]" default='["Todo", "In Progress"]'>
@@ -463,7 +466,7 @@ agent:
 - `kind`: `linear` or `github`
 - `api_key`: token (`$VAR` supported)
 - Linear fields: `project_slug`, optional `workspace_slug`
-- GitHub fields: `repo_owner`, `repo_name`, optional `github_project_number`
+- GitHub fields: `repo_owner`, `repo_name`, `github_project_owner_type`, `github_project_number`
 - dispatch filters: `active_states`, `terminal_states`, `exclude_labels`
 
 ### `workspace`
