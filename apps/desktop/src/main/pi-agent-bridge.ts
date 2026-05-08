@@ -879,7 +879,7 @@ export class PiAgentBridge extends EventEmitter {
     } catch {
       this.emit('rpc-event', {
         type: 'agent_error',
-        message: 'Received non-JSON line from kata RPC subprocess',
+        message: 'Received non-JSON line from Pi RPC subprocess',
       })
       return
     }

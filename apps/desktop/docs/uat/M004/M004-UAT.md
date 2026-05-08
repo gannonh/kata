@@ -87,7 +87,8 @@ The kanban board shows only milestone-scoped slices (issues with a projectMilest
 
 - Symphony env vars (LINEAR_API_KEY, SLACK_WEBHOOK_URL, GH_TOKEN, etc.) must be in `apps/desktop/.env.development` since the Electron main process loads this file at startup
 - `KATA_SYMPHONY_BIN_PATH` must point to the built Symphony binary
-- `KATA_BIN_PATH` must point to the CLI loader for the agent bridge
+- `KATA_PI_BIN_PATH` may point to a local Pi binary for the chat RPC runtime; otherwise dev mode uses `pi` from PATH
+- `KATA_CLI_ROOT` or `KATA_CLI_BIN` must point to Kata CLI access for `/kata` skill artifact/backend I/O
 - `symphony.url` and `symphony.workflow_path` must be set in `.kata/preferences.md`
 - The managed process inherits the Electron process's environment, so all env vars pass through
 
