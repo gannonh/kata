@@ -86,6 +86,9 @@ kata-cloud-agents.code-workspace
 .agents/skills/*-workspace/
 .agents/skills/sym-*
 
+# UAT evidence output
+/uat-evidence/
+
 # ── Kata baseline (auto-generated) ──
 .kata/activity/
 .kata/runtime/

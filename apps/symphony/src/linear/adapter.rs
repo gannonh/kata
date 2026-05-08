@@ -7,7 +7,9 @@ use async_trait::async_trait;
 
 use crate::domain::Issue;
 use crate::error::Result;
-use crate::linear::client::LinearClient;
+use crate::linear::client::{
+    LinearClient, LinearCommentRecord, LinearCreatedIssue, LinearHelperIssueDetail,
+};
 
 // ── TrackerAdapter trait (spec §4.1.1, matches Elixir `tracker.ex`) ────
 
@@ -46,6 +48,37 @@ impl LinearAdapter {
     /// Create a new `LinearAdapter` wrapping the given `LinearClient`.
     pub fn new(client: LinearClient) -> Self {
         Self { client }
+    }
+
+    pub async fn fetch_helper_issue(
+        &self,
+        issue_id: &str,
+        include_children: bool,
+        include_comments: bool,
+    ) -> Result<LinearHelperIssueDetail> {
+        self.client
+            .fetch_helper_issue(issue_id, include_children, include_comments)
+            .await
+    }
+
+    pub async fn upsert_comment(
+        &self,
+        issue_id: &str,
+        marker: Option<&str>,
+        body: &str,
+    ) -> Result<LinearCommentRecord> {
+        self.client.upsert_comment(issue_id, marker, body).await
+    }
+
+    pub async fn create_followup_issue(
+        &self,
+        parent_issue_id: &str,
+        title: &str,
+        description: &str,
+    ) -> Result<LinearCreatedIssue> {
+        self.client
+            .create_followup_issue(parent_issue_id, title, description)
+            .await
     }
 }
 

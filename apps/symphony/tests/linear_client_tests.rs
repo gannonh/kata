@@ -210,6 +210,36 @@ async fn test_normalization_blockers_filtered_by_type() {
     assert_eq!(issue.blocked_by[0].state.as_deref(), Some("Todo"));
 }
 
+#[test]
+fn test_linear_normalization_extracts_native_blocking_relations() {
+    let raw = serde_json::json!({
+        "id": "issue-blocked",
+        "identifier": "KAT-20",
+        "title": "Blocked issue",
+        "state": { "name": "Todo" },
+        "labels": { "nodes": [] },
+        "inverseRelations": {
+            "nodes": [{
+                "type": "blocks",
+                "issue": {
+                    "id": "issue-blocker",
+                    "identifier": "KAT-19",
+                    "state": { "name": "In Progress" }
+                }
+            }]
+        },
+        "children": { "nodes": [] },
+        "parent": null
+    });
+
+    let issue = symphony::linear::client::normalize_issue(&raw, None).expect("issue normalizes");
+
+    assert_eq!(issue.blocked_by.len(), 1);
+    assert_eq!(issue.blocked_by[0].id.as_deref(), Some("issue-blocker"));
+    assert_eq!(issue.blocked_by[0].identifier.as_deref(), Some("KAT-19"));
+    assert_eq!(issue.blocked_by[0].state.as_deref(), Some("In Progress"));
+}
+
 #[tokio::test]
 async fn test_normalization_blocker_type_case_insensitive() {
     use symphony::linear::client::normalize_issue;
@@ -1059,6 +1089,639 @@ async fn test_create_comment_failure_includes_retry_diagnostics() {
 
     first_attempt.assert_async().await;
     retry_attempt.assert_async().await;
+}
+
+#[tokio::test]
+async fn test_linear_helper_issue_detail_reads_children_and_comments() {
+    let mut server = mockito::Server::new_async().await;
+    let client = test_client(&server, None);
+
+    let mock = server
+        .mock("POST", "/graphql")
+        .match_body(mockito::Matcher::AllOf(vec![
+            mockito::Matcher::Regex("SymphonyLinearHelperIssue".to_string()),
+            mockito::Matcher::Regex("\"issueId\":\"issue-parent\"".to_string()),
+        ]))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            serde_json::json!({
+                "data": {
+                    "issue": {
+                        "id": "issue-parent",
+                        "identifier": "KAT-1",
+                        "title": "Parent",
+                        "description": "Parent body",
+                        "priority": 1,
+                        "state": { "name": "Todo" },
+                        "branchName": "gannon/kat-1",
+                        "url": "https://linear.app/kata/issue/KAT-1/parent",
+                        "assignee": { "id": "user-1" },
+                        "labels": { "nodes": [{ "name": "kata:slice" }] },
+                        "inverseRelations": { "nodes": [] },
+                        "children": {
+                            "nodes": [{
+                                "id": "issue-child",
+                                "identifier": "KAT-2",
+                                "title": "Child",
+                                "description": "Child body",
+                                "priority": 2,
+                                "state": { "name": "Todo" },
+                                "branchName": null,
+                                "url": "https://linear.app/kata/issue/KAT-2/child",
+                                "assignee": null,
+                                "labels": { "nodes": [{ "name": "kata:task" }] },
+                                "inverseRelations": { "nodes": [] },
+                                "children": { "nodes": [] },
+                                "parent": { "identifier": "KAT-1" },
+                                "createdAt": "2026-05-07T10:00:00Z",
+                                "updatedAt": "2026-05-07T10:10:00Z"
+                            }]
+                        },
+                        "parent": null,
+                        "comments": {
+                            "nodes": [{
+                                "id": "comment-1",
+                                "body": "## Agent Workpad\n\nPlan",
+                                "url": "https://linear.app/kata/comment/comment-1",
+                                "createdAt": "2026-05-07T10:00:00Z",
+                                "updatedAt": "2026-05-07T10:05:00Z"
+                            }]
+                        },
+                        "createdAt": "2026-05-07T09:00:00Z",
+                        "updatedAt": "2026-05-07T09:30:00Z"
+                    }
+                }
+            })
+            .to_string(),
+        )
+        .expect(1)
+        .create_async()
+        .await;
+
+    let detail = client
+        .fetch_helper_issue("issue-parent", true, true)
+        .await
+        .expect("helper issue detail loads");
+
+    mock.assert_async().await;
+    assert_eq!(detail.issue.identifier, "KAT-1");
+    assert_eq!(detail.children.len(), 1);
+    assert_eq!(
+        detail.children[0].parent_identifier.as_deref(),
+        Some("KAT-1")
+    );
+    assert_eq!(detail.comments.len(), 1);
+    assert_eq!(detail.comments[0].id, "comment-1");
+    assert_eq!(detail.comments[0].body, "## Agent Workpad\n\nPlan");
+}
+
+#[tokio::test]
+async fn test_linear_helper_issue_detail_paginates_children_and_comments() {
+    let mut server = mockito::Server::new_async().await;
+    let client = test_client(&server, None);
+
+    let child_node = |id: &str, identifier: &str| {
+        serde_json::json!({
+            "id": id,
+            "identifier": identifier,
+            "title": identifier,
+            "description": "Child body",
+            "priority": 2,
+            "state": { "name": "Todo" },
+            "branchName": null,
+            "url": format!("https://linear.app/kata/issue/{identifier}"),
+            "assignee": null,
+            "labels": { "nodes": [] },
+            "inverseRelations": { "nodes": [] },
+            "children": { "nodes": [] },
+            "parent": { "identifier": "KAT-1" },
+            "createdAt": "2026-05-07T10:00:00Z",
+            "updatedAt": "2026-05-07T10:10:00Z"
+        })
+    };
+
+    let first_page = server
+        .mock("POST", "/graphql")
+        .match_body(Matcher::Regex("SymphonyLinearHelperIssue".to_string()))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            serde_json::json!({
+                "data": {
+                    "issue": {
+                        "id": "issue-parent",
+                        "identifier": "KAT-1",
+                        "title": "Parent",
+                        "description": "Parent body",
+                        "priority": 1,
+                        "state": { "name": "Todo" },
+                        "branchName": null,
+                        "url": "https://linear.app/kata/issue/KAT-1",
+                        "assignee": null,
+                        "labels": { "nodes": [] },
+                        "inverseRelations": { "nodes": [] },
+                        "children": {
+                            "nodes": [child_node("issue-child-1", "KAT-2")],
+                            "pageInfo": { "hasNextPage": true, "endCursor": "child-cursor" }
+                        },
+                        "parent": null,
+                        "comments": {
+                            "nodes": [{
+                                "id": "comment-1",
+                                "body": "first",
+                                "url": null,
+                                "createdAt": "2026-05-07T10:00:00Z",
+                                "updatedAt": "2026-05-07T10:05:00Z"
+                            }],
+                            "pageInfo": { "hasNextPage": true, "endCursor": "comment-cursor" }
+                        },
+                        "createdAt": "2026-05-07T09:00:00Z",
+                        "updatedAt": "2026-05-07T09:30:00Z"
+                    }
+                }
+            })
+            .to_string(),
+        )
+        .expect(1)
+        .create_async()
+        .await;
+
+    let second_child_page = server
+        .mock("POST", "/graphql")
+        .match_body(Matcher::AllOf(vec![
+            Matcher::Regex("SymphonyLinearHelperIssueChildren".to_string()),
+            Matcher::Regex("\"after\":\"child-cursor\"".to_string()),
+        ]))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            serde_json::json!({
+                "data": {
+                    "issue": {
+                        "children": {
+                            "nodes": [child_node("issue-child-2", "KAT-3")],
+                            "pageInfo": { "hasNextPage": false, "endCursor": null }
+                        }
+                    }
+                }
+            })
+            .to_string(),
+        )
+        .expect(1)
+        .create_async()
+        .await;
+
+    let second_comment_page = server
+        .mock("POST", "/graphql")
+        .match_body(Matcher::AllOf(vec![
+            Matcher::Regex("SymphonyLinearHelperIssueComments".to_string()),
+            Matcher::Regex("\"after\":\"comment-cursor\"".to_string()),
+        ]))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            serde_json::json!({
+                "data": {
+                    "issue": {
+                        "comments": {
+                            "nodes": [{
+                                "id": "comment-2",
+                                "body": "second",
+                                "url": null,
+                                "createdAt": "2026-05-07T10:10:00Z",
+                                "updatedAt": "2026-05-07T10:15:00Z"
+                            }],
+                            "pageInfo": { "hasNextPage": false, "endCursor": null }
+                        }
+                    }
+                }
+            })
+            .to_string(),
+        )
+        .expect(1)
+        .create_async()
+        .await;
+
+    let detail = client
+        .fetch_helper_issue("issue-parent", true, true)
+        .await
+        .expect("helper issue detail loads all pages");
+
+    first_page.assert_async().await;
+    second_child_page.assert_async().await;
+    second_comment_page.assert_async().await;
+    assert_eq!(detail.children.len(), 2);
+    assert_eq!(detail.comments.len(), 2);
+    assert_eq!(detail.children[1].identifier, "KAT-3");
+    assert_eq!(detail.comments[1].id, "comment-2");
+}
+
+#[tokio::test]
+async fn test_linear_helper_upserts_existing_marker_comment() {
+    let mut server = mockito::Server::new_async().await;
+    let client = test_client(&server, None);
+
+    let list_mock = server
+        .mock("POST", "/graphql")
+        .match_body(mockito::Matcher::Regex(
+            "SymphonyLinearHelperIssueComments".to_string(),
+        ))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            serde_json::json!({
+                "data": {
+                    "issue": {
+                        "comments": {
+                            "nodes": [{
+                                "id": "comment-workpad",
+                                "body": "## Agent Workpad\n\nOld",
+                                "url": "https://linear.app/kata/comment/comment-workpad",
+                                "createdAt": "2026-05-07T10:00:00Z",
+                                "updatedAt": "2026-05-07T10:00:00Z"
+                            }]
+                        }
+                    }
+                }
+            })
+            .to_string(),
+        )
+        .expect(1)
+        .create_async()
+        .await;
+
+    let update_mock = server
+        .mock("POST", "/graphql")
+        .match_body(mockito::Matcher::AllOf(vec![
+            mockito::Matcher::Regex("SymphonyLinearUpdateComment".to_string()),
+            mockito::Matcher::Regex("\"commentId\":\"comment-workpad\"".to_string()),
+        ]))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            serde_json::json!({
+                "data": {
+                    "commentUpdate": {
+                        "success": true,
+                        "comment": {
+                            "id": "comment-workpad",
+                            "body": "## Agent Workpad\n\nNew",
+                            "url": "https://linear.app/kata/comment/comment-workpad",
+                            "createdAt": "2026-05-07T10:00:00Z",
+                            "updatedAt": "2026-05-07T10:10:00Z"
+                        }
+                    }
+                }
+            })
+            .to_string(),
+        )
+        .expect(1)
+        .create_async()
+        .await;
+
+    let comment = client
+        .upsert_comment(
+            "issue-parent",
+            Some("## Agent Workpad"),
+            "## Agent Workpad\n\nNew",
+        )
+        .await
+        .expect("comment updates");
+
+    list_mock.assert_async().await;
+    update_mock.assert_async().await;
+    assert_eq!(comment.id, "comment-workpad");
+    assert_eq!(comment.body, "## Agent Workpad\n\nNew");
+}
+
+#[tokio::test]
+async fn test_linear_helper_upserts_marker_comment_from_later_page() {
+    let mut server = mockito::Server::new_async().await;
+    let client = test_client(&server, None);
+
+    let first_page_mock = server
+        .mock("POST", "/graphql")
+        .match_body(mockito::Matcher::AllOf(vec![
+            mockito::Matcher::Regex("SymphonyLinearHelperIssueComments".to_string()),
+            mockito::Matcher::Regex("\"issueId\":\"issue-parent\"".to_string()),
+        ]))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            serde_json::json!({
+                "data": {
+                    "issue": {
+                        "comments": {
+                            "nodes": [{
+                                "id": "comment-recent",
+                                "body": "Recent unrelated comment",
+                                "url": null,
+                                "createdAt": "2026-05-07T10:30:00Z",
+                                "updatedAt": "2026-05-07T10:30:00Z"
+                            }],
+                            "pageInfo": {
+                                "hasNextPage": true,
+                                "endCursor": "cursor-1"
+                            }
+                        }
+                    }
+                }
+            })
+            .to_string(),
+        )
+        .expect(1)
+        .create_async()
+        .await;
+
+    let second_page_mock = server
+        .mock("POST", "/graphql")
+        .match_body(mockito::Matcher::AllOf(vec![
+            mockito::Matcher::Regex("SymphonyLinearHelperIssueComments".to_string()),
+            mockito::Matcher::Regex("\"after\":\"cursor-1\"".to_string()),
+        ]))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            serde_json::json!({
+                "data": {
+                    "issue": {
+                        "comments": {
+                            "nodes": [{
+                                "id": "comment-workpad",
+                                "body": "## Agent Workpad\n\nOld",
+                                "url": "https://linear.app/kata/comment/comment-workpad",
+                                "createdAt": "2026-05-07T10:00:00Z",
+                                "updatedAt": "2026-05-07T10:00:00Z"
+                            }],
+                            "pageInfo": {
+                                "hasNextPage": false,
+                                "endCursor": null
+                            }
+                        }
+                    }
+                }
+            })
+            .to_string(),
+        )
+        .expect(1)
+        .create_async()
+        .await;
+
+    let update_mock = server
+        .mock("POST", "/graphql")
+        .match_body(mockito::Matcher::AllOf(vec![
+            mockito::Matcher::Regex("SymphonyLinearUpdateComment".to_string()),
+            mockito::Matcher::Regex("\"commentId\":\"comment-workpad\"".to_string()),
+        ]))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            serde_json::json!({
+                "data": {
+                    "commentUpdate": {
+                        "success": true,
+                        "comment": {
+                            "id": "comment-workpad",
+                            "body": "## Agent Workpad\n\nNew",
+                            "url": "https://linear.app/kata/comment/comment-workpad",
+                            "createdAt": "2026-05-07T10:00:00Z",
+                            "updatedAt": "2026-05-07T10:10:00Z"
+                        }
+                    }
+                }
+            })
+            .to_string(),
+        )
+        .expect(1)
+        .create_async()
+        .await;
+
+    let comment = client
+        .upsert_comment(
+            "issue-parent",
+            Some("## Agent Workpad"),
+            "## Agent Workpad\n\nNew",
+        )
+        .await
+        .expect("comment updates from later page");
+
+    first_page_mock.assert_async().await;
+    second_page_mock.assert_async().await;
+    update_mock.assert_async().await;
+    assert_eq!(comment.id, "comment-workpad");
+    assert_eq!(comment.body, "## Agent Workpad\n\nNew");
+}
+
+#[tokio::test]
+async fn test_linear_helper_upsert_retries_transient_create_failure() {
+    let mut server = mockito::Server::new_async().await;
+    let client = test_client(&server, None);
+
+    let list_mock = server
+        .mock("POST", "/graphql")
+        .match_body(Matcher::Regex(
+            "SymphonyLinearHelperIssueComments".to_string(),
+        ))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            serde_json::json!({
+                "data": {
+                    "issue": {
+                        "comments": {
+                            "nodes": [],
+                            "pageInfo": { "hasNextPage": false, "endCursor": null }
+                        }
+                    }
+                }
+            })
+            .to_string(),
+        )
+        .expect(1)
+        .create_async()
+        .await;
+
+    let first_create = server
+        .mock("POST", "/graphql")
+        .match_body(Matcher::Regex(
+            "SymphonyLinearCreateCommentRecord".to_string(),
+        ))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            serde_json::json!({ "errors": [{ "message": "Entity not found: Issue" }] }).to_string(),
+        )
+        .expect(1)
+        .create_async()
+        .await;
+
+    let retry_create = server
+        .mock("POST", "/graphql")
+        .match_body(Matcher::Regex(
+            "SymphonyLinearCreateCommentRecord".to_string(),
+        ))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            serde_json::json!({
+                "data": {
+                    "commentCreate": {
+                        "success": true,
+                        "comment": {
+                            "id": "comment-workpad",
+                            "body": "## Agent Workpad\n\nNew",
+                            "url": "https://linear.app/kata/comment/comment-workpad",
+                            "createdAt": "2026-05-07T10:00:00Z",
+                            "updatedAt": "2026-05-07T10:10:00Z"
+                        }
+                    }
+                }
+            })
+            .to_string(),
+        )
+        .expect(1)
+        .create_async()
+        .await;
+
+    let comment = client
+        .upsert_comment(
+            "issue-parent",
+            Some("## Agent Workpad"),
+            "## Agent Workpad\n\nNew",
+        )
+        .await
+        .expect("comment creates on retry");
+
+    list_mock.assert_async().await;
+    first_create.assert_async().await;
+    retry_create.assert_async().await;
+    assert_eq!(comment.id, "comment-workpad");
+}
+
+#[tokio::test]
+async fn test_linear_helper_issue_missing_payload_error_includes_operation_and_issue_id() {
+    let mut server = mockito::Server::new_async().await;
+    let client = test_client(&server, None);
+
+    let mock = server
+        .mock("POST", "/graphql")
+        .match_body(mockito::Matcher::Regex(
+            "SymphonyLinearHelperIssue".to_string(),
+        ))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(serde_json::json!({ "data": {} }).to_string())
+        .expect(1)
+        .create_async()
+        .await;
+
+    let err = client
+        .fetch_helper_issue("issue-missing", true, true)
+        .await
+        .expect_err("missing helper issue payload should fail");
+
+    mock.assert_async().await;
+    let message = err.to_string();
+    assert!(message.contains("SymphonyLinearHelperIssue"));
+    assert!(message.contains("issue-missing"));
+}
+
+#[tokio::test]
+async fn test_linear_helper_comments_missing_payload_error_includes_operation_and_issue_id() {
+    let mut server = mockito::Server::new_async().await;
+    let client = test_client(&server, None);
+
+    let mock = server
+        .mock("POST", "/graphql")
+        .match_body(mockito::Matcher::Regex(
+            "SymphonyLinearHelperIssueComments".to_string(),
+        ))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(serde_json::json!({ "data": { "issue": {} } }).to_string())
+        .expect(1)
+        .create_async()
+        .await;
+
+    let err = client
+        .list_comments("issue-missing-comments")
+        .await
+        .expect_err("missing helper comments payload should fail");
+
+    mock.assert_async().await;
+    let message = err.to_string();
+    assert!(message.contains("SymphonyLinearHelperIssueComments"));
+    assert!(message.contains("issue-missing-comments"));
+}
+
+#[tokio::test]
+async fn test_linear_helper_create_followup_derives_project_and_team_from_parent() {
+    let mut server = mockito::Server::new_async().await;
+    let client = test_client(&server, None);
+
+    let context_mock = server
+        .mock("POST", "/graphql")
+        .match_body(mockito::Matcher::Regex(
+            "SymphonyLinearFollowupContext".to_string(),
+        ))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            serde_json::json!({
+                "data": {
+                    "issue": {
+                        "id": "issue-parent",
+                        "team": { "id": "team-1" },
+                        "project": { "id": "project-1" }
+                    }
+                }
+            })
+            .to_string(),
+        )
+        .expect(1)
+        .create_async()
+        .await;
+
+    let create_mock = server
+        .mock("POST", "/graphql")
+        .match_body(mockito::Matcher::AllOf(vec![
+            mockito::Matcher::Regex("SymphonyLinearCreateFollowup".to_string()),
+            mockito::Matcher::Regex("\"teamId\":\"team-1\"".to_string()),
+            mockito::Matcher::Regex("\"projectId\":\"project-1\"".to_string()),
+            mockito::Matcher::Regex("\"parentId\":\"issue-parent\"".to_string()),
+        ]))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            serde_json::json!({
+                "data": {
+                    "issueCreate": {
+                        "success": true,
+                        "issue": {
+                            "id": "issue-followup",
+                            "identifier": "KAT-3",
+                            "title": "Follow-up",
+                            "url": "https://linear.app/kata/issue/KAT-3/follow-up"
+                        }
+                    }
+                }
+            })
+            .to_string(),
+        )
+        .expect(1)
+        .create_async()
+        .await;
+
+    let issue = client
+        .create_followup_issue("issue-parent", "Follow-up", "Follow-up body")
+        .await
+        .expect("follow-up creates");
+
+    context_mock.assert_async().await;
+    create_mock.assert_async().await;
+    assert_eq!(issue.id, "issue-followup");
+    assert_eq!(issue.identifier, "KAT-3");
 }
 
 // ═══════════════════════════════════════════════════════════════════════

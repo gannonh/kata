@@ -441,6 +441,40 @@ tracker:
 }
 
 #[test]
+fn test_linear_lifecycle_config_uses_existing_tracker_fields() {
+    let content = r#"---
+tracker:
+  kind: linear
+  api_key: test-key
+  endpoint: http://127.0.0.1:4010/graphql
+  project_slug: kata-project
+  workspace_slug: kata-sh
+  active_states:
+    - Todo
+    - In Progress
+  terminal_states:
+    - Done
+  exclude_labels:
+    - kata:task
+---
+Prompt
+"#;
+
+    let mut file = NamedTempFile::new().unwrap();
+    file.write_all(content.as_bytes()).unwrap();
+
+    let def = parse_workflow(file.path()).expect("workflow parses");
+    let config = from_workflow(&def.config).expect("config loads");
+
+    assert_eq!(config.tracker.kind.as_deref(), Some("linear"));
+    assert_eq!(config.tracker.project_slug.as_deref(), Some("kata-project"));
+    assert_eq!(config.tracker.workspace_slug.as_deref(), Some("kata-sh"));
+    assert_eq!(config.tracker.active_states, vec!["Todo", "In Progress"]);
+    assert_eq!(config.tracker.terminal_states, vec!["Done"]);
+    assert_eq!(config.tracker.exclude_labels, vec!["kata:task"]);
+}
+
+#[test]
 fn test_escalation_timeout_parses_from_agent_field() {
     let yaml_str = r#"
 agent:

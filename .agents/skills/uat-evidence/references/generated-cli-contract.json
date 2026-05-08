@@ -1,7 +1,7 @@
 {
   "workspace": ".",
   "cliRoot": "apps/cli",
-  "gitCommit": "c6a6c67f",
+  "gitCommit": "0a64e9d7",
   "cliVersion": "0.16.0-alpha.0",
   "operations": [
     "project.getContext",
