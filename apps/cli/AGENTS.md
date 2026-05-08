@@ -4,12 +4,12 @@ Kata Skills runtime and backend contract bridge.
 
 This package provides the durable operation layer for Kata project workflows. Skills and harnesses call into it for project, milestone, slice, task, artifact, progress, and completion operations instead of writing directly to backend systems.
 
-The `0.16.0-alpha.*` line is the M001 validation release for the new skill-platform architecture. It is intended for Pi-first integration while Symphony and Desktop move onto the same runtime contract.
+The `0.16.x` line is the stable release for the Kata Skills runtime and backend contract bridge.
 
-Install the alpha with:
+Install with:
 
 ```bash
-npm install -g @kata-sh/cli@alpha
+npm install -g @kata-sh/cli
 ```
 
 For monorepo development:
@@ -22,7 +22,7 @@ pnpm --dir apps/cli run test
 Commands:
 
 - `kata setup --pi`
-- `kata setup --backend github --repo owner/name --project-number 12
+- `kata setup --backend github --repo owner/name --project-number 12`
 - `kata setup --backend linear --linear-workspace <workspace> --linear-team <team> --linear-project <project>`
 - `kata doctor`
 - `kata call <operation> --input <request.json>`
@@ -39,5 +39,5 @@ Runtime shape:
 
 Release channel:
 
-- Alpha releases publish to npm as `@kata-sh/cli@alpha`.
-- Stable releases will use `@kata-sh/cli@latest` after Symphony and Desktop complete their integration hardening.
+- Stable releases publish to npm as `@kata-sh/cli@latest`.
+- Prereleases publish under their prerelease dist-tag, such as `alpha`.
