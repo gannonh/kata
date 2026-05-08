@@ -11,20 +11,6 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 const SKILL_ROOT = path.resolve(path.dirname(decodeURIComponent(new URL(import.meta.url).pathname)), "..");
-const SHARED_HELPER_OPERATIONS = [
-  "issue.get",
-  "issue.list-children",
-  "comment.upsert",
-  "issue.update-state",
-  "issue.create-followup",
-  "document.read",
-  "document.write",
-];
-const GITHUB_ONLY_HELPER_OPERATIONS = [
-  "pr.inspect-feedback",
-  "pr.inspect-checks",
-  "pr.land-status",
-];
 const PROMPT_FILES = [
   "apps/symphony/prompts/system.md",
   "apps/symphony/prompts/in-progress.md",
@@ -32,6 +18,8 @@ const PROMPT_FILES = [
   "apps/symphony/prompts/agent-review.md",
   "apps/symphony/prompts/merging.md",
 ];
+const UAT_TITLE_MARKER = "Symphony Backend UAT";
+const UAT_FOLLOWUP_MARKER = "Symphony follow-up";
 
 main().catch((error) => {
   console.error(error instanceof Error ? error.message : String(error));
@@ -105,6 +93,7 @@ async function testBackend(args) {
 
   const workspace = path.resolve(String(args.workspace ?? process.cwd()));
   const symphonyRoot = resolveSymphonyRoot(args, workspace);
+  const helperContract = loadHelperContract({ workspace, symphonyRoot, allowGeneratedFallback: true });
   const runDir = path.resolve(String(args.output_dir ?? mkdtempSync(path.join(tmpdir(), `symphony-${backend}-uat-`))));
   const env = loadEnv(workspace, { ...process.env });
   mkdirSync(path.join(runDir, "payloads"), { recursive: true });
@@ -126,7 +115,8 @@ async function testBackend(args) {
     binaryPath,
     gitCommit: gitCommit(workspace),
     workflowFixture: workflowPath,
-    expectedOperations: expectedOperationsFor(backend),
+    helperContractSource: helperContract.source,
+    expectedOperations: expectedOperationsFor(backend, helperContract),
     observedOperations: [],
     helperPayloads: [],
     providerProofLinks: [],
@@ -191,7 +181,7 @@ async function testBackend(args) {
     recordCreatedFollowup(evidence, backend, followup);
 
     if (backend === "github") {
-      await runGithubPrHelpers({ caller, evidence, env });
+      await runGithubPrHelpers({ caller, evidence, env, operations: helperContract.githubOnlyHelperOperations });
     }
 
     const providerRead = backend === "github"
@@ -290,20 +280,20 @@ function createHelperCaller({ binaryPath, workflowPath, workspace, env, runDir, 
 
 async function createGithubProviderState({ env, config, evidence }) {
   const repo = `${config.repoOwner}/${config.repoName}`;
-  const title = `Symphony Backend UAT ${evidence.stamp}`;
+  const title = `${UAT_TITLE_MARKER} ${evidence.stamp}`;
   const parent = createGithubIssue({
     env,
     config,
     repo,
     title,
-    body: `Parent issue for Symphony backend UAT ${evidence.stamp}.`,
+    body: `Parent issue for ${UAT_TITLE_MARKER} ${evidence.stamp}.`,
   });
   const child = createGithubIssue({
     env,
     config,
     repo,
     title: `${title} child`,
-    body: `Child issue for Symphony backend UAT ${evidence.stamp}.`,
+    body: `Child issue for ${UAT_TITLE_MARKER} ${evidence.stamp}.`,
   });
 
   const created = { issue: parent, childIssue: child };
@@ -406,8 +396,8 @@ async function createLinearProviderState({ env, config, evidence }) {
   `, {
     teamId: context.teamId,
     projectId: context.projectId,
-    title: `Symphony Backend UAT ${evidence.stamp}`,
-    description: `Parent issue for Symphony backend UAT ${evidence.stamp}.`,
+    title: `${UAT_TITLE_MARKER} ${evidence.stamp}`,
+    description: `Parent issue for ${UAT_TITLE_MARKER} ${evidence.stamp}.`,
   });
   const parentIssue = parent.issueCreate?.issue;
   if (!parent.issueCreate?.success || !parentIssue?.id) {
@@ -425,8 +415,8 @@ async function createLinearProviderState({ env, config, evidence }) {
     teamId: context.teamId,
     projectId: context.projectId,
     parentId: parentIssue.id,
-    title: `Symphony Backend UAT child ${evidence.stamp}`,
-    description: `Child issue for Symphony backend UAT ${evidence.stamp}.`,
+    title: `${UAT_TITLE_MARKER} child ${evidence.stamp}`,
+    description: `Child issue for ${UAT_TITLE_MARKER} ${evidence.stamp}.`,
   });
   const childIssue = child.issueCreate?.issue;
   if (!child.issueCreate?.success || !childIssue?.id) {
@@ -464,7 +454,7 @@ async function resolveLinearProjectContext(env, config) {
   return { projectId: project.id, teamId: team.id };
 }
 
-async function runGithubPrHelpers({ caller, evidence, env }) {
+async function runGithubPrHelpers({ caller, evidence, env, operations }) {
   const prView = spawnSync("gh", ["pr", "view", "--json", "number,url"], {
     cwd: evidence.workspace,
     env,
@@ -483,7 +473,7 @@ async function runGithubPrHelpers({ caller, evidence, env }) {
     evidence.skips.push({ action: "github-pr-helpers", reason: "gh pr view did not return a PR number" });
     return;
   }
-  for (const operation of GITHUB_ONLY_HELPER_OPERATIONS) {
+  for (const operation of operations) {
     await caller(operation, operation === "pr.inspect-checks"
       ? { pr: pr.number, includeLogs: false }
       : { pr: pr.number });
@@ -549,13 +539,29 @@ async function cleanupRun(args) {
   const evidence = JSON.parse(readFileSync(evidencePath, "utf8"));
   const workspace = path.resolve(String(args.workspace ?? evidence.workspace ?? process.cwd()));
   const env = loadEnv(workspace, { ...process.env });
-  const cleanup = { attempted: true, completed: false, actions: [], failures: [] };
+  const cleanup = { attempted: true, completed: false, actions: [], failures: [], skipped: [], notes: [] };
+  const createdIssues = [evidence.created?.followupIssue, evidence.created?.childIssue, evidence.created?.issue].filter(Boolean);
+  if (createdIssues.length === 0) {
+    cleanup.notes.push("no created state found");
+    cleanup.completed = true;
+    evidence.cleanup = cleanup;
+    writeFileSync(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const reportPath = path.join(path.dirname(evidencePath), "evidence.md");
+    writeFileSync(reportPath, evidenceMarkdown(evidence, evidencePath), "utf8");
+    console.log(JSON.stringify({ ok: true, evidence: evidencePath, cleanup }, null, 2));
+    return;
+  }
 
   if (evidence.backend === "github") {
     const config = githubConfig(args, workspace, env, evidence);
-    for (const issue of [evidence.created?.followupIssue, evidence.created?.childIssue, evidence.created?.issue].filter(Boolean)) {
+    for (const issue of createdIssues) {
+      const number = issue.number ?? issue.id;
+      const verified = verifyGithubCleanupIssue({ env, config, evidence, issue });
+      if (!verified.ok) {
+        cleanup.skipped.push({ provider: "github", issue: number, reason: verified.reason });
+        continue;
+      }
       try {
-        const number = issue.number ?? issue.id;
         const result = ghText(env, ["issue", "close", String(number), "--repo", `${config.repoOwner}/${config.repoName}`, "--comment", "Closed by Symphony backend UAT cleanup."]);
         cleanup.actions.push({ provider: "github", issue: number, result: result.trim() });
       } catch (error) {
@@ -563,7 +569,12 @@ async function cleanupRun(args) {
       }
     }
   } else if (evidence.backend === "linear") {
-    for (const issue of [evidence.created?.followupIssue, evidence.created?.childIssue, evidence.created?.issue].filter(Boolean)) {
+    for (const issue of createdIssues) {
+      const verified = await verifyLinearCleanupIssue({ env, evidence, issue });
+      if (!verified.ok) {
+        cleanup.skipped.push({ provider: "linear", issue: issue.id, reason: verified.reason });
+        continue;
+      }
       try {
         await completeLinearIssue(env, issue.id);
         cleanup.actions.push({ provider: "linear", issue: issue.id, state: "Done" });
@@ -575,12 +586,95 @@ async function cleanupRun(args) {
     throw new Error(`Unsupported evidence backend: ${evidence.backend}`);
   }
 
-  cleanup.completed = cleanup.failures.length === 0;
+  cleanup.completed = cleanup.failures.length === 0 && cleanup.skipped.length === 0;
   evidence.cleanup = cleanup;
   writeFileSync(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
   const reportPath = path.join(path.dirname(evidencePath), "evidence.md");
   writeFileSync(reportPath, evidenceMarkdown(evidence, evidencePath), "utf8");
   console.log(JSON.stringify({ ok: cleanup.completed, evidence: evidencePath, cleanup }, null, 2));
+}
+
+function verifyGithubCleanupIssue({ env, config, evidence, issue }) {
+  const stampCheck = validCleanupStamp(evidence);
+  if (!stampCheck.ok) return stampCheck;
+  const evidenceCheck = createdIssueLooksLikeUat(issue, evidence);
+  if (!evidenceCheck.ok) return evidenceCheck;
+  try {
+    const number = issue.number ?? issue.id;
+    const providerIssue = ghApi(env, [`/repos/${config.repoOwner}/${config.repoName}/issues/${number}`]);
+    return providerIssueLooksLikeUat(providerIssue, evidence);
+  } catch (error) {
+    return {
+      ok: false,
+      reason: `provider verification unavailable: ${String(error instanceof Error ? error.message : error)}`,
+    };
+  }
+}
+
+async function verifyLinearCleanupIssue({ env, evidence, issue }) {
+  const stampCheck = validCleanupStamp(evidence);
+  if (!stampCheck.ok) return stampCheck;
+  const evidenceCheck = createdIssueLooksLikeUat(issue, evidence);
+  if (!evidenceCheck.ok) return evidenceCheck;
+  try {
+    const data = await linearGraphql(env, `
+      query SymphonyBackendUatCleanupIssue($issueId: String!) {
+        issue(id: $issueId) {
+          id
+          identifier
+          title
+          description
+          url
+        }
+      }
+    `, { issueId: issue.id });
+    return providerIssueLooksLikeUat(data.issue, evidence);
+  } catch (error) {
+    return {
+      ok: false,
+      reason: `provider verification unavailable: ${String(error instanceof Error ? error.message : error)}`,
+    };
+  }
+}
+
+function validCleanupStamp(evidence) {
+  if (!/^\d{14}$/.test(String(evidence.stamp ?? ""))) {
+    return { ok: false, reason: "evidence is missing a valid UAT stamp" };
+  }
+  return { ok: true };
+}
+
+function createdIssueLooksLikeUat(issue, evidence) {
+  const text = [
+    issue?.title,
+    issue?.body,
+    issue?.description,
+    issue?.url,
+    issue?.html_url,
+  ].filter(Boolean).join("\n");
+  return uatTextCheck(text, evidence, "created evidence record");
+}
+
+function providerIssueLooksLikeUat(issue, evidence) {
+  if (!issue) return { ok: false, reason: "provider record was not found" };
+  const text = [
+    issue.title,
+    issue.body,
+    issue.description,
+    issue.url,
+    issue.html_url,
+  ].filter(Boolean).join("\n");
+  return uatTextCheck(text, evidence, "provider record");
+}
+
+function uatTextCheck(text, evidence, label) {
+  if (!text.includes(String(evidence.stamp))) {
+    return { ok: false, reason: `${label} does not include UAT stamp ${evidence.stamp}` };
+  }
+  if (!text.includes(UAT_TITLE_MARKER) && !text.includes(UAT_FOLLOWUP_MARKER)) {
+    return { ok: false, reason: `${label} does not include a Symphony UAT marker` };
+  }
+  return { ok: true };
 }
 
 async function completeLinearIssue(env, issueId) {
@@ -603,13 +697,13 @@ async function completeLinearIssue(env, issueId) {
 function updateGeneratedContract(args) {
   const workspace = path.resolve(String(args.workspace ?? process.cwd()));
   const symphonyRoot = resolveSymphonyRoot(args, workspace);
-  const helperPath = path.join(symphonyRoot, "src", "helper.rs");
-  const sharedHelperOperations = parseRustStringArray(helperPath, "SHARED_HELPER_OPERATIONS", SHARED_HELPER_OPERATIONS);
-  const githubOnlyHelperOperations = parseRustStringArray(helperPath, "GITHUB_ONLY_HELPER_OPERATIONS", GITHUB_ONLY_HELPER_OPERATIONS);
+  const contractFromSource = readHelperContractFromSource(symphonyRoot);
   const promptHelperOperations = {};
   for (const promptFile of PROMPT_FILES) {
     const fullPath = path.join(workspace, promptFile);
-    if (!existsSync(fullPath)) continue;
+    if (!existsSync(fullPath)) {
+      throw new Error(`Expected Symphony prompt file is missing: ${fullPath}`);
+    }
     const content = readFileSync(fullPath, "utf8");
     promptHelperOperations[promptFile] = [...content.matchAll(/\$SYMPHONY_BIN"\s+helper\s+([a-z0-9.-]+)/g)].map((match) => match[1]);
   }
@@ -618,8 +712,8 @@ function updateGeneratedContract(args) {
     workspace,
     symphonyRoot,
     gitCommit: gitCommit(workspace),
-    sharedHelperOperations,
-    githubOnlyHelperOperations,
+    sharedHelperOperations: contractFromSource.sharedHelperOperations,
+    githubOnlyHelperOperations: contractFromSource.githubOnlyHelperOperations,
     backends: ["github", "linear"],
     promptFiles: PROMPT_FILES,
     promptHelperOperations,
@@ -629,12 +723,30 @@ function updateGeneratedContract(args) {
   console.log(JSON.stringify({ ok: true, outputPath, contract }, null, 2));
 }
 
-function parseRustStringArray(filePath, constName, fallback) {
-  if (!existsSync(filePath)) return fallback;
+function readHelperContractFromSource(symphonyRoot) {
+  const helperPath = path.join(symphonyRoot, "src", "helper.rs");
+  if (!existsSync(helperPath)) {
+    throw new Error(`Expected Symphony helper source is missing: ${helperPath}`);
+  }
+  return {
+    source: "helper.rs",
+    helperPath,
+    sharedHelperOperations: parseRustStringArray(helperPath, "SHARED_HELPER_OPERATIONS"),
+    githubOnlyHelperOperations: parseRustStringArray(helperPath, "GITHUB_ONLY_HELPER_OPERATIONS"),
+  };
+}
+
+function parseRustStringArray(filePath, constName) {
   const content = readFileSync(filePath, "utf8");
   const match = content.match(new RegExp(`pub\\s+const\\s+${constName}[^=]*=\\s*(?:&)?\\[([\\s\\S]*?)\\];`));
-  if (!match) return fallback;
-  return [...match[1].matchAll(/"([^"]+)"/g)].map((item) => item[1]);
+  if (!match) {
+    throw new Error(`Unable to parse ${constName} in ${filePath}`);
+  }
+  const operations = [...match[1].matchAll(/"([^"]+)"/g)].map((item) => item[1]);
+  if (operations.length === 0) {
+    throw new Error(`${constName} in ${filePath} did not contain any operations`);
+  }
+  return operations;
 }
 
 function writeWorkflowFixture({ backend, config, workspace, runDir, workflowPath }) {
@@ -722,10 +834,45 @@ function readWorkflowConfig(filePath) {
   return config;
 }
 
-function expectedOperationsFor(backend) {
+function expectedOperationsFor(backend, contract) {
   return backend === "github"
-    ? [...SHARED_HELPER_OPERATIONS, ...GITHUB_ONLY_HELPER_OPERATIONS]
-    : [...SHARED_HELPER_OPERATIONS];
+    ? [...contract.sharedHelperOperations, ...contract.githubOnlyHelperOperations]
+    : [...contract.sharedHelperOperations];
+}
+
+function loadHelperContract({ workspace, symphonyRoot, allowGeneratedFallback }) {
+  const helperPath = path.join(symphonyRoot, "src", "helper.rs");
+  if (existsSync(helperPath)) {
+    return readHelperContractFromSource(symphonyRoot);
+  }
+  if (!allowGeneratedFallback) {
+    throw new Error(`Expected Symphony helper source is missing: ${helperPath}`);
+  }
+  const contract = readGeneratedContractFallback(workspace);
+  return {
+    source: "generated-symphony-contract.json",
+    sharedHelperOperations: contract.sharedHelperOperations,
+    githubOnlyHelperOperations: contract.githubOnlyHelperOperations,
+  };
+}
+
+function readGeneratedContractFallback(workspace) {
+  const contractPath = path.join(SKILL_ROOT, "references", "generated-symphony-contract.json");
+  if (!existsSync(contractPath)) {
+    throw new Error(`Unable to load helper operations from source or generated contract: ${contractPath} is missing`);
+  }
+  const contract = JSON.parse(readFileSync(contractPath, "utf8"));
+  const arraysValid = Array.isArray(contract.sharedHelperOperations)
+    && contract.sharedHelperOperations.length > 0
+    && Array.isArray(contract.githubOnlyHelperOperations)
+    && contract.githubOnlyHelperOperations.length > 0;
+  if (!arraysValid || !contract.generatedAt || !contract.gitCommit || !contract.symphonyRoot) {
+    throw new Error(`Generated Symphony contract is not valid: ${contractPath}`);
+  }
+  if (contract.workspace && path.resolve(contract.workspace) !== path.resolve(workspace)) {
+    throw new Error(`Generated Symphony contract workspace mismatch: ${contract.workspace}`);
+  }
+  return contract;
 }
 
 function resolveSymphonyRoot(args, workspace) {
