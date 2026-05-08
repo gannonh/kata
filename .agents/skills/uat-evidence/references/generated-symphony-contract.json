@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-05-08T01:00:33.661Z",
+  "generatedAt": "2026-05-08T14:14:53.290Z",
   "workspace": "/Volumes/EVO/kata/kata-mono",
   "symphonyRoot": "/Volumes/EVO/kata/kata-mono/apps/symphony",
-  "gitCommit": "2c169c6430648f4a3bc1b7bea1fac0b155b56ebb",
+  "gitCommit": "0a64e9d74f6f87daa58494ecab968ba3e48c662c",
   "sharedHelperOperations": [
     "issue.get",
     "issue.list-children",

@@ -80,7 +80,7 @@ async function main() {
 }
 
 function printHelp() {
-  console.log(`kata-backend-uat
+  console.log(`uat-evidence kata-cli runner
 
 Commands:
   test --backend github|linear [--workspace path] [--cli-root path] [--output-dir path] [--dry-run]
@@ -131,7 +131,7 @@ async function testBackend(args) {
   const env = loadEnv(workspace, { ...process.env, KATA_CLI_ROOT: cliRoot });
   const operations = readOperationNames(cliRoot);
   const stamp = timestamp();
-  const runDir = path.resolve(String(args.output_dir ?? mkdtempSync(path.join(tmpdir(), `kata-${backend}-uat-`))));
+  const runDir = path.resolve(String(args.output_dir ?? defaultUatRunDir({ workspace, runtime: "kata-cli", backend, stamp })));
   mkdirSync(path.join(runDir, "payloads"), { recursive: true });
   mkdirSync(path.join(runDir, ".kata"), { recursive: true });
 
@@ -141,6 +141,7 @@ async function testBackend(args) {
   writeFileSync(path.join(runDir, ".kata", "preferences.md"), preferencesFor(backend, config), "utf8");
 
   const evidence = {
+    runtime: "kata-cli",
     backend,
     stamp,
     workspace,
@@ -165,6 +166,7 @@ async function testBackend(args) {
     console.log(JSON.stringify({
       ok: true,
       dryRun: true,
+      runtime: "kata-cli",
       backend,
       runDir,
       operations,
@@ -403,6 +405,10 @@ function updateGeneratedContract(args) {
   console.log(JSON.stringify({ ok: true, outputPath, contract }, null, 2));
 }
 
+function defaultUatRunDir({ workspace, runtime, backend, stamp }) {
+  return path.join(workspace, "uat-evidence", `${runtime}-${backend}-${stamp}-${process.pid}`);
+}
+
 function createCaller({ root, runDir, env, evidence }) {
   return async function call(operation, payload) {
     const skill = SKILL_FOR_OPERATION[operation] ?? "kata-progress";
@@ -542,8 +548,9 @@ function evidenceMarkdown(evidence, jsonPath) {
     ...(evidence.markerChecks ?? []).map((check) => `- ${check.label}: ${check.url ?? check.backendId}`),
     ...(evidence.documentChecks ?? []).map((check) => `- ${check.label}: ${check.url ?? check.backendId}`),
   ].join("\n");
-  return `# Kata Backend UAT Evidence
+  return `# UAT Evidence
 
+- Runtime: ${evidence.runtime ?? "kata-cli"}
 - Backend: ${evidence.backend}
 - Stamp: ${evidence.stamp}
 - Git commit: ${evidence.gitCommit}

@@ -3,11 +3,9 @@ import { spawnSync } from "node:child_process";
 import {
   existsSync,
   mkdirSync,
-  mkdtempSync,
   readFileSync,
   writeFileSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
 import path from "node:path";
 
 const SKILL_ROOT = path.resolve(path.dirname(decodeURIComponent(new URL(import.meta.url).pathname)), "..");
@@ -51,7 +49,7 @@ async function main() {
 }
 
 function printHelp() {
-  console.log(`symphony-backend-uat
+  console.log(`uat-evidence symphony-runtime runner
 
 Commands:
   test --backend github|linear [--workspace path] [--symphony-root path] [--output-dir path] [--dry-run]
@@ -94,7 +92,8 @@ async function testBackend(args) {
   const workspace = path.resolve(String(args.workspace ?? process.cwd()));
   const symphonyRoot = resolveSymphonyRoot(args, workspace);
   const helperContract = loadHelperContract({ workspace, symphonyRoot, allowGeneratedFallback: true });
-  const runDir = path.resolve(String(args.output_dir ?? mkdtempSync(path.join(tmpdir(), `symphony-${backend}-uat-`))));
+  const stamp = timestamp();
+  const runDir = path.resolve(String(args.output_dir ?? defaultUatRunDir({ workspace, runtime: "symphony-runtime", backend, stamp })));
   const env = loadEnv(workspace, { ...process.env });
   mkdirSync(path.join(runDir, "payloads"), { recursive: true });
   mkdirSync(path.join(runDir, "workspaces"), { recursive: true });
@@ -103,12 +102,13 @@ async function testBackend(args) {
   const workflowPath = path.join(runDir, "WORKFLOW.md");
   const binaryPath = args.binary
     ? path.resolve(String(args.binary))
-    : path.join(workspace, "target", "debug", "symphony");
+    : defaultSymphonyBinaryPath({ workspace, symphonyRoot });
 
   const evidence = {
+    runtime: "symphony-runtime",
     backend,
     mode: args.dry_run ? "dry-run" : "real",
-    stamp: timestamp(),
+    stamp,
     workspace,
     symphonyRoot,
     runDir,
@@ -191,8 +191,9 @@ async function testBackend(args) {
     evidence.providerProofLinks.push(...providerRead.links);
 
     const observed = [...new Set(evidence.observedOperations.map((entry) => entry.operation))];
-    const missing = evidence.expectedOperations.filter((operation) => !observed.includes(operation));
-    evidence.operationCoverage = { expected: evidence.expectedOperations, observed, missing };
+    const skipped = skippedOperationsFor({ backend, helperContract, evidence });
+    const missing = evidence.expectedOperations.filter((operation) => !observed.includes(operation) && !skipped.includes(operation));
+    evidence.operationCoverage = { expected: evidence.expectedOperations, observed, skipped, missing };
     if (missing.length > 0) {
       throw new Error(`Missing helper operation coverage: ${missing.join(", ")}`);
     }
@@ -201,13 +202,7 @@ async function testBackend(args) {
     console.log(JSON.stringify(resultSummary(evidence), null, 2));
   } catch (error) {
     evidence.failure = String(error instanceof Error ? error.message : error);
-    evidence.operationCoverage ??= {
-      expected: evidence.expectedOperations,
-      observed: [...new Set(evidence.observedOperations.map((entry) => entry.operation))],
-      missing: evidence.expectedOperations.filter(
-        (operation) => !evidence.observedOperations.some((entry) => entry.operation === operation),
-      ),
-    };
+    evidence.operationCoverage ??= coverageForFailure({ backend, helperContract, evidence });
     writeEvidence(runDir, evidence);
     throw error;
   }
@@ -223,7 +218,13 @@ function buildSymphonyBinary({ workspace, symphonyRoot }) {
   if (result.status !== 0) {
     throw new Error(`cargo build failed: ${result.stderr || result.stdout}`);
   }
-  return path.join(workspace, "target", "debug", "symphony");
+  return defaultSymphonyBinaryPath({ workspace, symphonyRoot });
+}
+
+function defaultSymphonyBinaryPath({ workspace, symphonyRoot }) {
+  const workspaceBinary = path.join(workspace, "target", "debug", "symphony");
+  if (existsSync(workspaceBinary)) return workspaceBinary;
+  return path.join(symphonyRoot, "target", "debug", "symphony");
 }
 
 function runDoctor({ binaryPath, workflowPath, workspace, env }) {
@@ -452,6 +453,23 @@ async function resolveLinearProjectContext(env, config) {
     throw new Error(`Unable to resolve Linear project/team for slug ${config.projectSlug}`);
   }
   return { projectId: project.id, teamId: team.id };
+}
+
+function coverageForFailure({ backend, helperContract, evidence }) {
+  const observed = [...new Set(evidence.observedOperations.map((entry) => entry.operation))];
+  const skipped = skippedOperationsFor({ backend, helperContract, evidence });
+  return {
+    expected: evidence.expectedOperations,
+    observed,
+    skipped,
+    missing: evidence.expectedOperations.filter((operation) => !observed.includes(operation) && !skipped.includes(operation)),
+  };
+}
+
+function skippedOperationsFor({ backend, helperContract, evidence }) {
+  if (backend !== "github") return [];
+  const prSkip = evidence.skips.some((skip) => skip.action === "github-pr-helpers");
+  return prSkip ? helperContract.githubOnlyHelperOperations : [];
 }
 
 async function runGithubPrHelpers({ caller, evidence, env, operations }) {
@@ -781,7 +799,7 @@ ${tracker}
 workspace:
   root: ${path.join(runDir, "workspaces")}
   repo: ${workspace}
-  git_strategy: none
+  git_strategy: auto
   isolation: local
 agent:
   name: pi
@@ -873,6 +891,10 @@ function readGeneratedContractFallback(workspace) {
     throw new Error(`Generated Symphony contract workspace mismatch: ${contract.workspace}`);
   }
   return contract;
+}
+
+function defaultUatRunDir({ workspace, runtime, backend, stamp }) {
+  return path.join(workspace, "uat-evidence", `${runtime}-${backend}-${stamp}-${process.pid}`);
 }
 
 function resolveSymphonyRoot(args, workspace) {
@@ -984,8 +1006,9 @@ function evidenceMarkdown(evidence, jsonPath) {
     .map((entry) => `- ${entry.label}: ${entry.url ?? entry.id ?? "unknown"}`)
     .join("\n");
   const coverage = evidence.operationCoverage ?? {};
-  return `# Symphony Backend UAT Evidence
+  return `# UAT Evidence
 
+- Runtime: ${evidence.runtime ?? "symphony-runtime"}
 - Backend: ${evidence.backend}
 - Mode: ${evidence.mode}
 - Stamp: ${evidence.stamp}
@@ -1008,6 +1031,7 @@ function resultSummary(evidence) {
   return {
     ok: !evidence.failure,
     dryRun: evidence.mode === "dry-run",
+    runtime: evidence.runtime ?? "symphony-runtime",
     backend: evidence.backend,
     health: evidence.health,
     operationCoverage: evidence.operationCoverage,
