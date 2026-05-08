@@ -315,7 +315,7 @@ async function createGithubProviderState({ env, config, evidence }) {
       "--method",
       "POST",
       `/repos/${config.repoOwner}/${config.repoName}/issues/${parent.number}/sub_issues`,
-      "-f",
+      "-F",
       `sub_issue_id=${child.id}`,
     ]);
     created.childLink = linked;
