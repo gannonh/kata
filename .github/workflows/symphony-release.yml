@@ -30,7 +30,7 @@ jobs:
           CURRENT_VERSION=$(grep '^version' apps/symphony/Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
           echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
 
-          if git ls-remote --tags origin | grep -q "refs/tags/symphony-v$CURRENT_VERSION"; then
+          if git ls-remote --exit-code --tags --refs origin "refs/tags/symphony-v$CURRENT_VERSION" >/dev/null 2>&1; then
             echo "Tag symphony-v$CURRENT_VERSION already exists, skipping release"
             echo "should_release=false" >> $GITHUB_OUTPUT
           else
