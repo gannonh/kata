@@ -218,7 +218,7 @@ export class PiAgentBridge extends EventEmitter {
 
     const launchModel = this.skipModelOnNextStart ? null : this.selectedModel
     this.skipModelOnNextStart = false
-    const args = ['--mode', 'rpc', '--cwd', this.workspacePath]
+    const args = ['--mode', 'rpc']
     if (launchModel) {
       args.push('--model', launchModel)
     }

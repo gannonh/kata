@@ -1222,7 +1222,8 @@ rl.on('line', (line) => {
       const spawnEvent = debugEvents.find((event) => event.type === 'bridge:spawn')
       expect(spawnEvent).toMatchObject({
         command: bundledLauncherPath,
-        args: ['--mode', 'rpc', '--cwd', workspacePath],
+        args: ['--mode', 'rpc'],
+        cwd: workspacePath,
         runtimeMode: 'pi-runtime',
       })
 
