@@ -40,6 +40,16 @@ describe('workflow-context-service', () => {
     expect(snapshot.reason).toBe('tracker_configured_board_pending')
   })
 
+  test('resolves execution context when board is available without tracker config', () => {
+    const snapshot = buildWorkflowContextSnapshot({
+      trackerConfigured: false,
+      boardSnapshot: freshBoard,
+    })
+
+    expect(snapshot.mode).toBe('execution')
+    expect(snapshot.reason).toBe('board_available_without_tracker')
+  })
+
   test('resolves unknown when execution signals are absent', () => {
     const snapshot = buildWorkflowContextSnapshot({
       trackerConfigured: false,

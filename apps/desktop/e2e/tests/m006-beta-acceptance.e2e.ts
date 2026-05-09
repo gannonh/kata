@@ -1,4 +1,9 @@
+import type { Locator } from '@playwright/test'
 import { expect, startMockWorkflowRuntime, test } from '../fixtures/electron.fixture'
+
+async function isVisibleWithin(locator: Locator, timeout = 1_000): Promise<boolean> {
+  return locator.waitFor({ state: 'visible', timeout }).then(() => true).catch(() => false)
+}
 
 test.describe('m006 integrated beta acceptance — happy path', () => {
   test.use({
@@ -94,14 +99,14 @@ test.describe('m006 integrated beta acceptance — recovery path', () => {
     await readyWindow.getByRole('button', { name: /^Close$/i }).click()
 
     const openKanbanFromSymphony = readyWindow.getByTestId('agent-activity-open-kanban')
-    if (await openKanbanFromSymphony.isVisible({ timeout: 1_000 }).catch(() => false)) {
+    if (await isVisibleWithin(openKanbanFromSymphony)) {
       await openKanbanFromSymphony.click()
     }
     await expect(readyWindow.getByTestId('workflow-kanban-pane')).toBeVisible()
 
     await readyWindow.getByTestId('kanban-refresh-board').click()
     const symphonyStaleNotice = readyWindow.getByTestId('board-state-notice-symphony-stale')
-    if (await symphonyStaleNotice.isVisible({ timeout: 1_000 }).catch(() => false)) {
+    if (await isVisibleWithin(symphonyStaleNotice)) {
       await expect(symphonyStaleNotice).toBeVisible()
     } else {
       await expect(readyWindow.getByTestId('reliability-banner')).toContainText(/Symphony/i)
@@ -125,7 +130,7 @@ test.describe('m006 integrated beta acceptance — recovery path', () => {
     await readyWindow.getByTestId('reliability-banner-recover').click()
 
     const openKanbanAfterRecovery = readyWindow.getByTestId('agent-activity-open-kanban')
-    if (await openKanbanAfterRecovery.isVisible({ timeout: 1_000 }).catch(() => false)) {
+    if (await isVisibleWithin(openKanbanAfterRecovery)) {
       await openKanbanAfterRecovery.click()
     }
     await expect(readyWindow.getByTestId('workflow-kanban-pane')).toBeVisible()

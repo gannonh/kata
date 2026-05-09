@@ -12,6 +12,7 @@ concurrency:
 
 jobs:
   check-version:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
       should_release: ${{ steps.check.outputs.should_release }}
@@ -28,7 +29,7 @@ jobs:
           CURRENT_VERSION=$(node -p "require('./apps/desktop/package.json').version")
           echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
 
-          if git ls-remote --tags origin | grep -q "refs/tags/desktop-v$CURRENT_VERSION"; then
+          if git ls-remote --tags origin | awk '{print $2}' | grep -Fxq "refs/tags/desktop-v$CURRENT_VERSION"; then
             echo "Tag desktop-v$CURRENT_VERSION already exists, skipping release"
             echo "should_release=false" >> $GITHUB_OUTPUT
           else
@@ -36,9 +37,44 @@ jobs:
             echo "should_release=true" >> $GITHUB_OUTPUT
           fi
 
-  build-macos:
+  validate-release:
     needs: check-version
-    if: needs.check-version.outputs.should_release == 'true'
+    if: github.ref == 'refs/heads/main' && needs.check-version.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@4bc047ad259df6fc24a6c9b0f9a0cb08cf17fbe5 # v2.0.1
+        with:
+          bun-version: '1.3.8'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: '22'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 10.6.2
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck Desktop
+        run: pnpm --dir apps/desktop run typecheck
+
+      - name: Test Desktop
+        run: pnpm --dir apps/desktop run test
+
+      - name: Check docs links
+        run: pnpm --dir apps/online-docs run broken-links
+
+  build-macos:
+    needs: [check-version, validate-release]
+    if: github.ref == 'refs/heads/main' && needs.check-version.outputs.should_release == 'true'
     runs-on: macos-latest
     env:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
@@ -61,7 +97,7 @@ jobs:
           node-version: '22'
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: 10.6.2
 
@@ -69,12 +105,12 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Setup Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
         with:
           targets: ${{ matrix.arch == 'arm64' && 'aarch64-apple-darwin' || 'x86_64-apple-darwin' }}
 
       - name: Cache Cargo registry and build
-        uses: actions/cache@v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: |
             ~/.cargo/registry
@@ -231,8 +267,8 @@ jobs:
             apps/desktop/release/latest-mac.yml
 
   build-windows:
-    needs: check-version
-    if: needs.check-version.outputs.should_release == 'true'
+    needs: [check-version, validate-release]
+    if: github.ref == 'refs/heads/main' && needs.check-version.outputs.should_release == 'true'
     runs-on: windows-latest
     env:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
@@ -256,7 +292,7 @@ jobs:
           node-version: '22'
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: 10.6.2
 
@@ -264,12 +300,12 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Setup Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
         with:
           targets: ${{ matrix.arch == 'arm64' && 'aarch64-pc-windows-msvc' || 'x86_64-pc-windows-msvc' }}
 
       - name: Cache Cargo registry and build
-        uses: actions/cache@v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: |
             ~/.cargo/registry
@@ -330,8 +366,8 @@ jobs:
             apps/desktop/release/latest.yml
 
   build-linux:
-    needs: check-version
-    if: needs.check-version.outputs.should_release == 'true'
+    needs: [check-version, validate-release]
+    if: github.ref == 'refs/heads/main' && needs.check-version.outputs.should_release == 'true'
     runs-on: ubuntu-latest
     env:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
@@ -354,7 +390,7 @@ jobs:
           node-version: '22'
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: 10.6.2
 
@@ -362,7 +398,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Setup Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
         with:
           targets: ${{ matrix.arch == 'arm64' && 'aarch64-unknown-linux-gnu' || 'x86_64-unknown-linux-gnu' }}
 
@@ -397,7 +433,7 @@ jobs:
           sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libssl-dev:arm64 pkg-config
 
       - name: Cache Cargo registry and build
-        uses: actions/cache@v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: |
             ~/.cargo/registry
@@ -473,8 +509,8 @@ jobs:
             apps/desktop/release/latest-linux.yml
 
   release:
-    needs: [check-version, build-macos, build-windows, build-linux]
-    if: needs.check-version.outputs.should_release == 'true'
+    needs: [check-version, validate-release, build-macos, build-windows, build-linux]
+    if: github.ref == 'refs/heads/main' && needs.check-version.outputs.should_release == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write

@@ -17,7 +17,6 @@ const SYMPHONY_BIN_ENV_KEY = 'KATA_SYMPHONY_BIN_PATH'
 interface SymphonyPreferences {
   symphony?: {
     url?: string
-    workflow_path?: string
   }
 }
 
@@ -133,7 +132,6 @@ export async function loadWorkspacePreferences(workspacePath: string): Promise<S
   return {
     symphony: {
       url: stripYamlWrapping(fields.url ?? ''),
-      workflow_path: stripYamlWrapping(fields.workflow_path ?? ''),
     },
   }
 }

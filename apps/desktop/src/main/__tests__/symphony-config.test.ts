@@ -90,7 +90,7 @@ describe('resolveSymphonyLaunch', () => {
     expect(await loadWorkspacePreferences(workspace.workspacePath)).toBeNull()
   })
 
-  test('loadWorkspacePreferences ignores comments, malformed lines, and dedented keys', async () => {
+  test('loadWorkspacePreferences ignores unsupported legacy workflow_path with comments and malformed lines', async () => {
     const workspace = createWorkspace()
     cleanups.push(workspace.cleanup)
 
@@ -113,12 +113,11 @@ describe('resolveSymphonyLaunch', () => {
     await expect(loadWorkspacePreferences(workspace.workspacePath)).resolves.toEqual({
       symphony: {
         url: 'http://localhost:8080',
-        workflow_path: 'WORKFLOW.md',
       },
     })
   })
 
-  test('resolves launch descriptor from project-home workflow and preferences URL', async () => {
+  test('resolves launch descriptor from project-home workflow and ignores legacy workflow_path', async () => {
     const workspace = createWorkspace()
     cleanups.push(workspace.cleanup)
 
@@ -268,13 +267,15 @@ describe('resolveSymphonyLaunch', () => {
     expect(result.error.code).toBe('WORKFLOW_PATH_MISSING')
   })
 
-  test('returns workflow path missing when only legacy workflow_path points to a directory', async () => {
+  test('returns workflow path missing when no supported workflow exists, even with stale legacy workflow_path', async () => {
     const workspace = createWorkspace()
     cleanups.push(workspace.cleanup)
 
     const workflowDir = path.join(workspace.workspacePath, 'workflow-dir')
     mkdirSync(workflowDir, { recursive: true })
 
+    // Legacy symphony.workflow_path is unsupported for launch. Workflow discovery
+    // only considers .symphony/WORKFLOW.md and workspace WORKFLOW.md.
     writeFileSync(
       path.join(workspace.workspacePath, '.kata', 'preferences.md'),
       ['---', 'symphony:', '  url: http://localhost:8080', '  workflow_path: ./workflow-dir', '---'].join('\n'),
