@@ -7,9 +7,6 @@ github:
   repoName: kata
   stateMode: projects_v2
   githubProjectNumber: 17
-symphony:
-  url: http://localhost:8080
-  workflow_path: apps/symphony/WORKFLOW.md
 ---
 
 # Kata Preferences

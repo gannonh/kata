@@ -1,3 +1,3 @@
 ## Repository context
 
-[Add repo-specific context here.]
+This is the **kata-mono** public monorepo.
