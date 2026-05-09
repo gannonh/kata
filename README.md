@@ -14,9 +14,10 @@
 
 ## Kata Monorepo
 
-This is the Kata monorepo for three active AI agent products:
+This is the Kata monorepo for four active AI agent products:
 
 - Kata CLI in `apps/cli`
+- Kata Desktop in `apps/desktop`
 - Kata Symphony in `apps/symphony`
 - Kata Context in `apps/context`
 
@@ -26,13 +27,14 @@ The repo also contains shared packages that support the product apps.
 
 | Product                                  | Path            | Use it for                                                                                                   | Quick start                   |
 | ---------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------- |
-| [Kata CLI](apps/cli/README.md)           | `apps/cli`      | Portable Kata Skills runtime and backend contract bridge for project planning/execution workflows            | `npm install -g @kata-sh/cli` |
+| [Kata CLI](apps/cli/README.md)           | `apps/cli`      | Backend IO and setup CLI used by Kata skills for project planning/execution workflows                        | `npm install -g @kata-sh/cli` |
+| [Kata Desktop](apps/desktop/README.md)   | `apps/desktop`  | Native GUI for Pi agent sessions, workflow kanban, and Symphony operation                                    | GitHub Releases               |
 | [Kata Symphony](apps/symphony/README.md) | `apps/symphony` | Headless orchestrator: polls GitHub or Linear, dispatches parallel agent sessions, manages full PR lifecycle | `cargo build --release`       |
 | Kata Context                             | `apps/context`  | Structural, semantic, and memory-based codebase understanding for AI coding agents                           | `npx @kata/context`           |
 
 ## Kata CLI
 
-Kata CLI is the portable runtime and backend contract bridge for Kata Skills. It owns typed project, milestone, slice, task, and artifact operations while harnesses such as Pi, Symphony, and future agents own the chat/runtime experience.
+Kata CLI is the backend IO and setup CLI for Kata Skills. It owns typed project, milestone, slice, task, and artifact operations while agent harnesses such as Pi and Symphony own chat and worker execution.
 
 Quick start:
 
@@ -52,9 +54,35 @@ Use Kata CLI when you want:
 
 - portable Kata Skills installable into multiple harnesses
 - durable backend operations through GitHub Projects v2 or Linear
-- a typed runtime contract for planning, execution, verification, progress, and milestone completion
+- typed backend operations for planning, execution, verification, progress, and milestone completion
 
 Read more in [apps/cli/README.md](apps/cli/README.md).
+
+## Kata Desktop
+
+Kata Desktop is a native Electron app for Pi agent sessions. It provides a visual chat shell, workspace-scoped sessions, provider settings, workflow kanban, and Symphony controls. Desktop bundles Pi for RPC chat, Kata CLI for backend IO used by Kata skills, the Kata skill bundle, and Symphony.
+
+Quick start:
+
+```bash
+cd apps/desktop
+pnpm run desktop:dev
+```
+
+For a packaged macOS build:
+
+```bash
+cd apps/desktop
+pnpm run desktop:dist:mac
+```
+
+Use Kata Desktop when you want:
+
+- a visual interface for Pi agent sessions
+- workspace-scoped session history and settings
+- workflow kanban and Symphony controls in one app
+
+Read more in [apps/desktop/README.md](apps/desktop/README.md).
 
 ## Kata Symphony
 
@@ -106,6 +134,7 @@ npx @kata/context
 | Path                  | Purpose                                                    |
 | --------------------- | ---------------------------------------------------------- |
 | `apps/cli`            | Kata CLI                                                   |
+| `apps/desktop`        | Kata Desktop                                               |
 | `apps/symphony`       | Kata Symphony (Rust)                                       |
 | `apps/context`        | Kata Context                                               |
 | `apps/cli/skills-src` | Source of truth for Kata Agent Skills                      |
@@ -135,7 +164,8 @@ Common commands:
 | --------------------------------- | ---------------------------------------------- |
 | `pnpm run validate`               | Lint + typecheck + test all packages via Turbo |
 | `pnpm run validate:affected`      | Same, only changed packages                    |
-| `cd apps/symphony && cargo build` | Build Kata Symphony                            |
+| `cd apps/desktop && pnpm run desktop:dev` | Start Kata Desktop in dev mode                 |
+| `cd apps/symphony && cargo build`         | Build Kata Symphony                            |
 
 ## Testing
 

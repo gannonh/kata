@@ -297,10 +297,10 @@ Docker mode requires `workspace.repo` to be a remote URL. Local paths are not ac
 ## `agent`
 
 <ParamField path="agent.name" type="string" default="pi">
-  Agent runtime backend.
+  Agent runner.
 
   Options:
-  - `pi` — Kata CLI in RPC mode; supports any provider (Anthropic, OpenAI, Google, Mistral, Bedrock, Azure)
+  - `pi` — Pi in RPC mode; supports any configured Pi provider
   - `codex` — OpenAI Codex app-server
 </ParamField>
 
@@ -324,7 +324,7 @@ Docker mode requires `workspace.repo` to be a remote URL. Local paths are not ac
 
 ## `kata_agent`
 
-Configuration for the Kata CLI backend (`agent.name: pi`). The legacy `agent.backend` key is also accepted as a compatibility alias.
+Configuration for the Pi worker runner (`agent.name: pi`). The legacy `agent.backend` key is also accepted as a compatibility alias.
 
 <ParamField path="kata_agent.command" type="string | string[]" default='["pi", "--mode", "rpc"]'>
   Pi executable and base arguments. Symphony runs the command with the workspace as the process working directory.

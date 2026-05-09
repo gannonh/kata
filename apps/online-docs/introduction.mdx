@@ -1,16 +1,19 @@
 ---
 title: "Introduction"
-description: "Kata is a suite of active AI coding products for terminal, headless orchestration, and codebase context workflows."
+description: "Kata is a suite of AI coding products for Pi sessions, backend workflow operations, headless orchestration, and codebase context."
 ---
 
-Kata is a suite of AI coding tools built for developers who want structured, autonomous execution. Each product targets a different workflow, from a solo developer in a terminal to a team running parallel agents against a tracker backlog.
+Kata is a suite of AI coding tools for structured, autonomous execution. Each product targets a different workflow, from backend setup to visual agent sessions to parallel execution against a tracker backlog.
 
 <CardGroup cols={2}>
   <Card title="Kata CLI" icon="terminal" href="/cli/overview">
-    Runtime and contract bridge for Kata workflows. Handles setup, backend validation, and operation dispatch.
+    Backend IO and setup CLI for Kata skills. Provides setup, diagnostics, and operation dispatch.
+  </Card>
+  <Card title="Kata Desktop" icon="monitor" href="/desktop/overview">
+    Native app for Pi agent sessions with workspace switching, workflow kanban, and Symphony operation.
   </Card>
   <Card title="Kata Symphony" icon="music" href="/symphony/overview">
-    Headless orchestrator that polls Linear or GitHub Projects v2-backed issues, dispatches parallel agent sessions, and manages the full ticket-to-merge lifecycle.
+    Headless orchestrator that polls Linear or GitHub Projects v2-backed issues, dispatches parallel agent sessions, and manages the ticket-to-merge lifecycle.
   </Card>
   <Card title="Kata Context" icon="database" href="/context/overview">
     Structural, semantic, and memory-based codebase understanding for AI coding agents. Indexes source files with tree-sitter and SQLite.
@@ -21,7 +24,8 @@ Kata is a suite of AI coding tools built for developers who want structured, aut
 
 | If you want to… | Use |
 |---|---|
-| Configure Kata runtimes and run workflow operations from the terminal | [Kata CLI](/cli/overview) |
+| Configure backend workflow operations from the terminal | [Kata CLI](/cli/overview) |
+| Manage Pi agent sessions visually with workflow controls | [Kata Desktop](/desktop/overview) |
 | Run agents against a tracker backlog with no human in the loop | [Kata Symphony](/symphony/overview) |
 | Give AI agents deep understanding of your codebase structure | [Kata Context](/context/overview) |
 
@@ -29,13 +33,17 @@ Kata is a suite of AI coding tools built for developers who want structured, aut
 
 ### Kata CLI
 
-Kata CLI is the runtime and contract bridge used by Kata skills and harness integrations. It provides setup, environment diagnostics, and an operation interface (`kata call`, `kata json`) that workers use to execute backend-neutral workflow operations.
+Kata CLI is the backend IO and setup CLI used by Kata skills. It provides setup, environment diagnostics, and an operation interface (`kata call`, `kata json`) for backend-neutral workflow operations such as issues, tasks, statuses, artifacts, and health checks.
+
+### Kata Desktop
+
+Kata Desktop is an Electron app for working with Pi agent sessions across multiple workspaces. It includes streamed chat, workspace-scoped session history, permission modes, provider settings, workflow kanban, and Symphony controls.
 
 ### Kata Symphony
 
 Kata Symphony is a headless orchestrator written in Rust. It polls Linear projects or GitHub Projects v2 boards for candidate issues, dispatches parallel agent sessions to work on them, and manages the full ticket lifecycle from `Todo` through implementation, PR creation, automated code review, human review, and merge.
 
-Symphony runs on a server or in CI. Kata CLI provides setup, diagnostics, and runtime operations (`kata setup`, `kata doctor`, `kata call`, `kata json`) used to configure and integrate Symphony workflows.
+Symphony runs on a server or in CI. Kata CLI provides setup, diagnostics, and backend operations (`kata setup`, `kata doctor`, `kata call`, `kata json`) used by Kata skills and Symphony workflows.
 
 ### Kata Context
 
@@ -47,13 +55,13 @@ Kata Context indexes source files using tree-sitter, builds a dependency graph s
 
 ## Next steps
 
-If you're new to Kata, start with the CLI quickstart. It is the fastest path to configuring the runtime and validating your project setup.
+If you're new to Kata, start with the CLI quickstart. It is the fastest path to configuring backend workflow operations and validating your project setup.
 
 <CardGroup cols={2}>
   <Card title="Quickstart" icon="rocket" href="/quickstart">
     Get Kata CLI running in under five minutes.
   </Card>
-  <Card title="Kata CLI overview" icon="terminal" href="/cli/overview">
-    Full overview of CLI features, commands, and configuration.
+  <Card title="Kata Desktop overview" icon="monitor" href="/desktop/overview">
+    Open a visual workspace for Pi sessions, kanban, and Symphony controls.
   </Card>
 </CardGroup>

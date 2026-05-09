@@ -1,10 +1,24 @@
 # Changelog
 
+## 0.2.9
+
+### Improvements
+
+- **Launch managed Symphony from the selected workspace** — Desktop now starts Symphony from the workspace root and lets Symphony resolve `.symphony/WORKFLOW.md`, aligning managed launch behavior with direct Symphony CLI usage.
+- **Focus the right pane on Kanban and Symphony** — removed the planning pane subsystem, including renderer components, atoms, IPC channels, planning clients, and parser code.
+- **Restore Desktop release CI** — restored the Desktop GitHub Actions release workflow from the last tagged Desktop release.
+- **Refresh Desktop docs** — added Desktop back to the root README and online docs with current Pi and Kata CLI terminology.
+
+### Fixes
+
+- **Avoid stale Symphony workflow paths** — Desktop ignores legacy `symphony.workflow_path` for managed launch and derives default connection settings from the workspace `.symphony/WORKFLOW.md` when available.
+- **Fix macOS package signing** — Desktop removes bundled Pi `.bin` symlinks before signing so local and CI macOS packaging can pass codesign verification.
+
 ## 0.2.8
 
 ### Improvements
 
-- **Bundle Kata CLI runtime with pi `0.70.2`** — the packaged desktop runtime now includes the CLI dependency bump to the latest `@mariozechner/pi-coding-agent` / `@mariozechner/pi-tui` release.
+- **Bundle Pi `0.70.2` support through Kata CLI dependencies** — the packaged desktop app now includes the dependency bump to the latest `@mariozechner/pi-coding-agent` / `@mariozechner/pi-tui` release.
 
 ### Features
 
@@ -19,7 +33,7 @@
 
 ### Improvements
 
-- **Bundle updated Kata CLI runtime (`0.15.8`)** — Desktop release bundles the CLI patch that restores compatibility with `@mariozechner/pi-coding-agent@0.68.1` by passing `cwd` to `DefaultResourceLoader`.
+- **Bundle updated Kata CLI backend package (`0.15.8`)** — Desktop release bundles the CLI patch that restores compatibility with `@mariozechner/pi-coding-agent@0.68.1` by passing `cwd` to `DefaultResourceLoader`.
 
 ## 0.2.6
 
@@ -58,7 +72,7 @@
 
 ### Fixes
 
-- **M008 Node runtime launcher landing** — packaged Desktop now ships the Kata runtime through `ELECTRON_RUN_AS_NODE` launchers instead of bundling Bun for the active CLI subprocess path, and the packaged runtime proofs/checks are reflected in the release branch.
+- **M008 Node launcher landing** — packaged Desktop now launches the bundled Pi process through `ELECTRON_RUN_AS_NODE` launchers, and the packaged proofs/checks are reflected in the release branch.
 - **Packaged bridge diagnostics** — packaged bridge discovery/spawn logs continue to expose `runtimeMode: electron-node`, making the Node-backed runtime path explicit during debugging and UAT.
 
 ## 0.2.2
@@ -66,7 +80,7 @@
 ### Fixes
 
 - **Surface real Symphony startup failures** — Desktop now promotes recent Symphony stdout/stderr into the runtime error state and renders those details in the Settings runtime panel, so config and launch failures no longer collapse into a generic `PROCESS_EXITED` banner.
-- **Model/runtime state cleanup** — Desktop no longer keeps a stale Desktop-only selected-model preference path around after fast restarts. The renderer follows the live CLI runtime model state, which reduces confusing startup recovery behavior during bridge reconnects.
+- **Model state cleanup** — Desktop no longer keeps a stale Desktop-only selected-model preference path around after fast restarts. The renderer follows the live Pi model state, which reduces confusing startup recovery behavior during bridge reconnects.
 
 ## 0.2.1
 

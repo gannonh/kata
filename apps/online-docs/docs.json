@@ -50,6 +50,16 @@
             ]
           },
           {
+            "group": "Kata Desktop",
+            "pages": [
+              "desktop/overview",
+              "desktop/sessions-workspaces",
+              "desktop/kanban",
+              "desktop/symphony",
+              "desktop/providers-integrations"
+            ]
+          },
+          {
             "group": "Kata Context",
             "pages": [
               "context/overview"

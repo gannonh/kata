@@ -21,9 +21,12 @@ log() {
   printf '[bundle-kata-runtime] %s\n' "$1"
 }
 
-require_command pnpm "pnpm is required to bundle the Kata runtime"
+require_command pnpm "pnpm is required to bundle Pi, Kata CLI, and Kata skills"
 
-rm -rf "$VENDOR_DIR"
+if [ -d "$VENDOR_DIR" ]; then
+  chflags -R nouchg,noschg,nohidden "$VENDOR_DIR" 2>/dev/null || true
+  rm -rf "$VENDOR_DIR"
+fi
 mkdir -p "$VENDOR_DIR/kata-cli" "$VENDOR_DIR/kata-skills" "$VENDOR_DIR/pi-runtime"
 
 if [ ! -d "$ROOT_DIR/node_modules" ]; then
