@@ -33,7 +33,7 @@ pnpm run desktop:dev
 
 ```bash
 pnpm run desktop:build      # build main/preload/renderer
-pnpm run desktop:dist:mac   # build + bundle kata runtime + package dmg
+pnpm run desktop:dist:mac   # build + bundle Pi, Kata CLI, skills, Symphony, and package dmg
 ```
 
 ## Build and distribution
@@ -74,12 +74,12 @@ Desktop can manage a Symphony orchestrator instance and display a live operator 
    `KATA_PI_BIN_PATH` selects the optional local Pi RPC harness. `KATA_CLI_ROOT` is different: `/kata` skills inherit it and use it for Kata CLI artifact/backend I/O.
    The managed Symphony subprocess inherits the Electron process's environment — it does **not** read `apps/symphony/.env` on its own. Copy any required vars from there.
 
-3. **Configure `.kata/preferences.md`** — set the Symphony URL and workflow file path:
+3. **Configure the workspace** — create `.symphony/WORKFLOW.md` in the selected workspace. Optionally set the dashboard URL in `.kata/preferences.md`:
    ```yaml
    symphony:
      url: http://localhost:8080
-     workflow_path: /absolute/path/to/apps/symphony/WORKFLOW-desktop.md
    ```
+   Managed launch runs Symphony from the workspace root and lets Symphony resolve `.symphony/WORKFLOW.md`.
 
 ### Two modes of operation
 
@@ -87,7 +87,7 @@ Desktop can manage a Symphony orchestrator instance and display a live operator 
 Open Settings → Symphony → click Start. Desktop spawns the Symphony binary as a child process, monitors readiness via health checks, and connects the live dashboard automatically.
 
 **External Symphony (started outside Desktop):**
-Start Symphony yourself (e.g. `./target/release/symphony WORKFLOW-desktop.md`). In Desktop, open Settings → Symphony → click the Dashboard **Refresh** button. The dashboard connects to whatever is at the configured `symphony.url`. The Runtime section will show "Idle" or the last managed-process state, but the Dashboard section connects independently.
+Start Symphony yourself from the workspace root (e.g. `./target/release/symphony --port 8080`). In Desktop, open Settings → Symphony → click the Dashboard **Refresh** button. The dashboard connects to whatever is at the configured `symphony.url`. The Runtime section will show "Idle" or the last managed-process state, but the Dashboard section connects independently.
 
 ## Build and Test the Packaged App
 
@@ -144,7 +144,7 @@ Packaged app includes:
 - `Contents/Resources/pi` (Pi RPC launcher)
 - `Contents/Resources/kata-runtime/`
 
-This allows Kata Desktop to launch the agent runtime even when `kata` is not on PATH.
+This allows Kata Desktop to launch Pi even when `pi` is not on PATH.
 Desktop bundles:
 
 - the Pi runtime launcher used for RPC chat

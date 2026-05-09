@@ -43,7 +43,7 @@ agent:
   stall_timeout_ms: 900000
 prompts:
   system: prompts/system.md # injected every turn
-  repo: prompts/repo-mono.md # injected every turn
+  repo: prompts/repo.md # injected every turn
   by_state:
     Todo: prompts/in-progress.md
     In Progress: prompts/in-progress.md

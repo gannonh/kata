@@ -1,6 +1,6 @@
 ---
 title: "Commands"
-description: "Command reference for the current Kata CLI runtime."
+description: "Command reference for Kata CLI backend operations."
 ---
 
 ## CLI commands
@@ -9,7 +9,7 @@ description: "Command reference for the current Kata CLI runtime."
 |---------|-------------|
 | `kata setup` | Installs skills for supported harness targets and creates `.kata/preferences.md` when missing |
 | `kata doctor` | Validates setup, backend config, auth, and backend-specific project requirements |
-| `kata call <operation> --input <request.json>` | Executes one runtime operation with optional JSON payload |
+| `kata call <operation> --input <request.json>` | Executes one backend operation with optional JSON payload |
 | `kata json <request.json>` | Executes an operation from a JSON request envelope |
 
 ## Setup examples
@@ -55,7 +55,7 @@ kata json /tmp/kata-health.json
 
 ## Operations
 
-The runtime currently exposes these operation names:
+Kata CLI currently exposes these operation names:
 
 - `project.getContext`, `project.getSnapshot`, `project.upsert`
 - `milestone.list`, `milestone.getActive`, `milestone.create`, `milestone.complete`

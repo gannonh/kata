@@ -1,4 +1,4 @@
-import { accessSync, constants, existsSync, statSync } from 'node:fs'
+import { accessSync, constants, existsSync, readFileSync, statSync } from 'node:fs'
 import { promises as fs } from 'node:fs'
 import { homedir } from 'node:os'
 import path from 'node:path'
@@ -17,7 +17,6 @@ const SYMPHONY_BIN_ENV_KEY = 'KATA_SYMPHONY_BIN_PATH'
 interface SymphonyPreferences {
   symphony?: {
     url?: string
-    workflow_path?: string
   }
 }
 
@@ -43,10 +42,11 @@ export async function resolveSymphonyLaunch(
   options: ResolveSymphonyLaunchOptions,
 ): Promise<SymphonyLaunchResolution> {
   const env = options.env ?? process.env
+  const launchWorkspacePath = resolveSymphonyWorkspaceRoot(options.workspacePath)
 
   let preferences: SymphonyPreferences | null
   try {
-    preferences = options.preferences ?? (await loadWorkspacePreferences(options.workspacePath))
+    preferences = options.preferences ?? (await loadWorkspacePreferences(launchWorkspacePath))
   } catch (error) {
     return {
       ok: false,
@@ -59,21 +59,21 @@ export async function resolveSymphonyLaunch(
     }
   }
 
-  const resolvedUrl = resolveConfiguredUrl(preferences, env)
-  if (!resolvedUrl.ok) {
-    return resolvedUrl
-  }
-
-  const resolvedWorkflowPath = resolveWorkflowPath(preferences, options.workspacePath)
+  const resolvedWorkflowPath = resolveWorkflowPath(launchWorkspacePath)
   if (!resolvedWorkflowPath.ok) {
     return resolvedWorkflowPath
+  }
+
+  const resolvedUrl = resolveConfiguredUrl(preferences, env, resolvedWorkflowPath.workflowPath)
+  if (!resolvedUrl.ok) {
+    return resolvedUrl
   }
 
   const resolvedBinary = resolveBinaryPath({
     appIsPackaged: options.appIsPackaged,
     resourcesPath: options.resourcesPath,
     env,
-    workspacePath: options.workspacePath,
+    workspacePath: launchWorkspacePath,
     workflowPath: resolvedWorkflowPath.workflowPath,
   })
   if (!resolvedBinary.ok) {
@@ -87,8 +87,8 @@ export async function resolveSymphonyLaunch(
     ok: true,
     launch: {
       command: resolvedBinary.command,
-      args: [resolvedWorkflowPath.workflowPath, '--no-tui', '--port', String(port)],
-      cwd: options.workspacePath,
+      args: ['--no-tui', '--port', String(port)],
+      cwd: launchWorkspacePath,
       source: resolvedBinary.source,
       resolvedUrl: resolvedUrl.url,
       workflowPath: resolvedWorkflowPath.workflowPath,
@@ -132,7 +132,6 @@ export async function loadWorkspacePreferences(workspacePath: string): Promise<S
   return {
     symphony: {
       url: stripYamlWrapping(fields.url ?? ''),
-      workflow_path: stripYamlWrapping(fields.workflow_path ?? ''),
     },
   }
 }
@@ -140,6 +139,7 @@ export async function loadWorkspacePreferences(workspacePath: string): Promise<S
 function resolveConfiguredUrl(
   preferences: SymphonyPreferences | null,
   env: NodeJS.ProcessEnv,
+  workflowPath: string,
 ):
   | { ok: true; url: string; source: SymphonyConfigSource }
   | { ok: false; error: SymphonyRuntimeError } {
@@ -154,14 +154,7 @@ function resolveConfiguredUrl(
     return normalizeAndValidateUrl(envCandidate, 'env')
   }
 
-  return {
-    ok: false,
-    error: {
-      code: 'CONFIG_MISSING',
-      phase: 'config',
-      message: `Symphony URL is not configured. Set symphony.url in .kata/preferences.md or set ${PRIMARY_URL_ENV_KEY}/${LEGACY_URL_ENV_KEY}.`,
-    },
-  }
+  return normalizeAndValidateUrl(resolveDefaultUrlFromWorkflow(workflowPath), 'default')
 }
 
 function normalizeAndValidateUrl(
@@ -210,29 +203,16 @@ function normalizeAndValidateUrl(
 }
 
 function resolveWorkflowPath(
-  preferences: SymphonyPreferences | null,
   workspacePath: string,
 ):
   | { ok: true; workflowPath: string; source: SymphonyConfigSource }
   | { ok: false; error: SymphonyRuntimeError } {
-  const configuredPath = normalizeCandidate(preferences?.symphony?.workflow_path)
-  if (configuredPath) {
-    const resolved = toAbsolutePath(configuredPath, workspacePath)
-    if (existsSync(resolved) && isExistingFile(resolved)) {
-      return {
-        ok: true,
-        workflowPath: resolved,
-        source: 'preferences',
-      }
-    }
-
+  const projectHomeWorkflow = path.join(workspacePath, '.symphony', 'WORKFLOW.md')
+  if (existsSync(projectHomeWorkflow) && isExistingFile(projectHomeWorkflow)) {
     return {
-      ok: false,
-      error: {
-        code: 'WORKFLOW_PATH_MISSING',
-        phase: 'config',
-        message: `Configured symphony.workflow_path does not exist: ${resolved}`,
-      },
+      ok: true,
+      workflowPath: projectHomeWorkflow,
+      source: 'default',
     }
   }
 
@@ -250,8 +230,7 @@ function resolveWorkflowPath(
     error: {
       code: 'WORKFLOW_PATH_MISSING',
       phase: 'config',
-      message:
-        'No workflow file is configured. Add symphony.workflow_path in .kata/preferences.md or create WORKFLOW.md in the workspace.',
+      message: 'No Symphony workflow file was found. Create .symphony/WORKFLOW.md in the workspace.',
     },
   }
 }
@@ -296,16 +275,19 @@ function resolveBinaryPath(options: {
     }
   }
 
-  // Dev-mode default: if workflow_path points at an apps/symphony WORKFLOW file,
-  // prefer the sibling target/release binary before PATH lookup.
   const workflowDir = path.dirname(options.workflowPath)
+  const sourceTreeSymphonyDir = path.join(options.workspacePath, 'apps', 'symphony')
   const workflowBinaryCandidates =
     process.platform === 'win32'
       ? [
+          path.join(sourceTreeSymphonyDir, 'target', 'release', 'symphony.exe'),
+          path.join(sourceTreeSymphonyDir, 'target', 'debug', 'symphony.exe'),
           path.join(workflowDir, 'target', 'release', 'symphony.exe'),
           path.join(workflowDir, 'target', 'debug', 'symphony.exe'),
         ]
       : [
+          path.join(sourceTreeSymphonyDir, 'target', 'release', 'symphony'),
+          path.join(sourceTreeSymphonyDir, 'target', 'debug', 'symphony'),
           path.join(workflowDir, 'target', 'release', 'symphony'),
           path.join(workflowDir, 'target', 'debug', 'symphony'),
         ]
@@ -345,6 +327,50 @@ function resolveBinaryPath(options: {
   }
 }
 
+function resolveSymphonyWorkspaceRoot(workspacePath: string): string {
+  const resolvedWorkspacePath = path.resolve(workspacePath)
+  let cursor = isExistingDirectory(resolvedWorkspacePath)
+    ? resolvedWorkspacePath
+    : path.dirname(resolvedWorkspacePath)
+
+  while (true) {
+    const projectHomeWorkflow = path.join(cursor, '.symphony', 'WORKFLOW.md')
+    if (existsSync(projectHomeWorkflow) && isExistingFile(projectHomeWorkflow)) {
+      return cursor
+    }
+
+    const parent = path.dirname(cursor)
+    if (parent === cursor) {
+      return resolvedWorkspacePath
+    }
+
+    cursor = parent
+  }
+}
+
+function resolveDefaultUrlFromWorkflow(workflowPath: string): string {
+  const fallbackHost = '127.0.0.1'
+  const fallbackPort = 8080
+
+  try {
+    const content = readFileSync(workflowPath, 'utf8')
+    const frontmatterMatch = content.match(/^\uFEFF?\s*---\s*\r?\n([\s\S]*?)\r?\n---/)
+    const serverBlock = frontmatterMatch?.[1]
+      ? extractNestedBlock(frontmatterMatch[1], 'server')
+      : null
+    const fields = serverBlock ? parseSimpleObject(serverBlock) : {}
+    const host = normalizeCandidate(stripYamlWrapping(fields.host ?? '')) ?? fallbackHost
+    const portRaw = normalizeCandidate(stripYamlWrapping(fields.port ?? ''))
+    const parsedPort = portRaw ? Number(portRaw) : fallbackPort
+    const port = Number.isInteger(parsedPort) && parsedPort > 0 && parsedPort <= 65535 ? parsedPort : fallbackPort
+    const clientHost = host === '0.0.0.0' || host === '::' ? fallbackHost : host
+
+    return `http://${clientHost}:${port}`
+  } catch {
+    return `http://${fallbackHost}:${fallbackPort}`
+  }
+}
+
 function normalizeCandidate(value: unknown): string | null {
   if (typeof value !== 'string') return null
   const trimmed = value.trim()
@@ -364,6 +390,14 @@ function toAbsolutePath(target: string, cwd: string): string {
 function isExistingFile(filePath: string): boolean {
   try {
     return statSync(filePath).isFile()
+  } catch {
+    return false
+  }
+}
+
+function isExistingDirectory(filePath: string): boolean {
+  try {
+    return statSync(filePath).isDirectory()
   } catch {
     return false
   }

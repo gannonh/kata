@@ -1,6 +1,6 @@
 # Kata online docs
 
-Mintlify documentation for Kata CLI, Kata Symphony, and Kata Context.
+Mintlify documentation for Kata CLI, Kata Desktop, Kata Symphony, and Kata Context.
 
 ## Develop locally
 
@@ -23,6 +23,7 @@ pnpm --dir apps/online-docs run broken-links
 - `docs.json` controls navigation.
 - `index.mdx`, `introduction.mdx`, and `quickstart.mdx` are the entry pages.
 - `cli/*` documents `@kata-sh/cli`.
+- `desktop/*` documents the Electron Desktop app.
 - `symphony/*` documents the Rust Symphony runtime.
 - `context/*` documents `@kata/context`.
 - `reference/*` contains command, configuration, and API references.

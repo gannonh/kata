@@ -93,6 +93,11 @@ describe('SymphonySupervisor', () => {
     expect(supervisor.getStatus().phase).toBe('ready')
     expect(supervisor.getStatus().managedProcessRunning).toBe(true)
     expect(spawnImpl).toHaveBeenCalledTimes(1)
+    expect(spawnImpl).toHaveBeenCalledWith(
+      workspace.executablePath,
+      ['--no-tui', '--port', '8080'],
+      expect.objectContaining({ cwd: workspace.workspacePath }),
+    )
     expect(fetchImpl).toHaveBeenCalled()
   })
 

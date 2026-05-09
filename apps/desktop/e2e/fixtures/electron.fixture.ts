@@ -29,9 +29,6 @@ function createMockPiRpcBinary(dataDir: string): string {
 const readline = require('node:readline')
 
 const rl = readline.createInterface({ input: process.stdin })
-const m006Scenario = (process.env.KATA_DESKTOP_M006_SCENARIO || 'none').trim() || 'none'
-let planningSeeded = false
-
 function emitEvent(event) {
   process.stdout.write(JSON.stringify({ type: 'event', event }) + '\\n')
 }
@@ -50,85 +47,6 @@ function respond(message, data = {}, success = true, error) {
   process.stdout.write(JSON.stringify(payload) + '\\n')
 }
 
-function emitPlanningArtifactsOnce() {
-  if (planningSeeded || m006Scenario === 'none') {
-    return
-  }
-
-  planningSeeded = true
-
-  const slices = [
-    {
-      toolCallId: 'm006-slice-s04',
-      kataId: 'S04',
-      title: 'Integrated Packaged Beta Acceptance and Release Gate',
-      description: 'Fixture-generated slice for integrated beta acceptance happy-path coverage.',
-      issueId: 'slice-m006-s04',
-      phase: 'in_progress',
-    },
-    {
-      toolCallId: 'm006-slice-s03',
-      kataId: 'S03',
-      title: 'Long-Run Stability, Performance, and Accessibility Baseline',
-      description: 'Fixture-generated slice showing prior milestone evidence context.',
-      issueId: 'slice-m006-s03',
-      phase: 'done',
-    },
-  ]
-
-  for (const slice of slices) {
-    emitEvent({
-      type: 'tool_execution_start',
-      toolCallId: slice.toolCallId,
-      toolName: 'kata_create_slice',
-      args: {
-        teamId: 'test-team',
-        projectId: 'test-project',
-        kataId: slice.kataId,
-        title: slice.title,
-        description: slice.description,
-      },
-    })
-
-    emitEvent({
-      type: 'tool_execution_end',
-      toolCallId: slice.toolCallId,
-      toolName: 'kata_create_slice',
-      result: {
-        id: slice.issueId,
-        phase: slice.phase,
-      },
-      isError: false,
-    })
-  }
-
-  emitEvent({
-    type: 'tool_execution_start',
-    toolCallId: 'm006-task-t02',
-    toolName: 'kata_create_task',
-    args: {
-      teamId: 'test-team',
-      projectId: 'test-project',
-      kataId: 'T02',
-      title: 'Add deterministic Electron coverage for integrated packaged beta path',
-      description: 'Fixture-generated task to populate slice details in planning view.',
-      sliceIssueId: 'slice-m006-s04',
-      phase: 'in_progress',
-    },
-  })
-
-  emitEvent({
-    type: 'tool_execution_end',
-    toolCallId: 'm006-task-t02',
-    toolName: 'kata_create_task',
-    result: {
-      id: 'task-m006-t02',
-      status: 'in_progress',
-    },
-    isError: false,
-  })
-}
-
 emitEvent({ type: 'agent_ready' })
 
 rl.on('line', (line) => {
@@ -142,7 +60,6 @@ rl.on('line', (line) => {
   switch (message.type) {
     case 'prompt':
       respond(message, { ok: true })
-      emitPlanningArtifactsOnce()
       emitEvent({ type: 'agent_end' })
       break
     case 'abort':

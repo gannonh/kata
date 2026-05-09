@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { Provider, createStore } from 'jotai'
 import {
   agentActivitySnapshotAtom,
@@ -18,6 +18,8 @@ function renderWithStore(store = createStore()) {
 }
 
 describe('AgentActivityPane', () => {
+  afterEach(() => cleanup())
+
   beforeEach(() => {
     ;(window as unknown as { api: any }).api = {
       agentActivity: {
@@ -34,6 +36,14 @@ describe('AgentActivityPane', () => {
         })),
       },
     }
+  })
+
+  test('uses the shared right pane header with labeled view controls', () => {
+    renderWithStore()
+
+    expect(screen.getByTestId('agent-activity-header')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Open Kanban view' }).textContent).toContain('Kanban')
+    expect(screen.getByRole('button', { name: 'Return to auto mode' }).textContent).toContain('Auto')
   })
 
   test('switches between events and verbose timeline modes', async () => {

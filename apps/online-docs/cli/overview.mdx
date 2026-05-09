@@ -1,9 +1,9 @@
 ---
 title: "Kata CLI"
-description: "Runtime and contract bridge for Kata workflows."
+description: "Backend IO and setup CLI for Kata skills."
 ---
 
-Kata CLI (`@kata-sh/cli`) provides the runtime contract used by Kata skills and harness integrations. It manages setup, backend validation, and operation dispatch.
+Kata CLI (`@kata-sh/cli`) provides backend IO and setup commands used by Kata skills. It manages setup, backend validation, and operation dispatch.
 
 ## Quick start
 
@@ -26,8 +26,8 @@ kata doctor
 
 - `kata setup` - install skills and create `.kata/preferences.md`
 - `kata doctor` - validate harness install, backend config, auth, and project fields
-- `kata call <operation> --input <request.json>` - run a single runtime operation
-- `kata json <request.json>` - run an operation from a JSON envelope
+- `kata call <operation> --input <request.json>` - run a single backend operation
+- `kata json <request.json>` - run a backend operation from a JSON envelope
 
 See [Commands](/cli/commands) for details.
 
@@ -60,7 +60,7 @@ Linear setup writes `linear.workspace`, `linear.team`, `linear.project`, `linear
 
 ## Skill-helper workflow
 
-Installed Kata skills call the runtime via helper scripts:
+Installed Kata skills call Kata CLI via helper scripts:
 
 ```bash
 node ./scripts/kata-call.mjs setup
@@ -68,4 +68,4 @@ node ./scripts/kata-call.mjs doctor
 node ./scripts/kata-call.mjs issue.get --input /tmp/kata-issue-get.json
 ```
 
-This keeps workflow logic backend-neutral while using the same runtime contract.
+This keeps workflow logic backend-neutral while using the same backend operation contract.

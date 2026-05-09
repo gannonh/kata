@@ -247,7 +247,6 @@ export class WorkflowBoardService {
   private inFlightScopeKey: string | null = null
 
   private active = false
-  private planningActive = false
   private scopeKey = 'workspace:none::session:none'
   private requestedScope: WorkflowBoardScope = 'project'
   private lastScopeDiagnostics: WorkflowBoardScopeDiagnostics = {
@@ -801,11 +800,6 @@ export class WorkflowBoardService {
     }
   }
 
-  setPlanningActive(active: boolean): void {
-    this.planningActive = active
-    this.syncContextSnapshot()
-  }
-
   getContext(): WorkflowContextSnapshot {
     const existing = this.contextService.getSnapshot()
     if (existing) {
@@ -815,7 +809,6 @@ export class WorkflowBoardService {
     return {
       mode: 'unknown',
       reason: 'unknown_context',
-      planningActive: this.planningActive,
       trackerConfigured: this.trackerConfigured,
       boardAvailable: Boolean(this.lastSnapshot),
       updatedAt: new Date().toISOString(),
@@ -1381,7 +1374,6 @@ export class WorkflowBoardService {
 
   private syncContextSnapshot(): void {
     this.contextService.resolve({
-      planningActive: this.planningActive,
       trackerConfigured: this.trackerConfigured,
       boardSnapshot: this.lastSnapshot,
     })
@@ -1450,7 +1442,6 @@ export class WorkflowBoardService {
     }
 
     return this.contextService.resolve({
-      planningActive: this.planningActive,
       trackerConfigured: this.trackerConfigured,
       boardSnapshot: this.lastSnapshot,
     }).next

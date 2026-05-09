@@ -38,13 +38,13 @@ test.describe('Workflow kanban integration proof', () => {
 
     await expect(readyWindow.getByTestId('workflow-board-status')).toContainText('Context: execution')
 
-    await readyWindow.getByRole('button', { name: /Open planning view/i }).click()
-    await expect(readyWindow.getByText('Planning View')).toBeVisible()
+    await readyWindow.getByRole('button', { name: /Open Symphony view/i }).click()
+    await expect(readyWindow.getByTestId('agent-activity-pane')).toBeVisible()
 
     await readyWindow.reload()
-    await expect(readyWindow.getByText('Planning View')).toBeVisible()
+    await expect(readyWindow.getByTestId('agent-activity-pane')).toBeVisible()
 
-    await readyWindow.getByRole('button', { name: /Close planning view/i }).click()
+    await readyWindow.getByTestId('agent-activity-open-kanban').click()
     await readyWindow.getByRole('button', { name: /Return to auto mode/i }).click()
     await expect(readyWindow.getByTestId('workflow-board-status')).toContainText('Auto mode:')
 

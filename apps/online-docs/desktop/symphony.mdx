@@ -1,0 +1,69 @@
+---
+title: "Symphony integration"
+description: "Operate Symphony from Kata Desktop with runtime controls, live dashboard state, and escalation handling."
+---
+
+Kata Desktop includes a Symphony operator surface in **Settings → Symphony** and the right pane.
+
+## Operating modes
+
+### Managed Symphony
+
+Use the Start, Stop, and Restart controls in Desktop. Desktop resolves the workspace root, loads project preferences, and starts Symphony from the workspace so Symphony can resolve `.symphony/WORKFLOW.md`.
+
+The runtime panel shows lifecycle state:
+
+- **Ready** when Symphony is running and the API responds
+- **Starting**, **Stopping**, or **Restarting** during transitions
+- **Stopped** after a clean shutdown
+- **Failed** when the process exits unexpectedly, including recent stdout and stderr when available
+- **Config Error** when Desktop cannot resolve the binary, workspace, or URL
+
+### External Symphony
+
+If Symphony already runs outside Desktop, use the dashboard refresh control. The dashboard connects to the configured URL while the managed runtime section continues to describe only the process Desktop started.
+
+## Configuration
+
+Desktop reads Symphony settings from the selected workspace.
+
+| Setting | Source |
+|---|---|
+| Workflow config | `<workspace>/.symphony/WORKFLOW.md` |
+| Desktop preferences | `<workspace>/.kata/preferences.md` |
+| Default URL | `server.port` from `.symphony/WORKFLOW.md` when available |
+| URL override | `symphony.url` in `.kata/preferences.md` or `KATA_SYMPHONY_URL` |
+| Binary override | `KATA_SYMPHONY_BIN_PATH` |
+
+For managed launch, Desktop runs Symphony with the workspace as the process working directory and lets Symphony resolve `.symphony/WORKFLOW.md`.
+
+## Binary resolution
+
+For managed mode, Desktop resolves the Symphony binary from:
+
+1. `KATA_SYMPHONY_BIN_PATH`
+2. Bundled binary in packaged builds
+3. Dev build output under `apps/symphony/target/{release,debug}/symphony`
+4. `symphony` on `PATH`
+
+If configuration is missing or invalid, Desktop surfaces a specific error in Settings.
+
+## Live dashboard
+
+The dashboard displays operator signals such as:
+
+- Worker rows with issue, state, tool, model, and last activity
+- Queue and completion counts
+- Pending escalations
+- Connection freshness
+
+## Escalation handling
+
+1. A worker escalates with a question.
+2. The escalation appears in Desktop with the issue identifier and question preview.
+3. You submit a response inline.
+4. Desktop sends the response to Symphony and the worker resumes.
+
+## Kanban integration
+
+Symphony execution state can be correlated into workflow kanban cards. See [Workflow kanban](/desktop/kanban) for right-pane behavior.

@@ -6,7 +6,6 @@ import type {
 } from '../shared/types'
 
 export interface ResolveWorkflowContextInput {
-  planningActive: boolean
   trackerConfigured: boolean
   boardSnapshot: WorkflowBoardSnapshot | null
 }
@@ -43,10 +42,7 @@ export function buildWorkflowContextSnapshot(
   let mode: WorkflowContextMode = 'unknown'
   let reason: WorkflowContextReason = 'unknown_context'
 
-  if (input.planningActive) {
-    mode = 'planning'
-    reason = 'planning_activity_detected'
-  } else if (input.trackerConfigured && boardAvailable) {
+  if (input.trackerConfigured && boardAvailable) {
     mode = 'execution'
     reason = 'tracker_and_board_available'
   } else if (input.trackerConfigured) {
@@ -60,7 +56,6 @@ export function buildWorkflowContextSnapshot(
   return {
     mode,
     reason,
-    planningActive: input.planningActive,
     trackerConfigured: input.trackerConfigured,
     boardAvailable,
     updatedAt: new Date().toISOString(),

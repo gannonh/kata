@@ -7,7 +7,7 @@ This is the shipping Kata Desktop Electron app. Keep it isolated from archived d
 Kata Desktop is the native GUI for the Kata coding agent platform. It combines:
 
 - **Chat pane (left):** A pi-coding-agent session — identical to Kata CLI but in a graphical interface
-- **Contextual right pane:** Planning artifact viewer during `/kata plan`, kanban board during execution
+- **Contextual right pane:** Kanban board and Symphony runtime/operator views
 - **Symphony operator surface:** Start/stop Symphony, monitor workers, handle escalations — all from the GUI
 
 Desktop wraps the Pi coding-agent runtime as a subprocess in JSON-RPC mode (`pi --mode rpc`). The packaged app uses the bundled Pi launcher and Kata Skills; local development can override the Pi binary with `KATA_PI_BIN_PATH`.
@@ -41,7 +41,6 @@ apps/desktop/
 │       │   ├── app-shell/       # Layout, panels, navigation, model selector
 │       │   ├── onboarding/      # First-launch wizard
 │       │   ├── settings/        # Auth, model, preferences panels
-│       │   ├── planning/        # Right-pane planning artifact viewer (M002)
 │       │   ├── kanban/          # Right-pane kanban board (M003)
 │       │   └── symphony/        # Worker dashboard, escalation panel (M004)
 │       ├── hooks/               # Custom React hooks
@@ -95,13 +94,13 @@ Desktop has two Symphony subsystems that operate independently:
 - **External Symphony:** User starts Symphony outside Desktop. Click Dashboard Refresh in Settings → Symphony. The operator service connects to the configured URL. The Runtime section stays Idle/Failed (it tracks only the managed process), but the Dashboard section goes green.
 
 **Configuration resolution** (`src/main/symphony-config.ts`):
-- URL: `symphony.url` in `.kata/preferences.md` → `KATA_SYMPHONY_URL` env → `SYMPHONY_URL` env
-- Workflow: `symphony.workflow_path` in preferences → `WORKFLOW.md` in workspace root
-- Binary: `KATA_SYMPHONY_BIN_PATH` env → `symphony` on PATH → bundled in resources (packaged)
+- URL: `symphony.url` in `.kata/preferences.md` → `KATA_SYMPHONY_URL` env → `SYMPHONY_URL` env → `.symphony/WORKFLOW.md` server port
+- Workflow: nearest ancestor `.symphony/WORKFLOW.md` from the selected workspace → `WORKFLOW.md` in that workspace root
+- Binary: `KATA_SYMPHONY_BIN_PATH` env → bundled in resources (packaged) → `apps/symphony/target/{release,debug}/symphony` in source checkout → `symphony` on PATH
 
 **Environment gotcha:** The managed Symphony subprocess inherits `process.env` from the Electron process. It does **not** read `apps/symphony/.env`. All env vars Symphony needs (LINEAR_API_KEY, SLACK_WEBHOOK_URL, GH_TOKEN, etc.) must be in `apps/desktop/.env.development` for dev mode. The main process loads this file at startup (`src/main/index.ts`, lines 7-26).
 
-**Runtime status phases:** `idle` → `starting` → `ready` | `failed` | `config_error` → `stopping` → `stopped`. Config errors have specific codes: `CONFIG_MISSING` (no URL), `WORKFLOW_PATH_MISSING`, `BINARY_NOT_FOUND`. Process failures show `PROCESS_EXITED` with exit code and stderr diagnostics.
+**Runtime status phases:** `idle` → `starting` → `ready` | `failed` | `config_error` → `stopping` → `stopped`. Config errors have specific codes such as `CONFIG_INVALID`, `WORKFLOW_PATH_MISSING`, and `BINARY_NOT_FOUND`. Process failures show `PROCESS_EXITED` with exit code and stderr diagnostics.
 
 **IPC channels:**
 
@@ -175,7 +174,7 @@ Borrow patterns and components selectively. **Import from shared packages**, not
 | Milestone | Title | Intent |
 |-----------|-------|--------|
 | M001 | Chat Foundation | Fresh Electron app, pi-coding-agent runtime, streaming chat, tool rendering, auth, sessions, onboarding |
-| M002 | Planning View | Right-pane live rendering of planning artifacts (ROADMAP, REQUIREMENTS, DECISIONS) |
+| M002 | Retired Artifact View | Removed from the active Desktop right pane |
 | M003 | Workflow Kanban | Right-pane kanban view of Linear/GitHub execution state |
 | M004 | Symphony Integration | Start/stop Symphony from GUI, worker dashboard, escalation handling |
 | M005 | Interactive Workflow | Read-write kanban, MCP management UI, UX polish |
@@ -191,7 +190,7 @@ Borrow patterns and components selectively. **Import from shared packages**, not
 | D004 | CLI packaging | Bundle `kata` binary inside .dmg |
 | D005 | Session migration | Clean break — no legacy session migration |
 | D006 | Product naming | "Kata Desktop" — all Craft naming removed |
-| D007 | Right pane | Split-pane layout with contextual right pane (planning view, kanban) |
+| D007 | Right pane | Split-pane layout with contextual right pane (kanban, Symphony) |
 
 See the `DECISIONS` document in Linear for full rationale and revisability notes.
 
@@ -205,7 +204,7 @@ See the `DECISIONS` document in Linear for full rationale and revisability notes
 - **Slash autocomplete contracts are split across main + renderer:** Main returns root builtin command names (`kata`, `symphony`, etc.) and `/skill:*` entries via `commands:get-all`; renderer normalizes them to slash-prefixed display names (for example `/kata`). Acceptance (`Tab`/`Enter`) inserts `command + " "` and emits stable dev diagnostics under `[SlashAutocomplete]`: `SLASH_ACCEPTED`, `SLASH_ACCEPT_NO_SELECTION`, `SLASH_ACCEPT_SUPPRESSED_DUPLICATE`.
 - **Symphony env vars must be in `.env.development`:** The managed Symphony subprocess inherits `process.env` from the Electron process. It does **not** load `apps/symphony/.env`. All vars Symphony needs at runtime (LINEAR_API_KEY, SLACK_WEBHOOK_URL, GH_TOKEN, etc.) must be copied into `apps/desktop/.env.development`. If Symphony fails with `PROCESS_EXITED(1)`, check stderr diagnostics via `window.api.symphony.getStatus()` — common causes are missing env vars referenced in the WORKFLOW.md.
 - **Symphony dashboard connects independently of the supervisor:** The Runtime section (Start/Stop/Restart) tracks the Desktop-managed subprocess. The Dashboard section connects to whatever is at the configured `symphony.url`. If you start Symphony externally, the Runtime will show Idle/Failed but clicking Dashboard Refresh will connect the live dashboard. Both sections share the URL from config resolution but have independent connection state.
-- **Symphony config is read at process start and at `start()` time:** The URL and workflow path come from `.kata/preferences.md` which is read when `resolveSymphonyLaunch()` is called (lazy, on Start click). But `.env.development` vars are loaded once at Electron startup. Changing preferences requires restarting the Electron process to take effect for the supervisor; the dashboard Refresh can pick up a running external instance without restart.
+- **Symphony config is read at process start and at `start()` time:** The URL can come from `.kata/preferences.md`, which is read when `resolveSymphonyLaunch()` is called (lazy, on Start click). The managed process launches from the nearest workspace ancestor containing `.symphony/WORKFLOW.md`. `.env.development` vars are loaded once at Electron startup. Changing preferences requires restarting the Electron process to take effect for the supervisor; the dashboard Refresh can pick up a running external instance without restart.
 
 ## Testing
 

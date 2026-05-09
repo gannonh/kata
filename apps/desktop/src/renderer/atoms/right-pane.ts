@@ -14,15 +14,22 @@ export const RIGHT_PANE_OVERRIDE_STORAGE_KEY = 'kata-desktop:right-pane-override
 const defaultWorkflowContext: WorkflowContextSnapshot = {
   mode: 'unknown',
   reason: 'unknown_context',
-  planningActive: false,
   trackerConfigured: false,
   boardAvailable: false,
   updatedAt: new Date(0).toISOString(),
 }
 
-export const rightPaneOverrideAtom = atomWithStorage<RightPaneOverride>(
+const storedRightPaneOverrideAtom = atomWithStorage<RightPaneOverride>(
   RIGHT_PANE_OVERRIDE_STORAGE_KEY,
   null,
+)
+
+function visibleRightPaneOverride(override: RightPaneOverride): RightPaneOverride {
+  return override === 'agent_activity' || override === 'kanban' ? override : null
+}
+
+export const rightPaneOverrideAtom = atom<RightPaneOverride>((get) =>
+  visibleRightPaneOverride(get(storedRightPaneOverrideAtom)),
 )
 
 export const workflowContextAtom = atom<WorkflowContextSnapshot>(defaultWorkflowContext)
@@ -39,14 +46,6 @@ export const rightPaneResolutionAtom = atom<RightPaneResolution>((get) => {
     }
   }
 
-  if (context.mode === 'planning') {
-    return {
-      mode: 'planning',
-      source: 'automatic',
-      reason: context.reason,
-    }
-  }
-
   if (context.mode === 'execution') {
     return {
       mode: 'kanban',
@@ -56,7 +55,7 @@ export const rightPaneResolutionAtom = atom<RightPaneResolution>((get) => {
   }
 
   return {
-    mode: 'planning',
+    mode: 'kanban',
     source: 'automatic',
     reason: 'default_fallback',
   }
@@ -67,12 +66,12 @@ export const rightPaneModeAtom = atom<RightPaneMode>((get) => get(rightPaneResol
 export const setRightPaneOverrideAtom = atom(
   null,
   (_get, set, override: RightPaneOverride) => {
-    set(rightPaneOverrideAtom, override)
+    set(storedRightPaneOverrideAtom, visibleRightPaneOverride(override))
   },
 )
 
 export const clearRightPaneOverrideAtom = atom(null, (_get, set) => {
-  set(rightPaneOverrideAtom, null)
+  set(storedRightPaneOverrideAtom, null)
 })
 
 export const setWorkflowContextAtom = atom(

@@ -29,6 +29,15 @@ function stripScriptExecutablePermissions(appBundlePath) {
   }
 }
 
+function removeNodeBinSymlinks(resourcesDir, packageDirName, platform) {
+  const binDir = path.join(resourcesDir, packageDirName, 'node_modules', '.bin');
+  if (fs.existsSync(binDir)) {
+    fs.rmSync(binDir, { recursive: true });
+    const suffix = platform === 'darwin' ? '' : ` (${platform})`;
+    console.log(`afterPack: removed ${packageDirName}/node_modules/.bin${suffix}`);
+  }
+}
+
 function copyVendorResources(projectDir, resourcesDir, platform) {
   const vendorDir = path.join(projectDir, 'vendor');
   const isWindows = platform === 'win32';
@@ -88,13 +97,10 @@ module.exports = async function afterPack(context) {
     // 1. Copy vendor runtime resources
     copyVendorResources(projectDir, resourcesDir, platform);
 
-    // Remove .bin symlinks from kata-cli — they point to relative targets
-    // that codesign rejects as "invalid destination for symbolic link in bundle"
-    const binDir = path.join(resourcesDir, 'kata-cli', 'node_modules', '.bin');
-    if (fs.existsSync(binDir)) {
-      fs.rmSync(binDir, { recursive: true });
-      console.log('afterPack: removed kata-cli/node_modules/.bin symlinks');
-    }
+    // Remove .bin symlinks from bundled node_modules directories. npm creates
+    // absolute symlink targets in vendor/ that codesign rejects inside the bundle.
+    removeNodeBinSymlinks(resourcesDir, 'kata-cli', platform);
+    removeNodeBinSymlinks(resourcesDir, 'pi-runtime', platform);
 
     // 2. Copy Liquid Glass icon (Assets.car)
     const precompiledAssets = path.join(projectDir, 'resources', 'liquid-glass', 'Assets.car');
@@ -114,12 +120,9 @@ module.exports = async function afterPack(context) {
     // Copy vendor runtime resources
     copyVendorResources(projectDir, resourcesDir, platform);
 
-    // Remove .bin symlinks/shims from kata-cli
-    const binDir = path.join(resourcesDir, 'kata-cli', 'node_modules', '.bin');
-    if (fs.existsSync(binDir)) {
-      fs.rmSync(binDir, { recursive: true });
-      console.log(`afterPack: removed kata-cli/node_modules/.bin (${platform})`);
-    }
+    // Remove .bin symlinks/shims from bundled node_modules directories
+    removeNodeBinSymlinks(resourcesDir, 'kata-cli', platform);
+    removeNodeBinSymlinks(resourcesDir, 'pi-runtime', platform);
 
     console.log(`afterPack: vendor resources copied for ${platform}`);
   }

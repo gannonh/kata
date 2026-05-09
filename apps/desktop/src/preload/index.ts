@@ -7,9 +7,7 @@ import {
   type DesktopApi,
   type ExtensionUIRequest,
   type PermissionMode,
-  type PlanningArtifact,
   type AgentActivityUpdate,
-  type PlanningArtifactFetchStateEvent,
   type ThinkingLevel,
   type SymphonyRuntimeStatus,
   type SymphonyOperatorSnapshot,
@@ -126,36 +124,6 @@ const api: DesktopApi = {
     },
     validateKey: async (provider: AuthProvider, key: string) => {
       return ipcRenderer.invoke(IPC_CHANNELS.authValidateKey, provider, key)
-    },
-  },
-  planning: {
-    onArtifactUpdated: (listener: (artifact: PlanningArtifact) => void) => {
-      const wrapped = (_event: Electron.IpcRendererEvent, artifact: PlanningArtifact) => {
-        listener(artifact)
-      }
-
-      ipcRenderer.on(IPC_CHANNELS.planningArtifactUpdated, wrapped)
-
-      return () => {
-        ipcRenderer.removeListener(IPC_CHANNELS.planningArtifactUpdated, wrapped)
-      }
-    },
-    onArtifactFetchState: (listener: (event: PlanningArtifactFetchStateEvent) => void) => {
-      const wrapped = (_event: Electron.IpcRendererEvent, event: PlanningArtifactFetchStateEvent) => {
-        listener(event)
-      }
-
-      ipcRenderer.on(IPC_CHANNELS.planningArtifactFetchState, wrapped)
-
-      return () => {
-        ipcRenderer.removeListener(IPC_CHANNELS.planningArtifactFetchState, wrapped)
-      }
-    },
-    fetchArtifact: async (title: string, artifactKey?: string) => {
-      return ipcRenderer.invoke(IPC_CHANNELS.planningFetchArtifact, title, artifactKey)
-    },
-    listArtifacts: async () => {
-      return ipcRenderer.invoke(IPC_CHANNELS.planningListArtifacts)
     },
   },
   workflow: {
