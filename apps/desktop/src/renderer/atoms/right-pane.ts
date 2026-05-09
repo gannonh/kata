@@ -14,7 +14,6 @@ export const RIGHT_PANE_OVERRIDE_STORAGE_KEY = 'kata-desktop:right-pane-override
 const defaultWorkflowContext: WorkflowContextSnapshot = {
   mode: 'unknown',
   reason: 'unknown_context',
-  planningActive: false,
   trackerConfigured: false,
   boardAvailable: false,
   updatedAt: new Date(0).toISOString(),
@@ -58,7 +57,7 @@ export const rightPaneResolutionAtom = atom<RightPaneResolution>((get) => {
   return {
     mode: 'kanban',
     source: 'automatic',
-    reason: context.reason === 'planning_activity_detected' ? context.reason : 'default_fallback',
+    reason: 'default_fallback',
   }
 })
 

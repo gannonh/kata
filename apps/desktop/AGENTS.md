@@ -7,7 +7,7 @@ This is the shipping Kata Desktop Electron app. Keep it isolated from archived d
 Kata Desktop is the native GUI for the Kata coding agent platform. It combines:
 
 - **Chat pane (left):** A pi-coding-agent session — identical to Kata CLI but in a graphical interface
-- **Contextual right pane:** Planning artifact viewer during `/kata plan`, kanban board during execution
+- **Contextual right pane:** Kanban board and Symphony runtime/operator views
 - **Symphony operator surface:** Start/stop Symphony, monitor workers, handle escalations — all from the GUI
 
 Desktop wraps the Pi coding-agent runtime as a subprocess in JSON-RPC mode (`pi --mode rpc`). The packaged app uses the bundled Pi launcher and Kata Skills; local development can override the Pi binary with `KATA_PI_BIN_PATH`.
@@ -41,7 +41,6 @@ apps/desktop/
 │       │   ├── app-shell/       # Layout, panels, navigation, model selector
 │       │   ├── onboarding/      # First-launch wizard
 │       │   ├── settings/        # Auth, model, preferences panels
-│       │   ├── planning/        # Right-pane planning artifact viewer (M002)
 │       │   ├── kanban/          # Right-pane kanban board (M003)
 │       │   └── symphony/        # Worker dashboard, escalation panel (M004)
 │       ├── hooks/               # Custom React hooks
@@ -175,7 +174,7 @@ Borrow patterns and components selectively. **Import from shared packages**, not
 | Milestone | Title | Intent |
 |-----------|-------|--------|
 | M001 | Chat Foundation | Fresh Electron app, pi-coding-agent runtime, streaming chat, tool rendering, auth, sessions, onboarding |
-| M002 | Planning View | Right-pane live rendering of planning artifacts (ROADMAP, REQUIREMENTS, DECISIONS) |
+| M002 | Retired Artifact View | Removed from the active Desktop right pane |
 | M003 | Workflow Kanban | Right-pane kanban view of Linear/GitHub execution state |
 | M004 | Symphony Integration | Start/stop Symphony from GUI, worker dashboard, escalation handling |
 | M005 | Interactive Workflow | Read-write kanban, MCP management UI, UX polish |
@@ -191,7 +190,7 @@ Borrow patterns and components selectively. **Import from shared packages**, not
 | D004 | CLI packaging | Bundle `kata` binary inside .dmg |
 | D005 | Session migration | Clean break — no legacy session migration |
 | D006 | Product naming | "Kata Desktop" — all Craft naming removed |
-| D007 | Right pane | Split-pane layout with contextual right pane (planning view, kanban) |
+| D007 | Right pane | Split-pane layout with contextual right pane (kanban, Symphony) |
 
 See the `DECISIONS` document in Linear for full rationale and revisability notes.
 

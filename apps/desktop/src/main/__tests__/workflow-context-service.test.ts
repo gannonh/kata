@@ -20,20 +20,18 @@ const freshBoard: WorkflowBoardSnapshot = {
 }
 
 describe('workflow-context-service', () => {
-  test('prefers planning context when planning activity is active', () => {
+  test('resolves execution context when tracker is configured and board is available', () => {
     const snapshot = buildWorkflowContextSnapshot({
-      planningActive: true,
       trackerConfigured: true,
       boardSnapshot: freshBoard,
     })
 
-    expect(snapshot.mode).toBe('planning')
-    expect(snapshot.reason).toBe('planning_activity_detected')
+    expect(snapshot.mode).toBe('execution')
+    expect(snapshot.reason).toBe('tracker_and_board_available')
   })
 
   test('resolves execution context when tracker is configured and board is pending', () => {
     const snapshot = buildWorkflowContextSnapshot({
-      planningActive: false,
       trackerConfigured: true,
       boardSnapshot: null,
     })
@@ -42,9 +40,8 @@ describe('workflow-context-service', () => {
     expect(snapshot.reason).toBe('tracker_configured_board_pending')
   })
 
-  test('resolves unknown when neither planning nor execution signals exist', () => {
+  test('resolves unknown when execution signals are absent', () => {
     const snapshot = buildWorkflowContextSnapshot({
-      planningActive: false,
       trackerConfigured: false,
       boardSnapshot: null,
     })
@@ -57,20 +54,18 @@ describe('workflow-context-service', () => {
     const service = new WorkflowContextService()
 
     const first = service.resolve({
-      planningActive: false,
       trackerConfigured: true,
       boardSnapshot: null,
     })
 
     const second = service.resolve({
-      planningActive: true,
       trackerConfigured: true,
       boardSnapshot: freshBoard,
     })
 
     expect(first.previous).toBeNull()
-    expect(first.next.mode).toBe('execution')
-    expect(second.previous?.mode).toBe('execution')
-    expect(second.next.mode).toBe('planning')
+    expect(first.next.reason).toBe('tracker_configured_board_pending')
+    expect(second.previous?.reason).toBe('tracker_configured_board_pending')
+    expect(second.next.reason).toBe('tracker_and_board_available')
   })
 })

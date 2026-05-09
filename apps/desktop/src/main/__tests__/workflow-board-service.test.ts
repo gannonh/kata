@@ -1384,7 +1384,7 @@ describe('WorkflowBoardService', () => {
     delete process.env.KATA_TEST_MODE
   })
 
-  test('refreshContext reflects planning signals and tracker availability', async () => {
+  test('refreshContext reflects tracker availability', async () => {
     process.env.KATA_TEST_MODE = '1'
 
     const service = new WorkflowBoardService({
@@ -1392,11 +1392,6 @@ describe('WorkflowBoardService', () => {
       getWorkspacePath: () => '/tmp/workspace',
     })
 
-    service.setPlanningActive(true)
-    const planningContext = await service.refreshContext()
-    expect(planningContext.mode).toBe('planning')
-
-    service.setPlanningActive(false)
     const executionContext = await service.refreshContext()
     expect(executionContext.mode).toBe('execution')
 

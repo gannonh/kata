@@ -29,7 +29,6 @@ function formatPaneResolutionReason(reason: string): string {
   const labels: Record<string, string> = {
     manual_override: 'Manual override',
     default_fallback: 'Default fallback',
-    planning_activity_detected: 'Planning activity detected',
     tracker_and_board_available: 'Tracker configured and board available',
     tracker_configured_board_pending: 'Tracker configured — board pending',
     board_available_without_tracker: 'Board available without tracker config',

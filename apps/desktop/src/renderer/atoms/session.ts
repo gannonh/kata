@@ -2,7 +2,6 @@ import { atom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
 import type { SessionListResponse, SessionListItem } from '@shared/types'
 import { applyChatEventAtom, isStreamingAtom, messagesAtom, resetChatStateAtom } from './chat'
-import { requestPlanningReloadAtom, resetPlanningSessionStateAtom } from './planning'
 
 const CURRENT_SESSION_STORAGE_KEY = 'kata-desktop:current-session-id'
 const WORKING_DIRECTORY_STORAGE_KEY = 'kata-desktop:working-directory'
@@ -140,8 +139,7 @@ const hydrateSessionHistoryAtom = atom(
     {
       sessionId,
       sessionPath,
-      resetPlanning = true,
-    }: { sessionId: string; sessionPath?: string | null; resetPlanning?: boolean },
+    }: { sessionId: string; sessionPath?: string | null },
   ) => {
     const trimmedSessionId = sessionId.trim()
     if (!trimmedSessionId) {
@@ -158,9 +156,6 @@ const hydrateSessionHistoryAtom = atom(
     set(sessionHistoryLoadingAtom, true)
     set(sessionHistoryErrorAtom, null)
     set(resetChatStateAtom)
-    if (resetPlanning) {
-      set(resetPlanningSessionStateAtom)
-    }
 
     try {
       const resolvedSessionPath =
@@ -256,14 +251,10 @@ export const initializeSessionsAtom = atom(null, async (get, set) => {
     if (currentSessionId) {
       await set(hydrateSessionHistoryAtom, {
         sessionId: currentSessionId,
-        resetPlanning: false,
       })
     } else {
       set(resetChatStateAtom)
-      set(resetPlanningSessionStateAtom)
     }
-
-    set(requestPlanningReloadAtom)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     set(sessionListErrorAtom, message)
@@ -296,7 +287,6 @@ export const createSessionAtom = atom(null, async (get, set) => {
     const newSessionId = response.sessionId ?? null
     set(currentSessionIdAtom, newSessionId)
     set(resetChatStateAtom)
-    set(resetPlanningSessionStateAtom)
 
     if (newSessionId) {
       // Inject a placeholder entry so the new session appears in the
@@ -324,8 +314,6 @@ export const createSessionAtom = atom(null, async (get, set) => {
     // which can race with the placeholder and overwrite currentSessionIdAtom.
     // The placeholder in the list is sufficient. The next natural refresh
     // (agent_end, manual Refresh click, or session switch) will pick it up.
-
-    set(requestPlanningReloadAtom)
   } finally {
     set(sessionCreatingAtom, false)
   }
@@ -365,7 +353,6 @@ export const switchSessionAtom = atom(null, async (get, set, sessionId: string) 
       sessionPath: switchResponse.sessionPath ?? null,
     })
     await set(refreshSessionListAtom)
-    set(requestPlanningReloadAtom)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     set(sessionListErrorAtom, `Unable to switch session to ${trimmedSessionId}: ${message}`)
@@ -426,7 +413,6 @@ export const archiveSessionAtom = atom(
 
     set(currentSessionIdAtom, null)
     set(resetChatStateAtom)
-    set(resetPlanningSessionStateAtom)
   },
 )
 
@@ -459,7 +445,6 @@ export const switchWorkspaceAtom = atom(null, async (get, set, workspacePath: st
     set(workingDirectoryAtom, response.path)
     set(currentSessionIdAtom, null)
     set(resetChatStateAtom)
-    set(resetPlanningSessionStateAtom)
 
     await set(refreshSessionListAtom)
 
@@ -467,8 +452,6 @@ export const switchWorkspaceAtom = atom(null, async (get, set, workspacePath: st
     if (currentSessionId) {
       await set(hydrateSessionHistoryAtom, { sessionId: currentSessionId })
     }
-
-    set(requestPlanningReloadAtom)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     set(sessionListErrorAtom, `Unable to switch workspace to ${workspacePath}: ${message}`)

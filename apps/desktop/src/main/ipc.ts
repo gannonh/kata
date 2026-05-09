@@ -3,19 +3,12 @@ import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import { promisify } from 'node:util'
 import { dialog, ipcMain, shell, type BrowserWindow } from 'electron'
-import { createKataDomainApi } from '../../../cli/src/domain/service'
-import { GithubProjectsV2SnapshotAdapter } from '../../../cli/src/backends/github-projects-v2/snapshot-adapter'
-import { LinearSnapshotAdapter } from '../../../cli/src/backends/linear/snapshot-adapter'
-import type { KataArtifact, KataArtifactType } from '../../../cli/src/domain/types'
 import log from './logger'
 import { listBuiltinCommands } from './command-registry'
 import { refreshSkillCache } from './skill-scanner'
 import { AuthBridge } from './auth-bridge'
-import { LinearDocumentClient } from './linear-document-client'
-import { GithubPlanningClient, GithubPlanningClientError } from './github-planning-client'
 import { readWorkspaceWorkflowTrackerConfig } from './workflow-config-reader'
 import { PiAgentBridge } from './pi-agent-bridge'
-import { PlanningToolDetector } from './planning-tool-detector'
 import { RpcEventAdapter } from './rpc-event-adapter'
 import { DesktopSessionManager } from './session-manager'
 import { SessionHistoryLoader } from './session-history-loader'
@@ -49,15 +42,6 @@ import {
   type ExtensionUIRequest,
   type ExtensionUIResponse,
   type PermissionMode,
-  buildPlanningArtifactKey,
-  type PlanningArtifact,
-  type PlanningArtifactEvent,
-  type PlanningSliceData,
-  type PlanningArtifactFetchResponse,
-  type PlanningArtifactFetchStateEvent,
-  type PlanningArtifactListResponse,
-  type PlanningArtifactError,
-  type PlanningArtifactErrorCode,
   type SessionInfo,
   type SessionListResponse,
   type SetThinkingLevelResponse,
@@ -66,7 +50,6 @@ import {
   type ThinkingLevel,
   type WorkspaceInfo,
   type WorkspaceGitInfo,
-  type ArtifactType,
   type WorkflowBoardSnapshotResponse,
   type WorkflowBoardLifecycleResponse,
   type WorkflowBoardScopeRequest,
@@ -139,9 +122,6 @@ export function registerSessionIpc({
   mcpService,
 }: RegisterIpcOptions): () => void {
   const adapter = new RpcEventAdapter()
-  const planningToolDetector = new PlanningToolDetector()
-  const linearDocumentClient = new LinearDocumentClient(authBridge)
-  const githubPlanningClient = new GithubPlanningClient(authBridge)
   const sessionHistoryLoader = new SessionHistoryLoader()
   const workflowBoardService = new WorkflowBoardService({
     authBridge,
@@ -348,11 +328,6 @@ export function registerSessionIpc({
     },
   })
 
-  const planningArtifactsByKey = new Map<string, PlanningArtifact>()
-  const planningMetadataByKey = new Map<string, PlanningArtifactEvent>()
-  const planningLatestKeyByTitle = new Map<string, string>()
-  const pendingTasksBySliceIssueId = new Map<string, PlanningSliceData['tasks']>()
-
   const canSendToRenderer = (): boolean => !window.isDestroyed() && !window.webContents.isDestroyed()
 
   /** Safe send that catches frame disposal errors (e.g. when an MCP server spawn crashes the renderer). */
@@ -384,20 +359,6 @@ export function registerSessionIpc({
     }
   }
 
-  const sendPlanningArtifactToRenderer = (artifact: PlanningArtifact): void => {
-    if (!safeSend(IPC_CHANNELS.planningArtifactUpdated, artifact)) {
-      return
-    }
-    log.debug('[desktop-ipc] planning artifact pushed', {
-      title: artifact.title,
-      artifactKey: artifact.artifactKey,
-      updatedAt: artifact.updatedAt,
-      scope: artifact.scope,
-      projectId: artifact.projectId,
-      issueId: artifact.issueId,
-    })
-  }
-
   const sendSymphonyStatusToRenderer = (status: SymphonyRuntimeStatus): void => {
     if (!safeSend(IPC_CHANNELS.symphonyStatus, status)) {
       return
@@ -407,13 +368,6 @@ export function registerSessionIpc({
       pid: status.pid,
       managedProcessRunning: status.managedProcessRunning,
     })
-  }
-
-  const sendPlanningFetchStateToRenderer = (event: PlanningArtifactFetchStateEvent): void => {
-    if (!safeSend(IPC_CHANNELS.planningArtifactFetchState, event)) {
-      return
-    }
-    log.debug('[desktop-ipc] planning fetch state', event)
   }
 
   const sendSymphonyDashboardSnapshot = (snapshot: SymphonyOperatorSnapshot): void => {
@@ -674,480 +628,11 @@ export function registerSessionIpc({
     void processWorkerSessionActivityQueue()
   }
 
-  const getPlanningFetchContext = (
-    title: string,
-    artifactKey?: string,
-  ): { projectId?: string; issueId?: string } => {
-    const metadata =
-      (artifactKey ? planningMetadataByKey.get(artifactKey) : undefined) ??
-      planningMetadataByKey.get(planningLatestKeyByTitle.get(title) ?? '')
-
-    if (!metadata) {
-      return {}
-    }
-
-    return {
-      projectId: metadata.projectId,
-      issueId: metadata.issueId,
-    }
-  }
-
-  const toKataArtifactType = (artifactType: ArtifactType | undefined): KataArtifactType | null => {
-    switch (artifactType) {
-      case 'roadmap':
-      case 'requirements':
-      case 'decisions':
-      case 'context':
-      case 'slice':
-        return artifactType
-      default:
-        return null
-    }
-  }
-
-  const toKataArtifact = (
-    artifact: PlanningArtifact,
-    backend: 'github' | 'linear',
-  ): KataArtifact | null => {
-    const artifactType = toKataArtifactType(detectArtifactTypeFromTitle(artifact.title))
-    if (!artifactType) {
-      return null
-    }
-
-    const scopeType = artifact.scope === 'project' ? 'project' : 'slice'
-    const scopeId = artifact.scope === 'project'
-      ? artifact.projectId ?? 'project'
-      : artifact.issueId ?? artifact.projectId ?? artifact.artifactKey
-
-    return {
-      id: artifact.artifactKey,
-      scopeType,
-      scopeId,
-      artifactType,
-      title: artifact.title,
-      content: artifact.content,
-      format: 'markdown',
-      updatedAt: artifact.updatedAt,
-      provenance: {
-        backend,
-        backendId: artifact.artifactKey,
-      },
-    }
-  }
-
-  const toPlanningArtifact = (
-    artifact: KataArtifact,
-    defaultProjectId?: string | null,
-    existingSliceData?: PlanningSliceData,
-  ): PlanningArtifact => {
-    const scope = artifact.scopeType === 'project' ? 'project' : 'issue'
-    const issueId = scope === 'issue' ? artifact.scopeId : undefined
-    const projectId = scope === 'project' ? artifact.scopeId : defaultProjectId ?? undefined
-
-    return {
-      title: artifact.title,
-      artifactKey: artifact.provenance.backendId || artifact.id,
-      content: artifact.content,
-      updatedAt: artifact.updatedAt,
-      scope,
-      projectId,
-      issueId,
-      artifactType: detectArtifactTypeFromTitle(artifact.title),
-      sliceData: existingSliceData,
-    }
-  }
-
-  const listPlanningArtifactsViaKata = async (): Promise<{
-    tracker: Awaited<ReturnType<typeof readWorkspaceWorkflowTrackerConfig>>['config']
-    projectRef: string | null
-    workspacePath: string
-    artifacts: PlanningArtifact[]
-  }> => {
-    const workspacePath = bridge.getWorkspacePath()
-    const trackerResolution = await readWorkspaceWorkflowTrackerConfig(workspacePath)
-
-    if (trackerResolution.error) {
-      const error = new Error(trackerResolution.error.message)
-      ;(error as Error & { code?: string }).code = trackerResolution.error.code
-      throw error
-    }
-
-    const tracker = trackerResolution.config
-    const projectRef = tracker?.kind === 'github' ? null : await readLinearProjectReference(workspacePath)
-
-    if (!tracker && !projectRef) {
-      return {
-        tracker,
-        projectRef,
-        workspacePath,
-        artifacts: [],
-      }
-    }
-
-    const emptyBoardSnapshot = {
-      backend: tracker?.kind === 'github' ? 'github' : 'linear',
-      fetchedAt: new Date().toISOString(),
-      status: 'empty',
-      source: { projectId: workspacePath },
-      activeMilestone: null,
-      columns: [],
-      poll: {
-        status: 'success',
-        backend: tracker?.kind === 'github' ? 'github' : 'linear',
-        lastAttemptAt: new Date().toISOString(),
-      },
-    } as const
-
-    const adapter =
-      tracker?.kind === 'github'
-        ? new GithubProjectsV2SnapshotAdapter({
-            fetchProjectSnapshot: async () => emptyBoardSnapshot,
-            listArtifacts: async () => {
-              const artifacts = await githubPlanningClient.listByRepository({
-                repoOwner: tracker.repoOwner,
-                repoName: tracker.repoName,
-              })
-              return artifacts
-                .map((artifact) => toKataArtifact(artifact, 'github'))
-                .filter((artifact): artifact is KataArtifact => Boolean(artifact))
-            },
-          })
-        : new LinearSnapshotAdapter({
-            fetchActiveMilestoneSnapshot: async () => emptyBoardSnapshot,
-            listArtifacts: async () => {
-              if (!projectRef) {
-                return []
-              }
-
-              const artifacts = await linearDocumentClient.listByProject(projectRef)
-              return artifacts
-                .map((artifact) => toKataArtifact(artifact, 'linear'))
-                .filter((artifact): artifact is KataArtifact => Boolean(artifact))
-            },
-          })
-
-    const api = createKataDomainApi(adapter)
-    const projectScopeId =
-      tracker?.kind === 'github'
-        ? `github:${tracker.repoOwner}/${tracker.repoName}`
-        : projectRef ?? workspacePath
-
-    const kataArtifacts = await api.artifact.list({
-      scopeType: 'project',
-      scopeId: projectScopeId,
-    })
-
-    return {
-      tracker,
-      projectRef,
-      workspacePath,
-      artifacts: kataArtifacts
-        .map((artifact) =>
-          toPlanningArtifact(
-            artifact,
-            tracker?.kind === 'github'
-              ? `github:${tracker.repoOwner}/${tracker.repoName}`
-              : projectRef ?? workspacePath,
-            planningArtifactsByKey.get(artifact.provenance.backendId || artifact.id)?.sliceData,
-          ),
-        )
-        .sort((left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt)),
-    }
-  }
-
-  const fetchPlanningArtifact = async (
-    title: string,
-    options?: {
-      projectId?: string
-      issueId?: string
-      pushUpdate?: boolean
-      scope?: PlanningArtifact['scope']
-      artifactKey?: string
-    },
-  ): Promise<PlanningArtifactFetchResponse> => {
-    const trimmedTitle = title.trim()
-    if (!trimmedTitle) {
-      return {
-        success: false,
-        error: {
-          code: 'UNKNOWN',
-          message: 'Artifact title is required',
-        },
-      }
-    }
-
-    try {
-      const { artifacts } = await listPlanningArtifactsViaKata()
-      const fetchedArtifact = artifacts
-        .filter((artifact) => artifact.title.trim() === trimmedTitle)
-        .filter((artifact) => {
-          if (options?.issueId && artifact.issueId) {
-            return artifact.issueId === options.issueId
-          }
-
-          if (options?.projectId && artifact.projectId) {
-            return artifact.projectId === options.projectId
-          }
-
-          return true
-        })
-        .sort((left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt))[0]
-
-      if (!fetchedArtifact) {
-        return {
-          success: false,
-          error: {
-            code: 'NOT_FOUND',
-            message: `Artifact "${trimmedTitle}" not found`,
-          },
-        }
-      }
-
-      const scope = options?.scope ?? fetchedArtifact.scope
-      const artifactKey =
-        options?.artifactKey ??
-        fetchedArtifact.artifactKey ??
-        buildPlanningArtifactKey({
-          title: fetchedArtifact.title,
-          scope,
-          projectId: fetchedArtifact.projectId,
-          issueId: fetchedArtifact.issueId,
-        })
-
-      const artifact: PlanningArtifact = {
-        ...fetchedArtifact,
-        scope,
-        artifactKey,
-        artifactType: detectArtifactTypeFromTitle(fetchedArtifact.title),
-      }
-
-      planningArtifactsByKey.set(artifactKey, artifact)
-      planningLatestKeyByTitle.set(trimmedTitle, artifactKey)
-
-      if (options?.pushUpdate) {
-        sendPlanningArtifactToRenderer(artifact)
-      }
-
-      return {
-        success: true,
-        artifact,
-      }
-    } catch (error) {
-      return {
-        success: false,
-        error: toPlanningArtifactError(error),
-      }
-    }
-  }
-
-  const upsertPlanningArtifact = (artifact: PlanningArtifact): void => {
-    let artifactToStore = artifact
-
-    if (artifact.artifactType === 'slice') {
-      const sliceIssueId = artifact.sliceData?.issueId ?? artifact.issueId
-      const pendingTasks = sliceIssueId ? pendingTasksBySliceIssueId.get(sliceIssueId) ?? [] : []
-
-      if (sliceIssueId && pendingTasks.length > 0) {
-        pendingTasksBySliceIssueId.delete(sliceIssueId)
-
-        const baseSliceData: PlanningSliceData =
-          artifact.sliceData ??
-          ({
-            id: extractSliceIdFromTitle(artifact.title) ?? 'S00',
-            title: artifact.title,
-            description: artifact.content,
-            issueId: sliceIssueId,
-            tasks: [],
-          } satisfies PlanningSliceData)
-
-        artifactToStore = {
-          ...artifact,
-          sliceData: {
-            ...baseSliceData,
-            tasks: mergeSliceTasks(baseSliceData.tasks, pendingTasks),
-          },
-        }
-      }
-    }
-
-    planningArtifactsByKey.set(artifactToStore.artifactKey, artifactToStore)
-    planningLatestKeyByTitle.set(artifactToStore.title, artifactToStore.artifactKey)
-    sendPlanningArtifactToRenderer(artifactToStore)
-  }
-
-  const onPlanningArtifactEvent = (planningEvent: PlanningArtifactEvent): void => {
-    workflowBoardService.setPlanningActive(true)
-    planningMetadataByKey.set(planningEvent.artifactKey, planningEvent)
-    planningLatestKeyByTitle.set(planningEvent.title, planningEvent.artifactKey)
-
-    if (planningEvent.eventType === 'slice_created' && planningEvent.slice) {
-      // When a slice is created successfully after a prior failed attempt, the
-      // first (errored) event may have stored a project-scoped artifact without
-      // an issueId. The successful retry produces a different (issue-scoped) key.
-      // Migrate: find any existing artifact with the same title but missing issueId,
-      // remove it, and carry its tasks forward into the new artifact.
-      const existingArtifact = planningArtifactsByKey.get(planningEvent.artifactKey)
-      let migratedTasks: PlanningSliceData['tasks'] = []
-
-      if (!existingArtifact && planningEvent.issueId) {
-        const staleArtifact = Array.from(planningArtifactsByKey.values()).find(
-          (a) =>
-            a.artifactType === 'slice' &&
-            a.title === planningEvent.title &&
-            !a.issueId &&
-            (!a.projectId || a.projectId === planningEvent.projectId),
-        )
-        if (staleArtifact) {
-          migratedTasks = staleArtifact.sliceData?.tasks ?? []
-          planningArtifactsByKey.delete(staleArtifact.artifactKey)
-          planningMetadataByKey.delete(staleArtifact.artifactKey)
-          log.info('[desktop-ipc] migrated stale project-scoped slice artifact to issue-scoped', {
-            oldKey: staleArtifact.artifactKey,
-            newKey: planningEvent.artifactKey,
-            issueId: planningEvent.issueId,
-          })
-        }
-      }
-
-      const existingSliceData = existingArtifact?.sliceData
-      const tasks = existingSliceData?.tasks ?? migratedTasks
-
-      const sliceData: PlanningSliceData = {
-        id: planningEvent.slice.id,
-        title: planningEvent.slice.title,
-        description: planningEvent.slice.description,
-        issueId: planningEvent.slice.issueId ?? planningEvent.issueId,
-        tasks,
-      }
-
-      upsertPlanningArtifact({
-        title: planningEvent.title,
-        artifactKey: planningEvent.artifactKey,
-        content: sliceData.description,
-        updatedAt: new Date().toISOString(),
-        scope: planningEvent.scope,
-        projectId: planningEvent.projectId,
-        issueId: planningEvent.issueId,
-        artifactType: 'slice',
-        sliceData,
-      })
-
-      return
-    }
-
-    if (planningEvent.eventType === 'task_created' && planningEvent.task) {
-      const targetSliceIssueId = planningEvent.targetSliceIssueId ?? planningEvent.issueId
-      const targetSliceArtifact = Array.from(planningArtifactsByKey.values()).find((artifact) => {
-        if (artifact.artifactType !== 'slice') {
-          return false
-        }
-
-        return (
-          artifact.issueId === targetSliceIssueId || artifact.sliceData?.issueId === targetSliceIssueId
-        )
-      })
-
-      if (!targetSliceArtifact) {
-        if (targetSliceIssueId) {
-          const existingPendingTasks = pendingTasksBySliceIssueId.get(targetSliceIssueId) ?? []
-          const hasTask = existingPendingTasks.some((task) => task.id === planningEvent.task?.id)
-
-          if (!hasTask) {
-            pendingTasksBySliceIssueId.set(targetSliceIssueId, [
-              ...existingPendingTasks,
-              planningEvent.task,
-            ])
-          }
-
-          log.warn('[desktop-ipc] queued task for unresolved slice artifact', {
-            taskId: planningEvent.task.id,
-            targetSliceIssueId,
-            queuedTasks: hasTask ? existingPendingTasks.length : existingPendingTasks.length + 1,
-            artifactKey: planningEvent.artifactKey,
-          })
-        } else {
-          log.warn('[desktop-ipc] unable to append task: missing target slice issue id', {
-            taskId: planningEvent.task.id,
-            artifactKey: planningEvent.artifactKey,
-          })
-        }
-
-        return
-      }
-
-      const currentSliceData =
-        targetSliceArtifact.sliceData ??
-        ({
-          id: extractSliceIdFromTitle(targetSliceArtifact.title) ?? 'S00',
-          title: targetSliceArtifact.title,
-          description: targetSliceArtifact.content,
-          issueId: targetSliceIssueId,
-          tasks: [],
-        } satisfies PlanningSliceData)
-
-      const existingTasks = currentSliceData.tasks
-      const nextTasks = mergeSliceTasks(existingTasks, [planningEvent.task])
-
-      upsertPlanningArtifact({
-        ...targetSliceArtifact,
-        updatedAt: new Date().toISOString(),
-        artifactType: 'slice',
-        sliceData: {
-          ...currentSliceData,
-          tasks: nextTasks,
-        },
-      })
-
-      return
-    }
-
-    sendPlanningFetchStateToRenderer({
-      state: 'start',
-      title: planningEvent.title,
-      artifactKey: planningEvent.artifactKey,
-      toolName: planningEvent.toolName,
-    })
-
-    void (async () => {
-      const response = await fetchPlanningArtifact(planningEvent.title, {
-        projectId: planningEvent.projectId,
-        issueId: planningEvent.issueId,
-        scope: planningEvent.scope,
-        artifactKey: planningEvent.artifactKey,
-        pushUpdate: true,
-      })
-
-      const expectedMissingArtifact = response.error?.code === 'NOT_FOUND'
-
-      sendPlanningFetchStateToRenderer({
-        state: 'end',
-        title: planningEvent.title,
-        artifactKey: planningEvent.artifactKey,
-        toolName: planningEvent.toolName,
-        error: response.success || expectedMissingArtifact ? undefined : response.error,
-      })
-
-      if (!response.success) {
-        const logMethod = expectedMissingArtifact ? log.info.bind(log) : log.warn.bind(log)
-        logMethod('[desktop-ipc] planning artifact fetch failed', {
-          title: planningEvent.title,
-          artifactKey: planningEvent.artifactKey,
-          toolName: planningEvent.toolName,
-          error: response.error,
-        })
-      }
-    })()
-  }
-
-  planningToolDetector.on('artifact', onPlanningArtifactEvent)
-
   const onRpcEvent = (rpcEvent: Record<string, unknown>): void => {
     log.debug('[desktop-ipc] inbound rpc event', rpcEvent)
     for (const chatEvent of adapter.adapt(rpcEvent)) {
       sendEventToRenderer(chatEvent)
       agentActivityJournal?.ingestCliChatEvent(chatEvent)
-      planningToolDetector.handleChatEvent(chatEvent)
-
       if (chatEvent.type === 'agent_end') {
         reliabilityAggregator.ingestFirstTurnCompletion(true)
       }
@@ -1345,8 +830,6 @@ export function registerSessionIpc({
   ipcMain.removeHandler(IPC_CHANNELS.authSetKey)
   ipcMain.removeHandler(IPC_CHANNELS.authRemoveKey)
   ipcMain.removeHandler(IPC_CHANNELS.authValidateKey)
-  ipcMain.removeHandler(IPC_CHANNELS.planningFetchArtifact)
-  ipcMain.removeHandler(IPC_CHANNELS.planningListArtifacts)
   ipcMain.removeHandler(IPC_CHANNELS.workflowGetBoard)
   ipcMain.removeHandler(IPC_CHANNELS.workflowRefreshBoard)
   ipcMain.removeHandler(IPC_CHANNELS.workflowSetBoardActive)
@@ -1624,8 +1107,6 @@ export function registerSessionIpc({
           }
         }
 
-        workflowBoardService.setPlanningActive(false)
-
         log.info('[desktop-ipc] session switched', {
           sessionId: trimmedSessionId,
           workspacePath,
@@ -1739,7 +1220,6 @@ export function registerSessionIpc({
 
     await bridge.switchWorkspace(nextWorkspacePath)
     await symphonySupervisor?.setWorkspacePath(nextWorkspacePath)
-    workflowBoardService.setPlanningActive(false)
 
     if (onWorkspaceSelected) {
       try {
@@ -1885,146 +1365,6 @@ export function registerSessionIpc({
       }
     },
   )
-
-  ipcMain.handle(
-    IPC_CHANNELS.planningFetchArtifact,
-    async (_event, title: string, artifactKey?: string): Promise<PlanningArtifactFetchResponse> => {
-      const context = getPlanningFetchContext(title, artifactKey)
-      return fetchPlanningArtifact(title, {
-        ...context,
-        artifactKey,
-        pushUpdate: false,
-      })
-    },
-  )
-
-  ipcMain.handle(IPC_CHANNELS.planningListArtifacts, async (): Promise<PlanningArtifactListResponse> => {
-    let staleError: PlanningArtifactListResponse['error']
-
-    let tracker: Awaited<ReturnType<typeof readWorkspaceWorkflowTrackerConfig>>['config'] = null
-    let projectRef: string | null = null
-    let workspacePath = bridge.getWorkspacePath()
-    let startupScopePrefix: string | null = null
-
-    const clearStartupProactiveArtifacts = (): void => {
-      for (const [artifactKey, metadata] of planningMetadataByKey.entries()) {
-        if (metadata.toolName !== 'startup_proactive_load') {
-          continue
-        }
-
-        planningMetadataByKey.delete(artifactKey)
-        planningArtifactsByKey.delete(artifactKey)
-
-        if (planningLatestKeyByTitle.get(metadata.title) === artifactKey) {
-          planningLatestKeyByTitle.delete(metadata.title)
-        }
-      }
-    }
-
-    try {
-      const result = await listPlanningArtifactsViaKata()
-      tracker = result.tracker
-      projectRef = result.projectRef
-      workspacePath = result.workspacePath
-
-      startupScopePrefix =
-        tracker?.kind === 'github'
-          ? `startup:${workspacePath}:github:${tracker.repoOwner}/${tracker.repoName}:`
-          : projectRef
-            ? `startup:${workspacePath}:${projectRef}:`
-            : null
-
-      try {
-        clearStartupProactiveArtifacts()
-
-        for (const projectArtifact of result.artifacts) {
-          const artifactType = detectArtifactTypeFromTitle(projectArtifact.title)
-          if (tracker?.kind !== 'github' && !isStartupProactiveArtifactType(artifactType)) {
-            continue
-          }
-
-          const existingArtifact = planningArtifactsByKey.get(projectArtifact.artifactKey)
-          const artifact: PlanningArtifact = {
-            ...projectArtifact,
-            artifactType,
-            sliceData: projectArtifact.sliceData ?? existingArtifact?.sliceData,
-          }
-
-          planningArtifactsByKey.set(artifact.artifactKey, artifact)
-          planningLatestKeyByTitle.set(artifact.title, artifact.artifactKey)
-          planningMetadataByKey.set(artifact.artifactKey, {
-            eventType: 'document',
-            toolName: 'startup_proactive_load',
-            toolCallId: `${startupScopePrefix ?? 'startup:'}${artifact.artifactKey}`,
-            title: artifact.title,
-            artifactKey: artifact.artifactKey,
-            scope: artifact.scope,
-            action: 'updated',
-            projectId: artifact.projectId,
-            issueId: artifact.issueId,
-          })
-        }
-      } catch (error) {
-        staleError = toPlanningArtifactError(error)
-
-        log.warn('[desktop-ipc] planning proactive artifact load failed', {
-          workspacePath,
-          projectRef,
-          trackerKind: tracker?.kind ?? 'unknown',
-          repo: tracker?.kind === 'github' ? `${tracker.repoOwner}/${tracker.repoName}` : undefined,
-          error: staleError,
-        })
-      }
-    } catch (error) {
-      return {
-        success: false,
-        artifacts: [],
-        stale: false,
-        error: toPlanningArtifactError(error),
-      }
-    }
-
-    const artifacts = Array.from(planningArtifactsByKey.values())
-      .filter((artifact) => {
-        if (!startupScopePrefix) {
-          return true
-        }
-
-        const metadata = planningMetadataByKey.get(artifact.artifactKey)
-        if (metadata?.toolName !== 'startup_proactive_load') {
-          return true
-        }
-
-        return metadata.toolCallId.startsWith(startupScopePrefix)
-      })
-      .sort((left, right) => {
-        return Date.parse(right.updatedAt) - Date.parse(left.updatedAt)
-      })
-
-    if (staleError) {
-      if (artifacts.length === 0) {
-        return {
-          success: false,
-          artifacts: [],
-          stale: false,
-          error: staleError,
-        }
-      }
-
-      return {
-        success: true,
-        artifacts,
-        stale: true,
-        error: staleError,
-      }
-    }
-
-    return {
-      success: true,
-      artifacts,
-      stale: false,
-    }
-  })
 
   ipcMain.handle(IPC_CHANNELS.workflowGetBoard, async (): Promise<WorkflowBoardSnapshotResponse> => {
     const response = await workflowBoardService.getBoard()
@@ -2522,7 +1862,6 @@ export function registerSessionIpc({
     agentActivityJournal?.off('update', onAgentActivityUpdate)
     reliabilityAggregator.off('snapshot', onReliabilitySnapshot)
     reliabilityAggregator.off('stability', onStabilitySnapshot)
-    planningToolDetector.off('artifact', onPlanningArtifactEvent)
 
     ipcMain.removeHandler(IPC_CHANNELS.sessionSend)
     ipcMain.removeHandler(IPC_CHANNELS.sessionStop)
@@ -2547,8 +1886,6 @@ export function registerSessionIpc({
     ipcMain.removeHandler(IPC_CHANNELS.authSetKey)
     ipcMain.removeHandler(IPC_CHANNELS.authRemoveKey)
     ipcMain.removeHandler(IPC_CHANNELS.authValidateKey)
-    ipcMain.removeHandler(IPC_CHANNELS.planningFetchArtifact)
-    ipcMain.removeHandler(IPC_CHANNELS.planningListArtifacts)
     ipcMain.removeHandler(IPC_CHANNELS.workflowGetBoard)
     ipcMain.removeHandler(IPC_CHANNELS.workflowRefreshBoard)
     ipcMain.removeHandler(IPC_CHANNELS.workflowSetBoardActive)
@@ -2582,76 +1919,6 @@ export function registerSessionIpc({
   }
 }
 
-function detectArtifactTypeFromTitle(title: string): ArtifactType | undefined {
-  const normalized = normalizeArtifactTitle(title)
-  const trimmedTitle = title.trim()
-
-  if (
-    /-ROADMAP(?:\b|$)/.test(normalized) ||
-    normalized === 'ROADMAP' ||
-    /^\[M\d{3}\]\s+/.test(trimmedTitle)
-  ) {
-    return 'roadmap'
-  }
-
-  if (normalized === 'REQUIREMENTS' || /-REQUIREMENTS(?:\b|$)/.test(normalized)) {
-    return 'requirements'
-  }
-
-  if (normalized === 'DECISIONS' || /-DECISIONS(?:\b|$)/.test(normalized)) {
-    return 'decisions'
-  }
-
-  if (/-CONTEXT(?:\b|$)/.test(normalized) || normalized === 'CONTEXT') {
-    return 'context'
-  }
-
-  if (
-    /^\[S\d+\]\s+/.test(title.trim()) ||
-    /^S\d+[:\-\s]/.test(title.trim()) ||
-    /^SLICE:/.test(normalized)
-  ) {
-    return 'slice'
-  }
-
-  return undefined
-}
-
-function normalizeArtifactTitle(title: string): string {
-  return title.trim().toUpperCase().replace(/^KATA-DOC\s*:\s*/, '')
-}
-
-function isStartupProactiveArtifactType(artifactType: ArtifactType | undefined): boolean {
-  return (
-    artifactType === 'roadmap' ||
-    artifactType === 'requirements' ||
-    artifactType === 'decisions' ||
-    artifactType === 'context'
-  )
-}
-
-function toPlanningArtifactErrorCode(code: string): PlanningArtifactErrorCode {
-  switch (code) {
-    case 'MISSING_API_KEY':
-    case 'UNAUTHORIZED':
-    case 'NOT_FOUND':
-    case 'RATE_LIMITED':
-    case 'NETWORK':
-    case 'GRAPHQL':
-      return code
-    default:
-      return 'UNKNOWN'
-  }
-}
-
-function toPlanningArtifactError(error: unknown): PlanningArtifactError {
-  if (error instanceof GithubPlanningClientError) {
-    return GithubPlanningClient.toPlanningArtifactError(error)
-  }
-
-  return LinearDocumentClient.toPlanningArtifactError(error)
-}
-
 async function readLinearProjectReference(workspacePath: string): Promise<string | null> {
   const preferencesPath = path.join(workspacePath, '.kata', 'preferences.md')
 
@@ -2668,7 +1935,7 @@ async function readLinearProjectReference(workspacePath: string): Promise<string
       return null
     }
 
-    log.warn('[desktop-ipc] unable to read .kata/preferences.md for proactive planning load', {
+    log.warn('[desktop-ipc] unable to read .kata/preferences.md while resolving Linear project', {
       workspacePath,
       preferencesPath,
       error: error instanceof Error ? error.message : String(error),
@@ -2780,22 +2047,3 @@ function stripYamlWrapping(value: string): string {
   return value.replace(/^['"]/, '').replace(/['"]$/, '').trim()
 }
 
-function extractSliceIdFromTitle(title: string): string | undefined {
-  const match = title.match(/S\d+/i)
-  return match?.[0]?.toUpperCase()
-}
-
-function mergeSliceTasks(
-  existingTasks: PlanningSliceData['tasks'],
-  newTasks: PlanningSliceData['tasks'],
-): PlanningSliceData['tasks'] {
-  const mergedTasks = [...existingTasks]
-
-  for (const task of newTasks) {
-    if (!mergedTasks.some((existingTask) => existingTask.id === task.id)) {
-      mergedTasks.push(task)
-    }
-  }
-
-  return mergedTasks
-}
