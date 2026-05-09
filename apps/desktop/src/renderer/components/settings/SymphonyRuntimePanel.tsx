@@ -169,8 +169,8 @@ export function SymphonyRuntimePanel() {
 
         {status.phase === 'config_error' ? (
           <p className="text-muted-foreground" data-testid="symphony-config-guidance">
-            Configure <code>symphony.url</code> and <code>symphony.workflow_path</code> in
-            <code> .kata/preferences.md</code> or ensure <code>WORKFLOW.md</code> exists.
+            Configure <code>symphony.url</code> in <code>.kata/preferences.md</code> or ensure
+            <code> .symphony/WORKFLOW.md</code> exists.
           </p>
         ) : null}
       </CardContent>

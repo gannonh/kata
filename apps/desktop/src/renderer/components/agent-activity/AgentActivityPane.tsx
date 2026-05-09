@@ -35,7 +35,7 @@ export function AgentActivityPane() {
       <Card className="m-3 flex min-h-0 flex-1 flex-col border border-border bg-card/60 py-0">
         <CardHeader className="space-y-2 px-4 pt-4 pb-2">
           <div className="flex items-center justify-between gap-2">
-            <CardTitle className="text-sm text-foreground">Agent Activity</CardTitle>
+            <CardTitle className="text-sm text-foreground">Symphony</CardTitle>
             <div className="flex items-center gap-2">
               <ToggleGroup
                 type="single"
@@ -63,15 +63,6 @@ export function AgentActivityPane() {
                 data-testid="agent-activity-open-kanban"
               >
                 Kanban
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => setRightPaneOverride('planning')}
-                data-testid="agent-activity-open-planning"
-              >
-                Planning
               </Button>
               <Button
                 type="button"

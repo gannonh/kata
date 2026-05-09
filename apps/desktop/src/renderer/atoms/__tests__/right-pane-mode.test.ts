@@ -22,12 +22,13 @@ function context(mode: WorkflowContextSnapshot['mode']): WorkflowContextSnapshot
 }
 
 describe('right-pane mode resolver', () => {
-  test('uses automatic planning mode when planning context is active', () => {
+  test('uses automatic kanban mode when planning context is active', () => {
     const store = createStore()
     store.set(setWorkflowContextAtom, context('planning'))
 
-    expect(store.get(rightPaneModeAtom)).toBe('planning')
+    expect(store.get(rightPaneModeAtom)).toBe('kanban')
     expect(store.get(rightPaneResolutionAtom).source).toBe('automatic')
+    expect(store.get(rightPaneResolutionAtom).reason).toBe('planning_activity_detected')
   })
 
   test('uses automatic kanban mode when execution context is active', () => {
@@ -50,7 +51,7 @@ describe('right-pane mode resolver', () => {
     store.set(clearRightPaneOverrideAtom)
 
     expect(store.get(rightPaneOverrideAtom)).toBeNull()
-    expect(store.get(rightPaneModeAtom)).toBe('planning')
+    expect(store.get(rightPaneModeAtom)).toBe('kanban')
     expect(store.get(rightPaneResolutionAtom).source).toBe('automatic')
   })
 
@@ -62,5 +63,15 @@ describe('right-pane mode resolver', () => {
     expect(store.get(rightPaneOverrideAtom)).toBe('agent_activity')
     expect(store.get(rightPaneModeAtom)).toBe('agent_activity')
     expect(store.get(rightPaneResolutionAtom).source).toBe('manual')
+  })
+
+  test('ignores manual planning overrides', () => {
+    const store = createStore()
+    store.set(setWorkflowContextAtom, context('execution'))
+    store.set(setRightPaneOverrideAtom, 'planning')
+
+    expect(store.get(rightPaneOverrideAtom)).toBeNull()
+    expect(store.get(rightPaneModeAtom)).toBe('kanban')
+    expect(store.get(rightPaneResolutionAtom).source).toBe('automatic')
   })
 })

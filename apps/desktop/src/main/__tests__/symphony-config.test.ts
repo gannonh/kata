@@ -118,12 +118,16 @@ describe('resolveSymphonyLaunch', () => {
     })
   })
 
-  test('resolves launch descriptor from preferences', async () => {
+  test('resolves launch descriptor from project-home workflow and preferences URL', async () => {
     const workspace = createWorkspace()
     cleanups.push(workspace.cleanup)
 
-    const workflowPath = path.join(workspace.workspacePath, 'workflow-test.md')
+    const workflowDir = path.join(workspace.workspacePath, '.symphony')
+    mkdirSync(workflowDir, { recursive: true })
+    const workflowPath = path.join(workflowDir, 'WORKFLOW.md')
     writeFileSync(workflowPath, '# workflow\n', 'utf8')
+    const legacyWorkflowPath = path.join(workspace.workspacePath, 'workflow-test.md')
+    writeFileSync(legacyWorkflowPath, '# legacy workflow\n', 'utf8')
     const executablePath = createExecutable(workspace.workspacePath, 'symphony-bin')
 
     writeFileSync(
@@ -132,7 +136,7 @@ describe('resolveSymphonyLaunch', () => {
         '---',
         'symphony:',
         '  url: http://127.0.0.1:8080',
-        `  workflow_path: ${workflowPath}`,
+        `  workflow_path: ${legacyWorkflowPath}`,
         '---',
       ].join('\n'),
       'utf8',
@@ -155,30 +159,41 @@ describe('resolveSymphonyLaunch', () => {
     expect(result.launch.command).toBe(executablePath)
     expect(result.launch.workflowPath).toBe(workflowPath)
     expect(result.launch.resolvedUrl).toBe('http://127.0.0.1:8080')
-    expect(result.launch.args).toEqual([workflowPath, '--no-tui', '--port', '8080'])
+    expect(result.launch.args).toEqual(['--no-tui', '--port', '8080'])
+    expect(result.launch.cwd).toBe(workspace.workspacePath)
   })
 
-  test('normalizes backslash workflow paths when resolving preferences', async () => {
+  test('uses ancestor project-home workflow and root preferences from nested app workspace', async () => {
     const workspace = createWorkspace()
     cleanups.push(workspace.cleanup)
 
-    const workflowDir = path.join(workspace.workspacePath, 'nested')
+    const workflowDir = path.join(workspace.workspacePath, '.symphony')
     mkdirSync(workflowDir, { recursive: true })
     const workflowPath = path.join(workflowDir, 'WORKFLOW.md')
-    writeFileSync(workflowPath, '# workflow\n', 'utf8')
-
+    writeFileSync(workflowPath, ['---', 'server:', '  port: 8080', '---'].join('\n'), 'utf8')
+    const nestedWorkspacePath = path.join(workspace.workspacePath, 'apps', 'desktop')
+    mkdirSync(path.join(nestedWorkspacePath, '.kata'), { recursive: true })
     const executablePath = createExecutable(workspace.workspacePath, 'symphony-bin')
 
     writeFileSync(
       path.join(workspace.workspacePath, '.kata', 'preferences.md'),
-      ['---', 'symphony:', '  url: http://127.0.0.1:8080', '  workflow_path: nested\\WORKFLOW.md', '---'].join(
-        '\n',
-      ),
+      ['---', 'symphony:', '  url: http://127.0.0.1:9090', '---'].join('\n'),
+      'utf8',
+    )
+    writeFileSync(
+      path.join(nestedWorkspacePath, '.kata', 'preferences.md'),
+      [
+        '---',
+        'symphony:',
+        '  url: http://127.0.0.1:8080',
+        '  workflow_path: ../symphony/WORKFLOW.md',
+        '---',
+      ].join('\n'),
       'utf8',
     )
 
     const result = await resolveSymphonyLaunch({
-      workspacePath: workspace.workspacePath,
+      workspacePath: nestedWorkspacePath,
       appIsPackaged: false,
       env: {
         ...process.env,
@@ -191,7 +206,10 @@ describe('resolveSymphonyLaunch', () => {
       return
     }
 
+    expect(result.launch.cwd).toBe(workspace.workspacePath)
     expect(result.launch.workflowPath).toBe(workflowPath)
+    expect(result.launch.resolvedUrl).toBe('http://127.0.0.1:9090')
+    expect(result.launch.args).toEqual(['--no-tui', '--port', '9090'])
   })
 
   test('returns config error when URL is malformed', async () => {
@@ -222,7 +240,7 @@ describe('resolveSymphonyLaunch', () => {
     expect(result.error.code).toBe('CONFIG_INVALID')
   })
 
-  test('returns workflow path missing when configured path does not exist', async () => {
+  test('returns workflow path missing when no project-home or root workflow exists', async () => {
     const workspace = createWorkspace()
     cleanups.push(workspace.cleanup)
 
@@ -238,7 +256,7 @@ describe('resolveSymphonyLaunch', () => {
       workspacePath: workspace.workspacePath,
       appIsPackaged: false,
       // KATA_SYMPHONY_BIN_PATH absent — stripped by test-setup.ts (R029).
-      // This test exercises workflow path validation; binary resolution is not reached.
+      // This test exercises workflow discovery; binary resolution is not reached.
       env: process.env,
     })
 
@@ -250,7 +268,7 @@ describe('resolveSymphonyLaunch', () => {
     expect(result.error.code).toBe('WORKFLOW_PATH_MISSING')
   })
 
-  test('returns workflow path missing when configured workflow_path points to a directory', async () => {
+  test('returns workflow path missing when only legacy workflow_path points to a directory', async () => {
     const workspace = createWorkspace()
     cleanups.push(workspace.cleanup)
 
@@ -267,7 +285,7 @@ describe('resolveSymphonyLaunch', () => {
       workspacePath: workspace.workspacePath,
       appIsPackaged: false,
       // KATA_SYMPHONY_BIN_PATH absent — stripped by test-setup.ts (R029).
-      // This test exercises workflow path validation; binary resolution is not reached.
+      // This test exercises workflow discovery; binary resolution is not reached.
       env: process.env,
     })
 
@@ -331,12 +349,7 @@ describe('resolveSymphonyLaunch', () => {
 
     expect(result.launch.urlSource).toBe('env')
     expect(result.launch.workflowPathSource).toBe('default')
-    expect(result.launch.args).toEqual([
-      path.join(workspace.workspacePath, 'WORKFLOW.md'),
-      '--no-tui',
-      '--port',
-      '9090',
-    ])
+    expect(result.launch.args).toEqual(['--no-tui', '--port', '9090'])
   })
 
   test('returns workflow path missing when default WORKFLOW.md is a directory', async () => {
@@ -363,29 +376,32 @@ describe('resolveSymphonyLaunch', () => {
     expect(result.error.code).toBe('WORKFLOW_PATH_MISSING')
   })
 
-  test('returns config missing when no URL is configured', async () => {
+  test('uses workflow server port when no URL is configured', async () => {
     const workspace = createWorkspace()
     cleanups.push(workspace.cleanup)
 
-    writeFileSync(path.join(workspace.workspacePath, 'WORKFLOW.md'), '# workflow\n', 'utf8')
+    writeFileSync(path.join(workspace.workspacePath, 'WORKFLOW.md'), ['---', 'server:', '  port: 8181', '---'].join('\n'), 'utf8')
+    const executablePath = createExecutable(workspace.workspacePath, 'default-url-bin')
 
     const result = await resolveSymphonyLaunch({
       workspacePath: workspace.workspacePath,
       appIsPackaged: false,
       env: {
         ...process.env,
-        // KATA_SYMPHONY_BIN_PATH absent — stripped by test-setup.ts (R029)
+        KATA_SYMPHONY_BIN_PATH: executablePath,
         KATA_SYMPHONY_URL: '',
         SYMPHONY_URL: '',
       },
     })
 
-    expect(result.ok).toBe(false)
-    if (result.ok) {
+    expect(result.ok).toBe(true)
+    if (!result.ok) {
       return
     }
 
-    expect(result.error.code).toBe('CONFIG_MISSING')
+    expect(result.launch.urlSource).toBe('default')
+    expect(result.launch.resolvedUrl).toBe('http://127.0.0.1:8181')
+    expect(result.launch.args).toEqual(['--no-tui', '--port', '8181'])
   })
 
   test('returns binary not found when env binary path is invalid', async () => {

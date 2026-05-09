@@ -1,4 +1,4 @@
-import { Activity, LayoutGrid, RefreshCcw } from 'lucide-react'
+import { Activity, RefreshCcw } from 'lucide-react'
 import type {
   RightPaneResolution,
   RightPaneOverride,
@@ -212,7 +212,6 @@ interface KanbanHeaderProps {
   onResetColumnOverrides: () => void
   onExpandAllCards: () => void
   onCollapseAllCards: () => void
-  onOpenPlanningView: () => void
   onOpenAgentActivityView: () => void
   onRefresh: () => void
   onClearOverride: () => void
@@ -236,7 +235,6 @@ export function KanbanHeader({
   onResetColumnOverrides,
   onExpandAllCards,
   onCollapseAllCards,
-  onOpenPlanningView,
   onOpenAgentActivityView,
   onRefresh,
   onClearOverride,
@@ -314,15 +312,11 @@ export function KanbanHeader({
             </Badge>
           ) : null}
 
-          <Button type="button" size="icon" variant="ghost" aria-label="Open planning view" onClick={onOpenPlanningView}>
-            <LayoutGrid className="size-4" />
-          </Button>
-
           <Button
             type="button"
             size="icon"
             variant="ghost"
-            aria-label="Open agent activity view"
+            aria-label="Open Symphony view"
             onClick={onOpenAgentActivityView}
             data-testid="kanban-open-agent-activity"
           >

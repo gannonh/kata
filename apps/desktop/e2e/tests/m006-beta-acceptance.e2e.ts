@@ -17,17 +17,12 @@ test.describe('m006 integrated beta acceptance — happy path', () => {
     await readyWindow.getByTestId('chat-input').fill('/kata plan integrated beta acceptance gate')
     await readyWindow.getByRole('button', { name: /^Send$/i }).click()
 
-    await readyWindow.getByRole('button', { name: /Open planning view/i }).click()
-
-    await expect(readyWindow.getByRole('heading', { name: /Planning View/i })).toBeVisible()
-    await expect(readyWindow.getByRole('tab', { name: /\[S04\]/i })).toBeVisible({ timeout: 10_000 })
-    await expect(readyWindow.getByRole('tab', { name: /\[S03\]/i })).toBeVisible({ timeout: 10_000 })
-
-    await readyWindow.getByRole('button', { name: /Close planning view/i }).click()
-    await expect(readyWindow.getByRole('heading', { name: /Planning View/i })).toHaveCount(0)
     await expect(readyWindow.getByTestId('workflow-kanban-pane')).toBeVisible()
     await expect(readyWindow.getByTestId('kanban-column-in_progress')).toBeVisible()
     await expect(readyWindow.getByTestId('kanban-column-todo')).toBeVisible()
+
+    await readyWindow.getByRole('button', { name: /Open Symphony view/i }).click()
+    await expect(readyWindow.getByTestId('agent-activity-pane')).toBeVisible()
 
     await readyWindow.getByRole('button', { name: 'Settings', exact: true }).click()
     await readyWindow.getByRole('tab', { name: /^Symphony$/i }).click()
@@ -98,11 +93,11 @@ test.describe('m006 integrated beta acceptance — recovery path', () => {
 
     await readyWindow.getByRole('button', { name: /^Close$/i }).click()
 
-    const closePlanningView = readyWindow.getByRole('button', { name: /Close planning view/i })
-    if (await closePlanningView.isVisible({ timeout: 1_000 }).catch(() => false)) {
-      await closePlanningView.click()
-      await expect(readyWindow.getByTestId('workflow-kanban-pane')).toBeVisible()
+    const openKanbanFromSymphony = readyWindow.getByTestId('agent-activity-open-kanban')
+    if (await openKanbanFromSymphony.isVisible({ timeout: 1_000 }).catch(() => false)) {
+      await openKanbanFromSymphony.click()
     }
+    await expect(readyWindow.getByTestId('workflow-kanban-pane')).toBeVisible()
 
     await readyWindow.getByTestId('kanban-refresh-board').click()
     const symphonyStaleNotice = readyWindow.getByTestId('board-state-notice-symphony-stale')
@@ -129,11 +124,11 @@ test.describe('m006 integrated beta acceptance — recovery path', () => {
 
     await readyWindow.getByTestId('reliability-banner-recover').click()
 
-    const closePlanningViewAfterRecovery = readyWindow.getByRole('button', { name: /Close planning view/i })
-    if (await closePlanningViewAfterRecovery.isVisible({ timeout: 1_000 }).catch(() => false)) {
-      await closePlanningViewAfterRecovery.click()
-      await expect(readyWindow.getByTestId('workflow-kanban-pane')).toBeVisible()
+    const openKanbanAfterRecovery = readyWindow.getByTestId('agent-activity-open-kanban')
+    if (await openKanbanAfterRecovery.isVisible({ timeout: 1_000 }).catch(() => false)) {
+      await openKanbanAfterRecovery.click()
     }
+    await expect(readyWindow.getByTestId('workflow-kanban-pane')).toBeVisible()
 
     await readyWindow.getByTestId('kanban-refresh-board').click()
 

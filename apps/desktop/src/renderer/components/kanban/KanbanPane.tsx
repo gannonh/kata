@@ -109,7 +109,6 @@ export function KanbanPane() {
         }}
         onExpandAllCards={() => expandAllCards()}
         onCollapseAllCards={() => collapseAllCards()}
-        onOpenPlanningView={() => setRightPaneOverride('planning')}
         onOpenAgentActivityView={() => setRightPaneOverride('agent_activity')}
         onRefresh={() => {
           if (refreshDisabled) {
