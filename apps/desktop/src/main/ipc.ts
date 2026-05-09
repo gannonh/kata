@@ -5,7 +5,7 @@ import { promisify } from 'node:util'
 import { dialog, ipcMain, shell, type BrowserWindow } from 'electron'
 import { createKataDomainApi } from '../../../cli/src/domain/service'
 import { GithubProjectsV2SnapshotAdapter } from '../../../cli/src/backends/github-projects-v2/snapshot-adapter'
-import { LinearKataAdapter } from '../../../cli/src/backends/linear/adapter'
+import { LinearSnapshotAdapter } from '../../../cli/src/backends/linear/snapshot-adapter'
 import type { KataArtifact, KataArtifactType } from '../../../cli/src/domain/types'
 import log from './logger'
 import { listBuiltinCommands } from './command-registry'
@@ -812,7 +812,7 @@ export function registerSessionIpc({
                 .filter((artifact): artifact is KataArtifact => Boolean(artifact))
             },
           })
-        : new LinearKataAdapter({
+        : new LinearSnapshotAdapter({
             fetchActiveMilestoneSnapshot: async () => emptyBoardSnapshot,
             listArtifacts: async () => {
               if (!projectRef) {
