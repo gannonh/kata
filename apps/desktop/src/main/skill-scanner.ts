@@ -18,17 +18,24 @@ let lastRefreshAt = 0
 let inFlightRefresh: Promise<SlashCommandEntry[]> | null = null
 let inFlightWorkspacePath: string | null = null
 
+function resolvePackagedSkillRoot(): string[] {
+  const packagedSkillRoot = process.env.KATA_SKILL_ROOT?.trim()
+
+  return packagedSkillRoot ? [path.resolve(packagedSkillRoot)] : []
+}
+
 function resolveSkillDirectories(workspacePath?: string): string[] {
   const homeDirectory = os.homedir()
   const resolvedWorkspacePath = workspacePath ? path.resolve(workspacePath) : process.cwd()
-
-  return SKILL_DIRECTORIES.map((directoryPath) => {
+  const configuredDirectories = SKILL_DIRECTORIES.map((directoryPath) => {
     if (directoryPath.startsWith('~/')) {
       return path.join(homeDirectory, directoryPath.slice(2))
     }
 
     return path.join(resolvedWorkspacePath, directoryPath)
   })
+
+  return [...resolvePackagedSkillRoot(), ...configuredDirectories]
 }
 
 function stripYamlWrapping(value: string): string {

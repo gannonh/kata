@@ -93,7 +93,7 @@ const REQUIREMENTS_SAMPLE = `# Requirements
 
 * Class: core-capability
 * Status: validated
-* Description: Desktop runs pi-coding-agent via kata --mode rpc.
+* Description: Desktop runs pi-coding-agent via pi --mode rpc.
 * Primary owning slice: M001/S01
 * Validation: e2e
 

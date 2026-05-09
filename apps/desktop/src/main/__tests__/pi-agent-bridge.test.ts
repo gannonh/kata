@@ -551,7 +551,7 @@ describe('PiAgentBridge additional coverage', () => {
     bridge.handleStdoutLine('not-json')
     expect(rpcEvents.at(-1)).toEqual({
       type: 'agent_error',
-      message: 'Received non-JSON line from kata RPC subprocess',
+      message: 'Received non-JSON line from Pi RPC subprocess',
     })
 
     bridge.handleStdoutLine(JSON.stringify({ type: 'event', event: { type: 'foo', value: 1 } }))
@@ -1222,7 +1222,8 @@ rl.on('line', (line) => {
       const spawnEvent = debugEvents.find((event) => event.type === 'bridge:spawn')
       expect(spawnEvent).toMatchObject({
         command: bundledLauncherPath,
-        args: ['--mode', 'rpc', '--cwd', workspacePath],
+        args: ['--mode', 'rpc'],
+        cwd: workspacePath,
         runtimeMode: 'pi-runtime',
       })
 

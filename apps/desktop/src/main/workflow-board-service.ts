@@ -2,7 +2,7 @@ import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import { createKataDomainApi } from '../../../cli/src/domain/service'
 import { GithubProjectsV2SnapshotAdapter } from '../../../cli/src/backends/github-projects-v2/snapshot-adapter'
-import { LinearKataAdapter } from '../../../cli/src/backends/linear/adapter'
+import { LinearSnapshotAdapter } from '../../../cli/src/backends/linear/snapshot-adapter'
 import { WORKFLOW_COLUMNS } from '../shared/types'
 import { AuthBridge } from './auth-bridge'
 import { LinearWorkflowClient, mapLinearStateToColumnId } from './linear-workflow-client'
@@ -1564,7 +1564,7 @@ export class WorkflowBoardService {
         ? new GithubProjectsV2SnapshotAdapter({
             fetchProjectSnapshot: async () => rawSnapshot,
           })
-        : new LinearKataAdapter({
+        : new LinearSnapshotAdapter({
             fetchActiveMilestoneSnapshot: async () => rawSnapshot,
           })
 

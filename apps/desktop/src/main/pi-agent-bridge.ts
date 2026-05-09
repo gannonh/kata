@@ -218,7 +218,7 @@ export class PiAgentBridge extends EventEmitter {
 
     const launchModel = this.skipModelOnNextStart ? null : this.selectedModel
     this.skipModelOnNextStart = false
-    const args = ['--mode', 'rpc', '--cwd', this.workspacePath]
+    const args = ['--mode', 'rpc']
     if (launchModel) {
       args.push('--model', launchModel)
     }
@@ -879,7 +879,7 @@ export class PiAgentBridge extends EventEmitter {
     } catch {
       this.emit('rpc-event', {
         type: 'agent_error',
-        message: 'Received non-JSON line from kata RPC subprocess',
+        message: 'Received non-JSON line from Pi RPC subprocess',
       })
       return
     }
