@@ -1,4 +1,4 @@
-import { Activity, RefreshCcw } from 'lucide-react'
+import { Activity, Kanban, RefreshCcw } from 'lucide-react'
 import type {
   RightPaneResolution,
   RightPaneOverride,
@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Separator } from '@/components/ui/separator'
+import { RightPaneHeader } from '@/components/app-shell/RightPaneHeader'
 
 const SCOPE_OPTIONS: Array<{ scope: WorkflowBoardScope; label: string }> = [
   { scope: 'active', label: 'Active' },
@@ -240,102 +241,116 @@ export function KanbanHeader({
 }: KanbanHeaderProps) {
   return (
     <>
-      <div className="flex h-14 items-center justify-between px-4">
-        <div className="min-w-0">
-          <h2 className="text-xs font-semibold tracking-wide uppercase text-muted-foreground">Workflow Board</h2>
-          <p className="truncate text-sm font-medium text-foreground">
-            {formatActiveMilestoneHeader(board, selectedScope)}
-          </p>
-        </div>
+      <RightPaneHeader
+        eyebrow="Workflow Board"
+        title={formatActiveMilestoneHeader(board, selectedScope)}
+        actions={
+          <>
+            <div className="mr-1 flex items-center rounded-md border border-border/70 bg-background/70 p-0.5">
+              {SCOPE_OPTIONS.map((option) => (
+                <Button
+                  key={option.scope}
+                  type="button"
+                  size="sm"
+                  variant={selectedScope === option.scope ? 'secondary' : 'ghost'}
+                  className="h-7 px-2 text-[11px]"
+                  aria-label={`Show ${option.label} scope`}
+                  onClick={() => onScopeChange(option.scope)}
+                >
+                  {option.label}
+                </Button>
+              ))}
+            </div>
 
-        <div className="flex items-center gap-1">
-          <div className="mr-1 flex items-center rounded-md border border-border/70 bg-background/70 p-0.5">
-            {SCOPE_OPTIONS.map((option) => (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="mr-1 h-7 px-2 text-[11px]"
+                  data-testid="kanban-view-menu-trigger"
+                >
+                  View
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuLabel>Board view</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                  <DropdownMenuItem
+                    onSelect={onExpandAllColumns}
+                    disabled={collapsedColumnCount === 0}
+                    data-testid="kanban-expand-all-columns"
+                  >
+                    Expand all columns
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={onResetColumnOverrides}
+                    disabled={!hasExplicitColumnOverrides}
+                    data-testid="kanban-reset-columns"
+                  >
+                    Reset columns to auto
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={onExpandAllCards} data-testid="kanban-expand-all-cards">
+                    Expand all cards
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={onCollapseAllCards} data-testid="kanban-collapse-all-cards">
+                    Collapse all cards
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {collapsedColumnCount > 0 ? (
+              <Badge variant="secondary" className="mr-1">
+                {collapsedColumnCount} column{collapsedColumnCount === 1 ? '' : 's'} collapsed
+              </Badge>
+            ) : null}
+
+            <div className="mr-1 flex items-center rounded-md border border-border/70 bg-background/70 p-0.5">
               <Button
-                key={option.scope}
                 type="button"
                 size="sm"
-                variant={selectedScope === option.scope ? 'secondary' : 'ghost'}
-                className="h-7 px-2 text-[11px]"
-                aria-label={`Show ${option.label} scope`}
-                onClick={() => onScopeChange(option.scope)}
+                variant="secondary"
+                className="h-7 gap-1 px-2 text-[11px]"
+                aria-label="Kanban view"
+                aria-current="page"
               >
-                {option.label}
+                <Kanban className="size-3.5" />
+                Kanban
               </Button>
-            ))}
-          </div>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
               <Button
                 type="button"
                 size="sm"
-                variant="outline"
-                className="mr-1 h-7 px-2 text-[11px]"
-                data-testid="kanban-view-menu-trigger"
+                variant="ghost"
+                className="h-7 gap-1 px-2 text-[11px]"
+                aria-label="Open Symphony view"
+                onClick={onOpenAgentActivityView}
+                data-testid="kanban-open-agent-activity"
               >
-                View
+                <Activity className="size-3.5" />
+                Symphony
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuLabel>Board view</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuGroup>
-                <DropdownMenuItem
-                  onSelect={onExpandAllColumns}
-                  disabled={collapsedColumnCount === 0}
-                  data-testid="kanban-expand-all-columns"
-                >
-                  Expand all columns
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={onResetColumnOverrides}
-                  disabled={!hasExplicitColumnOverrides}
-                  data-testid="kanban-reset-columns"
-                >
-                  Reset columns to auto
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={onExpandAllCards} data-testid="kanban-expand-all-cards">
-                  Expand all cards
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={onCollapseAllCards} data-testid="kanban-collapse-all-cards">
-                  Collapse all cards
-                </DropdownMenuItem>
-              </DropdownMenuGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            </div>
 
-          {collapsedColumnCount > 0 ? (
-            <Badge variant="secondary" className="mr-1">
-              {collapsedColumnCount} column{collapsedColumnCount === 1 ? '' : 's'} collapsed
-            </Badge>
-          ) : null}
-
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            aria-label="Open Symphony view"
-            onClick={onOpenAgentActivityView}
-            data-testid="kanban-open-agent-activity"
-          >
-            <Activity className="size-4" />
-          </Button>
-
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            aria-label="Refresh workflow board"
-            onClick={onRefresh}
-            disabled={refreshDisabled}
-            title="Refresh workflow board (⌘⇧R / Ctrl+Shift+R)"
-            data-testid="kanban-refresh-board"
-          >
-            <RefreshCcw className="size-4" />
-          </Button>
-        </div>
-      </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-7 gap-1 px-2 text-[11px]"
+              aria-label="Refresh workflow board"
+              onClick={onRefresh}
+              disabled={refreshDisabled}
+              title="Refresh workflow board (⌘⇧R / Ctrl+Shift+R)"
+              data-testid="kanban-refresh-board"
+            >
+              <RefreshCcw className="size-3.5" />
+              Refresh
+            </Button>
+          </>
+        }
+      />
 
       <Separator />
 
