@@ -1,3 +1,9 @@
+import { createHash } from "node:crypto";
+import { mkdir, rm, stat, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
+
 import type {
   KataArtifact,
   KataArtifactType,
@@ -184,6 +190,11 @@ const COMMENTS_PER_PAGE = 100;
 const MAX_COMMENT_PAGES = 100;
 const SUB_ISSUES_PER_PAGE = 100;
 const MAX_SUB_ISSUE_PAGES = 100;
+const TASK_CREATE_LOCK_STALE_MS = 5 * 60 * 1000;
+const TASK_CREATE_LOCK_RETRY_MS = 100;
+const TASK_CREATE_LOCK_TIMEOUT_MS = 60 * 1000;
+const SUB_ISSUE_ATTACH_RETRY_ATTEMPTS = 4;
+const SUB_ISSUE_ATTACH_RETRY_MS = 250;
 
 const ADD_PROJECT_ITEM_MUTATION = `
   mutation AddKataProjectV2Item($projectId: ID!, $contentId: ID!) {
@@ -567,46 +578,48 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
   }
 
   async createTask(input: KataTaskCreateInput): Promise<KataTask> {
-    await this.discoverEntities();
-    await this.getFieldIndex();
-    const sliceEntity = await this.requireEntity(input.sliceId, "Slice");
-    const milestoneEntity = sliceEntity.parentId
-      ? await this.requireEntity(sliceEntity.parentId, "Milestone")
-      : null;
-    const kataId = this.nextKataId("Task");
-    const entity = await this.createIssueEntity({
-      kataId,
-      type: "Task",
-      parentId: input.sliceId,
-      title: `[${kataId}] ${input.title}`,
-      body: input.description,
-      issueBody: {
-        milestone: requireNativeGithubMilestoneNumber(milestoneEntity ?? sliceEntity),
-      },
-    });
-    const uniqueEntity = await this.ensureCreatedEntityHasUniqueId(entity, {
-      title: input.title,
-      body: input.description,
-    });
+    return this.withTaskCreateLock(input.sliceId, async () => {
+      await this.discoverEntities();
+      await this.getFieldIndex();
+      const sliceEntity = await this.requireEntity(input.sliceId, "Slice");
+      const milestoneEntity = sliceEntity.parentId
+        ? await this.requireEntity(sliceEntity.parentId, "Milestone")
+        : null;
+      const kataId = this.nextKataId("Task");
+      const entity = await this.createIssueEntity({
+        kataId,
+        type: "Task",
+        parentId: input.sliceId,
+        title: `[${kataId}] ${input.title}`,
+        body: input.description,
+        issueBody: {
+          milestone: requireNativeGithubMilestoneNumber(milestoneEntity ?? sliceEntity),
+        },
+      });
+      const uniqueEntity = await this.ensureCreatedEntityHasUniqueId(entity, {
+        title: input.title,
+        body: input.description,
+      });
 
-    await this.attachSubIssue(sliceEntity, uniqueEntity);
+      await this.attachSubIssue(sliceEntity, uniqueEntity);
 
-    await this.syncProjectFields(uniqueEntity, {
-      type: "Task",
-      parentId: input.sliceId,
-      status: "Backlog",
-      artifactScope: uniqueEntity.kataId,
-      verificationState: "pending",
+      await this.syncProjectFields(uniqueEntity, {
+        type: "Task",
+        parentId: input.sliceId,
+        status: "Backlog",
+        artifactScope: uniqueEntity.kataId,
+        verificationState: "pending",
+      });
+
+      return {
+        id: uniqueEntity.kataId,
+        sliceId: input.sliceId,
+        title: input.title,
+        description: input.description,
+        status: "backlog",
+        verificationState: "pending",
+      };
     });
-
-    return {
-      id: uniqueEntity.kataId,
-      sliceId: input.sliceId,
-      title: input.title,
-      description: input.description,
-      status: "backlog",
-      verificationState: "pending",
-    };
   }
 
   async updateTaskStatus(input: KataTaskUpdateStatusInput): Promise<KataTask> {
@@ -1074,13 +1087,56 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
   }
 
   private async attachSubIssue(parent: TrackedEntity, child: TrackedEntity): Promise<void> {
-    await this.client.rest({
-      method: "POST",
-      path: `/repos/${this.owner}/${this.repo}/issues/${parent.issueNumber}/sub_issues`,
-      body: {
-        sub_issue_id: child.issueId,
-      },
+    for (let attempt = 1; attempt <= SUB_ISSUE_ATTACH_RETRY_ATTEMPTS; attempt += 1) {
+      try {
+        await this.client.rest({
+          method: "POST",
+          path: `/repos/${this.owner}/${this.repo}/issues/${parent.issueNumber}/sub_issues`,
+          body: {
+            sub_issue_id: child.issueId,
+          },
+        });
+        return;
+      } catch (error) {
+        if (attempt === SUB_ISSUE_ATTACH_RETRY_ATTEMPTS || !isGithubSubIssuePriorityCollision(error)) {
+          throw error;
+        }
+        await sleep(SUB_ISSUE_ATTACH_RETRY_MS * attempt);
+      }
+    }
+  }
+
+  private async withTaskCreateLock<T>(sliceId: string, run: () => Promise<T>): Promise<T> {
+    const lockDir = taskCreateLockDir({
+      owner: this.owner,
+      repo: this.repo,
+      projectNumber: this.projectNumber,
+      workspacePath: this.workspacePath,
+      sliceId,
     });
+    const startedAt = Date.now();
+    await mkdir(join(tmpdir(), "kata-cli-locks"), { recursive: true });
+
+    while (true) {
+      try {
+        await mkdir(lockDir, { recursive: false });
+        await writeFile(join(lockDir, "owner"), `${process.pid}\n`, "utf8");
+        break;
+      } catch (error) {
+        if (!isNodeErrorCode(error, "EEXIST")) throw error;
+        await removeStaleLock(lockDir);
+        if (Date.now() - startedAt > TASK_CREATE_LOCK_TIMEOUT_MS) {
+          throw new KataDomainError("UNKNOWN", `Timed out waiting for GitHub task creation lock for ${sliceId}.`);
+        }
+        await sleep(TASK_CREATE_LOCK_RETRY_MS);
+      }
+    }
+
+    try {
+      return await run();
+    } finally {
+      await rm(lockDir, { recursive: true, force: true });
+    }
   }
 
   private async updateIssueEntity(
@@ -1491,6 +1547,40 @@ function dependencyIdsFromNodes(
   return parseSliceDependencyIds(
     nodes.map((node) => (node?.id ? sliceIdByContentId.get(node.id) ?? "" : "")),
   );
+}
+
+function taskCreateLockDir(input: {
+  owner: string;
+  repo: string;
+  projectNumber: number;
+  workspacePath: string;
+  sliceId: string;
+}): string {
+  const lockKey = createHash("sha256")
+    .update([input.owner, input.repo, input.projectNumber, input.workspacePath, input.sliceId].join("\0"))
+    .digest("hex")
+    .slice(0, 32);
+  return join(tmpdir(), "kata-cli-locks", `github-task-create-${lockKey}.lock`);
+}
+
+async function removeStaleLock(lockDir: string): Promise<void> {
+  try {
+    const lockStats = await stat(lockDir);
+    if (Date.now() - lockStats.mtimeMs > TASK_CREATE_LOCK_STALE_MS) {
+      await rm(lockDir, { recursive: true, force: true });
+    }
+  } catch (error) {
+    if (!isNodeErrorCode(error, "ENOENT")) throw error;
+  }
+}
+
+function isGithubSubIssuePriorityCollision(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return /GitHub request failed \(422\)/.test(error.message) && /Priority has already been taken/i.test(error.message);
+}
+
+function isNodeErrorCode(error: unknown, code: string): boolean {
+  return typeof error === "object" && error !== null && "code" in error && (error as { code?: unknown }).code === code;
 }
 
 function statusFromProjectFields(

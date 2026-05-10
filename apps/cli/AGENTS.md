@@ -4,7 +4,7 @@ Kata Skills runtime and backend contract bridge.
 
 This package provides the durable operation layer for Kata project workflows. Skills and harnesses call into it for project, milestone, slice, task, artifact, progress, and completion operations instead of writing directly to backend systems.
 
-The `0.16.x` line is the stable release for the Kata Skills runtime and backend contract bridge. Version `0.16.1` fixes planned-slice dependency extraction and symlinked global skill refreshes.
+The `0.16.x` line is the stable release for the Kata Skills runtime and backend contract bridge. Version `0.16.1` fixes planned-slice dependency extraction, symlinked global skill refreshes, and concurrent GitHub task creation.
 
 Install with:
 

@@ -4,6 +4,7 @@
 
 - Fixes planned roadmap dependency extraction so phase-level `Depends on` summaries do not create false blockers between planned slices.
 - Fixes `kata setup --global` for Skiller-style symlinked skill entries by refreshing the resolved skill directory while preserving the symlink.
+- Serializes GitHub task creation per slice and retries transient sub-issue priority collisions so parallel `task.create` calls return distinct, linked tasks.
 
 ## 0.16.0
 
