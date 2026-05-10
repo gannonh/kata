@@ -926,6 +926,92 @@ describe("Phase A domain contract", () => {
     });
   });
 
+  it("ignores phase-level dependency summaries as slice sources", async () => {
+    const api = createKataDomainApi({
+      ...createFakeAdapter(),
+      getActiveMilestone: async () => ({
+        id: "M001",
+        title: "Research roadmap",
+        goal: "Plan research work",
+        status: "active",
+        active: true,
+      }),
+      listSlices: async () => [],
+      listTasks: async () => [],
+      listArtifacts: async () => [],
+      readArtifact: async (input: KataArtifactReadInput) => ({
+        id: `${input.scopeType}:${input.scopeId}:${input.artifactType}`,
+        scopeType: input.scopeType,
+        scopeId: input.scopeId,
+        artifactType: input.artifactType,
+        title: input.artifactType,
+        content: input.artifactType === "roadmap"
+          ? [
+              "### Phase 1: Candidate Research Matrix",
+              "**Depends on:** None",
+              "**Requirements:** RSR-01",
+              "",
+              "| Planned Slice | Backend Slice ID | Blocked By | Requirements |",
+              "|---|---|---|---|",
+              "| Planned Slice 1: Candidate research matrix | None | None | RSR-01 |",
+              "",
+              "### Phase 2: Hands-on Stack Validation",
+              "**Depends on:** Planned Slice 1",
+              "**Requirements:** RSR-02, RSR-03, RSR-04",
+              "",
+              "| Planned Slice | Backend Slice ID | Blocked By | Requirements |",
+              "|---|---|---|---|",
+              "| Planned Slice 2: Hands-on stack validation | None | Planned Slice 1 | RSR-02, RSR-03, RSR-04 |",
+              "",
+              "### Phase 3: Architecture Recommendation",
+              "**Depends on:** Planned Slice 1, Planned Slice 2",
+              "**Requirements:** RSR-05, RSR-06",
+              "",
+              "| Planned Slice | Backend Slice ID | Blocked By | Requirements |",
+              "|---|---|---|---|",
+              "| Planned Slice 3: Architecture recommendation | None | Planned Slice 1, Planned Slice 2 | RSR-05, RSR-06 |",
+              "",
+              "### Phase 4: First Implementation Handoff",
+              "**Depends on:** Planned Slice 3",
+              "**Requirements:** RSR-07",
+              "",
+              "| Planned Slice | Backend Slice ID | Blocked By | Requirements |",
+              "|---|---|---|---|",
+              "| Planned Slice 4: First implementation handoff | None | Planned Slice 3 | RSR-07 |",
+              "",
+              "| Requirement | Phase/Planned Slice | Backend Slice ID | Blocked By | Status |",
+              "|---|---|---|---|---|",
+              "| RSR-01 | Phase 1 / Planned Slice 1 | None | None | Pending |",
+              "| RSR-02 | Phase 2 / Planned Slice 2 | None | Planned Slice 1 | Pending |",
+              "| RSR-03 | Phase 2 / Planned Slice 2 | None | Planned Slice 1 | Pending |",
+              "| RSR-04 | Phase 2 / Planned Slice 2 | None | Planned Slice 1 | Pending |",
+              "| RSR-05 | Phase 3 / Planned Slice 3 | None | Planned Slice 1, Planned Slice 2 | Pending |",
+              "| RSR-06 | Phase 3 / Planned Slice 3 | None | Planned Slice 1, Planned Slice 2 | Pending |",
+              "| RSR-07 | Phase 4 / Planned Slice 4 | None | Planned Slice 3 | Pending |",
+            ].join("\n")
+          : "RSR-01\nRSR-02\nRSR-03\nRSR-04\nRSR-05\nRSR-06\nRSR-07",
+        format: "markdown",
+        updatedAt: "2026-05-10T00:00:00.000Z",
+        provenance: { backend: "github", backendId: "comment:6" },
+      }),
+    });
+
+    const snapshot = await dispatchKataOperation(api, "project.getSnapshot") as KataProjectSnapshot;
+
+    expect(snapshot.roadmap.sliceDependencies).toMatchObject({
+      "Planned Slice 1": { blockedBy: [], blocking: ["Planned Slice 2", "Planned Slice 3"] },
+      "Planned Slice 2": { blockedBy: ["Planned Slice 1"], blocking: ["Planned Slice 3"] },
+      "Planned Slice 3": { blockedBy: ["Planned Slice 1", "Planned Slice 2"], blocking: ["Planned Slice 4"] },
+      "Planned Slice 4": { blockedBy: ["Planned Slice 3"], blocking: [] },
+    });
+    expect(snapshot.roadmap.implementationWaves).toEqual([
+      { index: 1, sliceIds: ["Planned Slice 1"] },
+      { index: 2, sliceIds: ["Planned Slice 2"] },
+      { index: 3, sliceIds: ["Planned Slice 3"] },
+      { index: 4, sliceIds: ["Planned Slice 4"] },
+    ]);
+  });
+
   it("selects the first unblocked execution slice", async () => {
     const api = createDependencySnapshotApi([
       { id: "S001", status: "backlog" },

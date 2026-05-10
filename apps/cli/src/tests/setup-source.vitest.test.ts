@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -117,6 +117,43 @@ describe("skills source resolution", () => {
       expect(preferences).toContain("workspace: kata");
       expect(preferences).toContain("team: KATA");
       expect(preferences).toContain("project: kata-cli");
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("refreshes managed skills through existing symlinked skill entries", async () => {
+    const tmp = mkdtempSync(join(tmpdir(), "kata-setup-symlink-"));
+    try {
+      const home = join(tmp, "home");
+      const sourceSkillDir = join(tmp, "apps", "cli", "skills", "kata-health");
+      const linkedSkillDir = join(tmp, "linked-skills", "kata-health");
+      writeFileSync(join(tmp, "pnpm-workspace.yaml"), "packages:\n  - apps/*\n", "utf8");
+      mkdirSync(sourceSkillDir, { recursive: true });
+      writeFileSync(join(sourceSkillDir, "SKILL.md"), "# Kata Health\n", "utf8");
+      mkdirSync(linkedSkillDir, { recursive: true });
+      writeFileSync(join(linkedSkillDir, "SKILL.md"), "# Old linked Kata Health\n", "utf8");
+      mkdirSync(join(home, ".agents", "skills"), { recursive: true });
+      symlinkSync(linkedSkillDir, join(home, ".agents", "skills", "kata-health"), "dir");
+
+      const result = await runSetup({
+        cwd: tmp,
+        env: { HOME: home, GH_TOKEN: "ghp_test" },
+        packageVersion: "9.9.9-test",
+        global: true,
+        interactive: false,
+        onboarding: {
+          repoOwner: "kata-sh",
+          repoName: "kata-mono",
+          githubProjectNumber: 12,
+        },
+      });
+
+      expect(result).toMatchObject({ ok: true });
+      const installedSkillPath = join(home, ".agents", "skills", "kata-health");
+      expect(lstatSync(installedSkillPath).isSymbolicLink()).toBe(true);
+      expect(readFileSync(join(installedSkillPath, "SKILL.md"), "utf8")).toBe("# Kata Health\n");
+      expect(readFileSync(join(linkedSkillDir, "SKILL.md"), "utf8")).toBe("# Kata Health\n");
     } finally {
       rmSync(tmp, { recursive: true, force: true });
     }

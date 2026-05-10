@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { cp, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { cp, lstat, mkdir, readFile, readdir, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -228,7 +228,18 @@ async function copyDirectoryContents(sourceDir: string, destinationDir: string):
   const entries = (await readdir(sourceDir)).sort();
 
   for (const entryName of entries) {
-    await cp(join(sourceDir, entryName), join(destinationDir, entryName), {
+    const sourcePath = join(sourceDir, entryName);
+    const destinationPath = join(destinationDir, entryName);
+    let copyDestinationPath = destinationPath;
+    try {
+      const destinationStats = await lstat(destinationPath);
+      if (destinationStats.isSymbolicLink()) {
+        copyDestinationPath = await realpath(destinationPath);
+      }
+    } catch {
+      // Missing destination entries are copied below.
+    }
+    await cp(sourcePath, copyDestinationPath, {
       recursive: true,
       force: true,
     });
