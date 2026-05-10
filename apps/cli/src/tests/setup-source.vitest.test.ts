@@ -159,6 +159,39 @@ describe("skills source resolution", () => {
     }
   });
 
+  it("reports dangling symlinked skill entries clearly", async () => {
+    const tmp = mkdtempSync(join(tmpdir(), "kata-setup-dangling-symlink-"));
+    try {
+      const home = join(tmp, "home");
+      const sourceSkillDir = join(tmp, "apps", "cli", "skills", "kata-health");
+      writeFileSync(join(tmp, "pnpm-workspace.yaml"), "packages:\n  - apps/*\n", "utf8");
+      mkdirSync(sourceSkillDir, { recursive: true });
+      writeFileSync(join(sourceSkillDir, "SKILL.md"), "# Kata Health\n", "utf8");
+      mkdirSync(join(home, ".agents", "skills"), { recursive: true });
+      symlinkSync(join(tmp, "missing-skills", "kata-health"), join(home, ".agents", "skills", "kata-health"), "dir");
+
+      const result = await runSetup({
+        cwd: tmp,
+        env: { HOME: home, GH_TOKEN: "ghp_test" },
+        packageVersion: "9.9.9-test",
+        global: true,
+        interactive: false,
+        onboarding: {
+          repoOwner: "kata-sh",
+          repoName: "kata-mono",
+          githubProjectNumber: 12,
+        },
+      });
+
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.error.message).toContain("dangling symlink");
+      expect(result.error.message).toContain("kata-health");
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
   it("can install to multiple selected skill targets", async () => {
     const tmp = mkdtempSync(join(tmpdir(), "kata-setup-targets-"));
     try {

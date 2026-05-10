@@ -223,6 +223,10 @@ export function resolveSkillsSource(
   };
 }
 
+function isNodeErrorCode(error: unknown, code: string): boolean {
+  return typeof error === "object" && error !== null && "code" in error && (error as { code?: unknown }).code === code;
+}
+
 async function copyDirectoryContents(sourceDir: string, destinationDir: string): Promise<string[]> {
   await mkdir(destinationDir, { recursive: true });
   const entries = (await readdir(sourceDir)).sort();
@@ -234,10 +238,14 @@ async function copyDirectoryContents(sourceDir: string, destinationDir: string):
     try {
       const destinationStats = await lstat(destinationPath);
       if (destinationStats.isSymbolicLink()) {
-        copyDestinationPath = await realpath(destinationPath);
+        try {
+          copyDestinationPath = await realpath(destinationPath);
+        } catch {
+          throw new Error(`Cannot refresh skill "${entryName}" because ${destinationPath} is a dangling symlink.`);
+        }
       }
-    } catch {
-      // Missing destination entries are copied below.
+    } catch (error) {
+      if (!isNodeErrorCode(error, "ENOENT")) throw error;
     }
     await cp(sourcePath, copyDestinationPath, {
       recursive: true,
