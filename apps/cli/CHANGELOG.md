@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.16.1
+
+- Fixes planned roadmap dependency extraction so phase-level `Depends on` summaries do not create false blockers between planned slices.
+- Fixes `kata setup --global` for Skiller-style symlinked skill entries by refreshing the resolved skill directory while preserving the symlink.
+
 ## 0.16.0
 
 - Stable release for the Kata Skills runtime and backend contract bridge.
