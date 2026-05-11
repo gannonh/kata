@@ -477,6 +477,12 @@ function extractPlannedSliceIds(content: string): string[] {
   return uniqueIds(ids);
 }
 
+function extractRoadmapSourcePlannedSliceIdsFromLine(line: string): string[] {
+  const dependencyLabelMatch = ROADMAP_METADATA_LABEL_TERMINATOR_PATTERN.exec(line);
+  const sourceText = dependencyLabelMatch ? line.slice(0, dependencyLabelMatch.index) : line;
+  return extractPlannedSliceIds(sourceText);
+}
+
 function extractPlannedSliceTitle(cell: string, plannedSliceId: string): string | null {
   const pattern = new RegExp(`\\b${escapeRegExp(plannedSliceId)}\\b\\s*(?::|[-–—])?\\s*(.*)$`, "i");
   const match = pattern.exec(cell.trim());
@@ -626,7 +632,7 @@ function extractRoadmapSliceEntries(content: string): RoadmapSliceEntry[] {
     blockingColumns = [];
     requirementColumns = [];
 
-    const plannedSliceIds = extractPlannedSliceIds(line);
+    const plannedSliceIds = extractRoadmapSourcePlannedSliceIdsFromLine(line);
     const backendSliceIds = extractRoadmapBackendSliceIdsFromLine(line);
     const sourceIds = uniqueIds([...plannedSliceIds, ...backendSliceIds]);
     if (sourceIds.length === 0) continue;

@@ -1358,13 +1358,101 @@ describe("GithubProjectsV2Adapter", () => {
       }),
     ]);
 
-    expect([firstTask.id, secondTask.id].sort()).toEqual(["T001", "T002"]);
-    await expect(secondAdapter.listTasks({ sliceId: "S001" })).resolves.toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ id: "T001", title: "First concurrent task" }),
-        expect.objectContaining({ id: "T002", title: "Second concurrent task" }),
-      ]),
-    );
+    const createdTaskIds = [firstTask.id, secondTask.id].sort();
+    expect(createdTaskIds).toEqual(["T001", "T002"]);
+    const freshAdapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: "/workspace",
+      client: client as any,
+    });
+    const createdTasks = await freshAdapter.listTasks({ sliceId: "S001" });
+    expect(createdTasks.map((task) => task.id).sort()).toEqual(["T001", "T002"]);
+    expect(createdTasks.map((task) => task.title).sort()).toEqual([
+      "First concurrent task",
+      "Second concurrent task",
+    ]);
+  });
+
+  it("retries GitHub sub-issue priority collisions during task creation", async () => {
+    const client = createFakeGithubClient({
+      issues: [
+        {
+          id: 1,
+          node_id: "issue-node-1",
+          number: 1,
+          title: "[M001] Existing Milestone",
+          body: '<!-- kata:entity {"kataId":"M001","type":"Milestone"} -->\nExisting milestone',
+          state: "open",
+          html_url: "https://github.test/kata-sh/uat/issues/1",
+          milestone: { number: 1 },
+        },
+        {
+          id: 2,
+          node_id: "issue-node-2",
+          number: 2,
+          title: "[S001] Existing Slice",
+          body: '<!-- kata:entity {"kataId":"S001","type":"Slice","parentId":"M001"} -->\nExisting slice',
+          state: "open",
+          html_url: "https://github.test/kata-sh/uat/issues/2",
+          milestone: { number: 1 },
+        },
+      ],
+      projectItems: [
+        projectItem({
+          itemId: "project-item-1",
+          issueNodeId: "issue-node-1",
+          issueNumber: 1,
+          kataId: "M001",
+          kataType: "Milestone",
+          artifactScope: "M001",
+          status: "Todo",
+        }),
+        projectItem({
+          itemId: "project-item-2",
+          issueNodeId: "issue-node-2",
+          issueNumber: 2,
+          kataId: "S001",
+          kataType: "Slice",
+          parentId: "M001",
+          artifactScope: "S001",
+          status: "Backlog",
+        }),
+      ],
+    });
+    const originalRest = client.rest.getMockImplementation();
+    let subIssuePostAttempts = 0;
+    client.rest.mockImplementation(async (request: any) => {
+      if (request.method === "POST" && request.path === "/repos/kata-sh/uat/issues/2/sub_issues") {
+        subIssuePostAttempts += 1;
+        if (subIssuePostAttempts === 1) {
+          throw new Error(
+            'GitHub request failed (422): {"message":"An error occurred while adding the sub-issue to the parent issue. Priority has already been taken"}',
+          );
+        }
+      }
+      return originalRest?.(request);
+    });
+    const adapter = new GithubProjectsV2Adapter({
+      owner: "kata-sh",
+      repo: "uat",
+      projectNumber: 12,
+      workspacePath: mkdtempSync(join(tmpdir(), "kata-github-task-lock-")),
+      client: client as any,
+    });
+
+    const task = await adapter.createTask({
+      sliceId: "S001",
+      title: "Retry priority collision",
+      description: "Created after GitHub priority collision",
+    });
+
+    expect(task).toMatchObject({ id: "T001", sliceId: "S001", title: "Retry priority collision" });
+    expect(subIssuePostAttempts).toBe(2);
+    await expect(adapter.listTasks({ sliceId: "S001" })).resolves.toEqual([
+      expect.objectContaining({ id: "T001", title: "Retry priority collision" }),
+    ]);
   });
 
   it("creates standalone planned issues as one Project v2 backlog item", async () => {
@@ -1998,6 +2086,7 @@ function createFakeGithubClient(
       content: {
         ...item.content,
         databaseId: item.content?.databaseId ?? issue.id,
+        number: item.content?.number ?? issue.number,
         title: item.content?.title ?? issue.title,
         body: item.content?.body ?? issue.body,
         state: item.content?.state ?? String(issue.state).toUpperCase(),

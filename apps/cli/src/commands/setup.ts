@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { cp, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { cp, lstat, mkdir, readFile, readdir, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -223,12 +223,34 @@ export function resolveSkillsSource(
   };
 }
 
+function isNodeErrorCode(error: unknown, code: string): boolean {
+  return typeof error === "object" && error !== null && "code" in error && (error as { code?: unknown }).code === code;
+}
+
 async function copyDirectoryContents(sourceDir: string, destinationDir: string): Promise<string[]> {
   await mkdir(destinationDir, { recursive: true });
   const entries = (await readdir(sourceDir)).sort();
 
   for (const entryName of entries) {
-    await cp(join(sourceDir, entryName), join(destinationDir, entryName), {
+    const sourcePath = join(sourceDir, entryName);
+    const destinationPath = join(destinationDir, entryName);
+    let copyDestinationPath = destinationPath;
+    try {
+      const destinationStats = await lstat(destinationPath);
+      if (destinationStats.isSymbolicLink()) {
+        try {
+          copyDestinationPath = await realpath(destinationPath);
+        } catch (error) {
+          if (isNodeErrorCode(error, "ENOENT")) {
+            throw new Error(`Cannot refresh skill "${entryName}" because ${destinationPath} is a dangling symlink.`);
+          }
+          throw error;
+        }
+      }
+    } catch (error) {
+      if (!isNodeErrorCode(error, "ENOENT")) throw error;
+    }
+    await cp(sourcePath, copyDestinationPath, {
       recursive: true,
       force: true,
     });
