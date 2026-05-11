@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdir, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
@@ -191,8 +191,10 @@ const MAX_COMMENT_PAGES = 100;
 const SUB_ISSUES_PER_PAGE = 100;
 const MAX_SUB_ISSUE_PAGES = 100;
 const TASK_CREATE_LOCK_STALE_MS = 5 * 60 * 1000;
+const TASK_CREATE_LOCK_HEARTBEAT_MS = 30 * 1000;
 const TASK_CREATE_LOCK_RETRY_MS = 100;
 const TASK_CREATE_LOCK_TIMEOUT_MS = 60 * 1000;
+const TASK_CREATE_LOCK_OWNER_FILE = "owner";
 const SUB_ISSUE_ATTACH_RETRY_ATTEMPTS = 4;
 const SUB_ISSUE_ATTACH_RETRY_MS = 250;
 
@@ -1120,7 +1122,12 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
     while (true) {
       try {
         await mkdir(lockDir, { recursive: false });
-        await writeFile(join(lockDir, "owner"), `${process.pid}\n`, "utf8");
+        try {
+          await writeTaskCreateLockOwner(lockDir);
+        } catch (error) {
+          await rm(lockDir, { recursive: true, force: true });
+          throw error;
+        }
         break;
       } catch (error) {
         if (!isNodeErrorCode(error, "EEXIST")) throw error;
@@ -1132,9 +1139,15 @@ export class GithubProjectsV2Adapter implements KataBackendAdapter {
       }
     }
 
+    const heartbeat = setInterval(() => {
+      void writeTaskCreateLockOwner(lockDir).catch(() => {});
+    }, TASK_CREATE_LOCK_HEARTBEAT_MS);
+    heartbeat.unref?.();
+
     try {
       return await run();
     } finally {
+      clearInterval(heartbeat);
       await rm(lockDir, { recursive: true, force: true });
     }
   }
@@ -1563,14 +1576,76 @@ function taskCreateLockDir(input: {
   return join(tmpdir(), "kata-cli-locks", `github-task-create-${lockKey}.lock`);
 }
 
+interface TaskCreateLockOwner {
+  pid: number;
+  heartbeatMs?: number;
+}
+
+async function writeTaskCreateLockOwner(lockDir: string): Promise<void> {
+  const owner: TaskCreateLockOwner = {
+    pid: process.pid,
+    heartbeatMs: Date.now(),
+  };
+  await writeFile(join(lockDir, TASK_CREATE_LOCK_OWNER_FILE), `${JSON.stringify(owner)}\n`, "utf8");
+}
+
+async function readTaskCreateLockOwner(lockDir: string): Promise<TaskCreateLockOwner | null> {
+  const rawOwner = (await readFile(join(lockDir, TASK_CREATE_LOCK_OWNER_FILE), "utf8")).trim();
+  try {
+    const parsed = JSON.parse(rawOwner) as unknown;
+    if (typeof parsed === "object" && parsed !== null) {
+      const owner = parsed as Partial<TaskCreateLockOwner>;
+      const pid = owner.pid;
+      if (typeof pid === "number" && Number.isInteger(pid) && pid > 0) {
+        const heartbeatMs = owner.heartbeatMs;
+        return {
+          pid,
+          heartbeatMs: typeof heartbeatMs === "number" && Number.isFinite(heartbeatMs) ? heartbeatMs : undefined,
+        };
+      }
+    }
+  } catch {
+    // Legacy owner files contain a bare PID and are parsed below.
+  }
+  const legacyPid = Number(rawOwner);
+  if (Number.isInteger(legacyPid) && legacyPid > 0) {
+    return { pid: legacyPid };
+  }
+  return null;
+}
+
+function isProcessAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    if (isNodeErrorCode(error, "ESRCH")) return false;
+    if (isNodeErrorCode(error, "EPERM")) return true;
+    return true;
+  }
+}
+
 async function removeStaleLock(lockDir: string): Promise<void> {
   try {
-    const lockStats = await stat(lockDir);
-    if (Date.now() - lockStats.mtimeMs > TASK_CREATE_LOCK_STALE_MS) {
+    const owner = await readTaskCreateLockOwner(lockDir);
+    const heartbeatExpired =
+      owner?.heartbeatMs === undefined ? false : Date.now() - owner.heartbeatMs > TASK_CREATE_LOCK_STALE_MS;
+    if (owner && (!isProcessAlive(owner.pid) || heartbeatExpired)) {
       await rm(lockDir, { recursive: true, force: true });
     }
   } catch (error) {
-    if (!isNodeErrorCode(error, "ENOENT")) throw error;
+    if (isNodeErrorCode(error, "ENOENT")) {
+      try {
+        const lockStats = await stat(lockDir);
+        if (Date.now() - lockStats.mtimeMs > TASK_CREATE_LOCK_STALE_MS) {
+          await rm(lockDir, { recursive: true, force: true });
+        }
+      } catch (statError) {
+        if (!isNodeErrorCode(statError, "ENOENT")) throw statError;
+      }
+      return;
+    }
+    throw error;
   }
 }
 

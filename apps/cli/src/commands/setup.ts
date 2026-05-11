@@ -240,8 +240,11 @@ async function copyDirectoryContents(sourceDir: string, destinationDir: string):
       if (destinationStats.isSymbolicLink()) {
         try {
           copyDestinationPath = await realpath(destinationPath);
-        } catch {
-          throw new Error(`Cannot refresh skill "${entryName}" because ${destinationPath} is a dangling symlink.`);
+        } catch (error) {
+          if (isNodeErrorCode(error, "ENOENT")) {
+            throw new Error(`Cannot refresh skill "${entryName}" because ${destinationPath} is a dangling symlink.`);
+          }
+          throw error;
         }
       }
     } catch (error) {
