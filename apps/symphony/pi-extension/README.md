@@ -21,3 +21,19 @@ After later slices add the extension entrypoint, run it locally with `pi -e ./ap
 - `/symphony:dashboard`
 - `/symphony:status`
 - `/symphony:stop`
+
+## Slice 1 verification
+
+Verified commands:
+
+```text
+/symphony:help
+/symphony:status
+```
+
+Package checks:
+
+```sh
+pnpm --dir apps/symphony/pi-extension test
+pnpm --dir apps/symphony/pi-extension typecheck
+```
