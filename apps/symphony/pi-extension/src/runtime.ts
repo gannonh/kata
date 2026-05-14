@@ -36,9 +36,9 @@ export class SymphonyRuntime {
     });
   }
 
-  async attach(baseUrl: string): Promise<SymphonyStateResponse> {
+  async attach(baseUrl: string, signal?: AbortSignal): Promise<SymphonyStateResponse> {
     const client = new SymphonyHttpClient(baseUrl);
-    const state = await client.verify();
+    const state = await client.verify(signal);
     this.client = client;
     this.state.attachedBaseUrl = client.baseUrl;
     this.state.lastKnownState = client.toHealthSummary(state);
@@ -57,9 +57,9 @@ export class SymphonyRuntime {
     return true;
   }
 
-  async refreshState(): Promise<SymphonyStateResponse> {
+  async refreshState(signal?: AbortSignal): Promise<SymphonyStateResponse> {
     if (!this.client) throw new SymphonyExtensionError("no_attachment", "No Symphony server is attached");
-    const state = await this.client.getState();
+    const state = await this.client.getState(signal);
     this.state.lastKnownState = this.client.toHealthSummary(state);
     return state;
   }

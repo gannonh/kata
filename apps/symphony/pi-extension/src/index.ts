@@ -1,6 +1,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { registerSymphonyCommands, setSymphonyStatus } from "./commands.ts";
 import { SymphonyRuntime } from "./runtime.ts";
+import { registerSymphonyTools } from "./tools.ts";
 
 export default function symphonyExtension(pi: ExtensionAPI): void {
   const runtime = new SymphonyRuntime();
@@ -19,4 +20,5 @@ export default function symphonyExtension(pi: ExtensionAPI): void {
   });
 
   registerSymphonyCommands(pi, runtime);
+  registerSymphonyTools(pi, runtime);
 }

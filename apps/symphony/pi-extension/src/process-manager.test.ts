@@ -1,4 +1,4 @@
-import { chmod, mkdtemp, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer, type Server } from "node:http";
@@ -85,6 +85,29 @@ describe("SymphonyProcessManager", () => {
 
     expect(state.ownedProcess).toBeUndefined();
     await waitForProcessExit(started.pid);
+  }, 10_000);
+
+  it("cleans up a spawned child when startup is aborted", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "pi-symphony-process-"));
+    const pidFile = join(dir, "child.pid");
+    const script = await writeNodeScript(
+      dir,
+      "hang.js",
+      `const { writeFileSync } = require("node:fs");\nwriteFileSync(${JSON.stringify(pidFile)}, String(process.pid));\nsetInterval(() => {}, 1000);\n`,
+    );
+
+    const state = createDefaultState();
+    const manager = new SymphonyProcessManager(state);
+    const controller = new AbortController();
+    const start = manager.start({ binary: process.execPath, cwd: dir, workflow: script, timeoutMs: 5000, signal: controller.signal });
+
+    await expect.poll(async () => readFile(pidFile, "utf8").catch(() => ""), { interval: 50, timeout: 1000 }).not.toBe("");
+    const pid = Number(await readFile(pidFile, "utf8"));
+    controller.abort(new Error("startup cancelled"));
+
+    await expect(start).rejects.toThrow("startup cancelled");
+    expect(state.ownedProcess).toBeUndefined();
+    await waitForProcessExit(pid);
   }, 10_000);
 
   it("allows start after a previous owned child exits", async () => {

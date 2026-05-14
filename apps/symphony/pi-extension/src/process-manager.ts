@@ -12,6 +12,7 @@ export interface StartOptions {
   cwd: string;
   workflow?: string;
   timeoutMs?: number;
+  signal?: AbortSignal;
 }
 
 export interface StartResult {
@@ -27,6 +28,8 @@ export class SymphonyProcessManager {
   constructor(private readonly state: ExtensionState) {}
 
   async start(options: StartOptions): Promise<StartResult> {
+    throwIfAborted(options.signal);
+
     if (this.child) {
       if (isChildRunning(this.child)) {
         throw new SymphonyExtensionError("command_failed", "Symphony is already running as an owned child process", {
@@ -45,17 +48,25 @@ export class SymphonyProcessManager {
     this.child.stdout.on("data", (chunk) => (this.output += String(chunk)));
     this.child.stderr.on("data", (chunk) => (this.output += String(chunk)));
 
-    const baseUrl = await this.waitForReady(options.cwd, options.workflow, options.timeoutMs ?? 10_000);
-    this.state.attachedBaseUrl = baseUrl;
-    this.state.ownedProcess = {
-      pid,
-      command: [options.binary, ...args].join(" "),
-      cwd: options.cwd,
-      baseUrl,
-      startedAt: new Date().toISOString(),
-    };
+    try {
+      const baseUrl = await this.waitForReady(options.cwd, options.workflow, options.timeoutMs ?? 10_000, options.signal);
+      throwIfAborted(options.signal);
+      this.state.attachedBaseUrl = baseUrl;
+      this.state.ownedProcess = {
+        pid,
+        command: [options.binary, ...args].join(" "),
+        cwd: options.cwd,
+        baseUrl,
+        startedAt: new Date().toISOString(),
+      };
 
-    return { baseUrl, owned: true, pid };
+      return { baseUrl, owned: true, pid };
+    } catch (error) {
+      if (options.signal?.aborted) {
+        await this.stopOwnedInternal(false);
+      }
+      throw error;
+    }
   }
 
   async stopOwned(): Promise<void> {
@@ -93,24 +104,26 @@ export class SymphonyProcessManager {
     this.state.ownedProcess = undefined;
   }
 
-  private async waitForReady(cwd: string, workflow: string | undefined, timeoutMs: number): Promise<string> {
+  private async waitForReady(cwd: string, workflow: string | undefined, timeoutMs: number, signal?: AbortSignal): Promise<string> {
     const started = Date.now();
     let lastError: unknown;
 
     while (Date.now() - started < timeoutMs) {
+      throwIfAborted(signal);
       const baseUrl = this.detectOutputBaseUrl() ?? (Date.now() - started >= Math.min(500, timeoutMs) ? this.detectBaseUrl(cwd, workflow) : undefined);
       if (baseUrl) {
         try {
           const client = new SymphonyHttpClient(baseUrl);
-          await client.verify();
+          await client.verify(signal);
           return baseUrl;
         } catch (error) {
+          if (signal?.aborted) throw error;
           lastError = error;
         }
       }
 
       if (this.child && !isChildRunning(this.child)) break;
-      await new Promise((resolve) => setTimeout(resolve, 150));
+      await delay(150, signal);
     }
 
     throw new SymphonyExtensionError("start_timeout", "Timed out waiting for Symphony HTTP API", {
@@ -137,6 +150,35 @@ export class SymphonyProcessManager {
 
 function isChildRunning(child: ChildProcessWithoutNullStreams): boolean {
   return child.exitCode === null && child.signalCode === null;
+}
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (!signal?.aborted) return;
+  throw signal.reason instanceof Error ? signal.reason : new DOMException("This operation was aborted", "AbortError");
+}
+
+async function delay(timeoutMs: number, signal?: AbortSignal): Promise<void> {
+  throwIfAborted(signal);
+  await new Promise<void>((resolve, reject) => {
+    let settled = false;
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      signal?.removeEventListener("abort", abort);
+      resolve();
+    };
+    const abort = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      signal?.removeEventListener("abort", abort);
+      reject(signal?.reason instanceof Error ? signal.reason : new DOMException("This operation was aborted", "AbortError"));
+    };
+    const timeout = setTimeout(done, timeoutMs);
+    signal?.addEventListener("abort", abort, { once: true });
+    if (signal?.aborted) abort();
+  });
 }
 
 async function waitForExitOrTimeout(child: ChildProcessWithoutNullStreams, timeoutMs: number): Promise<void> {
