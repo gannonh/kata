@@ -59,6 +59,35 @@ describe("setSymphonyStatus", () => {
 });
 
 describe("symphony commands", () => {
+  it("restricts command attach URLs to loopback hosts before attaching", async () => {
+    const runtime = new SymphonyRuntime();
+    runtime.attach = vi.fn(async (baseUrl: string) => {
+      runtime.state.attachedBaseUrl = baseUrl;
+      runtime.state.lastKnownState = lastKnownState(baseUrl);
+      return {};
+    }) as unknown as SymphonyRuntime["attach"];
+
+    const { commands, appendEntry } = registerCommands(runtime);
+    const { ctx, notify, setStatus } = commandContext();
+    const attach = commands.get("symphony:attach");
+    if (!attach) throw new Error("expected attach command");
+
+    await attach.handler("http://example.com:8080", ctx);
+
+    expect(runtime.attach).not.toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining("loopback host"), "error");
+
+    await attach.handler("http://localhost:8080", ctx);
+
+    expect(runtime.attach).toHaveBeenCalledWith("http://localhost:8080");
+    expect(appendEntry).toHaveBeenCalledWith(
+      "symphony-extension-state",
+      expect.objectContaining({ attachedBaseUrl: "http://localhost:8080" }),
+    );
+    expect(setStatus).toHaveBeenCalledWith("symphony", "symphony http://localhost:8080");
+    expect(notify).toHaveBeenCalledWith("Attached to Symphony at http://localhost:8080", "info");
+  });
+
   it("clears an owned attachment and updates status after stop", async () => {
     const baseUrl = "http://127.0.0.1:8080";
     const runtime = new SymphonyRuntime();

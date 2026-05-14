@@ -1,4 +1,5 @@
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { assertLoopbackAttachUrl } from "./attach-url-policy.ts";
 import { openDashboard } from "./dashboard.ts";
 import { formatError, SymphonyExtensionError } from "./errors.ts";
 import { parseAttachArgs, parseDoctorArgs, parseInitArgs, parseStartArgs } from "./command-args.ts";
@@ -55,6 +56,7 @@ export function registerSymphonyCommands(pi: ExtensionAPI, runtime: SymphonyRunt
     description: "Attach to an existing Symphony HTTP server",
     handler: async (args, ctx) => runCommandHandler(ctx, async () => {
       const parsed = parseAttachArgs(args);
+      assertLoopbackAttachUrl(parsed.url);
       await runtime.attach(parsed.url);
       runtime.persist(pi);
       setSymphonyStatus(ctx, runtime);

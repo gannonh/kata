@@ -9,7 +9,7 @@ pnpm --dir apps/symphony/pi-extension test
 pnpm --dir apps/symphony/pi-extension typecheck
 ```
 
-After later slices add the extension entrypoint, run it locally with `pi -e ./apps/symphony/pi-extension`.
+Run it locally with `pi -e ./apps/symphony/pi-extension`.
 
 ## Commands in Slice 1
 

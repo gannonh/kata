@@ -110,6 +110,27 @@ describe("SymphonyProcessManager", () => {
     await waitForProcessExit(pid);
   }, 10_000);
 
+  it("cleans up a spawned child when startup times out", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "pi-symphony-process-"));
+    const pidFile = join(dir, "child.pid");
+    const script = await writeNodeScript(
+      dir,
+      "hang-no-api.js",
+      `const { writeFileSync } = require("node:fs");\nwriteFileSync(${JSON.stringify(pidFile)}, String(process.pid));\nsetInterval(() => {}, 1000);\n`,
+    );
+
+    const state = createDefaultState();
+    const manager = new SymphonyProcessManager(state);
+    const start = manager.start({ binary: process.execPath, cwd: dir, workflow: script, timeoutMs: 250 });
+
+    await expect.poll(async () => readFile(pidFile, "utf8").catch(() => ""), { interval: 50, timeout: 1000 }).not.toBe("");
+    const pid = Number(await readFile(pidFile, "utf8"));
+
+    await expect(start).rejects.toMatchObject({ kind: "start_timeout" });
+    expect(state.ownedProcess).toBeUndefined();
+    await waitForProcessExit(pid);
+  }, 10_000);
+
   it("allows start after a previous owned child exits", async () => {
     const baseUrl = await stateServer();
     const dir = await mkdtemp(join(tmpdir(), "pi-symphony-process-"));
@@ -129,7 +150,7 @@ describe("SymphonyProcessManager", () => {
     await manager.stopOwned();
   });
 
-  it("clears stale owned state when the owned child already exited", async () => {
+  it("clears stale owned state when the owned child exits unexpectedly", async () => {
     const baseUrl = await stateServer();
     const dir = await mkdtemp(join(tmpdir(), "pi-symphony-process-"));
     const script = await writeNodeScript(dir, "quick-exit.js", `console.log("dashboard listening at ${baseUrl}");\nsetTimeout(() => process.exit(0), 100);\n`);
@@ -139,8 +160,8 @@ describe("SymphonyProcessManager", () => {
     const started = await manager.start({ binary: process.execPath, cwd: dir, workflow: script, timeoutMs: 2000 });
     await waitForProcessExit(started.pid);
 
+    await expect.poll(() => state.ownedProcess, { interval: 50, timeout: 1000 }).toBeUndefined();
     await expect(manager.stopOwned()).rejects.toMatchObject({ kind: "not_owned" });
-    expect(state.ownedProcess).toBeUndefined();
   });
 
   it("does not stop when no owned child exists", async () => {

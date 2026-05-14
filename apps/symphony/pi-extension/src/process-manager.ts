@@ -6,6 +6,7 @@ import type { ExtensionState } from "./state.ts";
 
 const TERMINATE_GRACE_MS = 2000;
 const KILL_GRACE_MS = 2000;
+const MAX_OUTPUT_CHARS = 64_000;
 
 export interface StartOptions {
   binary: string;
@@ -41,12 +42,20 @@ export class SymphonyProcessManager {
 
     const args = options.workflow ? [options.workflow, "--no-tui"] : ["--no-tui"];
     this.output = "";
-    this.child = spawn(options.binary, args, { cwd: options.cwd, stdio: "pipe" });
-    const pid = this.child.pid;
-    if (!pid) throw new SymphonyExtensionError("command_failed", "Failed to spawn Symphony process");
+    const child = spawn(options.binary, args, { cwd: options.cwd, stdio: "pipe" });
+    this.child = child;
+    child.once("exit", () => {
+      if (this.child === child) this.clearOwnedState();
+    });
 
-    this.child.stdout.on("data", (chunk) => (this.output += String(chunk)));
-    this.child.stderr.on("data", (chunk) => (this.output += String(chunk)));
+    const pid = child.pid;
+    if (!pid) {
+      this.clearOwnedState();
+      throw new SymphonyExtensionError("command_failed", "Failed to spawn Symphony process");
+    }
+
+    child.stdout.on("data", (chunk) => this.appendOutput(chunk));
+    child.stderr.on("data", (chunk) => this.appendOutput(chunk));
 
     try {
       const baseUrl = await this.waitForReady(options.cwd, options.workflow, options.timeoutMs ?? 10_000, options.signal);
@@ -59,11 +68,14 @@ export class SymphonyProcessManager {
         baseUrl,
         startedAt: new Date().toISOString(),
       };
+      if (!isChildRunning(child)) this.clearOwnedState();
 
       return { baseUrl, owned: true, pid };
     } catch (error) {
-      if (options.signal?.aborted) {
+      try {
         await this.stopOwnedInternal(false);
+      } catch {
+        this.clearOwnedState();
       }
       throw error;
     }
@@ -102,6 +114,10 @@ export class SymphonyProcessManager {
   private clearOwnedState(): void {
     this.child = undefined;
     this.state.ownedProcess = undefined;
+  }
+
+  private appendOutput(chunk: unknown): void {
+    this.output = (this.output + String(chunk)).slice(-MAX_OUTPUT_CHARS);
   }
 
   private async waitForReady(cwd: string, workflow: string | undefined, timeoutMs: number, signal?: AbortSignal): Promise<string> {
@@ -144,7 +160,7 @@ export class SymphonyProcessManager {
   }
 
   private detectOutputBaseUrl(): string | undefined {
-    return this.output.match(/https?:\/\/(?:127\.0\.0\.1|localhost):\d+/)?.[0];
+    return this.output.match(/https?:\/\/(?:127\.0\.0\.1|localhost|\[::1\]):\d+/)?.[0];
   }
 }
 

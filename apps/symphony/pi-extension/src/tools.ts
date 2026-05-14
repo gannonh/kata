@@ -1,5 +1,6 @@
 import { Type } from "@earendil-works/pi-ai";
 import { defineTool, type ExtensionAPI, type ToolExecutionMode } from "@earendil-works/pi-coding-agent";
+import { assertLoopbackAttachUrl } from "./attach-url-policy.ts";
 import { setSymphonyStatus } from "./commands.ts";
 import { formatError, SymphonyExtensionError } from "./errors.ts";
 import type { SymphonyRuntime } from "./runtime.ts";
@@ -147,16 +148,6 @@ async function cleanupAbortedStart(runtime: SymphonyRuntime, baseUrl: string): P
     if (!(error instanceof SymphonyExtensionError && error.kind === "not_owned")) throw error;
   }
   runtime.clearAttachmentIfBaseUrl(baseUrl);
-}
-
-function assertLoopbackAttachUrl(url: string): void {
-  const parsed = new URL(url.trim());
-  const hostname = parsed.hostname.replace(/^\[|\]$/g, "");
-  if ((parsed.protocol === "http:" || parsed.protocol === "https:") && ["127.0.0.1", "localhost", "::1"].includes(hostname)) {
-    return;
-  }
-
-  throw new Error("Symphony tool attach URL must use http or https on a loopback host: 127.0.0.1, localhost, or ::1");
 }
 
 function toolOk(text: string, details: Record<string, unknown>) {
