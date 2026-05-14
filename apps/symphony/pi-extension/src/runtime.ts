@@ -45,6 +45,18 @@ export class SymphonyRuntime {
     return state;
   }
 
+  clearAttachment(): void {
+    this.client = undefined;
+    this.state.attachedBaseUrl = undefined;
+    this.state.lastKnownState = undefined;
+  }
+
+  clearAttachmentIfBaseUrl(baseUrl: string | undefined): boolean {
+    if (!baseUrl || this.state.attachedBaseUrl !== baseUrl) return false;
+    this.clearAttachment();
+    return true;
+  }
+
   async refreshState(): Promise<SymphonyStateResponse> {
     if (!this.client) throw new SymphonyExtensionError("no_attachment", "No Symphony server is attached");
     const state = await this.client.getState();
