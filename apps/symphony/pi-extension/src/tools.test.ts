@@ -1,4 +1,4 @@
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { AgentToolUpdateCallback, ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { describe, expect, it, vi } from "vitest";
 import { registerSymphonyTools } from "./tools.ts";
 import { SymphonyRuntime } from "./runtime.ts";
@@ -7,7 +7,7 @@ import type { LastKnownSymphonyState } from "./state.ts";
 type RegisteredTool = {
   name: string;
   executionMode?: string;
-  execute: (id: string, params: Record<string, unknown>, signal: AbortSignal, update: unknown, ctx: ExtensionContext) => Promise<unknown>;
+  execute: (id: string, params: Record<string, unknown>, signal: AbortSignal, update: AgentToolUpdateCallback | undefined, ctx: ExtensionContext) => Promise<unknown>;
 };
 
 function toolContext() {
@@ -46,6 +46,13 @@ function lastKnownState(baseUrl: string): LastKnownSymphonyState {
   };
 }
 
+function progressUpdate(text: string) {
+  return {
+    content: [{ type: "text", text }],
+    details: { status: "working" },
+  };
+}
+
 describe("symphony tools", () => {
   it("registers every Symphony tool for sequential execution", () => {
     const runtime = new SymphonyRuntime();
@@ -66,17 +73,22 @@ describe("symphony tools", () => {
   });
 
   it("requests a manual refresh from the tool", async () => {
+    const events: string[] = [];
     const runtime = new SymphonyRuntime();
     runtime.requestRefresh = vi.fn(async () => {
+      events.push("requestRefresh");
       runtime.state.lastKnownState = lastKnownState("http://127.0.0.1:8080");
       return {} as Awaited<ReturnType<SymphonyRuntime["requestRefresh"]>>;
     }) as SymphonyRuntime["requestRefresh"];
     const { tools, appendEntry } = registerTools(runtime);
     const refresh = tools.get("symphony_refresh");
     if (!refresh) throw new Error("expected refresh tool");
+    const update = vi.fn(() => events.push("update"));
 
-    const result = await refresh.execute("1", {}, new AbortController().signal, undefined, toolContext().ctx);
+    const result = await refresh.execute("1", {}, new AbortController().signal, update, toolContext().ctx);
 
+    expect(update).toHaveBeenCalledWith(progressUpdate("Refreshing Symphony..."));
+    expect(events).toEqual(["update", "requestRefresh"]);
     expect(runtime.requestRefresh).toHaveBeenCalledOnce();
     expect(appendEntry).toHaveBeenCalled();
     expect(result).toMatchObject({
@@ -86,14 +98,21 @@ describe("symphony tools", () => {
   });
 
   it("sends a steer instruction from the tool", async () => {
+    const events: string[] = [];
     const runtime = new SymphonyRuntime();
-    runtime.steerWorker = vi.fn(async () => ({ ok: true, issueId: "issue-123", issueIdentifier: "SIM-123", delivered: true, instructionPreview: "Use auth" })) as SymphonyRuntime["steerWorker"];
+    runtime.steerWorker = vi.fn(async () => {
+      events.push("steerWorker");
+      return { ok: true, issueId: "issue-123", issueIdentifier: "SIM-123", delivered: true, instructionPreview: "Use auth" };
+    }) as SymphonyRuntime["steerWorker"];
     const { tools, appendEntry } = registerTools(runtime);
     const steer = tools.get("symphony_steer");
     if (!steer) throw new Error("expected steer tool");
+    const update = vi.fn(() => events.push("update"));
 
-    const result = await steer.execute("1", { issueIdentifier: "SIM-123", instruction: "Use auth" }, new AbortController().signal, undefined, toolContext().ctx);
+    const result = await steer.execute("1", { issueIdentifier: "SIM-123", instruction: "Use auth" }, new AbortController().signal, update, toolContext().ctx);
 
+    expect(update).toHaveBeenCalledWith(progressUpdate("Sending steer instruction..."));
+    expect(events).toEqual(["update", "steerWorker"]);
     expect(runtime.steerWorker).toHaveBeenCalledWith("SIM-123", "Use auth", expect.any(AbortSignal));
     expect(appendEntry).toHaveBeenCalled();
     expect(result).toMatchObject({

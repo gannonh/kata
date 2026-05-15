@@ -1,5 +1,5 @@
 import { Type } from "@earendil-works/pi-ai";
-import { defineTool, type ExtensionAPI, type ToolExecutionMode } from "@earendil-works/pi-coding-agent";
+import { defineTool, type AgentToolUpdateCallback, type ExtensionAPI, type ToolExecutionMode } from "@earendil-works/pi-coding-agent";
 import { assertLoopbackAttachUrl } from "./attach-url-policy.ts";
 import { setSymphonyStatus } from "./commands.ts";
 import { formatError, SymphonyExtensionError } from "./errors.ts";
@@ -28,8 +28,9 @@ export function registerSymphonyTools(pi: ExtensionAPI, runtime: SymphonyRuntime
     description: "Run symphony init in Pi's current working directory.",
     parameters: Type.Object({ force: Type.Optional(Type.Boolean()) }),
     executionMode: SYMPHONY_TOOL_EXECUTION_MODE,
-    async execute(_id, params, signal, _update, ctx) {
+    async execute(_id, params, signal, onUpdate, ctx) {
       try {
+        updateProgress(onUpdate, "Initializing Symphony...");
         const binary = await runtime.resolveBinary(ctx);
         const result = await pi.exec(binary, params.force ? ["init", "--force"] : ["init"], { cwd: ctx.cwd, signal });
         if (result.code !== 0) throw new SymphonyExtensionError("command_failed", "symphony init failed", { cwd: ctx.cwd, code: result.code, stderr: result.stderr });
@@ -47,8 +48,9 @@ export function registerSymphonyTools(pi: ExtensionAPI, runtime: SymphonyRuntime
     description: "Run symphony doctor with an optional workflow path.",
     parameters: Type.Object({ workflow: Type.Optional(Type.String()) }),
     executionMode: SYMPHONY_TOOL_EXECUTION_MODE,
-    async execute(_id, params, signal, _update, ctx) {
+    async execute(_id, params, signal, onUpdate, ctx) {
       try {
+        updateProgress(onUpdate, "Running Symphony doctor...");
         const binary = await runtime.resolveBinary(ctx);
         const args = params.workflow ? ["doctor", params.workflow] : ["doctor"];
         const result = await pi.exec(binary, args, { cwd: ctx.cwd, signal });
@@ -67,9 +69,10 @@ export function registerSymphonyTools(pi: ExtensionAPI, runtime: SymphonyRuntime
     description: "Start Symphony headlessly from Pi's current working directory and attach to its HTTP API.",
     parameters: Type.Object({ workflow: Type.Optional(Type.String()) }),
     executionMode: SYMPHONY_TOOL_EXECUTION_MODE,
-    async execute(_id, params, signal, _update, ctx) {
+    async execute(_id, params, signal, onUpdate, ctx) {
       let startedBaseUrl: string | undefined;
       try {
+        updateProgress(onUpdate, "Starting Symphony...");
         const binary = await runtime.resolveBinary(ctx);
         const started = await runtime.processManager.start({ binary, cwd: ctx.cwd, workflow: params.workflow, signal });
         startedBaseUrl = started.baseUrl;
@@ -90,8 +93,9 @@ export function registerSymphonyTools(pi: ExtensionAPI, runtime: SymphonyRuntime
     description: "Attach to an existing Symphony HTTP server after verifying GET /api/v1/state.",
     parameters: Type.Object({ url: Type.String() }),
     executionMode: SYMPHONY_TOOL_EXECUTION_MODE,
-    async execute(_id, params, signal, _update, ctx) {
+    async execute(_id, params, signal, onUpdate, ctx) {
       try {
+        updateProgress(onUpdate, "Attaching to Symphony...");
         assertLoopbackAttachUrl(params.url);
         await runtime.attach(params.url, signal);
         runtime.persist(pi);
@@ -126,8 +130,9 @@ export function registerSymphonyTools(pi: ExtensionAPI, runtime: SymphonyRuntime
     description: "Request an immediate Symphony poll refresh and return the updated health summary.",
     parameters: Type.Object({}),
     executionMode: SYMPHONY_TOOL_EXECUTION_MODE,
-    async execute(_id, _params, signal) {
+    async execute(_id, _params, signal, onUpdate) {
       try {
+        updateProgress(onUpdate, "Refreshing Symphony...");
         await runtime.requestRefresh(signal);
         runtime.persist(pi);
         return toolOk("Symphony refresh requested", { state: runtime.state.lastKnownState });
@@ -143,8 +148,9 @@ export function registerSymphonyTools(pi: ExtensionAPI, runtime: SymphonyRuntime
     description: "Send an operator instruction to a running Symphony worker.",
     parameters: Type.Object({ issueIdentifier: Type.String(), instruction: Type.String() }),
     executionMode: SYMPHONY_TOOL_EXECUTION_MODE,
-    async execute(_id, params, signal) {
+    async execute(_id, params, signal, onUpdate) {
       try {
+        updateProgress(onUpdate, "Sending steer instruction...");
         const result = await runtime.steerWorker(params.issueIdentifier, params.instruction, signal);
         runtime.persist(pi);
         return toolOk(`Steer delivered to ${result.issueIdentifier}: ${result.instructionPreview}`, { result, state: runtime.state.lastKnownState });
@@ -160,8 +166,9 @@ export function registerSymphonyTools(pi: ExtensionAPI, runtime: SymphonyRuntime
     description: "Stop only a Symphony process started by this Pi extension.",
     parameters: Type.Object({}),
     executionMode: SYMPHONY_TOOL_EXECUTION_MODE,
-    async execute(_id, _params, _signal, _update, ctx) {
+    async execute(_id, _params, _signal, onUpdate, ctx) {
       try {
+        updateProgress(onUpdate, "Stopping Symphony...");
         const ownedBaseUrl = runtime.state.ownedProcess?.baseUrl;
         await runtime.processManager.stopOwned();
         runtime.clearAttachmentIfBaseUrl(ownedBaseUrl);
@@ -182,6 +189,13 @@ async function cleanupAbortedStart(runtime: SymphonyRuntime, baseUrl: string): P
     if (!(error instanceof SymphonyExtensionError && error.kind === "not_owned")) throw error;
   }
   runtime.clearAttachmentIfBaseUrl(baseUrl);
+}
+
+function updateProgress(onUpdate: AgentToolUpdateCallback | undefined, text: string): void {
+  onUpdate?.({
+    content: [{ type: "text" as const, text }],
+    details: { status: "working" },
+  });
 }
 
 function toolOk(text: string, details: Record<string, unknown>) {
