@@ -108,10 +108,10 @@ export class SymphonyDashboardComponent {
       return;
     }
 
-    const instruction = (await this.options.prompt("Steer Symphony worker", `Instruction for ${worker.issueIdentifier}`))?.trim();
-    if (!instruction) return;
-
     try {
+      const instruction = (await this.options.prompt("Steer Symphony worker", `Instruction for ${worker.issueIdentifier}`))?.trim();
+      if (!instruction) return;
+
       await this.options.steer(worker.issueIdentifier, instruction);
       this.options.notify(`Steer delivered to ${worker.issueIdentifier}`, "info");
     } catch (error) {

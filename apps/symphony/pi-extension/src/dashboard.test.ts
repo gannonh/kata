@@ -220,6 +220,30 @@ describe("SymphonyDashboardComponent", () => {
     expect(notify).toHaveBeenCalledWith("Steer delivered to SIM-123", "info");
   });
 
+  it("notifies and requests render when steering prompt fails", async () => {
+    const notify = vi.fn();
+    const requestRender = vi.fn();
+    const dashboard = new SymphonyDashboardComponent({
+      state: createDefaultState(),
+      getState: () => workerStateFixture(),
+      getEvents: () => [],
+      refresh: async () => undefined,
+      steer: async () => undefined,
+      prompt: async () => {
+        throw new Error("prompt failed");
+      },
+      close: () => undefined,
+      requestRender,
+      notify,
+    });
+
+    dashboard.handleInput("s");
+    await expect.poll(() => notify.mock.calls.length, { interval: 10, timeout: 1000 }).toBe(1);
+
+    expect(notify).toHaveBeenCalledWith("prompt failed", "error");
+    expect(requestRender).toHaveBeenCalledOnce();
+  });
+
   it("closes on q", () => {
     const close = vi.fn();
     const dashboard = new SymphonyDashboardComponent({
