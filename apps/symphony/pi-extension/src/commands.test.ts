@@ -4,11 +4,22 @@ import { registerSymphonyCommands, setSymphonyStatus } from "./commands.ts";
 import { SymphonyRuntime } from "./runtime.ts";
 import { type LastKnownSymphonyState } from "./state.ts";
 
+const borderedLoaderMocks = vi.hoisted(() => ({
+  nextController: undefined as AbortController | undefined,
+}));
+
 vi.mock("@earendil-works/pi-coding-agent", () => ({
   BorderedLoader: class MockBorderedLoader {
-    readonly signal = new AbortController().signal;
+    readonly controller: AbortController;
+    readonly signal: AbortSignal;
     onAbort: (() => void) | undefined;
     dispose = vi.fn();
+
+    constructor() {
+      this.controller = borderedLoaderMocks.nextController ?? new AbortController();
+      borderedLoaderMocks.nextController = undefined;
+      this.signal = this.controller.signal;
+    }
   },
 }));
 
@@ -145,6 +156,46 @@ describe("symphony commands", () => {
     );
     expect(setStatus).toHaveBeenCalledWith("symphony", "symphony http://localhost:8080");
     expect(notify).toHaveBeenCalledWith("Attached to Symphony at http://localhost:8080", "info");
+  });
+
+  it("cleans up an owned process when start is cancelled during attach", async () => {
+    const baseUrl = "http://127.0.0.1:8080";
+    const controller = new AbortController();
+    borderedLoaderMocks.nextController = controller;
+    const runtime = new SymphonyRuntime();
+    runtime.resolveBinary = vi.fn(async () => "symphony") as SymphonyRuntime["resolveBinary"];
+    runtime.processManager = {
+      start: vi.fn(async (_options) => {
+        runtime.state.ownedProcess = {
+          pid: 123,
+          command: "symphony --no-tui",
+          cwd: "/repo",
+          baseUrl,
+          startedAt: "2026-05-14T00:00:00.000Z",
+        };
+        controller.abort();
+        return { baseUrl, owned: true, pid: 123 };
+      }),
+      stopOwned: vi.fn(async () => {
+        runtime.state.ownedProcess = undefined;
+      }),
+    } as unknown as SymphonyRuntime["processManager"];
+    runtime.attach = vi.fn(async (_baseUrl: string, signal?: AbortSignal) => {
+      expect(signal?.aborted).toBe(true);
+      throw new DOMException("This operation was aborted", "AbortError");
+    }) as unknown as SymphonyRuntime["attach"];
+    const clearAttachmentIfBaseUrl = vi.spyOn(runtime, "clearAttachmentIfBaseUrl");
+
+    const { commands } = registerCommands(runtime);
+    const { ctx } = commandContext();
+    const start = commands.get("symphony:start");
+    if (!start) throw new Error("expected start command");
+
+    await start.handler("", ctx);
+
+    expect(runtime.attach).toHaveBeenCalledWith(baseUrl, controller.signal);
+    expect(runtime.processManager.stopOwned).toHaveBeenCalledOnce();
+    expect(clearAttachmentIfBaseUrl).toHaveBeenCalledWith(baseUrl);
   });
 
   it("shows inline progress while attaching", async () => {

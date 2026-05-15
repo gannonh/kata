@@ -42,14 +42,25 @@ export function registerSymphonyCommands(pi: ExtensionAPI, runtime: SymphonyRunt
   pi.registerCommand("symphony:start", {
     description: "Start Symphony headlessly, attach to the HTTP API, and open the dashboard",
     handler: async (args, ctx) => runCommandHandler(ctx, async () => withSymphonyLoader(ctx, { message: "Starting Symphony...", restoreStatus: (ctx) => setSymphonyStatus(ctx, runtime) }, async (signal) => {
-      const parsed = parseStartArgs(args);
-      const binary = await runtime.resolveBinary(ctx);
-      const started = await runtime.processManager.start({ binary, cwd: ctx.cwd, workflow: parsed.workflow, signal });
-      await runtime.attach(started.baseUrl, signal);
-      runtime.persist(pi);
-      setSymphonyStatus(ctx, runtime);
-      ctx.ui.notify(`Symphony started at ${started.baseUrl}`, "info");
-      await openDashboard(ctx, runtime);
+      let startedBaseUrl: string | undefined;
+      try {
+        const parsed = parseStartArgs(args);
+        const binary = await runtime.resolveBinary(ctx);
+        const started = await runtime.processManager.start({ binary, cwd: ctx.cwd, workflow: parsed.workflow, signal });
+        startedBaseUrl = started.baseUrl;
+        await runtime.attach(started.baseUrl, signal);
+        if (signal.aborted) {
+          await cleanupAbortedStart(runtime, startedBaseUrl);
+          return;
+        }
+        runtime.persist(pi);
+        setSymphonyStatus(ctx, runtime);
+        ctx.ui.notify(`Symphony started at ${started.baseUrl}`, "info");
+        await openDashboard(ctx, runtime);
+      } catch (error) {
+        if (signal.aborted && startedBaseUrl) await cleanupAbortedStart(runtime, startedBaseUrl);
+        throw error;
+      }
     })),
   });
 
@@ -123,6 +134,15 @@ async function runCommandHandler(ctx: ExtensionCommandContext, fn: () => Promise
   } catch (error) {
     ctx.ui.notify(formatError(error), "error");
   }
+}
+
+async function cleanupAbortedStart(runtime: SymphonyRuntime, baseUrl: string): Promise<void> {
+  try {
+    await runtime.processManager.stopOwned();
+  } catch (error) {
+    if (!(error instanceof SymphonyExtensionError && error.kind === "not_owned")) throw error;
+  }
+  runtime.clearAttachmentIfBaseUrl(baseUrl);
 }
 
 function runtimeCountsText(runtime: SymphonyRuntime): string {
