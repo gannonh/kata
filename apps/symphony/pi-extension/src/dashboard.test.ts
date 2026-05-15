@@ -147,10 +147,10 @@ describe("SymphonyDashboardComponent", () => {
 
     const output = dashboard.render(160).join("\n");
 
-    expect(output).toContain("Running workers");
+    expect(output).toContain("Running Workers");
     expect(output).toContain("> SIM-123");
     expect(output).toContain("SIM-777");
-    expect(output).toContain("Selected worker");
+    expect(output).toContain("Selected Worker");
     expect(output).toContain("issue: SIM-123 Worker one");
     expect(output).toContain("tracker state: In Progress");
     expect(output).toContain("attempt: 2");
@@ -158,7 +158,7 @@ describe("SymphonyDashboardComponent", () => {
     expect(output).toContain("last activity: 2026-05-14T12:04:00.000Z");
     expect(output).toContain("worker host: worker-a");
     expect(output).toContain("workspace: /tmp/symphony/issue-123");
-    expect(output).toContain("Recent worker/runtime events");
+    expect(output).toContain("Events");
     expect(output).toContain("worker_failed usage limit");
   });
 
@@ -203,6 +203,9 @@ describe("SymphonyDashboardComponent", () => {
     expect(output).toContain("<warning>retry: 1</warning>");
     expect(output).toContain("<error>blocked: 1</error>");
     expect(output).toContain("<bg:selectedBg><accent><bold>> SIM-123");
+    expect(output).not.toContain("Running workers");
+    expect(output).not.toContain("Selected worker");
+    expect(output).not.toContain("Recent worker/runtime events");
   });
 
   it("moves selection with arrow keys", () => {
@@ -243,7 +246,7 @@ describe("SymphonyDashboardComponent", () => {
 
     dashboard.handleInput("d");
 
-    expect(dashboard.render(160).join("\n")).not.toContain("Selected worker");
+    expect(dashboard.render(160).join("\n")).not.toContain("issue: SIM-123 Worker one");
   });
 
   it("prompts for a steer instruction and sends it to the selected worker", async () => {
@@ -379,7 +382,7 @@ describe("SymphonyDashboardComponent", () => {
 });
 
 describe("openDashboard", () => {
-  it("opens the event stream, records incoming dashboard events, and refreshes stale state", async () => {
+  it("renders as an above-editor widget and refreshes stale state from events", async () => {
     const state = createDefaultState();
     state.attachedBaseUrl = "http://127.0.0.1:8080";
     state.lastKnownState = {
@@ -399,15 +402,10 @@ describe("openDashboard", () => {
       return { close: vi.fn() };
     });
 
-    type CustomFactory = Parameters<ExtensionContext["ui"]["custom"]>[0];
     const requestRender = vi.fn();
-    const custom = vi.fn(async (factory: CustomFactory): Promise<void> => {
-      const component = await factory(
-        { requestRender } as unknown as Parameters<CustomFactory>[0],
-        {} as Parameters<CustomFactory>[1],
-        {} as Parameters<CustomFactory>[2],
-        (() => undefined) as Parameters<CustomFactory>[3],
-      );
+    const custom = vi.fn();
+    const setWidget = vi.fn((_key: string, factory: unknown) => {
+      const component = (factory as (tui: { requestRender: () => void }, theme: ReturnType<typeof fakeTheme>) => SymphonyDashboardComponent)({ requestRender }, fakeTheme());
       capturedOnEvent?.({
         version: "v1",
         sequence: 1,
@@ -418,11 +416,9 @@ describe("openDashboard", () => {
         event: "worker_started",
         payload: {},
       });
-      await expect.poll(() => refreshState.mock.calls.length, { interval: 10, timeout: 1000 }).toBe(2);
-      expect(component.render(120).join("\n")).toContain("worker_started");
-      expect(component.render(120).join("\n")).toContain("Worker one");
+      return component;
     });
-    const ctx = { ui: { notify: vi.fn(), custom, input: vi.fn() } } as unknown as ExtensionContext;
+    const ctx = { ui: { notify: vi.fn(), custom, input: vi.fn(), setWidget } } as unknown as ExtensionContext;
     const refreshState = vi.fn(async function (this: { lastState?: SymphonyStateResponse }) {
       this.lastState = workerStateFixture();
       return this.lastState;
@@ -443,11 +439,14 @@ describe("openDashboard", () => {
 
     await openDashboard(ctx, runtime);
 
+    expect(custom).not.toHaveBeenCalled();
+    expect(setWidget).toHaveBeenCalledWith("symphony-dashboard", expect.any(Function));
     expect(startSymphonyEventStream).toHaveBeenCalledWith(expect.objectContaining({ baseUrl: "http://127.0.0.1:8080" }));
+    await expect.poll(() => refreshState.mock.calls.length, { interval: 10, timeout: 1000 }).toBe(2);
     expect(requestRender).toHaveBeenCalled();
   });
 
-  it("notifies and still opens when launch refresh fails", async () => {
+  it("notifies and still renders the widget when launch refresh fails", async () => {
     const state = createDefaultState();
     state.attachedBaseUrl = "http://127.0.0.1:8080";
     state.lastKnownState = {
@@ -462,20 +461,12 @@ describe("openDashboard", () => {
       updatedAt: "2026-05-14T00:00:01Z",
     };
 
-    type CustomFactory = Parameters<ExtensionContext["ui"]["custom"]>[0];
-    const requestRender = vi.fn();
     const notify = vi.fn();
-    const custom = vi.fn(async (factory: CustomFactory): Promise<void> => {
-      const component = await factory(
-        { requestRender } as unknown as Parameters<CustomFactory>[0],
-        {} as Parameters<CustomFactory>[1],
-        {} as Parameters<CustomFactory>[2],
-        (() => undefined) as Parameters<CustomFactory>[3],
-      );
-
+    const setWidget = vi.fn((_key: string, factory: unknown) => {
+      const component = (factory as (tui: { requestRender: () => void }, theme: ReturnType<typeof fakeTheme>) => SymphonyDashboardComponent)({ requestRender: vi.fn() }, fakeTheme());
       expect(component.render(120).join("\n")).toContain("running: 1");
     });
-    const ctx = { ui: { notify, custom, input: vi.fn() } } as unknown as ExtensionContext;
+    const ctx = { ui: { notify, custom: vi.fn(), input: vi.fn(), setWidget } } as unknown as ExtensionContext;
     const runtime = {
       client: {},
       state,
@@ -492,6 +483,6 @@ describe("openDashboard", () => {
     await openDashboard(ctx, runtime);
 
     expect(notify).toHaveBeenCalledWith("formatted: launch refresh failed", "error");
-    expect(custom).toHaveBeenCalledOnce();
+    expect(setWidget).toHaveBeenCalledOnce();
   });
 });

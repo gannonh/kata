@@ -97,7 +97,7 @@ export class SymphonyDashboardComponent {
       ...boxLines("Selected Worker", renderSelectedWorkerDetails(selectedWorker, state.dashboard.showDetails, theme), dashboardWidth, theme),
       ...boxLines("Events", renderRecentEvents(formatEventRows(this.options.getEvents()), theme), dashboardWidth, theme),
       "",
-      ...boxLines("Help", [this.refreshing ? color(theme, "warning", "refreshing...") : "keys: ↑/↓ select | r refresh | s steer | d details | q/esc close"], dashboardWidth, theme),
+      ...boxLines("Help", [this.refreshing ? color(theme, "warning", "refreshing...") : "live updates above input | /symphony:dashboard refreshes"], dashboardWidth, theme),
     ];
 
     return lines.map((line) => truncateToWidth(line, width));
@@ -159,7 +159,7 @@ export class SymphonyDashboardComponent {
 }
 
 function renderWorkerTable(workers: WorkerRow[], selectedIndex: number, theme?: DashboardTheme): string[] {
-  const lines = [bold(theme, "Running workers"), color(theme, "dim", "sel issue    state           attempt turns   host      last activity")];
+  const lines = [color(theme, "dim", "sel issue    state           attempt turns   host      last activity")];
   if (workers.length === 0) return [...lines, color(theme, "dim", "-   no running workers")];
 
   for (const [index, worker] of workers.entries()) {
@@ -180,9 +180,8 @@ function renderWorkerTable(workers: WorkerRow[], selectedIndex: number, theme?: 
 
 function renderSelectedWorkerDetails(worker: WorkerRow | undefined, showDetails: boolean, theme?: DashboardTheme): string[] {
   if (!showDetails) return [];
-  if (!worker) return [bold(theme, "Selected worker"), color(theme, "dim", "none")];
+  if (!worker) return [color(theme, "dim", "none")];
   return [
-    bold(theme, "Selected worker"),
     `issue: ${color(theme, "accent", worker.issueIdentifier)} ${worker.title}`,
     `tracker state: ${color(theme, "success", worker.trackerState)}`,
     `attempt: ${worker.attempt}`,
@@ -195,9 +194,8 @@ function renderSelectedWorkerDetails(worker: WorkerRow | undefined, showDetails:
 }
 
 function renderRecentEvents(events: string[], theme?: DashboardTheme): string[] {
-  const lines = [bold(theme, "Recent worker/runtime events")];
-  if (events.length === 0) return [...lines, color(theme, "dim", "none")];
-  return [...lines, ...events.map((event) => colorEventRow(event, theme))];
+  if (events.length === 0) return [color(theme, "dim", "none")];
+  return events.map((event) => colorEventRow(event, theme));
 }
 
 function colorEventRow(event: string, theme?: DashboardTheme): string {
@@ -270,13 +268,19 @@ export async function openDashboard(ctx: ExtensionContext, runtime: SymphonyRunt
     ctx.ui.notify(runtime.errorText(error), "error");
   }
 
-  await ctx.ui.custom<void>((tui, _theme, _keybindings, done) => {
+  ctx.ui.setWidget("symphony-dashboard", (tui, theme) => {
     let eventStream: EventStreamHandle | undefined;
     let eventStreamErrorNotified = false;
     let closed = false;
     let liveRefreshTimer: ReturnType<typeof setTimeout> | undefined;
     let liveRefreshInFlight = false;
     let liveRefreshPending = false;
+
+    const closeWidget = () => {
+      closed = true;
+      if (liveRefreshTimer) clearTimeout(liveRefreshTimer);
+      eventStream?.close();
+    };
 
     const scheduleLiveRefresh = () => {
       liveRefreshPending = true;
@@ -335,15 +339,13 @@ export async function openDashboard(ctx: ExtensionContext, runtime: SymphonyRunt
       },
       prompt: async (title, label) => ctx.ui.input(title, label),
       close: () => {
-        closed = true;
-        if (liveRefreshTimer) clearTimeout(liveRefreshTimer);
-        eventStream?.close();
-        done(undefined);
+        closeWidget();
+        ctx.ui.setWidget("symphony-dashboard", undefined);
       },
       requestRender: () => tui.requestRender(),
       notify: (message, level) => ctx.ui.notify(message, level),
-      theme: _theme,
+      theme,
     });
-    return component;
+    return Object.assign(component, { dispose: closeWidget });
   });
 }
