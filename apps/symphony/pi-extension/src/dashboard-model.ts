@@ -60,7 +60,7 @@ function formatLastActivity(lastActivityMs: number | null | undefined, lastActiv
 
 function eventSummary(event: SymphonyEventEnvelope): string {
   if (!isRecord(event.payload)) return "";
-  const preferred = event.payload.error_preview ?? event.payload.summary ?? event.payload.message ?? event.payload.reason;
+  const preferred = event.payload.error_preview ?? event.payload.summary ?? event.payload.message ?? event.payload.reason ?? event.payload.error ?? event.payload.instruction_preview;
   return typeof preferred === "string" ? truncateText(preferred, 120) : "";
 }
 

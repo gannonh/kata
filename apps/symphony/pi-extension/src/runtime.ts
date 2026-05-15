@@ -43,6 +43,7 @@ export class SymphonyRuntime {
     const state = await client.verify(signal);
     this.client = client;
     this.lastState = state;
+    this.recentEvents = [];
     this.state.attachedBaseUrl = client.baseUrl;
     this.state.lastKnownState = client.toHealthSummary(state);
     return state;

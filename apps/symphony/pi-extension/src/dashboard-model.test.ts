@@ -76,4 +76,16 @@ describe("dashboard model", () => {
       "2026-05-14T12:01:00Z info runtime - poll_completed checked tracker",
     ]);
   });
+
+  it("includes worker failure errors and steer instructions in event summaries", () => {
+    const events: SymphonyEventEnvelope[] = [
+      { version: "v1", sequence: 1, timestamp: "2026-05-14T12:00:00Z", kind: "worker", severity: "error", issue: "SIM-123", event: "worker_failed", payload: { error: "agent exited with code 1" } },
+      { version: "v1", sequence: 2, timestamp: "2026-05-14T12:01:00Z", kind: "runtime", severity: "info", issue: "SIM-123", event: "steer_received", payload: { instruction_preview: "Focus on failing tests" } },
+    ];
+
+    expect(formatEventRows(events)).toEqual([
+      "2026-05-14T12:01:00Z info runtime SIM-123 steer_received Focus on failing tests",
+      "2026-05-14T12:00:00Z error worker SIM-123 worker_failed agent exited with code 1",
+    ]);
+  });
 });

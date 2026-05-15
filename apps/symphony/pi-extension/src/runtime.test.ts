@@ -1,5 +1,5 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { SymphonyRuntime } from "./runtime.ts";
 import { STATE_ENTRY_TYPE, type LastKnownSymphonyState } from "./state.ts";
 
@@ -25,6 +25,10 @@ function lastKnownState(baseUrl: string): LastKnownSymphonyState {
 }
 
 describe("SymphonyRuntime", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("clears the active attachment and last known state", () => {
     const runtime = new SymphonyRuntime();
     const baseUrl = "http://127.0.0.1:8080";
@@ -88,6 +92,30 @@ describe("SymphonyRuntime", () => {
 
     expect(runtime.lastState).toBe(response);
     expect(runtime.state.lastKnownState?.runningCount).toBe(1);
+  });
+
+  it("clears recent events when attaching to a new server", async () => {
+    const runtime = new SymphonyRuntime();
+    runtime.recordEvent({ version: "v1", sequence: 1, timestamp: "2026-05-14T12:00:00Z", kind: "worker", severity: "error", event: "worker_failed", payload: {} });
+    const response = {
+      tracker_project_url: "https://linear.app/kata-sh/project/symphony",
+      running: {},
+      retry_queue: [],
+      blocked: [],
+      completed: [],
+      polling: { checking: false, next_poll_in_ms: 1000, poll_interval_ms: 30000 },
+    };
+    const fetchStub: typeof fetch = async () =>
+      ({
+        ok: true,
+        status: 200,
+        text: async () => JSON.stringify(response),
+      }) as unknown as Response;
+    vi.stubGlobal("fetch", fetchStub);
+
+    await expect(runtime.attach("http://127.0.0.1:8080")).resolves.toEqual(response);
+
+    expect(runtime.recentEvents).toEqual([]);
   });
 
   it("requests a refresh before fetching the latest state", async () => {
