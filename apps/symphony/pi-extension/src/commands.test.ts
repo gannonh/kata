@@ -111,7 +111,7 @@ describe("symphony commands", () => {
       "ctrl+shift+down",
       "ctrl+shift+r",
       "ctrl+shift+e",
-      "ctrl+shift+d",
+      "ctrl+shift+i",
       "ctrl+shift+q",
     ]));
     expect(shortcuts.get("ctrl+shift+down")?.description).toContain("Select next Symphony dashboard worker");

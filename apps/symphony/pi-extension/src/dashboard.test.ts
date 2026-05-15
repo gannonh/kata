@@ -202,7 +202,7 @@ describe("SymphonyDashboardComponent", () => {
     expect(output).toContain("ctrl+shift+↑/↓ select");
     expect(output).toContain("ctrl+shift+r refresh");
     expect(output).toContain("ctrl+shift+e steer");
-    expect(output).toContain("ctrl+shift+d details");
+    expect(output).toContain("ctrl+shift+i details");
     expect(output).toContain("ctrl+shift+q close");
     expect(output).toContain("<borderAccent>┌</borderAccent>");
     expect(output).toContain("<success>running: 2</success>");
