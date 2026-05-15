@@ -33,7 +33,7 @@ export interface ExtensionState {
 
 export function createDefaultState(): ExtensionState {
   return {
-    dashboard: { showDetails: false },
+    dashboard: { showDetails: true },
     stopOwnedOnShutdown: true,
   };
 }
