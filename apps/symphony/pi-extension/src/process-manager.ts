@@ -1,4 +1,5 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { SymphonyExtensionError } from "./errors.ts";
 import { SymphonyHttpClient } from "./http-client.ts";
@@ -60,7 +61,6 @@ export class SymphonyProcessManager {
     try {
       const baseUrl = await this.waitForReady(options.cwd, options.workflow, options.timeoutMs ?? 10_000, options.signal);
       throwIfAborted(options.signal);
-      this.state.attachedBaseUrl = baseUrl;
       this.state.ownedProcess = {
         pid,
         command: [options.binary, ...args].join(" "),
@@ -112,8 +112,13 @@ export class SymphonyProcessManager {
   }
 
   private clearOwnedState(): void {
+    const ownedBaseUrl = this.state.ownedProcess?.baseUrl;
     this.child = undefined;
     this.state.ownedProcess = undefined;
+    if (ownedBaseUrl && this.state.attachedBaseUrl === ownedBaseUrl) {
+      this.state.attachedBaseUrl = undefined;
+      this.state.lastKnownState = undefined;
+    }
   }
 
   private appendOutput(chunk: unknown): void {
@@ -215,6 +220,71 @@ async function waitForExitOrTimeout(child: ChildProcessWithoutNullStreams, timeo
   });
 }
 
-function readWorkflowServerConfigSyncBestEffort(_workflowPath: string): { host: string; port: number } {
-  return { host: "127.0.0.1", port: 8080 };
+function readWorkflowServerConfigSyncBestEffort(workflowPath: string): { host: string; port: number } {
+  try {
+    return parseWorkflowServerConfig(readFileSync(workflowPath, "utf8"));
+  } catch {
+    return { host: "127.0.0.1", port: 8080 };
+  }
+}
+
+function parseWorkflowServerConfig(content: string): { host: string; port: number } {
+  const yaml = extractYamlFrontmatter(content) ?? content;
+  let inServerSection = false;
+  let serverIndent = -1;
+  let host = "127.0.0.1";
+  let port = 8080;
+
+  for (const rawLine of yaml.split(/\r?\n/)) {
+    const line = stripYamlComment(rawLine).trimEnd();
+    if (!line.trim()) continue;
+    const indent = leadingWhitespaceLength(line);
+    const trimmed = line.trim();
+
+    if (trimmed === "server:") {
+      inServerSection = true;
+      serverIndent = indent;
+      continue;
+    }
+
+    if (inServerSection && indent <= serverIndent) {
+      inServerSection = false;
+    }
+
+    if (!inServerSection) continue;
+
+    const match = trimmed.match(/^(host|port):\s*(.+)$/);
+    if (!match) continue;
+    const [, key, rawValue] = match;
+    const value = parseYamlScalar(rawValue);
+    if (key === "host" && value) host = value;
+    if (key === "port") {
+      const parsedPort = Number(value);
+      if (Number.isInteger(parsedPort) && parsedPort >= 0 && parsedPort <= 65535) port = parsedPort;
+    }
+  }
+
+  return { host, port };
+}
+
+function extractYamlFrontmatter(content: string): string | undefined {
+  const lines = content.split(/\r?\n/);
+  if (lines[0]?.trim() !== "---") return undefined;
+  const end = lines.findIndex((line, index) => index > 0 && line.trim() === "---");
+  if (end === -1) return undefined;
+  return lines.slice(1, end).join("\n");
+}
+
+function stripYamlComment(line: string): string {
+  return line.replace(/\s+#.*$/, "");
+}
+
+function leadingWhitespaceLength(value: string): number {
+  return value.length - value.trimStart().length;
+}
+
+function parseYamlScalar(value: string): string {
+  const trimmed = value.trim();
+  const quoted = trimmed.match(/^(["'])(.*)\1$/);
+  return quoted ? quoted[2] : trimmed;
 }

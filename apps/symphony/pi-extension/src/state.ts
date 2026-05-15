@@ -64,13 +64,23 @@ export function restoreStateFromEntries(entries: Array<{ type?: string; customTy
 function restoreStateFromSnapshot(data: Record<string, unknown>): ExtensionState {
   const state = createDefaultState();
   if (typeof data.binaryPath === "string") state.binaryPath = data.binaryPath;
-  if (isValidBaseUrl(data.attachedBaseUrl)) state.attachedBaseUrl = data.attachedBaseUrl;
+  if (isValidBaseUrl(data.attachedBaseUrl)) state.attachedBaseUrl = normalizeBaseUrl(data.attachedBaseUrl);
   if (typeof data.stopOwnedOnShutdown === "boolean") state.stopOwnedOnShutdown = data.stopOwnedOnShutdown;
   if (isRecord(data.dashboard) && typeof data.dashboard.showDetails === "boolean") {
     state.dashboard.showDetails = data.dashboard.showDetails;
   }
-  if (isOwnedProcessMetadata(data.ownedProcess)) state.ownedProcess = data.ownedProcess;
-  if (isLastKnownSymphonyState(data.lastKnownState)) state.lastKnownState = data.lastKnownState;
+  if (isOwnedProcessMetadata(data.ownedProcess)) {
+    state.ownedProcess = {
+      ...data.ownedProcess,
+      baseUrl: data.ownedProcess.baseUrl ? normalizeBaseUrl(data.ownedProcess.baseUrl) : undefined,
+    };
+  }
+  if (isLastKnownSymphonyState(data.lastKnownState)) {
+    state.lastKnownState = {
+      ...data.lastKnownState,
+      baseUrl: normalizeBaseUrl(data.lastKnownState.baseUrl),
+    };
+  }
   return state;
 }
 
@@ -81,7 +91,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function isOwnedProcessMetadata(value: unknown): value is OwnedProcessMetadata {
   return (
     isRecord(value) &&
-    isFiniteNumber(value.pid) &&
+    isPositiveInteger(value.pid) &&
     typeof value.command === "string" &&
     typeof value.cwd === "string" &&
     (value.baseUrl === undefined || isValidBaseUrl(value.baseUrl)) &&
@@ -116,6 +126,10 @@ function isValidBaseUrl(value: unknown): value is string {
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
+}
+
+function isPositiveInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value > 0;
 }
 
 export function snapshotStateForPersistence(state: ExtensionState): ExtensionState {

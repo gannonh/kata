@@ -75,31 +75,53 @@ describe("extension state persistence", () => {
   });
 
   it("ignores invalid nested persisted data", () => {
+    const invalidPids = ["123", 0, -1, 1.5];
+
+    for (const pid of invalidPids) {
+      const state = restoreStateFromEntries([
+        {
+          type: "custom",
+          customType: STATE_ENTRY_TYPE,
+          data: {
+            ownedProcess,
+            lastKnownState,
+          },
+        },
+        {
+          type: "custom",
+          customType: STATE_ENTRY_TYPE,
+          data: {
+            ownedProcess: { ...ownedProcess, pid },
+            dashboard: { showDetails: true },
+            stopOwnedOnShutdown: false,
+            lastKnownState: { ...lastKnownState, runningCount: "1" },
+          },
+        },
+      ]);
+
+      expect(state).toEqual({
+        dashboard: { showDetails: true },
+        stopOwnedOnShutdown: false,
+      });
+    }
+  });
+
+  it("canonicalizes restored base URLs before storing them", () => {
     const state = restoreStateFromEntries([
       {
         type: "custom",
         customType: STATE_ENTRY_TYPE,
         data: {
-          ownedProcess,
-          lastKnownState,
-        },
-      },
-      {
-        type: "custom",
-        customType: STATE_ENTRY_TYPE,
-        data: {
-          ownedProcess: { ...ownedProcess, pid: "123" },
-          dashboard: { showDetails: true },
-          stopOwnedOnShutdown: false,
-          lastKnownState: { ...lastKnownState, runningCount: "1" },
+          attachedBaseUrl: " HTTP://LOCALHOST:8080/api///?debug=true#panel ",
+          ownedProcess: { ...ownedProcess, baseUrl: "http://127.0.0.1:8080///?debug=true#panel" },
+          lastKnownState: { ...lastKnownState, baseUrl: "http://127.0.0.1:8080///?debug=true#panel" },
         },
       },
     ]);
 
-    expect(state).toEqual({
-      dashboard: { showDetails: true },
-      stopOwnedOnShutdown: false,
-    });
+    expect(state.attachedBaseUrl).toBe("http://localhost:8080/api");
+    expect(state.ownedProcess?.baseUrl).toBe("http://127.0.0.1:8080");
+    expect(state.lastKnownState?.baseUrl).toBe("http://127.0.0.1:8080");
   });
 
   it("ignores persisted base URLs with non-http protocols", () => {

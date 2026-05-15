@@ -14,9 +14,12 @@ export default function symphonyExtension(pi: ExtensionAPI): void {
   pi.on("session_shutdown", async () => {
     const hadOwnedProcess = runtime.state.stopOwnedOnShutdown && Boolean(runtime.state.ownedProcess);
     const ownedBaseUrl = runtime.state.stopOwnedOnShutdown ? runtime.state.ownedProcess?.baseUrl : undefined;
-    await runtime.processManager.shutdown();
-    runtime.clearAttachmentIfBaseUrl(ownedBaseUrl);
-    if (hadOwnedProcess) runtime.persist(pi);
+    try {
+      await runtime.processManager.shutdown();
+    } finally {
+      runtime.clearAttachmentIfBaseUrl(ownedBaseUrl);
+      if (hadOwnedProcess) runtime.persist(pi);
+    }
   });
 
   registerSymphonyCommands(pi, runtime);

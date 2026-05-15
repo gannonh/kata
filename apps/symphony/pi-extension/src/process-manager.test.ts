@@ -1,4 +1,4 @@
-import { chmod, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer, type Server } from "node:http";
@@ -64,6 +64,43 @@ describe("SymphonyProcessManager", () => {
     expect(started.owned).toBe(true);
     expect(state.ownedProcess?.command).toContain("--no-tui");
     expect(state.ownedProcess?.command).toContain(".symphony/WORKFLOW.md");
+
+    await manager.stopOwned();
+  });
+
+  it("does not mark the runtime attached before the caller attaches", async () => {
+    const baseUrl = await stateServer();
+    const dir = await mkdtemp(join(tmpdir(), "pi-symphony-process-"));
+    const script = join(dir, "fake-symphony.sh");
+    await writeFile(script, `#!/bin/sh\necho "dashboard listening at ${baseUrl}"\nsleep 30\n`, "utf8");
+    await chmod(script, 0o755);
+
+    const state = createDefaultState();
+    const manager = new SymphonyProcessManager(state);
+    const started = await manager.start({ binary: script, cwd: dir, timeoutMs: 2000 });
+
+    expect(started.baseUrl).toBe(baseUrl);
+    expect(state.attachedBaseUrl).toBeUndefined();
+
+    await manager.stopOwned();
+  });
+
+  it("reads the workflow server port before probing health", async () => {
+    const baseUrl = await stateServer();
+    const port = new URL(baseUrl).port;
+    const dir = await mkdtemp(join(tmpdir(), "pi-symphony-process-"));
+    const workflowDir = join(dir, ".symphony");
+    await mkdir(workflowDir);
+    await writeFile(join(workflowDir, "WORKFLOW.md"), `---\nserver:\n  port: ${port}\n---\nRun Symphony\n`, "utf8");
+    const script = join(dir, "fake-symphony.sh");
+    await writeFile(script, "#!/bin/sh\nsleep 30\n", "utf8");
+    await chmod(script, 0o755);
+
+    const state = createDefaultState();
+    const manager = new SymphonyProcessManager(state);
+    const started = await manager.start({ binary: script, cwd: dir, workflow: ".symphony/WORKFLOW.md", timeoutMs: 2000 });
+
+    expect(started.baseUrl).toBe(baseUrl);
 
     await manager.stopOwned();
   });
@@ -153,14 +190,27 @@ describe("SymphonyProcessManager", () => {
   it("clears stale owned state when the owned child exits unexpectedly", async () => {
     const baseUrl = await stateServer();
     const dir = await mkdtemp(join(tmpdir(), "pi-symphony-process-"));
-    const script = await writeNodeScript(dir, "quick-exit.js", `console.log("dashboard listening at ${baseUrl}");\nsetTimeout(() => process.exit(0), 100);\n`);
+    const script = await writeNodeScript(dir, "quick-exit.js", `console.log("dashboard listening at ${baseUrl}");\nsetTimeout(() => process.exit(0), 300);\n`);
 
     const state = createDefaultState();
     const manager = new SymphonyProcessManager(state);
     const started = await manager.start({ binary: process.execPath, cwd: dir, workflow: script, timeoutMs: 2000 });
+    state.attachedBaseUrl = baseUrl;
+    state.lastKnownState = {
+      baseUrl,
+      runningCount: 0,
+      retryCount: 0,
+      blockedCount: 0,
+      completedCount: 0,
+      pollingChecking: false,
+      nextPollInMs: 0,
+      updatedAt: "2026-05-14T00:00:00.000Z",
+    };
     await waitForProcessExit(started.pid);
 
     await expect.poll(() => state.ownedProcess, { interval: 50, timeout: 1000 }).toBeUndefined();
+    expect(state.attachedBaseUrl).toBeUndefined();
+    expect(state.lastKnownState).toBeUndefined();
     await expect(manager.stopOwned()).rejects.toMatchObject({ kind: "not_owned" });
   });
 
