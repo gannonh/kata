@@ -1,3 +1,6 @@
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { AgentToolUpdateCallback, ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { describe, expect, it, vi } from "vitest";
 import { registerSymphonyTools } from "./tools.ts";
@@ -10,10 +13,10 @@ type RegisteredTool = {
   execute: (id: string, params: Record<string, unknown>, signal: AbortSignal, update: AgentToolUpdateCallback | undefined, ctx: ExtensionContext) => Promise<unknown>;
 };
 
-function toolContext() {
+function toolContext(options: { cwd?: string } = {}) {
   const setStatus = vi.fn();
   const ctx = {
-    cwd: "/repo",
+    cwd: options.cwd ?? "/repo",
     hasUI: true,
     ui: { setStatus },
   } as unknown as ExtensionContext;
@@ -107,7 +110,10 @@ describe("symphony tools", () => {
     expect(result).toMatchObject({ content: [{ type: "text", text: "doctor ok" }] });
   });
 
-  it("reports progress while starting Symphony", async () => {
+  it("uses .symphony/WORKFLOW.md when start omits a workflow", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "pi-symphony-start-tool-"));
+    await mkdir(join(dir, ".symphony"));
+    await writeFile(join(dir, ".symphony", "WORKFLOW.md"), "---\n---\n", "utf8");
     const baseUrl = "http://127.0.0.1:8080";
     const runtime = new SymphonyRuntime();
     runtime.resolveBinary = vi.fn(async () => "symphony") as SymphonyRuntime["resolveBinary"];
@@ -122,14 +128,52 @@ describe("symphony tools", () => {
     const { tools } = registerTools(runtime);
     const start = tools.get("symphony_start");
     if (!start) throw new Error("expected start tool");
-    const { ctx, setStatus } = toolContext();
+    const { ctx } = toolContext({ cwd: dir });
+    const signal = new AbortController().signal;
+
+    await start.execute("1", {}, signal, undefined, ctx);
+
+    expect(runtime.processManager.start).toHaveBeenCalledWith(expect.objectContaining({ workflow: ".symphony/WORKFLOW.md" }));
+  });
+
+  it("rejects start with a helpful error when the default workflow is missing", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "pi-symphony-start-tool-"));
+    const runtime = new SymphonyRuntime();
+    runtime.resolveBinary = vi.fn(async () => "symphony") as SymphonyRuntime["resolveBinary"];
+    runtime.processManager.start = vi.fn() as unknown as SymphonyRuntime["processManager"]["start"];
+    const { tools } = registerTools(runtime);
+    const start = tools.get("symphony_start");
+    if (!start) throw new Error("expected start tool");
+
+    await expect(start.execute("1", {}, new AbortController().signal, undefined, toolContext({ cwd: dir }).ctx)).rejects.toThrow("Symphony workflow file not found: .symphony/WORKFLOW.md");
+    expect(runtime.processManager.start).not.toHaveBeenCalled();
+  });
+
+  it("reports progress while starting Symphony", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "pi-symphony-start-tool-"));
+    await writeFile(join(dir, "WORKFLOW.md"), "---\n---\n", "utf8");
+    const baseUrl = "http://127.0.0.1:8080";
+    const runtime = new SymphonyRuntime();
+    runtime.resolveBinary = vi.fn(async () => "symphony") as SymphonyRuntime["resolveBinary"];
+    runtime.processManager = {
+      start: vi.fn(async () => ({ baseUrl, owned: true, pid: 123 })),
+    } as unknown as SymphonyRuntime["processManager"];
+    runtime.attach = vi.fn(async (_baseUrl: string) => {
+      runtime.state.attachedBaseUrl = baseUrl;
+      runtime.state.lastKnownState = lastKnownState(baseUrl);
+      return {};
+    }) as unknown as SymphonyRuntime["attach"];
+    const { tools } = registerTools(runtime);
+    const start = tools.get("symphony_start");
+    if (!start) throw new Error("expected start tool");
+    const { ctx, setStatus } = toolContext({ cwd: dir });
     const signal = new AbortController().signal;
     const update = vi.fn();
 
     const result = await start.execute("1", { workflow: "WORKFLOW.md" }, signal, update, ctx);
 
     expect(update).toHaveBeenCalledWith(progressUpdate("Starting Symphony..."));
-    expect(runtime.processManager.start).toHaveBeenCalledWith({ binary: "symphony", cwd: "/repo", workflow: "WORKFLOW.md", signal });
+    expect(runtime.processManager.start).toHaveBeenCalledWith({ binary: "symphony", cwd: dir, workflow: "WORKFLOW.md", signal });
     expect(runtime.attach).toHaveBeenCalledWith(baseUrl, signal);
     expect(setStatus).toHaveBeenCalledWith("symphony", `symphony ${baseUrl}`);
     expect(result).toMatchObject({ content: [{ type: "text", text: `Symphony started at ${baseUrl}` }] });

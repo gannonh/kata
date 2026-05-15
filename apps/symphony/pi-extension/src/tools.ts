@@ -4,6 +4,7 @@ import { assertLoopbackAttachUrl } from "./attach-url-policy.ts";
 import { setSymphonyStatus } from "./commands.ts";
 import { formatError, SymphonyExtensionError } from "./errors.ts";
 import type { SymphonyRuntime } from "./runtime.ts";
+import { resolveStartWorkflow } from "./workflow-resolver.ts";
 
 const SYMPHONY_TOOL_EXECUTION_MODE = "sequential" as ToolExecutionMode;
 
@@ -73,8 +74,9 @@ export function registerSymphonyTools(pi: ExtensionAPI, runtime: SymphonyRuntime
       let startedBaseUrl: string | undefined;
       try {
         updateProgress(onUpdate, "Starting Symphony...");
+        const workflow = await resolveStartWorkflow(ctx.cwd, params.workflow);
         const binary = await runtime.resolveBinary(ctx);
-        const started = await runtime.processManager.start({ binary, cwd: ctx.cwd, workflow: params.workflow, signal });
+        const started = await runtime.processManager.start({ binary, cwd: ctx.cwd, workflow, signal });
         startedBaseUrl = started.baseUrl;
         await runtime.attach(started.baseUrl, signal);
         runtime.persist(pi);

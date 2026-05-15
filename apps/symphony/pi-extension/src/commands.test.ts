@@ -1,3 +1,6 @@
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { describe, expect, it, vi } from "vitest";
 import { registerSymphonyCommands, setSymphonyStatus } from "./commands.ts";
@@ -25,7 +28,7 @@ vi.mock("@earendil-works/pi-coding-agent", () => ({
 
 type CommandOptions = Parameters<ExtensionAPI["registerCommand"]>[1];
 
-function commandContext(options: { hasUI?: boolean } = {}) {
+function commandContext(options: { hasUI?: boolean; cwd?: string } = {}) {
   const notify = vi.fn();
   const setStatus = vi.fn();
   const setWorkingIndicator = vi.fn();
@@ -47,7 +50,7 @@ function commandContext(options: { hasUI?: boolean } = {}) {
   });
   const ctx = {
     ui: { notify, setStatus, setWorkingIndicator, setWorkingMessage, custom },
-    cwd: "/repo",
+    cwd: options.cwd ?? "/repo",
     hasUI,
   } as unknown as ExtensionCommandContext;
 
@@ -162,6 +165,9 @@ describe("symphony commands", () => {
   });
 
   it("cleans up an owned process when start is cancelled during attach", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "pi-symphony-start-"));
+    await mkdir(join(dir, ".symphony"));
+    await writeFile(join(dir, ".symphony", "WORKFLOW.md"), "---\n---\n", "utf8");
     const baseUrl = "http://127.0.0.1:8080";
     const controller = new AbortController();
     borderedLoaderMocks.nextController = controller;
@@ -190,7 +196,7 @@ describe("symphony commands", () => {
     const clearAttachmentIfBaseUrl = vi.spyOn(runtime, "clearAttachmentIfBaseUrl");
 
     const { commands } = registerCommands(runtime);
-    const { ctx, custom, setStatus } = commandContext();
+    const { ctx, custom, setStatus } = commandContext({ cwd: dir });
     const start = commands.get("symphony:start");
     if (!start) throw new Error("expected start command");
 
@@ -280,6 +286,75 @@ describe("symphony commands", () => {
     expect(setStatus).toHaveBeenNthCalledWith(1, "symphony", "Running Symphony doctor...");
     expect(setStatus).toHaveBeenLastCalledWith("symphony", "symphony detached");
     expect(exec).toHaveBeenCalledWith("symphony", ["doctor"], { cwd: "/repo", signal: expect.any(AbortSignal) });
+  });
+
+  it("uses .symphony/WORKFLOW.md when start omits a workflow", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "pi-symphony-start-"));
+    await mkdir(join(dir, ".symphony"));
+    await writeFile(join(dir, ".symphony", "WORKFLOW.md"), "---\n---\n", "utf8");
+    const baseUrl = "http://127.0.0.1:8080";
+    const runtime = new SymphonyRuntime();
+    runtime.resolveBinary = vi.fn(async () => "symphony") as SymphonyRuntime["resolveBinary"];
+    runtime.processManager = {
+      start: vi.fn(async () => ({ baseUrl, owned: true, pid: 123 })),
+    } as unknown as SymphonyRuntime["processManager"];
+    runtime.attach = vi.fn(async () => {
+      runtime.state.attachedBaseUrl = baseUrl;
+      runtime.state.lastKnownState = lastKnownState(baseUrl);
+      return {};
+    }) as unknown as SymphonyRuntime["attach"];
+
+    const { commands } = registerCommands(runtime);
+    const { ctx } = commandContext({ cwd: dir });
+    const start = commands.get("symphony:start");
+    if (!start) throw new Error("expected start command");
+
+    await start.handler("", ctx);
+
+    expect(runtime.processManager.start).toHaveBeenCalledWith(expect.objectContaining({ workflow: ".symphony/WORKFLOW.md" }));
+  });
+
+  it("shows a helpful error when start omits a missing default workflow", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "pi-symphony-start-"));
+    const runtime = new SymphonyRuntime();
+    runtime.resolveBinary = vi.fn(async () => "symphony") as SymphonyRuntime["resolveBinary"];
+    runtime.processManager.start = vi.fn() as unknown as SymphonyRuntime["processManager"]["start"];
+
+    const { commands } = registerCommands(runtime);
+    const { ctx, notify } = commandContext({ cwd: dir });
+    const start = commands.get("symphony:start");
+    if (!start) throw new Error("expected start command");
+
+    await start.handler("", ctx);
+
+    expect(runtime.processManager.start).not.toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining("Symphony workflow file not found: .symphony/WORKFLOW.md"), "error");
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining("Run /symphony:init first or pass a workflow path to /symphony:start <workflow>."), "error");
+  });
+
+  it("uses an explicit start workflow instead of the default", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "pi-symphony-start-"));
+    await writeFile(join(dir, "custom-WORKFLOW.md"), "---\n---\n", "utf8");
+    const baseUrl = "http://127.0.0.1:8080";
+    const runtime = new SymphonyRuntime();
+    runtime.resolveBinary = vi.fn(async () => "symphony") as SymphonyRuntime["resolveBinary"];
+    runtime.processManager = {
+      start: vi.fn(async () => ({ baseUrl, owned: true, pid: 123 })),
+    } as unknown as SymphonyRuntime["processManager"];
+    runtime.attach = vi.fn(async () => {
+      runtime.state.attachedBaseUrl = baseUrl;
+      runtime.state.lastKnownState = lastKnownState(baseUrl);
+      return {};
+    }) as unknown as SymphonyRuntime["attach"];
+
+    const { commands } = registerCommands(runtime);
+    const { ctx } = commandContext({ cwd: dir });
+    const start = commands.get("symphony:start");
+    if (!start) throw new Error("expected start command");
+
+    await start.handler("custom-WORKFLOW.md", ctx);
+
+    expect(runtime.processManager.start).toHaveBeenCalledWith(expect.objectContaining({ workflow: "custom-WORKFLOW.md" }));
   });
 
   it("runs loader-backed commands without custom when UI is unavailable", async () => {

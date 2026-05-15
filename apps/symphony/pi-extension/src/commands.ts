@@ -5,6 +5,7 @@ import { formatError, SymphonyExtensionError } from "./errors.ts";
 import { parseAttachArgs, parseDoctorArgs, parseInitArgs, parseStartArgs, parseSteerArgs } from "./command-args.ts";
 import { withSymphonyLoader, withSymphonyProgress } from "./progress.ts";
 import type { SymphonyRuntime } from "./runtime.ts";
+import { resolveStartWorkflow } from "./workflow-resolver.ts";
 
 export function registerSymphonyCommands(pi: ExtensionAPI, runtime: SymphonyRuntime): void {
   pi.registerCommand("symphony:help", {
@@ -45,8 +46,9 @@ export function registerSymphonyCommands(pi: ExtensionAPI, runtime: SymphonyRunt
       let startedBaseUrl: string | undefined;
       try {
         const parsed = parseStartArgs(args);
+        const workflow = await resolveStartWorkflow(ctx.cwd, parsed.workflow);
         const binary = await runtime.resolveBinary(ctx);
-        const started = await runtime.processManager.start({ binary, cwd: ctx.cwd, workflow: parsed.workflow, signal });
+        const started = await runtime.processManager.start({ binary, cwd: ctx.cwd, workflow, signal });
         startedBaseUrl = started.baseUrl;
         await runtime.attach(started.baseUrl, signal);
         if (signal.aborted) {

@@ -1,5 +1,6 @@
 export type SymphonyExtensionErrorKind =
   | "missing_binary"
+  | "missing_workflow"
   | "invalid_binary"
   | "command_failed"
   | "start_timeout"
