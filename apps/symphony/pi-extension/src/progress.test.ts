@@ -102,7 +102,7 @@ describe("withSymphonyLoader", () => {
       return "attached";
     });
 
-    const result = await withSymphonyLoader(ctx, { message: "Attaching Symphony...", restoreStatus }, operation);
+    const result: string | undefined = await withSymphonyLoader(ctx, { message: "Attaching Symphony...", restoreStatus }, operation);
 
     expect(result).toBe("attached");
     expect(setStatus).toHaveBeenCalledWith("symphony", "Attaching Symphony...");
@@ -129,7 +129,9 @@ describe("withSymphonyLoader", () => {
 
     loader?.abort();
 
-    await expect(resultPromise).resolves.toBeUndefined();
+    const result = await resultPromise;
+
+    expect(result).toBeUndefined();
     expect(operation).toHaveBeenCalledWith(loader?.signal);
     expect(loader?.signal.aborted).toBe(true);
     expect(restoreStatus).toHaveBeenCalledWith(ctx);

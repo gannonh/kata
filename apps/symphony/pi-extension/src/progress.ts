@@ -29,7 +29,7 @@ export async function withSymphonyLoader<T>(
   ctx: ExtensionCommandContext,
   options: SymphonyProgressOptions,
   fn: (signal: AbortSignal) => T | Promise<T>,
-): Promise<T> {
+): Promise<T | undefined> {
   ctx.ui.setStatus("symphony", options.message);
 
   let operationFailed = false;
@@ -62,7 +62,7 @@ export async function withSymphonyLoader<T>(
     });
 
     if (operationFailed) throw operationError;
-    return result as T;
+    return result;
   } finally {
     options.restoreStatus(ctx);
   }
