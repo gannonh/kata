@@ -162,6 +162,26 @@ describe("SymphonyDashboardComponent", () => {
     expect(output).toContain("worker_failed usage limit");
   });
 
+  it("expands keyboard shortcuts onto one row when the terminal is wide", () => {
+    const state = createDefaultState();
+    state.attachedBaseUrl = "http://127.0.0.1:8080";
+    const dashboard = new SymphonyDashboardComponent({
+      state,
+      getState: () => workerStateFixture(),
+      getEvents: () => [],
+      refresh: async () => undefined,
+      steer: async () => undefined,
+      prompt: async () => undefined,
+      close: () => undefined,
+      requestRender: () => undefined,
+      notify: () => undefined,
+    });
+
+    const output = dashboard.render(220).join("\n");
+
+    expect(output).toContain("Keyboard: ctrl+shift+↑/↓ select  •  ctrl+shift+r refresh  •  ctrl+shift+e steer  •  ctrl+shift+i details  •  ctrl+shift+q close");
+  });
+
   it("renders boxed colored sections and command actions for dashboard readability", () => {
     const state = createDefaultState();
     state.attachedBaseUrl = "http://127.0.0.1:8080";
@@ -189,7 +209,7 @@ describe("SymphonyDashboardComponent", () => {
       theme: fakeTheme(),
     });
 
-    const output = dashboard.render(160).join("\n");
+    const output = dashboard.render(220).join("\n");
 
     expect(output).toContain("┌");
     expect(output).toContain("└");
@@ -204,8 +224,7 @@ describe("SymphonyDashboardComponent", () => {
     expect(output).toContain("ctrl+shift+e steer");
     expect(output).toContain("ctrl+shift+i details");
     expect(output).toContain("ctrl+shift+q close");
-    expect(output).toContain("Keyboard: ctrl+shift+↑/↓ select  •  ctrl+shift+r refresh  •  ctrl+shift+e steer");
-    expect(output).toContain("          ctrl+shift+i details  •  ctrl+shift+q close");
+    expect(output).toContain("Keyboard: ctrl+shift+↑/↓ select  •  ctrl+shift+r refresh  •  ctrl+shift+e steer  •  ctrl+shift+i details  •  ctrl+shift+q close");
     expect(output).toContain("<borderAccent>┌</borderAccent>");
     expect(output).toContain("<success>running: 2</success>");
     expect(output).toContain("<warning>retry: 1</warning>");

@@ -107,7 +107,7 @@ export class SymphonyDashboardComponent {
     const theme = this.options.theme;
     const connection = state.attachedBaseUrl ? color(theme, "success", "attached") : color(theme, "error", "detached");
     const polling = health?.pollingChecking ? color(theme, "warning", "checking") : color(theme, "success", "idle");
-    const dashboardWidth = Math.max(44, Math.min(width, 120));
+    const dashboardWidth = Math.max(44, width);
     const lines = [
       color(theme, "accent", bold(theme, "Symphony Dashboard")),
       "",
@@ -128,7 +128,7 @@ export class SymphonyDashboardComponent {
       ...boxLines("Selected Worker", renderSelectedWorkerDetails(selectedWorker, state.dashboard.showDetails, theme), dashboardWidth, theme),
       ...boxLines("Events", renderRecentEvents(formatEventRows(this.options.getEvents()), theme), dashboardWidth, theme),
       "",
-      ...boxLines("Actions", renderActionLegend(this.refreshing, theme), dashboardWidth, theme),
+      ...boxLines("Actions", renderActionLegend(this.refreshing, dashboardWidth, theme), dashboardWidth, theme),
     ];
 
     return lines.map((line) => truncateToWidth(line, width));
@@ -254,11 +254,15 @@ function renderRecentEvents(events: string[], theme?: DashboardTheme): string[] 
   return events.map((event) => colorEventRow(event, theme));
 }
 
-function renderActionLegend(refreshing: boolean, theme?: DashboardTheme): string[] {
+function renderActionLegend(refreshing: boolean, width: number, theme?: DashboardTheme): string[] {
+  const keyboard = "Keyboard: ctrl+shift+↑/↓ select  •  ctrl+shift+r refresh  •  ctrl+shift+e steer  •  ctrl+shift+i details  •  ctrl+shift+q close";
+  const commands = "Commands: /symphony:refresh | /symphony:status | /symphony:stop";
+  if (refreshing) return [color(theme, "warning", "refreshing..."), commands];
+  if (visibleLength(keyboard) <= width - 4) return [keyboard, commands];
   return [
-    refreshing ? color(theme, "warning", "refreshing...") : "Keyboard: ctrl+shift+↑/↓ select  •  ctrl+shift+r refresh  •  ctrl+shift+e steer",
+    "Keyboard: ctrl+shift+↑/↓ select  •  ctrl+shift+r refresh  •  ctrl+shift+e steer",
     "          ctrl+shift+i details  •  ctrl+shift+q close",
-    "Commands: /symphony:refresh | /symphony:status | /symphony:stop",
+    commands,
   ];
 }
 
