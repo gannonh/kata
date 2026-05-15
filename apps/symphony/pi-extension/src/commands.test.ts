@@ -110,7 +110,7 @@ describe("symphony commands", () => {
       "ctrl+shift+up",
       "ctrl+shift+down",
       "ctrl+shift+r",
-      "ctrl+shift+s",
+      "ctrl+shift+e",
       "ctrl+shift+d",
       "ctrl+shift+q",
     ]));

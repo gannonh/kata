@@ -257,7 +257,7 @@ function renderRecentEvents(events: string[], theme?: DashboardTheme): string[] 
 function renderActionLegend(refreshing: boolean, theme?: DashboardTheme): string[] {
   return [
     refreshing ? color(theme, "warning", "refreshing...") : "Keyboard: ctrl+shift+↑/↓ select | ctrl+shift+r refresh",
-    "          ctrl+shift+s steer | ctrl+shift+d details | ctrl+shift+q close",
+    "          ctrl+shift+e steer | ctrl+shift+d details | ctrl+shift+q close",
     "Commands: /symphony:refresh | /symphony:status | /symphony:stop",
   ];
 }

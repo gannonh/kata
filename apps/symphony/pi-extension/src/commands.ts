@@ -135,7 +135,7 @@ function registerDashboardShortcuts(pi: ExtensionAPI): void {
     { key: "ctrl+shift+up", action: "selectPrevious", description: "Select previous Symphony dashboard worker" },
     { key: "ctrl+shift+down", action: "selectNext", description: "Select next Symphony dashboard worker" },
     { key: "ctrl+shift+r", action: "refresh", description: "Refresh the Symphony dashboard" },
-    { key: "ctrl+shift+s", action: "steer", description: "Steer the selected Symphony dashboard worker" },
+    { key: "ctrl+shift+e", action: "steer", description: "Steer the selected Symphony dashboard worker" },
     { key: "ctrl+shift+d", action: "toggleDetails", description: "Toggle Symphony dashboard worker details" },
     { key: "ctrl+shift+q", action: "close", description: "Close the Symphony dashboard widget" },
   ] as const satisfies ReadonlyArray<{ key: KeyId; action: DashboardShortcutAction; description: string }>;
