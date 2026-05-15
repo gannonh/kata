@@ -32,6 +32,14 @@ Run it locally with `pi -e ./apps/symphony/pi-extension`.
 - `d` toggles selected-worker details.
 - `q` or Escape closes the dashboard and leaves Symphony running.
 
+## Progress feedback
+
+Commands that can take a few seconds show Pi-native progress feedback while they run:
+
+- `/symphony:refresh`, `/symphony:attach`, and `/symphony:stop` use inline working text plus the Symphony footer status.
+- `/symphony:start`, `/symphony:init`, and `/symphony:doctor` use a blocking loader panel.
+- Symphony tools emit partial progress updates before returning their final result.
+
 ## Slice 1 verification
 
 Verified commands:
