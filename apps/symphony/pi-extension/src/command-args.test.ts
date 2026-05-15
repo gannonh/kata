@@ -1,0 +1,24 @@
+import { describe, expect, it } from "vitest";
+import { parseAttachArgs, parseDoctorArgs, parseInitArgs, parseStartArgs } from "./command-args.ts";
+
+describe("command argument parsing", () => {
+  it("parses init force flag", () => {
+    expect(parseInitArgs("--force")).toEqual({ force: true });
+    expect(parseInitArgs("")).toEqual({ force: false });
+  });
+
+  it("rejects unknown init flags", () => {
+    expect(() => parseInitArgs("--bad")).toThrow("Unknown /symphony:init option: --bad");
+  });
+
+  it("keeps workflow arguments as one path string", () => {
+    expect(parseDoctorArgs(".symphony/WORKFLOW.md")).toEqual({ workflow: ".symphony/WORKFLOW.md" });
+    expect(parseStartArgs("/tmp/My Workflow.md")).toEqual({ workflow: "/tmp/My Workflow.md" });
+    expect(parseStartArgs("   ")).toEqual({ workflow: undefined });
+  });
+
+  it("requires an attach URL", () => {
+    expect(parseAttachArgs("http://127.0.0.1:8080")).toEqual({ url: "http://127.0.0.1:8080" });
+    expect(() => parseAttachArgs("")).toThrow("Usage: /symphony:attach <url>");
+  });
+});

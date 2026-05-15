@@ -1,6 +1,7 @@
 packages:
   - packages/*
   - apps/*
+  - apps/symphony/pi-extension
   - '!apps/cli-legacy'
   - '!apps/orchestrator-legacy'
   - '!apps/desktop-legacy'

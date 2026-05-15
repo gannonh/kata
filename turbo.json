@@ -28,7 +28,11 @@
       "inputs": [
         "src/**/*.ts",
         "src/**/*.tsx",
-        "tsconfig.json"
+        "tsconfig.json",
+        "package.json",
+        "vitest.config.ts",
+        "vitest.config.mts",
+        "vitest.config.js"
       ]
     },
     "test": {
@@ -46,7 +50,12 @@
         "tests/**/*.rs",
         "test/**/*.ts",
         "test/**/*.js",
-        "Cargo.toml"
+        "Cargo.toml",
+        "src/**/*.test.ts",
+        "package.json",
+        "vitest.config.ts",
+        "vitest.config.mts",
+        "vitest.config.js"
       ]
     },
     "build": {
@@ -62,7 +71,11 @@
         "src/**/*.tsx",
         "src/**/*.rs",
         "tsconfig.json",
-        "Cargo.toml"
+        "Cargo.toml",
+        "package.json",
+        "vitest.config.ts",
+        "vitest.config.mts",
+        "vitest.config.js"
       ]
     },
     "@kata/online-docs#build": {
