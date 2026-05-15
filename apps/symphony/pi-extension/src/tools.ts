@@ -15,7 +15,7 @@ export function registerSymphonyTools(pi: ExtensionAPI, runtime: SymphonyRuntime
     parameters: Type.Object({}),
     executionMode: SYMPHONY_TOOL_EXECUTION_MODE,
     async execute() {
-      return toolOk("Symphony tools: symphony_init, symphony_doctor, symphony_start, symphony_attach, symphony_status, symphony_stop, symphony_help", {
+      return toolOk("Symphony tools: symphony_init, symphony_doctor, symphony_start, symphony_attach, symphony_status, symphony_refresh, symphony_steer, symphony_stop, symphony_help", {
         attachedBaseUrl: runtime.state.attachedBaseUrl,
         ownedProcess: runtime.state.ownedProcess,
       });
@@ -114,6 +114,40 @@ export function registerSymphonyTools(pi: ExtensionAPI, runtime: SymphonyRuntime
         if (runtime.client) await runtime.refreshState(signal);
         runtime.persist(pi);
         return toolOk(runtime.statusText(), { state: runtime.state });
+      } catch (error) {
+        throw new Error(formatError(error));
+      }
+    },
+  }));
+
+  pi.registerTool(defineTool({
+    name: "symphony_refresh",
+    label: "Symphony Refresh",
+    description: "Request an immediate Symphony poll refresh and return the updated health summary.",
+    parameters: Type.Object({}),
+    executionMode: SYMPHONY_TOOL_EXECUTION_MODE,
+    async execute(_id, _params, signal) {
+      try {
+        await runtime.requestRefresh(signal);
+        runtime.persist(pi);
+        return toolOk("Symphony refresh requested", { state: runtime.state.lastKnownState });
+      } catch (error) {
+        throw new Error(formatError(error));
+      }
+    },
+  }));
+
+  pi.registerTool(defineTool({
+    name: "symphony_steer",
+    label: "Symphony Steer",
+    description: "Send an operator instruction to a running Symphony worker.",
+    parameters: Type.Object({ issueIdentifier: Type.String(), instruction: Type.String() }),
+    executionMode: SYMPHONY_TOOL_EXECUTION_MODE,
+    async execute(_id, params, signal) {
+      try {
+        const result = await runtime.steerWorker(params.issueIdentifier, params.instruction, signal);
+        runtime.persist(pi);
+        return toolOk(`Steer delivered to ${result.issueIdentifier}: ${result.instructionPreview}`, { result, state: runtime.state.lastKnownState });
       } catch (error) {
         throw new Error(formatError(error));
       }

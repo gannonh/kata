@@ -11,7 +11,7 @@ pnpm --dir apps/symphony/pi-extension typecheck
 
 Run it locally with `pi -e ./apps/symphony/pi-extension`.
 
-## Commands in Slice 1
+## Commands through Slice 2
 
 - `/symphony:help`
 - `/symphony:init [--force]`
@@ -20,7 +20,17 @@ Run it locally with `pi -e ./apps/symphony/pi-extension`.
 - `/symphony:attach <url>`
 - `/symphony:dashboard`
 - `/symphony:status`
+- `/symphony:refresh`
+- `/symphony:steer <ISSUE> <instruction>`
 - `/symphony:stop`
+
+## Dashboard keys through Slice 2
+
+- `↑` / `↓` selects a running worker.
+- `r` requests an immediate Symphony refresh and reloads state.
+- `s` prompts for a steer instruction for the selected worker.
+- `d` toggles selected-worker details.
+- `q` or Escape closes the dashboard and leaves Symphony running.
 
 ## Slice 1 verification
 

@@ -56,11 +56,50 @@ describe("symphony tools", () => {
       "symphony_doctor",
       "symphony_help",
       "symphony_init",
+      "symphony_refresh",
       "symphony_start",
       "symphony_status",
+      "symphony_steer",
       "symphony_stop",
     ]);
     expect([...tools.values()].every((tool) => tool.executionMode === "sequential")).toBe(true);
+  });
+
+  it("requests a manual refresh from the tool", async () => {
+    const runtime = new SymphonyRuntime();
+    runtime.requestRefresh = vi.fn(async () => {
+      runtime.state.lastKnownState = lastKnownState("http://127.0.0.1:8080");
+      return {} as Awaited<ReturnType<SymphonyRuntime["requestRefresh"]>>;
+    }) as SymphonyRuntime["requestRefresh"];
+    const { tools, appendEntry } = registerTools(runtime);
+    const refresh = tools.get("symphony_refresh");
+    if (!refresh) throw new Error("expected refresh tool");
+
+    const result = await refresh.execute("1", {}, new AbortController().signal, undefined, toolContext().ctx);
+
+    expect(runtime.requestRefresh).toHaveBeenCalledOnce();
+    expect(appendEntry).toHaveBeenCalled();
+    expect(result).toMatchObject({
+      content: [{ type: "text", text: "Symphony refresh requested" }],
+      details: { state: runtime.state.lastKnownState },
+    });
+  });
+
+  it("sends a steer instruction from the tool", async () => {
+    const runtime = new SymphonyRuntime();
+    runtime.steerWorker = vi.fn(async () => ({ ok: true, issueId: "issue-123", issueIdentifier: "SIM-123", delivered: true, instructionPreview: "Use auth" })) as SymphonyRuntime["steerWorker"];
+    const { tools, appendEntry } = registerTools(runtime);
+    const steer = tools.get("symphony_steer");
+    if (!steer) throw new Error("expected steer tool");
+
+    const result = await steer.execute("1", { issueIdentifier: "SIM-123", instruction: "Use auth" }, new AbortController().signal, undefined, toolContext().ctx);
+
+    expect(runtime.steerWorker).toHaveBeenCalledWith("SIM-123", "Use auth", expect.any(AbortSignal));
+    expect(appendEntry).toHaveBeenCalled();
+    expect(result).toMatchObject({
+      content: [{ type: "text", text: "Steer delivered to SIM-123: Use auth" }],
+      details: { result: expect.objectContaining({ issueIdentifier: "SIM-123" }) },
+    });
   });
 
   it("restricts tool attach URLs to loopback hosts before attaching", async () => {

@@ -59,6 +59,42 @@ describe("setSymphonyStatus", () => {
 });
 
 describe("symphony commands", () => {
+  it("requests a manual refresh from the command", async () => {
+    const runtime = new SymphonyRuntime();
+    runtime.state.attachedBaseUrl = "http://127.0.0.1:8080";
+    runtime.requestRefresh = vi.fn(async () => {
+      runtime.state.lastKnownState = lastKnownState("http://127.0.0.1:8080");
+      return {} as Awaited<ReturnType<SymphonyRuntime["requestRefresh"]>>;
+    }) as SymphonyRuntime["requestRefresh"];
+
+    const { commands, appendEntry } = registerCommands(runtime);
+    const { ctx, notify } = commandContext();
+    const refresh = commands.get("symphony:refresh");
+    if (!refresh) throw new Error("expected refresh command");
+
+    await refresh.handler("", ctx);
+
+    expect(runtime.requestRefresh).toHaveBeenCalledOnce();
+    expect(appendEntry).toHaveBeenCalledWith("symphony-extension-state", expect.objectContaining({ lastKnownState: runtime.state.lastKnownState }));
+    expect(notify).toHaveBeenCalledWith("Symphony refresh requested; running 1, retry 0, blocked 0, completed 2", "info");
+  });
+
+  it("sends a steer instruction from the command", async () => {
+    const runtime = new SymphonyRuntime();
+    runtime.steerWorker = vi.fn(async () => ({ ok: true, issueId: "issue-123", issueIdentifier: "SIM-123", delivered: true, instructionPreview: "Use auth" })) as SymphonyRuntime["steerWorker"];
+
+    const { commands, appendEntry } = registerCommands(runtime);
+    const { ctx, notify } = commandContext();
+    const steer = commands.get("symphony:steer");
+    if (!steer) throw new Error("expected steer command");
+
+    await steer.handler("SIM-123 Use auth", ctx);
+
+    expect(runtime.steerWorker).toHaveBeenCalledWith("SIM-123", "Use auth");
+    expect(appendEntry).toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledWith("Steer delivered to SIM-123: Use auth", "info");
+  });
+
   it("restricts command attach URLs to loopback hosts before attaching", async () => {
     const runtime = new SymphonyRuntime();
     runtime.attach = vi.fn(async (baseUrl: string) => {

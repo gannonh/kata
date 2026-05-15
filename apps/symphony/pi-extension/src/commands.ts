@@ -2,7 +2,7 @@ import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@e
 import { assertLoopbackAttachUrl } from "./attach-url-policy.ts";
 import { openDashboard } from "./dashboard.ts";
 import { formatError, SymphonyExtensionError } from "./errors.ts";
-import { parseAttachArgs, parseDoctorArgs, parseInitArgs, parseStartArgs } from "./command-args.ts";
+import { parseAttachArgs, parseDoctorArgs, parseInitArgs, parseStartArgs, parseSteerArgs } from "./command-args.ts";
 import type { SymphonyRuntime } from "./runtime.ts";
 
 export function registerSymphonyCommands(pi: ExtensionAPI, runtime: SymphonyRuntime): void {
@@ -80,6 +80,25 @@ export function registerSymphonyCommands(pi: ExtensionAPI, runtime: SymphonyRunt
     }),
   });
 
+  pi.registerCommand("symphony:refresh", {
+    description: "Request an immediate Symphony poll refresh",
+    handler: async (_args, ctx) => runCommandHandler(ctx, async () => {
+      await runtime.requestRefresh();
+      runtime.persist(pi);
+      ctx.ui.notify(`Symphony refresh requested; ${runtimeCountsText(runtime)}`, "info");
+    }),
+  });
+
+  pi.registerCommand("symphony:steer", {
+    description: "Send an operator instruction to a running Symphony worker",
+    handler: async (args, ctx) => runCommandHandler(ctx, async () => {
+      const parsed = parseSteerArgs(args);
+      const result = await runtime.steerWorker(parsed.issueIdentifier, parsed.instruction);
+      runtime.persist(pi);
+      ctx.ui.notify(`Steer delivered to ${result.issueIdentifier}: ${result.instructionPreview}`, "info");
+    }),
+  });
+
   pi.registerCommand("symphony:stop", {
     description: "Stop a Symphony process started by this extension",
     handler: async (_args, ctx) => runCommandHandler(ctx, async () => {
@@ -105,6 +124,12 @@ async function runCommandHandler(ctx: ExtensionCommandContext, fn: () => Promise
   }
 }
 
+function runtimeCountsText(runtime: SymphonyRuntime): string {
+  const state = runtime.state.lastKnownState;
+  if (!state) return "state unavailable";
+  return `running ${state.runningCount}, retry ${state.retryCount}, blocked ${state.blockedCount}, completed ${state.completedCount}`;
+}
+
 function helpText(runtime: SymphonyRuntime): string {
   return [
     "Symphony Pi extension",
@@ -117,6 +142,8 @@ function helpText(runtime: SymphonyRuntime): string {
     "/symphony:attach <url>",
     "/symphony:dashboard",
     "/symphony:status",
+    "/symphony:refresh",
+    "/symphony:steer <ISSUE> <instruction>",
     "/symphony:stop",
   ].join("\n");
 }

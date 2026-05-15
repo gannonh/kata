@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseAttachArgs, parseDoctorArgs, parseInitArgs, parseStartArgs } from "./command-args.ts";
+import { parseAttachArgs, parseDoctorArgs, parseInitArgs, parseStartArgs, parseSteerArgs } from "./command-args.ts";
 
 describe("command argument parsing", () => {
   it("parses init force flag", () => {
@@ -20,5 +20,14 @@ describe("command argument parsing", () => {
   it("requires an attach URL", () => {
     expect(parseAttachArgs("http://127.0.0.1:8080")).toEqual({ url: "http://127.0.0.1:8080" });
     expect(() => parseAttachArgs("")).toThrow("Usage: /symphony:attach <url>");
+  });
+
+  it("parses steer issue and instruction", () => {
+    expect(parseSteerArgs("SIM-123 Use the existing auth module")).toEqual({
+      issueIdentifier: "SIM-123",
+      instruction: "Use the existing auth module",
+    });
+    expect(() => parseSteerArgs("SIM-123")).toThrow("Usage: /symphony:steer <ISSUE> <instruction>");
+    expect(() => parseSteerArgs("   ")).toThrow("Usage: /symphony:steer <ISSUE> <instruction>");
   });
 });
