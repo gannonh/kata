@@ -38,14 +38,24 @@ export async function withSymphonyLoader<T>(
   try {
     const result = await ctx.ui.custom<T | undefined>((tui, theme, _keybindings, done) => {
       const loader = new BorderedLoader(tui, theme, options.message);
+      let completed = false;
+      const complete = (value: T | undefined) => {
+        if (completed) return;
+        completed = true;
+        done(value);
+      };
+
+      loader.onAbort = () => complete(undefined);
+
       void Promise.resolve()
         .then(() => fn(loader.signal))
         .then(
-          (value) => done(value),
+          (value) => complete(value),
           (error: unknown) => {
+            if (completed) return;
             operationFailed = true;
             operationError = error;
-            done(undefined);
+            complete(undefined);
           },
         );
       return loader;

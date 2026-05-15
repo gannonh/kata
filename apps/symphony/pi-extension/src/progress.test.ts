@@ -4,19 +4,27 @@ import { SYMPHONY_PROGRESS_FRAMES, withSymphonyLoader, withSymphonyProgress } fr
 
 const borderedLoaderMocks = vi.hoisted(() => ({
   constructorCalls: [] as Array<{ tui: unknown; theme: unknown; message: string; options: unknown }>,
+  instances: [] as Array<{ signal: AbortSignal; onAbort: (() => void) | undefined; abort: () => void }>,
   signals: [] as AbortSignal[],
 }));
 
 vi.mock("@earendil-works/pi-coding-agent", () => ({
   BorderedLoader: class MockBorderedLoader {
+    readonly controller: AbortController;
     readonly signal: AbortSignal;
     onAbort: (() => void) | undefined;
 
     constructor(tui: unknown, theme: unknown, message: string, options?: unknown) {
-      const controller = new AbortController();
-      this.signal = controller.signal;
+      this.controller = new AbortController();
+      this.signal = this.controller.signal;
       borderedLoaderMocks.constructorCalls.push({ tui, theme, message, options });
+      borderedLoaderMocks.instances.push(this);
       borderedLoaderMocks.signals.push(this.signal);
+    }
+
+    abort() {
+      this.controller.abort();
+      this.onAbort?.();
     }
   },
 }));
@@ -85,6 +93,7 @@ describe("withSymphonyProgress", () => {
 describe("withSymphonyLoader", () => {
   it("shows a bordered loader, passes its AbortSignal, restores status, and returns the operation result", async () => {
     borderedLoaderMocks.constructorCalls.length = 0;
+    borderedLoaderMocks.instances.length = 0;
     borderedLoaderMocks.signals.length = 0;
     const { ctx, setStatus, custom } = commandContext();
     const restoreStatus = vi.fn();
@@ -104,8 +113,31 @@ describe("withSymphonyLoader", () => {
     expect(restoreStatus).toHaveBeenCalledWith(ctx);
   });
 
+  it("closes the custom loader promptly when cancelled", async () => {
+    borderedLoaderMocks.constructorCalls.length = 0;
+    borderedLoaderMocks.instances.length = 0;
+    borderedLoaderMocks.signals.length = 0;
+    const { ctx } = commandContext();
+    const restoreStatus = vi.fn();
+    const operation = vi.fn(() => new Promise<string>(() => {}));
+
+    const resultPromise = withSymphonyLoader(ctx, { message: "Cancelling Symphony...", restoreStatus }, operation);
+
+    await vi.waitFor(() => expect(operation).toHaveBeenCalledOnce());
+    const loader = borderedLoaderMocks.instances[0];
+    expect(loader).toBeDefined();
+
+    loader?.abort();
+
+    await expect(resultPromise).resolves.toBeUndefined();
+    expect(operation).toHaveBeenCalledWith(loader?.signal);
+    expect(loader?.signal.aborted).toBe(true);
+    expect(restoreStatus).toHaveBeenCalledWith(ctx);
+  });
+
   it("restores status and propagates loader operation failures", async () => {
     borderedLoaderMocks.constructorCalls.length = 0;
+    borderedLoaderMocks.instances.length = 0;
     borderedLoaderMocks.signals.length = 0;
     const { ctx } = commandContext();
     const restoreStatus = vi.fn();
