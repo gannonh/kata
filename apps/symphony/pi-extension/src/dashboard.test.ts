@@ -1,9 +1,14 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { describe, expect, it, vi } from "vitest";
 import { openDashboard, SymphonyDashboardComponent } from "./dashboard.ts";
+import { startSymphonyEventStream } from "./event-stream.ts";
 import type { SymphonyEventEnvelope, SymphonyStateResponse } from "./http-client.ts";
 import type { SymphonyRuntime } from "./runtime.ts";
 import { createDefaultState } from "./state.ts";
+
+vi.mock("./event-stream.ts", () => ({
+  startSymphonyEventStream: vi.fn(() => ({ close: vi.fn() })),
+}));
 
 function workerStateFixture(): SymphonyStateResponse {
   return {
@@ -318,6 +323,68 @@ describe("SymphonyDashboardComponent", () => {
 });
 
 describe("openDashboard", () => {
+  it("opens the event stream and records incoming dashboard events", async () => {
+    const state = createDefaultState();
+    state.attachedBaseUrl = "http://127.0.0.1:8080";
+    state.lastKnownState = {
+      baseUrl: state.attachedBaseUrl,
+      runningCount: 1,
+      retryCount: 0,
+      blockedCount: 0,
+      completedCount: 0,
+      pollingChecking: false,
+      nextPollInMs: 1000,
+      updatedAt: "2026-05-14T12:00:00Z",
+    };
+
+    let capturedOnEvent: ((event: SymphonyEventEnvelope) => void) | undefined;
+    vi.mocked(startSymphonyEventStream).mockImplementation((options) => {
+      capturedOnEvent = options.onEvent;
+      return { close: vi.fn() };
+    });
+
+    type CustomFactory = Parameters<ExtensionContext["ui"]["custom"]>[0];
+    const requestRender = vi.fn();
+    const custom = vi.fn(async (factory: CustomFactory): Promise<void> => {
+      const component = await factory(
+        { requestRender } as unknown as Parameters<CustomFactory>[0],
+        {} as Parameters<CustomFactory>[1],
+        {} as Parameters<CustomFactory>[2],
+        (() => undefined) as Parameters<CustomFactory>[3],
+      );
+      capturedOnEvent?.({
+        version: "v1",
+        sequence: 1,
+        timestamp: "2026-05-14T12:00:00Z",
+        kind: "worker",
+        severity: "info",
+        issue: "SIM-123",
+        event: "worker_started",
+        payload: {},
+      });
+      expect(component.render(120).join("\n")).toContain("worker_started");
+    });
+    const ctx = { ui: { notify: vi.fn(), custom, input: vi.fn() } } as unknown as ExtensionContext;
+    const runtime = {
+      client: {},
+      state,
+      lastState: workerStateFixture(),
+      recentEvents: [],
+      recordEvent: vi.fn(function (this: { recentEvents: SymphonyEventEnvelope[] }, event: SymphonyEventEnvelope) {
+        this.recentEvents.push(event);
+      }),
+      requestRefresh: vi.fn(async () => undefined),
+      refreshState: vi.fn(async () => workerStateFixture()),
+      steerWorker: vi.fn(async () => undefined),
+      errorText: vi.fn((error: unknown) => (error instanceof Error ? error.message : String(error))),
+    } as unknown as SymphonyRuntime;
+
+    await openDashboard(ctx, runtime);
+
+    expect(startSymphonyEventStream).toHaveBeenCalledWith(expect.objectContaining({ baseUrl: "http://127.0.0.1:8080" }));
+    expect(requestRender).toHaveBeenCalled();
+  });
+
   it("notifies and still opens when launch refresh fails", async () => {
     const state = createDefaultState();
     state.attachedBaseUrl = "http://127.0.0.1:8080";

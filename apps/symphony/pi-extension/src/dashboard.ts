@@ -1,6 +1,7 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
 import { buildWorkerRows, formatEventRows, type WorkerRow } from "./dashboard-model.ts";
+import { startSymphonyEventStream, type EventStreamHandle } from "./event-stream.ts";
 import type { SymphonyEventEnvelope, SymphonyStateResponse } from "./http-client.ts";
 import type { SymphonyRuntime } from "./runtime.ts";
 import type { ExtensionState } from "./state.ts";
@@ -199,6 +200,23 @@ export async function openDashboard(ctx: ExtensionContext, runtime: SymphonyRunt
   }
 
   await ctx.ui.custom<void>((tui, _theme, _keybindings, done) => {
+    let eventStream: EventStreamHandle | undefined;
+    let eventStreamErrorNotified = false;
+    if (runtime.state.attachedBaseUrl) {
+      eventStream = startSymphonyEventStream({
+        baseUrl: runtime.state.attachedBaseUrl,
+        onEvent: (event) => {
+          runtime.recordEvent(event);
+          tui.requestRender();
+        },
+        onError: (error) => {
+          if (eventStreamErrorNotified) return;
+          eventStreamErrorNotified = true;
+          ctx.ui.notify(`Symphony event stream unavailable: ${error.message}`, "warning");
+        },
+      });
+    }
+
     const component = new SymphonyDashboardComponent({
       state: runtime.state,
       getState: () => runtime.lastState,
@@ -210,7 +228,10 @@ export async function openDashboard(ctx: ExtensionContext, runtime: SymphonyRunt
         await runtime.steerWorker(issueIdentifier, instruction);
       },
       prompt: async (title, label) => ctx.ui.input(title, label),
-      close: () => done(undefined),
+      close: () => {
+        eventStream?.close();
+        done(undefined);
+      },
       requestRender: () => tui.requestRender(),
       notify: (message, level) => ctx.ui.notify(message, level),
     });
