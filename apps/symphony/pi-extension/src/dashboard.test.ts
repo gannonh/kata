@@ -84,6 +84,14 @@ function runtimeEventsFixture(): SymphonyEventEnvelope[] {
   ];
 }
 
+function fakeTheme() {
+  return {
+    fg: (color: string, text: string) => `<${color}>${text}</${color}>`,
+    bg: (color: string, text: string) => `<bg:${color}>${text}</bg:${color}>`,
+    bold: (text: string) => `<bold>${text}</bold>`,
+  };
+}
+
 describe("SymphonyDashboardComponent", () => {
   it("renders Slice 1 health fields", () => {
     const state = createDefaultState();
@@ -152,6 +160,49 @@ describe("SymphonyDashboardComponent", () => {
     expect(output).toContain("workspace: /tmp/symphony/issue-123");
     expect(output).toContain("Recent worker/runtime events");
     expect(output).toContain("worker_failed usage limit");
+  });
+
+  it("renders boxed colored sections for dashboard readability", () => {
+    const state = createDefaultState();
+    state.attachedBaseUrl = "http://127.0.0.1:8080";
+    state.lastKnownState = {
+      baseUrl: state.attachedBaseUrl,
+      trackerProjectUrl: "https://github.com/gannonh/kata/projects/1",
+      runningCount: 2,
+      retryCount: 1,
+      blockedCount: 1,
+      completedCount: 4,
+      pollingChecking: false,
+      nextPollInMs: 5000,
+      updatedAt: "2026-05-14T00:00:01Z",
+    };
+    const dashboard = new SymphonyDashboardComponent({
+      state,
+      getState: () => workerStateFixture(),
+      getEvents: () => runtimeEventsFixture(),
+      refresh: async () => undefined,
+      steer: async () => undefined,
+      prompt: async () => undefined,
+      close: () => undefined,
+      requestRender: () => undefined,
+      notify: () => undefined,
+      theme: fakeTheme(),
+    });
+
+    const output = dashboard.render(160).join("\n");
+
+    expect(output).toContain("┌");
+    expect(output).toContain("└");
+    expect(output).toContain("Status");
+    expect(output).toContain("Worker Summary");
+    expect(output).toContain("Running Workers");
+    expect(output).toContain("Selected Worker");
+    expect(output).toContain("Events");
+    expect(output).toContain("<borderAccent>┌</borderAccent>");
+    expect(output).toContain("<success>running: 2</success>");
+    expect(output).toContain("<warning>retry: 1</warning>");
+    expect(output).toContain("<error>blocked: 1</error>");
+    expect(output).toContain("<bg:selectedBg><accent><bold>> SIM-123");
   });
 
   it("moves selection with arrow keys", () => {
@@ -328,12 +379,12 @@ describe("SymphonyDashboardComponent", () => {
 });
 
 describe("openDashboard", () => {
-  it("opens the event stream and records incoming dashboard events", async () => {
+  it("opens the event stream, records incoming dashboard events, and refreshes stale state", async () => {
     const state = createDefaultState();
     state.attachedBaseUrl = "http://127.0.0.1:8080";
     state.lastKnownState = {
       baseUrl: state.attachedBaseUrl,
-      runningCount: 1,
+      runningCount: 0,
       retryCount: 0,
       blockedCount: 0,
       completedCount: 0,
@@ -367,19 +418,25 @@ describe("openDashboard", () => {
         event: "worker_started",
         payload: {},
       });
+      await expect.poll(() => refreshState.mock.calls.length, { interval: 10, timeout: 1000 }).toBe(2);
       expect(component.render(120).join("\n")).toContain("worker_started");
+      expect(component.render(120).join("\n")).toContain("Worker one");
     });
     const ctx = { ui: { notify: vi.fn(), custom, input: vi.fn() } } as unknown as ExtensionContext;
+    const refreshState = vi.fn(async function (this: { lastState?: SymphonyStateResponse }) {
+      this.lastState = workerStateFixture();
+      return this.lastState;
+    });
     const runtime = {
       client: {},
       state,
-      lastState: workerStateFixture(),
+      lastState: undefined,
       recentEvents: [],
       recordEvent: vi.fn(function (this: { recentEvents: SymphonyEventEnvelope[] }, event: SymphonyEventEnvelope) {
         this.recentEvents.push(event);
       }),
       requestRefresh: vi.fn(async () => undefined),
-      refreshState: vi.fn(async () => workerStateFixture()),
+      refreshState,
       steerWorker: vi.fn(async () => undefined),
       errorText: vi.fn((error: unknown) => (error instanceof Error ? error.message : String(error))),
     } as unknown as SymphonyRuntime;
