@@ -1,6 +1,6 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { openDashboard, SymphonyDashboardComponent } from "./dashboard.ts";
+import { handleActiveDashboardShortcut, openDashboard, SymphonyDashboardComponent } from "./dashboard.ts";
 import { startSymphonyEventStream } from "./event-stream.ts";
 import type { SymphonyEventEnvelope, SymphonyStateResponse } from "./http-client.ts";
 import type { SymphonyRuntime } from "./runtime.ts";
@@ -162,7 +162,7 @@ describe("SymphonyDashboardComponent", () => {
     expect(output).toContain("worker_failed usage limit");
   });
 
-  it("renders boxed colored sections for dashboard readability", () => {
+  it("renders boxed colored sections and command actions for dashboard readability", () => {
     const state = createDefaultState();
     state.attachedBaseUrl = "http://127.0.0.1:8080";
     state.lastKnownState = {
@@ -198,6 +198,12 @@ describe("SymphonyDashboardComponent", () => {
     expect(output).toContain("Running Workers");
     expect(output).toContain("Selected Worker");
     expect(output).toContain("Events");
+    expect(output).toContain("Keyboard");
+    expect(output).toContain("ctrl+shift+↑/↓ select");
+    expect(output).toContain("ctrl+shift+r refresh");
+    expect(output).toContain("ctrl+shift+s steer");
+    expect(output).toContain("ctrl+shift+d details");
+    expect(output).toContain("ctrl+shift+q close");
     expect(output).toContain("<borderAccent>┌</borderAccent>");
     expect(output).toContain("<success>running: 2</success>");
     expect(output).toContain("<warning>retry: 1</warning>");
@@ -443,6 +449,40 @@ describe("openDashboard", () => {
     expect(setWidget).toHaveBeenCalledWith("symphony-dashboard", expect.any(Function));
     expect(startSymphonyEventStream).toHaveBeenCalledWith(expect.objectContaining({ baseUrl: "http://127.0.0.1:8080" }));
     await expect.poll(() => refreshState.mock.calls.length, { interval: 10, timeout: 1000 }).toBe(2);
+    expect(requestRender).toHaveBeenCalled();
+  });
+
+  it("lets global shortcuts control the active above-editor dashboard", async () => {
+    const state = createDefaultState();
+    state.attachedBaseUrl = "http://127.0.0.1:8080";
+    state.dashboard.showDetails = true;
+
+    vi.mocked(startSymphonyEventStream).mockImplementation(() => ({ close: vi.fn() }));
+
+    let component: SymphonyDashboardComponent | undefined;
+    const requestRender = vi.fn();
+    const setWidget = vi.fn((_key: string, factory: unknown) => {
+      component = (factory as (tui: { requestRender: () => void }, theme: ReturnType<typeof fakeTheme>) => SymphonyDashboardComponent)({ requestRender }, fakeTheme());
+    });
+    const ctx = { ui: { notify: vi.fn(), custom: vi.fn(), input: vi.fn(), setWidget } } as unknown as ExtensionContext;
+    const runtime = {
+      client: {},
+      state,
+      lastState: workerStateFixture(),
+      recentEvents: [],
+      refreshState: vi.fn(async () => workerStateFixture()),
+      requestRefresh: vi.fn(async () => workerStateFixture()),
+      steerWorker: vi.fn(async () => undefined),
+      errorText: vi.fn((error: unknown) => (error instanceof Error ? error.message : String(error))),
+    } as unknown as SymphonyRuntime;
+
+    await openDashboard(ctx, runtime);
+    await handleActiveDashboardShortcut("selectNext", ctx);
+    await handleActiveDashboardShortcut("toggleDetails", ctx);
+
+    const output = component?.render(160).join("\n") ?? "";
+    expect(output).toContain("> SIM-777");
+    expect(output).not.toContain("issue: <accent>SIM-777</accent> Worker two");
     expect(requestRender).toHaveBeenCalled();
   });
 

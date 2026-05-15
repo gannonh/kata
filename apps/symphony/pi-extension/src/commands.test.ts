@@ -27,6 +27,7 @@ vi.mock("@earendil-works/pi-coding-agent", () => ({
 }));
 
 type CommandOptions = Parameters<ExtensionAPI["registerCommand"]>[1];
+type ShortcutOptions = Parameters<ExtensionAPI["registerShortcut"]>[1];
 
 function commandContext(options: { hasUI?: boolean; cwd?: string } = {}) {
   const notify = vi.fn();
@@ -59,16 +60,18 @@ function commandContext(options: { hasUI?: boolean; cwd?: string } = {}) {
 
 function registerCommands(runtime: SymphonyRuntime, overrides: Partial<ExtensionAPI> = {}) {
   const commands = new Map<string, CommandOptions>();
+  const shortcuts = new Map<string, ShortcutOptions>();
   const appendEntry = vi.fn();
   const pi = {
     registerCommand: (name: string, options: CommandOptions) => commands.set(name, options),
+    registerShortcut: (shortcut: string, options: ShortcutOptions) => shortcuts.set(shortcut, options),
     appendEntry,
     ...overrides,
   } as unknown as ExtensionAPI;
 
   registerSymphonyCommands(pi, runtime);
 
-  return { commands, appendEntry };
+  return { commands, shortcuts, appendEntry };
 }
 
 function lastKnownState(baseUrl: string): LastKnownSymphonyState {
@@ -99,6 +102,21 @@ describe("setSymphonyStatus", () => {
 });
 
 describe("symphony commands", () => {
+  it("registers dashboard keyboard shortcuts", () => {
+    const runtime = new SymphonyRuntime();
+    const { shortcuts } = registerCommands(runtime);
+
+    expect([...shortcuts.keys()]).toEqual(expect.arrayContaining([
+      "ctrl+shift+up",
+      "ctrl+shift+down",
+      "ctrl+shift+r",
+      "ctrl+shift+s",
+      "ctrl+shift+d",
+      "ctrl+shift+q",
+    ]));
+    expect(shortcuts.get("ctrl+shift+down")?.description).toContain("Select next Symphony dashboard worker");
+  });
+
   it("requests a manual refresh from the command", async () => {
     const runtime = new SymphonyRuntime();
     runtime.state.attachedBaseUrl = "http://127.0.0.1:8080";

@@ -1,6 +1,7 @@
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { KeyId } from "@earendil-works/pi-tui";
 import { assertLoopbackAttachUrl, resolveAttachUrl } from "./attach-url-policy.ts";
-import { openDashboard } from "./dashboard.ts";
+import { handleActiveDashboardShortcut, openDashboard, type DashboardShortcutAction } from "./dashboard.ts";
 import { formatError, SymphonyExtensionError } from "./errors.ts";
 import { parseAttachArgs, parseDoctorArgs, parseInitArgs, parseStartArgs, parseSteerArgs } from "./command-args.ts";
 import { withSymphonyLoader, withSymphonyProgress } from "./progress.ts";
@@ -8,6 +9,8 @@ import type { SymphonyRuntime } from "./runtime.ts";
 import { resolveStartWorkflow } from "./workflow-resolver.ts";
 
 export function registerSymphonyCommands(pi: ExtensionAPI, runtime: SymphonyRuntime): void {
+  registerDashboardShortcuts(pi);
+
   pi.registerCommand("symphony:help", {
     description: "Show Symphony extension commands and current status",
     handler: async (_args, ctx) => {
@@ -125,6 +128,26 @@ export function registerSymphonyCommands(pi: ExtensionAPI, runtime: SymphonyRunt
       ctx.ui.notify("Stopped owned Symphony process", "info");
     })),
   });
+}
+
+function registerDashboardShortcuts(pi: ExtensionAPI): void {
+  const shortcuts = [
+    { key: "ctrl+shift+up", action: "selectPrevious", description: "Select previous Symphony dashboard worker" },
+    { key: "ctrl+shift+down", action: "selectNext", description: "Select next Symphony dashboard worker" },
+    { key: "ctrl+shift+r", action: "refresh", description: "Refresh the Symphony dashboard" },
+    { key: "ctrl+shift+s", action: "steer", description: "Steer the selected Symphony dashboard worker" },
+    { key: "ctrl+shift+d", action: "toggleDetails", description: "Toggle Symphony dashboard worker details" },
+    { key: "ctrl+shift+q", action: "close", description: "Close the Symphony dashboard widget" },
+  ] as const satisfies ReadonlyArray<{ key: KeyId; action: DashboardShortcutAction; description: string }>;
+
+  for (const shortcut of shortcuts) {
+    pi.registerShortcut(shortcut.key, {
+      description: shortcut.description,
+      handler: async (ctx) => {
+        await handleActiveDashboardShortcut(shortcut.action, ctx);
+      },
+    });
+  }
 }
 
 export function setSymphonyStatus(ctx: Pick<ExtensionContext, "ui">, runtime: SymphonyRuntime): void {

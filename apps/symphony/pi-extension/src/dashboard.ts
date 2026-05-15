@@ -16,6 +16,38 @@ interface DashboardTheme {
   bold(text: string): string;
 }
 
+export type DashboardShortcutAction = "selectPrevious" | "selectNext" | "refresh" | "steer" | "toggleDetails" | "close";
+
+let activeDashboard: SymphonyDashboardComponent | undefined;
+
+export async function handleActiveDashboardShortcut(action: DashboardShortcutAction, ctx: Pick<ExtensionContext, "ui">): Promise<void> {
+  if (!activeDashboard) {
+    ctx.ui.notify("No Symphony dashboard is open. Use /symphony:dashboard first.", "warning");
+    return;
+  }
+
+  switch (action) {
+    case "selectPrevious":
+      activeDashboard.selectPreviousWorker();
+      return;
+    case "selectNext":
+      activeDashboard.selectNextWorker();
+      return;
+    case "refresh":
+      await activeDashboard.refreshNow();
+      return;
+    case "steer":
+      await activeDashboard.steerNow();
+      return;
+    case "toggleDetails":
+      activeDashboard.toggleDetails();
+      return;
+    case "close":
+      activeDashboard.closeDashboard();
+      return;
+  }
+}
+
 export interface DashboardOptions {
   state: ExtensionState;
   getState: () => SymphonyStateResponse | undefined;
@@ -37,33 +69,32 @@ export class SymphonyDashboardComponent {
 
   handleInput(data: string): void {
     if (data === "q" || data === "Q" || matchesKey(data, "escape")) {
-      this.options.close();
+      this.closeDashboard();
       return;
     }
 
     if (data === "r" || data === "R") {
-      void this.refresh();
+      void this.refreshNow();
       return;
     }
 
     if (data === "d" || data === "D") {
-      this.options.state.dashboard.showDetails = !this.options.state.dashboard.showDetails;
-      this.options.requestRender();
+      this.toggleDetails();
       return;
     }
 
     if (data === "s" || data === "S") {
-      void this.steerSelectedWorker();
+      void this.steerNow();
       return;
     }
 
     if (data === "\u001b[A" || matchesKey(data, "up")) {
-      this.moveSelection(-1);
+      this.selectPreviousWorker();
       return;
     }
 
     if (data === "\u001b[B" || matchesKey(data, "down")) {
-      this.moveSelection(1);
+      this.selectNextWorker();
     }
   }
 
@@ -97,13 +128,38 @@ export class SymphonyDashboardComponent {
       ...boxLines("Selected Worker", renderSelectedWorkerDetails(selectedWorker, state.dashboard.showDetails, theme), dashboardWidth, theme),
       ...boxLines("Events", renderRecentEvents(formatEventRows(this.options.getEvents()), theme), dashboardWidth, theme),
       "",
-      ...boxLines("Help", [this.refreshing ? color(theme, "warning", "refreshing...") : "live updates above input | /symphony:dashboard refreshes"], dashboardWidth, theme),
+      ...boxLines("Actions", renderActionLegend(this.refreshing, theme), dashboardWidth, theme),
     ];
 
     return lines.map((line) => truncateToWidth(line, width));
   }
 
   invalidate(): void {}
+
+  selectPreviousWorker(): void {
+    this.moveSelection(-1);
+  }
+
+  selectNextWorker(): void {
+    this.moveSelection(1);
+  }
+
+  toggleDetails(): void {
+    this.options.state.dashboard.showDetails = !this.options.state.dashboard.showDetails;
+    this.options.requestRender();
+  }
+
+  async refreshNow(): Promise<void> {
+    await this.refresh();
+  }
+
+  async steerNow(): Promise<void> {
+    await this.steerSelectedWorker();
+  }
+
+  closeDashboard(): void {
+    this.options.close();
+  }
 
   private moveSelection(delta: number): void {
     const workers = buildWorkerRows(this.options.getState());
@@ -198,6 +254,14 @@ function renderRecentEvents(events: string[], theme?: DashboardTheme): string[] 
   return events.map((event) => colorEventRow(event, theme));
 }
 
+function renderActionLegend(refreshing: boolean, theme?: DashboardTheme): string[] {
+  return [
+    refreshing ? color(theme, "warning", "refreshing...") : "Keyboard: ctrl+shift+↑/↓ select | ctrl+shift+r refresh",
+    "          ctrl+shift+s steer | ctrl+shift+d details | ctrl+shift+q close",
+    "Commands: /symphony:refresh | /symphony:status | /symphony:stop",
+  ];
+}
+
 function colorEventRow(event: string, theme?: DashboardTheme): string {
   if (event.includes(" error ")) return color(theme, "error", event);
   if (event.includes(" warn ") || event.includes(" warning ")) return color(theme, "warning", event);
@@ -280,6 +344,7 @@ export async function openDashboard(ctx: ExtensionContext, runtime: SymphonyRunt
       closed = true;
       if (liveRefreshTimer) clearTimeout(liveRefreshTimer);
       eventStream?.close();
+      if (activeDashboard === component) activeDashboard = undefined;
     };
 
     const scheduleLiveRefresh = () => {
@@ -346,6 +411,7 @@ export async function openDashboard(ctx: ExtensionContext, runtime: SymphonyRunt
       notify: (message, level) => ctx.ui.notify(message, level),
       theme,
     });
+    activeDashboard = component;
     return Object.assign(component, { dispose: closeWidget });
   });
 }
