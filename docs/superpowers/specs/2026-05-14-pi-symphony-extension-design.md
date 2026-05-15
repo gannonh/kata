@@ -133,7 +133,7 @@ The dashboard reaches full parity through vertical slices. Each slice ships an e
 
 This doc is the master design doc. We are using `/writing-plans` to create implementation plans for each vertical slice.
 
-✅ ### Slice 1: start, attach, and health
+### Slice 1: start, attach, and health ✅
 
 - Resolve and validate the Symphony binary.
 - Start headless Symphony or attach to an existing server.
