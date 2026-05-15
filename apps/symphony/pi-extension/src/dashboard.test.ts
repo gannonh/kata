@@ -1,8 +1,78 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { describe, expect, it, vi } from "vitest";
 import { openDashboard, SymphonyDashboardComponent } from "./dashboard.ts";
+import type { SymphonyEventEnvelope, SymphonyStateResponse } from "./http-client.ts";
 import type { SymphonyRuntime } from "./runtime.ts";
 import { createDefaultState } from "./state.ts";
+
+function workerStateFixture(): SymphonyStateResponse {
+  return {
+    tracker_project_url: "https://linear.app/kata-sh/project/symphony",
+    running: {
+      "issue-123": {
+        issue_id: "issue-123",
+        issue_identifier: "SIM-123",
+        issue_title: "Worker one",
+        attempt: 2,
+        workspace_path: "/tmp/symphony/issue-123",
+        started_at: "2026-05-14T12:00:00Z",
+        status: "running",
+        worker_host: "worker-a",
+        tracker_state: "In Progress",
+      },
+      "issue-777": {
+        issue_id: "issue-777",
+        issue_identifier: "SIM-777",
+        issue_title: "Worker two",
+        workspace_path: "/tmp/symphony/issue-777",
+        started_at: "2026-05-14T12:05:00Z",
+        status: "running",
+        error: "usage limit",
+        tracker_state: "Agent Review",
+      },
+    },
+    running_sessions: {
+      "issue-123": {
+        turn_count: 2,
+        last_activity_at: "2026-05-14T12:03:00Z",
+        last_event: "tool_call_completed",
+        last_event_message: "running cargo test",
+      },
+    },
+    running_session_info: {
+      "issue-123": { turn_count: 3, max_turns: 20, last_activity_ms: Date.parse("2026-05-14T12:04:00Z"), last_error: null },
+      "issue-777": { turn_count: 1, max_turns: 10, last_activity_ms: null, last_error: "usage limit" },
+    },
+    retry_queue: [],
+    blocked: [],
+    completed: [],
+    polling: { checking: false, next_poll_in_ms: 1000, poll_interval_ms: 30000 },
+  };
+}
+
+function runtimeEventsFixture(): SymphonyEventEnvelope[] {
+  return [
+    {
+      version: "v1",
+      sequence: 1,
+      timestamp: "2026-05-14T12:01:00Z",
+      kind: "runtime",
+      severity: "info",
+      event: "poll_completed",
+      payload: { summary: "checked tracker" },
+    },
+    {
+      version: "v1",
+      sequence: 2,
+      timestamp: "2026-05-14T12:02:00Z",
+      kind: "worker",
+      severity: "error",
+      issue: "SIM-777",
+      event: "worker_failed",
+      payload: { error_preview: "usage limit" },
+    },
+  ];
+}
 
 describe("SymphonyDashboardComponent", () => {
   it("renders Slice 1 health fields", () => {
@@ -23,7 +93,11 @@ describe("SymphonyDashboardComponent", () => {
 
     const dashboard = new SymphonyDashboardComponent({
       state,
+      getState: () => undefined,
+      getEvents: () => [],
       refresh: async () => undefined,
+      steer: async () => undefined,
+      prompt: async () => undefined,
       close: () => undefined,
       requestRender: () => undefined,
       notify: () => undefined,
@@ -38,11 +112,123 @@ describe("SymphonyDashboardComponent", () => {
     expect(output).toContain("owned process: pid 123");
   });
 
+  it("renders running workers, selected-worker details, and recent runtime events", () => {
+    const state = createDefaultState();
+    state.dashboard.showDetails = true;
+    const dashboard = new SymphonyDashboardComponent({
+      state,
+      getState: () => workerStateFixture(),
+      getEvents: () => runtimeEventsFixture(),
+      refresh: async () => undefined,
+      steer: async () => undefined,
+      prompt: async () => undefined,
+      close: () => undefined,
+      requestRender: () => undefined,
+      notify: () => undefined,
+    });
+
+    const output = dashboard.render(160).join("\n");
+
+    expect(output).toContain("Running workers");
+    expect(output).toContain("> SIM-123");
+    expect(output).toContain("SIM-777");
+    expect(output).toContain("Selected worker");
+    expect(output).toContain("issue: SIM-123 Worker one");
+    expect(output).toContain("tracker state: In Progress");
+    expect(output).toContain("attempt: 2");
+    expect(output).toContain("turns: 3 / 20");
+    expect(output).toContain("last activity: 2026-05-14T12:04:00.000Z");
+    expect(output).toContain("worker host: worker-a");
+    expect(output).toContain("workspace: /tmp/symphony/issue-123");
+    expect(output).toContain("Recent worker/runtime events");
+    expect(output).toContain("worker_failed usage limit");
+  });
+
+  it("moves selection with arrow keys", () => {
+    const state = createDefaultState();
+    const dashboard = new SymphonyDashboardComponent({
+      state,
+      getState: () => workerStateFixture(),
+      getEvents: () => [],
+      refresh: async () => undefined,
+      steer: async () => undefined,
+      prompt: async () => undefined,
+      close: () => undefined,
+      requestRender: () => undefined,
+      notify: () => undefined,
+    });
+
+    dashboard.handleInput("\u001b[B");
+
+    const output = dashboard.render(160).join("\n");
+    expect(output).toContain("> SIM-777");
+    expect(output).toContain("issue: SIM-777 Worker two");
+  });
+
+  it("toggles selected-worker details", () => {
+    const state = createDefaultState();
+    state.dashboard.showDetails = true;
+    const dashboard = new SymphonyDashboardComponent({
+      state,
+      getState: () => workerStateFixture(),
+      getEvents: () => [],
+      refresh: async () => undefined,
+      steer: async () => undefined,
+      prompt: async () => undefined,
+      close: () => undefined,
+      requestRender: () => undefined,
+      notify: () => undefined,
+    });
+
+    dashboard.handleInput("d");
+
+    expect(dashboard.render(160).join("\n")).not.toContain("Selected worker");
+  });
+
+  it("prompts for a steer instruction and sends it to the selected worker", async () => {
+    let resolveSteered: (() => void) | undefined;
+    const steered = new Promise<void>((resolve) => {
+      resolveSteered = resolve;
+    });
+    const steer = vi.fn(async () => {
+      resolveSteered?.();
+    });
+    let resolveNotified: (() => void) | undefined;
+    const notified = new Promise<void>((resolve) => {
+      resolveNotified = resolve;
+    });
+    const notify = vi.fn(() => {
+      resolveNotified?.();
+    });
+    const dashboard = new SymphonyDashboardComponent({
+      state: createDefaultState(),
+      getState: () => workerStateFixture(),
+      getEvents: () => [],
+      refresh: async () => undefined,
+      steer,
+      prompt: async () => "Use the existing auth module",
+      close: () => undefined,
+      requestRender: () => undefined,
+      notify,
+    });
+
+    dashboard.handleInput("s");
+    await steered;
+    await notified;
+
+    expect(steer).toHaveBeenCalledWith("SIM-123", "Use the existing auth module");
+    expect(notify).toHaveBeenCalledWith("Steer delivered to SIM-123", "info");
+  });
+
   it("closes on q", () => {
     const close = vi.fn();
     const dashboard = new SymphonyDashboardComponent({
       state: createDefaultState(),
+      getState: () => undefined,
+      getEvents: () => [],
       refresh: async () => undefined,
+      steer: async () => undefined,
+      prompt: async () => undefined,
       close,
       requestRender: () => undefined,
       notify: () => undefined,
@@ -60,7 +246,11 @@ describe("SymphonyDashboardComponent", () => {
     const refresh = vi.fn(() => refreshDone);
     const dashboard = new SymphonyDashboardComponent({
       state: createDefaultState(),
+      getState: () => undefined,
+      getEvents: () => [],
       refresh,
+      steer: async () => undefined,
+      prompt: async () => undefined,
       close: () => undefined,
       requestRender: () => undefined,
       notify: () => undefined,
@@ -84,9 +274,13 @@ describe("SymphonyDashboardComponent", () => {
     });
     const dashboard = new SymphonyDashboardComponent({
       state: createDefaultState(),
+      getState: () => undefined,
+      getEvents: () => [],
       refresh: async () => {
         throw new Error("refresh failed");
       },
+      steer: async () => undefined,
+      prompt: async () => undefined,
       close: () => undefined,
       requestRender: () => undefined,
       notify,
@@ -128,13 +322,17 @@ describe("openDashboard", () => {
 
       expect(component.render(120).join("\n")).toContain("running: 1");
     });
-    const ctx = { ui: { notify, custom } } as unknown as ExtensionContext;
+    const ctx = { ui: { notify, custom, input: vi.fn() } } as unknown as ExtensionContext;
     const runtime = {
       client: {},
       state,
+      lastState: undefined,
+      recentEvents: [],
       refreshState: vi.fn(async () => {
         throw new Error("launch refresh failed");
       }),
+      requestRefresh: vi.fn(async () => undefined),
+      steerWorker: vi.fn(async () => undefined),
       errorText: vi.fn((error: unknown) => (error instanceof Error ? `formatted: ${error.message}` : String(error))),
     } as unknown as SymphonyRuntime;
 
