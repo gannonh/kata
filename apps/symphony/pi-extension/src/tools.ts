@@ -1,6 +1,6 @@
 import { Type } from "@earendil-works/pi-ai";
 import { defineTool, type AgentToolUpdateCallback, type ExtensionAPI, type ToolExecutionMode } from "@earendil-works/pi-coding-agent";
-import { assertLoopbackAttachUrl } from "./attach-url-policy.ts";
+import { assertLoopbackAttachUrl, resolveAttachUrl } from "./attach-url-policy.ts";
 import { setSymphonyStatus } from "./commands.ts";
 import { formatError, SymphonyExtensionError } from "./errors.ts";
 import type { SymphonyRuntime } from "./runtime.ts";
@@ -92,14 +92,15 @@ export function registerSymphonyTools(pi: ExtensionAPI, runtime: SymphonyRuntime
   pi.registerTool(defineTool({
     name: "symphony_attach",
     label: "Symphony Attach",
-    description: "Attach to an existing Symphony HTTP server after verifying GET /api/v1/state.",
-    parameters: Type.Object({ url: Type.String() }),
+    description: "Attach to an existing Symphony HTTP server after verifying GET /api/v1/state, or to the Pi-owned server when no URL is provided.",
+    parameters: Type.Object({ url: Type.Optional(Type.String()) }),
     executionMode: SYMPHONY_TOOL_EXECUTION_MODE,
     async execute(_id, params, signal, onUpdate, ctx) {
       try {
         updateProgress(onUpdate, "Attaching to Symphony...");
-        assertLoopbackAttachUrl(params.url);
-        await runtime.attach(params.url, signal);
+        const url = resolveAttachUrl(params.url, runtime.state.ownedProcess);
+        assertLoopbackAttachUrl(url);
+        await runtime.attach(url, signal);
         runtime.persist(pi);
         setSymphonyStatus(ctx, runtime);
         return toolOk(`Attached to Symphony at ${runtime.state.attachedBaseUrl}`, { state: runtime.state.lastKnownState });

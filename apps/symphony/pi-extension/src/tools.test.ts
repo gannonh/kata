@@ -228,6 +228,47 @@ describe("symphony tools", () => {
     });
   });
 
+  it("attaches to the owned Symphony server when no tool URL is provided", async () => {
+    const baseUrl = "http://127.0.0.1:8080";
+    const runtime = new SymphonyRuntime();
+    runtime.state.ownedProcess = {
+      pid: 123,
+      command: "symphony --no-tui",
+      cwd: "/repo",
+      baseUrl,
+      startedAt: "2026-05-14T00:00:00.000Z",
+    };
+    runtime.attach = vi.fn(async (url: string) => {
+      runtime.state.attachedBaseUrl = url;
+      runtime.state.lastKnownState = lastKnownState(url);
+      return {};
+    }) as unknown as SymphonyRuntime["attach"];
+
+    const { tools } = registerTools(runtime);
+    const attach = tools.get("symphony_attach");
+    if (!attach) throw new Error("expected attach tool");
+    const { ctx, setStatus } = toolContext();
+    const signal = new AbortController().signal;
+
+    const result = await attach.execute("1", {}, signal, undefined, ctx);
+
+    expect(runtime.attach).toHaveBeenCalledWith(baseUrl, signal);
+    expect(setStatus).toHaveBeenCalledWith("symphony", `symphony ${baseUrl}`);
+    expect(result).toMatchObject({ content: [{ type: "text", text: `Attached to Symphony at ${baseUrl}` }] });
+  });
+
+  it("rejects attach without URL when no owned server is available", async () => {
+    const runtime = new SymphonyRuntime();
+    runtime.attach = vi.fn() as unknown as SymphonyRuntime["attach"];
+
+    const { tools } = registerTools(runtime);
+    const attach = tools.get("symphony_attach");
+    if (!attach) throw new Error("expected attach tool");
+
+    await expect(attach.execute("1", {}, new AbortController().signal, undefined, toolContext().ctx)).rejects.toThrow("No Symphony URL provided and no Pi-owned Symphony server is running");
+    expect(runtime.attach).not.toHaveBeenCalled();
+  });
+
   it("restricts tool attach URLs to loopback hosts before attaching", async () => {
     const runtime = new SymphonyRuntime();
     runtime.attach = vi.fn(async (baseUrl: string) => {

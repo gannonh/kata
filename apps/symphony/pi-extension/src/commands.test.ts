@@ -135,6 +135,51 @@ describe("symphony commands", () => {
     expect(notify).toHaveBeenCalledWith("Steer delivered to SIM-123: Use auth", "info");
   });
 
+  it("attaches to the owned Symphony server when no URL is provided", async () => {
+    const baseUrl = "http://127.0.0.1:8080";
+    const runtime = new SymphonyRuntime();
+    runtime.state.ownedProcess = {
+      pid: 123,
+      command: "symphony --no-tui",
+      cwd: "/repo",
+      baseUrl,
+      startedAt: "2026-05-14T00:00:00.000Z",
+    };
+    runtime.attach = vi.fn(async (url: string) => {
+      runtime.state.attachedBaseUrl = url;
+      runtime.state.lastKnownState = lastKnownState(url);
+      return {};
+    }) as unknown as SymphonyRuntime["attach"];
+
+    const { commands, appendEntry } = registerCommands(runtime);
+    const { ctx, notify, setStatus } = commandContext();
+    const attach = commands.get("symphony:attach");
+    if (!attach) throw new Error("expected attach command");
+
+    await attach.handler("", ctx);
+
+    expect(runtime.attach).toHaveBeenCalledWith(baseUrl);
+    expect(appendEntry).toHaveBeenCalledWith("symphony-extension-state", expect.objectContaining({ attachedBaseUrl: baseUrl }));
+    expect(setStatus).toHaveBeenCalledWith("symphony", `symphony ${baseUrl}`);
+    expect(notify).toHaveBeenCalledWith(`Attached to Symphony at ${baseUrl}`, "info");
+  });
+
+  it("shows a helpful attach error when no URL or owned server is available", async () => {
+    const runtime = new SymphonyRuntime();
+    runtime.attach = vi.fn() as unknown as SymphonyRuntime["attach"];
+
+    const { commands } = registerCommands(runtime);
+    const { ctx, notify } = commandContext();
+    const attach = commands.get("symphony:attach");
+    if (!attach) throw new Error("expected attach command");
+
+    await attach.handler("", ctx);
+
+    expect(runtime.attach).not.toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining("No Symphony URL provided and no Pi-owned Symphony server is running"), "error");
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining("Use /symphony:start or /symphony:attach <url>"), "error");
+  });
+
   it("restricts command attach URLs to loopback hosts before attaching", async () => {
     const runtime = new SymphonyRuntime();
     runtime.attach = vi.fn(async (baseUrl: string) => {

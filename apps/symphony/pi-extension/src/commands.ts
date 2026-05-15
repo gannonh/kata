@@ -1,5 +1,5 @@
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { assertLoopbackAttachUrl } from "./attach-url-policy.ts";
+import { assertLoopbackAttachUrl, resolveAttachUrl } from "./attach-url-policy.ts";
 import { openDashboard } from "./dashboard.ts";
 import { formatError, SymphonyExtensionError } from "./errors.ts";
 import { parseAttachArgs, parseDoctorArgs, parseInitArgs, parseStartArgs, parseSteerArgs } from "./command-args.ts";
@@ -67,11 +67,12 @@ export function registerSymphonyCommands(pi: ExtensionAPI, runtime: SymphonyRunt
   });
 
   pi.registerCommand("symphony:attach", {
-    description: "Attach to an existing Symphony HTTP server",
+    description: "Attach to an existing Symphony HTTP server, or the Pi-owned server when no URL is provided",
     handler: async (args, ctx) => runCommandHandler(ctx, async () => withSymphonyProgress(ctx, { message: "Attaching to Symphony...", restoreStatus: (ctx) => setSymphonyStatus(ctx, runtime) }, async () => {
       const parsed = parseAttachArgs(args);
-      assertLoopbackAttachUrl(parsed.url);
-      await runtime.attach(parsed.url);
+      const url = resolveAttachUrl(parsed.url, runtime.state.ownedProcess);
+      assertLoopbackAttachUrl(url);
+      await runtime.attach(url);
       runtime.persist(pi);
       setSymphonyStatus(ctx, runtime);
       ctx.ui.notify(`Attached to Symphony at ${runtime.state.attachedBaseUrl}`, "info");
@@ -162,7 +163,7 @@ function helpText(runtime: SymphonyRuntime): string {
     "/symphony:init [--force]",
     "/symphony:doctor [workflow]",
     "/symphony:start [workflow]",
-    "/symphony:attach <url>",
+    "/symphony:attach [url]", 
     "/symphony:dashboard",
     "/symphony:status",
     "/symphony:refresh",

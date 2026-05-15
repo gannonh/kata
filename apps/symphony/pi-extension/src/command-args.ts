@@ -7,7 +7,7 @@ export interface WorkflowArgs {
 }
 
 export interface AttachArgs {
-  url: string;
+  url?: string;
 }
 
 export interface SteerArgs {
@@ -43,8 +43,7 @@ function parseWorkflowArg(args: string): WorkflowArgs {
 
 export function parseAttachArgs(args: string): AttachArgs {
   const url = args.trim();
-  if (!url) throw new Error("Usage: /symphony:attach <url>");
-  return { url };
+  return { url: url || undefined };
 }
 
 export function parseSteerArgs(args: string): SteerArgs {

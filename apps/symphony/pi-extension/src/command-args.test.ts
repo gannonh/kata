@@ -17,9 +17,9 @@ describe("command argument parsing", () => {
     expect(parseStartArgs("   ")).toEqual({ workflow: undefined });
   });
 
-  it("requires an attach URL", () => {
+  it("parses attach URL as optional", () => {
     expect(parseAttachArgs("http://127.0.0.1:8080")).toEqual({ url: "http://127.0.0.1:8080" });
-    expect(() => parseAttachArgs("")).toThrow("Usage: /symphony:attach <url>");
+    expect(parseAttachArgs("")).toEqual({ url: undefined });
   });
 
   it("parses steer issue and instruction", () => {
