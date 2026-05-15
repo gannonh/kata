@@ -3,6 +3,7 @@ import { assertLoopbackAttachUrl } from "./attach-url-policy.ts";
 import { openDashboard } from "./dashboard.ts";
 import { formatError, SymphonyExtensionError } from "./errors.ts";
 import { parseAttachArgs, parseDoctorArgs, parseInitArgs, parseStartArgs, parseSteerArgs } from "./command-args.ts";
+import { withSymphonyLoader, withSymphonyProgress } from "./progress.ts";
 import type { SymphonyRuntime } from "./runtime.ts";
 
 export function registerSymphonyCommands(pi: ExtensionAPI, runtime: SymphonyRuntime): void {
@@ -15,53 +16,53 @@ export function registerSymphonyCommands(pi: ExtensionAPI, runtime: SymphonyRunt
 
   pi.registerCommand("symphony:init", {
     description: "Run symphony init in the current Pi working directory",
-    handler: async (args, ctx) => runCommandHandler(ctx, async () => {
+    handler: async (args, ctx) => runCommandHandler(ctx, async () => withSymphonyLoader(ctx, { message: "Initializing Symphony...", restoreStatus: (ctx) => setSymphonyStatus(ctx, runtime) }, async (signal) => {
       const parsed = parseInitArgs(args);
       const binary = await runtime.resolveBinary(ctx);
-      const result = await pi.exec(binary, parsed.force ? ["init", "--force"] : ["init"], { cwd: ctx.cwd });
+      const result = await pi.exec(binary, parsed.force ? ["init", "--force"] : ["init"], { cwd: ctx.cwd, signal });
       if (result.code !== 0) throw new SymphonyExtensionError("command_failed", "symphony init failed", { cwd: ctx.cwd, code: result.code, stderr: result.stderr });
       runtime.persist(pi);
       ctx.ui.notify(result.stdout.trim() || "symphony init completed", "info");
-    }),
+    })),
   });
 
   pi.registerCommand("symphony:doctor", {
     description: "Run symphony doctor in the current Pi working directory",
-    handler: async (args, ctx) => runCommandHandler(ctx, async () => {
+    handler: async (args, ctx) => runCommandHandler(ctx, async () => withSymphonyLoader(ctx, { message: "Running Symphony doctor...", restoreStatus: (ctx) => setSymphonyStatus(ctx, runtime) }, async (signal) => {
       const parsed = parseDoctorArgs(args);
       const binary = await runtime.resolveBinary(ctx);
       const commandArgs = parsed.workflow ? ["doctor", parsed.workflow] : ["doctor"];
-      const result = await pi.exec(binary, commandArgs, { cwd: ctx.cwd });
+      const result = await pi.exec(binary, commandArgs, { cwd: ctx.cwd, signal });
       if (result.code !== 0) throw new SymphonyExtensionError("command_failed", "symphony doctor failed", { cwd: ctx.cwd, code: result.code, stderr: result.stderr });
       runtime.persist(pi);
       ctx.ui.notify(result.stdout.trim() || "symphony doctor completed", "info");
-    }),
+    })),
   });
 
   pi.registerCommand("symphony:start", {
     description: "Start Symphony headlessly, attach to the HTTP API, and open the dashboard",
-    handler: async (args, ctx) => runCommandHandler(ctx, async () => {
+    handler: async (args, ctx) => runCommandHandler(ctx, async () => withSymphonyLoader(ctx, { message: "Starting Symphony...", restoreStatus: (ctx) => setSymphonyStatus(ctx, runtime) }, async (signal) => {
       const parsed = parseStartArgs(args);
       const binary = await runtime.resolveBinary(ctx);
-      const started = await runtime.processManager.start({ binary, cwd: ctx.cwd, workflow: parsed.workflow });
-      await runtime.attach(started.baseUrl);
+      const started = await runtime.processManager.start({ binary, cwd: ctx.cwd, workflow: parsed.workflow, signal });
+      await runtime.attach(started.baseUrl, signal);
       runtime.persist(pi);
       setSymphonyStatus(ctx, runtime);
       ctx.ui.notify(`Symphony started at ${started.baseUrl}`, "info");
       await openDashboard(ctx, runtime);
-    }),
+    })),
   });
 
   pi.registerCommand("symphony:attach", {
     description: "Attach to an existing Symphony HTTP server",
-    handler: async (args, ctx) => runCommandHandler(ctx, async () => {
+    handler: async (args, ctx) => runCommandHandler(ctx, async () => withSymphonyProgress(ctx, { message: "Attaching to Symphony...", restoreStatus: (ctx) => setSymphonyStatus(ctx, runtime) }, async () => {
       const parsed = parseAttachArgs(args);
       assertLoopbackAttachUrl(parsed.url);
       await runtime.attach(parsed.url);
       runtime.persist(pi);
       setSymphonyStatus(ctx, runtime);
       ctx.ui.notify(`Attached to Symphony at ${runtime.state.attachedBaseUrl}`, "info");
-    }),
+    })),
   });
 
   pi.registerCommand("symphony:dashboard", {
@@ -82,11 +83,11 @@ export function registerSymphonyCommands(pi: ExtensionAPI, runtime: SymphonyRunt
 
   pi.registerCommand("symphony:refresh", {
     description: "Request an immediate Symphony poll refresh",
-    handler: async (_args, ctx) => runCommandHandler(ctx, async () => {
+    handler: async (_args, ctx) => runCommandHandler(ctx, async () => withSymphonyProgress(ctx, { message: "Refreshing Symphony...", restoreStatus: (ctx) => setSymphonyStatus(ctx, runtime) }, async () => {
       await runtime.requestRefresh();
       runtime.persist(pi);
       ctx.ui.notify(`Symphony refresh requested; ${runtimeCountsText(runtime)}`, "info");
-    }),
+    })),
   });
 
   pi.registerCommand("symphony:steer", {
@@ -101,14 +102,14 @@ export function registerSymphonyCommands(pi: ExtensionAPI, runtime: SymphonyRunt
 
   pi.registerCommand("symphony:stop", {
     description: "Stop a Symphony process started by this extension",
-    handler: async (_args, ctx) => runCommandHandler(ctx, async () => {
+    handler: async (_args, ctx) => runCommandHandler(ctx, async () => withSymphonyProgress(ctx, { message: "Stopping Symphony...", restoreStatus: (ctx) => setSymphonyStatus(ctx, runtime) }, async () => {
       const ownedBaseUrl = runtime.state.ownedProcess?.baseUrl;
       await runtime.processManager.stopOwned();
       runtime.clearAttachmentIfBaseUrl(ownedBaseUrl);
       runtime.persist(pi);
       setSymphonyStatus(ctx, runtime);
       ctx.ui.notify("Stopped owned Symphony process", "info");
-    }),
+    })),
   });
 }
 

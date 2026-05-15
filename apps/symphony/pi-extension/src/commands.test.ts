@@ -4,18 +4,41 @@ import { registerSymphonyCommands, setSymphonyStatus } from "./commands.ts";
 import { SymphonyRuntime } from "./runtime.ts";
 import { type LastKnownSymphonyState } from "./state.ts";
 
+vi.mock("@earendil-works/pi-coding-agent", () => ({
+  BorderedLoader: class MockBorderedLoader {
+    readonly signal = new AbortController().signal;
+    onAbort: (() => void) | undefined;
+    dispose = vi.fn();
+  },
+}));
+
 type CommandOptions = Parameters<ExtensionAPI["registerCommand"]>[1];
 
 function commandContext() {
   const notify = vi.fn();
   const setStatus = vi.fn();
+  const setWorkingIndicator = vi.fn();
+  const setWorkingMessage = vi.fn();
+  const custom = vi.fn(async (factory: Parameters<ExtensionCommandContext["ui"]["custom"]>[0]) => {
+    let component: { dispose?: () => void } | undefined;
+    const value = await new Promise<unknown>((resolve) => {
+      component = factory(
+        { requestRender: vi.fn() } as unknown as Parameters<typeof factory>[0],
+        { fg: (_name: string, text: string) => text } as unknown as Parameters<typeof factory>[1],
+        undefined as unknown as Parameters<typeof factory>[2],
+        resolve,
+      ) as { dispose?: () => void };
+    });
+    component?.dispose?.();
+    return value;
+  });
   const ctx = {
-    ui: { notify, setStatus },
+    ui: { notify, setStatus, setWorkingIndicator, setWorkingMessage, custom },
     cwd: "/repo",
     hasUI: false,
   } as unknown as ExtensionCommandContext;
 
-  return { ctx, notify, setStatus };
+  return { ctx, notify, setStatus, setWorkingIndicator, setWorkingMessage, custom };
 }
 
 function registerCommands(runtime: SymphonyRuntime) {
@@ -122,6 +145,72 @@ describe("symphony commands", () => {
     );
     expect(setStatus).toHaveBeenCalledWith("symphony", "symphony http://localhost:8080");
     expect(notify).toHaveBeenCalledWith("Attached to Symphony at http://localhost:8080", "info");
+  });
+
+  it("shows inline progress while attaching", async () => {
+    const runtime = new SymphonyRuntime();
+    runtime.attach = vi.fn(async (baseUrl: string) => {
+      runtime.state.attachedBaseUrl = baseUrl;
+      runtime.state.lastKnownState = lastKnownState(baseUrl);
+      return {};
+    }) as unknown as SymphonyRuntime["attach"];
+
+    const { commands } = registerCommands(runtime);
+    const { ctx, setStatus, setWorkingIndicator, setWorkingMessage } = commandContext();
+    const attach = commands.get("symphony:attach");
+    if (!attach) throw new Error("expected attach command");
+
+    await attach.handler("http://localhost:8080", ctx);
+
+    expect(setWorkingMessage).toHaveBeenNthCalledWith(1, "Attaching to Symphony...");
+    expect(setStatus).toHaveBeenNthCalledWith(1, "symphony", "Attaching to Symphony...");
+    expect(setWorkingIndicator).toHaveBeenLastCalledWith();
+    expect(setWorkingMessage).toHaveBeenLastCalledWith();
+    expect(setStatus).toHaveBeenLastCalledWith("symphony", "symphony http://localhost:8080");
+  });
+
+  it("shows inline progress while refreshing", async () => {
+    const runtime = new SymphonyRuntime();
+    runtime.state.attachedBaseUrl = "http://127.0.0.1:8080";
+    runtime.requestRefresh = vi.fn(async () => {
+      runtime.state.lastKnownState = lastKnownState("http://127.0.0.1:8080");
+      return {} as Awaited<ReturnType<SymphonyRuntime["requestRefresh"]>>;
+    }) as SymphonyRuntime["requestRefresh"];
+
+    const { commands } = registerCommands(runtime);
+    const { ctx, setStatus, setWorkingMessage } = commandContext();
+    const refresh = commands.get("symphony:refresh");
+    if (!refresh) throw new Error("expected refresh command");
+
+    await refresh.handler("", ctx);
+
+    expect(setWorkingMessage).toHaveBeenNthCalledWith(1, "Refreshing Symphony...");
+    expect(setStatus).toHaveBeenNthCalledWith(1, "symphony", "Refreshing Symphony...");
+    expect(setStatus).toHaveBeenLastCalledWith("symphony", "symphony http://127.0.0.1:8080");
+  });
+
+  it("uses a blocking loader for doctor", async () => {
+    const runtime = new SymphonyRuntime();
+    runtime.resolveBinary = vi.fn(async () => "symphony") as SymphonyRuntime["resolveBinary"];
+    const exec = vi.fn(async (_binary: string, _args: string[], _options: unknown) => ({ code: 0, stdout: "doctor ok", stderr: "", killed: false }));
+    const commands = new Map<string, CommandOptions>();
+    const pi = {
+      registerCommand: (name: string, options: CommandOptions) => commands.set(name, options),
+      appendEntry: vi.fn(),
+      exec,
+    } as unknown as ExtensionAPI;
+    registerSymphonyCommands(pi, runtime);
+
+    const { ctx, custom, setStatus } = commandContext();
+    const doctor = commands.get("symphony:doctor");
+    if (!doctor) throw new Error("expected doctor command");
+
+    await doctor.handler("", ctx);
+
+    expect(custom).toHaveBeenCalledOnce();
+    expect(setStatus).toHaveBeenNthCalledWith(1, "symphony", "Running Symphony doctor...");
+    expect(setStatus).toHaveBeenLastCalledWith("symphony", "symphony detached");
+    expect(exec).toHaveBeenCalledWith("symphony", ["doctor"], { cwd: "/repo", signal: expect.any(AbortSignal) });
   });
 
   it("clears an owned attachment and updates status after stop", async () => {
