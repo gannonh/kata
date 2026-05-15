@@ -22,6 +22,7 @@ export function eventStreamUrl(baseUrl: string): string {
 
 export function startSymphonyEventStream(options: EventStreamOptions): EventStreamHandle {
   const socket = new WebSocket(eventStreamUrl(options.baseUrl));
+  let intentionallyClosed = false;
 
   socket.on("message", (data) => {
     try {
@@ -32,11 +33,19 @@ export function startSymphonyEventStream(options: EventStreamOptions): EventStre
   });
 
   socket.on("error", (error) => {
+    if (intentionallyClosed) return;
     options.onError(error instanceof Error ? error : new Error(String(error)));
+  });
+
+  socket.on("close", (code, reason) => {
+    if (intentionallyClosed) return;
+    const suffix = reason.length > 0 ? `: ${reason.toString()}` : ` with code ${code}`;
+    options.onError(new Error(`Symphony event stream closed${suffix}`));
   });
 
   return {
     close: () => {
+      intentionallyClosed = true;
       socket.close();
     },
   };

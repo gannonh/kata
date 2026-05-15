@@ -1,5 +1,5 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { openDashboard, SymphonyDashboardComponent } from "./dashboard.ts";
 import { startSymphonyEventStream } from "./event-stream.ts";
 import type { SymphonyEventEnvelope, SymphonyStateResponse } from "./http-client.ts";
@@ -7,8 +7,13 @@ import type { SymphonyRuntime } from "./runtime.ts";
 import { createDefaultState } from "./state.ts";
 
 vi.mock("./event-stream.ts", () => ({
-  startSymphonyEventStream: vi.fn(() => ({ close: vi.fn() })),
+  startSymphonyEventStream: vi.fn(),
 }));
+
+beforeEach(() => {
+  vi.mocked(startSymphonyEventStream).mockReset();
+  vi.mocked(startSymphonyEventStream).mockImplementation(() => ({ close: vi.fn() }));
+});
 
 function workerStateFixture(): SymphonyStateResponse {
   return {

@@ -76,4 +76,34 @@ describe("event stream", () => {
 
     expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining("invalid Symphony event") }));
   });
+
+  it("does not report an error when intentionally closed before connecting", async () => {
+    const onError = vi.fn();
+    const handle = startSymphonyEventStream({
+      baseUrl: "http://127.0.0.1:9",
+      onEvent: () => undefined,
+      onError,
+    });
+
+    handle.close();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("reports an error when the server closes the stream", async () => {
+    const { baseUrl, socketServer } = await serveWebSocket();
+    const onError = vi.fn();
+    const handle = startSymphonyEventStream({ baseUrl, onEvent: () => undefined, onError });
+
+    socketServer.on("connection", (socket) => {
+      socket.close(1000, "server shutdown");
+    });
+
+    await expect.poll(() => onError.mock.calls.length, { interval: 10, timeout: 1000 }).toBe(1);
+    handle.close();
+
+    expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining("Symphony event stream closed") }));
+    expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining("server shutdown") }));
+  });
 });
