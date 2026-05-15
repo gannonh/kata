@@ -25,12 +25,14 @@ vi.mock("@earendil-works/pi-coding-agent", () => ({
 
 type CommandOptions = Parameters<ExtensionAPI["registerCommand"]>[1];
 
-function commandContext() {
+function commandContext(options: { hasUI?: boolean } = {}) {
   const notify = vi.fn();
   const setStatus = vi.fn();
   const setWorkingIndicator = vi.fn();
   const setWorkingMessage = vi.fn();
+  const hasUI = options.hasUI ?? true;
   const custom = vi.fn(async (factory: Parameters<ExtensionCommandContext["ui"]["custom"]>[0]) => {
+    if (!hasUI) return undefined;
     let component: { dispose?: () => void } | undefined;
     const value = await new Promise<unknown>((resolve) => {
       component = factory(
@@ -46,18 +48,19 @@ function commandContext() {
   const ctx = {
     ui: { notify, setStatus, setWorkingIndicator, setWorkingMessage, custom },
     cwd: "/repo",
-    hasUI: false,
+    hasUI,
   } as unknown as ExtensionCommandContext;
 
   return { ctx, notify, setStatus, setWorkingIndicator, setWorkingMessage, custom };
 }
 
-function registerCommands(runtime: SymphonyRuntime) {
+function registerCommands(runtime: SymphonyRuntime, overrides: Partial<ExtensionAPI> = {}) {
   const commands = new Map<string, CommandOptions>();
   const appendEntry = vi.fn();
   const pi = {
     registerCommand: (name: string, options: CommandOptions) => commands.set(name, options),
     appendEntry,
+    ...overrides,
   } as unknown as ExtensionAPI;
 
   registerSymphonyCommands(pi, runtime);
@@ -187,12 +190,15 @@ describe("symphony commands", () => {
     const clearAttachmentIfBaseUrl = vi.spyOn(runtime, "clearAttachmentIfBaseUrl");
 
     const { commands } = registerCommands(runtime);
-    const { ctx } = commandContext();
+    const { ctx, custom, setStatus } = commandContext();
     const start = commands.get("symphony:start");
     if (!start) throw new Error("expected start command");
 
     await start.handler("", ctx);
 
+    expect(custom).toHaveBeenCalledOnce();
+    expect(setStatus).toHaveBeenNthCalledWith(1, "symphony", "Starting Symphony...");
+    expect(setStatus).toHaveBeenLastCalledWith("symphony", "symphony detached");
     expect(runtime.attach).toHaveBeenCalledWith(baseUrl, controller.signal);
     expect(runtime.processManager.stopOwned).toHaveBeenCalledOnce();
     expect(clearAttachmentIfBaseUrl).toHaveBeenCalledWith(baseUrl);
@@ -240,17 +246,29 @@ describe("symphony commands", () => {
     expect(setStatus).toHaveBeenLastCalledWith("symphony", "symphony http://127.0.0.1:8080");
   });
 
+  it("uses a blocking loader for init", async () => {
+    const runtime = new SymphonyRuntime();
+    runtime.resolveBinary = vi.fn(async () => "symphony") as SymphonyRuntime["resolveBinary"];
+    const exec = vi.fn(async (_binary: string, _args: string[], _options: unknown) => ({ code: 0, stdout: "init ok", stderr: "", killed: false }));
+    const { commands } = registerCommands(runtime, { exec } as Partial<ExtensionAPI>);
+    const { ctx, custom, setStatus, notify } = commandContext();
+    const init = commands.get("symphony:init");
+    if (!init) throw new Error("expected init command");
+
+    await init.handler("--force", ctx);
+
+    expect(custom).toHaveBeenCalledOnce();
+    expect(setStatus).toHaveBeenNthCalledWith(1, "symphony", "Initializing Symphony...");
+    expect(setStatus).toHaveBeenLastCalledWith("symphony", "symphony detached");
+    expect(exec).toHaveBeenCalledWith("symphony", ["init", "--force"], { cwd: "/repo", signal: expect.any(AbortSignal) });
+    expect(notify).toHaveBeenCalledWith("init ok", "info");
+  });
+
   it("uses a blocking loader for doctor", async () => {
     const runtime = new SymphonyRuntime();
     runtime.resolveBinary = vi.fn(async () => "symphony") as SymphonyRuntime["resolveBinary"];
     const exec = vi.fn(async (_binary: string, _args: string[], _options: unknown) => ({ code: 0, stdout: "doctor ok", stderr: "", killed: false }));
-    const commands = new Map<string, CommandOptions>();
-    const pi = {
-      registerCommand: (name: string, options: CommandOptions) => commands.set(name, options),
-      appendEntry: vi.fn(),
-      exec,
-    } as unknown as ExtensionAPI;
-    registerSymphonyCommands(pi, runtime);
+    const { commands } = registerCommands(runtime, { exec } as Partial<ExtensionAPI>);
 
     const { ctx, custom, setStatus } = commandContext();
     const doctor = commands.get("symphony:doctor");
@@ -262,6 +280,24 @@ describe("symphony commands", () => {
     expect(setStatus).toHaveBeenNthCalledWith(1, "symphony", "Running Symphony doctor...");
     expect(setStatus).toHaveBeenLastCalledWith("symphony", "symphony detached");
     expect(exec).toHaveBeenCalledWith("symphony", ["doctor"], { cwd: "/repo", signal: expect.any(AbortSignal) });
+  });
+
+  it("runs loader-backed commands without custom when UI is unavailable", async () => {
+    const runtime = new SymphonyRuntime();
+    runtime.resolveBinary = vi.fn(async () => "symphony") as SymphonyRuntime["resolveBinary"];
+    const exec = vi.fn(async (_binary: string, _args: string[], _options: unknown) => ({ code: 0, stdout: "doctor ok", stderr: "", killed: false }));
+    const { commands } = registerCommands(runtime, { exec } as Partial<ExtensionAPI>);
+    const { ctx, custom, setStatus, notify } = commandContext({ hasUI: false });
+    const doctor = commands.get("symphony:doctor");
+    if (!doctor) throw new Error("expected doctor command");
+
+    await doctor.handler("", ctx);
+
+    expect(custom).not.toHaveBeenCalled();
+    expect(exec).toHaveBeenCalledWith("symphony", ["doctor"], { cwd: "/repo", signal: expect.any(AbortSignal) });
+    expect(setStatus).toHaveBeenNthCalledWith(1, "symphony", "Running Symphony doctor...");
+    expect(setStatus).toHaveBeenLastCalledWith("symphony", "symphony detached");
+    expect(notify).toHaveBeenCalledWith("doctor ok", "info");
   });
 
   it("clears an owned attachment and updates status after stop", async () => {
@@ -284,12 +320,14 @@ describe("symphony commands", () => {
     } as unknown as SymphonyRuntime["processManager"];
 
     const { commands, appendEntry } = registerCommands(runtime);
-    const { ctx, notify, setStatus } = commandContext();
+    const { ctx, notify, setStatus, setWorkingMessage } = commandContext();
     const stop = commands.get("symphony:stop");
     if (!stop) throw new Error("expected stop command");
 
     await stop.handler("", ctx);
 
+    expect(setWorkingMessage).toHaveBeenNthCalledWith(1, "Stopping Symphony...");
+    expect(setStatus).toHaveBeenNthCalledWith(1, "symphony", "Stopping Symphony...");
     expect(runtime.processManager.stopOwned).toHaveBeenCalledOnce();
     expect(runtime.state.attachedBaseUrl).toBeUndefined();
     expect(runtime.client).toBeUndefined();

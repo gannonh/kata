@@ -29,11 +29,12 @@ vi.mock("@earendil-works/pi-coding-agent", () => ({
   },
 }));
 
-function commandContext() {
+function commandContext(options: { hasUI?: boolean } = {}) {
   let resolveCustom: ((value: unknown) => void) | undefined;
   const setWorkingIndicator = vi.fn();
   const setWorkingMessage = vi.fn();
   const setStatus = vi.fn();
+  const hasUI = options.hasUI ?? true;
   const custom = vi.fn(async (factory: Parameters<ExtensionCommandContext["ui"]["custom"]>[0]) => {
     const resultPromise = new Promise((resolve) => {
       resolveCustom = resolve;
@@ -50,6 +51,7 @@ function commandContext() {
   });
 
   const ctx = {
+    hasUI,
     ui: { setWorkingIndicator, setWorkingMessage, setStatus, custom },
   } as unknown as ExtensionCommandContext;
 
@@ -134,6 +136,24 @@ describe("withSymphonyLoader", () => {
     expect(result).toBeUndefined();
     expect(operation).toHaveBeenCalledWith(loader?.signal);
     expect(loader?.signal.aborted).toBe(true);
+    expect(restoreStatus).toHaveBeenCalledWith(ctx);
+  });
+
+  it("runs the operation without calling custom when UI is unavailable", async () => {
+    const { ctx, setStatus, custom } = commandContext({ hasUI: false });
+    const restoreStatus = vi.fn();
+    const operation = vi.fn(async (signal: AbortSignal) => {
+      expect(signal).toBeInstanceOf(AbortSignal);
+      expect(signal.aborted).toBe(false);
+      return "initialized";
+    });
+
+    const result = await withSymphonyLoader(ctx, { message: "Initializing Symphony...", restoreStatus }, operation);
+
+    expect(result).toBe("initialized");
+    expect(setStatus).toHaveBeenCalledWith("symphony", "Initializing Symphony...");
+    expect(custom).not.toHaveBeenCalled();
+    expect(operation).toHaveBeenCalledWith(expect.any(AbortSignal));
     expect(restoreStatus).toHaveBeenCalledWith(ctx);
   });
 

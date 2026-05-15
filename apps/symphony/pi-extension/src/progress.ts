@@ -32,10 +32,15 @@ export async function withSymphonyLoader<T>(
 ): Promise<T | undefined> {
   ctx.ui.setStatus("symphony", options.message);
 
-  let operationFailed = false;
-  let operationError: unknown;
-
   try {
+    if (!ctx.hasUI) {
+      const controller = new AbortController();
+      return await fn(controller.signal);
+    }
+
+    let operationFailed = false;
+    let operationError: unknown;
+
     const result = await ctx.ui.custom<T | undefined>((tui, theme, _keybindings, done) => {
       const loader = new BorderedLoader(tui, theme, options.message);
       let completed = false;
