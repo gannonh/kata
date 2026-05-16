@@ -1,6 +1,6 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { handleActiveDashboardShortcut, openDashboard, SymphonyDashboardComponent } from "./dashboard.ts";
+import { handleActiveConsoleShortcut, openConsole, SymphonyConsoleComponent } from "./dashboard.ts";
 import { startSymphonyEventStream } from "./event-stream.ts";
 import type { SymphonyEventEnvelope, SymphonyStateResponse } from "./http-client.ts";
 import type { SymphonyRuntime } from "./runtime.ts";
@@ -92,7 +92,7 @@ function fakeTheme() {
   };
 }
 
-describe("SymphonyDashboardComponent", () => {
+describe("SymphonyConsoleComponent", () => {
   it("renders Slice 1 health fields", () => {
     const state = createDefaultState();
     state.attachedBaseUrl = "http://127.0.0.1:8080";
@@ -109,7 +109,7 @@ describe("SymphonyDashboardComponent", () => {
       updatedAt: "2026-05-14T00:00:01Z",
     };
 
-    const dashboard = new SymphonyDashboardComponent({
+    const dashboard = new SymphonyConsoleComponent({
       state,
       getState: () => undefined,
       getEvents: () => [],
@@ -122,8 +122,8 @@ describe("SymphonyDashboardComponent", () => {
     });
 
     const output = dashboard.render(120).join("\n");
-    expect(output).toContain("Symphony Dashboard");
-    expect(output).toContain("http://127.0.0.1:8080");
+    expect(output).toContain("Symphony Console");
+    expect(output).toContain("dashboard: http://127.0.0.1:8080");
     expect(output).toContain("project: https://github.com/gannonh/kata/projects/1");
     expect(output).toContain("running: 2");
     expect(output).toContain("retry: 1");
@@ -133,7 +133,7 @@ describe("SymphonyDashboardComponent", () => {
   it("renders running workers, selected-worker details, and recent runtime events", () => {
     const state = createDefaultState();
     state.dashboard.showDetails = true;
-    const dashboard = new SymphonyDashboardComponent({
+    const dashboard = new SymphonyConsoleComponent({
       state,
       getState: () => workerStateFixture(),
       getEvents: () => runtimeEventsFixture(),
@@ -165,7 +165,7 @@ describe("SymphonyDashboardComponent", () => {
   it("expands keyboard shortcuts onto one row when the terminal is wide", () => {
     const state = createDefaultState();
     state.attachedBaseUrl = "http://127.0.0.1:8080";
-    const dashboard = new SymphonyDashboardComponent({
+    const dashboard = new SymphonyConsoleComponent({
       state,
       getState: () => workerStateFixture(),
       getEvents: () => [],
@@ -182,7 +182,7 @@ describe("SymphonyDashboardComponent", () => {
     expect(output).toContain("Keyboard: ctrl+shift+↑/↓ select  •  ctrl+shift+r refresh  •  ctrl+shift+e steer  •  ctrl+shift+i details  •  ctrl+shift+q close");
   });
 
-  it("renders boxed colored sections and command actions for dashboard readability", () => {
+  it("renders boxed colored sections and command actions for console readability", () => {
     const state = createDefaultState();
     state.attachedBaseUrl = "http://127.0.0.1:8080";
     state.lastKnownState = {
@@ -196,7 +196,7 @@ describe("SymphonyDashboardComponent", () => {
       nextPollInMs: 5000,
       updatedAt: "2026-05-14T00:00:01Z",
     };
-    const dashboard = new SymphonyDashboardComponent({
+    const dashboard = new SymphonyConsoleComponent({
       state,
       getState: () => workerStateFixture(),
       getEvents: () => runtimeEventsFixture(),
@@ -237,7 +237,7 @@ describe("SymphonyDashboardComponent", () => {
 
   it("moves selection with arrow keys", () => {
     const state = createDefaultState();
-    const dashboard = new SymphonyDashboardComponent({
+    const dashboard = new SymphonyConsoleComponent({
       state,
       getState: () => workerStateFixture(),
       getEvents: () => [],
@@ -259,7 +259,7 @@ describe("SymphonyDashboardComponent", () => {
   it("toggles selected-worker details", () => {
     const state = createDefaultState();
     state.dashboard.showDetails = true;
-    const dashboard = new SymphonyDashboardComponent({
+    const dashboard = new SymphonyConsoleComponent({
       state,
       getState: () => workerStateFixture(),
       getEvents: () => [],
@@ -291,7 +291,7 @@ describe("SymphonyDashboardComponent", () => {
     const notify = vi.fn(() => {
       resolveNotified?.();
     });
-    const dashboard = new SymphonyDashboardComponent({
+    const dashboard = new SymphonyConsoleComponent({
       state: createDefaultState(),
       getState: () => workerStateFixture(),
       getEvents: () => [],
@@ -314,7 +314,7 @@ describe("SymphonyDashboardComponent", () => {
   it("notifies and requests render when steering prompt fails", async () => {
     const notify = vi.fn();
     const requestRender = vi.fn();
-    const dashboard = new SymphonyDashboardComponent({
+    const dashboard = new SymphonyConsoleComponent({
       state: createDefaultState(),
       getState: () => workerStateFixture(),
       getEvents: () => [],
@@ -337,7 +337,7 @@ describe("SymphonyDashboardComponent", () => {
 
   it("closes on q", () => {
     const close = vi.fn();
-    const dashboard = new SymphonyDashboardComponent({
+    const dashboard = new SymphonyConsoleComponent({
       state: createDefaultState(),
       getState: () => undefined,
       getEvents: () => [],
@@ -359,7 +359,7 @@ describe("SymphonyDashboardComponent", () => {
       resolveRefresh = resolve;
     });
     const refresh = vi.fn(() => refreshDone);
-    const dashboard = new SymphonyDashboardComponent({
+    const dashboard = new SymphonyConsoleComponent({
       state: createDefaultState(),
       getState: () => undefined,
       getEvents: () => [],
@@ -387,7 +387,7 @@ describe("SymphonyDashboardComponent", () => {
     const notify = vi.fn((_message: string, _level: "info" | "warning" | "error") => {
       resolveNotified?.();
     });
-    const dashboard = new SymphonyDashboardComponent({
+    const dashboard = new SymphonyConsoleComponent({
       state: createDefaultState(),
       getState: () => undefined,
       getEvents: () => [],
@@ -408,7 +408,7 @@ describe("SymphonyDashboardComponent", () => {
   });
 });
 
-describe("openDashboard", () => {
+describe("openConsole", () => {
   it("renders as an above-editor widget and refreshes stale state from events", async () => {
     const state = createDefaultState();
     state.attachedBaseUrl = "http://127.0.0.1:8080";
@@ -432,7 +432,7 @@ describe("openDashboard", () => {
     const requestRender = vi.fn();
     const custom = vi.fn();
     const setWidget = vi.fn((_key: string, factory: unknown) => {
-      const component = (factory as (tui: { requestRender: () => void }, theme: ReturnType<typeof fakeTheme>) => SymphonyDashboardComponent)({ requestRender }, fakeTheme());
+      const component = (factory as (tui: { requestRender: () => void }, theme: ReturnType<typeof fakeTheme>) => SymphonyConsoleComponent)({ requestRender }, fakeTheme());
       capturedOnEvent?.({
         version: "v1",
         sequence: 1,
@@ -464,26 +464,26 @@ describe("openDashboard", () => {
       errorText: vi.fn((error: unknown) => (error instanceof Error ? error.message : String(error))),
     } as unknown as SymphonyRuntime;
 
-    await openDashboard(ctx, runtime);
+    await openConsole(ctx, runtime);
 
     expect(custom).not.toHaveBeenCalled();
-    expect(setWidget).toHaveBeenCalledWith("symphony-dashboard", expect.any(Function));
+    expect(setWidget).toHaveBeenCalledWith("symphony-console", expect.any(Function));
     expect(startSymphonyEventStream).toHaveBeenCalledWith(expect.objectContaining({ baseUrl: "http://127.0.0.1:8080" }));
     await expect.poll(() => refreshState.mock.calls.length, { interval: 10, timeout: 1000 }).toBe(2);
     expect(requestRender).toHaveBeenCalled();
   });
 
-  it("lets global shortcuts control the active above-editor dashboard", async () => {
+  it("lets global shortcuts control the active above-editor console", async () => {
     const state = createDefaultState();
     state.attachedBaseUrl = "http://127.0.0.1:8080";
     state.dashboard.showDetails = true;
 
     vi.mocked(startSymphonyEventStream).mockImplementation(() => ({ close: vi.fn() }));
 
-    let component: SymphonyDashboardComponent | undefined;
+    let component: SymphonyConsoleComponent | undefined;
     const requestRender = vi.fn();
     const setWidget = vi.fn((_key: string, factory: unknown) => {
-      component = (factory as (tui: { requestRender: () => void }, theme: ReturnType<typeof fakeTheme>) => SymphonyDashboardComponent)({ requestRender }, fakeTheme());
+      component = (factory as (tui: { requestRender: () => void }, theme: ReturnType<typeof fakeTheme>) => SymphonyConsoleComponent)({ requestRender }, fakeTheme());
     });
     const ctx = { ui: { notify: vi.fn(), custom: vi.fn(), input: vi.fn(), setWidget } } as unknown as ExtensionContext;
     const runtime = {
@@ -497,9 +497,9 @@ describe("openDashboard", () => {
       errorText: vi.fn((error: unknown) => (error instanceof Error ? error.message : String(error))),
     } as unknown as SymphonyRuntime;
 
-    await openDashboard(ctx, runtime);
-    await handleActiveDashboardShortcut("selectNext", ctx);
-    await handleActiveDashboardShortcut("toggleDetails", ctx);
+    await openConsole(ctx, runtime);
+    await handleActiveConsoleShortcut("selectNext", ctx);
+    await handleActiveConsoleShortcut("toggleDetails", ctx);
 
     const output = component?.render(160).join("\n") ?? "";
     expect(output).toContain("> SIM-777");
@@ -524,7 +524,7 @@ describe("openDashboard", () => {
 
     const notify = vi.fn();
     const setWidget = vi.fn((_key: string, factory: unknown) => {
-      const component = (factory as (tui: { requestRender: () => void }, theme: ReturnType<typeof fakeTheme>) => SymphonyDashboardComponent)({ requestRender: vi.fn() }, fakeTheme());
+      const component = (factory as (tui: { requestRender: () => void }, theme: ReturnType<typeof fakeTheme>) => SymphonyConsoleComponent)({ requestRender: vi.fn() }, fakeTheme());
       expect(component.render(120).join("\n")).toContain("running: 1");
     });
     const ctx = { ui: { notify, custom: vi.fn(), input: vi.fn(), setWidget } } as unknown as ExtensionContext;
@@ -541,7 +541,7 @@ describe("openDashboard", () => {
       errorText: vi.fn((error: unknown) => (error instanceof Error ? `formatted: ${error.message}` : String(error))),
     } as unknown as SymphonyRuntime;
 
-    await openDashboard(ctx, runtime);
+    await openConsole(ctx, runtime);
 
     expect(notify).toHaveBeenCalledWith("formatted: launch refresh failed", "error");
     expect(setWidget).toHaveBeenCalledOnce();

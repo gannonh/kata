@@ -18,19 +18,20 @@ Run it locally with `pi -e ./apps/symphony/pi-extension`.
 - `/symphony:doctor [workflow]`
 - `/symphony:start [workflow]`
 - `/symphony:attach [url]`
-- `/symphony:dashboard`
+- `/symphony:detach`
+- `/symphony:console`
 - `/symphony:status`
 - `/symphony:refresh`
 - `/symphony:steer <ISSUE> <instruction>`
 - `/symphony:stop`
 
-## Dashboard keys through Slice 2
+## Console keys through Slice 2
 
 - `↑` / `↓` selects a running worker.
 - `r` requests an immediate Symphony refresh and reloads state.
 - `s` prompts for a steer instruction for the selected worker.
 - `d` toggles selected-worker details.
-- `q` or Escape closes the dashboard and leaves Symphony running.
+- `q` or Escape closes the console and leaves Symphony running.
 
 ## Progress feedback
 

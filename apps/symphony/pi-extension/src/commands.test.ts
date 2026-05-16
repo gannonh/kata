@@ -34,6 +34,7 @@ function commandContext(options: { hasUI?: boolean; cwd?: string } = {}) {
   const setStatus = vi.fn();
   const setWorkingIndicator = vi.fn();
   const setWorkingMessage = vi.fn();
+  const setWidget = vi.fn();
   const hasUI = options.hasUI ?? true;
   const custom = vi.fn(async (factory: Parameters<ExtensionCommandContext["ui"]["custom"]>[0]) => {
     if (!hasUI) return undefined;
@@ -50,12 +51,12 @@ function commandContext(options: { hasUI?: boolean; cwd?: string } = {}) {
     return value;
   });
   const ctx = {
-    ui: { notify, setStatus, setWorkingIndicator, setWorkingMessage, custom },
+    ui: { notify, setStatus, setWorkingIndicator, setWorkingMessage, setWidget, custom },
     cwd: options.cwd ?? "/repo",
     hasUI,
   } as unknown as ExtensionCommandContext;
 
-  return { ctx, notify, setStatus, setWorkingIndicator, setWorkingMessage, custom };
+  return { ctx, notify, setStatus, setWorkingIndicator, setWorkingMessage, setWidget, custom };
 }
 
 function registerCommands(runtime: SymphonyRuntime, overrides: Partial<ExtensionAPI> = {}) {
@@ -102,7 +103,7 @@ describe("setSymphonyStatus", () => {
 });
 
 describe("symphony commands", () => {
-  it("registers dashboard keyboard shortcuts", () => {
+  it("registers console keyboard shortcuts", () => {
     const runtime = new SymphonyRuntime();
     const { shortcuts } = registerCommands(runtime);
 
@@ -114,7 +115,7 @@ describe("symphony commands", () => {
       "ctrl+shift+i",
       "ctrl+shift+q",
     ]));
-    expect(shortcuts.get("ctrl+shift+down")?.description).toContain("Select next Symphony dashboard worker");
+    expect(shortcuts.get("ctrl+shift+down")?.description).toContain("Select next Symphony console worker");
   });
 
   it("requests a manual refresh from the command", async () => {
@@ -180,6 +181,58 @@ describe("symphony commands", () => {
     expect(appendEntry).toHaveBeenCalledWith("symphony-extension-state", expect.objectContaining({ attachedBaseUrl: baseUrl }));
     expect(setStatus).toHaveBeenCalledWith("symphony", `symphony ${baseUrl}`);
     expect(notify).toHaveBeenCalledWith(`Attached to Symphony at ${baseUrl}`, "info");
+  });
+
+  it("detaches without stopping an owned Symphony server", async () => {
+    const baseUrl = "http://127.0.0.1:8080";
+    const runtime = new SymphonyRuntime();
+    runtime.state.attachedBaseUrl = baseUrl;
+    runtime.state.ownedProcess = {
+      pid: 123,
+      command: "symphony --no-tui",
+      cwd: "/repo",
+      baseUrl,
+      startedAt: "2026-05-14T00:00:00.000Z",
+    };
+    runtime.state.lastKnownState = lastKnownState(baseUrl);
+    runtime.client = {} as SymphonyRuntime["client"];
+    runtime.processManager.stopOwned = vi.fn() as unknown as SymphonyRuntime["processManager"]["stopOwned"];
+
+    const { commands, appendEntry } = registerCommands(runtime);
+    const { ctx, notify, setStatus, setWidget } = commandContext();
+    const detach = commands.get("symphony:detach");
+    if (!detach) throw new Error("expected detach command");
+
+    await detach.handler("", ctx);
+
+    expect(runtime.processManager.stopOwned).not.toHaveBeenCalled();
+    expect(runtime.state.ownedProcess?.pid).toBe(123);
+    expect(runtime.state.attachedBaseUrl).toBeUndefined();
+    expect(runtime.client).toBeUndefined();
+    expect(runtime.state.lastKnownState).toBeUndefined();
+    expect(setWidget).toHaveBeenCalledWith("symphony-console", undefined);
+    expect(appendEntry).toHaveBeenCalledWith(
+      "symphony-extension-state",
+      expect.objectContaining({
+        attachedBaseUrl: undefined,
+        ownedProcess: expect.objectContaining({ pid: 123 }),
+        lastKnownState: undefined,
+      }),
+    );
+    expect(setStatus).toHaveBeenCalledWith("symphony", "symphony detached");
+    expect(notify).toHaveBeenCalledWith(`Detached from Symphony at ${baseUrl}.`, "info");
+  });
+
+  it("reports when detach is requested without an attachment", async () => {
+    const runtime = new SymphonyRuntime();
+    const { commands } = registerCommands(runtime);
+    const { ctx, notify } = commandContext();
+    const detach = commands.get("symphony:detach");
+    if (!detach) throw new Error("expected detach command");
+
+    await detach.handler("", ctx);
+
+    expect(notify).toHaveBeenCalledWith("No Symphony instance is attached.", "info");
   });
 
   it("shows a helpful attach error when no URL or owned server is available", async () => {

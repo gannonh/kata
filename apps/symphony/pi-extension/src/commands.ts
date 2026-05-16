@@ -1,7 +1,7 @@
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { KeyId } from "@earendil-works/pi-tui";
 import { assertLoopbackAttachUrl, resolveAttachUrl } from "./attach-url-policy.ts";
-import { handleActiveDashboardShortcut, openDashboard, type DashboardShortcutAction } from "./dashboard.ts";
+import { closeActiveConsole, handleActiveConsoleShortcut, openConsole, type ConsoleShortcutAction } from "./dashboard.ts";
 import { formatError, SymphonyExtensionError } from "./errors.ts";
 import { parseAttachArgs, parseDoctorArgs, parseInitArgs, parseStartArgs, parseSteerArgs } from "./command-args.ts";
 import { withSymphonyLoader, withSymphonyProgress } from "./progress.ts";
@@ -9,7 +9,7 @@ import type { SymphonyRuntime } from "./runtime.ts";
 import { resolveStartWorkflow } from "./workflow-resolver.ts";
 
 export function registerSymphonyCommands(pi: ExtensionAPI, runtime: SymphonyRuntime): void {
-  registerDashboardShortcuts(pi);
+  registerConsoleShortcuts(pi);
 
   pi.registerCommand("symphony:help", {
     description: "Show Symphony extension commands and current status",
@@ -44,7 +44,7 @@ export function registerSymphonyCommands(pi: ExtensionAPI, runtime: SymphonyRunt
   });
 
   pi.registerCommand("symphony:start", {
-    description: "Start Symphony headlessly, attach to the HTTP API, and open the dashboard",
+    description: "Start Symphony headlessly, attach to the HTTP API, and open the console",
     handler: async (args, ctx) => runCommandHandler(ctx, async () => withSymphonyLoader(ctx, { message: "Starting Symphony...", restoreStatus: (ctx) => setSymphonyStatus(ctx, runtime) }, async (signal) => {
       let startedBaseUrl: string | undefined;
       try {
@@ -61,7 +61,7 @@ export function registerSymphonyCommands(pi: ExtensionAPI, runtime: SymphonyRunt
         runtime.persist(pi);
         setSymphonyStatus(ctx, runtime);
         ctx.ui.notify(`Symphony started at ${started.baseUrl}`, "info");
-        await openDashboard(ctx, runtime);
+        await openConsole(ctx, runtime);
       } catch (error) {
         if (signal.aborted && startedBaseUrl) await cleanupAbortedStart(runtime, startedBaseUrl);
         throw error;
@@ -82,10 +82,27 @@ export function registerSymphonyCommands(pi: ExtensionAPI, runtime: SymphonyRunt
     })),
   });
 
-  pi.registerCommand("symphony:dashboard", {
-    description: "Open the Symphony health dashboard",
+  pi.registerCommand("symphony:console", {
+    description: "Open the Symphony console",
     handler: async (_args, ctx) => runCommandHandler(ctx, async () => {
-      await openDashboard(ctx, runtime);
+      await openConsole(ctx, runtime);
+    }),
+  });
+
+  pi.registerCommand("symphony:detach", {
+    description: "Detach Pi from the current Symphony server without stopping it",
+    handler: async (_args, ctx) => runCommandHandler(ctx, async () => {
+      const attachedBaseUrl = runtime.state.attachedBaseUrl;
+      if (!attachedBaseUrl) {
+        ctx.ui.notify("No Symphony instance is attached.", "info");
+        return;
+      }
+
+      closeActiveConsole(ctx);
+      runtime.clearAttachment();
+      runtime.persist(pi);
+      setSymphonyStatus(ctx, runtime);
+      ctx.ui.notify(`Detached from Symphony at ${attachedBaseUrl}.`, "info");
     }),
   });
 
@@ -130,21 +147,21 @@ export function registerSymphonyCommands(pi: ExtensionAPI, runtime: SymphonyRunt
   });
 }
 
-function registerDashboardShortcuts(pi: ExtensionAPI): void {
+function registerConsoleShortcuts(pi: ExtensionAPI): void {
   const shortcuts = [
-    { key: "ctrl+shift+up", action: "selectPrevious", description: "Select previous Symphony dashboard worker" },
-    { key: "ctrl+shift+down", action: "selectNext", description: "Select next Symphony dashboard worker" },
-    { key: "ctrl+shift+r", action: "refresh", description: "Refresh the Symphony dashboard" },
-    { key: "ctrl+shift+e", action: "steer", description: "Steer the selected Symphony dashboard worker" },
-    { key: "ctrl+shift+i", action: "toggleDetails", description: "Toggle Symphony dashboard worker details" },
-    { key: "ctrl+shift+q", action: "close", description: "Close the Symphony dashboard widget" },
-  ] as const satisfies ReadonlyArray<{ key: KeyId; action: DashboardShortcutAction; description: string }>;
+    { key: "ctrl+shift+up", action: "selectPrevious", description: "Select previous Symphony console worker" },
+    { key: "ctrl+shift+down", action: "selectNext", description: "Select next Symphony console worker" },
+    { key: "ctrl+shift+r", action: "refresh", description: "Refresh the Symphony console" },
+    { key: "ctrl+shift+e", action: "steer", description: "Steer the selected Symphony console worker" },
+    { key: "ctrl+shift+i", action: "toggleDetails", description: "Toggle Symphony console worker details" },
+    { key: "ctrl+shift+q", action: "close", description: "Close the Symphony console widget" },
+  ] as const satisfies ReadonlyArray<{ key: KeyId; action: ConsoleShortcutAction; description: string }>;
 
   for (const shortcut of shortcuts) {
     pi.registerShortcut(shortcut.key, {
       description: shortcut.description,
       handler: async (ctx) => {
-        await handleActiveDashboardShortcut(shortcut.action, ctx);
+        await handleActiveConsoleShortcut(shortcut.action, ctx);
       },
     });
   }
@@ -186,8 +203,9 @@ function helpText(runtime: SymphonyRuntime): string {
     "/symphony:init [--force]",
     "/symphony:doctor [workflow]",
     "/symphony:start [workflow]",
-    "/symphony:attach [url]", 
-    "/symphony:dashboard",
+    "/symphony:attach [url]",
+    "/symphony:detach",
+    "/symphony:console",
     "/symphony:status",
     "/symphony:refresh",
     "/symphony:steer <ISSUE> <instruction>",

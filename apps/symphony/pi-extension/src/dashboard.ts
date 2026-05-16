@@ -16,39 +16,47 @@ interface DashboardTheme {
   bold(text: string): string;
 }
 
-export type DashboardShortcutAction = "selectPrevious" | "selectNext" | "refresh" | "steer" | "toggleDetails" | "close";
+export type ConsoleShortcutAction = "selectPrevious" | "selectNext" | "refresh" | "steer" | "toggleDetails" | "close";
 
-let activeDashboard: SymphonyDashboardComponent | undefined;
+let activeConsole: SymphonyConsoleComponent | undefined;
 
-export async function handleActiveDashboardShortcut(action: DashboardShortcutAction, ctx: Pick<ExtensionContext, "ui">): Promise<void> {
-  if (!activeDashboard) {
-    ctx.ui.notify("No Symphony dashboard is open. Use /symphony:dashboard first.", "warning");
+export async function handleActiveConsoleShortcut(action: ConsoleShortcutAction, ctx: Pick<ExtensionContext, "ui">): Promise<void> {
+  if (!activeConsole) {
+    ctx.ui.notify("No Symphony console is open. Use /symphony:console first.", "warning");
     return;
   }
 
   switch (action) {
     case "selectPrevious":
-      activeDashboard.selectPreviousWorker();
+      activeConsole.selectPreviousWorker();
       return;
     case "selectNext":
-      activeDashboard.selectNextWorker();
+      activeConsole.selectNextWorker();
       return;
     case "refresh":
-      await activeDashboard.refreshNow();
+      await activeConsole.refreshNow();
       return;
     case "steer":
-      await activeDashboard.steerNow();
+      await activeConsole.steerNow();
       return;
     case "toggleDetails":
-      activeDashboard.toggleDetails();
+      activeConsole.toggleDetails();
       return;
     case "close":
-      activeDashboard.closeDashboard();
+      activeConsole.closeConsole();
       return;
   }
 }
 
-export interface DashboardOptions {
+export function closeActiveConsole(ctx: Pick<ExtensionContext, "ui">): void {
+  if (activeConsole) {
+    activeConsole.closeConsole();
+    return;
+  }
+  ctx.ui.setWidget("symphony-console", undefined);
+}
+
+export interface ConsoleOptions {
   state: ExtensionState;
   getState: () => SymphonyStateResponse | undefined;
   getEvents: () => SymphonyEventEnvelope[];
@@ -61,15 +69,15 @@ export interface DashboardOptions {
   theme?: DashboardTheme;
 }
 
-export class SymphonyDashboardComponent {
+export class SymphonyConsoleComponent {
   private refreshing = false;
   private selectedWorkerIndex = 0;
 
-  constructor(private readonly options: DashboardOptions) {}
+  constructor(private readonly options: ConsoleOptions) {}
 
   handleInput(data: string): void {
     if (data === "q" || data === "Q" || matchesKey(data, "escape")) {
-      this.closeDashboard();
+      this.closeConsole();
       return;
     }
 
@@ -107,28 +115,28 @@ export class SymphonyDashboardComponent {
     const theme = this.options.theme;
     const connection = state.attachedBaseUrl ? color(theme, "success", "attached") : color(theme, "error", "detached");
     const polling = health?.pollingChecking ? color(theme, "warning", "checking") : color(theme, "success", "idle");
-    const dashboardWidth = Math.max(44, width);
+    const consoleWidth = Math.max(44, width);
     const lines = [
-      color(theme, "accent", bold(theme, "Symphony Dashboard")),
+      color(theme, "accent", bold(theme, "Symphony Console")),
       "",
       ...boxLines("Status", [
         `connection: ${connection}`,
-        `base url: ${color(theme, "dim", state.attachedBaseUrl ?? "none")}`,
+        `dashboard: ${color(theme, "dim", state.attachedBaseUrl ?? "none")}`,
         `project: ${color(theme, "dim", health?.trackerProjectUrl ?? "none")}`,
         `polling: ${polling} | next poll: ${health?.nextPollInMs ?? 0}ms`,
         `owned process: ${state.ownedProcess ? color(theme, "success", `pid ${state.ownedProcess.pid}`) : color(theme, "dim", "none")}`,
         `updated: ${color(theme, "dim", health?.updatedAt ?? "never")}`,
-      ], dashboardWidth, theme),
+      ], consoleWidth, theme),
       "",
       ...boxLines("Worker Summary", [
         `workers: ${color(theme, "success", `running: ${health?.runningCount ?? workers.length}`)} | ${color(theme, "warning", `retry: ${health?.retryCount ?? 0}`)} | ${color(theme, "error", `blocked: ${health?.blockedCount ?? 0}`)} | ${color(theme, "accent", `completed: ${health?.completedCount ?? 0}`)}`,
-      ], dashboardWidth, theme),
+      ], consoleWidth, theme),
       "",
-      ...boxLines("Running Workers", renderWorkerTable(workers, this.selectedWorkerIndex, theme), dashboardWidth, theme),
-      ...boxLines("Selected Worker", renderSelectedWorkerDetails(selectedWorker, state.dashboard.showDetails, theme), dashboardWidth, theme),
-      ...boxLines("Events", renderRecentEvents(formatEventRows(this.options.getEvents()), theme), dashboardWidth, theme),
+      ...boxLines("Running Workers", renderWorkerTable(workers, this.selectedWorkerIndex, theme), consoleWidth, theme),
+      ...boxLines("Selected Worker", renderSelectedWorkerDetails(selectedWorker, state.dashboard.showDetails, theme), consoleWidth, theme),
+      ...boxLines("Events", renderRecentEvents(formatEventRows(this.options.getEvents()), theme), consoleWidth, theme),
       "",
-      ...boxLines("Actions", renderActionLegend(this.refreshing, dashboardWidth, theme), dashboardWidth, theme),
+      ...boxLines("Actions", renderActionLegend(this.refreshing, consoleWidth, theme), consoleWidth, theme),
     ];
 
     return lines.map((line) => truncateToWidth(line, width));
@@ -157,7 +165,7 @@ export class SymphonyDashboardComponent {
     await this.steerSelectedWorker();
   }
 
-  closeDashboard(): void {
+  closeConsole(): void {
     this.options.close();
   }
 
@@ -324,7 +332,7 @@ function stripAnsi(value: string): string {
   return value.replace(/\u001b\[[0-9;]*m/g, "");
 }
 
-export async function openDashboard(ctx: ExtensionContext, runtime: SymphonyRuntime): Promise<void> {
+export async function openConsole(ctx: ExtensionContext, runtime: SymphonyRuntime): Promise<void> {
   if (!runtime.client) {
     ctx.ui.notify("No Symphony server is attached. Use /symphony:start or /symphony:attach first.", "warning");
     return;
@@ -336,7 +344,7 @@ export async function openDashboard(ctx: ExtensionContext, runtime: SymphonyRunt
     ctx.ui.notify(runtime.errorText(error), "error");
   }
 
-  ctx.ui.setWidget("symphony-dashboard", (tui, theme) => {
+  ctx.ui.setWidget("symphony-console", (tui, theme) => {
     let eventStream: EventStreamHandle | undefined;
     let eventStreamErrorNotified = false;
     let closed = false;
@@ -348,7 +356,7 @@ export async function openDashboard(ctx: ExtensionContext, runtime: SymphonyRunt
       closed = true;
       if (liveRefreshTimer) clearTimeout(liveRefreshTimer);
       eventStream?.close();
-      if (activeDashboard === component) activeDashboard = undefined;
+      if (activeConsole === component) activeConsole = undefined;
     };
 
     const scheduleLiveRefresh = () => {
@@ -396,7 +404,7 @@ export async function openDashboard(ctx: ExtensionContext, runtime: SymphonyRunt
       });
     }
 
-    const component = new SymphonyDashboardComponent({
+    const component = new SymphonyConsoleComponent({
       state: runtime.state,
       getState: () => runtime.lastState,
       getEvents: () => runtime.recentEvents,
@@ -409,13 +417,13 @@ export async function openDashboard(ctx: ExtensionContext, runtime: SymphonyRunt
       prompt: async (title, label) => ctx.ui.input(title, label),
       close: () => {
         closeWidget();
-        ctx.ui.setWidget("symphony-dashboard", undefined);
+        ctx.ui.setWidget("symphony-console", undefined);
       },
       requestRender: () => tui.requestRender(),
       notify: (message, level) => ctx.ui.notify(message, level),
       theme,
     });
-    activeDashboard = component;
+    activeConsole = component;
     return Object.assign(component, { dispose: closeWidget });
   });
 }
