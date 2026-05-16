@@ -30,9 +30,15 @@ export function startSymphonyEventStream(options: EventStreamOptions): EventStre
   let socket: WebSocket | undefined;
   let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
   let intentionallyClosed = false;
+  let reconnectDelayMs = 100;
+  const maxReconnectDelayMs = 5000;
 
   const connect = () => {
     socket = new WebSocket(eventStreamUrl(options.baseUrl));
+
+    socket.on("open", () => {
+      reconnectDelayMs = 100;
+    });
 
     socket.on("message", (data) => {
       try {
@@ -51,7 +57,8 @@ export function startSymphonyEventStream(options: EventStreamOptions): EventStre
       if (intentionallyClosed) return;
       const suffix = reason.length > 0 ? `: ${reason.toString()}` : ` with code ${code}`;
       options.onError(new Error(`Symphony event stream closed${suffix}`));
-      reconnectTimer = setTimeout(connect, 50);
+      reconnectTimer = setTimeout(connect, reconnectDelayMs);
+      reconnectDelayMs = Math.min(reconnectDelayMs * 2, maxReconnectDelayMs);
     });
   };
 

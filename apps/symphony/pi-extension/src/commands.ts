@@ -57,6 +57,8 @@ export function registerSymphonyCommands(pi: ExtensionAPI, runtime: SymphonyRunt
         await runtime.attach(started.baseUrl, signal);
         if (signal.aborted) {
           await cleanupAbortedStart(runtime, startedBaseUrl);
+          runtime.persist(pi);
+          setSymphonyStatus(ctx, runtime);
           return;
         }
         runtime.persist(pi);
@@ -64,7 +66,11 @@ export function registerSymphonyCommands(pi: ExtensionAPI, runtime: SymphonyRunt
         ctx.ui.notify(`Symphony started at ${started.baseUrl}`, "info");
         await openConsole(ctx, runtime);
       } catch (error) {
-        if (signal.aborted && startedBaseUrl) await cleanupAbortedStart(runtime, startedBaseUrl);
+        if (signal.aborted && startedBaseUrl) {
+          await cleanupAbortedStart(runtime, startedBaseUrl);
+          runtime.persist(pi);
+          setSymphonyStatus(ctx, runtime);
+        }
         throw error;
       }
     })),

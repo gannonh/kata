@@ -311,7 +311,7 @@ describe("symphony commands", () => {
     }) as unknown as SymphonyRuntime["attach"];
     const clearAttachmentIfBaseUrl = vi.spyOn(runtime, "clearAttachmentIfBaseUrl");
 
-    const { commands } = registerCommands(runtime);
+    const { commands, appendEntry } = registerCommands(runtime);
     const { ctx, custom, setStatus } = commandContext({ cwd: dir });
     const start = commands.get("symphony:start");
     if (!start) throw new Error("expected start command");
@@ -324,6 +324,49 @@ describe("symphony commands", () => {
     expect(runtime.attach).toHaveBeenCalledWith(baseUrl, controller.signal);
     expect(runtime.processManager.stopOwned).toHaveBeenCalledOnce();
     expect(clearAttachmentIfBaseUrl).toHaveBeenCalledWith(baseUrl);
+    expect(appendEntry).toHaveBeenCalledWith("symphony-extension-state", expect.objectContaining({ ownedProcess: undefined, attachedBaseUrl: undefined }));
+  });
+
+  it("persists cleanup when start is cancelled after attach", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "pi-symphony-start-"));
+    await mkdir(join(dir, ".symphony"));
+    await writeFile(join(dir, ".symphony", "WORKFLOW.md"), "---\n---\n", "utf8");
+    const baseUrl = "http://127.0.0.1:8080";
+    const controller = new AbortController();
+    borderedLoaderMocks.nextController = controller;
+    const runtime = new SymphonyRuntime();
+    runtime.resolveBinary = vi.fn(async () => "symphony") as SymphonyRuntime["resolveBinary"];
+    runtime.processManager = {
+      start: vi.fn(async () => {
+        runtime.state.ownedProcess = {
+          pid: 123,
+          command: "symphony --no-tui",
+          cwd: "/repo",
+          baseUrl,
+          startedAt: "2026-05-14T00:00:00.000Z",
+        };
+        return { baseUrl, owned: true, pid: 123 };
+      }),
+      stopOwned: vi.fn(async () => {
+        runtime.state.ownedProcess = undefined;
+      }),
+    } as unknown as SymphonyRuntime["processManager"];
+    runtime.attach = vi.fn(async () => {
+      runtime.state.attachedBaseUrl = baseUrl;
+      controller.abort();
+      return {};
+    }) as unknown as SymphonyRuntime["attach"];
+
+    const { commands, appendEntry } = registerCommands(runtime);
+    const { ctx, setStatus } = commandContext({ cwd: dir });
+    const start = commands.get("symphony:start");
+    if (!start) throw new Error("expected start command");
+
+    await start.handler("", ctx);
+
+    expect(runtime.processManager.stopOwned).toHaveBeenCalledOnce();
+    expect(appendEntry).toHaveBeenCalledWith("symphony-extension-state", expect.objectContaining({ ownedProcess: undefined, attachedBaseUrl: undefined }));
+    expect(setStatus).toHaveBeenLastCalledWith("symphony", "symphony detached");
   });
 
   it("shows inline progress while attaching", async () => {
