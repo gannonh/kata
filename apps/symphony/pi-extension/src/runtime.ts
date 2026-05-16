@@ -1,7 +1,7 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { resolveSymphonyBinary } from "./binary-resolver.ts";
 import { formatError, SymphonyExtensionError } from "./errors.ts";
-import { SymphonyHttpClient, type SteerResponse, type SymphonyEventEnvelope, type SymphonyStateResponse } from "./http-client.ts";
+import { SymphonyHttpClient, type EscalationRespondResponse, type SteerResponse, type SymphonyEventEnvelope, type SymphonyStateResponse } from "./http-client.ts";
 import { SymphonyProcessManager } from "./process-manager.ts";
 import {
   createDefaultState,
@@ -88,8 +88,19 @@ export class SymphonyRuntime {
     return result;
   }
 
+  async respondToEscalation(requestId: string, response: unknown, signal?: AbortSignal): Promise<EscalationRespondResponse> {
+    if (!this.client) throw new SymphonyExtensionError("no_attachment", "No Symphony server is attached");
+    const result = await this.client.respondEscalation(requestId, response, "pi-dashboard", signal);
+    try {
+      await this.refreshState(signal);
+    } catch (error) {
+      console.warn("Symphony state refresh failed after escalation response", error);
+    }
+    return result;
+  }
+
   recordEvent(event: SymphonyEventEnvelope): void {
-    if (event.kind !== "worker" && event.kind !== "runtime") return;
+    if (event.kind !== "worker" && event.kind !== "runtime" && !event.kind.startsWith("escalation_")) return;
     this.recentEvents = [...this.recentEvents, event].slice(-20);
   }
 

@@ -27,6 +27,7 @@ function lastKnownState(baseUrl: string): LastKnownSymphonyState {
 describe("SymphonyRuntime", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it("clears the active attachment and last known state", () => {
@@ -183,6 +184,58 @@ describe("SymphonyRuntime", () => {
     expect(runtime.client?.steer).toHaveBeenCalledWith("SIM-123", "Use auth", undefined);
     expect(runtime.client?.getState).toHaveBeenCalledOnce();
     expect(warn).toHaveBeenCalledWith("Symphony state refresh failed after steer", expect.any(Error));
+  });
+
+  it("responds to an escalation and refreshes state", async () => {
+    const runtime = new SymphonyRuntime();
+    const response = {
+      running: {},
+      retry_queue: [],
+      blocked: [],
+      completed: [],
+      polling: { checking: false, next_poll_in_ms: 1000, poll_interval_ms: 30000 },
+    };
+    const escalationResponse = { ok: true };
+    const escalationDecision = { approved: true };
+    runtime.client = {
+      respondEscalation: vi.fn(async () => escalationResponse),
+      getState: vi.fn(async () => response),
+      toHealthSummary: vi.fn(() => lastKnownState("http://127.0.0.1:8080")),
+    } as unknown as SymphonyRuntime["client"];
+
+    await expect(runtime.respondToEscalation("esc-1", escalationDecision)).resolves.toEqual({ ok: true });
+
+    expect(runtime.client?.respondEscalation).toHaveBeenCalledWith("esc-1", escalationDecision, "pi-dashboard", undefined);
+    expect(runtime.client?.getState).toHaveBeenCalledOnce();
+    expect(runtime.lastState).toBe(response);
+  });
+
+  it("returns escalation response result even if post-response refresh fails", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const runtime = new SymphonyRuntime();
+    runtime.client = {
+      respondEscalation: vi.fn(async () => ({ ok: true })),
+      getState: vi.fn(async () => {
+        throw new Error("temporary state fetch failure");
+      }),
+      toHealthSummary: vi.fn(() => lastKnownState("http://127.0.0.1:8080")),
+    } as unknown as SymphonyRuntime["client"];
+
+    await expect(runtime.respondToEscalation("esc-1", "approved")).resolves.toEqual({ ok: true });
+
+    expect(runtime.client?.respondEscalation).toHaveBeenCalledWith("esc-1", "approved", "pi-dashboard", undefined);
+    expect(runtime.client?.getState).toHaveBeenCalledOnce();
+    expect(warn).toHaveBeenCalledWith("Symphony state refresh failed after escalation response", expect.any(Error));
+  });
+
+  it("retains recent escalation lifecycle events", () => {
+    const runtime = new SymphonyRuntime();
+
+    runtime.recordEvent({ version: "v1", sequence: 1, timestamp: "2026-05-14T12:00:00Z", kind: "escalation_created", severity: "info", event: "escalation_created", payload: {} });
+    runtime.recordEvent({ version: "v1", sequence: 2, timestamp: "2026-05-14T12:00:01Z", kind: "escalation_responded", severity: "info", event: "escalation_responded", payload: {} });
+    runtime.recordEvent({ version: "v1", sequence: 3, timestamp: "2026-05-14T12:00:02Z", kind: "heartbeat", severity: "info", event: "heartbeat", payload: {} });
+
+    expect(runtime.recentEvents.map((event) => event.kind)).toEqual(["escalation_created", "escalation_responded"]);
   });
 
   it("retains the most recent worker and runtime events", () => {
