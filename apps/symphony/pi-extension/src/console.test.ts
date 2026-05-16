@@ -240,6 +240,47 @@ describe("SymphonyConsoleComponent", () => {
     expect(output).toContain("completed at: 2026-05-14T13:00:00Z");
   });
 
+  it("keeps selection on the visible completed issue when pending escalations are not rendered", () => {
+    const state = createDefaultState();
+    state.console.showDetails = true;
+    const symphonyState = workerStateFixture();
+    symphonyState.running = {};
+    symphonyState.retry_queue = [];
+    symphonyState.blocked = [];
+    symphonyState.completed = [{ issue_id: "issue-done", identifier: "SIM-400", title: "Done work", completed_at: "2026-05-14T13:00:00Z" }];
+    symphonyState.pending_escalations = [
+      {
+        request_id: "esc-1",
+        issue_id: "issue-esc",
+        issue_identifier: "SIM-999",
+        method: "approval",
+        preview: "Approve deployment",
+        created_at: "2026-05-14T14:00:00Z",
+        timeout_ms: 60000,
+      },
+    ];
+    const consoleComponent = new SymphonyConsoleComponent({
+      state,
+      getState: () => symphonyState,
+      getEvents: () => [],
+      refresh: async () => undefined,
+      steer: async () => undefined,
+      respondToEscalation: async () => undefined,
+      prompt: async () => undefined,
+      close: () => undefined,
+      requestRender: () => undefined,
+      notify: () => undefined,
+    });
+
+    consoleComponent.handleInput("\u001b[B");
+    consoleComponent.handleInput("\u001b[B");
+    consoleComponent.handleInput("\u001b[B");
+
+    const output = consoleComponent.render(180).join("\n");
+    expect(output).toContain("> SIM-400");
+    expect(output).toContain("issue: SIM-400 Done work");
+  });
+
   it("expands keyboard shortcuts onto one row when the terminal is wide", () => {
     const state = createDefaultState();
     state.attachedBaseUrl = "http://127.0.0.1:8080";

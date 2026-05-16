@@ -1,6 +1,6 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
-import { buildEscalationRows, buildIssueRows, buildWorkerRows, formatEventRows, type EscalationRow, type IssueRow, type WorkerRow } from "./console-model.ts";
+import { buildIssueRows, buildWorkerRows, formatEventRows, type IssueRow, type WorkerRow } from "./console-model.ts";
 import { startSymphonyEventStream, type EventStreamHandle } from "./event-stream.ts";
 import type { SymphonyEventEnvelope, SymphonyStateResponse } from "./http-client.ts";
 import type { SymphonyRuntime } from "./runtime.ts";
@@ -113,8 +113,7 @@ export class SymphonyConsoleComponent {
     const symphonyState = this.options.getState();
     const workers: WorkerRow[] = buildWorkerRows(symphonyState);
     const issueRows: IssueRow[] = buildIssueRows(symphonyState);
-    const escalationRows: EscalationRow[] = buildEscalationRows(symphonyState);
-    this.clampSelection(issueRows.length + escalationRows.length);
+    this.clampSelection(issueRows.length);
     const runningRows = issueRows.filter((row) => row.kind === "running");
     const retryRows = issueRows.filter((row) => row.kind === "retry");
     const blockedRows = issueRows.filter((row) => row.kind === "blocked");
@@ -182,7 +181,7 @@ export class SymphonyConsoleComponent {
 
   private moveSelection(delta: number): void {
     const symphonyState = this.options.getState();
-    const rowCount = buildIssueRows(symphonyState).length + buildEscalationRows(symphonyState).length;
+    const rowCount = buildIssueRows(symphonyState).length;
     if (rowCount === 0) return;
     this.selectedIndex = Math.max(0, Math.min(rowCount - 1, this.selectedIndex + delta));
     this.options.requestRender();
@@ -199,8 +198,7 @@ export class SymphonyConsoleComponent {
   private async steerSelectedWorker(): Promise<void> {
     const symphonyState = this.options.getState();
     const issueRows = buildIssueRows(symphonyState);
-    const escalationRows = buildEscalationRows(symphonyState);
-    this.clampSelection(issueRows.length + escalationRows.length);
+    this.clampSelection(issueRows.length);
     const issue = issueRows[this.selectedIndex];
     if (!issue || issue.kind !== "running") {
       this.options.notify("Select a running worker before steering", "warning");
