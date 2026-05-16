@@ -24,7 +24,7 @@ export interface ExtensionState {
   binaryPath?: string;
   attachedBaseUrl?: string;
   ownedProcess?: OwnedProcessMetadata;
-  dashboard: {
+  console: {
     showDetails: boolean;
   };
   stopOwnedOnShutdown: boolean;
@@ -33,7 +33,7 @@ export interface ExtensionState {
 
 export function createDefaultState(): ExtensionState {
   return {
-    dashboard: { showDetails: false },
+    console: { showDetails: true },
     stopOwnedOnShutdown: true,
   };
 }
@@ -66,8 +66,10 @@ function restoreStateFromSnapshot(data: Record<string, unknown>): ExtensionState
   if (typeof data.binaryPath === "string") state.binaryPath = data.binaryPath;
   if (isValidBaseUrl(data.attachedBaseUrl)) state.attachedBaseUrl = normalizeBaseUrl(data.attachedBaseUrl);
   if (typeof data.stopOwnedOnShutdown === "boolean") state.stopOwnedOnShutdown = data.stopOwnedOnShutdown;
-  if (isRecord(data.dashboard) && typeof data.dashboard.showDetails === "boolean") {
-    state.dashboard.showDetails = data.dashboard.showDetails;
+  if (isRecord(data.console) && typeof data.console.showDetails === "boolean") {
+    state.console.showDetails = data.console.showDetails;
+  } else if (isRecord(data.dashboard) && typeof data.dashboard.showDetails === "boolean") {
+    state.console.showDetails = data.dashboard.showDetails;
   }
   if (isOwnedProcessMetadata(data.ownedProcess)) {
     state.ownedProcess = {
@@ -137,7 +139,7 @@ export function snapshotStateForPersistence(state: ExtensionState): ExtensionSta
     binaryPath: state.binaryPath,
     attachedBaseUrl: state.attachedBaseUrl,
     ownedProcess: state.ownedProcess,
-    dashboard: { ...state.dashboard },
+    console: { ...state.console },
     stopOwnedOnShutdown: state.stopOwnedOnShutdown,
     lastKnownState: state.lastKnownState,
   };

@@ -34,10 +34,14 @@
   },
   "devDependencies": {
     "@types/node": "^25.5.0",
+    "@types/ws": "^8.18.1",
     "typescript": "^6.0.3",
     "vitest": "^4.1.5"
   },
   "engines": {
     "node": ">=20.6.0"
+  },
+  "dependencies": {
+    "ws": "^8.20.1"
   }
 }

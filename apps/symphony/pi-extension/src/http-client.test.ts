@@ -25,7 +25,15 @@ async function serve(handler: (req: { method?: string; url?: string }, body: str
 function validState(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     tracker_project_url: "https://github.com/gannonh/kata/projects/1",
-    running: { one: { issue_identifier: "KAT-1" } },
+    running: {
+      one: {
+        issue_id: "issue-1",
+        issue_identifier: "KAT-1",
+        workspace_path: "/tmp/symphony/issue-1",
+        started_at: "2026-05-14T12:00:00Z",
+        status: "running",
+      },
+    },
     retry_queue: [{ identifier: "KAT-2" }],
     blocked: [],
     completed: [{ identifier: "KAT-3" }],
@@ -83,6 +91,70 @@ describe("SymphonyHttpClient", () => {
     } satisfies Partial<SymphonyExtensionError>);
   });
 
+  it("requests a Symphony poll refresh", async () => {
+    const baseUrl = await serve((req) => {
+      expect(req.method).toBe("POST");
+      expect(req.url).toBe("/api/v1/refresh");
+      return { status: 202, body: { queued: true, coalesced: false, pending_requests: 1 } };
+    });
+
+    const client = new SymphonyHttpClient(baseUrl);
+
+    await expect(client.refresh()).resolves.toEqual({ queued: true, coalesced: false, pendingRequests: 1 });
+  });
+
+  it("sends a steer instruction for a running issue", async () => {
+    const baseUrl = await serve((req, body) => {
+      expect(req.method).toBe("POST");
+      expect(req.url).toBe("/api/v1/steer");
+      expect(JSON.parse(body)).toEqual({ issue_identifier: "SIM-123", instruction: "Use the existing auth module" });
+      return {
+        status: 200,
+        body: {
+          ok: true,
+          issue_id: "issue-123",
+          issue_identifier: "SIM-123",
+          delivered: true,
+          instruction_preview: "Use the existing auth module",
+        },
+      };
+    });
+
+    const client = new SymphonyHttpClient(baseUrl);
+
+    await expect(client.steer("SIM-123", "Use the existing auth module")).resolves.toEqual({
+      ok: true,
+      issueId: "issue-123",
+      issueIdentifier: "SIM-123",
+      delivered: true,
+      instructionPreview: "Use the existing auth module",
+    });
+  });
+
+  it("rejects malformed refresh responses", async () => {
+    const baseUrl = await serve(() => ({ status: 202, body: { queued: true } }));
+    const client = new SymphonyHttpClient(baseUrl);
+
+    await expect(client.refresh()).rejects.toMatchObject({
+      kind: "non_symphony_response",
+      message: "Response did not look like Symphony refresh response",
+    } satisfies Partial<SymphonyExtensionError>);
+  });
+
+  it("normalizes steer API errors", async () => {
+    const baseUrl = await serve(() => ({
+      status: 404,
+      body: { error: { code: "issue_not_running", message: "issue is not running", status: 404 } },
+    }));
+    const client = new SymphonyHttpClient(baseUrl);
+
+    await expect(client.steer("SIM-404", "check logs")).rejects.toMatchObject({
+      kind: "api_error",
+      message: "issue is not running",
+      details: expect.objectContaining({ code: "issue_not_running", status: 404 }),
+    } satisfies Partial<SymphonyExtensionError>);
+  });
+
   it("normalizes non-OK null JSON responses", async () => {
     const baseUrl = await serve(() => ({ status: 500, body: null }));
     const client = new SymphonyHttpClient(baseUrl);
@@ -110,6 +182,7 @@ describe("SymphonyHttpClient", () => {
 
   it.each([
     ["running", validState({ running: [] }), "running"],
+    ["running entry", validState({ running: { one: { issue_identifier: "KAT-1" } } }), "running.one.issue_id"],
     ["retry_queue", validState({ retry_queue: {} }), "retry_queue"],
     ["polling.next_poll_in_ms", validState({ polling: { checking: false, next_poll_in_ms: "1000", poll_interval_ms: 30000 } }), "polling.next_poll_in_ms"],
   ])("rejects malformed state field: %s", async (_name, body, field) => {

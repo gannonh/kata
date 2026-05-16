@@ -1,7 +1,7 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { resolveSymphonyBinary } from "./binary-resolver.ts";
 import { formatError, SymphonyExtensionError } from "./errors.ts";
-import { SymphonyHttpClient, type SymphonyStateResponse } from "./http-client.ts";
+import { SymphonyHttpClient, type SteerResponse, type SymphonyEventEnvelope, type SymphonyStateResponse } from "./http-client.ts";
 import { SymphonyProcessManager } from "./process-manager.ts";
 import {
   createDefaultState,
@@ -15,6 +15,8 @@ export class SymphonyRuntime {
   state: ExtensionState = createDefaultState();
   processManager = new SymphonyProcessManager(this.state);
   client?: SymphonyHttpClient;
+  lastState?: SymphonyStateResponse;
+  recentEvents: SymphonyEventEnvelope[] = [];
 
   restore(ctx: ExtensionContext): void {
     this.state = restoreStateFromEntries(ctx.sessionManager.getEntries());
@@ -40,6 +42,8 @@ export class SymphonyRuntime {
     const client = new SymphonyHttpClient(baseUrl);
     const state = await client.verify(signal);
     this.client = client;
+    this.lastState = state;
+    this.recentEvents = [];
     this.state.attachedBaseUrl = client.baseUrl;
     this.state.lastKnownState = client.toHealthSummary(state);
     return state;
@@ -49,6 +53,8 @@ export class SymphonyRuntime {
     this.client = undefined;
     this.state.attachedBaseUrl = undefined;
     this.state.lastKnownState = undefined;
+    this.lastState = undefined;
+    this.recentEvents = [];
   }
 
   clearAttachmentIfBaseUrl(baseUrl: string | undefined): boolean {
@@ -60,8 +66,31 @@ export class SymphonyRuntime {
   async refreshState(signal?: AbortSignal): Promise<SymphonyStateResponse> {
     if (!this.client) throw new SymphonyExtensionError("no_attachment", "No Symphony server is attached");
     const state = await this.client.getState(signal);
+    this.lastState = state;
     this.state.lastKnownState = this.client.toHealthSummary(state);
     return state;
+  }
+
+  async requestRefresh(signal?: AbortSignal): Promise<SymphonyStateResponse> {
+    if (!this.client) throw new SymphonyExtensionError("no_attachment", "No Symphony server is attached");
+    await this.client.refresh(signal);
+    return this.refreshState(signal);
+  }
+
+  async steerWorker(issueIdentifier: string, instruction: string, signal?: AbortSignal): Promise<SteerResponse> {
+    if (!this.client) throw new SymphonyExtensionError("no_attachment", "No Symphony server is attached");
+    const result = await this.client.steer(issueIdentifier, instruction, signal);
+    try {
+      await this.refreshState(signal);
+    } catch (error) {
+      console.warn("Symphony state refresh failed after steer", error);
+    }
+    return result;
+  }
+
+  recordEvent(event: SymphonyEventEnvelope): void {
+    if (event.kind !== "worker" && event.kind !== "runtime") return;
+    this.recentEvents = [...this.recentEvents, event].slice(-20);
   }
 
   statusText(): string {

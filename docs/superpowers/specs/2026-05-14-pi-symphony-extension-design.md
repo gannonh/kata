@@ -140,13 +140,28 @@ This doc is the master design doc. We are using `/writing-plans` to create imple
 - Render connection status, project link, polling status, worker counts, and basic process ownership.
 - Cover slash commands and tools for init, doctor, start, attach, status, stop, and help.
 
-### Slice 2: worker operations
+### Slice 2: worker operations ✅
 
 - Render the running workers table.
 - Show selected-worker details: issue, tracker state, attempt, turn count, max turns, last activity, worker host, workspace path, and error preview.
 - Support manual refresh.
 - Support steering the selected worker from the dashboard.
 - Show recent worker and runtime events.
+
+ **Manual Run Instructions:**
+
+ 1. From repo root, launch Pi with the extension:
+ pi -e ./apps/symphony/pi-extension
+ Expected: Pi starts with Symphony commands available.
+ 2. In Pi, run /symphony:start .symphony/WORKFLOW.md or attach to an existing server with
+ /symphony:attach <http://127.0.0.1>:<port>.
+ Expected: Symphony attaches and dashboard/status shows the base URL.
+ 3. In the dashboard, press r.
+ Expected: refresh is requested and worker counts update.
+ 4. Select a running worker with ↑ / ↓, press s, and enter an instruction.
+ Expected: notification says Steer delivered to <ISSUE>.
+ 5. Press d to toggle details, then q to close.
+ Expected: details toggle and dashboard exits without stopping Symphony.
 
 ### Slice 3: retry, blocked, and completed issues
 

@@ -16,7 +16,7 @@ tracker:
   terminal_states:
     - Done
 polling:
-  interval_ms: 30000
+  interval_ms: 3000
 workspace:
   root: /Volumes/EVO/symphony-workspaces
   repo: /Volumes/EVO/kata/kata-mono

@@ -1,4 +1,7 @@
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import type { AgentToolUpdateCallback, ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { describe, expect, it, vi } from "vitest";
 import { registerSymphonyTools } from "./tools.ts";
 import { SymphonyRuntime } from "./runtime.ts";
@@ -7,25 +10,26 @@ import type { LastKnownSymphonyState } from "./state.ts";
 type RegisteredTool = {
   name: string;
   executionMode?: string;
-  execute: (id: string, params: Record<string, unknown>, signal: AbortSignal, update: unknown, ctx: ExtensionContext) => Promise<unknown>;
+  execute: (id: string, params: Record<string, unknown>, signal: AbortSignal, update: AgentToolUpdateCallback | undefined, ctx: ExtensionContext) => Promise<unknown>;
 };
 
-function toolContext() {
+function toolContext(options: { cwd?: string } = {}) {
   const setStatus = vi.fn();
   const ctx = {
-    cwd: "/repo",
+    cwd: options.cwd ?? "/repo",
     hasUI: true,
     ui: { setStatus },
   } as unknown as ExtensionContext;
   return { ctx, setStatus };
 }
 
-function registerTools(runtime: SymphonyRuntime) {
+function registerTools(runtime: SymphonyRuntime, overrides: Partial<ExtensionAPI> = {}) {
   const tools = new Map<string, RegisteredTool>();
   const appendEntry = vi.fn();
   const pi = {
     registerTool: (tool: RegisteredTool) => tools.set(tool.name, tool),
     appendEntry,
+    ...overrides,
   } as unknown as ExtensionAPI;
 
   registerSymphonyTools(pi, runtime);
@@ -46,6 +50,13 @@ function lastKnownState(baseUrl: string): LastKnownSymphonyState {
   };
 }
 
+function progressUpdate(text: string) {
+  return {
+    content: [{ type: "text", text }],
+    details: { status: "working" },
+  };
+}
+
 describe("symphony tools", () => {
   it("registers every Symphony tool for sequential execution", () => {
     const runtime = new SymphonyRuntime();
@@ -56,11 +67,231 @@ describe("symphony tools", () => {
       "symphony_doctor",
       "symphony_help",
       "symphony_init",
+      "symphony_refresh",
       "symphony_start",
       "symphony_status",
+      "symphony_steer",
       "symphony_stop",
     ]);
     expect([...tools.values()].every((tool) => tool.executionMode === "sequential")).toBe(true);
+  });
+
+  it("reports progress while running init", async () => {
+    const runtime = new SymphonyRuntime();
+    runtime.resolveBinary = vi.fn(async () => "symphony") as SymphonyRuntime["resolveBinary"];
+    const exec = vi.fn(async (_binary: string, _args: string[], _options: unknown) => ({ code: 0, stdout: "init ok", stderr: "", killed: false }));
+    const { tools } = registerTools(runtime, { exec } as Partial<ExtensionAPI>);
+    const init = tools.get("symphony_init");
+    if (!init) throw new Error("expected init tool");
+    const signal = new AbortController().signal;
+    const update = vi.fn();
+
+    const result = await init.execute("1", { force: true }, signal, update, toolContext().ctx);
+
+    expect(update).toHaveBeenCalledWith(progressUpdate("Initializing Symphony..."));
+    expect(exec).toHaveBeenCalledWith("symphony", ["init", "--force"], { cwd: "/repo", signal });
+    expect(result).toMatchObject({ content: [{ type: "text", text: "init ok" }] });
+  });
+
+  it("reports progress while running doctor", async () => {
+    const runtime = new SymphonyRuntime();
+    runtime.resolveBinary = vi.fn(async () => "symphony") as SymphonyRuntime["resolveBinary"];
+    const exec = vi.fn(async (_binary: string, _args: string[], _options: unknown) => ({ code: 0, stdout: "doctor ok", stderr: "", killed: false }));
+    const { tools } = registerTools(runtime, { exec } as Partial<ExtensionAPI>);
+    const doctor = tools.get("symphony_doctor");
+    if (!doctor) throw new Error("expected doctor tool");
+    const signal = new AbortController().signal;
+    const update = vi.fn();
+
+    const result = await doctor.execute("1", { workflow: "WORKFLOW.md" }, signal, update, toolContext().ctx);
+
+    expect(update).toHaveBeenCalledWith(progressUpdate("Running Symphony doctor..."));
+    expect(exec).toHaveBeenCalledWith("symphony", ["doctor", "WORKFLOW.md"], { cwd: "/repo", signal });
+    expect(result).toMatchObject({ content: [{ type: "text", text: "doctor ok" }] });
+  });
+
+  it("falls back to root WORKFLOW.md when start omits a workflow and project-home workflow is absent", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "pi-symphony-start-tool-"));
+    await writeFile(join(dir, "WORKFLOW.md"), "---\n---\n", "utf8");
+    const baseUrl = "http://127.0.0.1:8080";
+    const runtime = new SymphonyRuntime();
+    runtime.resolveBinary = vi.fn(async () => "symphony") as SymphonyRuntime["resolveBinary"];
+    runtime.processManager = {
+      start: vi.fn(async () => ({ baseUrl, owned: true, pid: 123 })),
+    } as unknown as SymphonyRuntime["processManager"];
+    runtime.attach = vi.fn(async (_baseUrl: string) => {
+      runtime.state.attachedBaseUrl = baseUrl;
+      runtime.state.lastKnownState = lastKnownState(baseUrl);
+      return {};
+    }) as unknown as SymphonyRuntime["attach"];
+    const { tools } = registerTools(runtime);
+    const start = tools.get("symphony_start");
+    if (!start) throw new Error("expected start tool");
+    const { ctx } = toolContext({ cwd: dir });
+    const signal = new AbortController().signal;
+
+    await start.execute("1", {}, signal, undefined, ctx);
+
+    expect(runtime.processManager.start).toHaveBeenCalledWith(expect.objectContaining({ workflow: "WORKFLOW.md" }));
+  });
+
+  it("uses .symphony/WORKFLOW.md when start omits a workflow", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "pi-symphony-start-tool-"));
+    await mkdir(join(dir, ".symphony"));
+    await writeFile(join(dir, ".symphony", "WORKFLOW.md"), "---\n---\n", "utf8");
+    const baseUrl = "http://127.0.0.1:8080";
+    const runtime = new SymphonyRuntime();
+    runtime.resolveBinary = vi.fn(async () => "symphony") as SymphonyRuntime["resolveBinary"];
+    runtime.processManager = {
+      start: vi.fn(async () => ({ baseUrl, owned: true, pid: 123 })),
+    } as unknown as SymphonyRuntime["processManager"];
+    runtime.attach = vi.fn(async (_baseUrl: string) => {
+      runtime.state.attachedBaseUrl = baseUrl;
+      runtime.state.lastKnownState = lastKnownState(baseUrl);
+      return {};
+    }) as unknown as SymphonyRuntime["attach"];
+    const { tools } = registerTools(runtime);
+    const start = tools.get("symphony_start");
+    if (!start) throw new Error("expected start tool");
+    const { ctx } = toolContext({ cwd: dir });
+    const signal = new AbortController().signal;
+
+    await start.execute("1", {}, signal, undefined, ctx);
+
+    expect(runtime.processManager.start).toHaveBeenCalledWith(expect.objectContaining({ workflow: ".symphony/WORKFLOW.md" }));
+  });
+
+  it("rejects start with a helpful error when the default workflow is missing", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "pi-symphony-start-tool-"));
+    const runtime = new SymphonyRuntime();
+    runtime.resolveBinary = vi.fn(async () => "symphony") as SymphonyRuntime["resolveBinary"];
+    runtime.processManager.start = vi.fn() as unknown as SymphonyRuntime["processManager"]["start"];
+    const { tools } = registerTools(runtime);
+    const start = tools.get("symphony_start");
+    if (!start) throw new Error("expected start tool");
+
+    await expect(start.execute("1", {}, new AbortController().signal, undefined, toolContext({ cwd: dir }).ctx)).rejects.toThrow("Symphony workflow file not found: .symphony/WORKFLOW.md");
+    expect(runtime.processManager.start).not.toHaveBeenCalled();
+  });
+
+  it("reports progress while starting Symphony", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "pi-symphony-start-tool-"));
+    await writeFile(join(dir, "WORKFLOW.md"), "---\n---\n", "utf8");
+    const baseUrl = "http://127.0.0.1:8080";
+    const runtime = new SymphonyRuntime();
+    runtime.resolveBinary = vi.fn(async () => "symphony") as SymphonyRuntime["resolveBinary"];
+    runtime.processManager = {
+      start: vi.fn(async () => ({ baseUrl, owned: true, pid: 123 })),
+    } as unknown as SymphonyRuntime["processManager"];
+    runtime.attach = vi.fn(async (_baseUrl: string) => {
+      runtime.state.attachedBaseUrl = baseUrl;
+      runtime.state.lastKnownState = lastKnownState(baseUrl);
+      return {};
+    }) as unknown as SymphonyRuntime["attach"];
+    const { tools } = registerTools(runtime);
+    const start = tools.get("symphony_start");
+    if (!start) throw new Error("expected start tool");
+    const { ctx, setStatus } = toolContext({ cwd: dir });
+    const signal = new AbortController().signal;
+    const update = vi.fn();
+
+    const result = await start.execute("1", { workflow: "WORKFLOW.md" }, signal, update, ctx);
+
+    expect(update).toHaveBeenCalledWith(progressUpdate("Starting Symphony..."));
+    expect(runtime.processManager.start).toHaveBeenCalledWith({ binary: "symphony", cwd: dir, workflow: "WORKFLOW.md", signal });
+    expect(runtime.attach).toHaveBeenCalledWith(baseUrl, signal);
+    expect(setStatus).toHaveBeenCalledWith("symphony", `symphony ${baseUrl}`);
+    expect(result).toMatchObject({ content: [{ type: "text", text: `Symphony started at ${baseUrl}` }] });
+  });
+
+  it("requests a manual refresh from the tool", async () => {
+    const events: string[] = [];
+    const runtime = new SymphonyRuntime();
+    runtime.requestRefresh = vi.fn(async () => {
+      events.push("requestRefresh");
+      runtime.state.lastKnownState = lastKnownState("http://127.0.0.1:8080");
+      return {} as Awaited<ReturnType<SymphonyRuntime["requestRefresh"]>>;
+    }) as SymphonyRuntime["requestRefresh"];
+    const { tools, appendEntry } = registerTools(runtime);
+    const refresh = tools.get("symphony_refresh");
+    if (!refresh) throw new Error("expected refresh tool");
+    const update = vi.fn(() => events.push("update"));
+
+    const result = await refresh.execute("1", {}, new AbortController().signal, update, toolContext().ctx);
+
+    expect(update).toHaveBeenCalledWith(progressUpdate("Refreshing Symphony..."));
+    expect(events).toEqual(["update", "requestRefresh"]);
+    expect(runtime.requestRefresh).toHaveBeenCalledOnce();
+    expect(appendEntry).toHaveBeenCalled();
+    expect(result).toMatchObject({
+      content: [{ type: "text", text: "Symphony refresh requested" }],
+      details: { state: runtime.state.lastKnownState },
+    });
+  });
+
+  it("sends a steer instruction from the tool", async () => {
+    const events: string[] = [];
+    const runtime = new SymphonyRuntime();
+    runtime.steerWorker = vi.fn(async () => {
+      events.push("steerWorker");
+      return { ok: true, issueId: "issue-123", issueIdentifier: "SIM-123", delivered: true, instructionPreview: "Use auth" };
+    }) as SymphonyRuntime["steerWorker"];
+    const { tools, appendEntry } = registerTools(runtime);
+    const steer = tools.get("symphony_steer");
+    if (!steer) throw new Error("expected steer tool");
+    const update = vi.fn(() => events.push("update"));
+
+    const result = await steer.execute("1", { issueIdentifier: "SIM-123", instruction: "Use auth" }, new AbortController().signal, update, toolContext().ctx);
+
+    expect(update).toHaveBeenCalledWith(progressUpdate("Sending steer instruction..."));
+    expect(events).toEqual(["update", "steerWorker"]);
+    expect(runtime.steerWorker).toHaveBeenCalledWith("SIM-123", "Use auth", expect.any(AbortSignal));
+    expect(appendEntry).toHaveBeenCalled();
+    expect(result).toMatchObject({
+      content: [{ type: "text", text: "Steer delivered to SIM-123: Use auth" }],
+      details: { result: expect.objectContaining({ issueIdentifier: "SIM-123" }) },
+    });
+  });
+
+  it("attaches to the owned Symphony server when no tool URL is provided", async () => {
+    const baseUrl = "http://127.0.0.1:8080";
+    const runtime = new SymphonyRuntime();
+    runtime.state.ownedProcess = {
+      pid: 123,
+      command: "symphony --no-tui",
+      cwd: "/repo",
+      baseUrl,
+      startedAt: "2026-05-14T00:00:00.000Z",
+    };
+    runtime.attach = vi.fn(async (url: string) => {
+      runtime.state.attachedBaseUrl = url;
+      runtime.state.lastKnownState = lastKnownState(url);
+      return {};
+    }) as unknown as SymphonyRuntime["attach"];
+
+    const { tools } = registerTools(runtime);
+    const attach = tools.get("symphony_attach");
+    if (!attach) throw new Error("expected attach tool");
+    const { ctx, setStatus } = toolContext();
+    const signal = new AbortController().signal;
+
+    const result = await attach.execute("1", {}, signal, undefined, ctx);
+
+    expect(runtime.attach).toHaveBeenCalledWith(baseUrl, signal);
+    expect(setStatus).toHaveBeenCalledWith("symphony", `symphony ${baseUrl}`);
+    expect(result).toMatchObject({ content: [{ type: "text", text: `Attached to Symphony at ${baseUrl}` }] });
+  });
+
+  it("rejects attach without URL when no owned server is available", async () => {
+    const runtime = new SymphonyRuntime();
+    runtime.attach = vi.fn() as unknown as SymphonyRuntime["attach"];
+
+    const { tools } = registerTools(runtime);
+    const attach = tools.get("symphony_attach");
+    if (!attach) throw new Error("expected attach tool");
+
+    await expect(attach.execute("1", {}, new AbortController().signal, undefined, toolContext().ctx)).rejects.toThrow("No Symphony URL provided and no Pi-owned Symphony server is running");
+    expect(runtime.attach).not.toHaveBeenCalled();
   });
 
   it("restricts tool attach URLs to loopback hosts before attaching", async () => {
@@ -80,8 +311,10 @@ describe("symphony tools", () => {
     await expect(attach.execute("1", { url: "http://example.com:8080" }, signal, undefined, ctx)).rejects.toThrow("loopback host");
     expect(runtime.attach).not.toHaveBeenCalled();
 
-    await attach.execute("2", { url: "http://localhost:8080" }, signal, undefined, ctx);
+    const update = vi.fn();
+    await attach.execute("2", { url: "http://localhost:8080" }, signal, update, ctx);
 
+    expect(update).toHaveBeenCalledWith(progressUpdate("Attaching to Symphony..."));
     expect(runtime.attach).toHaveBeenCalledWith("http://localhost:8080", signal);
     expect(setStatus).toHaveBeenCalledWith("symphony", "symphony http://localhost:8080");
   });
@@ -109,9 +342,11 @@ describe("symphony tools", () => {
     const stop = tools.get("symphony_stop");
     if (!stop) throw new Error("expected stop tool");
     const { ctx, setStatus } = toolContext();
+    const update = vi.fn();
 
-    await stop.execute("1", {}, new AbortController().signal, undefined, ctx);
+    await stop.execute("1", {}, new AbortController().signal, update, ctx);
 
+    expect(update).toHaveBeenCalledWith(progressUpdate("Stopping Symphony..."));
     expect(runtime.state.attachedBaseUrl).toBeUndefined();
     expect(runtime.client).toBeUndefined();
     expect(runtime.state.lastKnownState).toBeUndefined();
