@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { describe, expect, it, vi } from "vitest";
+import * as consoleModule from "./console.ts";
 import { registerSymphonyCommands, setSymphonyStatus } from "./commands.ts";
 import { SymphonyRuntime } from "./runtime.ts";
 import { type LastKnownSymphonyState } from "./state.ts";
@@ -103,19 +104,31 @@ describe("setSymphonyStatus", () => {
 });
 
 describe("symphony commands", () => {
-  it("registers console keyboard shortcuts", () => {
+  it("registers console keyboard shortcuts", async () => {
     const runtime = new SymphonyRuntime();
     const { shortcuts } = registerCommands(runtime);
+    const shortcutSpy = vi.spyOn(consoleModule, "handleActiveConsoleShortcut").mockResolvedValue(undefined);
+    const { ctx } = commandContext();
 
     expect([...shortcuts.keys()]).toEqual(expect.arrayContaining([
       "ctrl+shift+up",
       "ctrl+shift+down",
       "ctrl+shift+r",
+      "ctrl+shift+s",
       "ctrl+shift+e",
       "ctrl+shift+i",
       "ctrl+shift+q",
     ]));
-    expect(shortcuts.get("ctrl+shift+down")?.description).toContain("Select next Symphony console worker");
+    expect(shortcuts.get("ctrl+shift+down")?.description).toContain("Select next Symphony console item");
+    expect(shortcuts.get("ctrl+shift+s")?.description).toBe("Steer the selected Symphony console worker");
+    expect(shortcuts.get("ctrl+shift+e")?.description).toBe("Respond to the selected Symphony console escalation");
+
+    await shortcuts.get("ctrl+shift+s")?.handler(ctx);
+    await shortcuts.get("ctrl+shift+e")?.handler(ctx);
+
+    expect(shortcutSpy).toHaveBeenCalledWith("steer", ctx);
+    expect(shortcutSpy).toHaveBeenCalledWith("respondEscalation", ctx);
+    shortcutSpy.mockRestore();
   });
 
   it("requests a manual refresh from the command", async () => {

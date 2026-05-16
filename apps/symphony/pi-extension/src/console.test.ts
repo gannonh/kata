@@ -735,6 +735,7 @@ describe("openConsole", () => {
       refreshState: vi.fn(async () => workerStateFixture()),
       requestRefresh: vi.fn(async () => workerStateFixture()),
       steerWorker: vi.fn(async () => undefined),
+      respondToEscalation: vi.fn(async () => undefined),
       errorText: vi.fn((error: unknown) => (error instanceof Error ? error.message : String(error))),
     } as unknown as SymphonyRuntime;
 
@@ -745,6 +746,37 @@ describe("openConsole", () => {
     const output = component?.render(160).join("\n") ?? "";
     expect(output).toContain("> SIM-777");
     expect(output).not.toContain("issue: <accent>SIM-777</accent> Worker two");
+    expect(requestRender).toHaveBeenCalled();
+  });
+
+  it("lets a global shortcut respond to the selected active-console escalation", async () => {
+    const state = createDefaultState();
+    state.attachedBaseUrl = "http://127.0.0.1:8080";
+
+    vi.mocked(startSymphonyEventStream).mockImplementation(() => ({ close: vi.fn() }));
+
+    const requestRender = vi.fn();
+    const setWidget = vi.fn((_key: string, factory: unknown) => {
+      (factory as (tui: { requestRender: () => void }, theme: ReturnType<typeof fakeTheme>) => SymphonyConsoleComponent)({ requestRender }, fakeTheme());
+    });
+    const ctx = { ui: { notify: vi.fn(), custom: vi.fn(), input: vi.fn(async () => "approved"), setWidget } } as unknown as ExtensionContext;
+    const runtime = {
+      client: {},
+      state,
+      lastState: workerStateFixture(),
+      recentEvents: [],
+      refreshState: vi.fn(async () => workerStateFixture()),
+      requestRefresh: vi.fn(async () => workerStateFixture()),
+      steerWorker: vi.fn(async () => undefined),
+      respondToEscalation: vi.fn(async () => undefined),
+      errorText: vi.fn((error: unknown) => (error instanceof Error ? error.message : String(error))),
+    } as unknown as SymphonyRuntime;
+
+    await openConsole(ctx, runtime);
+    for (let index = 0; index < 5; index += 1) await handleActiveConsoleShortcut("selectNext", ctx);
+    await handleActiveConsoleShortcut("respondEscalation", ctx);
+
+    expect(runtime.respondToEscalation).toHaveBeenCalledWith("esc-1", "approved");
     expect(requestRender).toHaveBeenCalled();
   });
 

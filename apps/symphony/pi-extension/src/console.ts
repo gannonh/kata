@@ -16,7 +16,7 @@ interface ConsoleTheme {
   bold(text: string): string;
 }
 
-export type ConsoleShortcutAction = "selectPrevious" | "selectNext" | "refresh" | "steer" | "toggleDetails" | "close";
+export type ConsoleShortcutAction = "selectPrevious" | "selectNext" | "refresh" | "steer" | "respondEscalation" | "toggleDetails" | "close";
 
 let activeConsole: SymphonyConsoleComponent | undefined;
 
@@ -38,6 +38,9 @@ export async function handleActiveConsoleShortcut(action: ConsoleShortcutAction,
       return;
     case "steer":
       await activeConsole.steerNow();
+      return;
+    case "respondEscalation":
+      await activeConsole.respondToEscalationNow();
       return;
     case "toggleDetails":
       activeConsole.toggleDetails();
