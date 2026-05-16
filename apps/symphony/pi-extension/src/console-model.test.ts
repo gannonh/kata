@@ -122,9 +122,18 @@ describe("console model", () => {
     });
   });
 
-  it("builds escalation rows sorted by creation time", () => {
+  it("builds escalation rows sorted by creation time and request id", () => {
     const state = stateFixture();
     state.pending_escalations = [
+      {
+        request_id: "esc-3",
+        issue_id: "issue-456",
+        issue_identifier: "SIM-456",
+        method: "approval",
+        preview: "Review matching timestamp command",
+        created_at: "2026-05-14T12:02:00Z",
+        timeout_ms: 30000,
+      },
       {
         request_id: "esc-2",
         issue_id: "issue-777",
@@ -147,7 +156,7 @@ describe("console model", () => {
 
     const rows = buildEscalationRows(state);
 
-    expect(rows.map((row) => row.requestId)).toEqual(["esc-1", "esc-2"]);
+    expect(rows.map((row) => row.requestId)).toEqual(["esc-1", "esc-2", "esc-3"]);
     expect(rows[0]).toMatchObject({
       method: "approval",
       preview: "Approve command",
