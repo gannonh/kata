@@ -140,7 +140,7 @@ This doc is the master design doc. We are using `/writing-plans` to create imple
 - Render connection status, project link, polling status, worker counts, and basic process ownership.
 - Cover slash commands and tools for init, doctor, start, attach, status, stop, and help.
 
-### Slice 2: worker operations
+### Slice 2: worker operations ✅
 
 - Render the running workers table.
 - Show selected-worker details: issue, tracker state, attempt, turn count, max turns, last activity, worker host, workspace path, and error preview.
