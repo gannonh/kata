@@ -72,7 +72,14 @@ function handleRequest(req, res, body) {
 
   const escalationMatch = req.url?.match(/^\/api\/v1\/escalations\/([^/]+)\/respond$/);
   if (req.method === "POST" && escalationMatch) {
-    const requestId = decodeURIComponent(escalationMatch[1]);
+    let requestId;
+    try {
+      requestId = decodeURIComponent(escalationMatch[1]);
+    } catch {
+      res.statusCode = 400;
+      res.end(JSON.stringify({ error: "invalid_escalation_id" }));
+      return;
+    }
     const escalation = state.pending_escalations.find((entry) => entry.request_id === requestId);
     if (!escalation) {
       res.statusCode = 404;

@@ -517,7 +517,7 @@ describe("SymphonyConsoleComponent", () => {
     expect(respondToEscalation).not.toHaveBeenCalled();
   });
 
-  it("rejects malformed JSON-like escalation response before sending", async () => {
+  it.each(["{approved: true}", "\"approved"])("rejects malformed JSON-like escalation response before sending: %s", async (input) => {
     const respondToEscalation = vi.fn(async () => undefined);
     const notify = vi.fn();
     const consoleComponent = new SymphonyConsoleComponent({
@@ -527,7 +527,7 @@ describe("SymphonyConsoleComponent", () => {
       refresh: async () => undefined,
       steer: async () => undefined,
       respondToEscalation,
-      prompt: async () => "{approved: true}",
+      prompt: async () => input,
       close: () => undefined,
       requestRender: () => undefined,
       notify,

@@ -358,10 +358,12 @@ function renderSelectedEscalationDetails(escalation: EscalationRow | undefined, 
 }
 
 function parseEscalationResponseInput(value: string): unknown {
+  const trimmedValue = value.trimStart();
   try {
-    return JSON.parse(value);
+    return JSON.parse(trimmedValue);
   } catch {
-    if (value.startsWith("{") || value.startsWith("[")) {
+    const firstChar = trimmedValue[0];
+    if (firstChar === "{" || firstChar === "[" || firstChar === "\"") {
       throw new Error("Escalation response must be valid JSON or plain text");
     }
     return value;
