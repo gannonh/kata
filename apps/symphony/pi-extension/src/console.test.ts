@@ -292,7 +292,7 @@ describe("SymphonyConsoleComponent", () => {
 
     const output = consoleComponent.render(220).join("\n");
 
-    expect(output).toContain("Keyboard: ctrl+shift+↑/↓ select  •  ctrl+shift+r refresh  •  ctrl+shift+s steer  •  ctrl+shift+e escalation  •  ctrl+shift+i details  •  ctrl+shift+q close");
+    expect(output).toContain("Keyboard: ctrl+shift+↑/↓ select  •  ctrl+shift+r refresh  •  ctrl+shift+t steer  •  ctrl+shift+e escalation  •  ctrl+shift+i details  •  ctrl+shift+q close");
   });
 
   it("renders boxed colored sections and command actions for console readability", () => {
@@ -335,11 +335,11 @@ describe("SymphonyConsoleComponent", () => {
     expect(output).toContain("Keyboard");
     expect(output).toContain("ctrl+shift+↑/↓ select");
     expect(output).toContain("ctrl+shift+r refresh");
-    expect(output).toContain("ctrl+shift+s steer");
+    expect(output).toContain("ctrl+shift+t steer");
     expect(output).toContain("ctrl+shift+e escalation");
     expect(output).toContain("ctrl+shift+i details");
     expect(output).toContain("ctrl+shift+q close");
-    expect(output).toContain("Keyboard: ctrl+shift+↑/↓ select  •  ctrl+shift+r refresh  •  ctrl+shift+s steer  •  ctrl+shift+e escalation  •  ctrl+shift+i details  •  ctrl+shift+q close");
+    expect(output).toContain("Keyboard: ctrl+shift+↑/↓ select  •  ctrl+shift+r refresh  •  ctrl+shift+t steer  •  ctrl+shift+e escalation  •  ctrl+shift+i details  •  ctrl+shift+q close");
     expect(output).toContain("<borderAccent>┌</borderAccent>");
     expect(output).toContain("<success>running: 2</success>");
     expect(output).toContain("<warning>retry: 1</warning>");

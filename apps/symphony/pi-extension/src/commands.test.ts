@@ -114,16 +114,17 @@ describe("symphony commands", () => {
       "ctrl+shift+up",
       "ctrl+shift+down",
       "ctrl+shift+r",
-      "ctrl+shift+s",
+      "ctrl+shift+t",
       "ctrl+shift+e",
       "ctrl+shift+i",
       "ctrl+shift+q",
     ]));
     expect(shortcuts.get("ctrl+shift+down")?.description).toContain("Select next Symphony console item");
-    expect(shortcuts.get("ctrl+shift+s")?.description).toBe("Steer the selected Symphony console worker");
+    expect(shortcuts.has("ctrl+shift+s")).toBe(false);
+    expect(shortcuts.get("ctrl+shift+t")?.description).toBe("Steer the selected Symphony console worker");
     expect(shortcuts.get("ctrl+shift+e")?.description).toBe("Respond to the selected Symphony console escalation");
 
-    await shortcuts.get("ctrl+shift+s")?.handler(ctx);
+    await shortcuts.get("ctrl+shift+t")?.handler(ctx);
     await shortcuts.get("ctrl+shift+e")?.handler(ctx);
 
     expect(shortcutSpy).toHaveBeenCalledWith("steer", ctx);

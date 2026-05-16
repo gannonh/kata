@@ -378,12 +378,12 @@ function renderRecentEvents(events: string[], theme?: ConsoleTheme): string[] {
 }
 
 function renderActionLegend(refreshing: boolean, width: number, theme?: ConsoleTheme): string[] {
-  const keyboard = "Keyboard: ctrl+shift+↑/↓ select  •  ctrl+shift+r refresh  •  ctrl+shift+s steer  •  ctrl+shift+e escalation  •  ctrl+shift+i details  •  ctrl+shift+q close";
+  const keyboard = "Keyboard: ctrl+shift+↑/↓ select  •  ctrl+shift+r refresh  •  ctrl+shift+t steer  •  ctrl+shift+e escalation  •  ctrl+shift+i details  •  ctrl+shift+q close";
   const commands = "Commands: /symphony:refresh | /symphony:status | /symphony:stop";
   if (refreshing) return [color(theme, "warning", "refreshing..."), commands];
   if (visibleLength(keyboard) <= width - 4) return [keyboard, commands];
   return [
-    "Keyboard: ctrl+shift+↑/↓ select  •  ctrl+shift+r refresh  •  ctrl+shift+s steer",
+    "Keyboard: ctrl+shift+↑/↓ select  •  ctrl+shift+r refresh  •  ctrl+shift+t steer",
     "          ctrl+shift+e escalation  •  ctrl+shift+i details  •  ctrl+shift+q close",
     commands,
   ];

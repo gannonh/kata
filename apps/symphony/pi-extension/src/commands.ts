@@ -159,7 +159,7 @@ function registerConsoleShortcuts(pi: ExtensionAPI): void {
     { key: "ctrl+shift+up", action: "selectPrevious", description: "Select previous Symphony console item" },
     { key: "ctrl+shift+down", action: "selectNext", description: "Select next Symphony console item" },
     { key: "ctrl+shift+r", action: "refresh", description: "Refresh the Symphony console" },
-    { key: "ctrl+shift+s", action: "steer", description: "Steer the selected Symphony console worker" },
+    { key: "ctrl+shift+t", action: "steer", description: "Steer the selected Symphony console worker" },
     { key: "ctrl+shift+e", action: "respondEscalation", description: "Respond to the selected Symphony console escalation" },
     { key: "ctrl+shift+i", action: "toggleDetails", description: "Toggle Symphony console item details" },
     { key: "ctrl+shift+q", action: "close", description: "Close the Symphony console widget" },
