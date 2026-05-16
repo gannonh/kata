@@ -84,6 +84,19 @@ pnpm --dir apps/symphony/pi-extension typecheck
 
 3. Create or use a Symphony state with at least one retry entry, blocked issue, completed issue, and pending escalation.
 
+   For deterministic local testing, start the Wave 3 mock server in another terminal:
+
+   ```sh
+   pnpm --dir apps/symphony/pi-extension run mock:wave3
+   ```
+
+   Then attach Pi to the printed URL:
+
+   ```text
+   /symphony:attach http://127.0.0.1:8787
+   /symphony:console
+   ```
+
    Expected: the console shows `Retry Queue`, `Blocked Issues`, `Completed Issues`, and `Pending Escalations` sections.
 
 4. Use `↑` / `↓` to select each Wave 3 item type.
