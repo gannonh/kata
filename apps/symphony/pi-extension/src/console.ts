@@ -246,8 +246,8 @@ export class SymphonyConsoleComponent {
     }
 
     try {
-      const value = await this.options.prompt("Respond to Symphony escalation", `Response for ${escalation.requestId}`);
-      if (value === undefined) return;
+      const value = (await this.options.prompt("Respond to Symphony escalation", `Response for ${escalation.requestId}`))?.trim();
+      if (!value) return;
 
       await this.options.respondToEscalation(escalation.requestId, parseEscalationResponseInput(value));
       this.options.notify(`Escalation response sent for ${escalation.requestId}`, "info");
@@ -361,6 +361,9 @@ function parseEscalationResponseInput(value: string): unknown {
   try {
     return JSON.parse(value);
   } catch {
+    if (value.startsWith("{") || value.startsWith("[")) {
+      throw new Error("Escalation response must be valid JSON or plain text");
+    }
     return value;
   }
 }

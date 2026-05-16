@@ -494,6 +494,53 @@ describe("SymphonyConsoleComponent", () => {
     expect(respondToEscalation).toHaveBeenCalledWith("esc-1", "approved");
   });
 
+  it("cancels escalation response when prompt returns only whitespace", async () => {
+    const respondToEscalation = vi.fn(async () => undefined);
+    const requestRender = vi.fn();
+    const consoleComponent = new SymphonyConsoleComponent({
+      state: createDefaultState(),
+      getState: () => workerStateFixture(),
+      getEvents: () => [],
+      refresh: async () => undefined,
+      steer: async () => undefined,
+      respondToEscalation,
+      prompt: async () => "   ",
+      close: () => undefined,
+      requestRender,
+      notify: () => undefined,
+    });
+
+    for (let index = 0; index < 5; index += 1) consoleComponent.handleInput("\u001b[B");
+    consoleComponent.handleInput("e");
+    await expect.poll(() => requestRender.mock.calls.length, { interval: 10, timeout: 1000 }).toBeGreaterThan(0);
+
+    expect(respondToEscalation).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed JSON-like escalation response before sending", async () => {
+    const respondToEscalation = vi.fn(async () => undefined);
+    const notify = vi.fn();
+    const consoleComponent = new SymphonyConsoleComponent({
+      state: createDefaultState(),
+      getState: () => workerStateFixture(),
+      getEvents: () => [],
+      refresh: async () => undefined,
+      steer: async () => undefined,
+      respondToEscalation,
+      prompt: async () => "{approved: true}",
+      close: () => undefined,
+      requestRender: () => undefined,
+      notify,
+    });
+
+    for (let index = 0; index < 5; index += 1) consoleComponent.handleInput("\u001b[B");
+    consoleComponent.handleInput("e");
+    await expect.poll(() => notify.mock.calls.length, { interval: 10, timeout: 1000 }).toBe(1);
+
+    expect(respondToEscalation).not.toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledWith("Escalation response must be valid JSON or plain text", "error");
+  });
+
   it("notifies when escalation response is requested without a selected escalation", () => {
     const notify = vi.fn();
     const consoleComponent = new SymphonyConsoleComponent({
