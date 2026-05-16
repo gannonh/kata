@@ -473,6 +473,40 @@ describe("openConsole", () => {
     expect(requestRender).toHaveBeenCalled();
   });
 
+  it("reports stream close errors after malformed stream messages", async () => {
+    const state = createDefaultState();
+    state.attachedBaseUrl = "http://127.0.0.1:8080";
+
+    let capturedOnError: ((error: Error) => void) | undefined;
+    vi.mocked(startSymphonyEventStream).mockImplementation((options) => {
+      capturedOnError = options.onError;
+      return { close: vi.fn() };
+    });
+
+    const notify = vi.fn();
+    const setWidget = vi.fn((_key: string, factory: unknown) => {
+      (factory as (tui: { requestRender: () => void }, theme: ReturnType<typeof fakeTheme>) => SymphonyConsoleComponent)({ requestRender: vi.fn() }, fakeTheme());
+    });
+    const ctx = { ui: { notify, custom: vi.fn(), input: vi.fn(), setWidget } } as unknown as ExtensionContext;
+    const runtime = {
+      client: {},
+      state,
+      lastState: workerStateFixture(),
+      recentEvents: [],
+      refreshState: vi.fn(async () => workerStateFixture()),
+      requestRefresh: vi.fn(async () => workerStateFixture()),
+      steerWorker: vi.fn(async () => undefined),
+      errorText: vi.fn((error: unknown) => (error instanceof Error ? error.message : String(error))),
+    } as unknown as SymphonyRuntime;
+
+    await openConsole(ctx, runtime);
+    capturedOnError?.(new Error("invalid Symphony event JSON"));
+    capturedOnError?.(new Error("Symphony event stream closed with code 1006"));
+
+    expect(notify).toHaveBeenCalledWith("Symphony event stream unavailable: invalid Symphony event JSON", "warning");
+    expect(notify).toHaveBeenCalledWith("Symphony event stream unavailable: Symphony event stream closed with code 1006", "warning");
+  });
+
   it("lets global shortcuts control the active above-editor console", async () => {
     const state = createDefaultState();
     state.attachedBaseUrl = "http://127.0.0.1:8080";

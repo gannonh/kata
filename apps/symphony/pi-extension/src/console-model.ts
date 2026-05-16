@@ -61,7 +61,9 @@ function formatLastActivity(lastActivityMs: number | null | undefined, lastActiv
 function eventSummary(event: SymphonyEventEnvelope): string {
   if (!isRecord(event.payload)) return "";
   const preferred = event.payload.error_preview ?? event.payload.summary ?? event.payload.message ?? event.payload.reason ?? event.payload.error ?? event.payload.instruction_preview;
-  return typeof preferred === "string" ? truncateText(preferred, 120) : "";
+  if (typeof preferred !== "string") return "";
+  const singleLine = preferred.replace(/\s+/g, " ").trim();
+  return singleLine ? truncateText(singleLine, 120) : "";
 }
 
 function truncateText(value: string, maxLength: number): string {

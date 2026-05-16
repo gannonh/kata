@@ -149,7 +149,7 @@ describe("symphony commands", () => {
 
     await steer.handler("SIM-123 Use auth", ctx);
 
-    expect(runtime.steerWorker).toHaveBeenCalledWith("SIM-123", "Use auth");
+    expect(runtime.steerWorker).toHaveBeenCalledWith("SIM-123", "Use auth", expect.any(AbortSignal));
     expect(appendEntry).toHaveBeenCalled();
     expect(notify).toHaveBeenCalledWith("Steer delivered to SIM-123: Use auth", "info");
   });
@@ -368,6 +368,23 @@ describe("symphony commands", () => {
     expect(setStatus).toHaveBeenLastCalledWith("symphony", "symphony http://127.0.0.1:8080");
   });
 
+  it("shows inline progress while steering", async () => {
+    const runtime = new SymphonyRuntime();
+    runtime.state.attachedBaseUrl = "http://127.0.0.1:8080";
+    runtime.steerWorker = vi.fn(async () => ({ ok: true, issueId: "issue-123", issueIdentifier: "SIM-123", delivered: true, instructionPreview: "Use auth" })) as SymphonyRuntime["steerWorker"];
+
+    const { commands } = registerCommands(runtime);
+    const { ctx, setStatus, setWorkingMessage } = commandContext();
+    const steer = commands.get("symphony:steer");
+    if (!steer) throw new Error("expected steer command");
+
+    await steer.handler("SIM-123 Use auth", ctx);
+
+    expect(setWorkingMessage).toHaveBeenNthCalledWith(1, "Sending steer instruction...");
+    expect(setStatus).toHaveBeenNthCalledWith(1, "symphony", "Sending steer instruction...");
+    expect(setStatus).toHaveBeenLastCalledWith("symphony", "symphony http://127.0.0.1:8080");
+  });
+
   it("uses a blocking loader for init", async () => {
     const runtime = new SymphonyRuntime();
     runtime.resolveBinary = vi.fn(async () => "symphony") as SymphonyRuntime["resolveBinary"];
@@ -402,6 +419,31 @@ describe("symphony commands", () => {
     expect(setStatus).toHaveBeenNthCalledWith(1, "symphony", "Running Symphony doctor...");
     expect(setStatus).toHaveBeenLastCalledWith("symphony", "symphony detached");
     expect(exec).toHaveBeenCalledWith("symphony", ["doctor"], { cwd: "/repo", signal: expect.any(AbortSignal) });
+  });
+
+  it("falls back to root WORKFLOW.md when start omits a workflow and project-home workflow is absent", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "pi-symphony-start-"));
+    await writeFile(join(dir, "WORKFLOW.md"), "---\n---\n", "utf8");
+    const baseUrl = "http://127.0.0.1:8080";
+    const runtime = new SymphonyRuntime();
+    runtime.resolveBinary = vi.fn(async () => "symphony") as SymphonyRuntime["resolveBinary"];
+    runtime.processManager = {
+      start: vi.fn(async () => ({ baseUrl, owned: true, pid: 123 })),
+    } as unknown as SymphonyRuntime["processManager"];
+    runtime.attach = vi.fn(async () => {
+      runtime.state.attachedBaseUrl = baseUrl;
+      runtime.state.lastKnownState = lastKnownState(baseUrl);
+      return {};
+    }) as unknown as SymphonyRuntime["attach"];
+
+    const { commands } = registerCommands(runtime);
+    const { ctx } = commandContext({ cwd: dir });
+    const start = commands.get("symphony:start");
+    if (!start) throw new Error("expected start command");
+
+    await start.handler("", ctx);
+
+    expect(runtime.processManager.start).toHaveBeenCalledWith(expect.objectContaining({ workflow: "WORKFLOW.md" }));
   });
 
   it("uses .symphony/WORKFLOW.md when start omits a workflow", async () => {

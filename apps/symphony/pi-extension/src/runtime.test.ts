@@ -167,6 +167,24 @@ describe("SymphonyRuntime", () => {
     expect(runtime.client?.getState).toHaveBeenCalledOnce();
   });
 
+  it("returns steer result even if post-steer refresh fails", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const runtime = new SymphonyRuntime();
+    runtime.client = {
+      steer: vi.fn(async () => ({ ok: true, issueId: "issue-123", issueIdentifier: "SIM-123", delivered: true, instructionPreview: "Use auth" })),
+      getState: vi.fn(async () => {
+        throw new Error("temporary state fetch failure");
+      }),
+      toHealthSummary: vi.fn(() => lastKnownState("http://127.0.0.1:8080")),
+    } as unknown as SymphonyRuntime["client"];
+
+    await expect(runtime.steerWorker("SIM-123", "Use auth")).resolves.toMatchObject({ delivered: true });
+
+    expect(runtime.client?.steer).toHaveBeenCalledWith("SIM-123", "Use auth", undefined);
+    expect(runtime.client?.getState).toHaveBeenCalledOnce();
+    expect(warn).toHaveBeenCalledWith("Symphony state refresh failed after steer", expect.any(Error));
+  });
+
   it("retains the most recent worker and runtime events", () => {
     const runtime = new SymphonyRuntime();
 

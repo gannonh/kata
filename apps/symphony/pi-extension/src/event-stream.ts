@@ -13,7 +13,13 @@ export interface EventStreamHandle {
 
 export function eventStreamUrl(baseUrl: string): string {
   const url = new URL(baseUrl);
-  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  if (url.protocol === "https:" || url.protocol === "wss:") {
+    url.protocol = "wss:";
+  } else if (url.protocol === "http:" || url.protocol === "ws:") {
+    url.protocol = "ws:";
+  } else {
+    throw new Error(`Unsupported Symphony base URL protocol: ${url.protocol}`);
+  }
   url.pathname = `${url.pathname.replace(/\/+$/, "")}/api/v1/events`;
   url.search = "";
   url.hash = "";
@@ -21,32 +27,41 @@ export function eventStreamUrl(baseUrl: string): string {
 }
 
 export function startSymphonyEventStream(options: EventStreamOptions): EventStreamHandle {
-  const socket = new WebSocket(eventStreamUrl(options.baseUrl));
+  let socket: WebSocket | undefined;
+  let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
   let intentionallyClosed = false;
 
-  socket.on("message", (data) => {
-    try {
-      options.onEvent(parseEventEnvelope(data.toString()));
-    } catch (error) {
+  const connect = () => {
+    socket = new WebSocket(eventStreamUrl(options.baseUrl));
+
+    socket.on("message", (data) => {
+      try {
+        options.onEvent(parseEventEnvelope(data.toString()));
+      } catch (error) {
+        options.onError(error instanceof Error ? error : new Error(String(error)));
+      }
+    });
+
+    socket.on("error", (error) => {
+      if (intentionallyClosed) return;
       options.onError(error instanceof Error ? error : new Error(String(error)));
-    }
-  });
+    });
 
-  socket.on("error", (error) => {
-    if (intentionallyClosed) return;
-    options.onError(error instanceof Error ? error : new Error(String(error)));
-  });
+    socket.on("close", (code, reason) => {
+      if (intentionallyClosed) return;
+      const suffix = reason.length > 0 ? `: ${reason.toString()}` : ` with code ${code}`;
+      options.onError(new Error(`Symphony event stream closed${suffix}`));
+      reconnectTimer = setTimeout(connect, 50);
+    });
+  };
 
-  socket.on("close", (code, reason) => {
-    if (intentionallyClosed) return;
-    const suffix = reason.length > 0 ? `: ${reason.toString()}` : ` with code ${code}`;
-    options.onError(new Error(`Symphony event stream closed${suffix}`));
-  });
+  connect();
 
   return {
     close: () => {
       intentionallyClosed = true;
-      socket.close();
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      socket?.close();
     },
   };
 }

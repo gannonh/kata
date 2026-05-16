@@ -80,7 +80,11 @@ export class SymphonyRuntime {
   async steerWorker(issueIdentifier: string, instruction: string, signal?: AbortSignal): Promise<SteerResponse> {
     if (!this.client) throw new SymphonyExtensionError("no_attachment", "No Symphony server is attached");
     const result = await this.client.steer(issueIdentifier, instruction, signal);
-    await this.refreshState(signal);
+    try {
+      await this.refreshState(signal);
+    } catch (error) {
+      console.warn("Symphony state refresh failed after steer", error);
+    }
     return result;
   }
 

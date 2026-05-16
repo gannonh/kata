@@ -10,14 +10,15 @@ export interface SymphonyProgressOptions {
 export async function withSymphonyProgress<T>(
   ctx: ExtensionCommandContext,
   options: SymphonyProgressOptions,
-  fn: () => T | Promise<T>,
+  fn: (signal: AbortSignal) => T | Promise<T>,
 ): Promise<T> {
+  const controller = new AbortController();
   ctx.ui.setWorkingIndicator({ frames: SYMPHONY_PROGRESS_FRAMES, intervalMs: 120 });
   ctx.ui.setWorkingMessage(options.message);
   ctx.ui.setStatus("symphony", options.message);
 
   try {
-    return await fn();
+    return await fn(controller.signal);
   } finally {
     ctx.ui.setWorkingIndicator();
     ctx.ui.setWorkingMessage();

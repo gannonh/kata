@@ -211,6 +211,7 @@ function validateSymphonyStateResponse(value: unknown, details: Record<string, u
 
   validateOptionalStringOrNull(value, "tracker_project_url", details);
   validateOptionalRecord(value, "running", details);
+  validateRunningAttempts(value.running, details);
   validateOptionalArray(value, "retry_queue", details);
   validateOptionalArray(value, "blocked", details);
   validateOptionalArray(value, "completed", details);
@@ -315,6 +316,32 @@ function parseApiErrorEnvelope(value: unknown): ApiErrorEnvelope | undefined {
   };
 }
 
+function validateRunningAttempts(value: unknown, details: Record<string, unknown>): void {
+  if (value === undefined) return;
+  if (!isRecord(value)) return;
+  for (const [key, attempt] of Object.entries(value)) {
+    validateRunAttemptResponse(attempt, details, `running.${key}`);
+  }
+}
+
+function validateRunAttemptResponse(value: unknown, details: Record<string, unknown>, detailField: string): void {
+  if (!isRecord(value)) {
+    throwNonSymphonyState(details, "state response field had an invalid shape", { field: detailField, expected: "object" });
+  }
+  validateRequiredString(value, "issue_id", details, `${detailField}.issue_id`);
+  validateRequiredString(value, "issue_identifier", details, `${detailField}.issue_identifier`);
+  validateRequiredString(value, "workspace_path", details, `${detailField}.workspace_path`);
+  validateRequiredString(value, "started_at", details, `${detailField}.started_at`);
+  validateRequiredString(value, "status", details, `${detailField}.status`);
+  validateOptionalStringOrNull(value, "issue_title", details, `${detailField}.issue_title`);
+  validateOptionalNumberOrNull(value, "attempt", details, `${detailField}.attempt`);
+  validateOptionalStringOrNull(value, "error", details, `${detailField}.error`);
+  validateOptionalStringOrNull(value, "worker_host", details, `${detailField}.worker_host`);
+  validateOptionalStringOrNull(value, "model", details, `${detailField}.model`);
+  validateOptionalStringOrNull(value, "tracker_state", details, `${detailField}.tracker_state`);
+  validateOptionalStringOrNull(value, "issue_url", details, `${detailField}.issue_url`);
+}
+
 function validateOptionalArray(value: Record<string, unknown>, field: string, details: Record<string, unknown>, detailField = field): void {
   const fieldValue = value[field];
   if (fieldValue === undefined) return;
@@ -352,6 +379,20 @@ function validateOptionalNumber(value: Record<string, unknown>, field: string, d
   if (fieldValue === undefined) return;
   if (!isFiniteNumber(fieldValue)) {
     throwNonSymphonyState(details, "state response field had an invalid shape", { field: detailField, expected: "number" });
+  }
+}
+
+function validateOptionalNumberOrNull(value: Record<string, unknown>, field: string, details: Record<string, unknown>, detailField = field): void {
+  const fieldValue = value[field];
+  if (fieldValue === undefined || fieldValue === null) return;
+  if (!isFiniteNumber(fieldValue)) {
+    throwNonSymphonyState(details, "state response field had an invalid shape", { field: detailField, expected: "number or null" });
+  }
+}
+
+function validateRequiredString(value: Record<string, unknown>, field: string, details: Record<string, unknown>, detailField = field): void {
+  if (typeof value[field] !== "string") {
+    throwNonSymphonyState(details, "state response field had an invalid shape", { field: detailField, expected: "string" });
   }
 }
 

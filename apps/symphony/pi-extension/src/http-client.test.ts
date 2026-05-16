@@ -25,7 +25,15 @@ async function serve(handler: (req: { method?: string; url?: string }, body: str
 function validState(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     tracker_project_url: "https://github.com/gannonh/kata/projects/1",
-    running: { one: { issue_identifier: "KAT-1" } },
+    running: {
+      one: {
+        issue_id: "issue-1",
+        issue_identifier: "KAT-1",
+        workspace_path: "/tmp/symphony/issue-1",
+        started_at: "2026-05-14T12:00:00Z",
+        status: "running",
+      },
+    },
     retry_queue: [{ identifier: "KAT-2" }],
     blocked: [],
     completed: [{ identifier: "KAT-3" }],
@@ -174,6 +182,7 @@ describe("SymphonyHttpClient", () => {
 
   it.each([
     ["running", validState({ running: [] }), "running"],
+    ["running entry", validState({ running: { one: { issue_identifier: "KAT-1" } } }), "running.one.issue_id"],
     ["retry_queue", validState({ retry_queue: {} }), "retry_queue"],
     ["polling.next_poll_in_ms", validState({ polling: { checking: false, next_poll_in_ms: "1000", poll_interval_ms: 30000 } }), "polling.next_poll_in_ms"],
   ])("rejects malformed state field: %s", async (_name, body, field) => {

@@ -88,4 +88,12 @@ describe("console model", () => {
       "2026-05-14T12:00:00Z error worker SIM-123 worker_failed agent exited with code 1",
     ]);
   });
+
+  it("normalizes multiline event summaries to one row", () => {
+    const events: SymphonyEventEnvelope[] = [
+      { version: "v1", sequence: 1, timestamp: "2026-05-14T12:00:00Z", kind: "worker", severity: "error", issue: "SIM-123", event: "worker_failed", payload: { error: "first line\n\tsecond line" } },
+    ];
+
+    expect(formatEventRows(events)).toEqual(["2026-05-14T12:00:00Z error worker SIM-123 worker_failed first line second line"]);
+  });
 });

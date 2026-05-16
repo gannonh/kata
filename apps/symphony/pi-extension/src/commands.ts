@@ -6,6 +6,7 @@ import { formatError, SymphonyExtensionError } from "./errors.ts";
 import { parseAttachArgs, parseDoctorArgs, parseInitArgs, parseStartArgs, parseSteerArgs } from "./command-args.ts";
 import { withSymphonyLoader, withSymphonyProgress } from "./progress.ts";
 import type { SymphonyRuntime } from "./runtime.ts";
+import { cleanupAbortedStart } from "./runtime-helpers.ts";
 import { resolveStartWorkflow } from "./workflow-resolver.ts";
 
 export function registerSymphonyCommands(pi: ExtensionAPI, runtime: SymphonyRuntime): void {
@@ -126,12 +127,12 @@ export function registerSymphonyCommands(pi: ExtensionAPI, runtime: SymphonyRunt
 
   pi.registerCommand("symphony:steer", {
     description: "Send an operator instruction to a running Symphony worker",
-    handler: async (args, ctx) => runCommandHandler(ctx, async () => {
+    handler: async (args, ctx) => runCommandHandler(ctx, async () => withSymphonyProgress(ctx, { message: "Sending steer instruction...", restoreStatus: (ctx) => setSymphonyStatus(ctx, runtime) }, async (signal) => {
       const parsed = parseSteerArgs(args);
-      const result = await runtime.steerWorker(parsed.issueIdentifier, parsed.instruction);
+      const result = await runtime.steerWorker(parsed.issueIdentifier, parsed.instruction, signal);
       runtime.persist(pi);
       ctx.ui.notify(`Steer delivered to ${result.issueIdentifier}: ${result.instructionPreview}`, "info");
-    }),
+    })),
   });
 
   pi.registerCommand("symphony:stop", {
@@ -177,15 +178,6 @@ async function runCommandHandler(ctx: ExtensionCommandContext, fn: () => Promise
   } catch (error) {
     ctx.ui.notify(formatError(error), "error");
   }
-}
-
-async function cleanupAbortedStart(runtime: SymphonyRuntime, baseUrl: string): Promise<void> {
-  try {
-    await runtime.processManager.stopOwned();
-  } catch (error) {
-    if (!(error instanceof SymphonyExtensionError && error.kind === "not_owned")) throw error;
-  }
-  runtime.clearAttachmentIfBaseUrl(baseUrl);
 }
 
 function runtimeCountsText(runtime: SymphonyRuntime): string {

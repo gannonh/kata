@@ -74,6 +74,20 @@ describe("extension state persistence", () => {
     });
   });
 
+  it("migrates legacy dashboard details state to console details state", () => {
+    const state = restoreStateFromEntries([
+      {
+        type: "custom",
+        customType: STATE_ENTRY_TYPE,
+        data: {
+          dashboard: { showDetails: false },
+        },
+      },
+    ]);
+
+    expect(state.console.showDetails).toBe(false);
+  });
+
   it("ignores invalid nested persisted data", () => {
     const invalidPids = ["123", 0, -1, 1.5];
 

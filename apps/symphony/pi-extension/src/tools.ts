@@ -4,6 +4,7 @@ import { assertLoopbackAttachUrl, resolveAttachUrl } from "./attach-url-policy.t
 import { setSymphonyStatus } from "./commands.ts";
 import { formatError, SymphonyExtensionError } from "./errors.ts";
 import type { SymphonyRuntime } from "./runtime.ts";
+import { cleanupAbortedStart } from "./runtime-helpers.ts";
 import { resolveStartWorkflow } from "./workflow-resolver.ts";
 
 const SYMPHONY_TOOL_EXECUTION_MODE = "sequential" as ToolExecutionMode;
@@ -183,15 +184,6 @@ export function registerSymphonyTools(pi: ExtensionAPI, runtime: SymphonyRuntime
       }
     },
   }));
-}
-
-async function cleanupAbortedStart(runtime: SymphonyRuntime, baseUrl: string): Promise<void> {
-  try {
-    await runtime.processManager.stopOwned();
-  } catch (error) {
-    if (!(error instanceof SymphonyExtensionError && error.kind === "not_owned")) throw error;
-  }
-  runtime.clearAttachmentIfBaseUrl(baseUrl);
 }
 
 function updateProgress(onUpdate: AgentToolUpdateCallback | undefined, text: string): void {

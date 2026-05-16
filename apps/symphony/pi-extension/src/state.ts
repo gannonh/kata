@@ -68,6 +68,8 @@ function restoreStateFromSnapshot(data: Record<string, unknown>): ExtensionState
   if (typeof data.stopOwnedOnShutdown === "boolean") state.stopOwnedOnShutdown = data.stopOwnedOnShutdown;
   if (isRecord(data.console) && typeof data.console.showDetails === "boolean") {
     state.console.showDetails = data.console.showDetails;
+  } else if (isRecord(data.dashboard) && typeof data.dashboard.showDetails === "boolean") {
+    state.console.showDetails = data.dashboard.showDetails;
   }
   if (isOwnedProcessMetadata(data.ownedProcess)) {
     state.ownedProcess = {

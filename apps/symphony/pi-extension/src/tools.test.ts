@@ -110,6 +110,31 @@ describe("symphony tools", () => {
     expect(result).toMatchObject({ content: [{ type: "text", text: "doctor ok" }] });
   });
 
+  it("falls back to root WORKFLOW.md when start omits a workflow and project-home workflow is absent", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "pi-symphony-start-tool-"));
+    await writeFile(join(dir, "WORKFLOW.md"), "---\n---\n", "utf8");
+    const baseUrl = "http://127.0.0.1:8080";
+    const runtime = new SymphonyRuntime();
+    runtime.resolveBinary = vi.fn(async () => "symphony") as SymphonyRuntime["resolveBinary"];
+    runtime.processManager = {
+      start: vi.fn(async () => ({ baseUrl, owned: true, pid: 123 })),
+    } as unknown as SymphonyRuntime["processManager"];
+    runtime.attach = vi.fn(async (_baseUrl: string) => {
+      runtime.state.attachedBaseUrl = baseUrl;
+      runtime.state.lastKnownState = lastKnownState(baseUrl);
+      return {};
+    }) as unknown as SymphonyRuntime["attach"];
+    const { tools } = registerTools(runtime);
+    const start = tools.get("symphony_start");
+    if (!start) throw new Error("expected start tool");
+    const { ctx } = toolContext({ cwd: dir });
+    const signal = new AbortController().signal;
+
+    await start.execute("1", {}, signal, undefined, ctx);
+
+    expect(runtime.processManager.start).toHaveBeenCalledWith(expect.objectContaining({ workflow: "WORKFLOW.md" }));
+  });
+
   it("uses .symphony/WORKFLOW.md when start omits a workflow", async () => {
     const dir = await mkdtemp(join(tmpdir(), "pi-symphony-start-tool-"));
     await mkdir(join(dir, ".symphony"));

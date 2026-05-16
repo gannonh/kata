@@ -346,7 +346,7 @@ export async function openConsole(ctx: ExtensionContext, runtime: SymphonyRuntim
 
   ctx.ui.setWidget("symphony-console", (tui, theme) => {
     let eventStream: EventStreamHandle | undefined;
-    let eventStreamErrorNotified = false;
+    let lastEventStreamErrorMessage: string | undefined;
     let closed = false;
     let liveRefreshTimer: ReturnType<typeof setTimeout> | undefined;
     let liveRefreshInFlight = false;
@@ -397,8 +397,8 @@ export async function openConsole(ctx: ExtensionContext, runtime: SymphonyRuntim
           scheduleLiveRefresh();
         },
         onError: (error) => {
-          if (eventStreamErrorNotified) return;
-          eventStreamErrorNotified = true;
+          if (lastEventStreamErrorMessage === error.message) return;
+          lastEventStreamErrorMessage = error.message;
           ctx.ui.notify(`Symphony event stream unavailable: ${error.message}`, "warning");
         },
       });

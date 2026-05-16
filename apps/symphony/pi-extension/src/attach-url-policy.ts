@@ -4,7 +4,8 @@ import type { OwnedProcessMetadata } from "./state.ts";
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1"]);
 
 export function resolveAttachUrl(url: string | undefined, ownedProcess: OwnedProcessMetadata | undefined): string {
-  if (url) return url;
+  const trimmedUrl = url?.trim();
+  if (trimmedUrl) return trimmedUrl;
   if (ownedProcess?.baseUrl) return ownedProcess.baseUrl;
   throw new SymphonyExtensionError(
     "no_attachment",
