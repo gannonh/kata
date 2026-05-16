@@ -53,9 +53,9 @@ function workerStateFixture(): SymphonyStateResponse {
       "issue-123": { turn_count: 3, max_turns: 20, last_activity_ms: Date.parse("2026-05-14T12:04:00Z"), last_error: null },
       "issue-777": { turn_count: 1, max_turns: 10, last_activity_ms: null, last_error: "usage limit" },
     },
-    retry_queue: [],
-    blocked: [],
-    completed: [],
+    retry_queue: [{ issue_id: "issue-retry", identifier: "SIM-200", attempt: 3, due_in_ms: 90000, error: "rate limit", worker_host: "host-b", workspace_path: "/tmp/retry" }],
+    blocked: [{ issue_id: "issue-blocked", identifier: "SIM-300", title: "Blocked work", state: "Todo", blocker_identifiers: ["SIM-100", "SIM-101"] }],
+    completed: [{ issue_id: "issue-done", identifier: "SIM-400", title: "Done work", completed_at: "2026-05-14T13:00:00Z" }],
     polling: { checking: false, next_poll_in_ms: 1000, poll_interval_ms: 30000 },
   };
 }
@@ -115,6 +115,7 @@ describe("SymphonyConsoleComponent", () => {
       getEvents: () => [],
       refresh: async () => undefined,
       steer: async () => undefined,
+      respondToEscalation: async () => undefined,
       prompt: async () => undefined,
       close: () => undefined,
       requestRender: () => undefined,
@@ -130,7 +131,7 @@ describe("SymphonyConsoleComponent", () => {
     expect(output).toContain("owned process: pid 123");
   });
 
-  it("renders running workers, selected-worker details, and recent runtime events", () => {
+  it("renders running workers, selected issue details, and recent runtime events", () => {
     const state = createDefaultState();
     state.console.showDetails = true;
     const consoleComponent = new SymphonyConsoleComponent({
@@ -139,6 +140,7 @@ describe("SymphonyConsoleComponent", () => {
       getEvents: () => runtimeEventsFixture(),
       refresh: async () => undefined,
       steer: async () => undefined,
+      respondToEscalation: async () => undefined,
       prompt: async () => undefined,
       close: () => undefined,
       requestRender: () => undefined,
@@ -150,7 +152,7 @@ describe("SymphonyConsoleComponent", () => {
     expect(output).toContain("Running Workers");
     expect(output).toContain("> SIM-123");
     expect(output).toContain("SIM-777");
-    expect(output).toContain("Selected Worker");
+    expect(output).toContain("Selected Issue");
     expect(output).toContain("issue: SIM-123 Worker one");
     expect(output).toContain("tracker state: In Progress");
     expect(output).toContain("attempt: 2");
@@ -162,6 +164,82 @@ describe("SymphonyConsoleComponent", () => {
     expect(output).toContain("worker_failed usage limit");
   });
 
+  it("renders retry, blocked, completed, and selected issue sections", () => {
+    const state = createDefaultState();
+    state.console.showDetails = true;
+    const consoleComponent = new SymphonyConsoleComponent({
+      state,
+      getState: () => workerStateFixture(),
+      getEvents: () => [],
+      refresh: async () => undefined,
+      steer: async () => undefined,
+      respondToEscalation: async () => undefined,
+      prompt: async () => undefined,
+      close: () => undefined,
+      requestRender: () => undefined,
+      notify: () => undefined,
+    });
+
+    const output = consoleComponent.render(180).join("\n");
+
+    expect(output).toContain("Retry Queue");
+    expect(output).toContain("Blocked Issues");
+    expect(output).toContain("Completed Issues");
+    expect(output).toContain("Selected Issue");
+    expect(output).toContain("SIM-200");
+    expect(output).toContain("retry in 1m 30s");
+    expect(output).toContain("SIM-300");
+    expect(output).toContain("SIM-100, SIM-101");
+    expect(output).toContain("SIM-400");
+    expect(output).toContain("2026-05-14T13:00:00Z");
+  });
+
+  it("moves selection across retry, blocked, and completed rows and limits steering to running rows", () => {
+    const state = createDefaultState();
+    state.console.showDetails = true;
+    const steer = vi.fn(async () => undefined);
+    const notify = vi.fn();
+    const consoleComponent = new SymphonyConsoleComponent({
+      state,
+      getState: () => workerStateFixture(),
+      getEvents: () => [],
+      refresh: async () => undefined,
+      steer,
+      respondToEscalation: async () => undefined,
+      prompt: async () => "not used",
+      close: () => undefined,
+      requestRender: () => undefined,
+      notify,
+    });
+
+    consoleComponent.handleInput("\u001b[B");
+    consoleComponent.handleInput("\u001b[B");
+    let output = consoleComponent.render(180).join("\n");
+    expect(output).toContain("> SIM-200");
+    expect(output).toContain("issue: SIM-200 rate limit");
+    expect(output).toContain("kind: retry");
+    expect(output).toContain("status: retry in 1m 30s");
+    expect(output).toContain("workspace: /tmp/retry");
+
+    consoleComponent.handleInput("s");
+    expect(steer).not.toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledWith("Select a running worker before steering", "warning");
+
+    consoleComponent.handleInput("\u001b[B");
+    output = consoleComponent.render(180).join("\n");
+    expect(output).toContain("> SIM-300");
+    expect(output).toContain("issue: SIM-300 Blocked work");
+    expect(output).toContain("kind: blocked");
+    expect(output).toContain("blockers: SIM-100, SIM-101");
+
+    consoleComponent.handleInput("\u001b[B");
+    output = consoleComponent.render(180).join("\n");
+    expect(output).toContain("> SIM-400");
+    expect(output).toContain("issue: SIM-400 Done work");
+    expect(output).toContain("kind: completed");
+    expect(output).toContain("completed at: 2026-05-14T13:00:00Z");
+  });
+
   it("expands keyboard shortcuts onto one row when the terminal is wide", () => {
     const state = createDefaultState();
     state.attachedBaseUrl = "http://127.0.0.1:8080";
@@ -171,6 +249,7 @@ describe("SymphonyConsoleComponent", () => {
       getEvents: () => [],
       refresh: async () => undefined,
       steer: async () => undefined,
+      respondToEscalation: async () => undefined,
       prompt: async () => undefined,
       close: () => undefined,
       requestRender: () => undefined,
@@ -202,6 +281,7 @@ describe("SymphonyConsoleComponent", () => {
       getEvents: () => runtimeEventsFixture(),
       refresh: async () => undefined,
       steer: async () => undefined,
+      respondToEscalation: async () => undefined,
       prompt: async () => undefined,
       close: () => undefined,
       requestRender: () => undefined,
@@ -216,7 +296,7 @@ describe("SymphonyConsoleComponent", () => {
     expect(output).toContain("Status");
     expect(output).toContain("Worker Summary");
     expect(output).toContain("Running Workers");
-    expect(output).toContain("Selected Worker");
+    expect(output).toContain("Selected Issue");
     expect(output).toContain("Events");
     expect(output).toContain("Keyboard");
     expect(output).toContain("ctrl+shift+↑/↓ select");
@@ -243,6 +323,7 @@ describe("SymphonyConsoleComponent", () => {
       getEvents: () => [],
       refresh: async () => undefined,
       steer: async () => undefined,
+      respondToEscalation: async () => undefined,
       prompt: async () => undefined,
       close: () => undefined,
       requestRender: () => undefined,
@@ -256,7 +337,7 @@ describe("SymphonyConsoleComponent", () => {
     expect(output).toContain("issue: SIM-777 Worker two");
   });
 
-  it("toggles selected-worker details", () => {
+  it("toggles selected issue details", () => {
     const state = createDefaultState();
     state.console.showDetails = true;
     const consoleComponent = new SymphonyConsoleComponent({
@@ -265,6 +346,7 @@ describe("SymphonyConsoleComponent", () => {
       getEvents: () => [],
       refresh: async () => undefined,
       steer: async () => undefined,
+      respondToEscalation: async () => undefined,
       prompt: async () => undefined,
       close: () => undefined,
       requestRender: () => undefined,
@@ -297,6 +379,7 @@ describe("SymphonyConsoleComponent", () => {
       getEvents: () => [],
       refresh: async () => undefined,
       steer,
+      respondToEscalation: async () => undefined,
       prompt: async () => "Use the existing auth module",
       close: () => undefined,
       requestRender: () => undefined,
@@ -320,6 +403,7 @@ describe("SymphonyConsoleComponent", () => {
       getEvents: () => [],
       refresh: async () => undefined,
       steer: async () => undefined,
+      respondToEscalation: async () => undefined,
       prompt: async () => {
         throw new Error("prompt failed");
       },
@@ -343,6 +427,7 @@ describe("SymphonyConsoleComponent", () => {
       getEvents: () => [],
       refresh: async () => undefined,
       steer: async () => undefined,
+      respondToEscalation: async () => undefined,
       prompt: async () => undefined,
       close,
       requestRender: () => undefined,
@@ -365,6 +450,7 @@ describe("SymphonyConsoleComponent", () => {
       getEvents: () => [],
       refresh,
       steer: async () => undefined,
+      respondToEscalation: async () => undefined,
       prompt: async () => undefined,
       close: () => undefined,
       requestRender: () => undefined,
@@ -395,6 +481,7 @@ describe("SymphonyConsoleComponent", () => {
         throw new Error("refresh failed");
       },
       steer: async () => undefined,
+      respondToEscalation: async () => undefined,
       prompt: async () => undefined,
       close: () => undefined,
       requestRender: () => undefined,
