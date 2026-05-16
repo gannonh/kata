@@ -209,5 +209,10 @@ function helpText(runtime: SymphonyRuntime): string {
     "/symphony:refresh",
     "/symphony:steer <ISSUE> <instruction>",
     "/symphony:stop",
+    "",
+    "Console keys:",
+    "↑/↓ select items",
+    "r refresh, s steer selected running worker, e respond to selected escalation",
+    "d details, q/Escape close",
   ].join("\n");
 }

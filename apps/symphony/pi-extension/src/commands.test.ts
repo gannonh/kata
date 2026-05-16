@@ -131,6 +131,20 @@ describe("symphony commands", () => {
     shortcutSpy.mockRestore();
   });
 
+  it("includes console key guidance in help text", async () => {
+    const runtime = new SymphonyRuntime();
+    const { commands } = registerCommands(runtime);
+    const { ctx, notify } = commandContext();
+    const help = commands.get("symphony:help");
+    if (!help) throw new Error("expected help command");
+
+    await help.handler("", ctx);
+
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining("Console keys:"), "info");
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining("s steer selected running worker"), "info");
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining("e respond to selected escalation"), "info");
+  });
+
   it("requests a manual refresh from the command", async () => {
     const runtime = new SymphonyRuntime();
     runtime.state.attachedBaseUrl = "http://127.0.0.1:8080";
