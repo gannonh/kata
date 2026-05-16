@@ -1,4 +1,12 @@
-import type { RunAttemptResponse, SymphonyEventEnvelope, SymphonyStateResponse } from "./http-client.ts";
+import type {
+  BlockedIssueResponse,
+  CompletedIssueResponse,
+  PendingEscalationResponse,
+  RetryQueueEntryResponse,
+  RunAttemptResponse,
+  SymphonyEventEnvelope,
+  SymphonyStateResponse,
+} from "./http-client.ts";
 
 export interface WorkerRow {
   issueId: string;
@@ -15,18 +23,146 @@ export interface WorkerRow {
   errorPreview: string;
 }
 
+export type IssueRowKind = "running" | "retry" | "blocked" | "completed";
+
+export interface IssueRow {
+  kind: IssueRowKind;
+  issueId: string;
+  issueIdentifier: string;
+  title: string;
+  status: string;
+  trackerState: string;
+  attempt: string;
+  turnCount: string;
+  maxTurns: string;
+  lastActivity: string;
+  workerHost: string;
+  workspacePath: string;
+  errorPreview: string;
+  blockers: string;
+  completedAt: string;
+}
+
+export interface EscalationRow {
+  requestId: string;
+  issueId: string;
+  issueIdentifier: string;
+  method: string;
+  preview: string;
+  createdAt: string;
+  timeout: string;
+}
+
 export function buildWorkerRows(state: SymphonyStateResponse | undefined): WorkerRow[] {
   return Object.entries(state?.running ?? {})
     .map(([issueId, attempt]) => buildWorkerRow(issueId, attempt, state))
     .sort((left, right) => left.issueIdentifier.localeCompare(right.issueIdentifier));
 }
 
+export function buildIssueRows(state: SymphonyStateResponse | undefined): IssueRow[] {
+  if (!state) return [];
+
+  return [
+    ...Object.entries(state.running ?? {})
+      .map(([issueId, attempt]) => workerToIssueRow(issueId, attempt, state))
+      .sort(compareIssueRows),
+    ...(state.retry_queue ?? []).map(retryToIssueRow).sort(compareIssueRows),
+    ...(state.blocked ?? []).map(blockedToIssueRow).sort(compareIssueRows),
+    ...(state.completed ?? []).map(completedToIssueRow).sort(compareIssueRows),
+  ];
+}
+
+export function buildEscalationRows(state: SymphonyStateResponse | undefined): EscalationRow[] {
+  return (state?.pending_escalations ?? [])
+    .slice()
+    .sort(compareEscalations)
+    .map((entry) => ({
+      requestId: entry.request_id,
+      issueId: entry.issue_id,
+      issueIdentifier: entry.issue_identifier,
+      method: entry.method,
+      preview: truncateText(entry.preview, 120),
+      createdAt: entry.created_at,
+      timeout: formatDuration(entry.timeout_ms),
+    }));
+}
+
 export function formatEventRows(events: SymphonyEventEnvelope[], limit = 8): string[] {
   return events
-    .filter((event) => event.kind === "worker" || event.kind === "runtime")
+    .filter((event) => event.kind === "worker" || event.kind === "runtime" || event.kind.startsWith("escalation_"))
     .slice(-limit)
     .reverse()
     .map((event) => [event.timestamp, event.severity, event.kind, event.issue ?? "-", event.event, eventSummary(event)].filter(Boolean).join(" "));
+}
+
+function workerToIssueRow(issueId: string, attempt: RunAttemptResponse, state: SymphonyStateResponse | undefined): IssueRow {
+  return {
+    kind: "running",
+    ...buildWorkerRow(issueId, attempt, state),
+    blockers: "-",
+    completedAt: "-",
+  };
+}
+
+function retryToIssueRow(entry: RetryQueueEntryResponse): IssueRow {
+  const errorPreview = entry.error ? truncateText(entry.error, 120) : "-";
+  return {
+    kind: "retry",
+    issueId: entry.issue_id,
+    issueIdentifier: entry.identifier,
+    title: errorPreview,
+    status: `retry in ${formatDuration(entry.due_in_ms)}`,
+    trackerState: "-",
+    attempt: String(entry.attempt),
+    turnCount: "-",
+    maxTurns: "-",
+    lastActivity: "-",
+    workerHost: entry.worker_host ?? "local",
+    workspacePath: entry.workspace_path ?? "-",
+    errorPreview,
+    blockers: "-",
+    completedAt: "-",
+  };
+}
+
+function blockedToIssueRow(entry: BlockedIssueResponse): IssueRow {
+  return {
+    kind: "blocked",
+    issueId: entry.issue_id,
+    issueIdentifier: entry.identifier,
+    title: entry.title,
+    status: entry.state,
+    trackerState: entry.state,
+    attempt: "-",
+    turnCount: "-",
+    maxTurns: "-",
+    lastActivity: "-",
+    workerHost: "-",
+    workspacePath: "-",
+    errorPreview: "-",
+    blockers: entry.blocker_identifiers.length > 0 ? entry.blocker_identifiers.join(", ") : "-",
+    completedAt: "-",
+  };
+}
+
+function completedToIssueRow(entry: CompletedIssueResponse): IssueRow {
+  return {
+    kind: "completed",
+    issueId: entry.issue_id,
+    issueIdentifier: entry.identifier,
+    title: entry.title,
+    status: "completed",
+    trackerState: "completed",
+    attempt: "-",
+    turnCount: "-",
+    maxTurns: "-",
+    lastActivity: "-",
+    workerHost: "-",
+    workspacePath: "-",
+    errorPreview: "-",
+    blockers: "-",
+    completedAt: entry.completed_at ?? "-",
+  };
 }
 
 function buildWorkerRow(issueId: string, attempt: RunAttemptResponse, state: SymphonyStateResponse | undefined): WorkerRow {
@@ -56,6 +192,28 @@ function formatLastActivity(lastActivityMs: number | null | undefined, lastActiv
     return new Date(lastActivityMs).toISOString();
   }
   return lastActivityAt ?? "-";
+}
+
+function formatDuration(durationMs: number): string {
+  if (!Number.isFinite(durationMs) || durationMs <= 0) return "0s";
+  const totalSeconds = Math.floor(durationMs / 1000);
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}m ${seconds}s`;
+}
+
+function compareIssueRows(left: IssueRow, right: IssueRow): number {
+  return left.issueIdentifier.localeCompare(right.issueIdentifier);
+}
+
+function compareEscalations(left: PendingEscalationResponse, right: PendingEscalationResponse): number {
+  return timestampMs(left.created_at) - timestampMs(right.created_at) || left.request_id.localeCompare(right.request_id);
+}
+
+function timestampMs(value: string): number {
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function eventSummary(event: SymphonyEventEnvelope): string {
