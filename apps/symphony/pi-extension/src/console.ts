@@ -1,18 +1,18 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
-import { buildWorkerRows, formatEventRows, type WorkerRow } from "./dashboard-model.ts";
+import { buildWorkerRows, formatEventRows, type WorkerRow } from "./console-model.ts";
 import { startSymphonyEventStream, type EventStreamHandle } from "./event-stream.ts";
 import type { SymphonyEventEnvelope, SymphonyStateResponse } from "./http-client.ts";
 import type { SymphonyRuntime } from "./runtime.ts";
 import type { ExtensionState } from "./state.ts";
 
-type DashboardThemeColor = "accent" | "border" | "borderAccent" | "success" | "error" | "warning" | "muted" | "dim" | "text";
+type ConsoleThemeColor = "accent" | "border" | "borderAccent" | "success" | "error" | "warning" | "muted" | "dim" | "text";
 
-type DashboardThemeBg = "selectedBg";
+type ConsoleThemeBg = "selectedBg";
 
-interface DashboardTheme {
-  fg(color: DashboardThemeColor, text: string): string;
-  bg?(color: DashboardThemeBg, text: string): string;
+interface ConsoleTheme {
+  fg(color: ConsoleThemeColor, text: string): string;
+  bg?(color: ConsoleThemeBg, text: string): string;
   bold(text: string): string;
 }
 
@@ -66,7 +66,7 @@ export interface ConsoleOptions {
   close: () => void;
   requestRender: () => void;
   notify: (message: string, level: "info" | "warning" | "error") => void;
-  theme?: DashboardTheme;
+  theme?: ConsoleTheme;
 }
 
 export class SymphonyConsoleComponent {
@@ -133,7 +133,7 @@ export class SymphonyConsoleComponent {
       ], consoleWidth, theme),
       "",
       ...boxLines("Running Workers", renderWorkerTable(workers, this.selectedWorkerIndex, theme), consoleWidth, theme),
-      ...boxLines("Selected Worker", renderSelectedWorkerDetails(selectedWorker, state.dashboard.showDetails, theme), consoleWidth, theme),
+      ...boxLines("Selected Worker", renderSelectedWorkerDetails(selectedWorker, state.console.showDetails, theme), consoleWidth, theme),
       ...boxLines("Events", renderRecentEvents(formatEventRows(this.options.getEvents()), theme), consoleWidth, theme),
       "",
       ...boxLines("Actions", renderActionLegend(this.refreshing, consoleWidth, theme), consoleWidth, theme),
@@ -153,7 +153,7 @@ export class SymphonyConsoleComponent {
   }
 
   toggleDetails(): void {
-    this.options.state.dashboard.showDetails = !this.options.state.dashboard.showDetails;
+    this.options.state.console.showDetails = !this.options.state.console.showDetails;
     this.options.requestRender();
   }
 
@@ -222,7 +222,7 @@ export class SymphonyConsoleComponent {
   }
 }
 
-function renderWorkerTable(workers: WorkerRow[], selectedIndex: number, theme?: DashboardTheme): string[] {
+function renderWorkerTable(workers: WorkerRow[], selectedIndex: number, theme?: ConsoleTheme): string[] {
   const lines = [color(theme, "dim", "sel issue    state           attempt turns   host      last activity")];
   if (workers.length === 0) return [...lines, color(theme, "dim", "-   no running workers")];
 
@@ -242,7 +242,7 @@ function renderWorkerTable(workers: WorkerRow[], selectedIndex: number, theme?: 
   return lines;
 }
 
-function renderSelectedWorkerDetails(worker: WorkerRow | undefined, showDetails: boolean, theme?: DashboardTheme): string[] {
+function renderSelectedWorkerDetails(worker: WorkerRow | undefined, showDetails: boolean, theme?: ConsoleTheme): string[] {
   if (!showDetails) return [];
   if (!worker) return [color(theme, "dim", "none")];
   return [
@@ -257,12 +257,12 @@ function renderSelectedWorkerDetails(worker: WorkerRow | undefined, showDetails:
   ];
 }
 
-function renderRecentEvents(events: string[], theme?: DashboardTheme): string[] {
+function renderRecentEvents(events: string[], theme?: ConsoleTheme): string[] {
   if (events.length === 0) return [color(theme, "dim", "none")];
   return events.map((event) => colorEventRow(event, theme));
 }
 
-function renderActionLegend(refreshing: boolean, width: number, theme?: DashboardTheme): string[] {
+function renderActionLegend(refreshing: boolean, width: number, theme?: ConsoleTheme): string[] {
   const keyboard = "Keyboard: ctrl+shift+↑/↓ select  •  ctrl+shift+r refresh  •  ctrl+shift+e steer  •  ctrl+shift+i details  •  ctrl+shift+q close";
   const commands = "Commands: /symphony:refresh | /symphony:status | /symphony:stop";
   if (refreshing) return [color(theme, "warning", "refreshing..."), commands];
@@ -274,7 +274,7 @@ function renderActionLegend(refreshing: boolean, width: number, theme?: Dashboar
   ];
 }
 
-function colorEventRow(event: string, theme?: DashboardTheme): string {
+function colorEventRow(event: string, theme?: ConsoleTheme): string {
   if (event.includes(" error ")) return color(theme, "error", event);
   if (event.includes(" warn ") || event.includes(" warning ")) return color(theme, "warning", event);
   if (event.includes(" debug ")) return color(theme, "dim", event);
@@ -282,7 +282,7 @@ function colorEventRow(event: string, theme?: DashboardTheme): string {
   return event;
 }
 
-function boxLines(title: string, content: string[], width: number, theme?: DashboardTheme): string[] {
+function boxLines(title: string, content: string[], width: number, theme?: ConsoleTheme): string[] {
   const innerWidth = Math.max(20, width - 4);
   const titleText = ` ${title} `;
   const border = (value: string) => color(theme, "borderAccent", value);
@@ -295,20 +295,20 @@ function boxLines(title: string, content: string[], width: number, theme?: Dashb
   ];
 }
 
-function color(theme: DashboardTheme | undefined, name: DashboardThemeColor, value: string): string {
-  return isDashboardTheme(theme) ? theme.fg(name, value) : value;
+function color(theme: ConsoleTheme | undefined, name: ConsoleThemeColor, value: string): string {
+  return isConsoleTheme(theme) ? theme.fg(name, value) : value;
 }
 
-function bold(theme: DashboardTheme | undefined, value: string): string {
-  return isDashboardTheme(theme) ? theme.bold(value) : value;
+function bold(theme: ConsoleTheme | undefined, value: string): string {
+  return isConsoleTheme(theme) ? theme.bold(value) : value;
 }
 
-function selectedLine(theme: DashboardTheme | undefined, value: string): string {
+function selectedLine(theme: ConsoleTheme | undefined, value: string): string {
   const styled = color(theme, "accent", bold(theme, value));
-  return isDashboardTheme(theme) && theme.bg ? theme.bg("selectedBg", styled) : styled;
+  return isConsoleTheme(theme) && theme.bg ? theme.bg("selectedBg", styled) : styled;
 }
 
-function isDashboardTheme(theme: DashboardTheme | undefined): theme is DashboardTheme {
+function isConsoleTheme(theme: ConsoleTheme | undefined): theme is ConsoleTheme {
   if (!theme) return false;
   return typeof theme.fg === "function" && typeof theme.bold === "function";
 }

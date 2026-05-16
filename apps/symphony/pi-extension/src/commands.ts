@@ -1,7 +1,7 @@
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { KeyId } from "@earendil-works/pi-tui";
 import { assertLoopbackAttachUrl, resolveAttachUrl } from "./attach-url-policy.ts";
-import { closeActiveConsole, handleActiveConsoleShortcut, openConsole, type ConsoleShortcutAction } from "./dashboard.ts";
+import { closeActiveConsole, handleActiveConsoleShortcut, openConsole, type ConsoleShortcutAction } from "./console.ts";
 import { formatError, SymphonyExtensionError } from "./errors.ts";
 import { parseAttachArgs, parseDoctorArgs, parseInitArgs, parseStartArgs, parseSteerArgs } from "./command-args.ts";
 import { withSymphonyLoader, withSymphonyProgress } from "./progress.ts";

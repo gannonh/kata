@@ -1,6 +1,6 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { handleActiveConsoleShortcut, openConsole, SymphonyConsoleComponent } from "./dashboard.ts";
+import { handleActiveConsoleShortcut, openConsole, SymphonyConsoleComponent } from "./console.ts";
 import { startSymphonyEventStream } from "./event-stream.ts";
 import type { SymphonyEventEnvelope, SymphonyStateResponse } from "./http-client.ts";
 import type { SymphonyRuntime } from "./runtime.ts";
@@ -109,7 +109,7 @@ describe("SymphonyConsoleComponent", () => {
       updatedAt: "2026-05-14T00:00:01Z",
     };
 
-    const dashboard = new SymphonyConsoleComponent({
+    const consoleComponent = new SymphonyConsoleComponent({
       state,
       getState: () => undefined,
       getEvents: () => [],
@@ -121,7 +121,7 @@ describe("SymphonyConsoleComponent", () => {
       notify: () => undefined,
     });
 
-    const output = dashboard.render(120).join("\n");
+    const output = consoleComponent.render(120).join("\n");
     expect(output).toContain("Symphony Console");
     expect(output).toContain("dashboard: http://127.0.0.1:8080");
     expect(output).toContain("project: https://github.com/gannonh/kata/projects/1");
@@ -132,8 +132,8 @@ describe("SymphonyConsoleComponent", () => {
 
   it("renders running workers, selected-worker details, and recent runtime events", () => {
     const state = createDefaultState();
-    state.dashboard.showDetails = true;
-    const dashboard = new SymphonyConsoleComponent({
+    state.console.showDetails = true;
+    const consoleComponent = new SymphonyConsoleComponent({
       state,
       getState: () => workerStateFixture(),
       getEvents: () => runtimeEventsFixture(),
@@ -145,7 +145,7 @@ describe("SymphonyConsoleComponent", () => {
       notify: () => undefined,
     });
 
-    const output = dashboard.render(160).join("\n");
+    const output = consoleComponent.render(160).join("\n");
 
     expect(output).toContain("Running Workers");
     expect(output).toContain("> SIM-123");
@@ -165,7 +165,7 @@ describe("SymphonyConsoleComponent", () => {
   it("expands keyboard shortcuts onto one row when the terminal is wide", () => {
     const state = createDefaultState();
     state.attachedBaseUrl = "http://127.0.0.1:8080";
-    const dashboard = new SymphonyConsoleComponent({
+    const consoleComponent = new SymphonyConsoleComponent({
       state,
       getState: () => workerStateFixture(),
       getEvents: () => [],
@@ -177,7 +177,7 @@ describe("SymphonyConsoleComponent", () => {
       notify: () => undefined,
     });
 
-    const output = dashboard.render(220).join("\n");
+    const output = consoleComponent.render(220).join("\n");
 
     expect(output).toContain("Keyboard: ctrl+shift+↑/↓ select  •  ctrl+shift+r refresh  •  ctrl+shift+e steer  •  ctrl+shift+i details  •  ctrl+shift+q close");
   });
@@ -196,7 +196,7 @@ describe("SymphonyConsoleComponent", () => {
       nextPollInMs: 5000,
       updatedAt: "2026-05-14T00:00:01Z",
     };
-    const dashboard = new SymphonyConsoleComponent({
+    const consoleComponent = new SymphonyConsoleComponent({
       state,
       getState: () => workerStateFixture(),
       getEvents: () => runtimeEventsFixture(),
@@ -209,7 +209,7 @@ describe("SymphonyConsoleComponent", () => {
       theme: fakeTheme(),
     });
 
-    const output = dashboard.render(220).join("\n");
+    const output = consoleComponent.render(220).join("\n");
 
     expect(output).toContain("┌");
     expect(output).toContain("└");
@@ -237,7 +237,7 @@ describe("SymphonyConsoleComponent", () => {
 
   it("moves selection with arrow keys", () => {
     const state = createDefaultState();
-    const dashboard = new SymphonyConsoleComponent({
+    const consoleComponent = new SymphonyConsoleComponent({
       state,
       getState: () => workerStateFixture(),
       getEvents: () => [],
@@ -249,17 +249,17 @@ describe("SymphonyConsoleComponent", () => {
       notify: () => undefined,
     });
 
-    dashboard.handleInput("\u001b[B");
+    consoleComponent.handleInput("\u001b[B");
 
-    const output = dashboard.render(160).join("\n");
+    const output = consoleComponent.render(160).join("\n");
     expect(output).toContain("> SIM-777");
     expect(output).toContain("issue: SIM-777 Worker two");
   });
 
   it("toggles selected-worker details", () => {
     const state = createDefaultState();
-    state.dashboard.showDetails = true;
-    const dashboard = new SymphonyConsoleComponent({
+    state.console.showDetails = true;
+    const consoleComponent = new SymphonyConsoleComponent({
       state,
       getState: () => workerStateFixture(),
       getEvents: () => [],
@@ -271,9 +271,9 @@ describe("SymphonyConsoleComponent", () => {
       notify: () => undefined,
     });
 
-    dashboard.handleInput("d");
+    consoleComponent.handleInput("d");
 
-    expect(dashboard.render(160).join("\n")).not.toContain("issue: SIM-123 Worker one");
+    expect(consoleComponent.render(160).join("\n")).not.toContain("issue: SIM-123 Worker one");
   });
 
   it("prompts for a steer instruction and sends it to the selected worker", async () => {
@@ -291,7 +291,7 @@ describe("SymphonyConsoleComponent", () => {
     const notify = vi.fn(() => {
       resolveNotified?.();
     });
-    const dashboard = new SymphonyConsoleComponent({
+    const consoleComponent = new SymphonyConsoleComponent({
       state: createDefaultState(),
       getState: () => workerStateFixture(),
       getEvents: () => [],
@@ -303,7 +303,7 @@ describe("SymphonyConsoleComponent", () => {
       notify,
     });
 
-    dashboard.handleInput("s");
+    consoleComponent.handleInput("s");
     await steered;
     await notified;
 
@@ -314,7 +314,7 @@ describe("SymphonyConsoleComponent", () => {
   it("notifies and requests render when steering prompt fails", async () => {
     const notify = vi.fn();
     const requestRender = vi.fn();
-    const dashboard = new SymphonyConsoleComponent({
+    const consoleComponent = new SymphonyConsoleComponent({
       state: createDefaultState(),
       getState: () => workerStateFixture(),
       getEvents: () => [],
@@ -328,7 +328,7 @@ describe("SymphonyConsoleComponent", () => {
       notify,
     });
 
-    dashboard.handleInput("s");
+    consoleComponent.handleInput("s");
     await expect.poll(() => notify.mock.calls.length, { interval: 10, timeout: 1000 }).toBe(1);
 
     expect(notify).toHaveBeenCalledWith("prompt failed", "error");
@@ -337,7 +337,7 @@ describe("SymphonyConsoleComponent", () => {
 
   it("closes on q", () => {
     const close = vi.fn();
-    const dashboard = new SymphonyConsoleComponent({
+    const consoleComponent = new SymphonyConsoleComponent({
       state: createDefaultState(),
       getState: () => undefined,
       getEvents: () => [],
@@ -349,7 +349,7 @@ describe("SymphonyConsoleComponent", () => {
       notify: () => undefined,
     });
 
-    dashboard.handleInput("q");
+    consoleComponent.handleInput("q");
     expect(close).toHaveBeenCalledOnce();
   });
 
@@ -359,7 +359,7 @@ describe("SymphonyConsoleComponent", () => {
       resolveRefresh = resolve;
     });
     const refresh = vi.fn(() => refreshDone);
-    const dashboard = new SymphonyConsoleComponent({
+    const consoleComponent = new SymphonyConsoleComponent({
       state: createDefaultState(),
       getState: () => undefined,
       getEvents: () => [],
@@ -371,8 +371,8 @@ describe("SymphonyConsoleComponent", () => {
       notify: () => undefined,
     });
 
-    dashboard.handleInput("r");
-    dashboard.handleInput("r");
+    consoleComponent.handleInput("r");
+    consoleComponent.handleInput("r");
 
     expect(refresh).toHaveBeenCalledOnce();
     resolveRefresh?.();
@@ -387,7 +387,7 @@ describe("SymphonyConsoleComponent", () => {
     const notify = vi.fn((_message: string, _level: "info" | "warning" | "error") => {
       resolveNotified?.();
     });
-    const dashboard = new SymphonyConsoleComponent({
+    const consoleComponent = new SymphonyConsoleComponent({
       state: createDefaultState(),
       getState: () => undefined,
       getEvents: () => [],
@@ -401,7 +401,7 @@ describe("SymphonyConsoleComponent", () => {
       notify,
     });
 
-    dashboard.handleInput("r");
+    consoleComponent.handleInput("r");
     await notified;
 
     expect(notify).toHaveBeenCalledWith("refresh failed", "error");
@@ -476,7 +476,7 @@ describe("openConsole", () => {
   it("lets global shortcuts control the active above-editor console", async () => {
     const state = createDefaultState();
     state.attachedBaseUrl = "http://127.0.0.1:8080";
-    state.dashboard.showDetails = true;
+    state.console.showDetails = true;
 
     vi.mocked(startSymphonyEventStream).mockImplementation(() => ({ close: vi.fn() }));
 

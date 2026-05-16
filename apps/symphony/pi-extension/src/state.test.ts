@@ -31,7 +31,7 @@ describe("extension state persistence", () => {
           binaryPath: "/usr/local/bin/symphony",
           attachedBaseUrl: "http://127.0.0.1:8080",
           ownedProcess,
-          dashboard: { showDetails: true },
+          console: { showDetails: true },
           stopOwnedOnShutdown: false,
           lastKnownState,
         },
@@ -41,7 +41,7 @@ describe("extension state persistence", () => {
         customType: STATE_ENTRY_TYPE,
         data: {
           binaryPath: "/opt/symphony",
-          dashboard: { showDetails: false },
+          console: { showDetails: false },
           stopOwnedOnShutdown: true,
           lastKnownState: {
             baseUrl: "http://127.0.0.1:9090",
@@ -59,7 +59,7 @@ describe("extension state persistence", () => {
 
     expect(state).toEqual({
       binaryPath: "/opt/symphony",
-      dashboard: { showDetails: false },
+      console: { showDetails: false },
       stopOwnedOnShutdown: true,
       lastKnownState: {
         baseUrl: "http://127.0.0.1:9090",
@@ -92,7 +92,7 @@ describe("extension state persistence", () => {
           customType: STATE_ENTRY_TYPE,
           data: {
             ownedProcess: { ...ownedProcess, pid },
-            dashboard: { showDetails: true },
+            console: { showDetails: true },
             stopOwnedOnShutdown: false,
             lastKnownState: { ...lastKnownState, runningCount: "1" },
           },
@@ -100,7 +100,7 @@ describe("extension state persistence", () => {
       ]);
 
       expect(state).toEqual({
-        dashboard: { showDetails: true },
+        console: { showDetails: true },
         stopOwnedOnShutdown: false,
       });
     }
@@ -132,7 +132,7 @@ describe("extension state persistence", () => {
         data: {
           attachedBaseUrl: "file:///tmp/symphony.sock",
           ownedProcess: { ...ownedProcess, baseUrl: "data:text/plain,symphony" },
-          dashboard: { showDetails: true },
+          console: { showDetails: true },
           stopOwnedOnShutdown: false,
           lastKnownState: { ...lastKnownState, baseUrl: "ws://127.0.0.1:8080" },
         },
@@ -140,7 +140,7 @@ describe("extension state persistence", () => {
     ]);
 
     expect(state).toEqual({
-      dashboard: { showDetails: true },
+      console: { showDetails: true },
       stopOwnedOnShutdown: false,
     });
   });

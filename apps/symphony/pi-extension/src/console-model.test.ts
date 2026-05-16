@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildWorkerRows, formatEventRows } from "./dashboard-model.ts";
+import { buildWorkerRows, formatEventRows } from "./console-model.ts";
 import type { SymphonyEventEnvelope, SymphonyStateResponse } from "./http-client.ts";
 
 function stateFixture(): SymphonyStateResponse {
@@ -24,7 +24,7 @@ function stateFixture(): SymphonyStateResponse {
         workspace_path: "/tmp/symphony/issue-777",
         started_at: "2026-05-14T12:05:00Z",
         status: "running",
-        error: "agent exited after a very long error message that needs to be shortened for the dashboard",
+        error: "agent exited after a very long error message that needs to be shortened for the console",
       },
     },
     running_sessions: {
@@ -41,7 +41,7 @@ function stateFixture(): SymphonyStateResponse {
   };
 }
 
-describe("dashboard model", () => {
+describe("console model", () => {
   it("builds sorted worker rows with selected-worker detail fields", () => {
     const rows = buildWorkerRows(stateFixture());
 
@@ -61,7 +61,7 @@ describe("dashboard model", () => {
     });
     expect(rows[1]?.attempt).toBe("1");
     expect(rows[1]?.trackerState).toBe("-");
-    expect(rows[1]?.errorPreview).toBe("agent exited after a very long error message that needs to be shortened for the dashboard");
+    expect(rows[1]?.errorPreview).toBe("agent exited after a very long error message that needs to be shortened for the console");
   });
 
   it("formats only recent worker and runtime events", () => {
