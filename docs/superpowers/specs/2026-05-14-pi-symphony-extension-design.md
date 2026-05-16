@@ -148,6 +148,21 @@ This doc is the master design doc. We are using `/writing-plans` to create imple
 - Support steering the selected worker from the dashboard.
 - Show recent worker and runtime events.
 
+ **Manual Run Instructions:**
+
+ 1. From repo root, launch Pi with the extension:
+ pi -e ./apps/symphony/pi-extension
+ Expected: Pi starts with Symphony commands available.
+ 2. In Pi, run /symphony:start .symphony/WORKFLOW.md or attach to an existing server with
+ /symphony:attach <http://127.0.0.1>:<port>.
+ Expected: Symphony attaches and dashboard/status shows the base URL.
+ 3. In the dashboard, press r.
+ Expected: refresh is requested and worker counts update.
+ 4. Select a running worker with ↑ / ↓, press s, and enter an instruction.
+ Expected: notification says Steer delivered to <ISSUE>.
+ 5. Press d to toggle details, then q to close.
+ Expected: details toggle and dashboard exits without stopping Symphony.
+
 ### Slice 3: retry, blocked, and completed issues
 
 - Render retry queue, blocked issues, and completed issues.
