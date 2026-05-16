@@ -122,6 +122,41 @@ describe("console model", () => {
     });
   });
 
+  it("rounds retry wait times up to the next second", () => {
+    const state = stateFixture();
+    state.retry_queue = [
+      {
+        issue_id: "issue-retry",
+        identifier: "SIM-200",
+        attempt: 1,
+        due_in_ms: 999,
+      },
+    ];
+
+    const retryRow = buildIssueRows(state).find((row) => row.kind === "retry");
+
+    expect(retryRow).toMatchObject({ status: "retry in 1s" });
+  });
+
+  it("preserves pending retry state when no retry error is present", () => {
+    const state = stateFixture();
+    state.retry_queue = [
+      {
+        issue_id: "issue-retry",
+        identifier: "SIM-200",
+        attempt: 1,
+        due_in_ms: 1000,
+      },
+    ];
+
+    const retryRow = buildIssueRows(state).find((row) => row.kind === "retry");
+
+    expect(retryRow).toMatchObject({
+      title: "pending retry",
+      trackerState: "retry",
+    });
+  });
+
   it("builds escalation rows sorted by creation time and request id", () => {
     const state = stateFixture();
     state.pending_escalations = [

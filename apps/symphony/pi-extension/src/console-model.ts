@@ -110,9 +110,9 @@ function retryToIssueRow(entry: RetryQueueEntryResponse): IssueRow {
     kind: "retry",
     issueId: entry.issue_id,
     issueIdentifier: entry.identifier,
-    title: errorPreview,
+    title: entry.error ?? "pending retry",
     status: `retry in ${formatDuration(entry.due_in_ms)}`,
-    trackerState: "-",
+    trackerState: "retry",
     attempt: String(entry.attempt),
     turnCount: "-",
     maxTurns: "-",
@@ -196,7 +196,7 @@ function formatLastActivity(lastActivityMs: number | null | undefined, lastActiv
 
 function formatDuration(durationMs: number): string {
   if (!Number.isFinite(durationMs) || durationMs <= 0) return "0s";
-  const totalSeconds = Math.floor(durationMs / 1000);
+  const totalSeconds = Math.ceil(durationMs / 1000);
   if (totalSeconds < 60) return `${totalSeconds}s`;
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
