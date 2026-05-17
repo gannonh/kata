@@ -1,5 +1,6 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { SymphonyStateResponse } from "./http-client.ts";
 import { SymphonyRuntime } from "./runtime.ts";
 import { STATE_ENTRY_TYPE, type LastKnownSymphonyState } from "./state.ts";
 
@@ -21,6 +22,21 @@ function lastKnownState(baseUrl: string): LastKnownSymphonyState {
     pollingChecking: false,
     nextPollInMs: 1000,
     updatedAt: "2026-05-14T00:00:01.000Z",
+  };
+}
+
+function stateResponse(overrides: Partial<SymphonyStateResponse> = {}): SymphonyStateResponse {
+  return {
+    running: {},
+    retry_queue: [],
+    blocked: [],
+    completed: [],
+    polling: { checking: false, next_poll_in_ms: 1000, poll_interval_ms: 30000 },
+    shared_context: { total_entries: 0, entries_by_scope: {}, oldest_entry_at: null, newest_entry_at: null },
+    supervisor: { active: true, steers_issued: 0, conflicts_detected: 0, patterns_detected: 0, escalations_created: 0 },
+    codex_totals: { input_tokens: 0, output_tokens: 0, total_tokens: 0, event_count: 0, seconds_running: 0 },
+    codex_rate_limits: null,
+    ...overrides,
   };
 }
 
@@ -76,14 +92,7 @@ describe("SymphonyRuntime", () => {
 
   it("keeps the latest raw Symphony state after refresh", async () => {
     const runtime = new SymphonyRuntime();
-    const response = {
-      tracker_project_url: "https://linear.app/kata-sh/project/symphony",
-      running: {},
-      retry_queue: [],
-      blocked: [],
-      completed: [],
-      polling: { checking: false, next_poll_in_ms: 1000, poll_interval_ms: 30000 },
-    };
+    const response = stateResponse({ tracker_project_url: "https://linear.app/kata-sh/project/symphony" });
     runtime.client = {
       getState: vi.fn(async () => response),
       toHealthSummary: vi.fn(() => lastKnownState("http://127.0.0.1:8080")),
@@ -98,14 +107,7 @@ describe("SymphonyRuntime", () => {
   it("clears recent events when attaching to a new server", async () => {
     const runtime = new SymphonyRuntime();
     runtime.recordEvent({ version: "v1", sequence: 1, timestamp: "2026-05-14T12:00:00Z", kind: "worker", severity: "error", event: "worker_failed", payload: {} });
-    const response = {
-      tracker_project_url: "https://linear.app/kata-sh/project/symphony",
-      running: {},
-      retry_queue: [],
-      blocked: [],
-      completed: [],
-      polling: { checking: false, next_poll_in_ms: 1000, poll_interval_ms: 30000 },
-    };
+    const response = stateResponse({ tracker_project_url: "https://linear.app/kata-sh/project/symphony" });
     const fetchStub: typeof fetch = async () =>
       ({
         ok: true,
@@ -122,13 +124,7 @@ describe("SymphonyRuntime", () => {
   it("requests a refresh before fetching the latest state", async () => {
     const runtime = new SymphonyRuntime();
     const calls: string[] = [];
-    const response = {
-      running: {},
-      retry_queue: [],
-      blocked: [],
-      completed: [],
-      polling: { checking: false, next_poll_in_ms: 1000, poll_interval_ms: 30000 },
-    };
+    const response = stateResponse();
     runtime.client = {
       refresh: vi.fn(async () => {
         calls.push("refresh");
@@ -149,13 +145,7 @@ describe("SymphonyRuntime", () => {
 
   it("steers a worker and refreshes state", async () => {
     const runtime = new SymphonyRuntime();
-    const response = {
-      running: {},
-      retry_queue: [],
-      blocked: [],
-      completed: [],
-      polling: { checking: false, next_poll_in_ms: 1000, poll_interval_ms: 30000 },
-    };
+    const response = stateResponse();
     runtime.client = {
       steer: vi.fn(async () => ({ ok: true, issueId: "issue-123", issueIdentifier: "SIM-123", delivered: true, instructionPreview: "Use auth" })),
       getState: vi.fn(async () => response),
@@ -188,13 +178,7 @@ describe("SymphonyRuntime", () => {
 
   it("responds to an escalation and refreshes state", async () => {
     const runtime = new SymphonyRuntime();
-    const response = {
-      running: {},
-      retry_queue: [],
-      blocked: [],
-      completed: [],
-      polling: { checking: false, next_poll_in_ms: 1000, poll_interval_ms: 30000 },
-    };
+    const response = stateResponse();
     const escalationResponse = { ok: true };
     const escalationDecision = { approved: true };
     runtime.client = {

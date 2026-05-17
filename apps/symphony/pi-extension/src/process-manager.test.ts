@@ -11,7 +11,17 @@ let server: Server | undefined;
 async function stateServer(): Promise<string> {
   server = createServer((_req, res) => {
     res.setHeader("content-type", "application/json");
-    res.end(JSON.stringify({ running: {}, retry_queue: [], blocked: [], completed: [], polling: { checking: false, next_poll_in_ms: 0, poll_interval_ms: 30000 } }));
+    res.end(JSON.stringify({
+      running: {},
+      retry_queue: [],
+      blocked: [],
+      completed: [],
+      polling: { checking: false, next_poll_in_ms: 0, poll_interval_ms: 30000 },
+      shared_context: { total_entries: 0, entries_by_scope: {}, oldest_entry_at: null, newest_entry_at: null },
+      supervisor: { active: true, steers_issued: 0, conflicts_detected: 0, patterns_detected: 0, escalations_created: 0 },
+      codex_totals: { input_tokens: 0, output_tokens: 0, total_tokens: 0, event_count: 0, seconds_running: 0 },
+      codex_rate_limits: null,
+    }));
   });
   await new Promise<void>((resolve) => server!.listen(0, "127.0.0.1", resolve));
   const address = server.address();
