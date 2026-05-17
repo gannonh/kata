@@ -164,7 +164,7 @@ export interface SymphonyStateResponse {
   shared_context: SharedContextSummaryResponse;
   supervisor: SupervisorSnapshotResponse;
   codex_totals: CodexTotalsResponse;
-  codex_rate_limits: unknown | null;
+  codex_rate_limits: Record<string, unknown> | null;
 }
 
 export interface RefreshResponse {
@@ -199,6 +199,13 @@ interface ApiErrorEnvelope {
     status?: number;
     details?: unknown;
   };
+}
+
+function normalizeOptionalContextScope(scope: string | undefined): string | undefined {
+  if (scope === undefined) return undefined;
+  const trimmedScope = scope.trim();
+  if (!trimmedScope) throw new TypeError("Shared context scope must not be empty");
+  return trimmedScope;
 }
 
 export class SymphonyHttpClient {
@@ -253,7 +260,7 @@ export class SymphonyHttpClient {
   }
 
   async getContext(scope?: string, signal?: AbortSignal): Promise<SharedContextListResponse> {
-    const trimmedScope = scope?.trim();
+    const trimmedScope = normalizeOptionalContextScope(scope);
     const path = trimmedScope ? `/api/v1/context?scope=${encodeURIComponent(trimmedScope)}` : "/api/v1/context";
     const json = await this.requestJson(path, { method: "GET", signal });
     return validateSharedContextListResponse(json, { baseUrl: this.baseUrl, path });
@@ -277,7 +284,7 @@ export class SymphonyHttpClient {
   }
 
   async deleteContext(scope?: string, signal?: AbortSignal): Promise<SharedContextDeleteResponse> {
-    const trimmedScope = scope?.trim();
+    const trimmedScope = normalizeOptionalContextScope(scope);
     const path = trimmedScope ? `/api/v1/context?scope=${encodeURIComponent(trimmedScope)}` : "/api/v1/context";
     const json = await this.requestJson(path, { method: "DELETE", signal });
     return validateSharedContextDeleteResponse(json, { baseUrl: this.baseUrl, path });
@@ -489,8 +496,8 @@ function validateSharedContextSummary(value: unknown, details: Record<string, un
   if (!isRecord(value.entries_by_scope) || Object.values(value.entries_by_scope).some((entry) => !isFiniteNumber(entry))) {
     thrower(details, "shared context summary had an invalid shape", { field: `${detailField}.entries_by_scope`, expected: "Record<string, number>" });
   }
-  validateOptionalStringOrNull(value, "oldest_entry_at", details, `${detailField}.oldest_entry_at`, thrower);
-  validateOptionalStringOrNull(value, "newest_entry_at", details, `${detailField}.newest_entry_at`, thrower);
+  validateRequiredStringOrNull(value, "oldest_entry_at", details, `${detailField}.oldest_entry_at`, thrower);
+  validateRequiredStringOrNull(value, "newest_entry_at", details, `${detailField}.newest_entry_at`, thrower);
 }
 
 function validateSupervisorSnapshot(value: unknown, details: Record<string, unknown>, detailField: string, thrower: NonSymphonyThrower): void {
@@ -761,6 +768,18 @@ function validateOptionalStringOrNull(
   if (typeof fieldValue !== "string") {
     thrower(details, "state response field had an invalid shape", { field: detailField, expected: "string or null" });
   }
+}
+
+function validateRequiredStringOrNull(
+  value: Record<string, unknown>,
+  field: string,
+  details: Record<string, unknown>,
+  detailField = field,
+  thrower: NonSymphonyThrower = throwNonSymphonyState,
+): void {
+  const fieldValue = value[field];
+  if (fieldValue === null || typeof fieldValue === "string") return;
+  thrower(details, "state response field had an invalid shape", { field: detailField, expected: "string or null" });
 }
 
 function validateOptionalNumber(value: Record<string, unknown>, field: string, details: Record<string, unknown>, detailField = field): void {

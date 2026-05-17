@@ -242,6 +242,18 @@ describe("SymphonyHttpClient", () => {
     await expect(client.getContext("milestone:M001")).resolves.toEqual({ entries, summary });
   });
 
+  it.each([
+    ["getContext", (client: SymphonyHttpClient) => client.getContext("   ")],
+    ["deleteContext", (client: SymphonyHttpClient) => client.deleteContext("")],
+  ])("rejects empty shared context scope before sending %s", async (_name, call) => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new SymphonyHttpClient("http://127.0.0.1:8080");
+
+    await expect(call(client)).rejects.toThrow("Shared context scope must not be empty");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("creates shared context entries", async () => {
     const baseUrl = await serve((req, body) => {
       expect(req.method).toBe("POST");
@@ -341,6 +353,8 @@ describe("SymphonyHttpClient", () => {
   it.each([
     ["shared_context.total_entries", validState({ shared_context: { entries_by_scope: {}, oldest_entry_at: null, newest_entry_at: null } })],
     ["shared_context.entries_by_scope", validState({ shared_context: { total_entries: 1, entries_by_scope: [], oldest_entry_at: null, newest_entry_at: null } })],
+    ["shared_context.oldest_entry_at", validState({ shared_context: { total_entries: 1, entries_by_scope: {}, newest_entry_at: null } })],
+    ["shared_context.newest_entry_at", validState({ shared_context: { total_entries: 1, entries_by_scope: {}, oldest_entry_at: null } })],
     ["supervisor.steers_issued", validState({ supervisor: { active: true, conflicts_detected: 0, patterns_detected: 0, escalations_created: 0 } })],
     ["codex_totals.total_tokens", validState({ codex_totals: { input_tokens: 1, output_tokens: 2, event_count: 3, seconds_running: 4 } })],
   ])("rejects malformed Wave 4 state field: %s", async (field, body) => {
