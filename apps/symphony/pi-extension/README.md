@@ -70,17 +70,22 @@ pnpm --dir apps/symphony/pi-extension typecheck
 
 2. Start or attach to a Symphony server:
 
+   Start path:
+
    ```text
    /symphony:start .symphony/WORKFLOW.md
    ```
 
-   or:
+   Expected: Symphony starts, the console opens, and the status block shows the attached base URL.
+
+   Attach path:
 
    ```text
    /symphony:attach http://127.0.0.1:<port>
+   /symphony:console
    ```
 
-   Expected: the Symphony console opens and the status block shows the attached base URL.
+   Expected: attach updates the Symphony attachment, then `/symphony:console` opens the console with the attached base URL in the status block.
 
 3. Create or use a Symphony state with at least one retry entry, blocked issue, completed issue, and pending escalation.
 
@@ -109,4 +114,4 @@ pnpm --dir apps/symphony/pi-extension typecheck
 
 6. Watch recent events after escalation creation and response.
 
-   Expected: escalation lifecycle events appear in the `Events` section.
+   Expected with a real or event-capable Symphony server: escalation lifecycle events appear in the `Events` section. The Wave 3 mock server supports state, refresh, steer, and escalation response checks, but it does not expose `/api/v1/events`.

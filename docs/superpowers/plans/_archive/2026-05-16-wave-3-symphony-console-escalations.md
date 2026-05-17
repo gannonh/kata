@@ -1407,14 +1407,14 @@ In `openConsole()`, inside the `new SymphonyConsoleComponent({ ... })` options, 
 Replace the `keyboard` string in `renderActionLegend()` with:
 
 ```ts
-  const keyboard = "Keyboard: ctrl+shift+↑/↓ select  •  ctrl+shift+r refresh  •  ctrl+shift+s steer  •  ctrl+shift+e escalation  •  ctrl+shift+i details  •  ctrl+shift+q close";
+  const keyboard = "Keyboard: ctrl+shift+↑/↓ select  •  ctrl+shift+r refresh  •  ctrl+shift+t steer  •  ctrl+shift+e escalation  •  ctrl+shift+i details  •  ctrl+shift+q close";
 ```
 
 Replace the narrow rendering branch with:
 
 ```ts
   return [
-    "Keyboard: ctrl+shift+↑/↓ select  •  ctrl+shift+r refresh  •  ctrl+shift+s steer",
+    "Keyboard: ctrl+shift+↑/↓ select  •  ctrl+shift+r refresh  •  ctrl+shift+t steer",
     "          ctrl+shift+e escalation  •  ctrl+shift+i details  •  ctrl+shift+q close",
     commands,
   ];
@@ -1428,7 +1428,7 @@ Run:
 pnpm --dir apps/symphony/pi-extension exec vitest run src/console.test.ts
 ```
 
-Expected: PASS after updating shortcut legend assertions to use `ctrl+shift+s steer` and `ctrl+shift+e escalation`.
+Expected: PASS after updating shortcut legend assertions to use `ctrl+shift+t steer` and `ctrl+shift+e escalation`.
 
 Commit:
 
@@ -1454,13 +1454,13 @@ In `apps/symphony/pi-extension/src/commands.test.ts`, replace the shortcut asser
       "ctrl+shift+up",
       "ctrl+shift+down",
       "ctrl+shift+r",
-      "ctrl+shift+s",
+      "ctrl+shift+t",
       "ctrl+shift+e",
       "ctrl+shift+i",
       "ctrl+shift+q",
     ]));
     expect(shortcuts.get("ctrl+shift+down")?.description).toContain("Select next Symphony console item");
-    expect(shortcuts.get("ctrl+shift+s")?.description).toContain("Steer the selected Symphony console worker");
+    expect(shortcuts.get("ctrl+shift+t")?.description).toContain("Steer the selected Symphony console worker");
     expect(shortcuts.get("ctrl+shift+e")?.description).toContain("Respond to the selected Symphony console escalation");
 ```
 
@@ -1472,7 +1472,7 @@ Run:
 pnpm --dir apps/symphony/pi-extension exec vitest run src/commands.test.ts
 ```
 
-Expected: FAIL because `ctrl+shift+s` is not registered and `ctrl+shift+e` still steers.
+Expected: FAIL because `ctrl+shift+e` is not registered for escalation responses yet.
 
 - [ ] **Step 3: Update shortcut registrations**
 
@@ -1483,7 +1483,7 @@ In `registerConsoleShortcuts()` in `apps/symphony/pi-extension/src/commands.ts`,
     { key: "ctrl+shift+up", action: "selectPrevious", description: "Select previous Symphony console item" },
     { key: "ctrl+shift+down", action: "selectNext", description: "Select next Symphony console item" },
     { key: "ctrl+shift+r", action: "refresh", description: "Refresh the Symphony console" },
-    { key: "ctrl+shift+s", action: "steer", description: "Steer the selected Symphony console worker" },
+    { key: "ctrl+shift+t", action: "steer", description: "Steer the selected Symphony console worker" },
     { key: "ctrl+shift+e", action: "respondEscalation", description: "Respond to the selected Symphony console escalation" },
     { key: "ctrl+shift+i", action: "toggleDetails", description: "Toggle Symphony console item details" },
     { key: "ctrl+shift+q", action: "close", description: "Close the Symphony console widget" },

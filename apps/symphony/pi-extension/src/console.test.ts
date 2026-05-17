@@ -58,6 +58,10 @@ function workerStateFixture(): SymphonyStateResponse {
     pending_escalations: [{ request_id: "esc-1", issue_id: "issue-123", issue_identifier: "SIM-123", method: "approval", preview: "Approve cargo test?", created_at: "2026-05-14T12:06:00Z", timeout_ms: 600000 }],
     completed: [{ issue_id: "issue-done", identifier: "SIM-400", title: "Done work", completed_at: "2026-05-14T13:00:00Z" }],
     polling: { checking: false, next_poll_in_ms: 1000, poll_interval_ms: 30000 },
+    shared_context: { total_entries: 0, entries_by_scope: {}, oldest_entry_at: null, newest_entry_at: null },
+    supervisor: { active: true, steers_issued: 0, conflicts_detected: 0, patterns_detected: 0, escalations_created: 0 },
+    codex_totals: { input_tokens: 0, output_tokens: 0, total_tokens: 0, event_count: 0, seconds_running: 0 },
+    codex_rate_limits: null,
   };
 }
 

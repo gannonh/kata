@@ -86,6 +86,65 @@ export interface EscalationRespondResponse {
   ok: boolean;
 }
 
+export type ContextScopeResponse =
+  | { type: "project" }
+  | { type: "milestone"; value: string }
+  | { type: "label"; value: string };
+
+export interface SharedContextEntryResponse {
+  id: string;
+  author_issue: string;
+  scope: ContextScopeResponse;
+  content: string;
+  created_at: string;
+  ttl_ms: number;
+}
+
+export interface SharedContextSummaryResponse {
+  total_entries: number;
+  entries_by_scope: Record<string, number>;
+  oldest_entry_at: string | null;
+  newest_entry_at: string | null;
+}
+
+export interface SharedContextListResponse {
+  entries: SharedContextEntryResponse[];
+  summary: SharedContextSummaryResponse;
+}
+
+export interface SharedContextCreateInput {
+  authorIssue: string;
+  scope: string;
+  content: string;
+  ttlMs?: number;
+}
+
+export interface SharedContextWriteResponse {
+  id: string;
+  created_at: string;
+}
+
+export interface SharedContextDeleteResponse {
+  deleted: number;
+}
+
+export interface SupervisorSnapshotResponse {
+  active?: boolean;
+  status?: string;
+  steers_issued: number;
+  conflicts_detected: number;
+  patterns_detected: number;
+  escalations_created: number;
+}
+
+export interface CodexTotalsResponse {
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  event_count: number;
+  seconds_running: number;
+}
+
 export interface SymphonyStateResponse {
   tracker_project_url?: string | null;
   running?: Record<string, RunAttemptResponse>;
@@ -102,6 +161,10 @@ export interface SymphonyStateResponse {
     poll_count?: number;
     last_poll_at?: string | null;
   };
+  shared_context: SharedContextSummaryResponse;
+  supervisor: SupervisorSnapshotResponse;
+  codex_totals: CodexTotalsResponse;
+  codex_rate_limits: Record<string, unknown> | null;
 }
 
 export interface RefreshResponse {
@@ -136,6 +199,13 @@ interface ApiErrorEnvelope {
     status?: number;
     details?: unknown;
   };
+}
+
+function normalizeOptionalContextScope(scope: string | undefined): string | undefined {
+  if (scope === undefined) return undefined;
+  const trimmedScope = scope.trim();
+  if (!trimmedScope) throw new TypeError("Shared context scope must not be empty");
+  return trimmedScope;
 }
 
 export class SymphonyHttpClient {
@@ -187,6 +257,43 @@ export class SymphonyHttpClient {
       body: JSON.stringify({ response, responder_id: responderId }),
     });
     return validateEscalationRespondResponse(json, { baseUrl: this.baseUrl, path, requestId });
+  }
+
+  async getContext(scope?: string, signal?: AbortSignal): Promise<SharedContextListResponse> {
+    const trimmedScope = normalizeOptionalContextScope(scope);
+    const path = trimmedScope ? `/api/v1/context?scope=${encodeURIComponent(trimmedScope)}` : "/api/v1/context";
+    const json = await this.requestJson(path, { method: "GET", signal });
+    return validateSharedContextListResponse(json, { baseUrl: this.baseUrl, path });
+  }
+
+  async createContext(input: SharedContextCreateInput, signal?: AbortSignal): Promise<SharedContextWriteResponse> {
+    const path = "/api/v1/context";
+    const body: Record<string, unknown> = {
+      author_issue: input.authorIssue,
+      scope: input.scope,
+      content: input.content,
+    };
+    if (input.ttlMs !== undefined) body.ttl_ms = input.ttlMs;
+    const json = await this.requestJson(path, {
+      method: "POST",
+      signal,
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    return validateSharedContextWriteResponse(json, { baseUrl: this.baseUrl, path });
+  }
+
+  async deleteContext(scope?: string, signal?: AbortSignal): Promise<SharedContextDeleteResponse> {
+    const trimmedScope = normalizeOptionalContextScope(scope);
+    const path = trimmedScope ? `/api/v1/context?scope=${encodeURIComponent(trimmedScope)}` : "/api/v1/context";
+    const json = await this.requestJson(path, { method: "DELETE", signal });
+    return validateSharedContextDeleteResponse(json, { baseUrl: this.baseUrl, path });
+  }
+
+  async deleteContextEntry(entryId: string, signal?: AbortSignal): Promise<SharedContextDeleteResponse> {
+    const path = `/api/v1/context/${encodeURIComponent(entryId)}`;
+    const json = await this.requestJson(path, { method: "DELETE", signal });
+    return validateSharedContextDeleteResponse(json, { baseUrl: this.baseUrl, path, entryId });
   }
 
   toHealthSummary(state: SymphonyStateResponse): LastKnownSymphonyState {
@@ -273,7 +380,17 @@ function validateSymphonyStateResponse(value: unknown, details: Record<string, u
     throwNonSymphonyState(details, "state response was not an object");
   }
 
-  const missingFields = ["running", "retry_queue", "blocked", "completed", "polling"].filter((field) => !(field in value));
+  const missingFields = [
+    "running",
+    "retry_queue",
+    "blocked",
+    "completed",
+    "polling",
+    "shared_context",
+    "supervisor",
+    "codex_totals",
+    "codex_rate_limits",
+  ].filter((field) => !(field in value));
   if (missingFields.length > 0) {
     throwNonSymphonyState(details, "state response was missing Symphony state fields", { missingFields });
   }
@@ -290,10 +407,12 @@ function validateSymphonyStateResponse(value: unknown, details: Record<string, u
   validateOptionalRecord(value, "running_session_info", details);
   validateOptionalArray(value, "claimed", details);
   validatePendingEscalations(value, "pending_escalations", details);
-  validateOptionalRecord(value, "shared_context", details);
-  validateOptionalRecord(value, "supervisor", details);
-  validateOptionalRecord(value, "codex_totals", details);
-  validateOptionalRecordOrNull(value, "codex_rate_limits", details);
+  validateSharedContextSummary(value.shared_context, details, "shared_context", throwNonSymphonyState);
+  validateSupervisorSnapshot(value.supervisor, details, "supervisor", throwNonSymphonyState);
+  validateCodexTotals(value.codex_totals, details, "codex_totals", throwNonSymphonyState);
+  if (value.codex_rate_limits !== null && !isRecord(value.codex_rate_limits)) {
+    throwNonSymphonyState(details, "state response field had an invalid shape", { field: "codex_rate_limits", expected: "object or null" });
+  }
 
   if (!isRecord(value.polling)) {
     throwNonSymphonyState(details, "state response field had an invalid shape", { field: "polling", expected: "object" });
@@ -326,6 +445,88 @@ function validateEscalationRespondResponse(value: unknown, details: Record<strin
     throwNonSymphonyEscalationRespond(details, "escalation respond response field had an invalid shape", { field: "ok", expected: "boolean" });
   }
   return { ok: value.ok };
+}
+
+function validateSharedContextListResponse(value: unknown, details: Record<string, unknown>): SharedContextListResponse {
+  if (!isRecord(value)) throwNonSymphonyContext(details, "shared context response was not an object");
+  if (!Array.isArray(value.entries)) {
+    throwNonSymphonyContext(details, "shared context response field had an invalid shape", { field: "entries", expected: "array" });
+  }
+  value.entries.forEach((entry, index) => validateSharedContextEntry(entry, details, `entries.${index}`, throwNonSymphonyContext));
+  validateSharedContextSummary(value.summary, details, "summary", throwNonSymphonyContext);
+  return value as unknown as SharedContextListResponse;
+}
+
+function validateSharedContextWriteResponse(value: unknown, details: Record<string, unknown>): SharedContextWriteResponse {
+  if (!isRecord(value)) throwNonSymphonyContext(details, "shared context write response was not an object");
+  validateRequiredString(value, "id", details, "id", throwNonSymphonyContext);
+  validateRequiredString(value, "created_at", details, "created_at", throwNonSymphonyContext);
+  return { id: value.id as string, created_at: value.created_at as string };
+}
+
+function validateSharedContextDeleteResponse(value: unknown, details: Record<string, unknown>): SharedContextDeleteResponse {
+  if (!isRecord(value)) throwNonSymphonyContext(details, "shared context delete response was not an object");
+  validateRequiredNumber(value, "deleted", details, "deleted", throwNonSymphonyContext);
+  return { deleted: value.deleted as number };
+}
+
+function validateSharedContextEntry(value: unknown, details: Record<string, unknown>, detailField: string, thrower: NonSymphonyThrower): void {
+  if (!isRecord(value)) thrower(details, "shared context entry had an invalid shape", { field: detailField, expected: "object" });
+  validateRequiredString(value, "id", details, `${detailField}.id`, thrower);
+  validateRequiredString(value, "author_issue", details, `${detailField}.author_issue`, thrower);
+  validateContextScope(value.scope, details, `${detailField}.scope`, thrower);
+  validateRequiredString(value, "content", details, `${detailField}.content`, thrower);
+  validateRequiredString(value, "created_at", details, `${detailField}.created_at`, thrower);
+  validateRequiredNumber(value, "ttl_ms", details, `${detailField}.ttl_ms`, thrower);
+}
+
+function validateContextScope(value: unknown, details: Record<string, unknown>, detailField: string, thrower: NonSymphonyThrower): void {
+  if (!isRecord(value)) thrower(details, "shared context scope had an invalid shape", { field: detailField, expected: "object" });
+  if (value.type !== "project" && value.type !== "milestone" && value.type !== "label") {
+    thrower(details, "shared context scope had an invalid shape", { field: `${detailField}.type`, expected: "project | milestone | label" });
+  }
+  if ((value.type === "milestone" || value.type === "label") && typeof value.value !== "string") {
+    thrower(details, "shared context scope had an invalid shape", { field: `${detailField}.value`, expected: "string" });
+  }
+}
+
+function validateSharedContextSummary(value: unknown, details: Record<string, unknown>, detailField: string, thrower: NonSymphonyThrower): void {
+  if (!isRecord(value)) thrower(details, "shared context summary had an invalid shape", { field: detailField, expected: "object" });
+  validateRequiredNumber(value, "total_entries", details, `${detailField}.total_entries`, thrower);
+  if (!isRecord(value.entries_by_scope) || Object.values(value.entries_by_scope).some((entry) => !isFiniteNumber(entry))) {
+    thrower(details, "shared context summary had an invalid shape", { field: `${detailField}.entries_by_scope`, expected: "Record<string, number>" });
+  }
+  validateRequiredStringOrNull(value, "oldest_entry_at", details, `${detailField}.oldest_entry_at`, thrower);
+  validateRequiredStringOrNull(value, "newest_entry_at", details, `${detailField}.newest_entry_at`, thrower);
+}
+
+function validateSupervisorSnapshot(value: unknown, details: Record<string, unknown>, detailField: string, thrower: NonSymphonyThrower): void {
+  if (!isRecord(value)) thrower(details, "supervisor snapshot had an invalid shape", { field: detailField, expected: "object" });
+  if (value.active !== undefined && typeof value.active !== "boolean") {
+    thrower(details, "supervisor snapshot had an invalid shape", { field: `${detailField}.active`, expected: "boolean" });
+  }
+  validateOptionalStringOrNull(value, "status", details, `${detailField}.status`, thrower);
+  validateRequiredNumber(value, "steers_issued", details, `${detailField}.steers_issued`, thrower);
+  validateRequiredNumber(value, "conflicts_detected", details, `${detailField}.conflicts_detected`, thrower);
+  validateRequiredNumber(value, "patterns_detected", details, `${detailField}.patterns_detected`, thrower);
+  validateRequiredNumber(value, "escalations_created", details, `${detailField}.escalations_created`, thrower);
+}
+
+function validateCodexTotals(value: unknown, details: Record<string, unknown>, detailField: string, thrower: NonSymphonyThrower): void {
+  if (!isRecord(value)) thrower(details, "codex totals had an invalid shape", { field: detailField, expected: "object" });
+  validateRequiredNumber(value, "input_tokens", details, `${detailField}.input_tokens`, thrower);
+  validateRequiredNumber(value, "output_tokens", details, `${detailField}.output_tokens`, thrower);
+  validateRequiredNumber(value, "total_tokens", details, `${detailField}.total_tokens`, thrower);
+  validateRequiredNumber(value, "event_count", details, `${detailField}.event_count`, thrower);
+  validateRequiredNumber(value, "seconds_running", details, `${detailField}.seconds_running`, thrower);
+}
+
+function throwNonSymphonyContext(details: Record<string, unknown>, reason: string, extraDetails: Record<string, unknown> = {}): never {
+  throw new SymphonyExtensionError("non_symphony_response", "Response did not look like Symphony shared context response", {
+    ...details,
+    reason,
+    ...extraDetails,
+  });
 }
 
 function validateRefreshResponse(value: unknown, details: Record<string, unknown>): RefreshResponse {
@@ -555,20 +756,30 @@ function validateOptionalRecord(value: Record<string, unknown>, field: string, d
   }
 }
 
-function validateOptionalRecordOrNull(value: Record<string, unknown>, field: string, details: Record<string, unknown>, detailField = field): void {
-  const fieldValue = value[field];
-  if (fieldValue === undefined || fieldValue === null) return;
-  if (!isRecord(fieldValue)) {
-    throwNonSymphonyState(details, "state response field had an invalid shape", { field: detailField, expected: "object or null" });
-  }
-}
-
-function validateOptionalStringOrNull(value: Record<string, unknown>, field: string, details: Record<string, unknown>, detailField = field): void {
+function validateOptionalStringOrNull(
+  value: Record<string, unknown>,
+  field: string,
+  details: Record<string, unknown>,
+  detailField = field,
+  thrower: NonSymphonyThrower = throwNonSymphonyState,
+): void {
   const fieldValue = value[field];
   if (fieldValue === undefined || fieldValue === null) return;
   if (typeof fieldValue !== "string") {
-    throwNonSymphonyState(details, "state response field had an invalid shape", { field: detailField, expected: "string or null" });
+    thrower(details, "state response field had an invalid shape", { field: detailField, expected: "string or null" });
   }
+}
+
+function validateRequiredStringOrNull(
+  value: Record<string, unknown>,
+  field: string,
+  details: Record<string, unknown>,
+  detailField = field,
+  thrower: NonSymphonyThrower = throwNonSymphonyState,
+): void {
+  const fieldValue = value[field];
+  if (fieldValue === null || typeof fieldValue === "string") return;
+  thrower(details, "state response field had an invalid shape", { field: detailField, expected: "string or null" });
 }
 
 function validateOptionalNumber(value: Record<string, unknown>, field: string, details: Record<string, unknown>, detailField = field): void {
