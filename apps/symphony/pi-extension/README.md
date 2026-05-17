@@ -2,6 +2,35 @@
 
 Pi extension for initializing, launching, attaching to, and monitoring Kata Symphony.
 
+## Requirements
+
+- Pi coding agent with extension package support.
+- `symphony >= 2.3.0` available through one of the binary resolution paths below.
+
+The extension resolves the Symphony binary in this order:
+
+1. `SYMPHONY_BIN`
+2. repo-local `apps/symphony/target/release/symphony`
+3. `symphony` on `PATH`
+4. previously saved absolute path
+5. prompted absolute path
+
+## Installation
+
+```sh
+# Latest npm release
+pi install npm:@kata-sh/pi-symphony-extension
+
+# Pinned npm release
+pi install npm:@kata-sh/pi-symphony-extension@0.1.1
+
+# Latest monorepo git package
+pi install git:github.com/gannonh/kata
+
+# Pinned monorepo git package
+pi install git:github.com/gannonh/kata@pi-symphony-v0.1.1
+```
+
 ## Local development
 
 ```sh
