@@ -48,6 +48,10 @@ function validState(overrides: Record<string, unknown> = {}): Record<string, unk
     blocked: [],
     completed: [{ issue_id: "issue-3", identifier: "KAT-3", title: "Done", completed_at: null, issue_url: null }],
     polling: { checking: false, next_poll_in_ms: 1000, poll_interval_ms: 30000, poll_count: 2 },
+    shared_context: { total_entries: 0, entries_by_scope: {}, oldest_entry_at: null, newest_entry_at: null },
+    supervisor: { active: true, steers_issued: 0, conflicts_detected: 0, patterns_detected: 0, escalations_created: 0 },
+    codex_totals: { input_tokens: 0, output_tokens: 0, total_tokens: 0, event_count: 0, seconds_running: 0 },
+    codex_rate_limits: null,
     ...overrides,
   };
 }
@@ -207,6 +211,145 @@ describe("SymphonyHttpClient", () => {
       kind: "api_error",
       message: error,
       details: expect.objectContaining({ code: error, status }),
+    } satisfies Partial<SymphonyExtensionError>);
+  });
+
+  it("fetches shared context with an encoded scope filter", async () => {
+    const entries = [
+      {
+        id: "ctx-1",
+        author_issue: "SIM-123",
+        scope: { type: "milestone", value: "M001" },
+        content: "Decision: use the existing auth module",
+        created_at: "2026-05-17T12:00:00Z",
+        ttl_ms: 3600000,
+      },
+    ];
+    const summary = {
+      total_entries: 1,
+      entries_by_scope: { "milestone:M001": 1 },
+      oldest_entry_at: "2026-05-17T12:00:00Z",
+      newest_entry_at: "2026-05-17T12:00:00Z",
+    };
+    const baseUrl = await serve((req) => {
+      expect(req.method).toBe("GET");
+      expect(req.url).toBe("/api/v1/context?scope=milestone%3AM001");
+      return { status: 200, body: { entries, summary } };
+    });
+
+    const client = new SymphonyHttpClient(baseUrl);
+
+    await expect(client.getContext("milestone:M001")).resolves.toEqual({ entries, summary });
+  });
+
+  it("creates shared context entries", async () => {
+    const baseUrl = await serve((req, body) => {
+      expect(req.method).toBe("POST");
+      expect(req.url).toBe("/api/v1/context");
+      expect(JSON.parse(body)).toEqual({
+        author_issue: "SIM-123",
+        scope: "project",
+        content: "Decision: keep context in the extension package",
+        ttl_ms: 60000,
+      });
+      return { status: 201, body: { id: "ctx-2", created_at: "2026-05-17T12:01:00Z" } };
+    });
+
+    const client = new SymphonyHttpClient(baseUrl);
+
+    await expect(
+      client.createContext({
+        authorIssue: "SIM-123",
+        scope: "project",
+        content: "Decision: keep context in the extension package",
+        ttlMs: 60000,
+      }),
+    ).resolves.toEqual({ id: "ctx-2", created_at: "2026-05-17T12:01:00Z" });
+  });
+
+  it("deletes one shared context entry by id", async () => {
+    const baseUrl = await serve((req) => {
+      expect(req.method).toBe("DELETE");
+      expect(req.url).toBe("/api/v1/context/ctx-1");
+      return { status: 200, body: { deleted: 1 } };
+    });
+
+    const client = new SymphonyHttpClient(baseUrl);
+
+    await expect(client.deleteContextEntry("ctx-1")).resolves.toEqual({ deleted: 1 });
+  });
+
+  it("clears shared context by scope", async () => {
+    const baseUrl = await serve((req) => {
+      expect(req.method).toBe("DELETE");
+      expect(req.url).toBe("/api/v1/context?scope=label%3Abackend");
+      return { status: 200, body: { deleted: 2 } };
+    });
+
+    const client = new SymphonyHttpClient(baseUrl);
+
+    await expect(client.deleteContext("label:backend")).resolves.toEqual({ deleted: 2 });
+  });
+
+  it("fetches typed Wave 4 diagnostics from state", async () => {
+    const baseUrl = await serve(() => ({
+      status: 200,
+      body: validState({
+        shared_context: {
+          total_entries: 2,
+          entries_by_scope: { project: 1, "milestone:M001": 1 },
+          oldest_entry_at: "2026-05-17T12:00:00Z",
+          newest_entry_at: "2026-05-17T12:05:00Z",
+        },
+        supervisor: {
+          active: true,
+          steers_issued: 3,
+          conflicts_detected: 1,
+          patterns_detected: 2,
+          escalations_created: 4,
+        },
+        codex_totals: {
+          input_tokens: 1000,
+          output_tokens: 500,
+          total_tokens: 1500,
+          event_count: 12,
+          seconds_running: 90,
+        },
+        codex_rate_limits: {
+          requests: { remaining: 80, limit: 100, reset_seconds: 120 },
+        },
+        polling: {
+          checking: true,
+          next_poll_in_ms: 2500,
+          poll_interval_ms: 30000,
+          poll_count: 7,
+          last_poll_at: "2026-05-17T12:05:00Z",
+        },
+      }),
+    }));
+
+    const client = new SymphonyHttpClient(baseUrl);
+    const state = await client.getState();
+
+    expect(state.shared_context).toMatchObject({ total_entries: 2 });
+    expect(state.supervisor).toMatchObject({ active: true, steers_issued: 3 });
+    expect(state.codex_totals).toMatchObject({ total_tokens: 1500, event_count: 12 });
+    expect(state.codex_rate_limits).toMatchObject({ requests: { remaining: 80, limit: 100 } });
+    expect(state.polling?.poll_count).toBe(7);
+  });
+
+  it.each([
+    ["shared_context.total_entries", validState({ shared_context: { entries_by_scope: {}, oldest_entry_at: null, newest_entry_at: null } })],
+    ["shared_context.entries_by_scope", validState({ shared_context: { total_entries: 1, entries_by_scope: [], oldest_entry_at: null, newest_entry_at: null } })],
+    ["supervisor.steers_issued", validState({ supervisor: { active: true, conflicts_detected: 0, patterns_detected: 0, escalations_created: 0 } })],
+    ["codex_totals.total_tokens", validState({ codex_totals: { input_tokens: 1, output_tokens: 2, event_count: 3, seconds_running: 4 } })],
+  ])("rejects malformed Wave 4 state field: %s", async (field, body) => {
+    const baseUrl = await serve(() => ({ status: 200, body }));
+    const client = new SymphonyHttpClient(baseUrl);
+
+    await expect(client.getState()).rejects.toMatchObject({
+      kind: "non_symphony_response",
+      details: expect.objectContaining({ field }),
     } satisfies Partial<SymphonyExtensionError>);
   });
 
