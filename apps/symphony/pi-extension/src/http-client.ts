@@ -161,10 +161,10 @@ export interface SymphonyStateResponse {
     poll_count?: number;
     last_poll_at?: string | null;
   };
-  shared_context?: SharedContextSummaryResponse;
-  supervisor?: SupervisorSnapshotResponse;
-  codex_totals?: CodexTotalsResponse;
-  codex_rate_limits?: unknown | null;
+  shared_context: SharedContextSummaryResponse;
+  supervisor: SupervisorSnapshotResponse;
+  codex_totals: CodexTotalsResponse;
+  codex_rate_limits: unknown | null;
 }
 
 export interface RefreshResponse {
@@ -403,7 +403,7 @@ function validateSymphonyStateResponse(value: unknown, details: Record<string, u
   validateSharedContextSummary(value.shared_context, details, "shared_context", throwNonSymphonyState);
   validateSupervisorSnapshot(value.supervisor, details, "supervisor", throwNonSymphonyState);
   validateCodexTotals(value.codex_totals, details, "codex_totals", throwNonSymphonyState);
-  if (value.codex_rate_limits !== null && value.codex_rate_limits !== undefined && !isRecord(value.codex_rate_limits)) {
+  if (value.codex_rate_limits !== null && !isRecord(value.codex_rate_limits)) {
     throwNonSymphonyState(details, "state response field had an invalid shape", { field: "codex_rate_limits", expected: "object or null" });
   }
 
