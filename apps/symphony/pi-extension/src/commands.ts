@@ -156,11 +156,12 @@ export function registerSymphonyCommands(pi: ExtensionAPI, runtime: SymphonyRunt
 
 function registerConsoleShortcuts(pi: ExtensionAPI): void {
   const shortcuts = [
-    { key: "ctrl+shift+up", action: "selectPrevious", description: "Select previous Symphony console worker" },
-    { key: "ctrl+shift+down", action: "selectNext", description: "Select next Symphony console worker" },
+    { key: "ctrl+shift+up", action: "selectPrevious", description: "Select previous Symphony console item" },
+    { key: "ctrl+shift+down", action: "selectNext", description: "Select next Symphony console item" },
     { key: "ctrl+shift+r", action: "refresh", description: "Refresh the Symphony console" },
-    { key: "ctrl+shift+e", action: "steer", description: "Steer the selected Symphony console worker" },
-    { key: "ctrl+shift+i", action: "toggleDetails", description: "Toggle Symphony console worker details" },
+    { key: "ctrl+shift+t", action: "steer", description: "Steer the selected Symphony console worker" },
+    { key: "ctrl+shift+e", action: "respondEscalation", description: "Respond to the selected Symphony console escalation" },
+    { key: "ctrl+shift+i", action: "toggleDetails", description: "Toggle Symphony console item details" },
     { key: "ctrl+shift+q", action: "close", description: "Close the Symphony console widget" },
   ] as const satisfies ReadonlyArray<{ key: KeyId; action: ConsoleShortcutAction; description: string }>;
 
@@ -208,5 +209,10 @@ function helpText(runtime: SymphonyRuntime): string {
     "/symphony:refresh",
     "/symphony:steer <ISSUE> <instruction>",
     "/symphony:stop",
+    "",
+    "Console keys:",
+    "↑/↓ select items",
+    "r refresh, s steer selected running worker, e respond to selected escalation",
+    "d details, q/Escape close",
   ].join("\n");
 }

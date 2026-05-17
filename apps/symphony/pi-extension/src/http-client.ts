@@ -42,14 +42,59 @@ export interface WorkerSessionInfoResponse {
   last_error?: string | null;
 }
 
+export interface RetryQueueEntryResponse {
+  issue_id: string;
+  identifier: string;
+  attempt: number;
+  due_in_ms: number;
+  error?: string | null;
+  worker_host?: string | null;
+  workspace_path?: string | null;
+}
+
+export interface BlockedIssueResponse {
+  issue_id: string;
+  identifier: string;
+  title: string;
+  state: string;
+  blocker_identifiers: string[];
+}
+
+export interface CompletedIssueResponse {
+  issue_id: string;
+  identifier: string;
+  title: string;
+  completed_at?: string | null;
+  issue_url?: string | null;
+}
+
+export interface PendingEscalationResponse {
+  request_id: string;
+  issue_id: string;
+  issue_identifier: string;
+  method: string;
+  preview: string;
+  created_at: string;
+  timeout_ms: number;
+}
+
+export interface EscalationListResponse {
+  pending: PendingEscalationResponse[];
+}
+
+export interface EscalationRespondResponse {
+  ok: boolean;
+}
+
 export interface SymphonyStateResponse {
   tracker_project_url?: string | null;
   running?: Record<string, RunAttemptResponse>;
   running_sessions?: Record<string, RunningSessionSnapshotResponse>;
   running_session_info?: Record<string, WorkerSessionInfoResponse>;
-  retry_queue?: unknown[];
-  blocked?: unknown[];
-  completed?: unknown[];
+  retry_queue: RetryQueueEntryResponse[];
+  blocked: BlockedIssueResponse[];
+  pending_escalations?: PendingEscalationResponse[];
+  completed: CompletedIssueResponse[];
   polling?: {
     checking?: boolean;
     next_poll_in_ms?: number;
@@ -127,6 +172,23 @@ export class SymphonyHttpClient {
     return validateSteerResponse(json, { baseUrl: this.baseUrl, path, issueIdentifier });
   }
 
+  async getEscalations(signal?: AbortSignal): Promise<EscalationListResponse> {
+    const path = "/api/v1/escalations";
+    const json = await this.requestJson(path, { method: "GET", signal });
+    return validateEscalationListResponse(json, { baseUrl: this.baseUrl, path });
+  }
+
+  async respondEscalation(requestId: string, response: unknown, responderId = "pi-dashboard", signal?: AbortSignal): Promise<EscalationRespondResponse> {
+    const path = `/api/v1/escalations/${encodeURIComponent(requestId)}/respond`;
+    const json = await this.requestJson(path, {
+      method: "POST",
+      signal,
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ response, responder_id: responderId }),
+    });
+    return validateEscalationRespondResponse(json, { baseUrl: this.baseUrl, path, requestId });
+  }
+
   toHealthSummary(state: SymphonyStateResponse): LastKnownSymphonyState {
     return {
       baseUrl: this.baseUrl,
@@ -179,6 +241,13 @@ export class SymphonyHttpClient {
     }
 
     if (!response.ok) {
+      if (isRecord(json) && typeof json.error === "string") {
+        throw new SymphonyExtensionError("api_error", json.error, {
+          url,
+          status: response.status,
+          code: json.error,
+        });
+      }
       const envelope = parseApiErrorEnvelope(json);
       if (envelope?.error?.message) {
         throw new SymphonyExtensionError("api_error", envelope.error.message, {
@@ -212,15 +281,15 @@ function validateSymphonyStateResponse(value: unknown, details: Record<string, u
   validateOptionalStringOrNull(value, "tracker_project_url", details);
   validateOptionalRecord(value, "running", details);
   validateRunningAttempts(value.running, details);
-  validateOptionalArray(value, "retry_queue", details);
-  validateOptionalArray(value, "blocked", details);
-  validateOptionalArray(value, "completed", details);
+  validateRetryQueueEntries(value, "retry_queue", details);
+  validateBlockedIssues(value, "blocked", details);
+  validateCompletedIssues(value, "completed", details);
   validateOptionalNumber(value, "poll_interval_ms", details);
   validateOptionalNumber(value, "max_concurrent_agents", details);
   validateOptionalRecord(value, "running_sessions", details);
   validateOptionalRecord(value, "running_session_info", details);
   validateOptionalArray(value, "claimed", details);
-  validateOptionalArray(value, "pending_escalations", details);
+  validatePendingEscalations(value, "pending_escalations", details);
   validateOptionalRecord(value, "shared_context", details);
   validateOptionalRecord(value, "supervisor", details);
   validateOptionalRecord(value, "codex_totals", details);
@@ -235,7 +304,28 @@ function validateSymphonyStateResponse(value: unknown, details: Record<string, u
   validateOptionalNumber(value.polling, "poll_count", details, "polling.poll_count");
   validateOptionalStringOrNull(value.polling, "last_poll_at", details, "polling.last_poll_at");
 
-  return value;
+  return value as unknown as SymphonyStateResponse;
+}
+
+function validateEscalationListResponse(value: unknown, details: Record<string, unknown>): EscalationListResponse {
+  if (!isRecord(value)) {
+    throwNonSymphonyEscalationList(details, "escalation list response was not an object");
+  }
+  if (!Array.isArray(value.pending)) {
+    throwNonSymphonyEscalationList(details, "escalation list response field had an invalid shape", { field: "pending", expected: "array" });
+  }
+  value.pending.forEach((entry, index) => validatePendingEscalation(entry, details, `pending.${index}`, throwNonSymphonyEscalationList));
+  return { pending: value.pending as PendingEscalationResponse[] };
+}
+
+function validateEscalationRespondResponse(value: unknown, details: Record<string, unknown>): EscalationRespondResponse {
+  if (!isRecord(value)) {
+    throwNonSymphonyEscalationRespond(details, "escalation respond response was not an object");
+  }
+  if (typeof value.ok !== "boolean") {
+    throwNonSymphonyEscalationRespond(details, "escalation respond response field had an invalid shape", { field: "ok", expected: "boolean" });
+  }
+  return { ok: value.ok };
 }
 
 function validateRefreshResponse(value: unknown, details: Record<string, unknown>): RefreshResponse {
@@ -304,6 +394,22 @@ function throwNonSymphonySteer(details: Record<string, unknown>, reason: string,
   });
 }
 
+function throwNonSymphonyEscalationList(details: Record<string, unknown>, reason: string, extraDetails: Record<string, unknown> = {}): never {
+  throw new SymphonyExtensionError("non_symphony_response", "Response did not look like Symphony escalation list response", {
+    ...details,
+    reason,
+    ...extraDetails,
+  });
+}
+
+function throwNonSymphonyEscalationRespond(details: Record<string, unknown>, reason: string, extraDetails: Record<string, unknown> = {}): never {
+  throw new SymphonyExtensionError("non_symphony_response", "Response did not look like Symphony escalation respond response", {
+    ...details,
+    reason,
+    ...extraDetails,
+  });
+}
+
 function parseApiErrorEnvelope(value: unknown): ApiErrorEnvelope | undefined {
   if (!isRecord(value) || !isRecord(value.error)) return undefined;
   return {
@@ -340,6 +446,97 @@ function validateRunAttemptResponse(value: unknown, details: Record<string, unkn
   validateOptionalStringOrNull(value, "model", details, `${detailField}.model`);
   validateOptionalStringOrNull(value, "tracker_state", details, `${detailField}.tracker_state`);
   validateOptionalStringOrNull(value, "issue_url", details, `${detailField}.issue_url`);
+}
+
+type NonSymphonyThrower = (details: Record<string, unknown>, reason: string, extraDetails?: Record<string, unknown>) => never;
+
+function validateRetryQueueEntries(value: Record<string, unknown>, field: string, details: Record<string, unknown>): void {
+  const fieldValue = value[field];
+  if (fieldValue === undefined) return;
+  if (!Array.isArray(fieldValue)) {
+    throwNonSymphonyState(details, "state response field had an invalid shape", { field, expected: "array" });
+  }
+  fieldValue.forEach((entry, index) => validateRetryQueueEntry(entry, details, `${field}.${index}`));
+}
+
+function validateRetryQueueEntry(value: unknown, details: Record<string, unknown>, detailField: string): void {
+  if (!isRecord(value)) {
+    throwNonSymphonyState(details, "state response field had an invalid shape", { field: detailField, expected: "object" });
+  }
+  validateRequiredString(value, "issue_id", details, `${detailField}.issue_id`);
+  validateRequiredString(value, "identifier", details, `${detailField}.identifier`);
+  validateRequiredNumber(value, "attempt", details, `${detailField}.attempt`);
+  validateRequiredNumber(value, "due_in_ms", details, `${detailField}.due_in_ms`);
+  validateOptionalStringOrNull(value, "error", details, `${detailField}.error`);
+  validateOptionalStringOrNull(value, "worker_host", details, `${detailField}.worker_host`);
+  validateOptionalStringOrNull(value, "workspace_path", details, `${detailField}.workspace_path`);
+}
+
+function validateBlockedIssues(value: Record<string, unknown>, field: string, details: Record<string, unknown>): void {
+  const fieldValue = value[field];
+  if (fieldValue === undefined) return;
+  if (!Array.isArray(fieldValue)) {
+    throwNonSymphonyState(details, "state response field had an invalid shape", { field, expected: "array" });
+  }
+  fieldValue.forEach((entry, index) => validateBlockedIssue(entry, details, `${field}.${index}`));
+}
+
+function validateBlockedIssue(value: unknown, details: Record<string, unknown>, detailField: string): void {
+  if (!isRecord(value)) {
+    throwNonSymphonyState(details, "state response field had an invalid shape", { field: detailField, expected: "object" });
+  }
+  validateRequiredString(value, "issue_id", details, `${detailField}.issue_id`);
+  validateRequiredString(value, "identifier", details, `${detailField}.identifier`);
+  validateRequiredString(value, "title", details, `${detailField}.title`);
+  validateRequiredString(value, "state", details, `${detailField}.state`);
+  validateRequiredStringArray(value, "blocker_identifiers", details, `${detailField}.blocker_identifiers`);
+}
+
+function validateCompletedIssues(value: Record<string, unknown>, field: string, details: Record<string, unknown>): void {
+  const fieldValue = value[field];
+  if (fieldValue === undefined) return;
+  if (!Array.isArray(fieldValue)) {
+    throwNonSymphonyState(details, "state response field had an invalid shape", { field, expected: "array" });
+  }
+  fieldValue.forEach((entry, index) => validateCompletedIssue(entry, details, `${field}.${index}`));
+}
+
+function validateCompletedIssue(value: unknown, details: Record<string, unknown>, detailField: string): void {
+  if (!isRecord(value)) {
+    throwNonSymphonyState(details, "state response field had an invalid shape", { field: detailField, expected: "object" });
+  }
+  validateRequiredString(value, "issue_id", details, `${detailField}.issue_id`);
+  validateRequiredString(value, "identifier", details, `${detailField}.identifier`);
+  validateRequiredString(value, "title", details, `${detailField}.title`);
+  validateOptionalStringOrNull(value, "completed_at", details, `${detailField}.completed_at`);
+  validateOptionalStringOrNull(value, "issue_url", details, `${detailField}.issue_url`);
+}
+
+function validatePendingEscalations(
+  value: Record<string, unknown>,
+  field: string,
+  details: Record<string, unknown>,
+  thrower: NonSymphonyThrower = throwNonSymphonyState,
+): void {
+  const fieldValue = value[field];
+  if (fieldValue === undefined) return;
+  if (!Array.isArray(fieldValue)) {
+    thrower(details, "state response field had an invalid shape", { field, expected: "array" });
+  }
+  fieldValue.forEach((entry, index) => validatePendingEscalation(entry, details, `${field}.${index}`, thrower));
+}
+
+function validatePendingEscalation(value: unknown, details: Record<string, unknown>, detailField: string, thrower: NonSymphonyThrower): void {
+  if (!isRecord(value)) {
+    thrower(details, "state response field had an invalid shape", { field: detailField, expected: "object" });
+  }
+  validateRequiredString(value, "request_id", details, `${detailField}.request_id`, thrower);
+  validateRequiredString(value, "issue_id", details, `${detailField}.issue_id`, thrower);
+  validateRequiredString(value, "issue_identifier", details, `${detailField}.issue_identifier`, thrower);
+  validateRequiredString(value, "method", details, `${detailField}.method`, thrower);
+  validateRequiredString(value, "preview", details, `${detailField}.preview`, thrower);
+  validateRequiredString(value, "created_at", details, `${detailField}.created_at`, thrower);
+  validateRequiredNumber(value, "timeout_ms", details, `${detailField}.timeout_ms`, thrower);
 }
 
 function validateOptionalArray(value: Record<string, unknown>, field: string, details: Record<string, unknown>, detailField = field): void {
@@ -390,9 +587,22 @@ function validateOptionalNumberOrNull(value: Record<string, unknown>, field: str
   }
 }
 
-function validateRequiredString(value: Record<string, unknown>, field: string, details: Record<string, unknown>, detailField = field): void {
+function validateRequiredString(
+  value: Record<string, unknown>,
+  field: string,
+  details: Record<string, unknown>,
+  detailField = field,
+  thrower: NonSymphonyThrower = throwNonSymphonyState,
+): void {
   if (typeof value[field] !== "string") {
-    throwNonSymphonyState(details, "state response field had an invalid shape", { field: detailField, expected: "string" });
+    thrower(details, "state response field had an invalid shape", { field: detailField, expected: "string" });
+  }
+}
+
+function validateRequiredStringArray(value: Record<string, unknown>, field: string, details: Record<string, unknown>, detailField = field): void {
+  const fieldValue = value[field];
+  if (!Array.isArray(fieldValue) || fieldValue.some((entry) => typeof entry !== "string")) {
+    throwNonSymphonyState(details, "state response field had an invalid shape", { field: detailField, expected: "string[]" });
   }
 }
 
@@ -402,9 +612,15 @@ function validateRequiredBoolean(value: Record<string, unknown>, field: string, 
   }
 }
 
-function validateRequiredNumber(value: Record<string, unknown>, field: string, details: Record<string, unknown>, detailField = field): void {
+function validateRequiredNumber(
+  value: Record<string, unknown>,
+  field: string,
+  details: Record<string, unknown>,
+  detailField = field,
+  thrower: NonSymphonyThrower = throwNonSymphonyState,
+): void {
   if (!isFiniteNumber(value[field])) {
-    throwNonSymphonyState(details, "state response field had an invalid shape", { field: detailField, expected: "number" });
+    thrower(details, "state response field had an invalid shape", { field: detailField, expected: "number" });
   }
 }
 

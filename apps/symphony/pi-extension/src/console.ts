@@ -1,6 +1,6 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
-import { buildWorkerRows, formatEventRows, type WorkerRow } from "./console-model.ts";
+import { buildEscalationRows, buildIssueRows, buildWorkerRows, formatEventRows, type EscalationRow, type IssueRow, type WorkerRow } from "./console-model.ts";
 import { startSymphonyEventStream, type EventStreamHandle } from "./event-stream.ts";
 import type { SymphonyEventEnvelope, SymphonyStateResponse } from "./http-client.ts";
 import type { SymphonyRuntime } from "./runtime.ts";
@@ -16,7 +16,7 @@ interface ConsoleTheme {
   bold(text: string): string;
 }
 
-export type ConsoleShortcutAction = "selectPrevious" | "selectNext" | "refresh" | "steer" | "toggleDetails" | "close";
+export type ConsoleShortcutAction = "selectPrevious" | "selectNext" | "refresh" | "steer" | "respondEscalation" | "toggleDetails" | "close";
 
 let activeConsole: SymphonyConsoleComponent | undefined;
 
@@ -38,6 +38,9 @@ export async function handleActiveConsoleShortcut(action: ConsoleShortcutAction,
       return;
     case "steer":
       await activeConsole.steerNow();
+      return;
+    case "respondEscalation":
+      await activeConsole.respondToEscalationNow();
       return;
     case "toggleDetails":
       activeConsole.toggleDetails();
@@ -62,6 +65,7 @@ export interface ConsoleOptions {
   getEvents: () => SymphonyEventEnvelope[];
   refresh: () => Promise<void>;
   steer: (issueIdentifier: string, instruction: string) => Promise<void>;
+  respondToEscalation: (requestId: string, response: unknown) => Promise<void>;
   prompt: (title: string, label: string) => Promise<string | undefined>;
   close: () => void;
   requestRender: () => void;
@@ -71,7 +75,7 @@ export interface ConsoleOptions {
 
 export class SymphonyConsoleComponent {
   private refreshing = false;
-  private selectedWorkerIndex = 0;
+  private selectedIndex = 0;
 
   constructor(private readonly options: ConsoleOptions) {}
 
@@ -96,6 +100,11 @@ export class SymphonyConsoleComponent {
       return;
     }
 
+    if (data === "e" || data === "E") {
+      void this.respondToEscalationNow();
+      return;
+    }
+
     if (data === "\u001b[A" || matchesKey(data, "up")) {
       this.selectPreviousWorker();
       return;
@@ -109,9 +118,16 @@ export class SymphonyConsoleComponent {
   render(width: number): string[] {
     const state = this.options.state;
     const health = state.lastKnownState;
-    const workers = buildWorkerRows(this.options.getState());
-    this.clampSelection(workers.length);
-    const selectedWorker = workers[this.selectedWorkerIndex];
+    const symphonyState = this.options.getState();
+    const workers: WorkerRow[] = buildWorkerRows(symphonyState);
+    const issueRows: IssueRow[] = buildIssueRows(symphonyState);
+    const escalationRows: EscalationRow[] = buildEscalationRows(symphonyState);
+    this.clampSelection(issueRows.length + escalationRows.length);
+    const runningRows = issueRows.filter((row) => row.kind === "running");
+    const retryRows = issueRows.filter((row) => row.kind === "retry");
+    const blockedRows = issueRows.filter((row) => row.kind === "blocked");
+    const completedRows = issueRows.filter((row) => row.kind === "completed");
+    const selectedIssue = issueRows[this.selectedIndex];
     const theme = this.options.theme;
     const connection = state.attachedBaseUrl ? color(theme, "success", "attached") : color(theme, "error", "detached");
     const polling = health?.pollingChecking ? color(theme, "warning", "checking") : color(theme, "success", "idle");
@@ -129,11 +145,16 @@ export class SymphonyConsoleComponent {
       ], consoleWidth, theme),
       "",
       ...boxLines("Worker Summary", [
-        `workers: ${color(theme, "success", `running: ${health?.runningCount ?? workers.length}`)} | ${color(theme, "warning", `retry: ${health?.retryCount ?? 0}`)} | ${color(theme, "error", `blocked: ${health?.blockedCount ?? 0}`)} | ${color(theme, "accent", `completed: ${health?.completedCount ?? 0}`)}`,
+        `workers: ${color(theme, "success", `running: ${health?.runningCount ?? workers.length}`)} | ${color(theme, "warning", `retry: ${health?.retryCount ?? retryRows.length}`)} | ${color(theme, "error", `blocked: ${health?.blockedCount ?? blockedRows.length}`)} | ${color(theme, "accent", `completed: ${health?.completedCount ?? completedRows.length}`)}`,
       ], consoleWidth, theme),
       "",
-      ...boxLines("Running Workers", renderWorkerTable(workers, this.selectedWorkerIndex, theme), consoleWidth, theme),
-      ...boxLines("Selected Worker", renderSelectedWorkerDetails(selectedWorker, state.console.showDetails, theme), consoleWidth, theme),
+      ...boxLines("Running Workers", renderIssueTable(runningRows, this.selectedIndex, 0, theme), consoleWidth, theme),
+      ...boxLines("Retry Queue", renderIssueTable(retryRows, this.selectedIndex, runningRows.length, theme), consoleWidth, theme),
+      ...boxLines("Blocked Issues", renderIssueTable(blockedRows, this.selectedIndex, runningRows.length + retryRows.length, theme), consoleWidth, theme),
+      ...boxLines("Completed Issues", renderIssueTable(completedRows, this.selectedIndex, runningRows.length + retryRows.length + blockedRows.length, theme), consoleWidth, theme),
+      ...boxLines("Selected Issue", renderSelectedIssueDetails(selectedIssue, state.console.showDetails, theme), consoleWidth, theme),
+      ...boxLines("Pending Escalations", renderEscalationTable(escalationRows, this.selectedIndex - issueRows.length, theme), consoleWidth, theme),
+      ...boxLines("Selected Escalation", renderSelectedEscalationDetails(escalationRows[this.selectedIndex - issueRows.length], state.console.showDetails, theme), consoleWidth, theme),
       ...boxLines("Events", renderRecentEvents(formatEventRows(this.options.getEvents()), theme), consoleWidth, theme),
       "",
       ...boxLines("Actions", renderActionLegend(this.refreshing, consoleWidth, theme), consoleWidth, theme),
@@ -165,40 +186,71 @@ export class SymphonyConsoleComponent {
     await this.steerSelectedWorker();
   }
 
+  async respondToEscalationNow(): Promise<void> {
+    await this.respondToSelectedEscalation();
+  }
+
   closeConsole(): void {
     this.options.close();
   }
 
   private moveSelection(delta: number): void {
-    const workers = buildWorkerRows(this.options.getState());
-    if (workers.length === 0) return;
-    this.selectedWorkerIndex = Math.max(0, Math.min(workers.length - 1, this.selectedWorkerIndex + delta));
+    const symphonyState = this.options.getState();
+    const rowCount = buildIssueRows(symphonyState).length + buildEscalationRows(symphonyState).length;
+    if (rowCount === 0) return;
+    this.selectedIndex = Math.max(0, Math.min(rowCount - 1, this.selectedIndex + delta));
     this.options.requestRender();
   }
 
-  private clampSelection(workerCount: number): void {
-    if (workerCount === 0) {
-      this.selectedWorkerIndex = 0;
+  private clampSelection(rowCount: number): void {
+    if (rowCount === 0) {
+      this.selectedIndex = 0;
       return;
     }
-    this.selectedWorkerIndex = Math.max(0, Math.min(workerCount - 1, this.selectedWorkerIndex));
+    this.selectedIndex = Math.max(0, Math.min(rowCount - 1, this.selectedIndex));
   }
 
   private async steerSelectedWorker(): Promise<void> {
-    const workers = buildWorkerRows(this.options.getState());
-    this.clampSelection(workers.length);
-    const worker = workers[this.selectedWorkerIndex];
-    if (!worker) {
-      this.options.notify("No running worker is selected", "warning");
+    const symphonyState = this.options.getState();
+    const issueRows = buildIssueRows(symphonyState);
+    const escalationRows = buildEscalationRows(symphonyState);
+    this.clampSelection(issueRows.length + escalationRows.length);
+    const issue = issueRows[this.selectedIndex];
+    if (!issue || issue.kind !== "running") {
+      this.options.notify("Select a running worker before steering", "warning");
       return;
     }
 
     try {
-      const instruction = (await this.options.prompt("Steer Symphony worker", `Instruction for ${worker.issueIdentifier}`))?.trim();
+      const instruction = (await this.options.prompt("Steer Symphony worker", `Instruction for ${issue.issueIdentifier}`))?.trim();
       if (!instruction) return;
 
-      await this.options.steer(worker.issueIdentifier, instruction);
-      this.options.notify(`Steer delivered to ${worker.issueIdentifier}`, "info");
+      await this.options.steer(issue.issueIdentifier, instruction);
+      this.options.notify(`Steer delivered to ${issue.issueIdentifier}`, "info");
+    } catch (error) {
+      this.options.notify(error instanceof Error ? error.message : String(error), "error");
+    } finally {
+      this.options.requestRender();
+    }
+  }
+
+  private async respondToSelectedEscalation(): Promise<void> {
+    const symphonyState = this.options.getState();
+    const issueRows = buildIssueRows(symphonyState);
+    const escalationRows = buildEscalationRows(symphonyState);
+    this.clampSelection(issueRows.length + escalationRows.length);
+    const escalation = escalationRows[this.selectedIndex - issueRows.length];
+    if (!escalation) {
+      this.options.notify("Select an escalation before responding", "warning");
+      return;
+    }
+
+    try {
+      const value = (await this.options.prompt("Respond to Symphony escalation", `Response for ${escalation.requestId}`))?.trim();
+      if (!value) return;
+
+      await this.options.respondToEscalation(escalation.requestId, parseEscalationResponseInput(value));
+      this.options.notify(`Escalation response sent for ${escalation.requestId}`, "info");
     } catch (error) {
       this.options.notify(error instanceof Error ? error.message : String(error), "error");
     } finally {
@@ -222,39 +274,107 @@ export class SymphonyConsoleComponent {
   }
 }
 
-function renderWorkerTable(workers: WorkerRow[], selectedIndex: number, theme?: ConsoleTheme): string[] {
-  const lines = [color(theme, "dim", "sel issue    state           attempt turns   host      last activity")];
-  if (workers.length === 0) return [...lines, color(theme, "dim", "-   no running workers")];
+function renderIssueTable(rows: IssueRow[], selectedIndex: number, selectedOffset: number, theme?: ConsoleTheme): string[] {
+  const lines = [color(theme, "dim", "sel issue    kind       status              attempt host      detail")];
+  if (rows.length === 0) return [...lines, color(theme, "dim", "-   none")];
 
-  for (const [index, worker] of workers.entries()) {
-    const selected = index === selectedIndex ? ">" : " ";
+  for (const [index, row] of rows.entries()) {
+    const rowIndex = selectedOffset + index;
+    const selected = rowIndex === selectedIndex ? ">" : " ";
     const line = [
       selected,
-      pad(worker.issueIdentifier, 8),
-      pad(worker.trackerState, 15),
-      pad(worker.attempt, 7),
-      pad(`${worker.turnCount}/${worker.maxTurns}`, 7),
-      pad(worker.workerHost, 9),
-      worker.lastActivity,
+      pad(row.issueIdentifier, 8),
+      pad(row.kind, 10),
+      pad(row.status, 18),
+      pad(row.attempt, 7),
+      pad(row.workerHost, 9),
+      issueDetail(row),
     ].join(" ");
+    lines.push(rowIndex === selectedIndex ? selectedLine(theme, line) : line);
+  }
+  return lines;
+}
+
+function renderSelectedIssueDetails(issue: IssueRow | undefined, showDetails: boolean, theme?: ConsoleTheme): string[] {
+  if (!showDetails) return [];
+  if (!issue) return [color(theme, "dim", "none")];
+
+  const lines = [
+    `issue: ${color(theme, "accent", issue.issueIdentifier)} ${issue.title}`,
+    `kind: ${issue.kind}`,
+    `status: ${issue.status}`,
+  ];
+
+  if (issue.kind === "running") {
+    lines.push(
+      `tracker state: ${color(theme, "success", issue.trackerState)}`,
+      `attempt: ${issue.attempt}`,
+      `turns: ${issue.turnCount} / ${issue.maxTurns}`,
+      `last activity: ${color(theme, "dim", issue.lastActivity)}`,
+      `worker host: ${issue.workerHost}`,
+      `workspace: ${color(theme, "dim", issue.workspacePath)}`,
+      `error: ${issue.errorPreview === "-" ? color(theme, "dim", issue.errorPreview) : color(theme, "error", issue.errorPreview)}`,
+    );
+  } else if (issue.kind === "retry") {
+    lines.push(
+      `attempt: ${issue.attempt}`,
+      `worker host: ${issue.workerHost}`,
+      `workspace: ${color(theme, "dim", issue.workspacePath)}`,
+      `error: ${issue.errorPreview === "-" ? color(theme, "dim", issue.errorPreview) : color(theme, "error", issue.errorPreview)}`,
+    );
+  } else if (issue.kind === "blocked") {
+    lines.push(`tracker state: ${color(theme, "warning", issue.trackerState)}`, `blockers: ${issue.blockers}`);
+  } else {
+    lines.push(`completed at: ${issue.completedAt}`);
+  }
+
+  return lines;
+}
+
+function renderEscalationTable(rows: EscalationRow[], selectedIndex: number, theme?: ConsoleTheme): string[] {
+  const lines = [color(theme, "dim", "sel request  issue    method     timeout   preview")];
+  if (rows.length === 0) return [...lines, color(theme, "dim", "-   no pending escalations")];
+
+  for (const [index, row] of rows.entries()) {
+    const selected = index === selectedIndex ? ">" : " ";
+    const line = [selected, pad(row.requestId, 8), pad(row.issueIdentifier, 8), pad(row.method, 10), pad(row.timeout, 8), row.preview].join(" ");
     lines.push(index === selectedIndex ? selectedLine(theme, line) : line);
   }
   return lines;
 }
 
-function renderSelectedWorkerDetails(worker: WorkerRow | undefined, showDetails: boolean, theme?: ConsoleTheme): string[] {
+function renderSelectedEscalationDetails(escalation: EscalationRow | undefined, showDetails: boolean, theme?: ConsoleTheme): string[] {
   if (!showDetails) return [];
-  if (!worker) return [color(theme, "dim", "none")];
+  if (!escalation) return [color(theme, "dim", "none")];
+
   return [
-    `issue: ${color(theme, "accent", worker.issueIdentifier)} ${worker.title}`,
-    `tracker state: ${color(theme, "success", worker.trackerState)}`,
-    `attempt: ${worker.attempt}`,
-    `turns: ${worker.turnCount} / ${worker.maxTurns}`,
-    `last activity: ${color(theme, "dim", worker.lastActivity)}`,
-    `worker host: ${worker.workerHost}`,
-    `workspace: ${color(theme, "dim", worker.workspacePath)}`,
-    `error: ${worker.errorPreview === "-" ? color(theme, "dim", worker.errorPreview) : color(theme, "error", worker.errorPreview)}`,
+    `request: ${color(theme, "accent", escalation.requestId)}`,
+    `issue: ${escalation.issueIdentifier}`,
+    `method: ${escalation.method}`,
+    `created: ${color(theme, "dim", escalation.createdAt)}`,
+    `timeout: ${escalation.timeout}`,
+    `preview: ${escalation.preview}`,
   ];
+}
+
+function parseEscalationResponseInput(value: string): unknown {
+  const trimmedValue = value.trimStart();
+  try {
+    return JSON.parse(trimmedValue);
+  } catch {
+    const firstChar = trimmedValue[0];
+    if (firstChar === "{" || firstChar === "[" || firstChar === "\"") {
+      throw new Error("Escalation response must be valid JSON or plain text");
+    }
+    return value;
+  }
+}
+
+function issueDetail(issue: IssueRow): string {
+  if (issue.kind === "blocked") return `blockers: ${issue.blockers}`;
+  if (issue.kind === "completed") return issue.completedAt;
+  if (issue.kind === "retry") return issue.errorPreview;
+  return issue.errorPreview === "-" ? issue.lastActivity : issue.errorPreview;
 }
 
 function renderRecentEvents(events: string[], theme?: ConsoleTheme): string[] {
@@ -263,13 +383,13 @@ function renderRecentEvents(events: string[], theme?: ConsoleTheme): string[] {
 }
 
 function renderActionLegend(refreshing: boolean, width: number, theme?: ConsoleTheme): string[] {
-  const keyboard = "Keyboard: ctrl+shift+↑/↓ select  •  ctrl+shift+r refresh  •  ctrl+shift+e steer  •  ctrl+shift+i details  •  ctrl+shift+q close";
+  const keyboard = "Keyboard: ctrl+shift+↑/↓ select  •  ctrl+shift+r refresh  •  ctrl+shift+t steer  •  ctrl+shift+e escalation  •  ctrl+shift+i details  •  ctrl+shift+q close";
   const commands = "Commands: /symphony:refresh | /symphony:status | /symphony:stop";
   if (refreshing) return [color(theme, "warning", "refreshing..."), commands];
   if (visibleLength(keyboard) <= width - 4) return [keyboard, commands];
   return [
-    "Keyboard: ctrl+shift+↑/↓ select  •  ctrl+shift+r refresh  •  ctrl+shift+e steer",
-    "          ctrl+shift+i details  •  ctrl+shift+q close",
+    "Keyboard: ctrl+shift+↑/↓ select  •  ctrl+shift+r refresh  •  ctrl+shift+t steer",
+    "          ctrl+shift+e escalation  •  ctrl+shift+i details  •  ctrl+shift+q close",
     commands,
   ];
 }
@@ -413,6 +533,9 @@ export async function openConsole(ctx: ExtensionContext, runtime: SymphonyRuntim
       },
       steer: async (issueIdentifier, instruction) => {
         await runtime.steerWorker(issueIdentifier, instruction);
+      },
+      respondToEscalation: async (requestId, response) => {
+        await runtime.respondToEscalation(requestId, response);
       },
       prompt: async (title, label) => ctx.ui.input(title, label),
       close: () => {

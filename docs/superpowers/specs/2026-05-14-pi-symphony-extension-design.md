@@ -133,14 +133,18 @@ The dashboard reaches full parity through vertical slices. Each slice ships an e
 
 This doc is the master design doc. We are using `/writing-plans` to create implementation plans for each vertical slice.
 
-### Slice 1: start, attach, and health ✅
+### Wave 1: foundation
+
+#### Slice 1: start, attach, and health ✅
 
 - Resolve and validate the Symphony binary.
 - Start headless Symphony or attach to an existing server.
 - Render connection status, project link, polling status, worker counts, and basic process ownership.
 - Cover slash commands and tools for init, doctor, start, attach, status, stop, and help.
 
-### Slice 2: worker operations ✅
+### Wave 2: worker operations
+
+#### Slice 2: worker operations ✅
 
 - Render the running workers table.
 - Show selected-worker details: issue, tracker state, attempt, turn count, max turns, last activity, worker host, workspace path, and error preview.
@@ -163,24 +167,28 @@ This doc is the master design doc. We are using `/writing-plans` to create imple
  5. Press d to toggle details, then q to close.
  Expected: details toggle and dashboard exits without stopping Symphony.
 
-### Slice 3: retry, blocked, and completed issues
+### Wave 3: S03-S04 - retry, blocked, completed, and escalations
+
+#### Slice 3: retry, blocked, and completed issues
 
 - Render retry queue, blocked issues, and completed issues.
 - Add an issue detail panel that covers running, retry, blocked, and completed states.
 
-### Slice 4: escalations
+#### Slice 4: escalations
 
 - Render pending escalations.
 - Support responding to escalations from the dashboard.
 - Reflect escalation lifecycle events.
 
-### Slice 5: shared context
+### Wave 4: S05-S06 - shared context and diagnostics
+
+#### Slice 5: shared context
 
 - Render shared context entries and summary.
 - Support create and delete operations.
 - Support scope filtering.
 
-### Slice 6: diagnostics parity
+#### Slice 6: diagnostics parity
 
 - Render rate limits, polling diagnostics, token totals, event stream counters, and event filters.
 - Polish help text, key hints, empty states, and dashboard layout.

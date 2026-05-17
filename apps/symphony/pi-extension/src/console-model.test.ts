@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildWorkerRows, formatEventRows } from "./console-model.ts";
+import { buildEscalationRows, buildIssueRows, buildWorkerRows, formatEventRows } from "./console-model.ts";
 import type { SymphonyEventEnvelope, SymphonyStateResponse } from "./http-client.ts";
 
 function stateFixture(): SymphonyStateResponse {
@@ -62,6 +62,155 @@ describe("console model", () => {
     expect(rows[1]?.attempt).toBe("1");
     expect(rows[1]?.trackerState).toBe("-");
     expect(rows[1]?.errorPreview).toBe("agent exited after a very long error message that needs to be shortened for the console");
+  });
+
+  it("builds issue rows across running, retry, blocked, and completed buckets", () => {
+    const state = stateFixture();
+    state.retry_queue = [
+      {
+        issue_id: "issue-retry",
+        identifier: "SIM-200",
+        attempt: 3,
+        due_in_ms: 90000,
+        error: "rate limit",
+        worker_host: "host-b",
+        workspace_path: "/tmp/retry",
+      },
+    ];
+    state.blocked = [
+      {
+        issue_id: "issue-blocked",
+        identifier: "SIM-300",
+        title: "Blocked work",
+        state: "Todo",
+        blocker_identifiers: ["SIM-100", "SIM-101"],
+      },
+    ];
+    state.completed = [
+      {
+        issue_id: "issue-done",
+        identifier: "SIM-400",
+        title: "Done work",
+        completed_at: "2026-05-14T13:00:00Z",
+      },
+    ];
+
+    const rows = buildIssueRows(state);
+
+    expect(rows.map((row) => `${row.kind}:${row.issueIdentifier}`)).toEqual([
+      "running:SIM-123",
+      "running:SIM-777",
+      "retry:SIM-200",
+      "blocked:SIM-300",
+      "completed:SIM-400",
+    ]);
+    expect(rows.find((row) => row.kind === "retry")).toMatchObject({
+      title: "rate limit",
+      status: "retry in 1m 30s",
+      attempt: "3",
+      workerHost: "host-b",
+      workspacePath: "/tmp/retry",
+      errorPreview: "rate limit",
+    });
+    expect(rows.find((row) => row.kind === "blocked")).toMatchObject({
+      status: "Todo",
+      blockers: "SIM-100, SIM-101",
+    });
+    expect(rows.find((row) => row.kind === "completed")).toMatchObject({
+      status: "completed",
+      completedAt: "2026-05-14T13:00:00Z",
+    });
+  });
+
+  it("rounds retry wait times up to the next second", () => {
+    const state = stateFixture();
+    state.retry_queue = [
+      {
+        issue_id: "issue-retry",
+        identifier: "SIM-200",
+        attempt: 1,
+        due_in_ms: 999,
+      },
+    ];
+
+    const retryRow = buildIssueRows(state).find((row) => row.kind === "retry");
+
+    expect(retryRow).toMatchObject({ status: "retry in 1s" });
+  });
+
+  it("preserves pending retry state when no retry error is present", () => {
+    const state = stateFixture();
+    state.retry_queue = [
+      {
+        issue_id: "issue-retry",
+        identifier: "SIM-200",
+        attempt: 1,
+        due_in_ms: 1000,
+      },
+    ];
+
+    const retryRow = buildIssueRows(state).find((row) => row.kind === "retry");
+
+    expect(retryRow).toMatchObject({
+      title: "pending retry",
+      trackerState: "retry",
+    });
+  });
+
+  it("builds escalation rows sorted by creation time and request id", () => {
+    const state = stateFixture();
+    state.pending_escalations = [
+      {
+        request_id: "esc-3",
+        issue_id: "issue-456",
+        issue_identifier: "SIM-456",
+        method: "approval",
+        preview: "Review matching timestamp command",
+        created_at: "2026-05-14T12:02:00Z",
+        timeout_ms: 30000,
+      },
+      {
+        request_id: "esc-2",
+        issue_id: "issue-777",
+        issue_identifier: "SIM-777",
+        method: "approval",
+        preview: "Review command",
+        created_at: "2026-05-14T12:02:00Z",
+        timeout_ms: 30000,
+      },
+      {
+        request_id: "esc-1",
+        issue_id: "issue-123",
+        issue_identifier: "SIM-123",
+        method: "approval",
+        preview: "Approve command",
+        created_at: "2026-05-14T12:01:00Z",
+        timeout_ms: 600000,
+      },
+    ];
+
+    const rows = buildEscalationRows(state);
+
+    expect(rows.map((row) => row.requestId)).toEqual(["esc-1", "esc-2", "esc-3"]);
+    expect(rows[0]).toMatchObject({
+      method: "approval",
+      preview: "Approve command",
+      timeout: "10m 0s",
+    });
+  });
+
+  it("formats escalation lifecycle events newest first", () => {
+    const events: SymphonyEventEnvelope[] = [
+      { version: "v1", sequence: 1, timestamp: "2026-05-14T12:00:00Z", kind: "escalation_created", severity: "info", issue: "SIM-123", event: "escalation_created", payload: { summary: "Approve command" } },
+      { version: "v1", sequence: 2, timestamp: "2026-05-14T12:01:00Z", kind: "escalation_responded", severity: "info", issue: "SIM-123", event: "escalation_responded", payload: { summary: "Approved" } },
+      { version: "v1", sequence: 3, timestamp: "2026-05-14T12:02:00Z", kind: "escalation_timed_out", severity: "warn", issue: "SIM-777", event: "escalation_timed_out", payload: { summary: "Timed out" } },
+    ];
+
+    expect(formatEventRows(events)).toEqual([
+      "2026-05-14T12:02:00Z warn escalation_timed_out SIM-777 escalation_timed_out Timed out",
+      "2026-05-14T12:01:00Z info escalation_responded SIM-123 escalation_responded Approved",
+      "2026-05-14T12:00:00Z info escalation_created SIM-123 escalation_created Approve command",
+    ]);
   });
 
   it("formats only recent worker and runtime events", () => {

@@ -53,9 +53,10 @@ function workerStateFixture(): SymphonyStateResponse {
       "issue-123": { turn_count: 3, max_turns: 20, last_activity_ms: Date.parse("2026-05-14T12:04:00Z"), last_error: null },
       "issue-777": { turn_count: 1, max_turns: 10, last_activity_ms: null, last_error: "usage limit" },
     },
-    retry_queue: [],
-    blocked: [],
-    completed: [],
+    retry_queue: [{ issue_id: "issue-retry", identifier: "SIM-200", attempt: 3, due_in_ms: 90000, error: "rate limit", worker_host: "host-b", workspace_path: "/tmp/retry" }],
+    blocked: [{ issue_id: "issue-blocked", identifier: "SIM-300", title: "Blocked work", state: "Todo", blocker_identifiers: ["SIM-100", "SIM-101"] }],
+    pending_escalations: [{ request_id: "esc-1", issue_id: "issue-123", issue_identifier: "SIM-123", method: "approval", preview: "Approve cargo test?", created_at: "2026-05-14T12:06:00Z", timeout_ms: 600000 }],
+    completed: [{ issue_id: "issue-done", identifier: "SIM-400", title: "Done work", completed_at: "2026-05-14T13:00:00Z" }],
     polling: { checking: false, next_poll_in_ms: 1000, poll_interval_ms: 30000 },
   };
 }
@@ -115,6 +116,7 @@ describe("SymphonyConsoleComponent", () => {
       getEvents: () => [],
       refresh: async () => undefined,
       steer: async () => undefined,
+      respondToEscalation: async () => undefined,
       prompt: async () => undefined,
       close: () => undefined,
       requestRender: () => undefined,
@@ -130,7 +132,7 @@ describe("SymphonyConsoleComponent", () => {
     expect(output).toContain("owned process: pid 123");
   });
 
-  it("renders running workers, selected-worker details, and recent runtime events", () => {
+  it("renders running workers, selected issue details, and recent runtime events", () => {
     const state = createDefaultState();
     state.console.showDetails = true;
     const consoleComponent = new SymphonyConsoleComponent({
@@ -139,6 +141,7 @@ describe("SymphonyConsoleComponent", () => {
       getEvents: () => runtimeEventsFixture(),
       refresh: async () => undefined,
       steer: async () => undefined,
+      respondToEscalation: async () => undefined,
       prompt: async () => undefined,
       close: () => undefined,
       requestRender: () => undefined,
@@ -150,7 +153,7 @@ describe("SymphonyConsoleComponent", () => {
     expect(output).toContain("Running Workers");
     expect(output).toContain("> SIM-123");
     expect(output).toContain("SIM-777");
-    expect(output).toContain("Selected Worker");
+    expect(output).toContain("Selected Issue");
     expect(output).toContain("issue: SIM-123 Worker one");
     expect(output).toContain("tracker state: In Progress");
     expect(output).toContain("attempt: 2");
@@ -162,6 +165,115 @@ describe("SymphonyConsoleComponent", () => {
     expect(output).toContain("worker_failed usage limit");
   });
 
+  it("renders retry, blocked, completed, and selected issue sections", () => {
+    const state = createDefaultState();
+    state.console.showDetails = true;
+    const consoleComponent = new SymphonyConsoleComponent({
+      state,
+      getState: () => workerStateFixture(),
+      getEvents: () => [],
+      refresh: async () => undefined,
+      steer: async () => undefined,
+      respondToEscalation: async () => undefined,
+      prompt: async () => undefined,
+      close: () => undefined,
+      requestRender: () => undefined,
+      notify: () => undefined,
+    });
+
+    const output = consoleComponent.render(180).join("\n");
+
+    expect(output).toContain("Retry Queue");
+    expect(output).toContain("Blocked Issues");
+    expect(output).toContain("Completed Issues");
+    expect(output).toContain("Selected Issue");
+    expect(output).toContain("SIM-200");
+    expect(output).toContain("retry in 1m 30s");
+    expect(output).toContain("SIM-300");
+    expect(output).toContain("SIM-100, SIM-101");
+    expect(output).toContain("SIM-400");
+    expect(output).toContain("2026-05-14T13:00:00Z");
+  });
+
+  it("moves selection across retry, blocked, and completed rows and limits steering to running rows", () => {
+    const state = createDefaultState();
+    state.console.showDetails = true;
+    const steer = vi.fn(async () => undefined);
+    const notify = vi.fn();
+    const consoleComponent = new SymphonyConsoleComponent({
+      state,
+      getState: () => workerStateFixture(),
+      getEvents: () => [],
+      refresh: async () => undefined,
+      steer,
+      respondToEscalation: async () => undefined,
+      prompt: async () => "not used",
+      close: () => undefined,
+      requestRender: () => undefined,
+      notify,
+    });
+
+    consoleComponent.handleInput("\u001b[B");
+    consoleComponent.handleInput("\u001b[B");
+    let output = consoleComponent.render(180).join("\n");
+    expect(output).toContain("> SIM-200");
+    expect(output).toContain("issue: SIM-200 rate limit");
+    expect(output).toContain("kind: retry");
+    expect(output).toContain("status: retry in 1m 30s");
+    expect(output).toContain("workspace: /tmp/retry");
+
+    consoleComponent.handleInput("s");
+    expect(steer).not.toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledWith("Select a running worker before steering", "warning");
+
+    consoleComponent.handleInput("\u001b[B");
+    output = consoleComponent.render(180).join("\n");
+    expect(output).toContain("> SIM-300");
+    expect(output).toContain("issue: SIM-300 Blocked work");
+    expect(output).toContain("kind: blocked");
+    expect(output).toContain("blockers: SIM-100, SIM-101");
+
+    consoleComponent.handleInput("\u001b[B");
+    output = consoleComponent.render(180).join("\n");
+    expect(output).toContain("> SIM-400");
+    expect(output).toContain("issue: SIM-400 Done work");
+    expect(output).toContain("kind: completed");
+    expect(output).toContain("completed at: 2026-05-14T13:00:00Z");
+  });
+
+  it("renders pending escalations and selected escalation details", () => {
+    const state = createDefaultState();
+    state.console.showDetails = true;
+    const consoleComponent = new SymphonyConsoleComponent({
+      state,
+      getState: () => workerStateFixture(),
+      getEvents: () => [],
+      refresh: async () => undefined,
+      steer: async () => undefined,
+      respondToEscalation: async () => undefined,
+      prompt: async () => undefined,
+      close: () => undefined,
+      requestRender: () => undefined,
+      notify: () => undefined,
+    });
+
+    consoleComponent.handleInput("\u001b[B");
+    consoleComponent.handleInput("\u001b[B");
+    consoleComponent.handleInput("\u001b[B");
+    consoleComponent.handleInput("\u001b[B");
+    consoleComponent.handleInput("\u001b[B");
+
+    const output = consoleComponent.render(180).join("\n");
+    expect(output).toContain("Pending Escalations");
+    expect(output).toContain("> esc-1");
+    expect(output).toContain("SIM-123");
+    expect(output).toContain("approval");
+    expect(output).toContain("Approve cargo test?");
+    expect(output).toContain("Selected Escalation");
+    expect(output).toContain("request: esc-1");
+    expect(output).toContain("timeout: 10m 0s");
+  });
+
   it("expands keyboard shortcuts onto one row when the terminal is wide", () => {
     const state = createDefaultState();
     state.attachedBaseUrl = "http://127.0.0.1:8080";
@@ -171,6 +283,7 @@ describe("SymphonyConsoleComponent", () => {
       getEvents: () => [],
       refresh: async () => undefined,
       steer: async () => undefined,
+      respondToEscalation: async () => undefined,
       prompt: async () => undefined,
       close: () => undefined,
       requestRender: () => undefined,
@@ -179,7 +292,7 @@ describe("SymphonyConsoleComponent", () => {
 
     const output = consoleComponent.render(220).join("\n");
 
-    expect(output).toContain("Keyboard: ctrl+shift+↑/↓ select  •  ctrl+shift+r refresh  •  ctrl+shift+e steer  •  ctrl+shift+i details  •  ctrl+shift+q close");
+    expect(output).toContain("Keyboard: ctrl+shift+↑/↓ select  •  ctrl+shift+r refresh  •  ctrl+shift+t steer  •  ctrl+shift+e escalation  •  ctrl+shift+i details  •  ctrl+shift+q close");
   });
 
   it("renders boxed colored sections and command actions for console readability", () => {
@@ -202,6 +315,7 @@ describe("SymphonyConsoleComponent", () => {
       getEvents: () => runtimeEventsFixture(),
       refresh: async () => undefined,
       steer: async () => undefined,
+      respondToEscalation: async () => undefined,
       prompt: async () => undefined,
       close: () => undefined,
       requestRender: () => undefined,
@@ -216,15 +330,16 @@ describe("SymphonyConsoleComponent", () => {
     expect(output).toContain("Status");
     expect(output).toContain("Worker Summary");
     expect(output).toContain("Running Workers");
-    expect(output).toContain("Selected Worker");
+    expect(output).toContain("Selected Issue");
     expect(output).toContain("Events");
     expect(output).toContain("Keyboard");
     expect(output).toContain("ctrl+shift+↑/↓ select");
     expect(output).toContain("ctrl+shift+r refresh");
-    expect(output).toContain("ctrl+shift+e steer");
+    expect(output).toContain("ctrl+shift+t steer");
+    expect(output).toContain("ctrl+shift+e escalation");
     expect(output).toContain("ctrl+shift+i details");
     expect(output).toContain("ctrl+shift+q close");
-    expect(output).toContain("Keyboard: ctrl+shift+↑/↓ select  •  ctrl+shift+r refresh  •  ctrl+shift+e steer  •  ctrl+shift+i details  •  ctrl+shift+q close");
+    expect(output).toContain("Keyboard: ctrl+shift+↑/↓ select  •  ctrl+shift+r refresh  •  ctrl+shift+t steer  •  ctrl+shift+e escalation  •  ctrl+shift+i details  •  ctrl+shift+q close");
     expect(output).toContain("<borderAccent>┌</borderAccent>");
     expect(output).toContain("<success>running: 2</success>");
     expect(output).toContain("<warning>retry: 1</warning>");
@@ -243,6 +358,7 @@ describe("SymphonyConsoleComponent", () => {
       getEvents: () => [],
       refresh: async () => undefined,
       steer: async () => undefined,
+      respondToEscalation: async () => undefined,
       prompt: async () => undefined,
       close: () => undefined,
       requestRender: () => undefined,
@@ -256,7 +372,7 @@ describe("SymphonyConsoleComponent", () => {
     expect(output).toContain("issue: SIM-777 Worker two");
   });
 
-  it("toggles selected-worker details", () => {
+  it("toggles selected issue details", () => {
     const state = createDefaultState();
     state.console.showDetails = true;
     const consoleComponent = new SymphonyConsoleComponent({
@@ -265,6 +381,7 @@ describe("SymphonyConsoleComponent", () => {
       getEvents: () => [],
       refresh: async () => undefined,
       steer: async () => undefined,
+      respondToEscalation: async () => undefined,
       prompt: async () => undefined,
       close: () => undefined,
       requestRender: () => undefined,
@@ -297,6 +414,7 @@ describe("SymphonyConsoleComponent", () => {
       getEvents: () => [],
       refresh: async () => undefined,
       steer,
+      respondToEscalation: async () => undefined,
       prompt: async () => "Use the existing auth module",
       close: () => undefined,
       requestRender: () => undefined,
@@ -311,6 +429,138 @@ describe("SymphonyConsoleComponent", () => {
     expect(notify).toHaveBeenCalledWith("Steer delivered to SIM-123", "info");
   });
 
+  it("responds to the selected escalation with parsed JSON input", async () => {
+    let resolveResponded: (() => void) | undefined;
+    const responded = new Promise<void>((resolve) => {
+      resolveResponded = resolve;
+    });
+    const respondToEscalation = vi.fn(async () => {
+      resolveResponded?.();
+    });
+    let resolveNotified: (() => void) | undefined;
+    const notified = new Promise<void>((resolve) => {
+      resolveNotified = resolve;
+    });
+    const notify = vi.fn(() => {
+      resolveNotified?.();
+    });
+    const consoleComponent = new SymphonyConsoleComponent({
+      state: createDefaultState(),
+      getState: () => workerStateFixture(),
+      getEvents: () => [],
+      refresh: async () => undefined,
+      steer: async () => undefined,
+      respondToEscalation,
+      prompt: async () => '{"approved":true}',
+      close: () => undefined,
+      requestRender: () => undefined,
+      notify,
+    });
+
+    for (let index = 0; index < 5; index += 1) consoleComponent.handleInput("\u001b[B");
+    consoleComponent.handleInput("e");
+    await responded;
+    await notified;
+
+    expect(respondToEscalation).toHaveBeenCalledWith("esc-1", { approved: true });
+    expect(notify).toHaveBeenCalledWith("Escalation response sent for esc-1", "info");
+  });
+
+  it("responds to the selected escalation with plain text when input is not JSON", async () => {
+    let resolveResponded: (() => void) | undefined;
+    const responded = new Promise<void>((resolve) => {
+      resolveResponded = resolve;
+    });
+    const respondToEscalation = vi.fn(async () => {
+      resolveResponded?.();
+    });
+    const consoleComponent = new SymphonyConsoleComponent({
+      state: createDefaultState(),
+      getState: () => workerStateFixture(),
+      getEvents: () => [],
+      refresh: async () => undefined,
+      steer: async () => undefined,
+      respondToEscalation,
+      prompt: async () => "approved",
+      close: () => undefined,
+      requestRender: () => undefined,
+      notify: () => undefined,
+    });
+
+    for (let index = 0; index < 5; index += 1) consoleComponent.handleInput("\u001b[B");
+    consoleComponent.handleInput("e");
+    await responded;
+
+    expect(respondToEscalation).toHaveBeenCalledWith("esc-1", "approved");
+  });
+
+  it("cancels escalation response when prompt returns only whitespace", async () => {
+    const respondToEscalation = vi.fn(async () => undefined);
+    const requestRender = vi.fn();
+    const consoleComponent = new SymphonyConsoleComponent({
+      state: createDefaultState(),
+      getState: () => workerStateFixture(),
+      getEvents: () => [],
+      refresh: async () => undefined,
+      steer: async () => undefined,
+      respondToEscalation,
+      prompt: async () => "   ",
+      close: () => undefined,
+      requestRender,
+      notify: () => undefined,
+    });
+
+    for (let index = 0; index < 5; index += 1) consoleComponent.handleInput("\u001b[B");
+    consoleComponent.handleInput("e");
+    await expect.poll(() => requestRender.mock.calls.length, { interval: 10, timeout: 1000 }).toBeGreaterThan(0);
+
+    expect(respondToEscalation).not.toHaveBeenCalled();
+  });
+
+  it.each(["{approved: true}", "\"approved"])("rejects malformed JSON-like escalation response before sending: %s", async (input) => {
+    const respondToEscalation = vi.fn(async () => undefined);
+    const notify = vi.fn();
+    const consoleComponent = new SymphonyConsoleComponent({
+      state: createDefaultState(),
+      getState: () => workerStateFixture(),
+      getEvents: () => [],
+      refresh: async () => undefined,
+      steer: async () => undefined,
+      respondToEscalation,
+      prompt: async () => input,
+      close: () => undefined,
+      requestRender: () => undefined,
+      notify,
+    });
+
+    for (let index = 0; index < 5; index += 1) consoleComponent.handleInput("\u001b[B");
+    consoleComponent.handleInput("e");
+    await expect.poll(() => notify.mock.calls.length, { interval: 10, timeout: 1000 }).toBe(1);
+
+    expect(respondToEscalation).not.toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledWith("Escalation response must be valid JSON or plain text", "error");
+  });
+
+  it("notifies when escalation response is requested without a selected escalation", () => {
+    const notify = vi.fn();
+    const consoleComponent = new SymphonyConsoleComponent({
+      state: createDefaultState(),
+      getState: () => workerStateFixture(),
+      getEvents: () => [],
+      refresh: async () => undefined,
+      steer: async () => undefined,
+      respondToEscalation: async () => undefined,
+      prompt: async () => undefined,
+      close: () => undefined,
+      requestRender: () => undefined,
+      notify,
+    });
+
+    consoleComponent.handleInput("e");
+
+    expect(notify).toHaveBeenCalledWith("Select an escalation before responding", "warning");
+  });
+
   it("notifies and requests render when steering prompt fails", async () => {
     const notify = vi.fn();
     const requestRender = vi.fn();
@@ -320,6 +570,7 @@ describe("SymphonyConsoleComponent", () => {
       getEvents: () => [],
       refresh: async () => undefined,
       steer: async () => undefined,
+      respondToEscalation: async () => undefined,
       prompt: async () => {
         throw new Error("prompt failed");
       },
@@ -343,6 +594,7 @@ describe("SymphonyConsoleComponent", () => {
       getEvents: () => [],
       refresh: async () => undefined,
       steer: async () => undefined,
+      respondToEscalation: async () => undefined,
       prompt: async () => undefined,
       close,
       requestRender: () => undefined,
@@ -365,6 +617,7 @@ describe("SymphonyConsoleComponent", () => {
       getEvents: () => [],
       refresh,
       steer: async () => undefined,
+      respondToEscalation: async () => undefined,
       prompt: async () => undefined,
       close: () => undefined,
       requestRender: () => undefined,
@@ -395,6 +648,7 @@ describe("SymphonyConsoleComponent", () => {
         throw new Error("refresh failed");
       },
       steer: async () => undefined,
+      respondToEscalation: async () => undefined,
       prompt: async () => undefined,
       close: () => undefined,
       requestRender: () => undefined,
@@ -528,6 +782,7 @@ describe("openConsole", () => {
       refreshState: vi.fn(async () => workerStateFixture()),
       requestRefresh: vi.fn(async () => workerStateFixture()),
       steerWorker: vi.fn(async () => undefined),
+      respondToEscalation: vi.fn(async () => undefined),
       errorText: vi.fn((error: unknown) => (error instanceof Error ? error.message : String(error))),
     } as unknown as SymphonyRuntime;
 
@@ -538,6 +793,37 @@ describe("openConsole", () => {
     const output = component?.render(160).join("\n") ?? "";
     expect(output).toContain("> SIM-777");
     expect(output).not.toContain("issue: <accent>SIM-777</accent> Worker two");
+    expect(requestRender).toHaveBeenCalled();
+  });
+
+  it("lets a global shortcut respond to the selected active-console escalation", async () => {
+    const state = createDefaultState();
+    state.attachedBaseUrl = "http://127.0.0.1:8080";
+
+    vi.mocked(startSymphonyEventStream).mockImplementation(() => ({ close: vi.fn() }));
+
+    const requestRender = vi.fn();
+    const setWidget = vi.fn((_key: string, factory: unknown) => {
+      (factory as (tui: { requestRender: () => void }, theme: ReturnType<typeof fakeTheme>) => SymphonyConsoleComponent)({ requestRender }, fakeTheme());
+    });
+    const ctx = { ui: { notify: vi.fn(), custom: vi.fn(), input: vi.fn(async () => "approved"), setWidget } } as unknown as ExtensionContext;
+    const runtime = {
+      client: {},
+      state,
+      lastState: workerStateFixture(),
+      recentEvents: [],
+      refreshState: vi.fn(async () => workerStateFixture()),
+      requestRefresh: vi.fn(async () => workerStateFixture()),
+      steerWorker: vi.fn(async () => undefined),
+      respondToEscalation: vi.fn(async () => undefined),
+      errorText: vi.fn((error: unknown) => (error instanceof Error ? error.message : String(error))),
+    } as unknown as SymphonyRuntime;
+
+    await openConsole(ctx, runtime);
+    for (let index = 0; index < 5; index += 1) await handleActiveConsoleShortcut("selectNext", ctx);
+    await handleActiveConsoleShortcut("respondEscalation", ctx);
+
+    expect(runtime.respondToEscalation).toHaveBeenCalledWith("esc-1", "approved");
     expect(requestRender).toHaveBeenCalled();
   });
 
