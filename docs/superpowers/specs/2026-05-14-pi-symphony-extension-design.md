@@ -167,7 +167,7 @@ This doc is the master design doc. We are using `/writing-plans` to create imple
  5. Press d to toggle details, then q to close.
  Expected: details toggle and dashboard exits without stopping Symphony.
 
-### Wave 3: S03-S04 - retry, blocked, completed, and escalations
+### Wave 3: S03-S04 - retry, blocked, completed, and escalations ✅
 
 #### Slice 3: retry, blocked, and completed issues
 
