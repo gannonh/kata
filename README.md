@@ -121,6 +121,18 @@ Use Kata Symphony when you want:
 - parallel agent sessions working through a tracker backlog
 - a headless orchestrator you can run on a server or CI
 
+### Pi Coding Agent extension
+
+Symphony users on Pi can install `@kata-sh/pi-symphony-extension` to initialize, start, attach to, and monitor Symphony from Pi. It adds `/symphony:*` commands and a live console for running workers, retry queue entries, blocked issues, completed issues, and pending escalations.
+
+```bash
+pi install npm:@kata-sh/pi-symphony-extension
+# or, from the monorepo package:
+pi install git:github.com/gannonh/kata
+```
+
+Read more in [apps/symphony/pi-extension/README.md](apps/symphony/pi-extension/README.md).
+
 Read more in [apps/symphony/README.md](apps/symphony/README.md).
 
 ## Kata Context

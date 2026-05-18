@@ -45,6 +45,18 @@ symphony init
 symphony [WORKFLOW.md] [--port PORT] [--logs-root PATH] [--no-tui]
 ```
 
+### Pi Coding Agent extension
+
+If you use Pi Coding Agent, install the Symphony extension to control Symphony from inside Pi. It adds `/symphony:*` commands, start/attach flows, status updates, refresh/steer actions, and a live console for active workers, retries, blocked issues, completed issues, and pending escalations.
+
+```sh
+pi install npm:@kata-sh/pi-symphony-extension
+# or install from the kata monorepo package
+pi install git:github.com/gannonh/kata
+```
+
+For local development and screenshot/demo data, see [`pi-extension/README.md`](pi-extension/README.md).
+
 ### CLI Flag Reference
 
 | Flag                       | Type | Default                                     | Description                                                                                                                                     |

@@ -20,6 +20,16 @@ const server = createServer((req, res) => {
   });
 });
 
+server.on("error", (error) => {
+  if (error?.code === "EADDRINUSE") {
+    console.error(`Port ${options.port} is already in use on ${options.host}.`);
+    console.error("Try another port, for example:");
+    console.error("pnpm --dir apps/symphony/pi-extension run mock:wave3 -- --port 8788");
+    process.exit(1);
+  }
+  throw error;
+});
+
 server.listen(options.port, options.host, () => {
   const address = server.address();
   if (!address || typeof address === "string") {

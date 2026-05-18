@@ -1,6 +1,8 @@
 # @kata-sh/pi-symphony-extension
 
-Pi extension for initializing, launching, attaching to, and monitoring Kata Symphony.
+Pi extension for initializing, launching, attaching to, and monitoring Kata Symphony from Pi Coding Agent. It adds `/symphony:*` commands plus a live console for active workers, retry queue entries, blocked issues, completed issues, and pending escalations.
+
+![Symphony console in Pi Coding Agent](assets/symphony-console.png)
 
 ## Requirements
 
@@ -39,6 +41,49 @@ pnpm --dir apps/symphony/pi-extension typecheck
 ```
 
 Run it locally with `pi -e ./apps/symphony/pi-extension`.
+
+## Screenshot demo with mock data
+
+Use the mock server to show an active Symphony session without tracker credentials or real workers.
+
+1. Start the seeded mock Symphony API:
+
+   ```sh
+   pnpm --dir apps/symphony/pi-extension run mock:wave3
+   ```
+
+   If port `8787` is already in use, choose another port:
+
+   ```sh
+   pnpm --dir apps/symphony/pi-extension run mock:wave3 -- --port 8788
+   ```
+
+   Expected output includes:
+
+   ```text
+   Mock Symphony server: http://127.0.0.1:8787
+   /symphony:attach http://127.0.0.1:8787
+   /symphony:console
+   ```
+
+   Use the printed port in the attach command when you override `--port`.
+
+2. Start Pi with the local extension:
+
+   ```sh
+   pi -e ./apps/symphony/pi-extension
+   ```
+
+3. In Pi, run:
+
+   ```text
+   /symphony:attach http://127.0.0.1:8787
+   /symphony:console
+   ```
+
+4. Use `↑` / `↓` to select the running worker, retry queue, blocked issue, completed issue, or pending escalation. Capture the screenshot when the console shows the seeded `SIM-*` items.
+
+   Suggested screenshot path for this README: `apps/symphony/pi-extension/assets/symphony-console.png`.
 
 ## Commands through Wave 3
 
