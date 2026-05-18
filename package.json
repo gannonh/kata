@@ -38,7 +38,6 @@
   "devDependencies": {
     "@aws-sdk/client-s3": "^3.1043.0",
     "@electron/packager": "^20.0.0",
-    "@rollup/rollup-win32-arm64-msvc": "^4.60.3",
     "@sentry/vite-plugin": "^5.2.1",
     "@tailwindcss/vite": "^4.2.4",
     "@types/bun": "latest",
