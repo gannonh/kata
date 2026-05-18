@@ -22,13 +22,13 @@ The extension resolves the Symphony binary in this order:
 pi install npm:@kata-sh/pi-symphony-extension
 
 # Pinned npm release
-pi install npm:@kata-sh/pi-symphony-extension@0.1.1
+pi install npm:@kata-sh/pi-symphony-extension@0.1.2
 
 # Latest monorepo git package
 pi install git:github.com/gannonh/kata
 
 # Pinned monorepo git package
-pi install git:github.com/gannonh/kata@pi-symphony-v0.1.1
+pi install git:github.com/gannonh/kata@pi-symphony-v0.1.2
 ```
 
 ## Local development

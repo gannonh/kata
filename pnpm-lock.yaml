@@ -155,9 +155,6 @@ importers:
       '@electron/packager':
         specifier: ^20.0.0
         version: 20.0.0
-      '@rollup/rollup-win32-arm64-msvc':
-        specifier: ^4.60.3
-        version: 4.60.3
       '@sentry/vite-plugin':
         specifier: ^5.2.1
         version: 5.2.1(encoding@0.1.13)
@@ -3380,11 +3377,6 @@ packages:
 
   '@rolldown/pluginutils@1.0.0-rc.7':
     resolution: {integrity: sha512-qujRfC8sFVInYSPPMLQByRh7zhwkGFS4+tyMQ83srV1qrxL4g8E2tyxVVyxd0+8QeBM1mIk9KbWxkegRr76XzA==}
-
-  '@rollup/rollup-win32-arm64-msvc@4.60.3':
-    resolution: {integrity: sha512-65LAKM/bAWDqKNEelHlcHvm2V+Vfb8C6INFxQXRHCvaVN1rJfwr4NvdP4FyzUaLqWfaCGaadf6UbTm8xJeYfEg==}
-    cpu: [arm64]
-    os: [win32]
 
   '@sec-ant/readable-stream@0.4.1':
     resolution: {integrity: sha512-831qok9r2t8AlxLko40y2ebgSDhenenCatLVeW/uBtnHPyhHOvG0C7TvfgecV+wHzIm5KUICgzmVpWS+IMEAeg==}
@@ -12466,8 +12458,6 @@ snapshots:
   '@rolldown/pluginutils@1.0.0-rc.17': {}
 
   '@rolldown/pluginutils@1.0.0-rc.7': {}
-
-  '@rollup/rollup-win32-arm64-msvc@4.60.3': {}
 
   '@sec-ant/readable-stream@0.4.1': {}
 
