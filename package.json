@@ -4,7 +4,16 @@
   "description": "Kata monorepo",
   "type": "module",
   "private": true,
+  "keywords": [
+    "pi-package",
+    "kata"
+  ],
   "packageManager": "pnpm@10.6.2",
+  "pi": {
+    "extensions": [
+      "apps/symphony/pi-extension/src/index.ts"
+    ]
+  },
   "scripts": {
     "lint": "pnpm exec turbo run lint",
     "typecheck": "pnpm exec turbo run typecheck",
@@ -106,6 +115,7 @@
     "semver": "^7.7.3",
     "shiki": "^4.0.2",
     "tailwind-merge": "^3.4.0",
+    "ws": "^8.20.1",
     "zod": "^4.4.3"
   },
   "trustedDependencies": [
