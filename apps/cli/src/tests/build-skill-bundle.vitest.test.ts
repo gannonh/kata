@@ -71,12 +71,14 @@ describe("skill bundle generation", () => {
     expect(workflow).not.toContain("Source:");
     expect(workflow).not.toContain("apps/cli/dist/loader.js");
     expect(workflow).toContain("Inspect `snapshot.roadmap.sliceDependencies`");
+    expect(workflow).toContain("independently demo-able and testable");
     expect(workflow).toContain('"blockedBy": ["S001", "S002"]');
     expect(workflow).toContain("## Stage 6: Reconcile Roadmap After Planning");
     expect(workflow).toContain("`S009 / Planned Slice 1`");
     expect(executeWorkflow).toContain("Use `snapshot.nextAction` as the source of truth for executable slice selection");
     expect(executeWorkflow).toContain("Do not execute slices whose `blockedBy` dependencies include known non-done blockers");
-    expect(roadmapTemplate).toContain("| Planned Slice | Backend Slice ID | Blocked By | Requirements |");
+    expect(roadmapTemplate).toContain("| Planned Slice | Backend Slice ID | Blocked By | Requirements | Demo Outcome | Independent Test Surface |");
+    expect(roadmapTemplate).toContain("demo-able vertical slices");
     expect(roadmapTemplate).toContain("## Slice Map");
     expect(roadmapTemplate).toContain("| Roadmap Slice | Backend Slice ID | Title | Status |");
     expect(roadmapTemplate).toContain("Backend Slice: S003; Depends on: S001, S002");
@@ -89,6 +91,9 @@ describe("skill bundle generation", () => {
     expect(readFileSync(path.join(cliRoot, "skills", "kata-execute-issue", "references", "workflow.md"), "utf8")).toContain("issue.listOpen");
     expect(readFileSync(path.join(cliRoot, "skills", "kata-execute-issue", "references", "workflow.md"), "utf8")).toContain("backend with `issue.listOpen`, `issue.get`, and `issue.updateStatus` support");
     expect(existsSync(path.join(cliRoot, "skills", "kata-execute-issue", "templates", "implementer-prompt.md"))).toBe(true);
+    expect(existsSync(path.join(cliRoot, "skills", "kata-update-project", "SKILL.md"))).toBe(true);
+    expect(readFileSync(path.join(cliRoot, "skills", "kata-update-project", "references", "workflow.md"), "utf8")).toContain("What do you want to update?");
+    expect(readFileSync(path.join(cliRoot, "skills", "kata-update-project", "references", "runtime-contract.md"), "utf8")).toContain("artifact.write");
     expect(setup).toContain("`setup` installs or refreshes Kata skills for the selected target");
     expect(setup).toContain("Kata Type");
     expect(setup).toContain("Kata Artifact Scope");

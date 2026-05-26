@@ -7,7 +7,7 @@ Use this as the content shape for milestone-scoped `roadmap` artifacts.
 
 ## Overview
 
-[One paragraph describing the path from current state to milestone completion.]
+[One paragraph describing the path from current state to milestone completion through demo-able vertical slices with minimized dependencies.]
 
 ## Slice Map
 
@@ -26,6 +26,9 @@ Use this table as the quick lookup between roadmap-local slice labels and backen
 **Depends on:** [None / S001, S002 after backend slice IDs exist / named dependency before IDs exist]
 **Requirements:** [REQ-01, REQ-02]
 
+**Demo Outcome:** [User-visible or operator-visible behavior this slice can demonstrate independently]
+**Independent Test Surface:** [The behavior, command, API, or UI path that verifies this slice without relying on unrelated slices]
+
 **Success Criteria:**
 
 1. [Observable behavior]
@@ -33,15 +36,23 @@ Use this table as the quick lookup between roadmap-local slice labels and backen
 
 **Planned Slices:**
 
-| Planned Slice | Backend Slice ID | Blocked By | Requirements |
-|---|---|---|---|
-| Planned Slice 1: [Slice title] | None | None | REQ-01 |
+| Planned Slice | Backend Slice ID | Blocked By | Requirements | Demo Outcome | Independent Test Surface |
+|---|---|---|---|---|---|
+| Planned Slice 1: [Slice title] | None | None | REQ-01 | [Demo-able behavior] | [Independent verification path] |
 
 ## Dependency Graph
 
 | Slice | Backend Slice ID | Depends On | Blocks | Requirements |
 |---|---|---|---|---|
 | Planned Slice 1: [Slice title] | None | None | Planned Slice 2 | REQ-01 |
+
+## Slice Independence
+
+Use this section to show why the roadmap can be developed and tested in parallel where possible.
+
+| Planned Slice | Demo Outcome | Independent Test Surface | Shared Dependencies | Parallelization Notes |
+|---|---|---|---|---|
+| Planned Slice 1 | [Demo-able behavior] | [Independent verification path] | None | Can run in Wave 1 |
 
 ## Implementation Waves
 
@@ -68,7 +79,10 @@ Waves show sequencing and parallelization opportunities. Execute waves in order 
 ## Guidance
 
 - Derive phases from requirements; do not impose arbitrary structure.
+- Default to demo-able vertical slices. Every planned slice should produce a demo-able behavior and an independent test surface.
 - Every active requirement should map to exactly one primary phase/slice.
+- Minimize inter-slice dependencies. If two planned slices can be developed, maintained, and tested independently, put them in the same implementation wave.
+- Record enabling-only slices as exceptions. Explain why the work cannot be folded into a vertical slice, keep the scope narrow, and identify the later demo-able slice it unlocks.
 - Do not preassign backend slice IDs such as `S001` in milestone roadmaps. Backend slice IDs are global and are only known after `slice.create` returns them. Once a backend slice ID exists, record it using an explicit keyworded format such as `Backend Slice: S001`, `Slice ID: S001`, or a table column named `Backend Slice ID`; avoid bare forms like `S001:`.
 - Record dependency metadata in a machine-readable form. Preferred table columns are `Backend Slice ID` and `Blocked By`; use `None` or an empty cell when there are no dependencies.
 - Maintain `## Slice Map` as the human-facing alias table. Roadmap labels such as `Planned Slice 1` stay stable; backend IDs such as `S009` are added after backend slices exist.
@@ -79,3 +93,4 @@ Waves show sequencing and parallelization opportunities. Execute waves in order 
 - Derive implementation waves from the dependency graph using topological layering: Wave 1 contains slices with no blockers; each later wave contains slices whose blockers are in prior waves. Put independent slices in the same wave.
 - Waves are planning guidance. Waves normally run in sequence, while slices in the same wave can run in parallel. A later slice can be selected out of wave order when its blockers are satisfied and there is no dependency collision.
 - Success criteria must be observable from the user or system boundary.
+- Keep demo outcomes small enough to verify independently during `kata-verify-work`.

@@ -4,6 +4,8 @@
 
 Use this workflow to start a scoped delivery cycle for an existing Kata project: gather "what's next", define requirements, create the milestone, write roadmap artifacts, then route to `kata-plan-phase`.
 
+Default milestone roadmaps to demo-able vertical slices. Each planned slice should deliver a small user-visible or operator-visible behavior that can be developed, maintained, demoed, and tested independently. Minimize inter-slice dependencies so same-wave work can run in parallel. If horizontal enabling work is truly required, justify enabling work explicitly and keep it as small as possible.
+
 ## Required Reading
 
 - `references/questioning.md`
@@ -83,6 +85,8 @@ Use `references/questioning.md`, but focus on what changes in this milestone:
 - Constraints.
 - Out of scope.
 - Risks or sequencing tradeoffs.
+- Demo-able vertical slice boundaries.
+- Opportunities to minimize inter-slice dependencies and parallelize work.
 
 Ask:
 
@@ -154,13 +158,16 @@ Use `templates/roadmap.md` to derive a phase/slice roadmap from the requirements
 The roadmap must include explicit dependency and parallelization visibility:
 
 - Derive planned slices from the milestone requirements and phase goals.
+- Prefer demo-able vertical slices over horizontal layers. A good planned slice has a demo outcome, an independent test surface, and clear ownership of the requirements it proves.
 - Assign each planned slice a stable roadmap label such as `Planned Slice 1`.
 - Add a `## Slice Map` section that maps each roadmap label to `Backend Slice ID: None` until backend slices are created.
 - Record direct blockers for every planned slice in machine-readable `Blocked By` fields.
+- Minimize inter-slice dependencies. Put independent slices in the same implementation wave so they can be planned or executed in parallel.
 - Add a `## Dependency Graph` section showing each planned slice, what it depends on, what it blocks, and the requirements it covers.
 - Add a `## Implementation Waves` section. Waves run in sequence by default; slices inside the same wave can be planned or executed in parallel when their blockers are satisfied.
 - Note when a slice can be selected out of wave order because it has no dependency collision.
 - Keep backend slice IDs as `None` until `slice.create` returns canonical IDs.
+- If a planned slice is horizontal enabling work rather than a demo-able vertical slice, justify enabling work in the roadmap and state which later demo slice it unlocks.
 
 Create `/tmp/kata-milestone-roadmap.json`:
 
@@ -170,7 +177,7 @@ Create `/tmp/kata-milestone-roadmap.json`:
   "scopeId": "M001",
   "artifactType": "roadmap",
   "title": "M001 Roadmap",
-  "content": "# Roadmap: v1.0 Todo App MVP\n\n## Slices / Phases\n\n### Phase 1: Task Foundation\n\n...",
+  "content": "# Roadmap: v1.0 Todo App MVP\n\n## Slices / Phases\n\n### Phase 1: Create and view first task\n\n...",
   "format": "markdown"
 }
 ```
@@ -188,7 +195,8 @@ Summarize:
 - Milestone ID and title.
 - Requirement count.
 - Roadmap phases/slices.
-- Dependency graph and implementation waves.
+- Demo outcomes and independent test surfaces.
+- Dependency graph, implementation waves, and parallelization opportunities.
 - Open risks.
 
 End with:

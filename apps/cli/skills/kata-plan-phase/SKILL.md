@@ -11,19 +11,21 @@ When this skill is invoked, turn the active milestone roadmap into executable sl
 
 Load the project snapshot and active milestone, read the milestone requirements and roadmap, list existing milestone slices when needed, then present the next roadmap phase or slice the snapshot recommends converting into execution work. Ask for confirmation before creating backend slices or tasks.
 
-If the selected roadmap work is not already represented by an existing slice, create a slice with `slice.create`, create focused tasks with `task.create`, and write a slice-scoped plan artifact with `artifact.write`. End by routing the user to `kata-execute-phase`.
+If the selected roadmap work is not already represented by an existing slice, confirm it is independently demo-able and testable, create a slice with `slice.create`, create focused tasks with `task.create`, and write a slice-scoped plan artifact with `artifact.write`. End by routing the user to `kata-execute-phase`.
 
 ## Success Criteria
 
 - The selected milestone work is represented by one or more backend slices.
 - Each task is small enough for a fresh execution agent and includes verification expectations.
 - A slice-scoped `plan` artifact captures the execution plan.
+- The plan preserves the selected slice as an independently demo-able and testable vertical increment unless an enabling-work exception is approved.
 - The user knows the next step is `kata-execute-phase`.
 
 ## Do Not
 
 - Do not plan without an active milestone.
 - Do not create tasks that are not tied to milestone requirements.
+- Do not create horizontal enabling work without an explicit exception and downstream demo slice.
 - Do not skip the phase gate before creating backend work.
 - Do not execute implementation work in this skill.
 

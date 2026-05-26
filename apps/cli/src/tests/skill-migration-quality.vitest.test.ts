@@ -115,6 +115,14 @@ describe("skill migration quality gates", () => {
     expect(executeIssueWorkflow).toContain("Do not retrieve full issue bodies while listing open issues");
     expect(executeIssueWorkflow).toContain("Do not dispatch multiple implementation subagents in parallel");
 
+    const updateWorkflow = readSourceWorkflow("update-project");
+    expect(updateWorkflow).toContain("artifact.read");
+    expect(updateWorkflow).toContain("artifact.write");
+    expect(updateWorkflow).toContain("project.getSnapshot");
+    expect(updateWorkflow).toContain("milestone.getActive");
+    expect(updateWorkflow).toContain("Do not create milestones, slices, tasks, issues, or milestone completions");
+    expect(updateWorkflow).toContain("Show a concise diff-style summary");
+
     const planIssueWorkflow = readSourceWorkflow("plan-issue");
     expect(planIssueWorkflow).toContain("issue.create");
     expect(planIssueWorkflow).toContain("# Design");

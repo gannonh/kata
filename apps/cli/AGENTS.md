@@ -36,7 +36,8 @@ Runtime shape:
 - Backend adapters include GitHub Projects v2 and Linear under `src/backends`.
 - Linear auth resolves from `LINEAR_API_KEY`, `LINEAR_TOKEN`, or configured `linear.authEnv`.
 - Standalone issue workflows use `kata-plan-issue` and `kata-execute-issue` with `issue.listOpen`, `issue.create`, `issue.get`, and `issue.updateStatus` operations.
-- Roadmap planning includes slice maps, dependency graphs, and implementation waves.
+- In-flight project updates use `kata-update-project` to refresh project and active milestone artifacts without creating new execution scope.
+- Roadmap planning favors demo-able vertical slices with independent test surfaces, slice maps, dependency graphs, and implementation waves.
 
 Release channel:
 

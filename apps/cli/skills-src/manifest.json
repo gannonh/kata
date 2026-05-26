@@ -93,18 +93,21 @@
         "",
         "Start by reading project context and recent completed milestone artifacts, then ask what outcome the next milestone should deliver. Gather enough detail to define the milestone goal, requirements, roadmap, constraints, open questions, and any carry-forward candidates.",
         "",
-        "Create exactly one milestone with `milestone.create`, then write milestone-scoped requirements and roadmap artifacts with `artifact.write`. End by routing the user to `kata-plan-phase`."
+        "Create exactly one milestone with `milestone.create`, then write milestone-scoped requirements and roadmap artifacts with `artifact.write`. Shape the roadmap as demo-able vertical slices with minimized dependencies and explicit parallelization opportunities. End by routing the user to `kata-plan-phase`."
       ],
       "successCriteria": [
         "Exactly one active milestone is created for the selected delivery goal.",
         "Carry-forward candidates from completed milestones are surfaced before the new milestone scope is confirmed.",
         "Milestone requirements are persisted as a milestone-scoped `requirements` artifact.",
         "The delivery roadmap is persisted as a milestone-scoped `roadmap` artifact.",
+        "Roadmap slices have demo outcomes, independent test surfaces, dependency metadata, and implementation waves.",
+        "Horizontal enabling work is explicitly justified and tied to the later demo-able slice it unlocks.",
         "The user knows the next step is `kata-plan-phase`."
       ],
       "doNot": [
         "Do not initialize a new project here; route missing project context to `kata-new-project`.",
         "Do not create slices or tasks.",
+        "Do not default to horizontal phase slices when a demo-able vertical slice can deliver user or operator value.",
         "Do not create multiple milestones unless the user explicitly asks.",
         "Do not route to standalone discussion skills."
       ],
@@ -192,17 +195,19 @@
         "",
         "Load the project snapshot and active milestone, read the milestone requirements and roadmap, list existing milestone slices when needed, then present the next roadmap phase or slice the snapshot recommends converting into execution work. Ask for confirmation before creating backend slices or tasks.",
         "",
-        "If the selected roadmap work is not already represented by an existing slice, create a slice with `slice.create`, create focused tasks with `task.create`, and write a slice-scoped plan artifact with `artifact.write`. End by routing the user to `kata-execute-phase`."
+        "If the selected roadmap work is not already represented by an existing slice, confirm it is independently demo-able and testable, create a slice with `slice.create`, create focused tasks with `task.create`, and write a slice-scoped plan artifact with `artifact.write`. End by routing the user to `kata-execute-phase`."
       ],
       "successCriteria": [
         "The selected milestone work is represented by one or more backend slices.",
         "Each task is small enough for a fresh execution agent and includes verification expectations.",
         "A slice-scoped `plan` artifact captures the execution plan.",
+        "The plan preserves the selected slice as an independently demo-able and testable vertical increment unless an enabling-work exception is approved.",
         "The user knows the next step is `kata-execute-phase`."
       ],
       "doNot": [
         "Do not plan without an active milestone.",
         "Do not create tasks that are not tied to milestone requirements.",
+        "Do not create horizontal enabling work without an explicit exception and downstream demo slice.",
         "Do not skip the phase gate before creating backend work.",
         "Do not execute implementation work in this skill."
       ],
@@ -445,6 +450,57 @@
         "artifact-contract"
       ],
       "requiredTemplates": []
+    },
+    {
+      "name": "kata-update-project",
+      "description": "Use when the user wants to update an in-flight Kata project, refresh project artifacts, revise the current milestone, adjust requirements or roadmap context, or pause work to record ad hoc project direction changes. This skill interactively updates durable project and active milestone artifacts without creating new execution scope.",
+      "workflow": "update-project",
+      "contractOperations": [
+        "health.check",
+        "project.getContext",
+        "project.getSnapshot",
+        "milestone.getActive",
+        "artifact.list",
+        "artifact.read",
+        "artifact.write"
+      ],
+      "setupHint": "If Kata CLI is not configured, run setup and health checks through `scripts/kata-call.mjs` from the installed skill.",
+      "operatingBrief": [
+        "When this skill is invoked, help the user pause in-flight work and update durable Kata project or active milestone artifacts.",
+        "",
+        "Start interactively by loading current project context and asking what the user wants to update: overall project context, current milestone requirements, current milestone roadmap, both project and milestone artifacts, or another named artifact. Read the existing artifacts before drafting changes, preserve unchanged sections and IDs, show a concise update review, then write only confirmed artifact replacements through `artifact.write`.",
+        "",
+        "This skill updates artifact content only. If the requested change needs milestone metadata, slice/task status changes, issue creation, execution, verification, or milestone completion, stop and route to the appropriate workflow."
+      ],
+      "successCriteria": [
+        "The requested project or active milestone update target is explicit before writing.",
+        "Existing artifacts are read before any replacement is drafted.",
+        "The user sees and approves a concise diff-style summary of target artifacts, planned changes, and unchanged sections.",
+        "Confirmed updates are persisted through `artifact.write`.",
+        "Project-level updates preserve durable project context unless the user explicitly changes it.",
+        "Milestone updates preserve existing requirement IDs, roadmap labels, backend slice IDs, dependencies, and traceability unless the user explicitly changes them.",
+        "The final output reports changed artifacts and the reloaded snapshot's recommended next workflow when available."
+      ],
+      "doNot": [
+        "Do not create milestones, slices, tasks, issues, or milestone completions.",
+        "Do not execute implementation work.",
+        "Do not update task verification state.",
+        "Do not overwrite artifacts without reading the current artifact body first.",
+        "Do not silently change requirement meaning, roadmap dependencies, backend slice IDs, or completed evidence.",
+        "Do not use this skill for read-only status reporting; route that to `kata-progress`."
+      ],
+      "requiredReferences": [
+        "cli-runtime",
+        "artifact-contract",
+        "questioning",
+        "ui-brand"
+      ],
+      "requiredTemplates": [
+        "project",
+        "requirements",
+        "roadmap",
+        "state"
+      ]
     },
     {
       "name": "kata-health",

@@ -21,6 +21,7 @@ describe("Phase A skill surface", () => {
       "kata-plan-phase",
       "kata-progress",
       "kata-setup",
+      "kata-update-project",
       "kata-verify-work",
     ]);
   });
@@ -46,13 +47,14 @@ describe("Phase A skill surface", () => {
       "utf8",
     );
     const manifest = readFileSync(path.join(sourceRoot, "skills-src", "manifest.json"), "utf8");
+    const verifySkill = JSON.parse(manifest).skills.find((skill: { name: string }) => skill.name === "kata-verify-work");
 
     expect(executeWorkflow).toContain("run `kata-verify-work` to record verification evidence");
     expect(executeWorkflow).not.toContain("for user-facing verification");
     expect(verifyWorkflow).toContain("Do not infer that verification is user-facing from the skill name.");
     expect(verifyWorkflow).toContain('Use `artifactType: "uat"` only when the plan explicitly calls for user acceptance testing.');
-    expect(manifest).not.toContain("demo");
-    expect(manifest).toContain("Use UAT artifacts only when the plan explicitly calls for user acceptance testing.");
+    expect(JSON.stringify(verifySkill)).not.toContain("demo");
+    expect(JSON.stringify(verifySkill)).toContain("Use UAT artifacts only when the plan explicitly calls for user acceptance testing.");
   });
 
   it("keeps task verification owned by verify-work instead of execute-phase", () => {
@@ -170,6 +172,24 @@ describe("Phase A skill surface", () => {
     expect(manifest).toContain("Do not reclassify a carry-forward requirement as validated without explicit confirmation.");
   });
 
+  it("documents interactive project and active milestone artifact updates", () => {
+    const updateWorkflow = readFileSync(
+      path.join(sourceRoot, "skills-src", "workflows", "update-project.md"),
+      "utf8",
+    );
+    const manifest = readFileSync(path.join(sourceRoot, "skills-src", "manifest.json"), "utf8");
+
+    expect(updateWorkflow).toContain("What do you want to update?");
+    expect(updateWorkflow).toContain("project-level artifacts");
+    expect(updateWorkflow).toContain("active milestone artifacts");
+    expect(updateWorkflow).toContain("read the existing artifact before writing");
+    expect(updateWorkflow).toContain("Preserve unchanged sections");
+    expect(updateWorkflow).toContain("artifact.write");
+    expect(updateWorkflow).toContain("Do not create a new milestone");
+    expect(manifest).toContain("kata-update-project");
+    expect(manifest).toContain("Use when the user wants to update an in-flight Kata project");
+  });
+
   it("uses project snapshots for concrete next-step recommendations", () => {
     const verifyWorkflow = readFileSync(
       path.join(sourceRoot, "skills-src", "workflows", "verify-work.md"),
@@ -205,7 +225,11 @@ describe("Phase A skill surface", () => {
     expect(manifest).toContain('"project.getSnapshot"');
   });
 
-  it("documents dependency-aware phase planning and execution", () => {
+  it("documents dependency-aware vertical slice planning and execution", () => {
+    const milestoneWorkflow = readFileSync(
+      path.join(sourceRoot, "skills-src", "workflows", "new-milestone.md"),
+      "utf8",
+    );
     const planWorkflow = readFileSync(
       path.join(sourceRoot, "skills-src", "workflows", "plan-phase.md"),
       "utf8",
@@ -216,18 +240,25 @@ describe("Phase A skill surface", () => {
     );
     const roadmapTemplate = readFileSync(path.join(sourceRoot, "skills-src", "templates", "roadmap.md"), "utf8");
 
+    expect(milestoneWorkflow).toContain("demo-able vertical slices");
+    expect(milestoneWorkflow).toContain("minimize inter-slice dependencies");
+    expect(milestoneWorkflow).toContain("justify enabling work");
     expect(planWorkflow).toContain("Inspect `snapshot.roadmap.sliceDependencies`");
     expect(planWorkflow).toContain('"blockedBy": ["S001", "S002"]');
     expect(planWorkflow).toContain("unknown, ambiguous, or names work that has no backend slice ID yet");
+    expect(planWorkflow).toContain("independently demo-able and testable");
+    expect(planWorkflow).toContain("horizontal enabling work");
     expect(planWorkflow).toContain("## Stage 6: Reconcile Roadmap After Planning");
     expect(planWorkflow).toContain("`S009 / Planned Slice 1`");
     expect(executeWorkflow).toContain("Use `snapshot.nextAction` as the source of truth for executable slice selection");
     expect(executeWorkflow).toContain("Do not execute slices whose `blockedBy` dependencies include known non-done blockers");
     expect(executeWorkflow).toContain("Do not move a Backlog blocked slice forward");
-    expect(roadmapTemplate).toContain("| Planned Slice | Backend Slice ID | Blocked By | Requirements |");
+    expect(roadmapTemplate).toContain("| Planned Slice | Backend Slice ID | Blocked By | Requirements | Demo Outcome | Independent Test Surface |");
     expect(roadmapTemplate).toContain("## Slice Map");
     expect(roadmapTemplate).toContain("| Roadmap Slice | Backend Slice ID | Title | Status |");
     expect(roadmapTemplate).toContain("Backend Slice: S003; Depends on: S001, S002");
     expect(roadmapTemplate).toContain("use `None` or an empty cell when there are no dependencies");
+    expect(roadmapTemplate).toContain("Every planned slice should produce a demo-able behavior");
+    expect(roadmapTemplate).toContain("Record enabling-only slices as exceptions");
   });
 });

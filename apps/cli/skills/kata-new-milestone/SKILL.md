@@ -11,7 +11,7 @@ When this skill is invoked, help the user define the next scoped delivery milest
 
 Start by reading project context and recent completed milestone artifacts, then ask what outcome the next milestone should deliver. Gather enough detail to define the milestone goal, requirements, roadmap, constraints, open questions, and any carry-forward candidates.
 
-Create exactly one milestone with `milestone.create`, then write milestone-scoped requirements and roadmap artifacts with `artifact.write`. End by routing the user to `kata-plan-phase`.
+Create exactly one milestone with `milestone.create`, then write milestone-scoped requirements and roadmap artifacts with `artifact.write`. Shape the roadmap as demo-able vertical slices with minimized dependencies and explicit parallelization opportunities. End by routing the user to `kata-plan-phase`.
 
 ## Success Criteria
 
@@ -19,12 +19,15 @@ Create exactly one milestone with `milestone.create`, then write milestone-scope
 - Carry-forward candidates from completed milestones are surfaced before the new milestone scope is confirmed.
 - Milestone requirements are persisted as a milestone-scoped `requirements` artifact.
 - The delivery roadmap is persisted as a milestone-scoped `roadmap` artifact.
+- Roadmap slices have demo outcomes, independent test surfaces, dependency metadata, and implementation waves.
+- Horizontal enabling work is explicitly justified and tied to the later demo-able slice it unlocks.
 - The user knows the next step is `kata-plan-phase`.
 
 ## Do Not
 
 - Do not initialize a new project here; route missing project context to `kata-new-project`.
 - Do not create slices or tasks.
+- Do not default to horizontal phase slices when a demo-able vertical slice can deliver user or operator value.
 - Do not create multiple milestones unless the user explicitly asks.
 - Do not route to standalone discussion skills.
 

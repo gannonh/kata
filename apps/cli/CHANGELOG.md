@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Adds `kata-update-project` for interactive in-flight updates to project and active milestone artifacts.
+- Emphasizes demo-able vertical slices, independent test surfaces, and minimized dependencies in milestone and phase planning.
+
 ## 0.16.1
 
 - Fixes planned roadmap dependency extraction so phase-level `Depends on` summaries do not create false blockers between planned slices.

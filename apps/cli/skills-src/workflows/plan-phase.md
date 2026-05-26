@@ -90,13 +90,15 @@ Present the phase or roadmap slice you plan to convert into executable work:
 - Goal.
 - Requirements covered.
 - Success criteria.
+- Demo outcome.
+- Independent test surface.
 - Existing slice coverage, if any.
 - Dependency metadata from `snapshot.roadmap.sliceDependencies`, roadmap text, and existing backend slices.
 - Wave position and same-wave parallelization opportunities from `snapshot.roadmap.implementationWaves`.
 - Known constraints.
 - Assumptions.
 
-Ask for confirmation before creating backend slices/tasks. This is the phase gate. Resolve dependency questions here. Do not create backend state while selected work has unknown or ambiguous dependencies.
+Ask for confirmation before creating backend slices/tasks. This is the phase gate. Resolve dependency questions here. Do not create backend state while selected work has unknown or ambiguous dependencies. Confirm the selected work is independently demo-able and testable before creating a backend slice. If the selected work is horizontal enabling work, name it as an exception, explain why a vertical slice cannot safely come first, and identify the later demo-able slice it unlocks.
 
 ## Stage 3: Create Slice
 
@@ -107,8 +109,8 @@ Before `slice.create`, carry forward resolved dependency graph metadata. When th
 ```json
 {
   "milestoneId": "M001",
-  "title": "Task Foundation",
-  "goal": "Create the data model and UI shell for task management.",
+  "title": "Create and view first task",
+  "goal": "Let a user create one task and see it persist in the task list.",
   "order": 1,
   "blockedBy": ["S001", "S002"]
 }
@@ -131,8 +133,8 @@ For each execution task, create a payload:
 ```json
 {
   "sliceId": "S003",
-  "title": "Implement task model",
-  "description": "Create the task data model with create, update, complete, and delete behavior plus tests."
+  "title": "Implement first task creation path",
+  "description": "Implement the minimum model, UI, and persistence path needed for a user to create one task and see it in the list, plus independent verification."
 }
 ```
 
@@ -142,7 +144,7 @@ Run:
 node ./scripts/kata-call.mjs task.create --input /tmp/kata-task-create.json
 ```
 
-Tasks should be small enough for a fresh execution agent and include verification notes in the description.
+Tasks should be small enough for a fresh execution agent and include verification notes in the description. Favor tasks that preserve the slice as an independently demo-able and testable vertical increment. Avoid splitting a slice into isolated UI, API, database, or test-only tracks unless that is the smallest safe path to the slice demo outcome.
 
 ## Stage 5: Write Plan Artifact
 
@@ -156,7 +158,7 @@ Create `/tmp/kata-plan-artifact.json`:
   "scopeId": "S003",
   "artifactType": "plan",
   "title": "S003 Plan",
-  "content": "# Plan: Task Foundation\n\n## Goal\n\n...",
+  "content": "# Plan: Create and view first task\n\n## Goal\n\n...",
   "format": "markdown"
 }
 ```
@@ -210,8 +212,9 @@ Note: S004 is planned Backlog work. Snapshot still recommends executing S003 fir
 
 ## Rules
 
-- Derive tasks from requirements and success criteria.
+- Derive tasks from requirements, success criteria, demo outcome, and independent test surface.
 - List existing slices before creating new backend slices.
 - Do not create duplicate slices for roadmap work that already has backend slice coverage.
 - Do not create tasks that are not tied to the milestone goal.
+- Do not create horizontal enabling work without an explicit exception and downstream demo slice.
 - Keep discussion integrated in this workflow; do not route to standalone discuss skills.

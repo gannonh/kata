@@ -43,6 +43,7 @@ const requiredSkillNames = [
   "kata-plan-phase",
   "kata-progress",
   "kata-setup",
+  "kata-update-project",
   "kata-verify-work",
 ];
 
