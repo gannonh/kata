@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.17.0
 
 - Adds `kata-update-project` for interactive in-flight updates to project and active milestone artifacts.
 - Emphasizes demo-able vertical slices, independent test surfaces, and minimized dependencies in milestone and phase planning.
