@@ -44,7 +44,7 @@
     "node": ">=16.7.0"
   },
   "devDependencies": {
-    "esbuild": "^0.28.0"
+    "esbuild": "^0.28.1"
   },
   "scripts": {
     "build:skills": "node scripts/build-skill-bundle.js",
