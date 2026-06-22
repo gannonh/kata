@@ -9,8 +9,7 @@ export default tseslint.config(
       "**/.turbo/**",
       "apps/symphony/**/*",
       "!apps/symphony/pi-extension",
-      "!apps/symphony/pi-extension/**/*",
-      "apps/online-docs/**",
+      "!apps/symphony/pi-extension/**/*"
     ],
   },
   ...tseslint.configs.recommended,

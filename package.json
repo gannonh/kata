@@ -32,13 +32,9 @@
     "githooks:install": "bash scripts/install-githooks.sh",
     "link": "bun link",
     "sync-secrets": "bash scripts/sync-secrets.sh",
-    "print:system-prompt": "pnpm exec tsx packages/shared/src/prompts/print-system-prompt.ts",
-    "docs:dev": "pnpm --dir apps/online-docs run docs:dev"
+    "print:system-prompt": "pnpm exec tsx packages/shared/src/prompts/print-system-prompt.ts"
   },
   "devDependencies": {
-    "@aws-sdk/client-s3": "^3.1043.0",
-    "@electron/packager": "^20.0.0",
-    "@sentry/vite-plugin": "^5.2.1",
     "@tailwindcss/vite": "^4.2.4",
     "@types/bun": "latest",
     "@types/js-yaml": "^4.0.9",
@@ -51,23 +47,18 @@
     "@typescript-eslint/eslint-plugin": "^8.59.2",
     "@typescript-eslint/parser": "^8.59.2",
     "@vitejs/plugin-react": "^6.0.1",
-    "agentation": "^3.0.2",
     "autoprefixer": "^10.5.0",
-    "concurrently": "^9.2.1",
-    "electron": "^41.5.0",
-    "electron-builder": "^26.0.12",
     "esbuild": "^0.28.0",
     "eslint": "^10.3.0",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
     "postcss": "^8.5.14",
-    "react-devtools-core": "^7.0.1",
     "tailwindcss": "^4.2.4",
-    "tar": "^7.5.2",
-    "turbo": "^2.9.9",
     "tsx": "^4.20.6",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.59.2",
+    "tar": "^7.5.2",
+    "turbo": "^2.9.9",
     "vite": "^8.0.10"
   },
   "dependencies": {
@@ -84,8 +75,6 @@
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-tooltip": "^1.2.8",
-    "@sentry/electron": "^7.13.0",
-    "@sentry/react": "^10.51.0",
     "@shikijs/cli": "^4.0.2",
     "@slack/socket-mode": "^2.0.7",
     "@slack/web-api": "^7.15.2",
@@ -116,14 +105,5 @@
     "tailwind-merge": "^3.4.0",
     "ws": "^8.20.1",
     "zod": "^4.4.3"
-  },
-  "trustedDependencies": [
-    "tree-sitter-typescript",
-    "tree-sitter-python"
-  ],
-  "pnpm": {
-    "patchedDependencies": {
-      "tree-sitter@0.25.0": "patches/tree-sitter@0.25.0.patch"
-    }
   }
 }

@@ -53,7 +53,6 @@ ACTIVE_ROOT_SCRIPTS=(
   "test"
   "validate"
   "validate:affected"
-  "docs:dev"
   "print:system-prompt"
   "verify:pnpm"
 )
@@ -71,7 +70,7 @@ require_file ".githooks/pre-push"
 if ! tr '\n' ' ' < .githooks/pre-push | grep -Eq 'pnpm[[:space:]]+exec[[:space:]]+turbo[[:space:]]+run[[:space:]]+lint[[:space:]]+typecheck[[:space:]]+test'; then
   fail "pre-push must invoke turbo via pnpm exec"
 fi
-for required_filter in '@kata-sh/cli' '@kata/context'; do
+for required_filter in '@kata-sh/cli'; do
   if ! grep -Fq -- "--filter=${required_filter}" .githooks/pre-push; then
     fail "pre-push missing required active-package filter: ${required_filter}"
   fi
@@ -83,8 +82,6 @@ fi
 phase "app-scripts"
 UTILITY_FILES=(
   "apps/cli/package.json"
-  "apps/context/package.json"
-  "apps/online-docs/package.json"
 )
 for file in "${UTILITY_FILES[@]}"; do
   require_file "$file"

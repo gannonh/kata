@@ -8,7 +8,6 @@ This mono-repo is comprised of the following primary applications:
 
 - Kata Symphony: `apps/symphony` - @kata/symphony - Rust binary (Cargo scripts via package.json). Project-local Symphony config lives in `.symphony/`.
 - Kata CLI: `apps/cli` - @kata-sh/cli - portable Kata Skills runtime and backend contract bridge
-- Context Indexer: `apps/context` - @kata/context - context indexing tool (Vitest, native Node addon)
 
 ## Commands
 
@@ -30,9 +29,7 @@ pnpm run print:system-prompt     # Debug: print the agent system prompt
 apps/
 ├── cli/              # @kata-sh/cli - Kata Skills runtime and backend contract bridge
 ├── cli/skills-src/   # Source of truth for Kata Agent Skills
-├── context/          # @kata/context - context indexing tool (Vitest, native Node addon)
-├── symphony/         # @kata/symphony - Rust binary (Cargo scripts via package.json)
-└── online-docs/      # @kata/online-docs - Mintlify documentation site
+└── symphony/         # @kata/symphony - Rust binary (Cargo scripts via package.json)
 
 packages/
 ├── core/             # Shared TypeScript types
@@ -40,8 +37,6 @@ packages/
 ├── ui/               # Shared React components (chat, markdown)
 └── mermaid/          # Mermaid diagram renderer
 ```
-
-Workspace exclusions in `pnpm-workspace.yaml`: archived app directories and `apps/online-docs`.
 
 ## Turborepo
 
@@ -61,7 +56,6 @@ Turborepo orchestrates package-local test scripts via `turbo run test`.
 | Package  | Runner / command | Notes                                                                                 |
 | -------- | ---------------- | ------------------------------------------------------------------------------------- |
 | cli      | `pnpm test`      | Vitest suite for CLI domain, backend adapters, skill bundle, and golden-path contract |
-| context  | Vitest           | Uses better-sqlite3 (native Node addon; Node runtime required)                        |
 | symphony | `cargo test`     | Rust binary                                                                           |
 | shared   | Vitest           | Package-local `vitest run`                                                            |
 
@@ -75,7 +69,7 @@ Pre-push hook runs `pnpm exec turbo run lint typecheck test --affected`, same co
 - `gate`: aggregates results, sole required branch protection check
 
 Release workflows trigger on push to main with path filters:
-`cli-release.yml`, `context-release.yml`, `symphony-release.yml`
+`cli-release.yml`, `symphony-release.yml`, `pi-symphony-extension-release.yml`
 
 ## Tech Stack
 
@@ -96,8 +90,6 @@ Release workflows trigger on push to main with path filters:
 - `.symphony/WORKFLOW.md` is the mono repo's active Symphony workflow. `symphony` without a workflow path resolves `.symphony/WORKFLOW.md` first, then `WORKFLOW.md`.
 - Symphony prompt and hook paths are relative to the active `WORKFLOW.md` directory. Hooks receive `SYMPHONY_WORKSPACE_PATH` for workspace access.
 - `CLAUDE.md` files in this repo are symlinks to `AGENTS.md`. Always edit `AGENTS.md`.
-- `apps/online-docs` uses Mintlify. Run `pnpm --dir apps/online-docs run docs:dev` to start it on port 3001.
-- `apps/context` uses Vitest (not Bun test) because better-sqlite3 is a native Node addon that Bun doesn't support.
 - Asset paths: use `getBundledAssetsDir(subfolder)` for bundled assets, never `import.meta.dir`.
 
 ## Agent skills

@@ -1,4 +1,0 @@
-
-Acceptance bundle complete.
-Evidence directory: apps/desktop/docs/uat/M009/evidence
-Playwright screenshot artifacts: apps/desktop/docs/uat/M009/evidence/playwright-results

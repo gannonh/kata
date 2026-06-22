@@ -1,21 +1,17 @@
 ---
 name: releasing-kata
-description: Use this skill when releasing Kata Desktop, Kata CLI, Kata Context, Symphony, or the Pi Symphony extension, bumping versions, updating changelogs, or creating release PRs. Triggers include "release", "bump version", "publish", "create release PR", "ship it", "cut a release".
+description: Use this skill when releasing Kata CLI, Symphony, or the Pi Symphony extension, bumping versions, updating changelogs, or creating release PRs. Triggers include "release", "bump version", "publish", "create release PR", "ship it", "cut a release".
 ---
 
 # Releasing Kata
 
-Kata has five active independently versioned release targets. Ask which target if not clear from context.
+Kata has three active independently versioned release targets. Ask which target if not clear from context.
 
 | Target                    | Package                         | Tag Format              | Reference                                      |
 | ------------------------- | ------------------------------- | ----------------------- | ---------------------------------------------- |
-| **Desktop**               | Desktop app (not npm package)   | `desktop-vX.Y.Z`        | `references/desktop-release.md`                |
 | **CLI**                   | `@kata-sh/cli`                  | `cli-vX.Y.Z`            | `references/cli-release.md`                    |
-| **Context**               | `@kata/context`                 | `context-vX.Y.Z`        | `references/context-release.md`                |
 | **Symphony**              | `symphony` (Rust binary)        | `symphony-vX.Y.Z`       | `references/symphony-release.md`               |
 | **Pi Symphony Extension** | `@kata-sh/pi-symphony-extension` | `pi-symphony-vX.Y.Z`    | `references/pi-symphony-extension-release.md`  |
-
-`@kata-sh/orc` / Orchestrator is legacy-only. Do not cut new Orchestrator releases; update the CLI skill-platform, Desktop, Context, Symphony, or Pi Symphony extension release target instead.
 
 Root `package.json` version is `0.0.0` — never touch it. The root may contain Pi package manifest metadata for monorepo git installs, but it is not the version source for any release. Each app or package owns its own version. Versions are independent and do not need to match.
 
@@ -33,18 +29,14 @@ Once the target is identified, read the corresponding reference file for the ful
 
 ## Troubleshooting
 
-For build failures, code signing, notarization, and CI issues, read `release-troubleshooting.md`.
+For build failures and CI issues, read `release-troubleshooting.md`.
 
 Quick checks:
 
-- **CI didn't trigger**: Version in `package.json` must differ from existing git tags
-- **Desktop CI fails**: `gh run list --workflow=desktop-release.yml --limit 3`
+- **CI didn't trigger**: Version in `package.json` (or `Cargo.toml` for Symphony) must differ from existing git tags
 - **CLI publish fails**: Ensure `NPM_TOKEN` secret is set and `private: false` in `apps/cli/package.json`
-- **Context CI didn't trigger**: Changes must be under `apps/context/**`; version must differ from existing `context-v*` tags
-- **Context publish fails**: Ensure `NPM_TOKEN` secret is set; check `apps/context/package.json` has no `private: true`
 - **Symphony CI didn't trigger**: Changes must be under `apps/symphony/**`; version in `Cargo.toml` must differ from existing `symphony-v*` tags
 - **Symphony build fails**: Ensure Rust toolchain is installed; check `cargo build --release` locally first
 - **Pi Symphony extension release didn't trigger**: Changes must be under `apps/symphony/pi-extension/**`; version in `apps/symphony/pi-extension/package.json` must differ from existing `pi-symphony-v*` tags and npm versions
 - **Pi Symphony extension npm publish fails**: Ensure `NPM_TOKEN` secret is set, package is `private: false`, and runtime dependencies are in `dependencies`
 - **Pi Symphony extension git install fails**: Ensure root `package.json` has a `pi` manifest pointing at the extension and root runtime deps include extension runtime deps such as `ws`
-- **macOS notarization fails**: Verify `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` secrets

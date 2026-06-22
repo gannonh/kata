@@ -7,61 +7,23 @@ Common issues and solutions for Kata release flows.
 Before debugging CI, confirm the target identity is correct:
 
 - CLI: `@kata-sh/cli`
-- Context: `@kata/context`
-- Desktop: app release only (not an npm publish target)
 - Symphony: Rust binary release
-- Orchestrator: legacy-only; do not cut new `@kata-sh/orc` releases
+- Pi Symphony extension: `@kata-sh/pi-symphony-extension`
 
 If the wrong target/version file is edited, release workflows may skip.
 
-## Desktop build issues
-
-### Wrong working directory
-
-**Symptom:** Desktop packaging fails with missing file/script paths.
-
-**Fix:** Run desktop release commands from `apps/desktop`.
-
-```bash
-cd apps/desktop
-pnpm run desktop:dist:mac
-```
-
-### Expected artifact name mismatch
-
-**Symptom:** Build succeeded but your manual check says artifact is missing.
-
-**Check:** Current artifacts use `Kata-Desktop-*` naming.
-
-```bash
-ls -la apps/desktop/release | rg 'Kata-Desktop|\.dmg|\.zip|\.exe|\.AppImage|\.deb'
-```
-
-### Desktop release workflow did not trigger
-
-**Check:**
-
-1. `apps/desktop/package.json` version changed.
-2. Tag `desktop-vX.Y.Z` does not already exist.
-
-```bash
-git tag -l 'desktop-v*'
-rg -n '"version"' apps/desktop/package.json
-```
-
-## CLI / Context publish issues
+## CLI publish issues
 
 ### npm publish failed
 
 **Check:**
 
 1. `NPM_TOKEN` repository secret is set.
-2. Correct package file was bumped.
+2. `apps/cli/package.json` was bumped.
 3. Target version is new (no existing release tag).
 
 ```bash
 git tag -l 'cli-v*'
-git tag -l 'context-v*'
 ```
 
 For CLI prereleases, confirm the package did not publish as `latest`:
@@ -75,7 +37,6 @@ npm view @kata-sh/cli dist-tags
 Confirm the right path changed:
 
 - CLI: `apps/cli/**`
-- Context: `apps/context/**`
 
 ## Symphony release issues
 
@@ -102,36 +63,13 @@ cargo fmt --check
 cargo build --release
 ```
 
-## Code signing and notarization (desktop)
-
-### Signing identity missing
-
-```bash
-security find-identity -v -p codesigning
-```
-
-### Notarization failing
-
-Verify repository secrets:
-
-- `APPLE_ID`
-- `APPLE_APP_SPECIFIC_PASSWORD`
-- `APPLE_TEAM_ID`
-
-And locally:
-
-```bash
-xcrun notarytool history --apple-id "$APPLE_ID" --password "$APPLE_APP_SPECIFIC_PASSWORD" --team-id "$APPLE_TEAM_ID"
-```
-
 ## CI visibility commands
 
 ```bash
 # Recent release workflow runs
-gh run list --workflow=desktop-release.yml --limit 5
 gh run list --workflow=cli-release.yml --limit 5
-gh run list --workflow=context-release.yml --limit 5
 gh run list --workflow=symphony-release.yml --limit 5
+gh run list --workflow=pi-symphony-extension-release.yml --limit 5
 
 # Inspect a run
 gh run view <run-id>
