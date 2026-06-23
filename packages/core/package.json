@@ -1,7 +1,7 @@
 {
   "name": "@kata/core",
   "version": "0.6.0",
-  "license": "Apache-2.0",
+  "license": "MIT",
   "description": "Core types and utilities for Kata applications",
   "type": "module",
   "main": "src/index.ts",

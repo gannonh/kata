@@ -1,7 +1,7 @@
 {
   "name": "@kata/shared",
   "version": "0.6.0",
-  "license": "Apache-2.0",
+  "license": "MIT",
   "description": "Shared business logic for Kata - agent, auth, config, credentials, MCP integration",
   "type": "module",
   "main": "src/index.ts",

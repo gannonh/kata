@@ -4,6 +4,7 @@
   "description": "Kata monorepo",
   "type": "module",
   "private": true,
+  "license": "MIT",
   "keywords": [
     "pi-package",
     "kata"
