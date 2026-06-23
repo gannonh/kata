@@ -1,7 +1,7 @@
 {
   "name": "@kata/mermaid",
   "version": "0.6.0",
-  "license": "Apache-2.0",
+  "license": "MIT",
   "description": "Mermaid flowchart to styled SVG renderer with zinc monochrome palette",
   "type": "module",
   "main": "src/index.ts",

@@ -7,9 +7,7 @@
 <!-- Check every area touched by this PR. -->
 
 - [ ] `apps/cli` - Kata CLI
-- [ ] `apps/context` - Context Indexer
 - [ ] `apps/symphony` - Kata Symphony
-- [ ] `apps/online-docs` - Online Docs
 - [ ] `packages/core`
 - [ ] `packages/shared`
 - [ ] `packages/ui`

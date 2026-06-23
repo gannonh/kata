@@ -78,28 +78,6 @@
         "vitest.config.js"
       ]
     },
-    "@kata/online-docs#build": {
-      "dependsOn": [
-        "^build"
-      ],
-      "outputs": [
-        ".next/**"
-      ],
-      "inputs": [
-        "app/**/*.tsx",
-        "app/**/*.ts",
-        "components/**/*.tsx",
-        "content/**/*.mdx",
-        "content/**/*.json",
-        "lib/**/*.ts",
-        "geistdocs.tsx",
-        "next.config.ts",
-        "source.config.ts",
-        "tsconfig.json",
-        "app/**/*.css",
-        "postcss.config.mjs"
-      ]
-    },
     "dev": {
       "cache": false,
       "persistent": true

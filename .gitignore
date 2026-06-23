@@ -102,7 +102,6 @@ Thumbs.db
 .vscode/
 .env.*
 !.env.example
-!/apps/desktop/.env.development
 .next/
 build/
 __pycache__/
@@ -136,12 +135,5 @@ apps/cli/docs/plans/
 apps/cli/docs/specs/
 apps/cli/docs/superpowers/
 
-apps/context/docs/plans/
-apps/context/docs/specs/
-apps/context/docs/superpowers/
-
-apps/desktop/.env.development
-apps/desktop/.claude/scheduled_tasks.lock
-apps/desktop/bin/pi-mcp-adapter
 # Kata CLI generated files
 .agents/kata-setup-manifest.json

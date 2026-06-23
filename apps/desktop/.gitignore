@@ -1,5 +1,0 @@
-dist/
-release/
-vendor/
-.bundle-app/
-.env.development

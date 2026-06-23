@@ -65,9 +65,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Rebuild native addons
-        run: pnpm --dir apps/context rebuild better-sqlite3 tree-sitter
-
       - name: Run Turborepo validation
         run: pnpm exec turbo run lint typecheck test --affected
 
